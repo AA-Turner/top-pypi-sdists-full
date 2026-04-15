@@ -1205,6 +1205,11 @@ class CfnDirectoryBucket(
                     prefix="prefix"
                 )]
             ),
+            metrics_configurations=[s3express.CfnDirectoryBucket.MetricsConfigurationProperty(
+                access_point_arn="accessPointArn",
+                id="id",
+                prefix="prefix"
+            )],
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -1222,6 +1227,7 @@ class CfnDirectoryBucket(
         bucket_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.BucketEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bucket_name: typing.Optional[builtins.str] = None,
         lifecycle_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metrics_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.MetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::S3Express::DirectoryBucket``.
@@ -1233,6 +1239,7 @@ class CfnDirectoryBucket(
         :param bucket_encryption: Specifies default encryption for a bucket using server-side encryption with Amazon S3 managed keys (SSE-S3) or AWS KMS keys (SSE-KMS). For information about default encryption for directory buckets, see `Setting and monitoring default encryption for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
         :param bucket_name: A name for the bucket. The bucket name must contain only lowercase letters, numbers, and hyphens (-). A directory bucket name must be unique in the chosen Zone (Availability Zone or Local Zone). The bucket name must also follow the format ``*bucket_base_name* -- *zone_id* --x-s3`` (for example, ``*bucket_base_name* -- *usw2-az1* --x-s3`` ). If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. For information about bucket naming restrictions, see `Directory bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-bucket-naming-rules.html>`_ in the *Amazon S3 User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
         :param lifecycle_configuration: Container for lifecycle rules. You can add as many as 1000 rules. For more information see, `Creating and managing a lifecycle configuration for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-objects-lifecycle.html>`_ in the *Amazon S3 User Guide* .
+        :param metrics_configurations: Specifies the metrics configurations for the Amazon S3 Express bucket.
         :param tags: An array of tags that you can apply to the S3 directory bucket. Tags are key-value pairs of metadata used to categorize and organize your buckets, track costs, and control access. For more information, see `Using tags with directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-tagging.html>`_ .
         '''
         if __debug__:
@@ -1245,6 +1252,7 @@ class CfnDirectoryBucket(
             bucket_encryption=bucket_encryption,
             bucket_name=bucket_name,
             lifecycle_configuration=lifecycle_configuration,
+            metrics_configurations=metrics_configurations,
             tags=tags,
         )
 
@@ -1469,6 +1477,24 @@ class CfnDirectoryBucket(
         jsii.set(self, "lifecycleConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="metricsConfigurations")
+    def metrics_configurations(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDirectoryBucket.MetricsConfigurationProperty"]]]]:
+        '''Specifies the metrics configurations for the Amazon S3 Express bucket.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDirectoryBucket.MetricsConfigurationProperty"]]]], jsii.get(self, "metricsConfigurations"))
+
+    @metrics_configurations.setter
+    def metrics_configurations(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDirectoryBucket.MetricsConfigurationProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__122f06527d0189a743e83857616346dd52b448983262725819edb90db722eb11)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metricsConfigurations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of tags that you can apply to the S3 directory bucket.'''
@@ -1674,6 +1700,95 @@ class CfnDirectoryBucket(
 
         def __repr__(self) -> str:
             return "LifecycleConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3express.CfnDirectoryBucket.MetricsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "access_point_arn": "accessPointArn",
+            "id": "id",
+            "prefix": "prefix",
+        },
+    )
+    class MetricsConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            access_point_arn: typing.Optional[builtins.str] = None,
+            id: typing.Optional[builtins.str] = None,
+            prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies a metrics configuration for the CloudWatch request metrics from an Amazon S3 Express bucket.
+
+            :param access_point_arn: The access point ARN used when evaluating a metrics filter.
+            :param id: The ID used to identify the metrics configuration.
+            :param prefix: The prefix used when evaluating a metrics filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-metricsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3express as s3express
+                
+                metrics_configuration_property = s3express.CfnDirectoryBucket.MetricsConfigurationProperty(
+                    access_point_arn="accessPointArn",
+                    id="id",
+                    prefix="prefix"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f500bdbd729365c6884a89d6ef69cff946ab0d910060ab228d55308fcc623b82)
+                check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+                check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if access_point_arn is not None:
+                self._values["access_point_arn"] = access_point_arn
+            if id is not None:
+                self._values["id"] = id
+            if prefix is not None:
+                self._values["prefix"] = prefix
+
+        @builtins.property
+        def access_point_arn(self) -> typing.Optional[builtins.str]:
+            '''The access point ARN used when evaluating a metrics filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-metricsconfiguration.html#cfn-s3express-directorybucket-metricsconfiguration-accesspointarn
+            '''
+            result = self._values.get("access_point_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def id(self) -> typing.Optional[builtins.str]:
+            '''The ID used to identify the metrics configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-metricsconfiguration.html#cfn-s3express-directorybucket-metricsconfiguration-id
+            '''
+            result = self._values.get("id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def prefix(self) -> typing.Optional[builtins.str]:
+            '''The prefix used when evaluating a metrics filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-metricsconfiguration.html#cfn-s3express-directorybucket-metricsconfiguration-prefix
+            '''
+            result = self._values.get("prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricsConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2049,6 +2164,7 @@ class CfnDirectoryBucket(
         "bucket_encryption": "bucketEncryption",
         "bucket_name": "bucketName",
         "lifecycle_configuration": "lifecycleConfiguration",
+        "metrics_configurations": "metricsConfigurations",
         "tags": "tags",
     },
 )
@@ -2061,6 +2177,7 @@ class CfnDirectoryBucketProps:
         bucket_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.BucketEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bucket_name: typing.Optional[builtins.str] = None,
         lifecycle_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metrics_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.MetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDirectoryBucket``.
@@ -2070,6 +2187,7 @@ class CfnDirectoryBucketProps:
         :param bucket_encryption: Specifies default encryption for a bucket using server-side encryption with Amazon S3 managed keys (SSE-S3) or AWS KMS keys (SSE-KMS). For information about default encryption for directory buckets, see `Setting and monitoring default encryption for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
         :param bucket_name: A name for the bucket. The bucket name must contain only lowercase letters, numbers, and hyphens (-). A directory bucket name must be unique in the chosen Zone (Availability Zone or Local Zone). The bucket name must also follow the format ``*bucket_base_name* -- *zone_id* --x-s3`` (for example, ``*bucket_base_name* -- *usw2-az1* --x-s3`` ). If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. For information about bucket naming restrictions, see `Directory bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-bucket-naming-rules.html>`_ in the *Amazon S3 User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
         :param lifecycle_configuration: Container for lifecycle rules. You can add as many as 1000 rules. For more information see, `Creating and managing a lifecycle configuration for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-objects-lifecycle.html>`_ in the *Amazon S3 User Guide* .
+        :param metrics_configurations: Specifies the metrics configurations for the Amazon S3 Express bucket.
         :param tags: An array of tags that you can apply to the S3 directory bucket. Tags are key-value pairs of metadata used to categorize and organize your buckets, track costs, and control access. For more information, see `Using tags with directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-tagging.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html
@@ -2114,6 +2232,11 @@ class CfnDirectoryBucketProps:
                         prefix="prefix"
                     )]
                 ),
+                metrics_configurations=[s3express.CfnDirectoryBucket.MetricsConfigurationProperty(
+                    access_point_arn="accessPointArn",
+                    id="id",
+                    prefix="prefix"
+                )],
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -2127,6 +2250,7 @@ class CfnDirectoryBucketProps:
             check_type(argname="argument bucket_encryption", value=bucket_encryption, expected_type=type_hints["bucket_encryption"])
             check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
             check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
+            check_type(argname="argument metrics_configurations", value=metrics_configurations, expected_type=type_hints["metrics_configurations"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "data_redundancy": data_redundancy,
@@ -2138,6 +2262,8 @@ class CfnDirectoryBucketProps:
             self._values["bucket_name"] = bucket_name
         if lifecycle_configuration is not None:
             self._values["lifecycle_configuration"] = lifecycle_configuration
+        if metrics_configurations is not None:
+            self._values["metrics_configurations"] = metrics_configurations
         if tags is not None:
             self._values["tags"] = tags
 
@@ -2202,6 +2328,17 @@ class CfnDirectoryBucketProps:
         '''
         result = self._values.get("lifecycle_configuration")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDirectoryBucket.LifecycleConfigurationProperty"]], result)
+
+    @builtins.property
+    def metrics_configurations(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDirectoryBucket.MetricsConfigurationProperty"]]]]:
+        '''Specifies the metrics configurations for the Amazon S3 Express bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-metricsconfigurations
+        '''
+        result = self._values.get("metrics_configurations")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDirectoryBucket.MetricsConfigurationProperty"]]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -2437,6 +2574,7 @@ def _typecheckingstub__ea5a1e5897b0467fb93393ad6ea2dbcd3916f27713079e8bef3badf71
     bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.BucketEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bucket_name: typing.Optional[builtins.str] = None,
     lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metrics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2512,6 +2650,12 @@ def _typecheckingstub__ddfd3872142b33ae9fa409c0018df1c791508213de3582b65e63e55af
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__122f06527d0189a743e83857616346dd52b448983262725819edb90db722eb11(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDirectoryBucket.MetricsConfigurationProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__33beef481039e735a6eece9cb8670801f4ba6324284d9ed7c5f1e794009634d3(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -2535,6 +2679,15 @@ def _typecheckingstub__2bda13f500a0910d95ef795cf250698cc9bc399a6809500b0318dd239
 def _typecheckingstub__82d5e100390b1400bc989c8f7007f04e65bff5948bb5f68def580a8385603442(
     *,
     rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f500bdbd729365c6884a89d6ef69cff946ab0d910060ab228d55308fcc623b82(
+    *,
+    access_point_arn: typing.Optional[builtins.str] = None,
+    id: typing.Optional[builtins.str] = None,
+    prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2575,6 +2728,7 @@ def _typecheckingstub__997b2abc28c849393aef2f13f43682b271277998e07114f1b22407894
     bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.BucketEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bucket_name: typing.Optional[builtins.str] = None,
     lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metrics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -225,6 +225,7 @@ nav:
       - security/index.md
       - security/authentication.md
       - security/tool-safety.md
+      - security/sandboxing.md
       - security/bash-sandboxing.md
       - security/audit-log.md
       - security/prompt-injection-defense.md
@@ -242,5 +243,6 @@ nav:
     - advanced/architecture.md
     - advanced/testing.md
     - advanced/developer-workflow.md
+    - advanced/local-docs.md
     - advanced/workflows.md
     - advanced/contributing.md

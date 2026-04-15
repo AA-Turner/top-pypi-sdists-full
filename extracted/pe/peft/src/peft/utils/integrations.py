@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import functools
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Literal, Optional
 
 import packaging.version
@@ -24,7 +25,11 @@ import transformers
 from torch import nn
 
 
-is_transformers_ge_v5 = packaging.version.parse(transformers.__version__) >= packaging.version.parse("5.0.0.dev0")
+@dataclass
+class TpInfo:
+    tp_plan: dict[str, str]
+    device_mesh: torch.distributed.DeviceMesh
+    tp_size: int
 
 
 def check_deepspeed_zero3_enabled() -> bool:

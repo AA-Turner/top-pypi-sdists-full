@@ -163,6 +163,7 @@ class WallTimeInstrument(Instrument):
         try:
             self.instrument_hooks = InstrumentHooks()
             self.instrument_hooks.set_integration("pytest-codspeed", __semver_version__)
+            self.instrument_hooks.collect_and_write_python_environment()
         except RuntimeError as e:
             if os.environ.get("CODSPEED_ENV") is not None:
                 warnings.warn(
@@ -292,8 +293,8 @@ class WallTimeInstrument(Instrument):
         if self.instrument_hooks:
             self.instrument_hooks.start_benchmark()
         for _ in range(pedantic_options.rounds):
-            start = perf_counter_ns()
             args, kwargs = pedantic_options.setup_and_get_args_kwargs()
+            start = perf_counter_ns()
             for _ in iter_range:
                 __codspeed_root_frame__(*args, **kwargs)
             end = perf_counter_ns()

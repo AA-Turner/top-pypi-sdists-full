@@ -89,7 +89,7 @@ class EmbeddingService:
             logger.info("Embedding service token refreshed")
             return True
         except TokenProviderError:
-            logger.exception("Embedding token refresh failed")
+            logger.warning("Embedding token refresh failed (api_key_command non-zero exit)")
             return False
 
     async def embed(self, text: str, *, _auth_retried: bool = False) -> list[float] | None:
@@ -360,7 +360,11 @@ def create_embedding_service(config: AppConfig) -> EmbeddingService | LocalEmbed
     token_provider: TokenProvider | None = None
     if api_key_command:
         token_provider = TokenProvider(api_key_command)
-        api_key = token_provider.get_token()
+        try:
+            api_key = token_provider.get_token()
+        except TokenProviderError:
+            logger.warning("Embedding service unavailable: api_key_command failed. Embeddings disabled.")
+            return None
 
     kwargs: dict[str, Any] = {
         "base_url": base_url,

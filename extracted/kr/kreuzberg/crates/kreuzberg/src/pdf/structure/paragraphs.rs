@@ -143,6 +143,7 @@ fn text_to_paragraph(text: &str, font_size: f32, is_bold: bool, is_list_item: bo
             is_italic: false,
             is_monospace: false,
             baseline_y: 0.0,
+            assigned_role: None,
         })
         .collect();
 
@@ -404,6 +405,7 @@ mod tests {
             is_italic: false,
             is_monospace: false,
             baseline_y: 700.0,
+            assigned_role: None,
         }];
 
         PdfParagraph {

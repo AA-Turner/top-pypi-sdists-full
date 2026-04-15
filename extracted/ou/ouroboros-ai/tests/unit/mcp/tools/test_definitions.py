@@ -1627,7 +1627,7 @@ class TestInterviewHandlerCwd:
         assert result.is_ok
         assert state.ambiguity_score == 0.44
         assert state.ambiguity_breakdown is not None
-        assert "(ambiguity: 0.44) Next question?" in result.value.content[0].text
+        assert "(ambiguity: 0.44 [initial]) Next question?" in result.value.content[0].text
 
     async def test_interview_handle_done_completes_without_new_question(self) -> None:
         """Explicit completion signals should stop the interview instead of asking again."""
@@ -1968,7 +1968,9 @@ class TestInterviewHandlerCwd:
         assert state.status == InterviewStatus.COMPLETED
         assert result.value.meta["completed"] is True
         assert result.value.meta["ambiguity_score"] == 0.18
-        assert "(ambiguity: 0.18) Ready for Seed generation." in result.value.content[0].text
+        assert (
+            "(ambiguity: 0.18 [ready]) Ready for Seed generation." in result.value.content[0].text
+        )
         mock_engine.ask_next_question.assert_not_called()
 
 
@@ -2512,3 +2514,58 @@ class TestStartExecuteSeedHandlerBackendPropagation:
         start_job_call = mock_job_manager.start_job.await_args
         runner = start_job_call.kwargs["runner"]
         runner.close()
+
+
+class TestInterviewHandlerDrain:
+    """Test that close() drains pending background event tasks."""
+
+    async def test_close_drains_pending_bg_tasks(self) -> None:
+        """close() should await all pending bg tasks before closing the event store."""
+        mock_store = AsyncMock()
+        handler = InterviewHandler(event_store=mock_store)
+        handler._owns_event_store = True
+
+        completed = asyncio.Event()
+
+        async def slow_emit() -> None:
+            await asyncio.sleep(0.05)
+            completed.set()
+
+        task = asyncio.create_task(slow_emit())
+        handler._bg_tasks.add(task)
+        task.add_done_callback(handler._bg_tasks.discard)
+
+        await handler.close()
+
+        assert completed.is_set()
+        assert len(handler._bg_tasks) == 0
+        mock_store.close.assert_awaited_once()
+
+    async def test_close_cancels_stuck_tasks_on_timeout(self) -> None:
+        """close() should cancel tasks that exceed the drain timeout."""
+        mock_store = AsyncMock()
+        handler = InterviewHandler(event_store=mock_store)
+        handler._owns_event_store = True
+
+        async def stuck_emit() -> None:
+            await asyncio.sleep(999)
+
+        task = asyncio.create_task(stuck_emit())
+        handler._bg_tasks.add(task)
+        task.add_done_callback(handler._bg_tasks.discard)
+
+        await handler._drain_bg_tasks(timeout=0.05)
+
+        assert task.cancelled()
+        assert len(handler._bg_tasks) == 0
+
+    async def test_close_without_bg_tasks_is_noop(self) -> None:
+        """close() with no pending tasks should just close the store."""
+        mock_store = AsyncMock()
+        handler = InterviewHandler(event_store=mock_store)
+        handler._owns_event_store = True
+
+        await handler.close()
+
+        assert len(handler._bg_tasks) == 0
+        mock_store.close.assert_awaited_once()

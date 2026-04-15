@@ -1,0 +1,21 @@
+[package]
+name = "chalk-ast"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "chalk_ast"
+path = "src/file_parser_cache.rs"
+
+[dependencies]
+chalk-project = { path = "../chalk-project" }
+chalk-utils = { path = "../chalk-utils" }
+lsp-types = "0.97"
+ruff_python_parser = { git = "https://github.com/astral-sh/ruff", tag = "0.15.2" }
+ruff_python_ast = { git = "https://github.com/astral-sh/ruff", tag = "0.15.2" }
+ruff_python_trivia = { git = "https://github.com/astral-sh/ruff", tag = "0.15.2" }
+ruff_source_file = { git = "https://github.com/astral-sh/ruff", tag = "0.15.2" }
+ruff_text_size = { git = "https://github.com/astral-sh/ruff", tag = "0.15.2" }
+
+[dev-dependencies]
+tempfile = "3"

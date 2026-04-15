@@ -17,7 +17,9 @@ import torch
 from torch import nn
 from transformers import AutoModelForCausalLM
 
+import peft
 from peft import LoraConfig, TaskType, get_peft_model
+from peft.tuners.lora.layer import ParamWrapper
 
 from .testing_common import PeftCommonTester
 from .testing_utils import hub_online_once, set_init_weights_false
@@ -162,16 +164,45 @@ class MyAutoModelForCausalLM(AutoModelForCausalLM):
         return model
 
 
+def test_rank_pattern_for_moe_target_parameters(tmp_path):
+    model_id = "trl-internal-testing/tiny-Llama4ForCausalLM"
+    with hub_online_once(model_id):
+        model = MyAutoModelForCausalLM.from_pretrained(model_id)
+        num_experts = getattr(model.config, "num_local_experts", None) or getattr(model.config, "num_experts", None)
+        assert num_experts is not None
+        r = 8
+        effective_r = max(1, r // num_experts)
+        config = LoraConfig(
+            r=r,
+            lora_alpha=32,
+            target_modules=["q_proj", "v_proj"],
+            target_parameters=["feed_forward.experts.gate_up_proj"],
+            rank_pattern={
+                "experts.gate_up_proj": effective_r,
+            },
+            init_lora_weights=False,
+        )
+        model = get_peft_model(model, config)
+
+        wrappers = [
+            module
+            for module in model.modules()
+            if isinstance(module, ParamWrapper) and module.parameter_name == "gate_up_proj"
+        ]
+        assert wrappers, "Expected to find ParamWrapper for gate_up_proj."
+        lora_module = wrappers[0]
+        assert lora_module.r["default"] == effective_r
+        assert lora_module.lora_A["default"].weight.shape[0] == effective_r * num_experts
+        assert lora_module.scaling["default"] == config.lora_alpha / effective_r
+        assert config.r == r
+
+
 class TestDecoderModelsTargetParameters(PeftCommonTester):
     # This is more or less a copy of TestDecoderModels at the time of the PR being added. Unnecessary code is removed,
     # like code required for testing non-LoRA methods. The tests being included are not selected to test specific
     # functionality of targeting nn.Parameters, they (together with the tests in test_custom_models.py) just ensure that
     # generally, nothing is broken.
     transformers_class = MyAutoModelForCausalLM
-
-    def skipTest(self, reason=""):
-        # for backwards compatibility with unittest style test classes
-        pytest.skip(reason)
 
     def prepare_inputs_for_testing(self):
         input_ids = torch.tensor([[1, 1, 1], [1, 2, 1]]).to(self.torch_device)
@@ -192,20 +223,24 @@ class TestDecoderModelsTargetParameters(PeftCommonTester):
 
     @pytest.mark.parametrize("model_id,config_cls,config_kwargs", ALL_CONFIGS)
     def test_save_pretrained(self, model_id, config_cls, config_kwargs):
+        config_kwargs = set_init_weights_false(config_cls, config_kwargs)
         self._test_save_pretrained(model_id, config_cls, config_kwargs.copy())
 
     @pytest.mark.parametrize("model_id,config_cls,config_kwargs", ALL_CONFIGS)
     def test_save_pretrained_pickle(self, model_id, config_cls, config_kwargs):
+        config_kwargs = set_init_weights_false(config_cls, config_kwargs)
         self._test_save_pretrained(model_id, config_cls, config_kwargs.copy(), safe_serialization=False)
 
     @pytest.mark.skip(reason="Multiple adapters with target_parameters are not supported yet.")
     @pytest.mark.parametrize("model_id,config_cls,config_kwargs", ALL_CONFIGS)
     def test_save_pretrained_selected_adapters(self, model_id, config_cls, config_kwargs):
+        config_kwargs = set_init_weights_false(config_cls, config_kwargs)
         self._test_save_pretrained_selected_adapters(model_id, config_cls, config_kwargs.copy())
 
     @pytest.mark.skip(reason="Multiple adapters with target_parameters are not supported yet.")
     @pytest.mark.parametrize("model_id,config_cls,config_kwargs", ALL_CONFIGS)
     def test_save_pretrained_selected_adapters_pickle(self, model_id, config_cls, config_kwargs):
+        config_kwargs = set_init_weights_false(config_cls, config_kwargs)
         self._test_save_pretrained_selected_adapters(
             model_id, config_cls, config_kwargs.copy(), safe_serialization=False
         )
@@ -405,8 +440,8 @@ class TestTargetParameters:
             # step. This may be a bit wasteful but it's not clear how to prevent this and overall is probably negligible
             num_forward_per_step = 2
             # Since https://github.com/huggingface/transformers/pull/39501, one of the parameters is accessed twice per
-            # forward call, so add +1.
-            expected_call_count = num_steps * num_layers * (1 + num_params * num_forward_per_step)
+            # forward call, but we cache all calls after the first.
+            expected_call_count = num_steps * num_layers * num_params * num_forward_per_step
             assert actual_call_count == expected_call_count
 
             actual_shapes = {W.shape for W in weights}
@@ -505,3 +540,61 @@ class TestTargetParameters:
         unloaded = model.unload()
         output_unloaded = unloaded(x)
         assert torch.all(output_unloaded == output_parametrized)
+
+    def test_target_parameter_result_caching_works(self, monkeypatch):
+        # See 2912
+        # There was an issue with the caching of _LoraParameterProxy not working correctly. This test checks that the
+        # results returned from the forward call are all identical to ensure they're not recomputed each time.
+        torch.manual_seed(0)
+        model_id = "trl-internal-testing/tiny-GptOssForCausalLM"
+
+        tensor_storage = []
+
+        def store_tensors_deco(fn):
+            def wrapper(*args, **kwargs):
+                result = fn(*args, **kwargs)
+                tensor_storage.append(result)
+                return result
+
+            return wrapper
+
+        monkeypatch.setattr(
+            peft.tuners.lora.layer._LoraParameterProxy,
+            "forward",
+            store_tensors_deco(peft.tuners.lora.layer._LoraParameterProxy.forward),
+        )
+
+        with hub_online_once(model_id):
+            model = AutoModelForCausalLM.from_pretrained(model_id)
+            config = LoraConfig(
+                target_modules=[],
+                # for simplicity, only target a single layer
+                target_parameters=["0.mlp.experts.gate_up_proj"],
+            )
+            model = get_peft_model(model, config)
+            x = torch.arange(100).view(2, 50)  # larger input to hit many experts
+
+            # forward is called twice, once at initialization of the parametrization and once during the forward pass,
+            # after which it is cached; without caching, it would be called 25 times.
+            output = model(x, output_hidden_states=True)
+            assert len(set(map(id, tensor_storage))) == 2
+
+            # sanity check: a second forward call _does_ trigger a new forward
+            output = model(x, output_hidden_states=True)
+            assert len(set(map(id, tensor_storage))) == 4
+
+    def test_target_parameter_init_does_not_warn_about_unknown_layer_type(self, recwarn):
+        # For target parameters, the layer type is not known. This is fine, as the in_features and out_features are
+        # derived from the targeted parameter shape. But we need to ensure that there is no warning about the unknown
+        # layer type.
+        model_id = "trl-internal-testing/tiny-GptOssForCausalLM"
+        with hub_online_once(model_id):
+            model0 = AutoModelForCausalLM.from_pretrained(model_id)
+            config = LoraConfig(
+                target_modules=[],
+                target_parameters=["0.mlp.experts.gate_up_proj"],
+            )
+            model = get_peft_model(model0, config)
+            warn_messages = (w.message.args[0] for w in recwarn.list)
+            msg_start = "Unsupported layer type"
+            assert not any(msg.startswith(msg_start) for msg in warn_messages)

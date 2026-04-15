@@ -113,6 +113,7 @@ pub fn to_c_extraction_result(result: ExtractionResult) -> std::result::Result<*
         children,
         uris,
         structured_output,
+        llm_usage,
         ..
     } = result;
 
@@ -345,6 +346,17 @@ pub fn to_c_extraction_result(result: ExtractionResult) -> std::result::Result<*
         _ => None,
     };
 
+    let llm_usage_json_guard = match llm_usage {
+        Some(usage) if !usage.is_empty() => {
+            let json =
+                serde_json::to_string(&usage).map_err(|e| format!("Failed to serialize llm_usage to JSON: {}", e))?;
+            Some(CStringGuard::new(CString::new(json).map_err(|e| {
+                format!("Failed to convert llm_usage JSON to C string: {}", e)
+            })?))
+        }
+        _ => None,
+    };
+
     Ok(Box::into_raw(Box::new(CExtractionResult {
         annotations_json: annotations_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
         chunks_json: chunks_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
@@ -358,6 +370,7 @@ pub fn to_c_extraction_result(result: ExtractionResult) -> std::result::Result<*
         extracted_keywords_json: extracted_keywords_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
         images_json: images_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
         language: language_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
+        llm_usage_json: llm_usage_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
         metadata_json: metadata_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
         mime_type: mime_type_guard.into_raw(),
         ocr_elements_json: ocr_elements_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),

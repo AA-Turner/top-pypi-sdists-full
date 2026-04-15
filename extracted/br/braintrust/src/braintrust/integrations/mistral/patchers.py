@@ -17,6 +17,14 @@ from .tracing import (
     _fim_complete_wrapper,
     _fim_stream_async_wrapper,
     _fim_stream_wrapper,
+    _ocr_process_async_wrapper,
+    _ocr_process_wrapper,
+    _speech_complete_async_wrapper,
+    _speech_complete_wrapper,
+    _transcriptions_complete_async_wrapper,
+    _transcriptions_complete_wrapper,
+    _transcriptions_stream_async_wrapper,
+    _transcriptions_stream_wrapper,
 )
 
 
@@ -131,6 +139,102 @@ class EmbeddingsPatcher(CompositeFunctionWrapperPatcher):
         _EmbeddingsCreateV1Patcher,
         _EmbeddingsCreateAsyncV2Patcher,
         _EmbeddingsCreateAsyncV1Patcher,
+    )
+
+
+class _TranscriptionsCompleteV2Patcher(FunctionWrapperPatcher):
+    name = "mistral.audio.transcriptions.complete.v2"
+    target_module = "mistralai.client.transcriptions"
+    target_path = "Transcriptions.complete"
+    wrapper = _transcriptions_complete_wrapper
+
+
+class _TranscriptionsCompleteV1Patcher(FunctionWrapperPatcher):
+    name = "mistral.audio.transcriptions.complete.v1"
+    target_module = "mistralai.transcriptions"
+    target_path = "Transcriptions.complete"
+    wrapper = _transcriptions_complete_wrapper
+    superseded_by = (_TranscriptionsCompleteV2Patcher,)
+
+
+class _TranscriptionsCompleteAsyncV2Patcher(FunctionWrapperPatcher):
+    name = "mistral.audio.transcriptions.complete_async.v2"
+    target_module = "mistralai.client.transcriptions"
+    target_path = "Transcriptions.complete_async"
+    wrapper = _transcriptions_complete_async_wrapper
+
+
+class _TranscriptionsCompleteAsyncV1Patcher(FunctionWrapperPatcher):
+    name = "mistral.audio.transcriptions.complete_async.v1"
+    target_module = "mistralai.transcriptions"
+    target_path = "Transcriptions.complete_async"
+    wrapper = _transcriptions_complete_async_wrapper
+    superseded_by = (_TranscriptionsCompleteAsyncV2Patcher,)
+
+
+class _TranscriptionsStreamV2Patcher(FunctionWrapperPatcher):
+    name = "mistral.audio.transcriptions.stream.v2"
+    target_module = "mistralai.client.transcriptions"
+    target_path = "Transcriptions.stream"
+    wrapper = _transcriptions_stream_wrapper
+
+
+class _TranscriptionsStreamV1Patcher(FunctionWrapperPatcher):
+    name = "mistral.audio.transcriptions.stream.v1"
+    target_module = "mistralai.transcriptions"
+    target_path = "Transcriptions.stream"
+    wrapper = _transcriptions_stream_wrapper
+    superseded_by = (_TranscriptionsStreamV2Patcher,)
+
+
+class _TranscriptionsStreamAsyncV2Patcher(FunctionWrapperPatcher):
+    name = "mistral.audio.transcriptions.stream_async.v2"
+    target_module = "mistralai.client.transcriptions"
+    target_path = "Transcriptions.stream_async"
+    wrapper = _transcriptions_stream_async_wrapper
+
+
+class _TranscriptionsStreamAsyncV1Patcher(FunctionWrapperPatcher):
+    name = "mistral.audio.transcriptions.stream_async.v1"
+    target_module = "mistralai.transcriptions"
+    target_path = "Transcriptions.stream_async"
+    wrapper = _transcriptions_stream_async_wrapper
+    superseded_by = (_TranscriptionsStreamAsyncV2Patcher,)
+
+
+class TranscriptionsPatcher(CompositeFunctionWrapperPatcher):
+    name = "mistral.audio.transcriptions"
+    sub_patchers = (
+        _TranscriptionsCompleteV2Patcher,
+        _TranscriptionsCompleteV1Patcher,
+        _TranscriptionsCompleteAsyncV2Patcher,
+        _TranscriptionsCompleteAsyncV1Patcher,
+        _TranscriptionsStreamV2Patcher,
+        _TranscriptionsStreamV1Patcher,
+        _TranscriptionsStreamAsyncV2Patcher,
+        _TranscriptionsStreamAsyncV1Patcher,
+    )
+
+
+class _SpeechCompleteV2Patcher(FunctionWrapperPatcher):
+    name = "mistral.audio.speech.complete.v2"
+    target_module = "mistralai.client.speech"
+    target_path = "Speech.complete"
+    wrapper = _speech_complete_wrapper
+
+
+class _SpeechCompleteAsyncV2Patcher(FunctionWrapperPatcher):
+    name = "mistral.audio.speech.complete_async.v2"
+    target_module = "mistralai.client.speech"
+    target_path = "Speech.complete_async"
+    wrapper = _speech_complete_async_wrapper
+
+
+class SpeechPatcher(CompositeFunctionWrapperPatcher):
+    name = "mistral.audio.speech"
+    sub_patchers = (
+        _SpeechCompleteV2Patcher,
+        _SpeechCompleteAsyncV2Patcher,
     )
 
 
@@ -279,4 +383,44 @@ class AgentsPatcher(CompositeFunctionWrapperPatcher):
         _AgentsStreamV1Patcher,
         _AgentsStreamAsyncV2Patcher,
         _AgentsStreamAsyncV1Patcher,
+    )
+
+
+class _OcrProcessV2Patcher(FunctionWrapperPatcher):
+    name = "mistral.ocr.process.v2"
+    target_module = "mistralai.client.ocr"
+    target_path = "Ocr.process"
+    wrapper = _ocr_process_wrapper
+
+
+class _OcrProcessV1Patcher(FunctionWrapperPatcher):
+    name = "mistral.ocr.process.v1"
+    target_module = "mistralai.ocr"
+    target_path = "Ocr.process"
+    wrapper = _ocr_process_wrapper
+    superseded_by = (_OcrProcessV2Patcher,)
+
+
+class _OcrProcessAsyncV2Patcher(FunctionWrapperPatcher):
+    name = "mistral.ocr.process_async.v2"
+    target_module = "mistralai.client.ocr"
+    target_path = "Ocr.process_async"
+    wrapper = _ocr_process_async_wrapper
+
+
+class _OcrProcessAsyncV1Patcher(FunctionWrapperPatcher):
+    name = "mistral.ocr.process_async.v1"
+    target_module = "mistralai.ocr"
+    target_path = "Ocr.process_async"
+    wrapper = _ocr_process_async_wrapper
+    superseded_by = (_OcrProcessAsyncV2Patcher,)
+
+
+class OcrPatcher(CompositeFunctionWrapperPatcher):
+    name = "mistral.ocr"
+    sub_patchers = (
+        _OcrProcessV2Patcher,
+        _OcrProcessV1Patcher,
+        _OcrProcessAsyncV2Patcher,
+        _OcrProcessAsyncV1Patcher,
     )

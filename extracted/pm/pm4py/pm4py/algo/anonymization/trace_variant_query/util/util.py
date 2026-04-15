@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -42,7 +42,7 @@ def generate_pm4py_log(trace_frequencies):
             trace.attributes["concept:name"] = trace_count
             trace_count = trace_count + 1
             for activity in activities:
-                if not TRACE_END in activity:
+                if TRACE_END not in activity:
                     event = obj.Event()
                     event["concept:name"] = str(activity)
                     event["time:timestamp"] = datetime.datetime(1970, 1, 1, 0, 0, 0, tzinfo=tzutc())

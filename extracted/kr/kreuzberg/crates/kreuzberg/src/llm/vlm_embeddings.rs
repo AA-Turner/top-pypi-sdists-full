@@ -33,9 +33,9 @@ pub async fn embed_via_llm<T: AsRef<str>>(
     texts: &[T],
     config: &LlmConfig,
     normalize: bool,
-) -> crate::Result<Vec<Vec<f32>>> {
+) -> crate::Result<(Vec<Vec<f32>>, Option<crate::types::LlmUsage>)> {
     if texts.is_empty() {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), None));
     }
 
     let client = super::client::create_client(config)?;
@@ -60,6 +60,8 @@ pub async fn embed_via_llm<T: AsRef<str>>(
         crate::KreuzbergError::embedding(format!("LLM embedding request failed (model={}): {e}", config.model))
     })?;
 
+    let usage = super::usage::extract_usage_from_embedding(&response, "embeddings");
+
     // Sort by index to guarantee order matches input order.
     let mut data = response.data;
     data.sort_by_key(|obj| obj.index);
@@ -76,7 +78,7 @@ pub async fn embed_via_llm<T: AsRef<str>>(
         }
     }
 
-    Ok(embeddings)
+    Ok((embeddings, usage))
 }
 
 /// L2-normalize an embedding vector in-place.

@@ -7,12 +7,16 @@ from typing_extensions import override
 
 from aws_lambda_powertools.event_handler import ApiGatewayResolver
 from aws_lambda_powertools.event_handler.api_gateway import (
-    _DEFAULT_OPENAPI_RESPONSE_DESCRIPTION,
     BedrockResponse,
     ProxyEventType,
     ResponseBuilder,
 )
-from aws_lambda_powertools.event_handler.openapi.constants import DEFAULT_API_VERSION, DEFAULT_OPENAPI_VERSION
+from aws_lambda_powertools.event_handler.openapi.constants import (
+    DEFAULT_API_VERSION,
+    DEFAULT_OPENAPI_RESPONSE_DESCRIPTION,
+    DEFAULT_OPENAPI_VERSION,
+    DEFAULT_STATUS_CODE,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -118,7 +122,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
         cache_control: str | None = None,
         summary: str | None = None,
         responses: dict[int, OpenAPIResponse] | None = None,
-        response_description: str = _DEFAULT_OPENAPI_RESPONSE_DESCRIPTION,
+        response_description: str = DEFAULT_OPENAPI_RESPONSE_DESCRIPTION,
         tags: list[str] | None = None,
         operation_id: str | None = None,
         include_in_schema: bool = True,
@@ -126,6 +130,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
         deprecated: bool = False,
         enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
+        status_code: int = DEFAULT_STATUS_CODE,
         middlewares: list[Callable[..., Any]] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         security = None
@@ -147,6 +152,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
             deprecated,
             enable_validation,
             custom_response_validation_http_code,
+            status_code,
             middlewares,
         )
 
@@ -161,7 +167,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
         cache_control: str | None = None,
         summary: str | None = None,
         responses: dict[int, OpenAPIResponse] | None = None,
-        response_description: str = _DEFAULT_OPENAPI_RESPONSE_DESCRIPTION,
+        response_description: str = DEFAULT_OPENAPI_RESPONSE_DESCRIPTION,
         tags: list[str] | None = None,
         operation_id: str | None = None,
         include_in_schema: bool = True,
@@ -169,6 +175,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
         deprecated: bool = False,
         enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
+        status_code: int = DEFAULT_STATUS_CODE,
         middlewares: list[Callable[..., Any]] | None = None,
     ):
         security = None
@@ -190,6 +197,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
             deprecated,
             enable_validation,
             custom_response_validation_http_code,
+            status_code,
             middlewares,
         )
 
@@ -204,7 +212,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
         cache_control: str | None = None,
         summary: str | None = None,
         responses: dict[int, OpenAPIResponse] | None = None,
-        response_description: str = _DEFAULT_OPENAPI_RESPONSE_DESCRIPTION,
+        response_description: str = DEFAULT_OPENAPI_RESPONSE_DESCRIPTION,
         tags: list[str] | None = None,
         operation_id: str | None = None,
         include_in_schema: bool = True,
@@ -212,6 +220,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
         deprecated: bool = False,
         enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
+        status_code: int = DEFAULT_STATUS_CODE,
         middlewares: list[Callable[..., Any]] | None = None,
     ):
         security = None
@@ -233,6 +242,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
             deprecated,
             enable_validation,
             custom_response_validation_http_code,
+            status_code,
             middlewares,
         )
 
@@ -247,7 +257,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
         cache_control: str | None = None,
         summary: str | None = None,
         responses: dict[int, OpenAPIResponse] | None = None,
-        response_description: str = _DEFAULT_OPENAPI_RESPONSE_DESCRIPTION,
+        response_description: str = DEFAULT_OPENAPI_RESPONSE_DESCRIPTION,
         tags: list[str] | None = None,
         operation_id: str | None = None,
         include_in_schema: bool = True,
@@ -255,6 +265,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
         deprecated: bool = False,
         enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
+        status_code: int = DEFAULT_STATUS_CODE,
         middlewares: list[Callable] | None = None,
     ):
         security = None
@@ -276,6 +287,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
             deprecated,
             enable_validation,
             custom_response_validation_http_code,
+            status_code,
             middlewares,
         )
 
@@ -290,7 +302,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
         cache_control: str | None = None,
         summary: str | None = None,
         responses: dict[int, OpenAPIResponse] | None = None,
-        response_description: str = _DEFAULT_OPENAPI_RESPONSE_DESCRIPTION,
+        response_description: str = DEFAULT_OPENAPI_RESPONSE_DESCRIPTION,
         tags: list[str] | None = None,
         operation_id: str | None = None,
         include_in_schema: bool = True,
@@ -298,6 +310,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
         deprecated: bool = False,
         enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
+        status_code: int = DEFAULT_STATUS_CODE,
         middlewares: list[Callable[..., Any]] | None = None,
     ):
         security = None
@@ -319,6 +332,7 @@ class BedrockAgentResolver(ApiGatewayResolver):
             deprecated,
             enable_validation,
             custom_response_validation_http_code,
+            status_code,
             middlewares,
         )
 

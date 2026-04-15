@@ -2503,12 +2503,35 @@ class BinanceFuturesBrokerageModel(QuantConnect.Brokerages.BinanceBrokerageModel
         """Creates a new instance"""
         ...
 
+    def create_crypto_future_margin_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Securities.IBuyingPowerModel:
+        """
+        Creates the crypto future margin model for the given security
+        
+        
+        This codeEntityType is protected.
+        
+        :param security: The security to create the margin model for
+        :returns: The margin model instance.
+        """
+        ...
+
     def get_benchmark(self, securities: QuantConnect.Securities.SecurityManager) -> QuantConnect.Benchmarks.IBenchmark:
         """
         Get the benchmark for this model
         
         :param securities: SecurityService to create the security with if needed
         :returns: The benchmark for this brokerage.
+        """
+        ...
+
+    def get_buying_power_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Securities.IBuyingPowerModel:
+        """
+        Gets a new buying power model for the security.
+        For SecurityType.CRYPTO_FUTURE, returns a BinanceCryptoFutureMarginModel
+        that recognizes supplementary stable coin collateral (e.g. BNFCR for EU Credits Trading Mode).
+        
+        :param security: The security to get a buying power model for
+        :returns: The buying power model for this brokerage/security.
         """
         ...
 
@@ -2536,6 +2559,18 @@ class BinanceCoinFuturesBrokerageModel(QuantConnect.Brokerages.BinanceFuturesBro
 
     def __init__(self, account_type: QuantConnect.AccountType) -> None:
         """Creates a new instance"""
+        ...
+
+    def create_crypto_future_margin_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Securities.IBuyingPowerModel:
+        """
+        Creates the crypto future margin model for the given security
+        
+        
+        This codeEntityType is protected.
+        
+        :param security: The security to create the margin model for
+        :returns: The margin model instance.
+        """
         ...
 
     def get_benchmark(self, securities: QuantConnect.Securities.SecurityManager) -> QuantConnect.Benchmarks.IBenchmark:

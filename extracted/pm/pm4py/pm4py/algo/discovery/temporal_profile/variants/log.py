@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -115,7 +115,7 @@ def apply(
                 time_j = trace[j][start_timestamp_key].timestamp()
                 if time_j >= time_i:
                     act_j = trace[j][activity_key]
-                    if not (act_i, act_j) in diff_time_recordings:
+                    if (act_i, act_j) not in diff_time_recordings:
                         diff_time_recordings[(act_i, act_j)] = []
                     if business_hours:
                         bh = BusinessHours(

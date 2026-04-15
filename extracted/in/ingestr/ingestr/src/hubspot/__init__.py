@@ -152,7 +152,9 @@ def hubspot(
         `api_key` argument.
     """
 
-    if start_date is not None and not isinstance(start_date, str):
+    if start_date is None:
+        start_date = "1970-01-01T00:00:00Z"
+    elif not isinstance(start_date, str):
         start_date = pendulum.instance(start_date).to_iso8601_string()
     if end_date is not None and not isinstance(end_date, str):
         end_date = pendulum.instance(end_date).to_iso8601_string()
@@ -701,9 +703,7 @@ def crm_objects(
         props = list(_get_property_names(api_key, object_type))
 
     if include_custom_props:
-        all_props = _get_property_names(api_key, object_type)
-        custom_props = [prop for prop in all_props if not prop.startswith("hs_")]
-        props = props + custom_props  # type: ignore
+        props += _get_property_names(api_key, object_type)
 
     props = ",".join(sorted(list(set(props))))
 

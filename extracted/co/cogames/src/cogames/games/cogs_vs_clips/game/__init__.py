@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from cogames.core import CoGameMissionVariant
 from cogames.games.cogs_vs_clips.game.cargo import CargoLimitVariant
+from cogames.games.cogs_vs_clips.game.clear_vibes import ClearVibesVariant
 from cogames.games.cogs_vs_clips.game.clips import (
     AdaptiveClipsVariant,
     AngryClipsVariant,
@@ -11,6 +12,7 @@ from cogames.games.cogs_vs_clips.game.clips import (
 )
 from cogames.games.cogs_vs_clips.game.damage import DamageVariant
 from cogames.games.cogs_vs_clips.game.days import DaysVariant
+from cogames.games.cogs_vs_clips.game.endless import EndlessVariant
 from cogames.games.cogs_vs_clips.game.energy import EnergyVariant
 from cogames.games.cogs_vs_clips.game.extractors import CvCExtractorConfig, ExtractorsVariant
 from cogames.games.cogs_vs_clips.game.forced_role_vibes import ForcedRoleVibesVariant
@@ -55,6 +57,7 @@ __all__ = [
     "AngryClipsVariant",
     "BaseCompoundVariant",
     "CargoLimitVariant",
+    "ClearVibesVariant",
     "CavesVariant",
     "CityVariant",
     "ClipsVariant",
@@ -66,6 +69,7 @@ __all__ = [
     "DesertVariant",
     "DistantResourcesVariant",
     "EmptyBaseVariant",
+    "EndlessVariant",
     "EnergyVariant",
     "ForcedRoleVibesVariant",
     "ForestVariant",
@@ -136,6 +140,7 @@ VARIANTS: list[CoGameMissionVariant] = [
     DaysVariant(),
     DesertVariant(),
     EmptyBaseVariant(),
+    EndlessVariant(),
     EnergyVariant(),
     ExtractorsVariant(),
     ForcedRoleVibesVariant(),
@@ -162,6 +167,7 @@ VARIANTS: list[CoGameMissionVariant] = [
     TeamVariant(),
     TerritoryVariant(),
     TalkVariant(),
+    ClearVibesVariant(),
     VibesVariant(),
     NoVibesVariant(),
     WildGearStationsVariant(),

@@ -32,7 +32,6 @@ import pandas as pd
 from . import _datasets_utils
 from . import types
 
-
 logger = logging.getLogger("vertexai_genai.datasets")
 
 
@@ -274,9 +273,9 @@ class Datasets(_api_module.BaseModule):
             request_dict = _AssembleDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
             if request_url_dict:
-                path = "datasets/{name}:assemble".format_map(request_url_dict)
+                path = "{name}:assemble".format_map(request_url_dict)
             else:
-                path = "datasets/{name}:assemble"
+                path = "{name}:assemble"
 
         query_params = request_dict.get("_query")
         if query_params:
@@ -364,9 +363,9 @@ class Datasets(_api_module.BaseModule):
             request_dict = _AssessDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
             if request_url_dict:
-                path = "datasets/{name}:assess".format_map(request_url_dict)
+                path = "{name}:assess".format_map(request_url_dict)
             else:
-                path = "datasets/{name}:assess"
+                path = "{name}:assess"
 
         query_params = request_dict.get("_query")
         if query_params:
@@ -513,9 +512,9 @@ class Datasets(_api_module.BaseModule):
             )
             request_url_dict = request_dict.get("_url")
             if request_url_dict:
-                path = "datasets/{name}".format_map(request_url_dict)
+                path = "{name}".format_map(request_url_dict)
             else:
-                path = "datasets/{name}"
+                path = "{name}"
 
         query_params = request_dict.get("_query")
         if query_params:
@@ -583,9 +582,9 @@ class Datasets(_api_module.BaseModule):
             request_dict = _GetMultimodalDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
             if request_url_dict:
-                path = "datasets/{name}".format_map(request_url_dict)
+                path = "{name}".format_map(request_url_dict)
             else:
-                path = "datasets/{name}"
+                path = "{name}"
 
         query_params = request_dict.get("_query")
         if query_params:
@@ -805,9 +804,9 @@ class Datasets(_api_module.BaseModule):
             request_dict = _UpdateMultimodalDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
             if request_url_dict:
-                path = "datasets/{name}".format_map(request_url_dict)
+                path = "{name}".format_map(request_url_dict)
             else:
-                path = "datasets/{name}"
+                path = "{name}"
 
         query_params = request_dict.get("_query")
         if query_params:
@@ -933,9 +932,14 @@ class Datasets(_api_module.BaseModule):
         elif not config:
             config = types.CreateMultimodalDatasetConfig()
 
+        display_name = (
+            multimodal_dataset.display_name
+            if multimodal_dataset.display_name is not None
+            else _datasets_utils.generate_multimodal_dataset_display_name()
+        )
         multimodal_dataset_operation = self._create_multimodal_dataset(
             config=config,
-            display_name=multimodal_dataset.display_name,
+            display_name=display_name,
             metadata_schema_uri=_datasets_utils.METADATA_SCHEMA_URI,
             metadata=multimodal_dataset.metadata,
         )
@@ -949,7 +953,7 @@ class Datasets(_api_module.BaseModule):
         self,
         *,
         dataframe: pd.DataFrame,
-        multimodal_dataset: types.MultimodalDatasetOrDict,
+        multimodal_dataset: Optional[types.MultimodalDatasetOrDict] = None,
         target_table_id: Optional[str] = None,
         config: Optional[types.CreateMultimodalDatasetConfigOrDict] = None,
     ) -> types.MultimodalDataset:
@@ -959,7 +963,7 @@ class Datasets(_api_module.BaseModule):
             dataframe (pandas.DataFrame):
                 The pandas dataframe to be used for the created dataset.
             multimodal_dataset:
-                Required. A representation of a multimodal dataset.
+                Optional. A representation of a multimodal dataset.
             target_table_id (str):
                 Optional. The BigQuery table id where the dataframe will be
                 uploaded. The table id can be in the format of "dataset.table"
@@ -1003,7 +1007,7 @@ class Datasets(_api_module.BaseModule):
         self,
         *,
         dataframe: "bigframes.pandas.DataFrame",  # type: ignore # noqa: F821
-        multimodal_dataset: types.MultimodalDatasetOrDict,
+        multimodal_dataset: Optional[types.MultimodalDatasetOrDict] = None,
         target_table_id: Optional[str] = None,
         config: Optional[types.CreateMultimodalDatasetConfigOrDict] = None,
     ) -> types.MultimodalDataset:
@@ -1014,7 +1018,7 @@ class Datasets(_api_module.BaseModule):
                 The BigFrames dataframe that will be used for the created
                 dataset.
             multimodal_dataset:
-                Required. A representation of a multimodal dataset.
+                Optional. A representation of a multimodal dataset.
             target_table_id (str):
                 Optional. The BigQuery table id where the dataframe will be
                 uploaded. The table id can be in the format of "dataset.table"
@@ -1080,7 +1084,7 @@ class Datasets(_api_module.BaseModule):
         self,
         *,
         multimodal_dataset: types.MultimodalDatasetOrDict,
-        config: Optional[types.CreateMultimodalDatasetConfigOrDict] = None,
+        config: Optional[types.UpdateMultimodalDatasetConfigOrDict] = None,
     ) -> types.MultimodalDataset:
         """Updates a multimodal dataset.
 
@@ -1104,9 +1108,9 @@ class Datasets(_api_module.BaseModule):
         _datasets_utils.validate_multimodal_dataset_bigquery_uri(multimodal_dataset)
 
         if isinstance(config, dict):
-            config = types.CreateMultimodalDatasetConfig(**config)
+            config = types.UpdateMultimodalDatasetConfig(**config)
         elif not config:
-            config = types.CreateMultimodalDatasetConfig()
+            config = types.UpdateMultimodalDatasetConfig()
 
         return self._update_multimodal_dataset(
             config=config,
@@ -1120,13 +1124,14 @@ class Datasets(_api_module.BaseModule):
         self,
         *,
         name: str,
-        config: Optional[types.CreateMultimodalDatasetConfigOrDict] = None,
+        config: Optional[types.VertexBaseConfigOrDict] = None,
     ) -> types.MultimodalDataset:
         """Gets a multimodal dataset.
 
         Args:
           name:
-            Required. name of a multimodal dataset.
+            Required. name of a multimodal dataset. The name should be in
+            the format of "projects/{project}/locations/{location}/datasets/{dataset}".
           config:
             Optional. A configuration for getting the multimodal dataset. If not
             provided, the default configuration will be used.
@@ -1136,9 +1141,9 @@ class Datasets(_api_module.BaseModule):
           dataset.
         """
         if isinstance(config, dict):
-            config = types.CreateMultimodalDatasetConfig(**config)
+            config = types.VertexBaseConfig(**config)
         elif not config:
-            config = types.CreateMultimodalDatasetConfig()
+            config = types.VertexBaseConfig()
 
         return self._get_multimodal_dataset(config=config, name=name)
 
@@ -1146,13 +1151,14 @@ class Datasets(_api_module.BaseModule):
         self,
         *,
         name: str,
-        config: Optional[types.CreateMultimodalDatasetConfigOrDict] = None,
+        config: Optional[types.VertexBaseConfigOrDict] = None,
     ) -> types.MultimodalDatasetOperation:
         """Deletes a multimodal dataset.
 
         Args:
           name:
-            Required. name of a multimodal dataset.
+            Required. name of a multimodal dataset. The name should be in
+            the format of "projects/{project}/locations/{location}/datasets/{dataset}".
           config:
             Optional. A configuration for deleting the multimodal dataset. If not
             provided, the default configuration will be used.
@@ -1162,9 +1168,9 @@ class Datasets(_api_module.BaseModule):
           multimodal dataset operation.
         """
         if isinstance(config, dict):
-            config = types.CreateMultimodalDatasetConfig(**config)
+            config = types.VertexBaseConfig(**config)
         elif not config:
-            config = types.CreateMultimodalDatasetConfig()
+            config = types.VertexBaseConfig()
 
         return self._delete_multimodal_dataset(config=config, name=name)
 
@@ -1227,7 +1233,7 @@ class Datasets(_api_module.BaseModule):
         Args:
           dataset_name:
             Required. The name of the dataset to assess the tuning resources
-            for.
+            for. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
           model_name:
             Required. The name of the model to assess the tuning resources
             for.
@@ -1283,7 +1289,7 @@ class Datasets(_api_module.BaseModule):
         Args:
           dataset_name:
             Required. The name of the dataset to assess the tuning validity
-            for.
+            for. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
           model_name:
               Required. The name of the model to assess the tuning validity
               for.
@@ -1343,7 +1349,7 @@ class Datasets(_api_module.BaseModule):
         Args:
           dataset_name:
             Required. The name of the dataset to assess the batch prediction
-            resources.
+            resources. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
           model_name:
               Required. The name of the model to assess the batch prediction
               resources.
@@ -1404,7 +1410,7 @@ class Datasets(_api_module.BaseModule):
         Args:
           dataset_name:
             Required. The name of the dataset to assess the batch prediction
-            validity for.
+            validity for. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
           model_name:
             Required. The name of the model to assess the batch prediction
             validity for.
@@ -1475,9 +1481,9 @@ class AsyncDatasets(_api_module.BaseModule):
             request_dict = _AssembleDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
             if request_url_dict:
-                path = "datasets/{name}:assemble".format_map(request_url_dict)
+                path = "{name}:assemble".format_map(request_url_dict)
             else:
-                path = "datasets/{name}:assemble"
+                path = "{name}:assemble"
 
         query_params = request_dict.get("_query")
         if query_params:
@@ -1567,9 +1573,9 @@ class AsyncDatasets(_api_module.BaseModule):
             request_dict = _AssessDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
             if request_url_dict:
-                path = "datasets/{name}:assess".format_map(request_url_dict)
+                path = "{name}:assess".format_map(request_url_dict)
             else:
-                path = "datasets/{name}:assess"
+                path = "{name}:assess"
 
         query_params = request_dict.get("_query")
         if query_params:
@@ -1720,9 +1726,9 @@ class AsyncDatasets(_api_module.BaseModule):
             )
             request_url_dict = request_dict.get("_url")
             if request_url_dict:
-                path = "datasets/{name}".format_map(request_url_dict)
+                path = "{name}".format_map(request_url_dict)
             else:
-                path = "datasets/{name}"
+                path = "{name}"
 
         query_params = request_dict.get("_query")
         if query_params:
@@ -1792,9 +1798,9 @@ class AsyncDatasets(_api_module.BaseModule):
             request_dict = _GetMultimodalDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
             if request_url_dict:
-                path = "datasets/{name}".format_map(request_url_dict)
+                path = "{name}".format_map(request_url_dict)
             else:
-                path = "datasets/{name}"
+                path = "{name}"
 
         query_params = request_dict.get("_query")
         if query_params:
@@ -2020,9 +2026,9 @@ class AsyncDatasets(_api_module.BaseModule):
             request_dict = _UpdateMultimodalDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
             if request_url_dict:
-                path = "datasets/{name}".format_map(request_url_dict)
+                path = "{name}".format_map(request_url_dict)
             else:
-                path = "datasets/{name}"
+                path = "{name}"
 
         query_params = request_dict.get("_query")
         if query_params:
@@ -2150,9 +2156,14 @@ class AsyncDatasets(_api_module.BaseModule):
         elif not config:
             config = types.CreateMultimodalDatasetConfig()
 
+        display_name = (
+            multimodal_dataset.display_name
+            if multimodal_dataset.display_name is not None
+            else _datasets_utils.generate_multimodal_dataset_display_name()
+        )
         multimodal_dataset_operation = await self._create_multimodal_dataset(
             config=config,
-            display_name=multimodal_dataset.display_name,
+            display_name=display_name,
             metadata_schema_uri=_datasets_utils.METADATA_SCHEMA_URI,
             metadata=multimodal_dataset.metadata,
         )
@@ -2166,7 +2177,7 @@ class AsyncDatasets(_api_module.BaseModule):
         self,
         *,
         dataframe: pd.DataFrame,
-        multimodal_dataset: types.MultimodalDatasetOrDict,
+        multimodal_dataset: Optional[types.MultimodalDatasetOrDict] = None,
         target_table_id: Optional[str] = None,
         config: Optional[types.CreateMultimodalDatasetConfigOrDict] = None,
     ) -> types.MultimodalDataset:
@@ -2176,7 +2187,7 @@ class AsyncDatasets(_api_module.BaseModule):
             dataframe (pandas.DataFrame):
                 The pandas dataframe to be used for the created dataset.
             multimodal_dataset:
-                Required. A representation of a multimodal dataset.
+                Optional. A representation of a multimodal dataset.
             target_table_id (str):
                 Optional. The BigQuery table id where the dataframe will be
                 uploaded. The table id can be in the format of "dataset.table"
@@ -2220,7 +2231,7 @@ class AsyncDatasets(_api_module.BaseModule):
         self,
         *,
         dataframe: "bigframes.pandas.DataFrame",  # type: ignore # noqa: F821
-        multimodal_dataset: types.MultimodalDatasetOrDict,
+        multimodal_dataset: Optional[types.MultimodalDatasetOrDict] = None,
         target_table_id: Optional[str] = None,
         config: Optional[types.CreateMultimodalDatasetConfigOrDict] = None,
     ) -> types.MultimodalDataset:
@@ -2231,7 +2242,7 @@ class AsyncDatasets(_api_module.BaseModule):
                 The BigFrames dataframe that will be used for the created
                 dataset.
             multimodal_dataset:
-                Required. A representation of a multimodal dataset.
+                Optional. A representation of a multimodal dataset.
             target_table_id (str):
                 Optional. The BigQuery table id where the dataframe will be
                 uploaded. The table id can be in the format of "dataset.table"
@@ -2299,7 +2310,7 @@ class AsyncDatasets(_api_module.BaseModule):
         self,
         *,
         multimodal_dataset: types.MultimodalDatasetOrDict,
-        config: Optional[types.CreateMultimodalDatasetConfigOrDict] = None,
+        config: Optional[types.UpdateMultimodalDatasetConfigOrDict] = None,
     ) -> types.MultimodalDataset:
         """Updates a multimodal dataset.
 
@@ -2319,9 +2330,9 @@ class AsyncDatasets(_api_module.BaseModule):
         _datasets_utils.validate_multimodal_dataset_bigquery_uri(multimodal_dataset)
 
         if isinstance(config, dict):
-            config = types.CreateMultimodalDatasetConfig(**config)
+            config = types.UpdateMultimodalDatasetConfig(**config)
         elif not config:
-            config = types.CreateMultimodalDatasetConfig()
+            config = types.UpdateMultimodalDatasetConfig()
 
         return await self._update_multimodal_dataset(
             config=config,
@@ -2335,13 +2346,14 @@ class AsyncDatasets(_api_module.BaseModule):
         self,
         *,
         name: str,
-        config: Optional[types.CreateMultimodalDatasetConfigOrDict] = None,
+        config: Optional[types.VertexBaseConfigOrDict] = None,
     ) -> types.MultimodalDataset:
         """Gets a multimodal dataset.
 
         Args:
           name:
-            Required. name of a multimodal dataset.
+            Required. name of a multimodal dataset. The name should be in
+            the format of "projects/{project}/locations/{location}/datasets/{dataset}".
           config:
             Optional. A configuration for getting the multimodal dataset. If not
             provided, the default configuration will be used.
@@ -2351,9 +2363,9 @@ class AsyncDatasets(_api_module.BaseModule):
           dataset.
         """
         if isinstance(config, dict):
-            config = types.CreateMultimodalDatasetConfig(**config)
+            config = types.VertexBaseConfig(**config)
         elif not config:
-            config = types.CreateMultimodalDatasetConfig()
+            config = types.VertexBaseConfig()
 
         return await self._get_multimodal_dataset(config=config, name=name)
 
@@ -2361,13 +2373,14 @@ class AsyncDatasets(_api_module.BaseModule):
         self,
         *,
         name: str,
-        config: Optional[types.CreateMultimodalDatasetConfigOrDict] = None,
+        config: Optional[types.VertexBaseConfigOrDict] = None,
     ) -> types.MultimodalDatasetOperation:
         """Deletes a multimodal dataset.
 
         Args:
           name:
-            Required. name of a multimodal dataset.
+            Required. name of a multimodal dataset. The name should be in
+            the format of "projects/{project}/locations/{location}/datasets/{dataset}".
           config:
             Optional. A configuration for deleting the multimodal dataset. If not
             provided, the default configuration will be used.
@@ -2377,9 +2390,9 @@ class AsyncDatasets(_api_module.BaseModule):
           multimodal dataset operation.
         """
         if isinstance(config, dict):
-            config = types.CreateMultimodalDatasetConfig(**config)
+            config = types.VertexBaseConfig(**config)
         elif not config:
-            config = types.CreateMultimodalDatasetConfig()
+            config = types.VertexBaseConfig()
 
         return await self._delete_multimodal_dataset(config=config, name=name)
 
@@ -2442,7 +2455,7 @@ class AsyncDatasets(_api_module.BaseModule):
         Args:
           dataset_name:
             Required. The name of the dataset to assess the tuning resources
-            for.
+            for. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
           model_name:
             Required. The name of the model to assess the tuning resources
             for.
@@ -2498,7 +2511,7 @@ class AsyncDatasets(_api_module.BaseModule):
         Args:
           dataset_name:
             Required. The name of the dataset to assess the tuning validity
-            for.
+            for. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
           model_name:
               Required. The name of the model to assess the tuning validity
               for.
@@ -2558,7 +2571,7 @@ class AsyncDatasets(_api_module.BaseModule):
         Args:
           dataset_name:
             Required. The name of the dataset to assess the batch prediction
-            resources.
+            resources. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
           model_name:
               Required. The name of the model to assess the batch prediction
               resources.
@@ -2619,7 +2632,7 @@ class AsyncDatasets(_api_module.BaseModule):
         Args:
           dataset_name:
             Required. The name of the dataset to assess the batch prediction
-            validity for.
+            validity for. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
           model_name:
             Required. The name of the model to assess the batch prediction
             validity for.

@@ -1,11 +1,13 @@
 from collections import namedtuple
 
 from huey.exceptions import HueyException
+from huey.utils import ChordConfig
 
 
 Message = namedtuple('Message', ('id', 'name', 'eta', 'retries', 'retry_delay',
                                  'priority', 'args', 'kwargs', 'on_complete',
-                                 'on_error', 'expires', 'expires_resolved'))
+                                 'on_error', 'expires', 'expires_resolved',
+                                 'timeout', 'chord_config'))
 
 # Automatically set missing parameters to None. This is kind-of a hack, but it
 # allows us to add new parameters while continuing to be able to handle
@@ -66,6 +68,14 @@ class Registry(object):
         if task.on_error is not None:
             on_error = self.create_message(task.on_error)
 
+        chord_config = None
+        if task.chord_config is not None:
+            chord_config = (
+                task.chord_config.cid,
+                task.chord_config.size,
+                task.chord_config.idx,
+                self.create_message(task.chord_config.callback))
+
         return Message(
             task.id,
             task_str,
@@ -78,15 +88,11 @@ class Registry(object):
             on_complete,
             on_error,
             task.expires,
-            task.expires_resolved)
+            task.expires_resolved,
+            task.timeout,
+            chord_config)
 
     def create_task(self, message):
-        # Compatibility with Huey 1.11 message format.
-        if not isinstance(message, Message) and isinstance(message, tuple):
-            tid, name, eta, retries, retry_delay, (args, kwargs), oc = message
-            message = Message(tid, name, eta, retries, retry_delay, None, args,
-                              kwargs, oc, None)
-
         TaskClass = self.string_to_task(message.name)
 
         on_complete = None
@@ -96,6 +102,12 @@ class Registry(object):
         on_error = None
         if message.on_error is not None:
             on_error = self.create_task(message.on_error)
+
+        chord_config = None
+        if message.chord_config is not None:
+            cid, size, idx, cb_ser = message.chord_config
+            callback = self.create_task(cb_ser)
+            chord_config = ChordConfig(cid, size, idx, callback)
 
         return TaskClass(
             message.args,
@@ -108,7 +120,9 @@ class Registry(object):
             message.expires,
             on_complete,
             on_error,
-            message.expires_resolved)
+            message.expires_resolved,
+            message.timeout,
+            chord_config)
 
     @property
     def periodic_tasks(self):

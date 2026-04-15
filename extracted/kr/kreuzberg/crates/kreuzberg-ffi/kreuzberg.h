@@ -9,8 +9,8 @@
 
 #define KREUZBERG_VERSION_MAJOR 4
 #define KREUZBERG_VERSION_MINOR 8
-#define KREUZBERG_VERSION_PATCH 2
-#define KREUZBERG_VERSION "4.8.2"
+#define KREUZBERG_VERSION_PATCH 5
+#define KREUZBERG_VERSION "4.8.5"
 
 
 #include <stdarg.h>
@@ -307,6 +307,10 @@ typedef struct CExtractionResult {
    * Document language (null-terminated string, or NULL if not available, must be freed with kreuzberg_free_string)
    */
   char *language;
+  /**
+   * JSON-serialized LLM usage metrics array (null-terminated, or null pointer if none, must be freed with kreuzberg_free_string)
+   */
+  char *llm_usage_json;
   /**
    * Metadata as JSON object (null-terminated string, or NULL if no metadata, must be freed with kreuzberg_free_string)
    */
@@ -2016,7 +2020,7 @@ KREUZBERG_EXPORT char *kreuzberg_clone_string(const char *s);
  *
  * # Memory Layout
  *
- * This function frees all 21 string fields in CExtractionResult:
+ * This function frees all 25 string fields in CExtractionResult:
  * 1. content
  * 2. mime_type
  * 3. language
@@ -2026,16 +2030,22 @@ KREUZBERG_EXPORT char *kreuzberg_clone_string(const char *s);
  * 7. detected_languages_json
  * 8. metadata_json
  * 9. chunks_json
- * 10. images_json
- * 11. page_structure_json (FIXED: was missing before PR #3)
- * 12. pages_json (FIXED: was missing before PR #3)
- * 13. elements_json (ADDED: for element-based extraction support)
- * 14. ocr_elements_json (ADDED: for OCR element output)
- * 15. document_json (ADDED: for document structure)
- * 16. extracted_keywords_json (ADDED: for keyword extraction)
- * 17. quality_score_json (ADDED: for quality analysis)
- * 18. processing_warnings_json (ADDED: for pipeline warnings)
- * 19. annotations_json (ADDED: for PDF annotation extraction)
+ * 10. children_json
+ * 11. images_json
+ * 12. page_structure_json
+ * 13. pages_json
+ * 14. elements_json
+ * 15. ocr_elements_json
+ * 16. document_json
+ * 17. extracted_keywords_json
+ * 18. quality_score_json
+ * 19. processing_warnings_json
+ * 20. annotations_json
+ * 21. uris_json
+ * 22. code_intelligence_json
+ * 23. djot_content_json
+ * 24. structured_output_json
+ * 25. llm_usage_json
  *
  * # Example (C)
  *
@@ -2823,6 +2833,46 @@ KREUZBERG_EXPORT char *kreuzberg_result_get_detected_language(const ExtractionRe
 KREUZBERG_EXPORT
 struct CMetadataField kreuzberg_result_get_metadata_field(const ExtractionResult *result,
                                                           const char *field_name);
+
+/**
+ * Get LLM usage metrics from extraction result.
+ *
+ * Returns LLM usage information as a JSON string if the extraction was performed
+ * with LLM-based processing (e.g., for code intelligence). Returns NULL if no
+ * LLM usage data is available.
+ *
+ * # Arguments
+ *
+ * * `result` - Pointer to an ExtractionResult structure
+ *
+ * # Returns
+ *
+ * A pointer to a C string containing a JSON array of LLM usage objects, or NULL
+ * if no LLM usage data is available or on error (check `kreuzberg_last_error`).
+ *
+ * The returned pointer (if non-NULL) must be freed with `kreuzberg_free_string()`.
+ *
+ * # Safety
+ *
+ * - `result` must be a valid pointer to an ExtractionResult
+ * - `result` cannot be NULL
+ * - The returned pointer (if non-NULL) must be freed with `kreuzberg_free_string`
+ *
+ * # Example (C)
+ *
+ * ```c
+ * ExtractionResult* result = kreuzberg_extract_file("document.pdf", NULL);
+ * if (result != NULL) {
+ *     char* llm_usage = kreuzberg_result_get_llm_usage_json(result);
+ *     if (llm_usage != NULL) {
+ *         printf("LLM usage: %s\n", llm_usage);
+ *         kreuzberg_free_string(llm_usage);
+ *     }
+ *     kreuzberg_result_free(result);
+ * }
+ * ```
+ */
+KREUZBERG_EXPORT char *kreuzberg_result_get_llm_usage_json(const ExtractionResult *result);
 
 /**
  * Create a new result pool with specified initial capacity.

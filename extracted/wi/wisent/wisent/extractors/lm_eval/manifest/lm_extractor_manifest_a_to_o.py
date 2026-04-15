@@ -89,6 +89,7 @@ LM_EXTRACTORS_A_TO_O: dict[str, str] = {
     "hendrycks_math_num_theory": f"{base_import}hendrycks_math:HendrycksMathExtractor",
     "hendrycks_math_prealgebra": f"{base_import}hendrycks_math:HendrycksMathExtractor",
     "hendrycks_math_precalc": f"{base_import}hendrycks_math:HendrycksMathExtractor",
+    # quac removed from lm-eval index; loaded via HF datasets directly
     "quac": f"{base_import}quac:QuACExtractor",
     "superglue": f"{base_import}superglue:SuperGLUEExtractor",
     "supergpqa": f"{base_import}supergpqa:SuperGPQAExtractor",
@@ -110,10 +111,24 @@ LM_EXTRACTORS_A_TO_O: dict[str, str] = {
     "aexams": f"{base_import}aexams:AexamsExtractor",
     # AfroBench multiple-choice benchmarks
     "afrobench": f"{base_import}afrobench_mc:AfroBenchMultipleChoiceExtractor",
-    "afridiacritics": f"{base_import}afrobench_mc:AfroBenchMultipleChoiceExtractor",
+    # AfroBench generation/CoT tasks
+    "adr": f"{base_import}afrobench_cot:AfroBenchCotExtractor",
+    "african_flores": f"{base_import}african_flores:AfricanFloresExtractor",
+    "african_flores_tasks": f"{base_import}african_flores:AfricanFloresExtractor",
+    "afriqa": f"{base_import}afrobench_cot:AfroBenchCotExtractor",
+    "afridiacritics": f"{base_import}afrobench_cot:AfroBenchCotExtractor",
+    "flores": f"{base_import}afrobench_cot:AfroBenchCotExtractor",
+    "mafand": f"{base_import}afrobench_cot:AfroBenchCotExtractor",
+    "masakhaner": f"{base_import}afrobench_cot:AfroBenchCotExtractor",
+    "masakhapos": f"{base_import}afrobench_cot:AfroBenchCotExtractor",
+    "ntrex": f"{base_import}afrobench_cot:AfroBenchCotExtractor",
+    "salt": f"{base_import}afrobench_cot:AfroBenchCotExtractor",
+    "xlsum": f"{base_import}afrobench_cot:AfroBenchCotExtractor",
     "arabic_exams": f"{base_import}arabic_exams:ArabicExamsExtractor",
+    "arabic_leaderboard": f"{base_import}arabic_leaderboard_complete:ArabicLeaderboardCompleteExtractor",
     "arabic_leaderboard_complete": f"{base_import}arabic_leaderboard_complete:ArabicLeaderboardCompleteExtractor",
     "arabic_leaderboard_light": f"{base_import}arabic_leaderboard_light:ArabicLeaderboardLightExtractor",
+    "arabic_mt": f"{base_import}arabic_leaderboard_complete:ArabicLeaderboardCompleteExtractor",
     "arabicmmlu": f"{base_import}arabicmmlu:ArabicmmluExtractor",
     "argument_topic": f"{base_import}unitxt:UnitxtExtractor",
     "babi": f"{base_import}babi:BabiExtractor",
@@ -228,6 +243,7 @@ LM_EXTRACTORS_A_TO_O: dict[str, str] = {
     # Spanish context
     # Hindi context
     "mmlusr": f"{base_import}mmlusr:MmlusrExtractor",
+    "advanced_ai_risk": f"{base_import}model_written_evals:ModelWrittenEvalsExtractor",
     "model_written_evals": f"{base_import}model_written_evals:ModelWrittenEvalsExtractor",
     "moral_stories": f"{base_import}moral_stories:MoralStoriesExtractor",
     "mts_dialog": f"{base_import}mts_dialog:MtsDialogExtractor",

@@ -26,6 +26,7 @@ from ..models import ChatRequest
 from ..services import storage
 from ..services.agent_loop import run_agent_loop
 from ..services.ai_service import AIService, create_ai_service
+from ..services.async_tasks import silence_task
 from ..services.context_trust import trusted_section_marker, untrusted_section_marker, wrap_untrusted
 from ..services.space_storage import get_space_local_dirs
 from ..tools.path_utils import safe_resolve_pathlib
@@ -1415,11 +1416,13 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                     _pending_usage = None
 
                 if ctx.embedding_worker and current_assistant_msg:
-                    asyncio.create_task(
-                        ctx.embedding_worker.embed_message(
-                            current_assistant_msg["id"],
-                            data["content"],
-                            ctx.conversation_id,
+                    silence_task(
+                        asyncio.create_task(
+                            ctx.embedding_worker.embed_message(
+                                current_assistant_msg["id"],
+                                data["content"],
+                                ctx.conversation_id,
+                            )
                         )
                     )
 
@@ -1815,24 +1818,26 @@ async def chat(conversation_id: str, request: Request) -> Any:
 
         _embedding_worker = getattr(request.app.state, "embedding_worker", None)
         if _embedding_worker:
-            asyncio.create_task(_embedding_worker.embed_message(msg["id"], message_text, conversation_id))
+            silence_task(asyncio.create_task(_embedding_worker.embed_message(msg["id"], message_text, conversation_id)))
 
         event_bus = _get_event_bus(request)
         if event_bus:
-            asyncio.create_task(
-                event_bus.publish(
-                    f"conversation:{conversation_id}",
-                    {
-                        "type": "new_message",
-                        "data": {
-                            "conversation_id": conversation_id,
-                            "message_id": msg["id"],
-                            "role": "user",
-                            "content": message_text,
-                            "position": msg["position"],
-                            "client_id": _get_client_id(request),
+            silence_task(
+                asyncio.create_task(
+                    event_bus.publish(
+                        f"conversation:{conversation_id}",
+                        {
+                            "type": "new_message",
+                            "data": {
+                                "conversation_id": conversation_id,
+                                "message_id": msg["id"],
+                                "role": "user",
+                                "content": message_text,
+                                "position": msg["position"],
+                                "client_id": _get_client_id(request),
+                            },
                         },
-                    },
+                    )
                 )
             )
 
@@ -2040,23 +2045,27 @@ async def chat(conversation_id: str, request: Request) -> Any:
         # Trigger async embedding for user message
         _embedding_worker = getattr(request.app.state, "embedding_worker", None)
         if _embedding_worker and user_msg:
-            asyncio.create_task(_embedding_worker.embed_message(user_msg["id"], message_text, conversation_id))
+            silence_task(
+                asyncio.create_task(_embedding_worker.embed_message(user_msg["id"], message_text, conversation_id))
+            )
 
         if event_bus and user_msg:
-            asyncio.create_task(
-                event_bus.publish(
-                    f"conversation:{conversation_id}",
-                    {
-                        "type": "new_message",
-                        "data": {
-                            "conversation_id": conversation_id,
-                            "message_id": user_msg["id"],
-                            "role": "user",
-                            "content": message_text,
-                            "position": user_msg["position"],
-                            "client_id": client_id,
+            silence_task(
+                asyncio.create_task(
+                    event_bus.publish(
+                        f"conversation:{conversation_id}",
+                        {
+                            "type": "new_message",
+                            "data": {
+                                "conversation_id": conversation_id,
+                                "message_id": user_msg["id"],
+                                "role": "user",
+                                "content": message_text,
+                                "position": user_msg["position"],
+                                "client_id": client_id,
+                            },
                         },
-                    },
+                    )
                 )
             )
 

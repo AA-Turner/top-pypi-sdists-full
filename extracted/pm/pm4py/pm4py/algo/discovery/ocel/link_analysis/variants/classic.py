@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -161,7 +161,7 @@ def apply(
     stream_red = df_red.to_dict("records")
     associations = {}
     for el in stream_red:
-        if not el[index_column + "_out"] in associations:
+        if el[index_column + "_out"] not in associations:
             associations[el[index_column + "_out"]] = set()
         associations[el[index_column + "_out"]].add(el[index_column + "_in"])
 

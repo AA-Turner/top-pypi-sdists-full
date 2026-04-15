@@ -50,6 +50,7 @@ from traceloop.sdk.decorators import (
     TraceloopSpanKindValues,
     F,
 )
+import re
 
 __all__ = [
     # Configuration functions
@@ -83,6 +84,80 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+class _InstrumentationNoiseFilter(logging.Filter):
+    """Suppress noisy warnings from third-party auto-instrumentation.
+
+    Traceloop initializes instrumentors for every supported LLM provider
+    regardless of whether the user actually uses that provider. When the
+    provider package is missing or at an incompatible version, Traceloop
+    logs an ERROR like ``Error initializing MistralAI instrumentor: ...``.
+
+    Similarly, when an LLM provider SDK uses non-standard sentinel types
+    (e.g. Anthropic's ``Omit``) for optional parameters, the OTel SDK
+    emits a WARNING like ``Invalid type Omit for attribute ...``.
+
+    Both are harmless noise for users who don't use those providers. This
+    filter suppresses them unless debug logging is explicitly enabled.
+    """
+
+    _INSTRUMENTOR_ERROR_RE = re.compile(r"Error initializing .+? instrumentor")
+    _INVALID_ATTR_TYPE_RE = re.compile(r"Invalid type \w+ for attribute")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if debug_logs:
+            return True
+        msg = record.getMessage()
+        if self._INSTRUMENTOR_ERROR_RE.search(msg):
+            return False
+        if self._INVALID_ATTR_TYPE_RE.search(msg):
+            return False
+        return True
+
+
+_noise_filter = _InstrumentationNoiseFilter()
+_filters_installed = False
+
+
+def _install_instrumentation_filters() -> None:
+    """Install log filters that suppress auto-instrumentation noise.
+
+    Adds the filter to:
+    - The root logger (catches direct ``logging.error()`` calls, e.g. Traceloop)
+    - Each handler on the root logger (catches messages propagated from child loggers)
+    - The ``opentelemetry.attributes`` logger (catches OTel attribute warnings)
+
+    Safe to call multiple times; filters are only installed once.
+    """
+    global _filters_installed
+    if _filters_installed:
+        return
+    _filters_installed = True
+
+    root = logging.getLogger()
+    root.addFilter(_noise_filter)
+    for handler in root.handlers:
+        handler.addFilter(_noise_filter)
+
+    otel_attrs_logger = logging.getLogger("opentelemetry.attributes")
+    otel_attrs_logger.addFilter(_noise_filter)
+
+
+def _remove_instrumentation_filters() -> None:
+    """Remove previously installed noise filters (used when debug_logs changes)."""
+    global _filters_installed
+    if not _filters_installed:
+        return
+    _filters_installed = False
+
+    root = logging.getLogger()
+    root.removeFilter(_noise_filter)
+    for handler in root.handlers:
+        handler.removeFilter(_noise_filter)
+
+    otel_attrs_logger = logging.getLogger("opentelemetry.attributes")
+    otel_attrs_logger.removeFilter(_noise_filter)
+
 write_key = None
 _wizard_session = None
 api_url = "https://api.raindrop.ai/v1/"
@@ -111,8 +186,11 @@ def set_debug_logs(value: bool):
     debug_logs = value
     if debug_logs:
         logger.setLevel(logging.DEBUG)
+        _remove_instrumentation_filters()
     else:
         logger.setLevel(logging.INFO)
+        if _tracing_enabled:
+            _install_instrumentation_filters()
 
 
 def set_redact_pii(value: bool):
@@ -843,7 +921,11 @@ def init(
     _bypass_otel_for_tools = bool(bypass_otel_for_tools and tracing_enabled)
 
     if not _tracing_enabled:
+        _remove_instrumentation_filters()
         return
+
+    if not debug_logs:
+        _install_instrumentation_filters()
 
     # When auto_instrument is False (default), disable all auto-instrumentation
     # unless the caller explicitly passed `instruments` or `block_instruments`.

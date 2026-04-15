@@ -8,6 +8,10 @@ EXTRACTORS_SAFETY_MULTILINGUAL: dict[str, str] = {
     "swe_bench_verified": f"{base_import}swe_bench_verified:SWEBenchVerifiedExtractor",
     "swe-bench-verified": f"{base_import}swe_bench_verified:SWEBenchVerifiedExtractor",
     "swebench_verified": f"{base_import}swe_bench_verified:SWEBenchVerifiedExtractor",
+    "multi_swe_bench": f"{base_import}swe_bench_multi:MultiSWEBenchExtractor",
+    "multi-swe-bench": f"{base_import}swe_bench_multi:MultiSWEBenchExtractor",
+    "swe_bench_multilingual": f"{base_import}swe_bench_multi:MultiSWEBenchExtractor",
+    "swe-bench-multilingual": f"{base_import}swe_bench_multi:MultiSWEBenchExtractor",
 
     # Scientific Computing benchmarks (NOT lm-eval)
     "scicode": f"{base_import}scicode:SciCodeExtractor",
@@ -239,4 +243,24 @@ EXTRACTORS_SAFETY_MULTILINGUAL: dict[str, str] = {
 
     # Multimodal benchmarks
     "mmmu": f"{base_import}multimodal_benchmarks:MMMUExtractor",
+
+    # ACP Bench Hard generative tasks — loaded directly from HuggingFace because
+    # lm-eval requires optional packages (tarski, lark, pddl, kstar-planner) for
+    # these tasks that are not installed in this environment.
+    "acp_prog_gen": f"{base_import}acp_bench_hard_hf:AcpProgGenHFExtractor",
+    "acp_reach_gen": f"{base_import}acp_bench_hard_hf:AcpReachGenHFExtractor",
+    "acp_app_gen": f"{base_import}acp_bench_hard_hf:AcpAppGenHFExtractor",
+    "acp_just_gen": f"{base_import}acp_bench_hard_hf:AcpJustGenHFExtractor",
+    "acp_land_gen": f"{base_import}acp_bench_hard_hf:AcpLandGenHFExtractor",
+    "acp_nexta_gen": f"{base_import}acp_bench_hard_hf:AcpNextaGenHFExtractor",
+    "acp_areach_gen": f"{base_import}acp_bench_hard_hf:AcpAreachGenHFExtractor",
+    "acp_val_gen": f"{base_import}acp_bench_hard_hf:AcpValGenHFExtractor",
+    "acp_prog_gen_with_pddl": f"{base_import}acp_bench_hard_hf:AcpProgGenWithPddlHFExtractor",
+    "acp_reach_gen_with_pddl": f"{base_import}acp_bench_hard_hf:AcpReachGenWithPddlHFExtractor",
+    "acp_app_gen_with_pddl": f"{base_import}acp_bench_hard_hf:AcpAppGenWithPddlHFExtractor",
+    "acp_just_gen_with_pddl": f"{base_import}acp_bench_hard_hf:AcpJustGenWithPddlHFExtractor",
+    "acp_land_gen_with_pddl": f"{base_import}acp_bench_hard_hf:AcpLandGenWithPddlHFExtractor",
+    "acp_nexta_gen_with_pddl": f"{base_import}acp_bench_hard_hf:AcpNextaGenWithPddlHFExtractor",
+    "acp_areach_gen_with_pddl": f"{base_import}acp_bench_hard_hf:AcpAreachGenWithPddlHFExtractor",
+    "acp_val_gen_with_pddl": f"{base_import}acp_bench_hard_hf:AcpValGenWithPddlHFExtractor",
 }

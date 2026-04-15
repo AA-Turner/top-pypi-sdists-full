@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: translate-toolkit
-Version: 3.19.4
+Version: 3.19.5
 Summary: Tools and API for translation and localization engineering.
 Author-email: Translate <translate-devel@lists.sourceforge.net>
 License-Expression: GPL-2.0-or-later
@@ -54,7 +54,7 @@ Requires-Dist: pyparsing<3.4,>=3.2.0; extra == "rc"
 Provides-Extra: spellcheck
 Requires-Dist: pyenchant==3.3.0; extra == "spellcheck"
 Provides-Extra: subtitles
-Requires-Dist: aeidon<1.16,>=1.15; extra == "subtitles"
+Requires-Dist: aeidon<1.17,>=1.15; extra == "subtitles"
 Provides-Extra: toml
 Requires-Dist: tomlkit<0.15.0,>=0.13.0; extra == "toml"
 Provides-Extra: yaml

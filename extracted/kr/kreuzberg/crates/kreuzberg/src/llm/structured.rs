@@ -62,7 +62,7 @@ fn strip_additional_properties(schema: &Value) -> Value {
 pub async fn extract_structured(
     content: &str,
     config: &StructuredExtractionConfig,
-) -> crate::Result<serde_json::Value> {
+) -> crate::Result<(serde_json::Value, Option<crate::types::LlmUsage>)> {
     use liter_llm::LlmClient;
 
     let client = super::client::create_client(&config.llm)?;
@@ -115,6 +115,8 @@ pub async fn extract_structured(
         .await
         .map_err(|e| crate::KreuzbergError::parsing(format!("LLM structured extraction request failed: {e}")))?;
 
+    let usage = super::usage::extract_usage_from_chat(&response, "structured_extraction");
+
     // Extract text content from the first choice.
     let text = response
         .choices
@@ -138,13 +140,15 @@ pub async fn extract_structured(
         .map(|s| s.trim())
         .unwrap_or(text.trim());
 
-    serde_json::from_str(cleaned).map_err(|e| {
+    let value = serde_json::from_str(cleaned).map_err(|e| {
         crate::KreuzbergError::parsing(format!(
             "LLM structured extraction returned invalid JSON (model={}): {e}\nRaw response: {}",
             config.llm.model,
             &text[..text.floor_char_boundary(text.len().min(200))]
         ))
-    })
+    })?;
+
+    Ok((value, usage))
 }
 
 #[cfg(test)]

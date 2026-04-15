@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pm4py
-Version: 2.7.22
+Version: 2.7.22.2
 Summary: Process mining for Python
 Home-page: https://processintelligence.solutions/
 Author: Process Intelligence Solutions (PIS)
@@ -86,6 +86,10 @@ PM4Py depends on some other Python packages, with different levels of importance
 ## Release Notes
 
 To track the incremental updates, please refer to the CHANGELOG.md file.
+
+## Contributing
+
+If you want to contribute to PM4Py, please review the [contributing guidelines and Contributor License Agreement (CLA)](https://processintelligence.solutions/pm4py/contributing).
 
 ## Third Party Dependencies
 

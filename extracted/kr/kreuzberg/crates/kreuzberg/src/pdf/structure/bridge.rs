@@ -229,6 +229,48 @@ fn finalize_paragraph(
     let word_count = trimmed.split_whitespace().count();
     let is_bold = lines.iter().filter(|l| l.is_bold).count() > lines.len() / 2;
 
+    // When segments carry pre-assigned heading roles from the PDF structure tree,
+    // use those directly — the tree is the author's stated intent and overrides
+    // all heuristic detection. The majority role among lines wins.
+    let structure_tree_role = {
+        let role_counts: std::collections::HashMap<u8, usize> =
+            lines
+                .iter()
+                .filter_map(|l| l.assigned_role)
+                .fold(std::collections::HashMap::new(), |mut acc, level| {
+                    *acc.entry(level).or_default() += 1;
+                    acc
+                });
+        role_counts
+            .into_iter()
+            .max_by_key(|(_, count)| *count)
+            .map(|(level, _)| level)
+    };
+    if let Some(level) = structure_tree_role {
+        let segments: Vec<SegmentData> = lines.iter().map(|l| (*l).clone()).collect();
+        let line = super::types::PdfLine {
+            segments,
+            baseline_y: first.baseline_y,
+            dominant_font_size: first.font_size,
+            is_bold,
+            is_monospace: first.is_monospace,
+        };
+        return Some(PdfParagraph {
+            text: trimmed.to_string(),
+            lines: vec![line],
+            dominant_font_size: first.font_size,
+            heading_level: Some(level),
+            is_bold,
+            is_list_item: looks_like_list_item(trimmed),
+            is_code_block: first.is_monospace && lines.len() > 1,
+            is_formula: false,
+            is_page_furniture: false,
+            layout_class: None,
+            caption_for: None,
+            block_bbox: None,
+        });
+    }
+
     // Conservative heading detection.
     // Pass 1: font-size-based — significantly larger font than body.
     let mut heading_level = super::classify::find_heading_level(first.font_size, heading_map, gap_info);
@@ -797,6 +839,7 @@ fn extract_page_blocks(page: &PdfPage) -> Option<(Vec<SegmentData>, String, Vec<
             is_italic: italic_count > half,
             is_monospace: mono_count > half,
             baseline_y: first_baseline_y,
+            assigned_role: None,
         });
     }
 
@@ -965,6 +1008,7 @@ fn extract_paragraphs_to_segments(paragraphs: Vec<PdfiumParagraph>, segments: &m
                             is_italic,
                             is_monospace,
                             baseline_y: line_baseline,
+                            assigned_role: None,
                         });
 
                         running_x += estimated_width;
@@ -1174,6 +1218,7 @@ mod tests {
                 is_italic: false,
                 is_monospace: false,
                 baseline_y: 700.0,
+                assigned_role: None,
             },
             SegmentData {
                 text: "Body text follows here with more words.".to_string(),
@@ -1186,6 +1231,7 @@ mod tests {
                 is_italic: false,
                 is_monospace: false,
                 baseline_y: 680.0,
+                assigned_role: None,
             },
         ];
         let paragraphs = blocks_to_paragraphs(lines, &heading_map, &[]);
@@ -1214,6 +1260,7 @@ mod tests {
                 is_italic: false,
                 is_monospace: false,
                 baseline_y: 700.0,
+                assigned_role: None,
             },
             SegmentData {
                 text: "To use Docling you can simply install it.".to_string(),
@@ -1226,6 +1273,7 @@ mod tests {
                 is_italic: false,
                 is_monospace: false,
                 baseline_y: 680.0,
+                assigned_role: None,
             },
         ];
         let paragraphs = blocks_to_paragraphs(lines, &heading_map, &[]);
@@ -1254,6 +1302,7 @@ mod tests {
                 is_italic: false,
                 is_monospace: false,
                 baseline_y: 700.0,
+                assigned_role: None,
             },
             SegmentData {
                 text: "Body text here.".to_string(),
@@ -1266,6 +1315,7 @@ mod tests {
                 is_italic: false,
                 is_monospace: false,
                 baseline_y: 680.0,
+                assigned_role: None,
             },
         ];
         let paragraphs = blocks_to_paragraphs(lines, &heading_map, &[]);
@@ -1287,6 +1337,7 @@ mod tests {
             is_italic: false,
             is_monospace: false,
             baseline_y: 50.0,
+            assigned_role: None,
         }];
         let paragraphs = blocks_to_paragraphs(lines, &heading_map, &[]);
         assert_eq!(paragraphs.len(), 1);

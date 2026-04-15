@@ -1,9 +1,8 @@
 Metadata-Version: 2.4
 Name: huey
-Version: 2.6.0
+Version: 3.0.0
 Summary: a little task queue
 Author-email: Charles Leifer <coleifer@gmail.com>
-License-Expression: MIT
 Project-URL: Repository, https://github.com/coleifer/huey
 Project-URL: Documentation, https://huey.readthedocs.io/
 Project-URL: Changelog, https://github.com/coleifer/huey/blob/master/CHANGELOG.md
@@ -38,8 +37,9 @@ huey supports:
 * task prioritization
 * task result storage
 * task expiration
-* task locking
+* task locking, rate-limits and timeouts
 * task pipelines and chains
+* groups (fan-out), chords (map / reduce)
 
 .. image:: http://i.imgur.com/2EpRs.jpg
 

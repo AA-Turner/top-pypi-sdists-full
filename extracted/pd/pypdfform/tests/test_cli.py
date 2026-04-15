@@ -32,8 +32,32 @@ def test_root_command_with_version():
 
 
 @pytest.mark.cli_test
+def test_fill_command():
+    result = runner.invoke(cli_app, ["fill"])
+    assert result.exit_code == 2
+
+    assert "Usage:" in result.output
+
+
+@pytest.mark.cli_test
 def test_coordinate_command():
     result = runner.invoke(cli_app, ["coordinate"])
+    assert result.exit_code == 2
+
+    assert "Usage:" in result.output
+
+
+@pytest.mark.cli_test
+def test_create_command():
+    result = runner.invoke(cli_app, ["create"])
+    assert result.exit_code == 2
+
+    assert "Usage:" in result.output
+
+
+@pytest.mark.cli_test
+def test_inspect_command():
+    result = runner.invoke(cli_app, ["inspect"])
     assert result.exit_code == 2
 
     assert "Usage:" in result.output

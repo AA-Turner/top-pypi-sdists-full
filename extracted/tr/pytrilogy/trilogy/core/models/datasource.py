@@ -260,24 +260,23 @@ class Datasource(HasUUID, Namespaced, BaseModel):
     def merge_concept(
         self, source: Concept, target: Concept, modifiers: List[Modifier]
     ):
-        original = [c for c in self.columns if c.concept.address == source.address]
-        early_exit_check = [
-            c for c in self.columns if c.concept.address == target.address
-        ]
+        source_addr = source.address
+        target_addr = target.address
+        early_exit_check = [c for c in self.columns if c.concept.address == target_addr]
         if early_exit_check:
             logger.info(
                 f"No concept merge needed on merge of {source} to {target}, have {[x.concept.address for x in self.columns]}"
             )
             return None
+        original = [c for c in self.columns if c.concept.address == source_addr]
         if len(original) != 1:
             raise ValueError(
-                f"Expected exactly one column to merge, got {len(original)} for {source.address}, {[x.alias for x in original]}"
+                f"Expected exactly one column to merge, got {len(original)} for {source_addr}, {[x.alias for x in original]}"
             )
-        # map to the alias with the modifier, and the original
         self.columns = [
             c.with_merge(source, target, modifiers)
             for c in self.columns
-            if c.concept.address != source.address
+            if c.concept.address != source_addr
         ] + original
         self.grain = self.grain.with_merge(source, target, modifiers)
         self.where = (

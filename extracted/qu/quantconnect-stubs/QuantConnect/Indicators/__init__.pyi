@@ -6562,6 +6562,31 @@ class SwissArmyKnife(QuantConnect.Indicators.Indicator, QuantConnect.Indicators.
     """Swiss Army Knife indicator by John Ehlers"""
 
     @property
+    def gauss(self) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+        """Gets the Gaussian Filter sub-indicator"""
+        ...
+
+    @property
+    def butter(self) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+        """Gets the Butterworth Filter sub-indicator"""
+        ...
+
+    @property
+    def high_pass(self) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+        """Gets the High Pass Filter sub-indicator"""
+        ...
+
+    @property
+    def two_pole_high_pass(self) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+        """Gets the Two Pole High Pass Filter sub-indicator"""
+        ...
+
+    @property
+    def band_pass(self) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+        """Gets the BandPass Filter sub-indicator"""
+        ...
+
+    @property
     def is_ready(self) -> bool:
         """Gets a flag indicating when this indicator is ready and fully initialized"""
         ...

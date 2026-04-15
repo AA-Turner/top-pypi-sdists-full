@@ -40,7 +40,7 @@ class AiderPolyglotExtractor(HuggingFaceBenchmarkExtractor):
 
     evaluator_name = "aider_polyglot"
 
-    def __init__(self, http_timeout: int, language: Optional[str] = None):
+    def __init__(self, http_timeout: int = 30, language: Optional[str] = None):
         """
         Initialize Aider Polyglot extractor.
 
@@ -118,23 +118,23 @@ class AiderPolyglotExtractor(HuggingFaceBenchmarkExtractor):
         """Load a single exercise's instructions and solution."""
         try:
             base_url = "https://raw.githubusercontent.com/Aider-AI/polyglot-benchmark/main"
-            
+
             # Load instructions
             instructions_url = f"{base_url}/{path}/.docs/instructions.md"
-            instructions_resp = requests.get(instructions_url, timeout=subprocess_timeout_s())
+            instructions_resp = requests.get(instructions_url, timeout=self.http_timeout)
             if instructions_resp.status_code != 200:
                 return None
             instructions = instructions_resp.text
-            
+
             # Load solution - file extension depends on language
             ext_map = {
                 "python": "py", "javascript": "js", "java": "java",
                 "cpp": "cpp", "go": "go", "rust": "rs"
             }
             ext = ext_map.get(self.language, "py")
-            
+
             solution_url = f"{base_url}/{path}/.meta/example.{ext}"
-            solution_resp = requests.get(solution_url, timeout=subprocess_timeout_s())
+            solution_resp = requests.get(solution_url, timeout=self.http_timeout)
             if solution_resp.status_code != 200:
                 return None
             solution = solution_resp.text

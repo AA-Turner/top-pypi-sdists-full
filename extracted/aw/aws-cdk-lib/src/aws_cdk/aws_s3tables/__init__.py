@@ -340,6 +340,8 @@ class CfnTable(
         # The values are placeholders you should change.
         from aws_cdk import aws_s3tables as s3tables
         
+        # type: Any
+        
         cfn_table = s3tables.CfnTable(self, "MyCfnTable",
             namespace="namespace",
             open_table_format="openTableFormat",
@@ -352,18 +354,6 @@ class CfnTable(
                 target_file_size_mb=123
             ),
             iceberg_metadata=s3tables.CfnTable.IcebergMetadataProperty(
-                iceberg_schema=s3tables.CfnTable.IcebergSchemaProperty(
-                    schema_field_list=[s3tables.CfnTable.SchemaFieldProperty(
-                        name="name",
-                        type="type",
-        
-                        # the properties below are optional
-                        id=123,
-                        required=False
-                    )]
-                ),
-        
-                # the properties below are optional
                 iceberg_partition_spec=s3tables.CfnTable.IcebergPartitionSpecProperty(
                     fields=[s3tables.CfnTable.IcebergPartitionFieldProperty(
                         name="name",
@@ -376,6 +366,32 @@ class CfnTable(
         
                     # the properties below are optional
                     spec_id=123
+                ),
+                iceberg_schema=s3tables.CfnTable.IcebergSchemaProperty(
+                    schema_field_list=[s3tables.CfnTable.SchemaFieldProperty(
+                        name="name",
+                        type="type",
+        
+                        # the properties below are optional
+                        id=123,
+                        required=False
+                    )]
+                ),
+                iceberg_schema_v2=s3tables.CfnTable.IcebergSchemaV2Property(
+                    schema_v2_field_list=[s3tables.CfnTable.SchemaV2FieldProperty(
+                        id=123,
+                        name="name",
+                        required=False,
+                        type=type,
+        
+                        # the properties below are optional
+                        doc="doc"
+                    )],
+                    schema_v2_field_type="schemaV2FieldType",
+        
+                    # the properties below are optional
+                    identifier_field_ids=[123],
+                    schema_id=123
                 ),
                 iceberg_sort_order=s3tables.CfnTable.IcebergSortOrderProperty(
                     fields=[s3tables.CfnTable.IcebergSortFieldProperty(
@@ -779,8 +795,9 @@ class CfnTable(
         jsii_type="aws-cdk-lib.aws_s3tables.CfnTable.IcebergMetadataProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "iceberg_schema": "icebergSchema",
             "iceberg_partition_spec": "icebergPartitionSpec",
+            "iceberg_schema": "icebergSchema",
+            "iceberg_schema_v2": "icebergSchemaV2",
             "iceberg_sort_order": "icebergSortOrder",
             "table_properties": "tableProperties",
         },
@@ -789,15 +806,17 @@ class CfnTable(
         def __init__(
             self,
             *,
-            iceberg_schema: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSchemaProperty", typing.Dict[builtins.str, typing.Any]]],
             iceberg_partition_spec: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergPartitionSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iceberg_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iceberg_schema_v2: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSchemaV2Property", typing.Dict[builtins.str, typing.Any]]]] = None,
             iceberg_sort_order: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSortOrderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             table_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Contains details about the metadata for an Iceberg table.
 
-            :param iceberg_schema: The schema for an Iceberg table.
             :param iceberg_partition_spec: Partition specification for an Iceberg table.
+            :param iceberg_schema: The schema for an Iceberg table.
+            :param iceberg_schema_v2: Contains details about the schema version 2 (V2) for an Iceberg table that supports Apache Iceberg Nested Types (struct, list, map). Primitive types are also supported.
             :param iceberg_sort_order: Sort order specification for an Iceberg table.
             :param table_properties: Iceberg table properties (e.g., format-version, write.parquet.compression-codec).
 
@@ -810,19 +829,9 @@ class CfnTable(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_s3tables as s3tables
                 
+                # type: Any
+                
                 iceberg_metadata_property = s3tables.CfnTable.IcebergMetadataProperty(
-                    iceberg_schema=s3tables.CfnTable.IcebergSchemaProperty(
-                        schema_field_list=[s3tables.CfnTable.SchemaFieldProperty(
-                            name="name",
-                            type="type",
-                
-                            # the properties below are optional
-                            id=123,
-                            required=False
-                        )]
-                    ),
-                
-                    # the properties below are optional
                     iceberg_partition_spec=s3tables.CfnTable.IcebergPartitionSpecProperty(
                         fields=[s3tables.CfnTable.IcebergPartitionFieldProperty(
                             name="name",
@@ -835,6 +844,32 @@ class CfnTable(
                 
                         # the properties below are optional
                         spec_id=123
+                    ),
+                    iceberg_schema=s3tables.CfnTable.IcebergSchemaProperty(
+                        schema_field_list=[s3tables.CfnTable.SchemaFieldProperty(
+                            name="name",
+                            type="type",
+                
+                            # the properties below are optional
+                            id=123,
+                            required=False
+                        )]
+                    ),
+                    iceberg_schema_v2=s3tables.CfnTable.IcebergSchemaV2Property(
+                        schema_v2_field_list=[s3tables.CfnTable.SchemaV2FieldProperty(
+                            id=123,
+                            name="name",
+                            required=False,
+                            type=type,
+                
+                            # the properties below are optional
+                            doc="doc"
+                        )],
+                        schema_v2_field_type="schemaV2FieldType",
+                
+                        # the properties below are optional
+                        identifier_field_ids=[123],
+                        schema_id=123
                     ),
                     iceberg_sort_order=s3tables.CfnTable.IcebergSortOrderProperty(
                         fields=[s3tables.CfnTable.IcebergSortFieldProperty(
@@ -854,31 +889,22 @@ class CfnTable(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__1e5dc7085346ad722ba37251e910871affc6e3d90d9251cc9d43941978d7cb0a)
-                check_type(argname="argument iceberg_schema", value=iceberg_schema, expected_type=type_hints["iceberg_schema"])
                 check_type(argname="argument iceberg_partition_spec", value=iceberg_partition_spec, expected_type=type_hints["iceberg_partition_spec"])
+                check_type(argname="argument iceberg_schema", value=iceberg_schema, expected_type=type_hints["iceberg_schema"])
+                check_type(argname="argument iceberg_schema_v2", value=iceberg_schema_v2, expected_type=type_hints["iceberg_schema_v2"])
                 check_type(argname="argument iceberg_sort_order", value=iceberg_sort_order, expected_type=type_hints["iceberg_sort_order"])
                 check_type(argname="argument table_properties", value=table_properties, expected_type=type_hints["table_properties"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "iceberg_schema": iceberg_schema,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
             if iceberg_partition_spec is not None:
                 self._values["iceberg_partition_spec"] = iceberg_partition_spec
+            if iceberg_schema is not None:
+                self._values["iceberg_schema"] = iceberg_schema
+            if iceberg_schema_v2 is not None:
+                self._values["iceberg_schema_v2"] = iceberg_schema_v2
             if iceberg_sort_order is not None:
                 self._values["iceberg_sort_order"] = iceberg_sort_order
             if table_properties is not None:
                 self._values["table_properties"] = table_properties
-
-        @builtins.property
-        def iceberg_schema(
-            self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSchemaProperty"]:
-            '''The schema for an Iceberg table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergmetadata.html#cfn-s3tables-table-icebergmetadata-icebergschema
-            '''
-            result = self._values.get("iceberg_schema")
-            assert result is not None, "Required property 'iceberg_schema' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSchemaProperty"], result)
 
         @builtins.property
         def iceberg_partition_spec(
@@ -890,6 +916,30 @@ class CfnTable(
             '''
             result = self._values.get("iceberg_partition_spec")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergPartitionSpecProperty"]], result)
+
+        @builtins.property
+        def iceberg_schema(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSchemaProperty"]]:
+            '''The schema for an Iceberg table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergmetadata.html#cfn-s3tables-table-icebergmetadata-icebergschema
+            '''
+            result = self._values.get("iceberg_schema")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSchemaProperty"]], result)
+
+        @builtins.property
+        def iceberg_schema_v2(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSchemaV2Property"]]:
+            '''Contains details about the schema version 2 (V2) for an Iceberg table that supports Apache Iceberg Nested Types (struct, list, map).
+
+            Primitive types are also supported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergmetadata.html#cfn-s3tables-table-icebergmetadata-icebergschemav2
+            '''
+            result = self._values.get("iceberg_schema_v2")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSchemaV2Property"]], result)
 
         @builtins.property
         def iceberg_sort_order(
@@ -1176,6 +1226,132 @@ class CfnTable(
 
         def __repr__(self) -> str:
             return "IcebergSchemaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3tables.CfnTable.IcebergSchemaV2Property",
+        jsii_struct_bases=[],
+        name_mapping={
+            "schema_v2_field_list": "schemaV2FieldList",
+            "schema_v2_field_type": "schemaV2FieldType",
+            "identifier_field_ids": "identifierFieldIds",
+            "schema_id": "schemaId",
+        },
+    )
+    class IcebergSchemaV2Property:
+        def __init__(
+            self,
+            *,
+            schema_v2_field_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.SchemaV2FieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            schema_v2_field_type: builtins.str,
+            identifier_field_ids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            schema_id: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Contains details about the schema version 2 (V2) for an Iceberg table that supports Apache Iceberg Nested Types (struct, list, map).
+
+            Primitive types are also supported.
+
+            :param schema_v2_field_list: List of schema fields that support nested types.
+            :param schema_v2_field_type: The type of the top-level schema, which is always 'struct'.
+            :param identifier_field_ids: A list of field IDs that are used as the identifier fields for the table. Identifier fields uniquely identify a row in the table.
+            :param schema_id: An optional unique identifier for the schema.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergschemav2.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3tables as s3tables
+                
+                # type: Any
+                
+                iceberg_schema_v2_property = s3tables.CfnTable.IcebergSchemaV2Property(
+                    schema_v2_field_list=[s3tables.CfnTable.SchemaV2FieldProperty(
+                        id=123,
+                        name="name",
+                        required=False,
+                        type=type,
+                
+                        # the properties below are optional
+                        doc="doc"
+                    )],
+                    schema_v2_field_type="schemaV2FieldType",
+                
+                    # the properties below are optional
+                    identifier_field_ids=[123],
+                    schema_id=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__56084758b0dca3cdee168a93f36f8d6e489f52256aa69d2dc3476605852557e5)
+                check_type(argname="argument schema_v2_field_list", value=schema_v2_field_list, expected_type=type_hints["schema_v2_field_list"])
+                check_type(argname="argument schema_v2_field_type", value=schema_v2_field_type, expected_type=type_hints["schema_v2_field_type"])
+                check_type(argname="argument identifier_field_ids", value=identifier_field_ids, expected_type=type_hints["identifier_field_ids"])
+                check_type(argname="argument schema_id", value=schema_id, expected_type=type_hints["schema_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "schema_v2_field_list": schema_v2_field_list,
+                "schema_v2_field_type": schema_v2_field_type,
+            }
+            if identifier_field_ids is not None:
+                self._values["identifier_field_ids"] = identifier_field_ids
+            if schema_id is not None:
+                self._values["schema_id"] = schema_id
+
+        @builtins.property
+        def schema_v2_field_list(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.SchemaV2FieldProperty"]]]:
+            '''List of schema fields that support nested types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergschemav2.html#cfn-s3tables-table-icebergschemav2-schemav2fieldlist
+            '''
+            result = self._values.get("schema_v2_field_list")
+            assert result is not None, "Required property 'schema_v2_field_list' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.SchemaV2FieldProperty"]]], result)
+
+        @builtins.property
+        def schema_v2_field_type(self) -> builtins.str:
+            '''The type of the top-level schema, which is always 'struct'.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergschemav2.html#cfn-s3tables-table-icebergschemav2-schemav2fieldtype
+            '''
+            result = self._values.get("schema_v2_field_type")
+            assert result is not None, "Required property 'schema_v2_field_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def identifier_field_ids(
+            self,
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+            '''A list of field IDs that are used as the identifier fields for the table.
+
+            Identifier fields uniquely identify a row in the table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergschemav2.html#cfn-s3tables-table-icebergschemav2-identifierfieldids
+            '''
+            result = self._values.get("identifier_field_ids")
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def schema_id(self) -> typing.Optional[jsii.Number]:
+            '''An optional unique identifier for the schema.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergschemav2.html#cfn-s3tables-table-icebergschemav2-schemaid
+            '''
+            result = self._values.get("schema_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergSchemaV2Property(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1480,6 +1656,131 @@ class CfnTable(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3tables.CfnTable.SchemaV2FieldProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "id": "id",
+            "name": "name",
+            "required": "required",
+            "type": "type",
+            "doc": "doc",
+        },
+    )
+    class SchemaV2FieldProperty:
+        def __init__(
+            self,
+            *,
+            id: jsii.Number,
+            name: builtins.str,
+            required: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            type: typing.Any,
+            doc: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Contains details about a schema field for an Iceberg table that supports nested types (struct, list, map).
+
+            :param id: The unique identifier for the field.
+            :param name: The name of the field.
+            :param required: A Boolean value that specifies whether values are required for each row in this field.
+            :param type: 
+            :param doc: Optional documentation for the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-schemav2field.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3tables as s3tables
+                
+                # type: Any
+                
+                schema_v2_field_property = s3tables.CfnTable.SchemaV2FieldProperty(
+                    id=123,
+                    name="name",
+                    required=False,
+                    type=type,
+                
+                    # the properties below are optional
+                    doc="doc"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__62421cbb513a97e66b63f3192948d572b94886a8c3c4d417d6cdd4b5810517d2)
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument required", value=required, expected_type=type_hints["required"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument doc", value=doc, expected_type=type_hints["doc"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "id": id,
+                "name": name,
+                "required": required,
+                "type": type,
+            }
+            if doc is not None:
+                self._values["doc"] = doc
+
+        @builtins.property
+        def id(self) -> jsii.Number:
+            '''The unique identifier for the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-schemav2field.html#cfn-s3tables-table-schemav2field-id
+            '''
+            result = self._values.get("id")
+            assert result is not None, "Required property 'id' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-schemav2field.html#cfn-s3tables-table-schemav2field-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def required(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''A Boolean value that specifies whether values are required for each row in this field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-schemav2field.html#cfn-s3tables-table-schemav2field-required
+            '''
+            result = self._values.get("required")
+            assert result is not None, "Required property 'required' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def type(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-schemav2field.html#cfn-s3tables-table-schemav2field-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def doc(self) -> typing.Optional[builtins.str]:
+            '''Optional documentation for the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-schemav2field.html#cfn-s3tables-table-schemav2field-doc
+            '''
+            result = self._values.get("doc")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SchemaV2FieldProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_s3tables.CfnTable.SnapshotManagementProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -1672,6 +1973,14 @@ class CfnTableBucket(
             metrics_configuration=s3tables.CfnTableBucket.MetricsConfigurationProperty(
                 status="status"
             ),
+            replication_configuration=s3tables.CfnTableBucket.ReplicationConfigurationProperty(
+                role="role",
+                rules=[s3tables.CfnTableBucket.ReplicationRuleProperty(
+                    destinations=[s3tables.CfnTableBucket.ReplicationDestinationProperty(
+                        destination_table_bucket_arn="destinationTableBucketArn"
+                    )]
+                )]
+            ),
             storage_class_configuration=s3tables.CfnTableBucket.StorageClassConfigurationProperty(
                 storage_class="storageClass"
             ),
@@ -1695,6 +2004,7 @@ class CfnTableBucket(
         table_bucket_name: builtins.str,
         encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         metrics_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.MetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        replication_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         storage_class_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.StorageClassConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         unreferenced_file_removal: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.UnreferencedFileRemovalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1706,6 +2016,7 @@ class CfnTableBucket(
         :param table_bucket_name: The name for the table bucket.
         :param encryption_configuration: Configuration specifying how data should be encrypted. This structure defines the encryption algorithm and optional KMS key to be used for server-side encryption.
         :param metrics_configuration: Settings governing the Metric configuration for the table bucket.
+        :param replication_configuration: Specifies replication configuration for the table bucket.
         :param storage_class_configuration: The configuration details for the storage class of tables or table buckets. This allows you to optimize storage costs by selecting the appropriate storage class based on your access patterns and performance requirements.
         :param tags: User tags (key-value pairs) to associate with the table bucket.
         :param unreferenced_file_removal: The unreferenced file removal settings for your table bucket. Unreferenced file removal identifies and deletes all objects that are not referenced by any table snapshots. For more information, see the `*Amazon S3 User Guide* <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-table-buckets-maintenance.html>`_ .
@@ -1718,6 +2029,7 @@ class CfnTableBucket(
             table_bucket_name=table_bucket_name,
             encryption_configuration=encryption_configuration,
             metrics_configuration=metrics_configuration,
+            replication_configuration=replication_configuration,
             storage_class_configuration=storage_class_configuration,
             tags=tags,
             unreferenced_file_removal=unreferenced_file_removal,
@@ -1855,6 +2167,24 @@ class CfnTableBucket(
             type_hints = typing.get_type_hints(_typecheckingstub__31b7ae51d65703ba2d4aa73c08a7a5a34ad19b1ca27dd0de7d23e3e5bc20d595)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metricsConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="replicationConfiguration")
+    def replication_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationConfigurationProperty"]]:
+        '''Specifies replication configuration for the table bucket.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationConfigurationProperty"]], jsii.get(self, "replicationConfiguration"))
+
+    @replication_configuration.setter
+    def replication_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__14b361ac299ac02681f62fa559e4fa83032ef0e66dfd83ea8ab593ac9d7db6c7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replicationConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="storageClassConfiguration")
@@ -2031,6 +2361,195 @@ class CfnTableBucket(
 
         def __repr__(self) -> str:
             return "MetricsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3tables.CfnTableBucket.ReplicationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"role": "role", "rules": "rules"},
+    )
+    class ReplicationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            role: builtins.str,
+            rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.ReplicationRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''Specifies replication configuration for the table bucket.
+
+            :param role: The ARN of the IAM role to use for replication.
+            :param rules: List of replication rules.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-replicationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3tables as s3tables
+                
+                replication_configuration_property = s3tables.CfnTableBucket.ReplicationConfigurationProperty(
+                    role="role",
+                    rules=[s3tables.CfnTableBucket.ReplicationRuleProperty(
+                        destinations=[s3tables.CfnTableBucket.ReplicationDestinationProperty(
+                            destination_table_bucket_arn="destinationTableBucketArn"
+                        )]
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e2186ff62db969914d25b4efdb80b80293d6f5f158f0ba2791c2ab968e033983)
+                check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+                check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "role": role,
+                "rules": rules,
+            }
+
+        @builtins.property
+        def role(self) -> builtins.str:
+            '''The ARN of the IAM role to use for replication.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-replicationconfiguration.html#cfn-s3tables-tablebucket-replicationconfiguration-role
+            '''
+            result = self._values.get("role")
+            assert result is not None, "Required property 'role' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def rules(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationRuleProperty"]]]:
+            '''List of replication rules.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-replicationconfiguration.html#cfn-s3tables-tablebucket-replicationconfiguration-rules
+            '''
+            result = self._values.get("rules")
+            assert result is not None, "Required property 'rules' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationRuleProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReplicationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3tables.CfnTableBucket.ReplicationDestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"destination_table_bucket_arn": "destinationTableBucketArn"},
+    )
+    class ReplicationDestinationProperty:
+        def __init__(self, *, destination_table_bucket_arn: builtins.str) -> None:
+            '''A replication destination.
+
+            :param destination_table_bucket_arn: The ARN of the destination table bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-replicationdestination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3tables as s3tables
+                
+                replication_destination_property = s3tables.CfnTableBucket.ReplicationDestinationProperty(
+                    destination_table_bucket_arn="destinationTableBucketArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c8497604e9271923eb6550061b92e02210ba5c01bac7953fee25f6924d5ead53)
+                check_type(argname="argument destination_table_bucket_arn", value=destination_table_bucket_arn, expected_type=type_hints["destination_table_bucket_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_table_bucket_arn": destination_table_bucket_arn,
+            }
+
+        @builtins.property
+        def destination_table_bucket_arn(self) -> builtins.str:
+            '''The ARN of the destination table bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-replicationdestination.html#cfn-s3tables-tablebucket-replicationdestination-destinationtablebucketarn
+            '''
+            result = self._values.get("destination_table_bucket_arn")
+            assert result is not None, "Required property 'destination_table_bucket_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReplicationDestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3tables.CfnTableBucket.ReplicationRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"destinations": "destinations"},
+    )
+    class ReplicationRuleProperty:
+        def __init__(
+            self,
+            *,
+            destinations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.ReplicationDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''A replication rule for the table bucket.
+
+            :param destinations: List of replication destinations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-replicationrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3tables as s3tables
+                
+                replication_rule_property = s3tables.CfnTableBucket.ReplicationRuleProperty(
+                    destinations=[s3tables.CfnTableBucket.ReplicationDestinationProperty(
+                        destination_table_bucket_arn="destinationTableBucketArn"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__de4e958b803528aedb746b10caacd5f29c89f93e4c34021e1c1323d934241814)
+                check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destinations": destinations,
+            }
+
+        @builtins.property
+        def destinations(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationDestinationProperty"]]]:
+            '''List of replication destinations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-replicationrule.html#cfn-s3tables-tablebucket-replicationrule-destinations
+            '''
+            result = self._values.get("destinations")
+            assert result is not None, "Required property 'destinations' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationDestinationProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReplicationRuleProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2411,6 +2930,7 @@ class CfnTableBucketPolicyProps:
         "table_bucket_name": "tableBucketName",
         "encryption_configuration": "encryptionConfiguration",
         "metrics_configuration": "metricsConfiguration",
+        "replication_configuration": "replicationConfiguration",
         "storage_class_configuration": "storageClassConfiguration",
         "tags": "tags",
         "unreferenced_file_removal": "unreferencedFileRemoval",
@@ -2423,6 +2943,7 @@ class CfnTableBucketProps:
         table_bucket_name: builtins.str,
         encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         metrics_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.MetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        replication_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         storage_class_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.StorageClassConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         unreferenced_file_removal: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.UnreferencedFileRemovalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2432,6 +2953,7 @@ class CfnTableBucketProps:
         :param table_bucket_name: The name for the table bucket.
         :param encryption_configuration: Configuration specifying how data should be encrypted. This structure defines the encryption algorithm and optional KMS key to be used for server-side encryption.
         :param metrics_configuration: Settings governing the Metric configuration for the table bucket.
+        :param replication_configuration: Specifies replication configuration for the table bucket.
         :param storage_class_configuration: The configuration details for the storage class of tables or table buckets. This allows you to optimize storage costs by selecting the appropriate storage class based on your access patterns and performance requirements.
         :param tags: User tags (key-value pairs) to associate with the table bucket.
         :param unreferenced_file_removal: The unreferenced file removal settings for your table bucket. Unreferenced file removal identifies and deletes all objects that are not referenced by any table snapshots. For more information, see the `*Amazon S3 User Guide* <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-table-buckets-maintenance.html>`_ .
@@ -2457,6 +2979,14 @@ class CfnTableBucketProps:
                 metrics_configuration=s3tables.CfnTableBucket.MetricsConfigurationProperty(
                     status="status"
                 ),
+                replication_configuration=s3tables.CfnTableBucket.ReplicationConfigurationProperty(
+                    role="role",
+                    rules=[s3tables.CfnTableBucket.ReplicationRuleProperty(
+                        destinations=[s3tables.CfnTableBucket.ReplicationDestinationProperty(
+                            destination_table_bucket_arn="destinationTableBucketArn"
+                        )]
+                    )]
+                ),
                 storage_class_configuration=s3tables.CfnTableBucket.StorageClassConfigurationProperty(
                     storage_class="storageClass"
                 ),
@@ -2476,6 +3006,7 @@ class CfnTableBucketProps:
             check_type(argname="argument table_bucket_name", value=table_bucket_name, expected_type=type_hints["table_bucket_name"])
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
             check_type(argname="argument metrics_configuration", value=metrics_configuration, expected_type=type_hints["metrics_configuration"])
+            check_type(argname="argument replication_configuration", value=replication_configuration, expected_type=type_hints["replication_configuration"])
             check_type(argname="argument storage_class_configuration", value=storage_class_configuration, expected_type=type_hints["storage_class_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument unreferenced_file_removal", value=unreferenced_file_removal, expected_type=type_hints["unreferenced_file_removal"])
@@ -2486,6 +3017,8 @@ class CfnTableBucketProps:
             self._values["encryption_configuration"] = encryption_configuration
         if metrics_configuration is not None:
             self._values["metrics_configuration"] = metrics_configuration
+        if replication_configuration is not None:
+            self._values["replication_configuration"] = replication_configuration
         if storage_class_configuration is not None:
             self._values["storage_class_configuration"] = storage_class_configuration
         if tags is not None:
@@ -2526,6 +3059,17 @@ class CfnTableBucketProps:
         '''
         result = self._values.get("metrics_configuration")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.MetricsConfigurationProperty"]], result)
+
+    @builtins.property
+    def replication_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationConfigurationProperty"]]:
+        '''Specifies replication configuration for the table bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-tablebucket.html#cfn-s3tables-tablebucket-replicationconfiguration
+        '''
+        result = self._values.get("replication_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationConfigurationProperty"]], result)
 
     @builtins.property
     def storage_class_configuration(
@@ -2866,6 +3410,8 @@ class CfnTableProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_s3tables as s3tables
             
+            # type: Any
+            
             cfn_table_props = s3tables.CfnTableProps(
                 namespace="namespace",
                 open_table_format="openTableFormat",
@@ -2878,18 +3424,6 @@ class CfnTableProps:
                     target_file_size_mb=123
                 ),
                 iceberg_metadata=s3tables.CfnTable.IcebergMetadataProperty(
-                    iceberg_schema=s3tables.CfnTable.IcebergSchemaProperty(
-                        schema_field_list=[s3tables.CfnTable.SchemaFieldProperty(
-                            name="name",
-                            type="type",
-            
-                            # the properties below are optional
-                            id=123,
-                            required=False
-                        )]
-                    ),
-            
-                    # the properties below are optional
                     iceberg_partition_spec=s3tables.CfnTable.IcebergPartitionSpecProperty(
                         fields=[s3tables.CfnTable.IcebergPartitionFieldProperty(
                             name="name",
@@ -2902,6 +3436,32 @@ class CfnTableProps:
             
                         # the properties below are optional
                         spec_id=123
+                    ),
+                    iceberg_schema=s3tables.CfnTable.IcebergSchemaProperty(
+                        schema_field_list=[s3tables.CfnTable.SchemaFieldProperty(
+                            name="name",
+                            type="type",
+            
+                            # the properties below are optional
+                            id=123,
+                            required=False
+                        )]
+                    ),
+                    iceberg_schema_v2=s3tables.CfnTable.IcebergSchemaV2Property(
+                        schema_v2_field_list=[s3tables.CfnTable.SchemaV2FieldProperty(
+                            id=123,
+                            name="name",
+                            required=False,
+                            type=type,
+            
+                            # the properties below are optional
+                            doc="doc"
+                        )],
+                        schema_v2_field_type="schemaV2FieldType",
+            
+                        # the properties below are optional
+                        identifier_field_ids=[123],
+                        schema_id=123
                     ),
                     iceberg_sort_order=s3tables.CfnTable.IcebergSortOrderProperty(
                         fields=[s3tables.CfnTable.IcebergSortFieldProperty(
@@ -3257,8 +3817,9 @@ def _typecheckingstub__f49118bb06f06baf9f7618e6cd633803a2486d06b541e59cab8801a6a
 
 def _typecheckingstub__1e5dc7085346ad722ba37251e910871affc6e3d90d9251cc9d43941978d7cb0a(
     *,
-    iceberg_schema: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSchemaProperty, typing.Dict[builtins.str, typing.Any]]],
     iceberg_partition_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergPartitionSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iceberg_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iceberg_schema_v2: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSchemaV2Property, typing.Dict[builtins.str, typing.Any]]]] = None,
     iceberg_sort_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSortOrderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     table_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
 ) -> None:
@@ -3286,6 +3847,16 @@ def _typecheckingstub__fd8cefed1b3fab403a063d558585bc5545a803ebe6ea8c2cbf760b468
 def _typecheckingstub__3613cb002c55c4baeb2517f3445ed9e71396e5ee393d230544d3f1302b471205(
     *,
     schema_field_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.SchemaFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56084758b0dca3cdee168a93f36f8d6e489f52256aa69d2dc3476605852557e5(
+    *,
+    schema_v2_field_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.SchemaV2FieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    schema_v2_field_type: builtins.str,
+    identifier_field_ids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+    schema_id: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3318,6 +3889,17 @@ def _typecheckingstub__b3f6368f6b334e97c5c50a43ab04d5e784e18fdb0e687d1684b9ad01a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__62421cbb513a97e66b63f3192948d572b94886a8c3c4d417d6cdd4b5810517d2(
+    *,
+    id: jsii.Number,
+    name: builtins.str,
+    required: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    type: typing.Any,
+    doc: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fa9c2ac7b8956daecf8522166700dd475625d08f131913fda8e01475215f3656(
     *,
     max_snapshot_age_hours: typing.Optional[jsii.Number] = None,
@@ -3341,6 +3923,7 @@ def _typecheckingstub__de433918cd34eecbcaab0e81b6a287f71a48dd308c2f4d42e07a0e19c
     table_bucket_name: builtins.str,
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metrics_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    replication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     storage_class_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.StorageClassConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     unreferenced_file_removal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.UnreferencedFileRemovalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3390,6 +3973,12 @@ def _typecheckingstub__31b7ae51d65703ba2d4aa73c08a7a5a34ad19b1ca27dd0de7d23e3e5b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__14b361ac299ac02681f62fa559e4fa83032ef0e66dfd83ea8ab593ac9d7db6c7(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTableBucket.ReplicationConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__81704c8fd77fa700477675d5b83302d93072b2e166550281993e154ea1ac1c36(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTableBucket.StorageClassConfigurationProperty]],
 ) -> None:
@@ -3419,6 +4008,28 @@ def _typecheckingstub__659e946ab1ee4bc0eb13a519adc57d2cb4431347d47a9e6cb4d4086a8
 def _typecheckingstub__4a462a1fa51e0d85b1c1c751eb482494c139c2d0cdff10d84286172c932d17d6(
     *,
     status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2186ff62db969914d25b4efdb80b80293d6f5f158f0ba2791c2ab968e033983(
+    *,
+    role: builtins.str,
+    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.ReplicationRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c8497604e9271923eb6550061b92e02210ba5c01bac7953fee25f6924d5ead53(
+    *,
+    destination_table_bucket_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de4e958b803528aedb746b10caacd5f29c89f93e4c34021e1c1323d934241814(
+    *,
+    destinations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.ReplicationDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3492,6 +4103,7 @@ def _typecheckingstub__6fb9342a13c0e9f7b21679814e793d7ccc0964ccfe53bc5e0916676b6
     table_bucket_name: builtins.str,
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metrics_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    replication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     storage_class_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.StorageClassConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     unreferenced_file_removal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.UnreferencedFileRemovalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

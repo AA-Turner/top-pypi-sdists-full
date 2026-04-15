@@ -78,7 +78,10 @@ def plot_umap_projection(
         return {"error": "not enough samples for UMAP"}
 
     reducer = umap.UMAP(n_components=VIZ_N_COMPONENTS_2D, n_neighbors=n_neighbors, min_dist=min_dist, random_state=DEFAULT_RANDOM_SEED)
-    X_umap = reducer.fit_transform(X)
+    try:
+        X_umap = reducer.fit_transform(X)
+    except Exception as e:
+        return {"error": f"UMAP fit failed: {e}"}
 
     pos_umap = X_umap[:len(pos)]
     neg_umap = X_umap[len(pos):]
@@ -103,11 +106,12 @@ def plot_pacmap_projection(
 
     Uses pacmap_alt which avoids numba threading issues on macOS.
     """
-    from .pacmap_alt import plot_pacmap_alt
+    from wisent.core.reading.modules.modules.geo_utils.config.pacmap_alt import plot_pacmap_alt
 
     return plot_pacmap_alt(
         pos_activations,
         neg_activations,
+        pacmap_pca_dim_threshold=pca_dims,
         n_neighbors=n_neighbors,
         num_iters=num_iters,
         title=title,

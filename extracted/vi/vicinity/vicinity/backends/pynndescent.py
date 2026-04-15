@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 from numpy import typing as npt
@@ -37,7 +37,7 @@ class PyNNDescentBackend(AbstractBackend[PyNNDescentArgs]):
         cls: type[PyNNDescentBackend],
         vectors: npt.NDArray,
         n_neighbors: int = 15,
-        metric: Union[str, Metric] = "cosine",
+        metric: str | Metric = "cosine",
         **kwargs: Any,
     ) -> PyNNDescentBackend:
         """Create a new instance from vectors."""
@@ -90,25 +90,25 @@ class PyNNDescentBackend(AbstractBackend[PyNNDescentArgs]):
             out.append((idx[mask], dist[mask]))
         return out
 
-    def save(self, base_path: Path) -> None:
+    def save(self, path: Path) -> None:
         """Save the vectors and configuration to a specified path."""
-        self.arguments.dump(base_path / "arguments.json")
-        np.save(Path(base_path) / "vectors.npy", self.index._raw_data)
+        self.arguments.dump(path / "arguments.json")
+        np.save(Path(path) / "vectors.npy", self.index._raw_data)
 
         # Optionally save the neighbor graph if it exists and needs to be reused
         if hasattr(self.index, "_neighbor_graph"):
-            np.save(Path(base_path / "neighbor_graph.npy"), self.index._neighbor_graph)
+            np.save(Path(path / "neighbor_graph.npy"), self.index._neighbor_graph)
 
     @classmethod
-    def load(cls: type[PyNNDescentBackend], base_path: Path) -> PyNNDescentBackend:
+    def load(cls: type[PyNNDescentBackend], path: Path) -> PyNNDescentBackend:
         """Load the vectors and configuration from a specified path."""
-        arguments = PyNNDescentArgs.load(base_path / "arguments.json")
-        vectors = np.load(Path(base_path) / "vectors.npy")
+        arguments = PyNNDescentArgs.load(path / "arguments.json")
+        vectors = np.load(Path(path) / "vectors.npy")
 
         index = NNDescent(vectors, n_neighbors=arguments.n_neighbors, metric=arguments.metric.value)
 
         # Load the neighbor graph if it was saved
-        neighbor_graph_path = base_path / "neighbor_graph.npy"
+        neighbor_graph_path = path / "neighbor_graph.npy"
         if neighbor_graph_path.exists():
             index._neighbor_graph = np.load(str(neighbor_graph_path), allow_pickle=True)
 

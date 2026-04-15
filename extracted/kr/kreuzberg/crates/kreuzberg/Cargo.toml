@@ -265,7 +265,7 @@ dirs = "6"
 encoding_rs = { version = "0.8.35" }
 fast_image_resize = { version = "6.0.0", optional = true }
 flate2 = { version = "1.1", optional = true }
-hayro-jbig2 = { version = "0.2", default-features = false, features = ["std"], optional = true }
+hayro-jbig2 = { version = "0.3", default-features = false, features = ["std"], optional = true }
 hayro-jpeg2000 = { version = "0.3", default-features = false, features = [
     "std",
     "simd",
@@ -285,12 +285,12 @@ image = { workspace = true, default-features = false, features = [
     "pnm",
     "rayon",
 ], optional = true }
-indexmap = "2.13.1"
+indexmap = "2.14.0"
 infer = "0.19.0"
 jotdown = "0.9"
 kamadak-exif = { version = "0.6.1", optional = true }
 
-kreuzberg-tesseract = { path = "../kreuzberg-tesseract", version = "4.8.2", optional = true }
+kreuzberg-tesseract = { path = "../kreuzberg-tesseract", version = "4.8.5", optional = true }
 libc = { workspace = true }
 liter-llm = { workspace = true, optional = true }
 log = { workspace = true }
@@ -321,7 +321,7 @@ quick-xml = { version = "0.39.2", features = ["serialize"], optional = true }
 rake = { version = "0.3.6", optional = true }
 rayon = { workspace = true }
 regex = "1.12.3"
-rmcp = { version = "1.3.0", features = [
+rmcp = { version = "1.4.0", features = [
     "server",
     "macros",
     "base64",
@@ -367,7 +367,7 @@ zip = { version = ">=7.0.0", optional = true, default-features = false, features
 [target.'cfg(all(not(target_os = "windows"), not(target_arch = "wasm32")))'.dependencies]
 hf-hub = { version = "0.5", default-features = false, features = ["ureq"], optional = true }
 # PaddleOCR via ONNX Runtime - not available on WASM (vendored from paddle-ocr-rs)
-kreuzberg-paddle-ocr = { path = "../kreuzberg-paddle-ocr", version = "4.8.2", optional = true }
+kreuzberg-paddle-ocr = { path = "../kreuzberg-paddle-ocr", version = "4.8.5", optional = true }
 pprof = { version = "0.15.0", features = ["flamegraph"], optional = true }
 # Force ureq (transitive dep via hf-hub) to use rustls on non-Windows
 ureq = { version = "3.3", default-features = false, features = ["rustls", "json"], optional = true }
@@ -376,7 +376,7 @@ ureq = { version = "3.3", default-features = false, features = ["rustls", "json"
 [target.'cfg(all(target_os = "windows", not(target_arch = "wasm32")))'.dependencies]
 hf-hub = { version = "0.5", default-features = false, features = ["ureq"], optional = true }
 # PaddleOCR via ONNX Runtime - not available on WASM (vendored from paddle-ocr-rs)
-kreuzberg-paddle-ocr = { path = "../kreuzberg-paddle-ocr", version = "4.8.2", optional = true }
+kreuzberg-paddle-ocr = { path = "../kreuzberg-paddle-ocr", version = "4.8.5", optional = true }
 # Force ureq (transitive dep via hf-hub) to use native-tls on Windows
 ureq = { version = "3.3", default-features = false, features = [
     "native-tls",
@@ -392,7 +392,7 @@ optional = true
 # Override getrandom to enable js feature for WASM targets
 # This is needed because ring/rustls (via ureq) depend on getrandom without js feature
 getrandom = { workspace = true }
-tree-sitter-language-pack = { workspace = true, default-features = false, features = ["wasm", "serde"], optional = true }
+tree-sitter-language-pack = { workspace = true, default-features = false, features = ["serde"], optional = true }
 wasm-bindgen-rayon = { version = "1.3", optional = true }
 
 [build-dependencies]
@@ -405,7 +405,7 @@ criterion = { workspace = true }
 dotenvy = "0.15"
 filetime = "0.2"
 image = { workspace = true, default-features = false, features = ["png"] }
-jsonschema = "0.45"
+jsonschema = "0.46"
 serial_test = "3.4.0"
 tar = "0.4.45"
 tempfile = { workspace = true }

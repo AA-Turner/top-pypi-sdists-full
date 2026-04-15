@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skyvern
-Version: 1.0.30
+Version: 1.0.31
 Author-email: Skyvern AI <info@skyvern.com>
 License-File: LICENSE
 Requires-Python: <3.14,>=3.11
@@ -8,11 +8,11 @@ Requires-Dist: aioboto3<15,>=14.3.0
 Requires-Dist: aiofiles<25,>=24.1.0
 Requires-Dist: aiohttp<4,>=3.8.5
 Requires-Dist: aioredlock<0.8,>=0.7.3
-Requires-Dist: aiosqlite<0.22,>=0.21.0
+Requires-Dist: aiosqlite<0.23,>=0.21.0
 Requires-Dist: alembic<2,>=1.12.1
-Requires-Dist: anthropic<0.51,>=0.50.0
+Requires-Dist: anthropic<0.89,>=0.50.0
 Requires-Dist: asyncache<0.4,>=0.3.1
-Requires-Dist: asyncpg<0.31,>=0.30.0
+Requires-Dist: asyncpg<0.32,>=0.30.0
 Requires-Dist: authlib>=1.6.9
 Requires-Dist: azure-identity<2,>=1.24.0
 Requires-Dist: azure-keyvault-secrets<5,>=4.2.0
@@ -21,7 +21,7 @@ Requires-Dist: cachetools<6,>=5.3.2
 Requires-Dist: croniter<4,>=1.3.8
 Requires-Dist: curlparser<0.2,>=0.1.0
 Requires-Dist: email-validator<3,>=2.2.0
-Requires-Dist: fastapi<0.129,>=0.121.0
+Requires-Dist: fastapi<0.136,>=0.121.0
 Requires-Dist: fastmcp<4,>=3.2.0
 Requires-Dist: filetype<2,>=1.2.0
 Requires-Dist: google-cloud-aiplatform<2,>=1.90.0
@@ -29,7 +29,7 @@ Requires-Dist: greenlet==3.0.3; python_version >= '3.11' and python_version < '3
 Requires-Dist: greenlet>3.0.3; python_version >= '3.12' and python_version < '3.14'
 Requires-Dist: httpx[socks]>=0.27.0
 Requires-Dist: jinja2<4,>=3.1.2
-Requires-Dist: json-repair<0.35,>=0.34.0
+Requires-Dist: json-repair<0.59,>=0.34.0
 Requires-Dist: jsonschema>=4.25.1
 Requires-Dist: lark<2,>=1.2.2
 Requires-Dist: libcst<2,>=1.8.2
@@ -62,7 +62,7 @@ Requires-Dist: requests-toolbelt<2,>=1.0.0
 Requires-Dist: rich[jupyter]<14,>=13.7.0
 Requires-Dist: sqlalchemy[mypy]<3,>=2.0.29
 Requires-Dist: sse-starlette<4,>=3.0.3
-Requires-Dist: starlette-context<0.4,>=0.3.6
+Requires-Dist: starlette-context<0.6,>=0.3.6
 Requires-Dist: structlog<24,>=23.2.0
 Requires-Dist: tiktoken>=0.9.0
 Requires-Dist: tldextract<6,>=5.1.2
@@ -100,7 +100,6 @@ Description-Content-Type: text/markdown
   <a href="https://github.com/Skyvern-AI/skyvern/blob/main/LICENSE"><img src="https://img.shields.io/github/license/skyvern-ai/skyvern"/></a>
   <a href="https://twitter.com/skyvernai"><img src="https://img.shields.io/twitter/follow/skyvernai?style=social"/></a>
   <a href="https://www.linkedin.com/company/95726232"><img src="https://img.shields.io/badge/Follow%20 on%20LinkedIn-8A2BE2?logo=linkedin"/></a>
-  <a href="https://glama.ai/mcp/servers/Skyvern-AI/skyvern"><img src="https://glama.ai/mcp/servers/Skyvern-AI/skyvern/badge" alt="Skyvern MCP server" /></a>
 </p>
 
 [Skyvern](https://www.skyvern.com) automates browser-based workflows using LLMs and computer vision. It provides a Playwright-compatible SDK that adds AI functionality on top of playwright, as well as a no-code workflow builder to help both technical and non-technical users automate manual workflows on any website, replacing brittle or unreliable automation solutions.
@@ -513,9 +512,10 @@ Skyvern currently supports the following password manager integrations:
 
 
 ## Model Context Protocol (MCP)
+
 Skyvern supports the Model Context Protocol (MCP) to allow you to use any LLM that supports MCP.
 
-See the MCP documentation [here](https://github.com/Skyvern-AI/skyvern/blob/main/integrations/mcp/README.md)
+See the MCP documentation [here](https://github.com/Skyvern-AI/skyvern/blob/main/skyvern/cli/mcp_tools/README.md)
 
 ## Zapier / Make.com / N8N Integration
 Skyvern supports Zapier, Make.com, and N8N to allow you to connect your Skyvern workflows to other apps.

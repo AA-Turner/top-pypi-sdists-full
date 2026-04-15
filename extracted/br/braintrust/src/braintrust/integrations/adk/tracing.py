@@ -9,7 +9,7 @@ from contextlib import aclosing
 from typing import Any, cast
 
 from braintrust.bt_json import bt_safe_deep_copy
-from braintrust.integrations.utils import _attachment_from_bytes, _image_url_payload
+from braintrust.integrations.utils import _materialize_attachment
 from braintrust.logger import start_span
 from braintrust.span_types import SpanTypeAttribute
 
@@ -58,12 +58,10 @@ def _serialize_part(part: Any) -> Any:
             data = inline_data.data
             mime_type = inline_data.mime_type
 
-            # Convert bytes to Attachment
             if isinstance(data, bytes):
-                attachment = _attachment_from_bytes(data, mime_type)
-
-                # Return in image_url format - SDK will replace with AttachmentReference
-                return _image_url_payload(attachment)
+                resolved_attachment = _materialize_attachment(data, mime_type=mime_type)
+                if resolved_attachment is not None:
+                    return resolved_attachment.multimodal_part_payload
 
     # Handle Part objects with file_data (file references)
     if hasattr(part, "file_data") and part.file_data:
@@ -476,38 +474,6 @@ async def _flow_call_llm_async_wrapper(wrapped: Any, instance: Any, args: Any, k
     async with aclosing(_trace()) as agen:
         async for event in agen:
             yield event
-
-
-def _runner_run_wrapper(wrapped: Any, instance: Any, args: Any, kwargs: Any):
-    user_id = kwargs.get("user_id")
-    session_id = kwargs.get("session_id")
-    new_message = kwargs.get("new_message")
-
-    # Serialize new_message before any dict conversion to handle binary data
-    serialized_message = _serialize_content(new_message) if new_message else None
-
-    def _trace():
-        with start_span(
-            name=f"invocation [{instance.app_name}]",
-            type=SpanTypeAttribute.TASK,
-            input={"new_message": serialized_message},
-            metadata=bt_safe_deep_copy(
-                {
-                    "user_id": user_id,
-                    "session_id": session_id,
-                    **_omit(kwargs, ["user_id", "session_id", "new_message"]),
-                }
-            ),
-        ) as runner_span:
-            last_event = None
-            for event in wrapped(*args, **kwargs):
-                if event.is_final_response():
-                    last_event = event
-                yield event
-            if last_event:
-                runner_span.log(output=last_event)
-
-    yield from _trace()
 
 
 async def _runner_run_async_wrapper(wrapped: Any, instance: Any, args: Any, kwargs: Any):

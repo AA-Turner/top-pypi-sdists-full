@@ -1,6 +1,7 @@
 """Standard benchmark evaluation loop for evaluate-responses command."""
 
 from wisent.core.utils.config_tools.constants import DISPLAY_TRUNCATION_EVAL
+from wisent.core.utils.infra_tools.errors.error_handler import ModelNotProvidedError
 
 
 def evaluate_standard(
@@ -38,16 +39,22 @@ def evaluate_standard(
                 if args.verbose:
                     print(f"Question {idx}: Using positive_reference as expected answer")
 
-                # Evaluate using selected evaluator
-                choices = (correct_answers or []) + (incorrect_answers or [])
-                result = evaluator.evaluate(
-                    generated_response,
-                    positive_reference,
+                # Evaluate using selected evaluator.
+                # For log_likelihoods evaluator, build choices from correct + incorrect
+                # answers so it can compute log-probabilities across all options.
+                eval_kwargs = dict(
                     correct_answers=correct_answers,
                     incorrect_answers=incorrect_answers,
                     model=model,
                     question=prompt,
-                    choices=choices if choices else None,
+                    task_name=task_name,
+                )
+                if correct_answers and incorrect_answers:
+                    eval_kwargs["choices"] = list(correct_answers) + list(incorrect_answers)
+                result = evaluator.evaluate(
+                    generated_response,
+                    positive_reference,
+                    **eval_kwargs,
                 )
 
                 is_correct = (result.ground_truth == "TRUTHFUL")
@@ -232,14 +239,39 @@ def evaluate_standard(
                     }
                 })
 
-        except Exception as e:
-            print(f"   ❌ Error evaluating question {idx}: {e}")
-            import traceback
-            traceback.print_exc()
+        except ModelNotProvidedError as e:
+            if args.verbose:
+                print(f"Question {idx}: Skipped (evaluator requires model)")
             evaluation_results.append({
                 **response_data,
                 "evaluation": {
-                    "error": str(e)
+                    "error": "model_required",
+                    "detail": str(e),
                 }
             })
+        except Exception as e:
+            # Treat 'evaluator requires X kwarg' EvaluatorErrors the same as
+            # model_required so synthetic test pipelines that lack benchmark-specific
+            # metadata (test_code, judge_model, etc.) are skipped, not failed.
+            err_msg = str(e)
+            if "requires" in err_msg and ("kwarg" in err_msg or "not provided" in err_msg):
+                if args.verbose:
+                    print(f"Question {idx}: Skipped (evaluator missing prerequisite)")
+                evaluation_results.append({
+                    **response_data,
+                    "evaluation": {
+                        "error": "model_required",
+                        "detail": err_msg,
+                    }
+                })
+            else:
+                print(f"   ❌ Error evaluating question {idx}: {e}")
+                import traceback
+                traceback.print_exc()
+                evaluation_results.append({
+                    **response_data,
+                    "evaluation": {
+                        "error": str(e)
+                    }
+                })
 

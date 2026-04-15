@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5qwak/model_group/model_group_repository_details.proto\x12\x1cqwak.model_groups.management\"r\n\x11RepositoryDetails\x12\x45\n\x0frepository_type\x18\x01 \x01(\x0b\x32,.qwak.model_groups.management.RepositoryType\x12\x16\n\x0erepository_key\x18\x02 \x01(\t\"\x80\x03\n\x17RemoteRepositoryDetails\x12K\n\x11\x64ocker_repository\x18\x01 \x01(\x0b\x32..qwak.model_groups.management.DockerRepositoryH\x00\x12V\n\x17hugging_face_repository\x18\x02 \x01(\x0b\x32\x33.qwak.model_groups.management.HuggingFaceRepositoryH\x00\x12\x45\n\x0enpm_repository\x18\x04 \x01(\x0b\x32+.qwak.model_groups.management.NpmRepositoryH\x00\x12G\n\x0fpypi_repository\x18\x05 \x01(\x0b\x32,.qwak.model_groups.management.PypiRepositoryH\x00\x12\x1d\n\x15repository_remote_url\x18\x03 \x01(\tB\x11\n\x0frepository_type\"\x12\n\x10\x44ockerRepository\"\x13\n\x11\x44\x61tasetRepository\"\x14\n\x12\x41rtifactRepository\"\x17\n\x15HuggingFaceRepository\"\x0f\n\rNpmRepository\"\x10\n\x0ePypiRepository\"\xed\x03\n\x0eRepositoryType\x12K\n\x11\x64ocker_repository\x18\x01 \x01(\x0b\x32..qwak.model_groups.management.DockerRepositoryH\x00\x12M\n\x12\x64\x61taset_repository\x18\x02 \x01(\x0b\x32/.qwak.model_groups.management.DatasetRepositoryH\x00\x12O\n\x13\x61rtifact_repository\x18\x03 \x01(\x0b\x32\x30.qwak.model_groups.management.ArtifactRepositoryH\x00\x12V\n\x17hugging_face_repository\x18\x04 \x01(\x0b\x32\x33.qwak.model_groups.management.HuggingFaceRepositoryH\x00\x12\x45\n\x0enpm_repository\x18\x05 \x01(\x0b\x32+.qwak.model_groups.management.NpmRepositoryH\x00\x12G\n\x0fpypi_repository\x18\x06 \x01(\x0b\x32,.qwak.model_groups.management.PypiRepositoryH\x00\x42\x06\n\x04typeBN\n&com.qwak.ai.management.model.group.apiB\"ModelGroupRepositoriesDetailsProtoP\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5qwak/model_group/model_group_repository_details.proto\x12\x1cqwak.model_groups.management\"r\n\x11RepositoryDetails\x12\x45\n\x0frepository_type\x18\x01 \x01(\x0b\x32,.qwak.model_groups.management.RepositoryType\x12\x16\n\x0erepository_key\x18\x02 \x01(\t\"\xa2\x04\n\x17RemoteRepositoryDetails\x12K\n\x11\x64ocker_repository\x18\x01 \x01(\x0b\x32..qwak.model_groups.management.DockerRepositoryH\x00\x12V\n\x17hugging_face_repository\x18\x02 \x01(\x0b\x32\x33.qwak.model_groups.management.HuggingFaceRepositoryH\x00\x12\x45\n\x0enpm_repository\x18\x04 \x01(\x0b\x32+.qwak.model_groups.management.NpmRepositoryH\x00\x12G\n\x0fpypi_repository\x18\x05 \x01(\x0b\x32,.qwak.model_groups.management.PypiRepositoryH\x00\x12R\n\x15nim_docker_repository\x18\x06 \x01(\x0b\x32\x31.qwak.model_groups.management.NimDockerRepositoryH\x00\x12L\n\x12nim_ngc_repository\x18\x07 \x01(\x0b\x32..qwak.model_groups.management.NimNgcRepositoryH\x00\x12\x1d\n\x15repository_remote_url\x18\x03 \x01(\tB\x11\n\x0frepository_type\"\x12\n\x10\x44ockerRepository\"\x13\n\x11\x44\x61tasetRepository\"\x14\n\x12\x41rtifactRepository\"\x17\n\x15HuggingFaceRepository\"\x0f\n\rNpmRepository\"\x10\n\x0ePypiRepository\"\x15\n\x13NimDockerRepository\"\x12\n\x10NimNgcRepository\"\x8f\x05\n\x0eRepositoryType\x12K\n\x11\x64ocker_repository\x18\x01 \x01(\x0b\x32..qwak.model_groups.management.DockerRepositoryH\x00\x12M\n\x12\x64\x61taset_repository\x18\x02 \x01(\x0b\x32/.qwak.model_groups.management.DatasetRepositoryH\x00\x12O\n\x13\x61rtifact_repository\x18\x03 \x01(\x0b\x32\x30.qwak.model_groups.management.ArtifactRepositoryH\x00\x12V\n\x17hugging_face_repository\x18\x04 \x01(\x0b\x32\x33.qwak.model_groups.management.HuggingFaceRepositoryH\x00\x12\x45\n\x0enpm_repository\x18\x05 \x01(\x0b\x32+.qwak.model_groups.management.NpmRepositoryH\x00\x12G\n\x0fpypi_repository\x18\x06 \x01(\x0b\x32,.qwak.model_groups.management.PypiRepositoryH\x00\x12R\n\x15nim_docker_repository\x18\x07 \x01(\x0b\x32\x31.qwak.model_groups.management.NimDockerRepositoryH\x00\x12L\n\x12nim_ngc_repository\x18\x08 \x01(\x0b\x32..qwak.model_groups.management.NimNgcRepositoryH\x00\x42\x06\n\x04typeBN\n&com.qwak.ai.management.model.group.apiB\"ModelGroupRepositoriesDetailsProtoP\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -25,19 +25,23 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_REPOSITORYDETAILS']._serialized_start=87
   _globals['_REPOSITORYDETAILS']._serialized_end=201
   _globals['_REMOTEREPOSITORYDETAILS']._serialized_start=204
-  _globals['_REMOTEREPOSITORYDETAILS']._serialized_end=588
-  _globals['_DOCKERREPOSITORY']._serialized_start=590
-  _globals['_DOCKERREPOSITORY']._serialized_end=608
-  _globals['_DATASETREPOSITORY']._serialized_start=610
-  _globals['_DATASETREPOSITORY']._serialized_end=629
-  _globals['_ARTIFACTREPOSITORY']._serialized_start=631
-  _globals['_ARTIFACTREPOSITORY']._serialized_end=651
-  _globals['_HUGGINGFACEREPOSITORY']._serialized_start=653
-  _globals['_HUGGINGFACEREPOSITORY']._serialized_end=676
-  _globals['_NPMREPOSITORY']._serialized_start=678
-  _globals['_NPMREPOSITORY']._serialized_end=693
-  _globals['_PYPIREPOSITORY']._serialized_start=695
-  _globals['_PYPIREPOSITORY']._serialized_end=711
-  _globals['_REPOSITORYTYPE']._serialized_start=714
-  _globals['_REPOSITORYTYPE']._serialized_end=1207
+  _globals['_REMOTEREPOSITORYDETAILS']._serialized_end=750
+  _globals['_DOCKERREPOSITORY']._serialized_start=752
+  _globals['_DOCKERREPOSITORY']._serialized_end=770
+  _globals['_DATASETREPOSITORY']._serialized_start=772
+  _globals['_DATASETREPOSITORY']._serialized_end=791
+  _globals['_ARTIFACTREPOSITORY']._serialized_start=793
+  _globals['_ARTIFACTREPOSITORY']._serialized_end=813
+  _globals['_HUGGINGFACEREPOSITORY']._serialized_start=815
+  _globals['_HUGGINGFACEREPOSITORY']._serialized_end=838
+  _globals['_NPMREPOSITORY']._serialized_start=840
+  _globals['_NPMREPOSITORY']._serialized_end=855
+  _globals['_PYPIREPOSITORY']._serialized_start=857
+  _globals['_PYPIREPOSITORY']._serialized_end=873
+  _globals['_NIMDOCKERREPOSITORY']._serialized_start=875
+  _globals['_NIMDOCKERREPOSITORY']._serialized_end=896
+  _globals['_NIMNGCREPOSITORY']._serialized_start=898
+  _globals['_NIMNGCREPOSITORY']._serialized_end=916
+  _globals['_REPOSITORYTYPE']._serialized_start=919
+  _globals['_REPOSITORYTYPE']._serialized_end=1574
 # @@protoc_insertion_point(module_scope)

@@ -738,6 +738,7 @@ class HTTPProtocol(netius.StreamProtocol):
         # before the request could be sent) closes the protocol to avoid
         # errors in the request sending process
         if parsed == None:
+            self.traced("Parsed URL is not available, closing protocol")
             return
 
         if parsed.query:
@@ -1207,6 +1208,16 @@ class HTTPClient(netius.ClientAgent):
             raise exception
         raise netius.NetiusError(message)
 
+    def info_dict(self, full=False):
+        info = netius.ClientAgent.info_dict(self, full=full)
+        info.update(
+            auto_release=self.auto_release,
+            available_count=len(self.available),
+        )
+        if full:
+            info["available_keys"] = list(self.available.keys())
+        return info
+
     def cleanup(self):
         netius.ClientAgent.cleanup(self)
 
@@ -1282,6 +1293,7 @@ class HTTPClient(netius.ClientAgent):
             or (hasattr(protocol, "is_closing") and protocol.is_closing())
         ):
             protocol.traced("Discarding stale protocol")
+            protocol.close()
             protocol = None
         if protocol:
             protocol.traced("Reusing protocol")
@@ -1377,9 +1389,19 @@ class HTTPClient(netius.ClientAgent):
                 protocol.close()
 
             # otherwise the protocol is set in the available map and
-            # the only the loop is stopped (unblocking the processor)
+            # the only the loop is stopped (unblocking the processor),
+            # any previous protocol for the same key is closed first
+            # to avoid leaking the underlying connection
             else:
                 protocol.traced("Pooling for reuse")
+
+                # safe guards the available list against duplication of
+                # protocols for the same key, closing any previous protocol
+                previous = self.available.pop(protocol.key, None)
+                if previous:
+                    self.warning("Closing previous protocol for key '%s'", protocol.key)
+                    previous.close()
+
                 self.available[protocol.key] = protocol
                 netius.compat_loop(loop).stop()
 

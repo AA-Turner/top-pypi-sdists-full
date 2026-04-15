@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -346,8 +346,8 @@ def __search(
     decorate_places_preset_trans(sync_net)
 
     closed = set()
-    hub: dict[Marking, list[utils.DijkstraSearchTuple]] = dict()
-    hub_dist: dict[Marking, int] = dict()
+    hub: Dict[Marking, TList[utils.DijkstraSearchTuple]] = dict()
+    hub_dist: Dict[Marking, int] = dict()
     # Given a marking, holds many tuples of (search tuples that reached it,
     # distance) in two arrays
 

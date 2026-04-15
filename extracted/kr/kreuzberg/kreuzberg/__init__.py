@@ -676,7 +676,7 @@ async def embed(
     Raises:
         MissingDependencyError: If ONNX Runtime is not installed
         EmbeddingError: If the preset name is unknown or model download fails
-        ValidationError: If input texts are invalid (e.g., empty list or contains non-strings)
+        ValidationError: If input texts are invalid (e.g., contains non-strings or empty strings)
 
     Example:
         >>> import asyncio
@@ -688,7 +688,7 @@ async def embed(
         >>> asyncio.run(main())  # doctest: +SKIP
     """
     if not texts:
-        raise ValidationError("No texts provided for embedding generation")
+        return []
 
     if not all(isinstance(t, str) for t in texts):
         raise ValidationError("All text entries must be strings")
@@ -717,7 +717,7 @@ def embed_sync(
     Raises:
         MissingDependencyError: If ONNX Runtime is not installed
         EmbeddingError: If the preset name is unknown or model download fails
-        ValidationError: If input texts are invalid (e.g., empty list or contains non-strings)
+        ValidationError: If input texts are invalid (e.g., contains non-strings or empty strings)
 
     Example:
         >>> from kreuzberg import embed_sync, EmbeddingConfig, EmbeddingModelType
@@ -726,7 +726,7 @@ def embed_sync(
         >>> len(result)  # 1  # doctest: +SKIP
     """
     if not texts:
-        raise ValidationError("No texts provided for embedding generation")
+        return []
 
     if not all(isinstance(t, str) for t in texts):
         raise ValidationError("All text entries must be strings")

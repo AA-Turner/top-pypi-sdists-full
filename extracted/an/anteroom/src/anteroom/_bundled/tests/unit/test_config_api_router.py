@@ -325,6 +325,44 @@ def test_validate_connection_failure() -> None:
         assert data["models"] == []
 
 
+def test_validate_connection_token_provider_error_returns_valid_false() -> None:
+    """TokenProviderError in validate_connection should return valid=False, not HTTP 500."""
+    from anteroom.services.token_provider import TokenProviderError
+
+    config = _make_config()
+    app = _make_app(config=config)
+    client = TestClient(app)
+
+    with patch(
+        "anteroom.routers.config_api.create_ai_service",
+        side_effect=TokenProviderError("api_key_command exited with code 1"),
+    ):
+        resp = client.post("/api/config/validate")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["valid"] is False
+    assert "api_key_command failed" in data["message"]
+    assert data["models"] == []
+
+
+def test_validate_connection_token_provider_error_message_includes_detail() -> None:
+    """Error detail from TokenProviderError must appear in the response message."""
+    from anteroom.services.token_provider import TokenProviderError
+
+    config = _make_config()
+    app = _make_app(config=config)
+    client = TestClient(app)
+
+    error_detail = "api_key_command not found: /usr/local/bin/get-token"
+    with patch(
+        "anteroom.routers.config_api.create_ai_service",
+        side_effect=TokenProviderError(error_detail),
+    ):
+        resp = client.post("/api/config/validate")
+    data = resp.json()
+    assert error_detail in data["message"]
+
+
 # ---------------------------------------------------------------------------
 # GET /mcp/tools
 # ---------------------------------------------------------------------------

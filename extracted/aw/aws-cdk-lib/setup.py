@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk-lib",
-    "version": "2.249.0",
+    "version": "2.250.0",
     "description": "Version 2 of the AWS Cloud Development Kit library",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -60,10 +60,12 @@ kwargs = json.loads(
         "aws_cdk.aws_backupgateway",
         "aws_cdk.aws_batch",
         "aws_cdk.aws_bcmdataexports",
+        "aws_cdk.aws_bcmpricingcalculator",
         "aws_cdk.aws_bedrock",
         "aws_cdk.aws_bedrockagentcore",
         "aws_cdk.aws_bedrockmantle",
         "aws_cdk.aws_billingconductor",
+        "aws_cdk.aws_braket",
         "aws_cdk.aws_budgets",
         "aws_cdk.aws_cases",
         "aws_cdk.aws_cassandra",
@@ -284,6 +286,7 @@ kwargs = json.loads(
         "aws_cdk.aws_s3_notifications",
         "aws_cdk.aws_s3.mixins",
         "aws_cdk.aws_s3express",
+        "aws_cdk.aws_s3files",
         "aws_cdk.aws_s3objectlambda",
         "aws_cdk.aws_s3outposts",
         "aws_cdk.aws_s3tables",
@@ -372,11 +375,13 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_backupgateway",
         "aws_cdk.interfaces.aws_batch",
         "aws_cdk.interfaces.aws_bcmdataexports",
+        "aws_cdk.interfaces.aws_bcmpricingcalculator",
         "aws_cdk.interfaces.aws_bedrock",
         "aws_cdk.interfaces.aws_bedrockagentcore",
         "aws_cdk.interfaces.aws_bedrockmantle",
         "aws_cdk.interfaces.aws_billing",
         "aws_cdk.interfaces.aws_billingconductor",
+        "aws_cdk.interfaces.aws_braket",
         "aws_cdk.interfaces.aws_budgets",
         "aws_cdk.interfaces.aws_cases",
         "aws_cdk.interfaces.aws_cassandra",
@@ -573,6 +578,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_rum",
         "aws_cdk.interfaces.aws_s3",
         "aws_cdk.interfaces.aws_s3express",
+        "aws_cdk.interfaces.aws_s3files",
         "aws_cdk.interfaces.aws_s3objectlambda",
         "aws_cdk.interfaces.aws_s3outposts",
         "aws_cdk.interfaces.aws_s3tables",
@@ -628,7 +634,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk._jsii": [
-            "aws-cdk-lib@2.249.0.jsii.tgz"
+            "aws-cdk-lib@2.250.0.jsii.tgz"
         ],
         "aws_cdk": [
             "py.typed"

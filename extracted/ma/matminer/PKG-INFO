@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: matminer
-Version: 0.10.0
+Version: 0.10.1
 Summary: matminer is a library that contains tools for data mining in Materials Science
 Author-email: Anubhav Jain <anubhavster@gmail.com>
 Project-URL: Homepage, https://github.com/hackingmaterials/matminer

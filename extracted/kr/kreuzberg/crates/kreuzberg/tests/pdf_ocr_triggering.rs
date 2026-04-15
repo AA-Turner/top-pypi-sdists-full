@@ -15,7 +15,7 @@
 
 #![cfg(feature = "pdf")]
 
-use kreuzberg::core::config::{ExtractionConfig, HierarchyConfig, PdfConfig};
+use kreuzberg::core::config::{ExtractionConfig, HierarchyConfig, PdfBackend, PdfConfig};
 use kreuzberg::pdf::hierarchy::{BoundingBox, TextBlock, should_trigger_ocr};
 use pdfium_render::prelude::*;
 use std::path::Path;
@@ -292,6 +292,7 @@ fn test_ocr_custom_threshold() {
             top_margin_fraction: None,
             bottom_margin_fraction: None,
             allow_single_column_tables: false,
+            backend: PdfBackend::default(),
         }),
         ..Default::default()
     };

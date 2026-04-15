@@ -300,6 +300,10 @@ class CfnCampaign(
                 )
             ),
             connect_campaign_flow_arn="connectCampaignFlowArn",
+            entry_limits_config=connectcampaignsv2.CfnCampaign.EntryLimitsConfigProperty(
+                max_entry_count=123,
+                min_entry_interval="minEntryInterval"
+            ),
             schedule=connectcampaignsv2.CfnCampaign.ScheduleProperty(
                 end_time="endTime",
                 start_time="startTime",
@@ -332,6 +336,7 @@ class CfnCampaign(
         communication_limits_override: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CommunicationLimitsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         communication_time_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CommunicationTimeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         connect_campaign_flow_arn: typing.Optional[builtins.str] = None,
+        entry_limits_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.EntryLimitsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         schedule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -347,6 +352,7 @@ class CfnCampaign(
         :param communication_limits_override: Communication limits configuration for an outbound campaign.
         :param communication_time_config: Contains communication time configuration for an outbound campaign.
         :param connect_campaign_flow_arn: The Amazon Resource Name (ARN) of the Amazon Connect campaign flow associated with the outbound campaign.
+        :param entry_limits_config: Entry limits config for a campaign.
         :param schedule: Contains the schedule configuration.
         :param source: Contains source configuration.
         :param tags: The tags used to organize, track, or control access for this resource. For example, ``{ "tags": {"key1":"value1", "key2":"value2"} }`` .
@@ -363,6 +369,7 @@ class CfnCampaign(
             communication_limits_override=communication_limits_override,
             communication_time_config=communication_time_config,
             connect_campaign_flow_arn=connect_campaign_flow_arn,
+            entry_limits_config=entry_limits_config,
             schedule=schedule,
             source=source,
             tags=tags,
@@ -542,6 +549,24 @@ class CfnCampaign(
             type_hints = typing.get_type_hints(_typecheckingstub__c514dbfca338965ca2462164a214264c8a79ca12e54b81685d99cc57a888b73c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectCampaignFlowArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="entryLimitsConfig")
+    def entry_limits_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EntryLimitsConfigProperty"]]:
+        '''Entry limits config for a campaign.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EntryLimitsConfigProperty"]], jsii.get(self, "entryLimitsConfig"))
+
+    @entry_limits_config.setter
+    def entry_limits_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EntryLimitsConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bf09eedd6794a75f0306f5ecf5272cf93d77e8714bc3e05cbb11bed4cf20e472)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "entryLimitsConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="schedule")
@@ -1648,6 +1673,82 @@ class CfnCampaign(
 
         def __repr__(self) -> str:
             return "EmailOutboundModeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connectcampaignsv2.CfnCampaign.EntryLimitsConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "max_entry_count": "maxEntryCount",
+            "min_entry_interval": "minEntryInterval",
+        },
+    )
+    class EntryLimitsConfigProperty:
+        def __init__(
+            self,
+            *,
+            max_entry_count: jsii.Number,
+            min_entry_interval: builtins.str,
+        ) -> None:
+            '''Entry limits config for a campaign.
+
+            :param max_entry_count: Maximum number of entries per participant. 0 indicates unlimited entries.
+            :param min_entry_interval: Time duration in ISO 8601 format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-entrylimitsconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connectcampaignsv2 as connectcampaignsv2
+                
+                entry_limits_config_property = connectcampaignsv2.CfnCampaign.EntryLimitsConfigProperty(
+                    max_entry_count=123,
+                    min_entry_interval="minEntryInterval"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0a5dfe5b0455f78872c1a649fd04429977f2a84ab11299a328c596f937163da5)
+                check_type(argname="argument max_entry_count", value=max_entry_count, expected_type=type_hints["max_entry_count"])
+                check_type(argname="argument min_entry_interval", value=min_entry_interval, expected_type=type_hints["min_entry_interval"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "max_entry_count": max_entry_count,
+                "min_entry_interval": min_entry_interval,
+            }
+
+        @builtins.property
+        def max_entry_count(self) -> jsii.Number:
+            '''Maximum number of entries per participant.
+
+            0 indicates unlimited entries.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-entrylimitsconfig.html#cfn-connectcampaignsv2-campaign-entrylimitsconfig-maxentrycount
+            '''
+            result = self._values.get("max_entry_count")
+            assert result is not None, "Required property 'max_entry_count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def min_entry_interval(self) -> builtins.str:
+            '''Time duration in ISO 8601 format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-entrylimitsconfig.html#cfn-connectcampaignsv2-campaign-entrylimitsconfig-minentryinterval
+            '''
+            result = self._values.get("min_entry_interval")
+            assert result is not None, "Required property 'min_entry_interval' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EntryLimitsConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3443,6 +3544,7 @@ class CfnCampaign(
         "communication_limits_override": "communicationLimitsOverride",
         "communication_time_config": "communicationTimeConfig",
         "connect_campaign_flow_arn": "connectCampaignFlowArn",
+        "entry_limits_config": "entryLimitsConfig",
         "schedule": "schedule",
         "source": "source",
         "tags": "tags",
@@ -3459,6 +3561,7 @@ class CfnCampaignProps:
         communication_limits_override: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CommunicationLimitsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         communication_time_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CommunicationTimeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         connect_campaign_flow_arn: typing.Optional[builtins.str] = None,
+        entry_limits_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.EntryLimitsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         schedule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3472,6 +3575,7 @@ class CfnCampaignProps:
         :param communication_limits_override: Communication limits configuration for an outbound campaign.
         :param communication_time_config: Contains communication time configuration for an outbound campaign.
         :param connect_campaign_flow_arn: The Amazon Resource Name (ARN) of the Amazon Connect campaign flow associated with the outbound campaign.
+        :param entry_limits_config: Entry limits config for a campaign.
         :param schedule: Contains the schedule configuration.
         :param source: Contains source configuration.
         :param tags: The tags used to organize, track, or control access for this resource. For example, ``{ "tags": {"key1":"value1", "key2":"value2"} }`` .
@@ -3679,6 +3783,10 @@ class CfnCampaignProps:
                     )
                 ),
                 connect_campaign_flow_arn="connectCampaignFlowArn",
+                entry_limits_config=connectcampaignsv2.CfnCampaign.EntryLimitsConfigProperty(
+                    max_entry_count=123,
+                    min_entry_interval="minEntryInterval"
+                ),
                 schedule=connectcampaignsv2.CfnCampaign.ScheduleProperty(
                     end_time="endTime",
                     start_time="startTime",
@@ -3707,6 +3815,7 @@ class CfnCampaignProps:
             check_type(argname="argument communication_limits_override", value=communication_limits_override, expected_type=type_hints["communication_limits_override"])
             check_type(argname="argument communication_time_config", value=communication_time_config, expected_type=type_hints["communication_time_config"])
             check_type(argname="argument connect_campaign_flow_arn", value=connect_campaign_flow_arn, expected_type=type_hints["connect_campaign_flow_arn"])
+            check_type(argname="argument entry_limits_config", value=entry_limits_config, expected_type=type_hints["entry_limits_config"])
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -3723,6 +3832,8 @@ class CfnCampaignProps:
             self._values["communication_time_config"] = communication_time_config
         if connect_campaign_flow_arn is not None:
             self._values["connect_campaign_flow_arn"] = connect_campaign_flow_arn
+        if entry_limits_config is not None:
+            self._values["entry_limits_config"] = entry_limits_config
         if schedule is not None:
             self._values["schedule"] = schedule
         if source is not None:
@@ -3797,6 +3908,17 @@ class CfnCampaignProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def entry_limits_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EntryLimitsConfigProperty"]]:
+        '''Entry limits config for a campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connectcampaignsv2-campaign.html#cfn-connectcampaignsv2-campaign-entrylimitsconfig
+        '''
+        result = self._values.get("entry_limits_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EntryLimitsConfigProperty"]], result)
+
+    @builtins.property
     def schedule(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ScheduleProperty"]]:
@@ -3867,6 +3989,7 @@ def _typecheckingstub__228f2b3a0b621ad8a32effe36abeb2d513f50077bd0ad5de7f33f1ea8
     communication_limits_override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CommunicationLimitsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     communication_time_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CommunicationTimeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     connect_campaign_flow_arn: typing.Optional[builtins.str] = None,
+    entry_limits_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.EntryLimitsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3931,6 +4054,12 @@ def _typecheckingstub__f04ec307144a013ae0d78d8747dea1d25d0ab7e9abc18aaab84c15553
 
 def _typecheckingstub__c514dbfca338965ca2462164a214264c8a79ca12e54b81685d99cc57a888b73c(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf09eedd6794a75f0306f5ecf5272cf93d77e8714bc3e05cbb11bed4cf20e472(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.EntryLimitsConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4041,6 +4170,14 @@ def _typecheckingstub__7b2c45c48dd3f984623dbcc344a83d9c26e929cd6947cc9f868ffe1b4
 def _typecheckingstub__016ccd411110b9f8510f586be6901ef480857575d80a38ed7c7e81cae2ad5e94(
     *,
     agentless_config: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a5dfe5b0455f78872c1a649fd04429977f2a84ab11299a328c596f937163da5(
+    *,
+    max_entry_count: jsii.Number,
+    min_entry_interval: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4232,6 +4369,7 @@ def _typecheckingstub__3c58eb40b443fce35feb659905089795642547d367bd583cc8addd65c
     communication_limits_override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CommunicationLimitsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     communication_time_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CommunicationTimeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     connect_campaign_flow_arn: typing.Optional[builtins.str] = None,
+    entry_limits_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.EntryLimitsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,

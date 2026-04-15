@@ -444,25 +444,13 @@ class DataSampleLoaderLib:
 
         try:
             schema_json = df.schema.json()
-            data_json = f'[{",".join(data)}]'  # json.dumps(data)
+            data_json = f'[{",".join(data)}]'
 
-            spark = cls._get_spark_session()
-            result = spark.createDataFrame(
-                [(job, schema_json, data_json)], ["job", "schema", "data"]
-            )
-            try:
-                return result.toJSON().first()
-            except Exception as e:
-                from pyspark.sql.functions import struct, col, to_json
+            result = {'job': job, 'schema': schema_json, 'data': data_json}
 
-                row = result.select(to_json(struct(col("*")))).first()
-                if row is not None:
-                    # Extract the string from the Row (first value)
-                    return row[0]
-                else:
-                    return None
+            return json.dumps(result)
         except Exception as e:
-            print(f"Error creating payload: {str(e)}")  # Log error before raising
+            print(f"Error creating payload: {str(e)}")
             raise ValueError(f"Error creating payload: {str(e)}")
 
     @classmethod

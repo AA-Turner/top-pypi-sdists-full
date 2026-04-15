@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -13,7 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see this software project's root or 
+along with this program.  If not, see this software project's root or
 visit <https://www.gnu.org/licenses/>.
 
 Website: https://processintelligence.solutions
@@ -86,7 +86,7 @@ def apply(
         if curr_len >= max_len:
             break
 
-        if not el[0] in ret:
+        if el[0] not in ret:
             stru = " empty: " + str(num_nans[el[0]]) + " values:"
             ret[el[0]] = stru
             curr_len += len(el[0]) + len(stru) + 9

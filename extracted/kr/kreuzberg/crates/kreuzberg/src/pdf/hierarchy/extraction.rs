@@ -385,6 +385,9 @@ pub struct SegmentData {
     pub is_monospace: bool,
     /// Baseline Y position (from first character origin, falls back to bounds bottom)
     pub baseline_y: f32,
+    /// Pre-assigned heading level from the PDF structure tree (1-6), or `None`
+    /// when the heading level is unknown and must be inferred via font-size clustering.
+    pub assigned_role: Option<u8>,
 }
 
 /// Extract text segments from a PDF page using pdfium's segment merging.
@@ -496,6 +499,7 @@ pub fn extract_segments_from_page(page: &PdfPage) -> Result<Vec<SegmentData>> {
             is_italic,
             is_monospace,
             baseline_y,
+            assigned_role: None,
         });
     }
 

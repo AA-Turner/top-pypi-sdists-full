@@ -135,34 +135,93 @@ def _load_shapefiles(parser):
     return dg, dict_config
 
 
+_CANON_PRED = "Predicted Yield (tn per ha)"
+_CANON_OBS = "Observed Yield (tn per ha)"
+
+
+def _resolve_yield_columns(table_cols):
+    """Find the actual Predicted/Observed yield column names in the DB.
+
+    With ``rename_target = True`` + ``new_name_target = Yield`` the DB
+    stores ``"Predicted Yield"`` / ``"Observed Yield"`` instead of the
+    canonical ``"Predicted Yield (tn per ha)"`` / ``"Observed Yield
+    (tn per ha)"``.  We detect the actual names by prefix match and
+    rename them to the canonical form in the returned DataFrame so all
+    downstream code can keep using the canonical strings.
+    """
+    pred_col = next(
+        (c for c in table_cols if c.startswith("Predicted ") and "Yield" in c),
+        None,
+    )
+    obs_col = next(
+        (c for c in table_cols if c.startswith("Observed ") and "Yield" in c),
+        None,
+    )
+    return pred_col, obs_col
+
+
 def _query_predictions(db_path, table, model, experiment_name="default"):
     """Query predictions from the SQLite database for a specific model.
 
-    Returns DataFrame with columns: Country, Region, Harvest Year, Stage Name,
-    Predicted Yield (tn per ha), Observed Yield (tn per ha).
+    Returns DataFrame with canonical columns: Country, Region, Harvest Year,
+    Stage Name, Predicted Yield (tn per ha), Observed Yield (tn per ha), and
+    optionally "lower CI" / "upper CI" / "Area (ha)" when present.  The
+    Predicted/Observed columns are renamed to canonical form even when the
+    user's config sets ``rename_target = True``.
     """
     if not db_path.exists():
-        logger.error("Database not found: %s", db_path)
+        logger.error(f"Database not found: {db_path}")
         return pd.DataFrame()
 
     con = sqlite3.connect(db_path)
     try:
+        table_cols = pd.read_sql(f'PRAGMA table_info("{table}")', con)["name"].tolist()
+
+        pred_col, obs_col = _resolve_yield_columns(table_cols)
+        if pred_col is None or obs_col is None:
+            logger.warning(
+                f"Table '{table}' missing Predicted/Observed yield columns"
+            )
+            return pd.DataFrame()
+
+        optional_cols = [
+            c for c in ("lower CI", "upper CI", "Area (ha)") if c in table_cols
+        ]
+        extra_select = (
+            ("," + ",".join(f'"{c}"' for c in optional_cols))
+            if optional_cols else ""
+        )
+
         df = pd.read_sql(
             f'SELECT "Country", "Region", "Harvest Year", "Stage Name", '
-            f'"Predicted Yield (tn per ha)", "Observed Yield (tn per ha)" '
+            f'"{pred_col}", "{obs_col}"{extra_select} '
             f'FROM "{table}" WHERE "Experiment Name" = ? AND "Model" = ?',
             con,
             params=(experiment_name, model),
         )
     except (pd.errors.DatabaseError, sqlite3.OperationalError) as e:
-        logger.warning("Failed to query table '%s': %s", table, e)
+        logger.warning(f"Failed to query table '{table}': {e}")
         df = pd.DataFrame()
     finally:
         con.close()
     if not df.empty:
+        # Rename DB-specific column names to canonical form so downstream
+        # code (plots, compute_outlook_index, FDW export) works unchanged.
+        rename_map = {}
+        if pred_col and pred_col != _CANON_PRED:
+            rename_map[pred_col] = _CANON_PRED
+        if obs_col and obs_col != _CANON_OBS:
+            rename_map[obs_col] = _CANON_OBS
+        if rename_map:
+            df = df.rename(columns=rename_map)
+
         if "Harvest Year" in df.columns:
             df["Harvest Year"] = df["Harvest Year"].astype(int)
-        for col in ("Predicted Yield (tn per ha)", "Observed Yield (tn per ha)"):
+        numeric_cols = (
+            _CANON_PRED, _CANON_OBS,
+            "lower CI", "upper CI", "Area (ha)",
+        )
+        for col in numeric_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
     return df
@@ -442,10 +501,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         # ---- Skip ML, reuse existing DB ----
         reuse_path = Path(reuse_db)
         if not reuse_path.exists():
-            logger.error("Reuse DB not found: %s", reuse_path)
+            logger.error(f"Reuse DB not found: {reuse_path}")
             return
         outlook_db = reuse_path.name
-        logger.info("Reusing existing outlook DB: %s", reuse_path)
+        logger.info(f"Reusing existing outlook DB: {reuse_path}")
     else:
         # ---- Step 1: Run ML pipeline for all years since since_year ----
         outlook_seasons = list(range(since_year, current_year + 1))
@@ -464,10 +523,17 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         else:
             inputs = gc.gather_inputs(parser)
 
+        # Crops and models are per-country in the config; read the union
+        # that will actually run from the assembled input list (field
+        # indices: [project_name, country(s), crop, season, model]).
+        crops = sorted({row[2] for row in inputs})
+        models = sorted({row[4] for row in inputs})
+
         params = [
             ("Countries", countries),
+            ("Crops", crops),
+            ("Models", models),
             ("Forecast year", str(current_year)),
-            ("Since year", str(since_year)),
             ("Outlook index window", f"{n_years} years"),
             ("Seasons", f"{outlook_seasons[0]}-{outlook_seasons[-1]}"),
             ("Aggregation", aggregation),
@@ -514,30 +580,22 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         obs_baselines = _load_observed_baselines([country], crop, parser, current_year=current_year)
 
         for model in models:
-            logger.info("Yield outlook: %s %s %s", country, crop, model)
+            logger.info(f"Yield outlook: {country} {crop} {model}")
 
             df = _query_predictions(db_path, country_crop, model, experiment_name="outlook")
             if df.empty:
-                logger.warning("No predictions found for %s %s %s", country, crop, model)
+                logger.warning(f"No predictions found for {country} {crop} {model}")
                 continue
 
             # Get all stages available for current year
             df_current = df[df["Harvest Year"] == current_year]
             if df_current.empty:
                 logger.warning(
-                    "No predictions for year %d in %s %s %s",
-                    current_year, country, crop, model,
+                    f"No predictions for year {current_year} in {country} {crop} {model}"
                 )
                 continue
 
-            if is_pooled:
-                annotate = False
-                map_countries = countries
-            else:
-                annotate = parser.getboolean(
-                    country, "annotate_regions", fallback=False
-                )
-                map_countries = [country]
+            map_countries = countries if is_pooled else [country]
 
             # Store raw predictions for diagnostics
             df_pred_store[(country, crop, model)] = df
@@ -549,8 +607,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             )
             if df_outlook.empty:
                 logger.warning(
-                    "Could not compute outlook for %s %s %s",
-                    country, crop, model,
+                    f"Could not compute outlook for {country} {crop} {model}"
                 )
                 continue
 
@@ -565,8 +622,8 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             )
             if n_hist < 3:
                 logger.warning(
-                    "Only %d historical years for %s %s %s (requested %d)",
-                    n_hist, country, crop, model, n_years,
+                    f"Only {n_hist} historical years for {country} {crop} {model} "
+                    f"(requested {n_years})"
                 )
 
             df_outlook["Crop"] = crop
@@ -589,12 +646,38 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 aggregation,
                 dir_model,
                 stage_name=stage_name,
-                annotate_regions=annotate,
+                annotate_regions=False,
             )
+            _countries_str = "_".join(map_countries)
             logger.info(
-                "Map saved: %s",
-                dir_model
-                / f"yield_outlook_{'_'.join(map_countries)}_{crop}_{model}_{stage_name}_{current_year}.png",
+                f"Map saved: {dir_model / f'yield_outlook_{_countries_str}_{crop}_{model}_{stage_name}_{current_year}.png'}"
+            )
+
+            # Absolute predicted-yield choropleth (sequential, tn/ha).
+            # Complements the diverging outlook-index map by showing the
+            # raw forecast value per region rather than a % departure.
+            df_pred_map = df_outlook[[
+                "Country", "Region", "Country Region", "current_predicted",
+            ]].rename(columns={"current_predicted": "Predicted Yield (tn per ha)"})
+            pred_fname = (
+                f"predicted_yield_{_countries_str}_{crop}_{model}"
+                f"_{stage_name}_{current_year}.png"
+            )
+            plot.plot_map(
+                dg,
+                df_pred_map,
+                merge_col="Country Region",
+                name_country=[c.title().replace("_", " ") for c in map_countries],
+                name_col="Predicted Yield (tn per ha)",
+                dir_out=dir_model,
+                fname=pred_fname,
+                label=f"Predicted yield (tn/ha)\n{crop.title()}, {current_year}, stage {stage_name}",
+                vmin=float(df_pred_map["Predicted Yield (tn per ha)"].min()),
+                vmax=float(df_pred_map["Predicted Yield (tn per ha)"].max()),
+                cmap=pal.scientific.sequential.Bamako_20_r,
+                series="sequential",
+                annotate_regions=False,
+                loc_legend="lower left",
             )
 
             # Observed-baseline anomaly maps (matching analysis.py: 2013-2017, 2018-2022, 10yr)
@@ -614,6 +697,133 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     n_years, aggregation, dir_obs,
                     col="obs_anomaly",
                     col_label=f"% departure from {period_label} observed mean\n{crop.title()}, {current_year}",
+                )
+
+            # Per-(country, crop, model) diagnostic plots
+            from .viz import diagnostics as diag
+            country_lower = country.lower().replace(" ", "_")
+            plot_dir = dir_outlook / "plots" / model / country_lower
+
+            # Production share (last 5 years) — shared by forest plot and
+            # MAPE bar to order regions consistently.
+            prod_pct = diag.compute_production_pct(df, country)
+
+            # Forest plot: current-year predicted + CI, with last 5 observed yields per region
+            if "lower CI" in df_current.columns:
+                df_plot = (
+                    df_current.sort_values("Stage Name")
+                    .groupby("Region", as_index=False).last()
+                )
+                df_obs_last5 = (
+                    df.dropna(subset=["Observed Yield (tn per ha)"])
+                    .drop_duplicates(subset=["Region", "Harvest Year"])
+                    .sort_values(["Region", "Harvest Year"])
+                    .groupby("Region", group_keys=False)
+                    .tail(5)
+                )[["Region", "Harvest Year", "Observed Yield (tn per ha)"]]
+
+                if not df_obs_last5.empty:
+                    yr_min = int(df_obs_last5["Harvest Year"].min())
+                    yr_max = int(df_obs_last5["Harvest Year"].max())
+                    obs_label = f"Observed ({yr_min}-{yr_max})"
+                else:
+                    obs_label = "Observed"
+
+                diag.forest_yield_ci(
+                    df_plot,
+                    predicted_col="Predicted Yield (tn per ha)",
+                    out_path=plot_dir / f"yield_ci_{country_lower}_{crop}_{model}.png",
+                    title=f"Predicted Yield with CI \u2014 {country} {crop} ({model})",
+                    reference_df=df_obs_last5,
+                    reference_value_col="Observed Yield (tn per ha)",
+                    reference_label=obs_label,
+                    production_pct=prod_pct,
+                )
+
+                # Per-region tabular summary (same ordering as the forest
+                # plot: largest producer at top, region labels with
+                # production-share suffix).
+                df_table = df_plot[[
+                    "Region", "Predicted Yield (tn per ha)",
+                    "lower CI", "upper CI",
+                ]].rename(columns={"Predicted Yield (tn per ha)": "Predicted Yield"})
+                if prod_pct:
+                    order = sorted(
+                        df_table["Region"].tolist(),
+                        key=lambda r: prod_pct.get(r, 0),
+                        reverse=True,
+                    )
+                    df_table = df_table.set_index("Region").loc[order].reset_index()
+                    df_table["Region"] = [
+                        f"{r} ({prod_pct.get(r, 0):.1f}%)" for r in df_table["Region"]
+                    ]
+                cols_order = ["Predicted Yield", "lower CI", "upper CI"]
+                diag.yield_table(
+                    df_table[["Region"] + cols_order],
+                    out_path=plot_dir / f"yield_table_{country_lower}_{crop}_{model}.png",
+                    title=f"Yield Forecast Summary \u2014 {country} {crop} ({model}, {current_year})",
+                    columns=cols_order,
+                )
+
+            # MAPE diagnostics: one row per (Region, Harvest Year) using latest stage.
+            df_mape = df.dropna(
+                subset=["Observed Yield (tn per ha)", "Predicted Yield (tn per ha)"]
+            ).copy()
+            df_mape = df_mape[df_mape["Observed Yield (tn per ha)"] != 0]
+            if not df_mape.empty:
+                df_mape["MAPE"] = (
+                    (df_mape["Predicted Yield (tn per ha)"]
+                     - df_mape["Observed Yield (tn per ha)"]).abs()
+                    / df_mape["Observed Yield (tn per ha)"] * 100
+                )
+                df_mape = (
+                    df_mape.sort_values("Stage Name")
+                    .groupby(["Region", "Harvest Year"], as_index=False).last()
+                )
+
+                diag.mape_bar_chart(
+                    df_mape,
+                    title=f"Mean MAPE by Region \u2014 {country} {crop} ({model})",
+                    dir_out=plot_dir,
+                    fname=f"mape_bar_{country_lower}_{crop}_{model}.png",
+                    production_pct=prod_pct,
+                )
+                diag.mape_by_year(
+                    df_mape,
+                    title=f"MAPE by Year \u2014 {country} {crop} ({model})",
+                    dir_out=plot_dir,
+                    fname=f"mape_year_{country_lower}_{crop}_{model}.png",
+                    threshold=20.0,
+                )
+
+            # % of national crop area — choropleth (mirrors analysis.py's perc_area map)
+            area_pct = diag.compute_area_pct(df, country)
+            if area_pct:
+                df_area_pct = pd.DataFrame(
+                    [{"Region": r, "% of National Area (ha)": v}
+                     for r, v in area_pct.items()]
+                )
+                df_area_pct["Country"] = country
+                df_area_pct["Country Region"] = (
+                    df_area_pct["Country"].str.lower().str.replace("_", " ")
+                    + " " + df_area_pct["Region"].str.lower()
+                )
+                area_map_dir = dir_outlook / "maps" / model
+                plot.plot_map(
+                    dg,
+                    df_area_pct,
+                    merge_col="Country Region",
+                    name_country=[country.title().replace("_", " ")],
+                    name_col="% of National Area (ha)",
+                    dir_out=area_map_dir,
+                    fname=f"perc_area_{country_lower}_{crop}_{model}.png",
+                    label=f"% of National Area (ha) — last 5-yr avg\n{crop.title()}",
+                    vmin=float(df_area_pct["% of National Area (ha)"].min()),
+                    vmax=float(df_area_pct["% of National Area (ha)"].max()),
+                    cmap=pal.scientific.sequential.Bamako_20_r,
+                    series="sequential",
+                    annotate_regions=False,
+                    loc_legend="lower left",
                 )
 
     # ---- Consolidated output: maps, ensemble, and CSVs ----
@@ -681,15 +891,11 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         # Per-country ensemble maps
         for (country_val, crop_val), df_group in df_ensemble.groupby(["Country", "Crop"]):
             map_countries_val = countries if country_val == "pooled" else [country_val]
-            annotate_val = (
-                parser.getboolean(country_val, "annotate_regions", fallback=False)
-                if country_val != "pooled" else False
-            )
             stage_val = df_group["Stage Name"].iloc[0]
             _generate_outlook_map(
                 dg, df_group, map_countries_val, crop_val,
                 "ensemble", current_year, n_years, aggregation, dir_ens,
-                stage_name=stage_val, annotate_regions=annotate_val,
+                stage_name=stage_val, annotate_regions=False,
             )
 
         # Multi-country ensemble maps
@@ -731,7 +937,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         df_long = pd.concat([df_all, df_ensemble], ignore_index=True)
         csv_path = dir_outlook / f"yield_outlook_{scope}_{crops_str}_{current_year}.csv"
         df_long.to_csv(csv_path, index=False)
-        logger.info("Outlook CSV saved to %s", csv_path)
+        logger.info(f"Outlook CSV saved to {csv_path}")
 
         # Wide-format CSV: one outlook_index column per model + ensemble column
         pivot_cols = ["Country", "Region", "Crop", "Forecast Year"]
@@ -744,7 +950,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             df_wide["ensemble"] = df_wide[model_cols].mean(axis=1)
         csv_wide = dir_outlook / f"yield_outlook_{scope}_{crops_str}_{current_year}_wide.csv"
         df_wide.to_csv(csv_wide, index=False)
-        logger.info("Wide-format CSV saved to %s", csv_wide)
+        logger.info(f"Wide-format CSV saved to {csv_wide}")
     else:
         logger.warning("No outlook data generated — check DB has predictions.")
 

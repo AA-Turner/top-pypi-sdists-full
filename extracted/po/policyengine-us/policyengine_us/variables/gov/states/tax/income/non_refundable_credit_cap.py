@@ -1,3 +1,18 @@
+"""Shared helpers for ordered state nonrefundable credits.
+
+These helpers distinguish between:
+
+- potential credit amounts: the worksheet or statutory amount before applying
+  overall nonrefundable ordering and tax-liability limits
+- applied credit amounts: the amount actually allowed on the return after
+  accounting for earlier credits and remaining liability
+
+Downstream formulas should only read applied credit variables when the form or
+statute refers to the post-ordering amount that lands on the return. If a
+downstream formula refers to the underlying worksheet amount, it should read
+the corresponding ``*_potential`` variable instead.
+"""
+
 from policyengine_us.model_api import *
 
 
@@ -8,6 +23,11 @@ def state_non_refundable_credit_limit(
     income_tax_before_non_refundable_credits_var: str,
     credit_name: str,
 ):
+    """Return the remaining liability available to ``credit_name``.
+
+    Only credits that appear earlier in ``ordered_credits`` reduce the amount
+    available to this credit. Later credits must not affect this limit.
+    """
     preceding_credits = []
     for credit in list(ordered_credits):
         if credit == credit_name:
@@ -31,6 +51,7 @@ def applied_state_non_refundable_credit(
     credit_name: str,
     potential_credit_name: str,
 ):
+    """Cap a potential state credit to the liability remaining at its turn."""
     potential = tax_unit(potential_credit_name, period)
     credit_limit = state_non_refundable_credit_limit(
         tax_unit,
@@ -50,9 +71,13 @@ def cap_state_non_refundable_credit(
     income_tax_before_non_refundable_credits_var: str,
     potential,
 ):
-    # Keep raw credit variables as their underlying worksheet/statutory amounts.
-    # Ordered tax-liability capping is applied when state non-refundable credits
-    # are aggregated into the tax calculation.
+    """Preserve the pre-ordering credit amount on the raw credit variable.
+
+    This helper exists for compatibility with older variable formulas that used
+    a generic "cap" helper. The raw credit variable should still represent the
+    underlying worksheet/statutory amount; the ordered application happens only
+    when nonrefundable credits are aggregated into tax.
+    """
     return potential
 
 
@@ -62,6 +87,7 @@ def ordered_capped_state_non_refundable_credits(
     ordered_credits,
     income_tax_before_non_refundable_credits_var: str,
 ):
+    """Apply ordered nonrefundable credits without exceeding tax liability."""
     remaining_tax = tax_unit(income_tax_before_non_refundable_credits_var, period)
     capped_total = 0
     for credit in list(ordered_credits):

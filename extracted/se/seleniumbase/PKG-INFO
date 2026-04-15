@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.48.0
+Version: 4.48.1
 Summary: A complete web automation framework for end-to-end testing.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -131,7 +131,7 @@ Requires-Dist: PyAutoGUI>=0.9.54; platform_system == "Linux"
 Requires-Dist: markdown-it-py==3.0.0; python_version < "3.10"
 Requires-Dist: markdown-it-py==4.0.0; python_version >= "3.10"
 Requires-Dist: mdurl==0.1.2
-Requires-Dist: rich<15,>=14.3.3
+Requires-Dist: rich<16,>=15.0.0
 Provides-Extra: allure
 Requires-Dist: allure-pytest>=2.13.5; extra == "allure"
 Requires-Dist: allure-python-commons>=2.13.5; extra == "allure"

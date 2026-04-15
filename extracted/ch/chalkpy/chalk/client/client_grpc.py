@@ -3177,8 +3177,12 @@ class ChalkGRPCClient:
             Resolver tags to prefer when running the backfill.
         store_offline : bool, optional
             If `True`, store materialized aggregate values in the offline store.
+            Requires both `lower_bound` and `upper_bound`.
         """
         from chalk._gen.chalk.aggregate.v1.service_pb2 import CreateAggregateBackfillJobRequest
+
+        if store_offline is True and (lower_bound is None or upper_bound is None):
+            raise ValueError("When `store_offline=True`, both `lower_bound` and `upper_bound` must be specified.")
 
         req = CreateAggregateBackfillJobRequest(
             features=features,

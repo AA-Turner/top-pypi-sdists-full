@@ -3,9 +3,11 @@ from __future__ import annotations
 import importlib.metadata
 import json
 from pathlib import Path
+from typing import Any
 
 import packaging.version
 import pytest
+from helpers import convert_histogram_to_32bit
 
 import uhi.io.json
 
@@ -79,6 +81,39 @@ def test_convert_bh() -> None:
 
 
 @pytest.mark.skipif(
+    packaging.version.Version("1.7.2") > BHVERSION,
+    reason="Requires boost-histogram 1.7.2+ for keep_storage=False support",
+)
+def test_convert_bh_no_storage() -> None:
+    """Test serialization with keep_storage=False (structure-only histograms)."""
+    import boost_histogram as bh
+    import boost_histogram.serialization
+
+    h = bh.Histogram(
+        bh.axis.Regular(3, 0, 10, __dict__={"name": "x"}), storage=bh.storage.Weight()
+    )
+    h.fill([0.1, 0.3, 0.5], weight=[1.5, 2.5, 3.5])
+
+    # Convert to UHI format without storage values
+    uhi_dict = boost_histogram.serialization.to_uhi(h, keep_storage=False)
+
+    # Verify storage has type but no values
+    assert "storage" in uhi_dict
+    assert uhi_dict["storage"]["type"] == "weighted"
+    assert "values" not in uhi_dict["storage"]
+    assert "variances" not in uhi_dict["storage"]
+
+    # Should be able to serialize to JSON
+    redata = json.dumps(uhi_dict, default=uhi.io.json.default)
+    rehist = json.loads(redata, object_hook=uhi.io.json.object_hook)
+
+    # Should be able to reconstruct a histogram with the same structure
+    h2 = bh.Histogram(rehist)
+    assert h.axes == h2.axes
+    assert isinstance(h2.storage_type(), bh.storage.Weight)
+
+
+@pytest.mark.skipif(
     packaging.version.Version("1.6.1") > BHVERSION
     or packaging.version.Version("2.9.0") > HISTVERSION,
     reason="Requires boost-histogram 1.6+ / Hist 2.9+",
@@ -97,3 +132,95 @@ def test_convert_hist() -> None:
     rehist = json.loads(redata, object_hook=uhi.io.json.object_hook)
     h2 = hist.Hist(rehist)
     assert h == h2
+
+
+def test_empty_storage_roundtrip() -> None:
+    """Test that empty storages can be read and written with JSON."""
+    data = {
+        "empty_int": {
+            "uhi_schema": 1,
+            "axes": [
+                {
+                    "type": "regular",
+                    "lower": 0,
+                    "upper": 10,
+                    "bins": 5,
+                    "underflow": False,
+                    "overflow": False,
+                    "circular": False,
+                }
+            ],
+            "storage": {"type": "int"},
+        }
+    }
+
+    # Dump to JSON
+    json_str = json.dumps(data, default=uhi.io.json.default)
+
+    # Load back from JSON
+    loaded = json.loads(json_str, object_hook=uhi.io.json.object_hook)
+
+    # Verify structure is preserved
+    assert loaded == data
+    assert loaded["empty_int"]["storage"]["type"] == "int"
+    assert "values" not in loaded["empty_int"]["storage"]
+
+
+@pytest.mark.skipif(
+    packaging.version.Version("1.6.1") > BHVERSION,
+    reason="Requires boost-histogram 1.6+",
+)
+@pytest.mark.parametrize(
+    "storage_type",
+    [
+        pytest.param("int", id="int_storage"),
+        pytest.param("double", id="double_storage"),
+        pytest.param("weighted", id="weighted_storage"),
+        pytest.param("mean", id="mean_storage"),
+    ],
+)
+def test_convert_bh_32bit(storage_type: str) -> None:
+    """Test serialization of 32-bit histograms via JSON."""
+    import boost_histogram as bh
+
+    # Create histogram with appropriate storage type
+    axis = bh.axis.Regular(5, 0, 1, __dict__={"name": "x"})
+    h: bh.Histogram[Any]
+
+    if storage_type == "int":
+        h = bh.Histogram(axis, storage=bh.storage.Int64())
+        # Fill with some data
+        for i in range(5):
+            h.fill([0.1 + i * 0.15] * 10)
+    elif storage_type == "double":
+        h = bh.Histogram(axis, storage=bh.storage.Double())
+        h.fill([0.1, 0.3, 0.5, 0.7, 0.9])
+    elif storage_type == "weighted":
+        h = bh.Histogram(axis, storage=bh.storage.Weight())
+        h.fill([0.1, 0.3, 0.5], weight=[1.5, 2.5, 3.5])
+    elif storage_type == "mean":
+        h = bh.Histogram(axis, storage=bh.storage.Mean())
+        h.fill([0.1, 0.3, 0.5], sample=[10.0, 20.0, 30.0])
+    else:
+        msg = f"Unknown storage type: {storage_type}"
+        raise ValueError(msg)
+
+    # Convert to UHI format
+    uhi_dict = h._to_uhi_()
+
+    # Convert to 32-bit
+    uhi_32bit = convert_histogram_to_32bit(uhi_dict)
+
+    # Serialize via JSON
+    redata = json.dumps(uhi_32bit, default=uhi.io.json.default)
+
+    # Deserialize
+    rehist_32bit = json.loads(redata, object_hook=uhi.io.json.object_hook)
+
+    # Verify storage type and data integrity
+    assert rehist_32bit["storage"]["type"] == storage_type
+    assert "values" in rehist_32bit["storage"]
+
+    # Verify values can be serialized again without error
+    redata2 = json.dumps(rehist_32bit, default=uhi.io.json.default)
+    assert len(redata2) > 0

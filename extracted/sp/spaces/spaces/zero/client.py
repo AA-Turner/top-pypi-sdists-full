@@ -142,7 +142,7 @@ def schedule(
             )
             raise error("ZeroGPU quota exceeded", message)
         else:
-            if payload.get('user') is None and res.wait == 0:
+            if res.wait == 0:
                 message = "You have exceeded your runs limit."
             else:
                 gpu = "Pro GPU" if auth == 'pro' else ("free GPU" if auth == 'regular' else "GPU")

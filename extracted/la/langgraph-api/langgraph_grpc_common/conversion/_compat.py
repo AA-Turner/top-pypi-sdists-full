@@ -52,13 +52,15 @@ try:
         Runtime,
     )
 except ImportError:  # langgraph < 0.5/6
-    from langgraph.pregel.algo import (  # type: ignore[unresolved-import]
+    from langgraph.pregel.algo import (  # type: ignore[unresolved-import]  # ty: ignore[unresolved-import]
         PregelTaskWrites,
         _proc_input,
         _scratchpad,
         local_read,
     )
-    from langgraph.pregel.read import PregelNode  # type: ignore[unresolved-import]
+    from langgraph.pregel.read import (  # type: ignore[unresolved-import]  # ty: ignore[unresolved-import]
+        PregelNode,
+    )
 
     CACHE_NS_WRITES = "__pregel_cache_ns_writes"
     CONF = "configurable"

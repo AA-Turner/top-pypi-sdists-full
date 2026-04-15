@@ -23,6 +23,7 @@ from aws_lambda_powertools.event_handler.openapi.compat import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from aws_lambda_powertools.event_handler.depends import DependencyParam
     from aws_lambda_powertools.event_handler.openapi.models import Example
     from aws_lambda_powertools.event_handler.openapi.types import CacheKey
 
@@ -64,6 +65,7 @@ class Dependant:
         http_connection_param_name: str | None = None,
         response_param_name: str | None = None,
         background_tasks_param_name: str | None = None,
+        dependencies: list[DependencyParam] | None = None,
         path: str | None = None,
     ) -> None:
         self.path_params = path_params or []
@@ -78,6 +80,7 @@ class Dependant:
         self.http_connection_param_name = http_connection_param_name
         self.response_param_name = response_param_name
         self.background_tasks_param_name = background_tasks_param_name
+        self.dependencies = dependencies or []
         self.name = name
         self.call = call
         # Store the path to be able to re-generate a dependable from it in overrides
@@ -286,64 +289,6 @@ class Path(Param):  # type: ignore[misc]
         json_schema_extra: dict[str, Any] | None = None,
         **extra: Any,
     ):
-        """
-        Constructs a new Path param.
-
-        Parameters
-        ----------
-        default: Any
-            The default value of the parameter
-        default_factory: Callable[[], Any], optional
-            Callable that will be called when a default value is needed for this field
-        annotation: Any, optional
-            The type annotation of the parameter
-        alias: str, optional
-            The public name of the field
-        alias_priority: int, optional
-            Priority of the alias. This affects whether an alias generator is used
-        validation_alias: str | AliasPath | AliasChoices | None, optional
-            Alias to be used for validation only
-        serialization_alias: str | AliasPath | AliasChoices | None, optional
-            Alias to be used for serialization only
-        title: str, optional
-            The title of the parameter
-        description: str, optional
-            The description of the parameter
-        gt: float, optional
-            Only applies to numbers, required the field to be "greater than"
-        ge: float, optional
-            Only applies to numbers, required the field to be "greater than or equal"
-        lt: float, optional
-            Only applies to numbers, required the field to be "less than"
-        le: float, optional
-            Only applies to numbers, required the field to be "less than or equal"
-        min_length: int, optional
-            Only applies to strings, required the field to have a minimum length
-        max_length: int, optional
-            Only applies to strings, required the field to have a maximum length
-        pattern: str, optional
-            Only applies to strings, requires the field match against a regular expression pattern string
-        discriminator: str, optional
-            Parameter field name for discriminating the type in a tagged union
-        strict: bool, optional
-            Enables Pydantic's strict mode for the field
-        multiple_of: float, optional
-            Only applies to numbers, requires the field to be a multiple of the given value
-        allow_inf_nan: bool, optional
-            Only applies to numbers, requires the field to allow infinity and NaN values
-        max_digits: int, optional
-            Only applies to Decimals, requires the field to have a maxmium number of digits within the decimal.
-        decimal_places: int, optional
-            Only applies to Decimals, requires the field to have at most a number of decimal places
-        examples: list[Any], optional
-            A list of examples for the parameter
-        deprecated: bool, optional
-            If `True`, the parameter will be marked as deprecated
-        include_in_schema: bool, optional
-            If `False`, the parameter will be excluded from the generated OpenAPI schema
-        json_schema_extra: dict[str, Any], optional
-            Extra values to include in the generated OpenAPI schema
-        """
         if default is not ...:
             raise AssertionError("Path parameters cannot have a default value")
 
@@ -418,64 +363,6 @@ class Query(Param):  # type: ignore[misc]
         json_schema_extra: dict[str, Any] | None = None,
         **extra: Any,
     ):
-        """
-        Constructs a new Query param.
-
-        Parameters
-        ----------
-        default: Any
-            The default value of the parameter
-        default_factory: Callable[[], Any], optional
-            Callable that will be called when a default value is needed for this field
-        annotation: Any, optional
-            The type annotation of the parameter
-        alias: str, optional
-            The public name of the field
-        alias_priority: int, optional
-            Priority of the alias. This affects whether an alias generator is used
-        validation_alias: str | AliasPath | AliasChoices | None, optional
-            Alias to be used for validation only
-        serialization_alias: str | AliasPath | AliasChoices | None, optional
-            Alias to be used for serialization only
-        title: str, optional
-            The title of the parameter
-        description: str, optional
-            The description of the parameter
-        gt: float, optional
-            Only applies to numbers, required the field to be "greater than"
-        ge: float, optional
-            Only applies to numbers, required the field to be "greater than or equal"
-        lt: float, optional
-            Only applies to numbers, required the field to be "less than"
-        le: float, optional
-            Only applies to numbers, required the field to be "less than or equal"
-        min_length: int, optional
-            Only applies to strings, required the field to have a minimum length
-        max_length: int, optional
-            Only applies to strings, required the field to have a maximum length
-        pattern: str, optional
-            Only applies to strings, requires the field match against a regular expression pattern string
-        discriminator: str, optional
-            Parameter field name for discriminating the type in a tagged union
-        strict: bool, optional
-            Enables Pydantic's strict mode for the field
-        multiple_of: float, optional
-            Only applies to numbers, requires the field to be a multiple of the given value
-        allow_inf_nan: bool, optional
-            Only applies to numbers, requires the field to allow infinity and NaN values
-        max_digits: int, optional
-            Only applies to Decimals, requires the field to have a maxmium number of digits within the decimal.
-        decimal_places: int, optional
-            Only applies to Decimals, requires the field to have at most a number of decimal places
-        examples: list[Any], optional
-            A list of examples for the parameter
-        deprecated: bool, optional
-            If `True`, the parameter will be marked as deprecated
-        include_in_schema: bool, optional
-            If `False`, the parameter will be excluded from the generated OpenAPI schema
-        json_schema_extra: dict[str, Any], optional
-            Extra values to include in the generated OpenAPI schema
-        """
         super().__init__(
             default=default,
             default_factory=default_factory,
@@ -550,67 +437,6 @@ class Header(Param):  # type: ignore[misc]
         json_schema_extra: dict[str, Any] | None = None,
         **extra: Any,
     ):
-        """
-        Constructs a new Query param.
-
-        Parameters
-        ----------
-        default: Any
-            The default value of the parameter
-        default_factory: Callable[[], Any], optional
-            Callable that will be called when a default value is needed for this field
-        annotation: Any, optional
-            The type annotation of the parameter
-        alias: str, optional
-            The public name of the field
-        alias_priority: int, optional
-            Priority of the alias. This affects whether an alias generator is used
-        validation_alias: str | AliasPath | AliasChoices | None, optional
-            Alias to be used for validation only
-        serialization_alias: str | AliasPath | AliasChoices | None, optional
-            Alias to be used for serialization only
-        convert_underscores: bool
-            If true convert "_" to "-"
-            See RFC: https://www.rfc-editor.org/rfc/rfc9110.html#name-field-name-registry
-        title: str, optional
-            The title of the parameter
-        description: str, optional
-            The description of the parameter
-        gt: float, optional
-            Only applies to numbers, required the field to be "greater than"
-        ge: float, optional
-            Only applies to numbers, required the field to be "greater than or equal"
-        lt: float, optional
-            Only applies to numbers, required the field to be "less than"
-        le: float, optional
-            Only applies to numbers, required the field to be "less than or equal"
-        min_length: int, optional
-            Only applies to strings, required the field to have a minimum length
-        max_length: int, optional
-            Only applies to strings, required the field to have a maximum length
-        pattern: str, optional
-            Only applies to strings, requires the field match against a regular expression pattern string
-        discriminator: str, optional
-            Parameter field name for discriminating the type in a tagged union
-        strict: bool, optional
-            Enables Pydantic's strict mode for the field
-        multiple_of: float, optional
-            Only applies to numbers, requires the field to be a multiple of the given value
-        allow_inf_nan: bool, optional
-            Only applies to numbers, requires the field to allow infinity and NaN values
-        max_digits: int, optional
-            Only applies to Decimals, requires the field to have a maxmium number of digits within the decimal.
-        decimal_places: int, optional
-            Only applies to Decimals, requires the field to have at most a number of decimal places
-        examples: list[Any], optional
-            A list of examples for the parameter
-        deprecated: bool, optional
-            If `True`, the parameter will be marked as deprecated
-        include_in_schema: bool, optional
-            If `False`, the parameter will be excluded from the generated OpenAPI schema
-        json_schema_extra: dict[str, Any], optional
-            Extra values to include in the generated OpenAPI schema
-        """
         self.convert_underscores = convert_underscores
         self._alias = alias
 
@@ -664,71 +490,6 @@ class Cookie(Param):  # type: ignore[misc]
     """
 
     in_ = ParamTypes.cookie
-
-    def __init__(
-        self,
-        default: Any = Undefined,
-        *,
-        default_factory: Callable[[], Any] | None = _Unset,
-        annotation: Any | None = None,
-        alias: str | None = None,
-        alias_priority: int | None = _Unset,
-        # MAINTENANCE: update when deprecating Pydantic v1, import these types
-        # str | AliasPath | AliasChoices | None
-        validation_alias: str | None = _Unset,
-        serialization_alias: str | None = None,
-        title: str | None = None,
-        description: str | None = None,
-        gt: float | None = None,
-        ge: float | None = None,
-        lt: float | None = None,
-        le: float | None = None,
-        min_length: int | None = None,
-        max_length: int | None = None,
-        pattern: str | None = None,
-        discriminator: str | None = None,
-        strict: bool | None = _Unset,
-        multiple_of: float | None = _Unset,
-        allow_inf_nan: bool | None = _Unset,
-        max_digits: int | None = _Unset,
-        decimal_places: int | None = _Unset,
-        examples: list[Any] | None = None,
-        openapi_examples: dict[str, Example] | None = None,
-        deprecated: bool | None = None,
-        include_in_schema: bool = True,
-        json_schema_extra: dict[str, Any] | None = None,
-        **extra: Any,
-    ):
-        super().__init__(
-            default=default,
-            default_factory=default_factory,
-            annotation=annotation,
-            alias=alias,
-            alias_priority=alias_priority,
-            validation_alias=validation_alias,
-            serialization_alias=serialization_alias,
-            title=title,
-            description=description,
-            gt=gt,
-            ge=ge,
-            lt=lt,
-            le=le,
-            min_length=min_length,
-            max_length=max_length,
-            pattern=pattern,
-            discriminator=discriminator,
-            strict=strict,
-            multiple_of=multiple_of,
-            allow_inf_nan=allow_inf_nan,
-            max_digits=max_digits,
-            decimal_places=decimal_places,
-            deprecated=deprecated,
-            examples=examples,
-            openapi_examples=openapi_examples,
-            include_in_schema=include_in_schema,
-            json_schema_extra=json_schema_extra,
-            **extra,
-        )
 
 
 class Body(FieldInfo):  # type: ignore[misc]
@@ -1058,7 +819,7 @@ def get_flat_dependant(
         visited = []
     visited.append(dependant.cache_key)
 
-    return Dependant(
+    flat = Dependant(
         path_params=dependant.path_params.copy(),
         query_params=dependant.query_params.copy(),
         header_params=dependant.header_params.copy(),
@@ -1066,6 +827,18 @@ def get_flat_dependant(
         body_params=dependant.body_params.copy(),
         path=dependant.path,
     )
+
+    # Flatten sub-dependencies that declare HTTP params (query, header, etc.)
+    for dep in dependant.dependencies:
+        if dep.dependant.cache_key not in visited:
+            sub_flat = get_flat_dependant(dep.dependant, visited=visited)
+            flat.path_params.extend(sub_flat.path_params)
+            flat.query_params.extend(sub_flat.query_params)
+            flat.header_params.extend(sub_flat.header_params)
+            flat.cookie_params.extend(sub_flat.cookie_params)
+            flat.body_params.extend(sub_flat.body_params)
+
+    return flat
 
 
 def analyze_param(

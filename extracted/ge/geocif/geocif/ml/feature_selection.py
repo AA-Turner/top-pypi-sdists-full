@@ -88,8 +88,10 @@ def select_features(
         import matplotlib.pyplot as plt
         import seaborn as sns
 
-        logger.info("[multi] Starting multi-method feature selection for region=%s (%d features, %d samples)",
-                     region, X_clean.shape[1], X_clean.shape[0])
+        logger.info(
+            f"[multi] Starting multi-method feature selection for region={region} "
+            f"({X_clean.shape[1]} features, {X_clean.shape[0]} samples)"
+        )
 
         counter = Counter()
         selections = {}
@@ -97,7 +99,7 @@ def select_features(
         models = ["BorutaPy", "mrmr", "gOMP"]
         # run three selectors and count feature picks
         for sub_m in models:
-            logger.info("[multi] Running %s ...", sub_m)
+            logger.info(f"[multi] Running {sub_m} ...")
             try:
                 _, _, feats = select_features(
                     X_clean, y,
@@ -107,16 +109,16 @@ def select_features(
                     threshold_unique=threshold_unique
                 )
             except Exception as e:
-                logger.warning("[multi] %s failed: %s", sub_m, e)
+                logger.warning(f"[multi] {sub_m} failed: {e}")
                 feats = []
 
             selections[sub_m] = set(feats)
             counter.update(feats)
-            logger.info("[multi] %s selected %d features", sub_m, len(feats))
+            logger.info(f"[multi] {sub_m} selected {len(feats)} features")
 
         # union of all features
         combined = sorted(counter.keys())
-        logger.info("[multi] Union of all methods: %d features", len(combined))
+        logger.info(f"[multi] Union of all methods: {len(combined)} features")
         X_out = X_clean.loc[:, combined]
 
         # plot and save histogram

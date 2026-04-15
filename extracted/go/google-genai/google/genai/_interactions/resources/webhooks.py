@@ -40,12 +40,10 @@ from .._response import (
     async_to_streamed_response_wrapper,
 )
 from .._base_client import make_request_options
+from ..types.webhook import Webhook
 from ..types.webhook_list_response import WebhookListResponse
 from ..types.webhook_ping_response import WebhookPingResponse
-from ..types.webhook_create_response import WebhookCreateResponse
 from ..types.webhook_delete_response import WebhookDeleteResponse
-from ..types.webhook_update_response import WebhookUpdateResponse
-from ..types.webhook_retrieve_response import WebhookRetrieveResponse
 from ..types.webhook_rotate_signing_secret_response import WebhookRotateSigningSecretResponse
 
 __all__ = ["WebhooksResource", "AsyncWebhooksResource"]
@@ -101,7 +99,7 @@ class WebhooksResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> WebhookCreateResponse:
+    ) -> Webhook:
         """Creates a new Webhook.
 
         Args:
@@ -159,45 +157,7 @@ class WebhooksResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform({"webhook_id": webhook_id}, webhook_create_params.WebhookCreateParams),
             ),
-            cast_to=WebhookCreateResponse,
-        )
-
-    def retrieve(
-        self,
-        id: str,
-        *,
-        api_version: str | None = None,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> WebhookRetrieveResponse:
-        """
-        Gets a specific Webhook.
-
-        Args:
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if api_version is None:
-            api_version = self._client._get_api_version_path_param()
-        if not api_version:
-            raise ValueError(f"Expected a non-empty value for `api_version` but received {api_version!r}")
-        if not id:
-            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
-        return self._get(
-            path_template("/{api_version}/webhooks/{id}", api_version=api_version, id=id),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
-            cast_to=WebhookRetrieveResponse,
+            cast_to=Webhook,
         )
 
     def update(
@@ -231,7 +191,7 @@ class WebhooksResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> WebhookUpdateResponse:
+    ) -> Webhook:
         """Updates an existing Webhook.
 
         Args:
@@ -290,7 +250,7 @@ class WebhooksResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform({"update_mask": update_mask}, webhook_update_params.WebhookUpdateParams),
             ),
-            cast_to=WebhookUpdateResponse,
+            cast_to=Webhook,
         )
 
     def list(
@@ -384,6 +344,44 @@ class WebhooksResource(SyncAPIResource):
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=WebhookDeleteResponse,
+        )
+
+    def get(
+        self,
+        id: str,
+        *,
+        api_version: str | None = None,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Webhook:
+        """
+        Gets a specific Webhook.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if api_version is None:
+            api_version = self._client._get_api_version_path_param()
+        if not api_version:
+            raise ValueError(f"Expected a non-empty value for `api_version` but received {api_version!r}")
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return self._get(
+            path_template("/{api_version}/webhooks/{id}", api_version=api_version, id=id),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Webhook,
         )
 
     def ping(
@@ -525,7 +523,7 @@ class AsyncWebhooksResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> WebhookCreateResponse:
+    ) -> Webhook:
         """Creates a new Webhook.
 
         Args:
@@ -585,45 +583,7 @@ class AsyncWebhooksResource(AsyncAPIResource):
                     {"webhook_id": webhook_id}, webhook_create_params.WebhookCreateParams
                 ),
             ),
-            cast_to=WebhookCreateResponse,
-        )
-
-    async def retrieve(
-        self,
-        id: str,
-        *,
-        api_version: str | None = None,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> WebhookRetrieveResponse:
-        """
-        Gets a specific Webhook.
-
-        Args:
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if api_version is None:
-            api_version = self._client._get_api_version_path_param()
-        if not api_version:
-            raise ValueError(f"Expected a non-empty value for `api_version` but received {api_version!r}")
-        if not id:
-            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
-        return await self._get(
-            path_template("/{api_version}/webhooks/{id}", api_version=api_version, id=id),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
-            cast_to=WebhookRetrieveResponse,
+            cast_to=Webhook,
         )
 
     async def update(
@@ -657,7 +617,7 @@ class AsyncWebhooksResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> WebhookUpdateResponse:
+    ) -> Webhook:
         """Updates an existing Webhook.
 
         Args:
@@ -718,7 +678,7 @@ class AsyncWebhooksResource(AsyncAPIResource):
                     {"update_mask": update_mask}, webhook_update_params.WebhookUpdateParams
                 ),
             ),
-            cast_to=WebhookUpdateResponse,
+            cast_to=Webhook,
         )
 
     async def list(
@@ -812,6 +772,44 @@ class AsyncWebhooksResource(AsyncAPIResource):
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=WebhookDeleteResponse,
+        )
+
+    async def get(
+        self,
+        id: str,
+        *,
+        api_version: str | None = None,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Webhook:
+        """
+        Gets a specific Webhook.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if api_version is None:
+            api_version = self._client._get_api_version_path_param()
+        if not api_version:
+            raise ValueError(f"Expected a non-empty value for `api_version` but received {api_version!r}")
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return await self._get(
+            path_template("/{api_version}/webhooks/{id}", api_version=api_version, id=id),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Webhook,
         )
 
     async def ping(
@@ -910,9 +908,6 @@ class WebhooksResourceWithRawResponse:
         self.create = to_raw_response_wrapper(
             webhooks.create,
         )
-        self.retrieve = to_raw_response_wrapper(
-            webhooks.retrieve,
-        )
         self.update = to_raw_response_wrapper(
             webhooks.update,
         )
@@ -921,6 +916,9 @@ class WebhooksResourceWithRawResponse:
         )
         self.delete = to_raw_response_wrapper(
             webhooks.delete,
+        )
+        self.get = to_raw_response_wrapper(
+            webhooks.get,
         )
         self.ping = to_raw_response_wrapper(
             webhooks.ping,
@@ -937,9 +935,6 @@ class AsyncWebhooksResourceWithRawResponse:
         self.create = async_to_raw_response_wrapper(
             webhooks.create,
         )
-        self.retrieve = async_to_raw_response_wrapper(
-            webhooks.retrieve,
-        )
         self.update = async_to_raw_response_wrapper(
             webhooks.update,
         )
@@ -948,6 +943,9 @@ class AsyncWebhooksResourceWithRawResponse:
         )
         self.delete = async_to_raw_response_wrapper(
             webhooks.delete,
+        )
+        self.get = async_to_raw_response_wrapper(
+            webhooks.get,
         )
         self.ping = async_to_raw_response_wrapper(
             webhooks.ping,
@@ -964,9 +962,6 @@ class WebhooksResourceWithStreamingResponse:
         self.create = to_streamed_response_wrapper(
             webhooks.create,
         )
-        self.retrieve = to_streamed_response_wrapper(
-            webhooks.retrieve,
-        )
         self.update = to_streamed_response_wrapper(
             webhooks.update,
         )
@@ -975,6 +970,9 @@ class WebhooksResourceWithStreamingResponse:
         )
         self.delete = to_streamed_response_wrapper(
             webhooks.delete,
+        )
+        self.get = to_streamed_response_wrapper(
+            webhooks.get,
         )
         self.ping = to_streamed_response_wrapper(
             webhooks.ping,
@@ -991,9 +989,6 @@ class AsyncWebhooksResourceWithStreamingResponse:
         self.create = async_to_streamed_response_wrapper(
             webhooks.create,
         )
-        self.retrieve = async_to_streamed_response_wrapper(
-            webhooks.retrieve,
-        )
         self.update = async_to_streamed_response_wrapper(
             webhooks.update,
         )
@@ -1002,6 +997,9 @@ class AsyncWebhooksResourceWithStreamingResponse:
         )
         self.delete = async_to_streamed_response_wrapper(
             webhooks.delete,
+        )
+        self.get = async_to_streamed_response_wrapper(
+            webhooks.get,
         )
         self.ping = async_to_streamed_response_wrapper(
             webhooks.ping,

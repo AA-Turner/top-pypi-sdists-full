@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import Any, TYPE_CHECKING
 
 from wisent.core.primitives.contrastive_pairs.core.pair import ContrastivePair
-from wisent.extractors.hf.atoms import HuggingFaceBenchmarkExtractor
+from wisent.core.primitives.contrastive_pairs.core.io.response import NegativeResponse, PositiveResponse
+from wisent.extractors.lm_eval.atoms import LMEvalBenchmarkExtractor
 from wisent.core.utils.cli.cli_logger import setup_logger, bind
 
 if TYPE_CHECKING:
@@ -15,8 +16,8 @@ _LOG = setup_logger(__name__)
 
 task_names = ("bec2016eu",)
 
-class Bec2016euExtractor(HuggingFaceBenchmarkExtractor):
-    """Extractor for Bec2016Eu benchmark."""
+class Bec2016euExtractor(LMEvalBenchmarkExtractor):
+    """Extractor for Bec2016Eu benchmark (basqueGLUE bec subtask)."""
 
 
     evaluator_name = "log_likelihoods"
@@ -25,10 +26,12 @@ class Bec2016euExtractor(HuggingFaceBenchmarkExtractor):
         lm_eval_task_data: ConfigurableTask,
         limit: int | None = None,
         preferred_doc: str | None = None,
+        *,
+        train_ratio: float,
     ) -> list[ContrastivePair]:
         log = bind(_LOG, task=getattr(lm_eval_task_data, "NAME", "unknown"))
         max_items = self._normalize_limit(limit)
-        docs = self.load_docs(lm_eval_task_data, max_items, preferred_doc=preferred_doc)
+        docs = self.load_docs(lm_eval_task_data, max_items, preferred_doc=preferred_doc, train_ratio=train_ratio)
         pairs: list[ContrastivePair] = []
         log.info("Extracting contrastive pairs", extra={"doc_count": len(docs)})
 
@@ -49,48 +52,32 @@ class Bec2016euExtractor(HuggingFaceBenchmarkExtractor):
         log = bind(_LOG, doc_id=doc.get("id", "unknown"))
 
         try:
-            # Try multiple format patterns for question
-            question = doc.get("question", doc.get("query", doc.get("input", doc.get("instruction", doc.get("prompt", ""))))).strip()
-            
-            # Try multiple format patterns for choices
-            choices = doc.get("choices", doc.get("options", doc.get("answers", [])))
-            
-            # Handle option_a/b/c/d format
-            if not choices and "option_a" in doc:
-                choices = [
-                    str(doc.get("option_a", "")).strip(),
-                    str(doc.get("option_b", "")).strip(),
-                    str(doc.get("option_c", "")).strip(),
-                    str(doc.get("option_d", "")).strip(),
-                ]
-                choices = [c for c in choices if c]
+            # bec2016eu schema: text + label (3-class sentiment: 0=N, 1=NEU, 2=P)
+            text = str(doc.get("text", "")).strip()
+            label = doc.get("label", None)
+            choices = ["negatiboa", "neutrala", "positiboa"]
 
-            # Try multiple format patterns for answer
-            answer = doc.get("answer", doc.get("label", doc.get("target", None)))
-
-            if isinstance(answer, str) and len(answer) == 1 and answer.isalpha():
-                answer_idx = ord(answer.upper()) - ord('A')
-            elif isinstance(answer, int):
-                answer_idx = answer
-            else:
+            if not text or label is None:
                 return None
 
-            if not question or not choices or not (0 <= answer_idx < len(choices)):
-                log.debug("Skipping doc due to missing/invalid fields", extra={"doc": doc})
+            try:
+                answer_idx = int(label)
+            except (TypeError, ValueError):
                 return None
 
-            correct = str(choices[answer_idx]).strip()
-            incorrect_idx = (answer_idx + 1) % len(choices)
-            incorrect = str(choices[incorrect_idx]).strip()
+            if not (0 <= answer_idx < len(choices)):
+                return None
 
-            formatted_question = f"Question: {question}\nA. {incorrect}\nB. {correct}"
-            metadata = {"label": "bec2016eu"}
+            correct = choices[answer_idx]
+            incorrect = choices[(answer_idx + 1) % len(choices)]
 
-            return self._build_pair(
-                question=formatted_question,
-                correct=correct,
-                incorrect=incorrect,
-                metadata=metadata,
+            prompt = f"Testua: {text}\nGaldera: Nolako jarrera agertzen du aurreko testuak?\nErantzuna:"
+
+            return ContrastivePair(
+                prompt=prompt,
+                positive_response=PositiveResponse(model_response=correct),
+                negative_response=NegativeResponse(model_response=incorrect),
+                label="bec2016eu",
             )
 
         except Exception as exc:

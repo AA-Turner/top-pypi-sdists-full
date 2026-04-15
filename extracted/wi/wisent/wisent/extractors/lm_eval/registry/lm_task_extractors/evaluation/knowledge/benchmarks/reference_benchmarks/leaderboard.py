@@ -69,6 +69,78 @@ class LeaderboardExtractor(LMEvalBenchmarkExtractor):
         log = bind(_LOG, doc_id=doc.get("id", "unknown"))
 
         try:
+            # leaderboard_math schema: problem + answer (+ solution + level + type)
+            if "problem" in doc and "answer" in doc:
+                problem = str(doc.get("problem", "")).strip()
+                answer = str(doc.get("answer", "")).strip()
+                if problem and answer:
+                    words = answer.split()
+                    incorrect = " ".join(reversed(words)) if len(words) > 1 else "incorrect"
+                    return self._build_pair(
+                        question=f"Problem: {problem}\n\nAnswer:",
+                        correct=answer,
+                        incorrect=incorrect,
+                        metadata={"label": "leaderboard_math"},
+                    )
+
+            # leaderboard_mmlu_pro schema: question + options (list) + answer (letter)
+            if "question" in doc and "options" in doc and "answer" in doc and "choices" not in doc:
+                q = str(doc.get("question", "")).strip()
+                options = doc.get("options", [])
+                ans_letter = str(doc.get("answer", "")).strip().upper()
+                if q and options and ans_letter and len(ans_letter) == 1:
+                    ans_idx = ord(ans_letter) - ord("A")
+                    if 0 <= ans_idx < len(options):
+                        correct = str(options[ans_idx]).strip()
+                        incorrect = str(options[(ans_idx + 1) % len(options)]).strip()
+                        return self._build_pair(
+                            question=q,
+                            correct=correct,
+                            incorrect=incorrect,
+                            metadata={"label": "leaderboard_mmlu_pro"},
+                        )
+
+            # leaderboard_ifeval schema: prompt + instruction_id_list + kwargs.
+            # No ground-truth answer (model is judged by whether output follows
+            # the instructions). Use prompt as question with a placeholder pair.
+            if "prompt" in doc and "instruction_id_list" in doc:
+                prompt_text = str(doc.get("prompt", "")).strip()
+                if not prompt_text:
+                    return None
+                instructions = doc.get("instruction_id_list", [])
+                instruction_summary = ", ".join(str(i) for i in instructions[:3]) if instructions else "instructions"
+                return self._build_pair(
+                    question=prompt_text,
+                    correct=f"<follows {instruction_summary}>",
+                    incorrect=f"<violates {instruction_summary}>",
+                    metadata={"label": "leaderboard_ifeval"},
+                )
+
+            # leaderboard_bbh schema: input + target (the doc_to_choice list comes
+            # from the yaml, not the doc). Use target as the correct answer with a
+            # synthetic incorrect (different non-target value if applicable).
+            if "input" in doc and "target" in doc and "choices" not in doc:
+                input_text = str(doc.get("input", "")).strip()
+                target = str(doc.get("target", "")).strip()
+                if not input_text or not target:
+                    return None
+                # Pick a synthetic incorrect by inverting the common boolean answers
+                # or reversing characters of the target.
+                _common_inversions = {
+                    "True": "False", "False": "True",
+                    "true": "false", "false": "true",
+                    "Yes": "No", "No": "Yes",
+                    "yes": "no", "no": "yes",
+                    "(A)": "(B)", "(B)": "(A)",
+                }
+                incorrect = _common_inversions.get(target, target[::-1] if len(target) > 1 else target + "_alt")
+                return self._build_pair(
+                    question=f"Q: {input_text}\nA:",
+                    correct=target,
+                    incorrect=incorrect,
+                    metadata={"label": "leaderboard_bbh"},
+                )
+
             # Try multiple possible schema formats
             question = None
             choices = None

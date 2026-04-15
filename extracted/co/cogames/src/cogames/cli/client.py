@@ -17,6 +17,11 @@ from cogames.cli.generated_models import (
     MatchResponse,
     MembershipHistoryEntry,
     MissionSpec,
+    PlayerCredentialCreateResponse,
+    PlayerCredentialDeleteResponse,
+    PlayerCredentialResponseBase,
+    PlayerLoginResponse,
+    PlayerResponse,
     PoliciesResponse,
     PolicySummary,
     PolicyVersionResponse,
@@ -32,8 +37,7 @@ from cogames.cli.generated_models import (
     TeamSummary,
     TeamTournamentProgress,
 )
-from softmax.auth import has_saved_token, load_token
-from softmax.token_storage import TokenKind
+from softmax.auth import load_current_cogames_token
 
 T = TypeVar("T")
 
@@ -66,14 +70,10 @@ class TournamentServerClient:
 
     @classmethod
     def from_login(cls, server_url: str, login_server: str) -> TournamentServerClient | None:
-        if not has_saved_token(token_kind=TokenKind.COGAMES, server=login_server):
+        token = load_current_cogames_token(login_server=login_server)
+        if token is None:
             console.print("[red]Error:[/red] Not authenticated.")
             console.print("Please run: [cyan]softmax login[/cyan]")
-            return None
-
-        token = load_token(token_kind=TokenKind.COGAMES, server=login_server)
-        if not token:
-            console.print(f"[red]Error:[/red] Token not found for {login_server}")
             return None
 
         return cls(server_url=server_url, token=token, login_server=login_server)
@@ -121,6 +121,13 @@ class TournamentServerClient:
     def _put(self, path: str, response_type: type[T] | None = None, **kwargs: Any) -> T | dict[str, Any]:
         return self._request("PUT", path, response_type, **kwargs)
 
+    @overload
+    def _delete(self, path: str, response_type: type[T], **kwargs: Any) -> T: ...
+    @overload
+    def _delete(self, path: str, response_type: None = None, **kwargs: Any) -> dict[str, Any]: ...
+    def _delete(self, path: str, response_type: type[T] | None = None, **kwargs: Any) -> T | dict[str, Any]:
+        return self._request("DELETE", path, response_type, **kwargs)
+
     def get_seasons(self) -> list[SeasonSummary]:
         return self._get("/tournament/seasons", list[SeasonSummary])
 
@@ -135,6 +142,29 @@ class TournamentServerClient:
         if seasons:
             return seasons[0]
         raise RuntimeError("No seasons available from server")
+
+    def list_players(self) -> list[PlayerResponse]:
+        return self._get("/players", list[PlayerResponse])
+
+    def login_player(self, player_id: str) -> PlayerLoginResponse:
+        return self._post(f"/players/{player_id}/login", PlayerLoginResponse)
+
+    def create_player(self, name: str) -> PlayerResponse:
+        return self._post("/players", PlayerResponse, json={"name": name})
+
+    def list_player_credentials(self, player_id: str) -> list[PlayerCredentialResponseBase]:
+        return self._get(f"/players/{player_id}/credentials", list[PlayerCredentialResponseBase])
+
+    def create_player_credential(
+        self, player_id: str, name: str, scopes: list[str] | None = None
+    ) -> PlayerCredentialCreateResponse:
+        payload: dict[str, Any] = {"name": name}
+        if scopes:
+            payload["scopes"] = scopes
+        return self._post(f"/players/{player_id}/credentials", PlayerCredentialCreateResponse, json=payload)
+
+    def revoke_player_credential(self, player_id: str, credential_id: str) -> PlayerCredentialDeleteResponse:
+        return self._delete(f"/players/{player_id}/credentials/{credential_id}", PlayerCredentialDeleteResponse)
 
     def get_season_matches(
         self,

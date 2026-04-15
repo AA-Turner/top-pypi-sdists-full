@@ -400,8 +400,20 @@ class _LazyAIService:
     def _ensure(self) -> AIService:
         if self._inner is None:
             from ..services.ai_service import create_ai_service
+            from ..services.token_provider import TokenProviderError
 
-            self._inner = create_ai_service(self._ai_config)
+            try:
+                self._inner = create_ai_service(self._ai_config)
+            except TokenProviderError as exc:
+                import sys
+
+                print(f"\napi_key_command error: {exc}", file=sys.stderr)
+                print(
+                    "Check your api_key_command in config.yaml. "
+                    "The command must exit 0 and print the API key to stdout.",
+                    file=sys.stderr,
+                )
+                raise SystemExit(1) from exc
         return self._inner
 
     def __getattr__(self, name: str) -> Any:
@@ -6499,8 +6511,13 @@ async def _run_repl(
 
                         current_model = new_model
                         from ..services.ai_service import create_ai_service
+                        from ..services.token_provider import TokenProviderError
 
-                        ai_service = create_ai_service(config.ai)
+                        try:
+                            ai_service = create_ai_service(config.ai)
+                        except TokenProviderError as exc:
+                            renderer.render_error(f"api_key_command error: {exc}")
+                            continue
                         ai_service.config.model = new_model
                         _toolbar_refresh()
                         renderer.console.print(f"[{CHROME}]Switched to model: {new_model}[/{CHROME}]\n")
@@ -7237,6 +7254,16 @@ async def _run_repl(
                 if thinking:
                     renderer.stop_thinking_sync()
                 renderer.render_response_end()
+            except Exception as _exc:
+                from ..services.token_provider import TokenProviderError
+
+                if isinstance(_exc, TokenProviderError):
+                    if thinking:
+                        renderer.stop_thinking_sync()
+                        thinking = False
+                    renderer.render_error(f"API key command failed: {_exc}. Check api_key_command in your config.")
+                else:
+                    raise
             finally:
                 if thinking:
                     renderer.stop_thinking_sync()

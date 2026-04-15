@@ -148,7 +148,7 @@ def test_spa_get(app, client):
         token = requests[0]["login_token"]
 
         response = client.get("/login/" + token)
-        assert response.status_code == 302
+        assert response.status_code in [302, 303]
         split = urlsplit(response.headers["Location"])
         assert "localhost:8081" == split.netloc
         assert "/login-redirect" == split.path
@@ -178,7 +178,7 @@ def test_spa_get_bad_token(app, client, get_message):
         token = requests[0]["login_token"]
 
         response = client.get("/login/" + token)
-        assert response.status_code == 302
+        assert response.status_code in [302, 303]
         split = urlsplit(response.headers["Location"])
         assert "localhost:8081" == split.netloc
         assert "/login-error" == split.path
@@ -195,7 +195,7 @@ def test_spa_get_bad_token(app, client, get_message):
             "&url_id=fbb89a8328e58c181ea7d064c2987874bc54a23d"
         )
         response = client.get("/login/" + token)
-        assert response.status_code == 302
+        assert response.status_code in [302, 303]
         split = urlsplit(response.headers["Location"])
         assert "localhost:8081" == split.netloc
         assert "/login-error" == split.path
@@ -214,3 +214,20 @@ def test_deprecated(app, sqlalchemy_datastore):
         security = Security()
         security.init_app(app, sqlalchemy_datastore)
         assert any("passwordless feature" in str(m.message) for m in w)
+
+
+def _allowed(self, form_error):
+    if self.email == "gal@lp.com":
+        form_error.append("You are not allowed to do that")
+        return False
+    return True
+
+
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_allowed))
+def test_override_user_allowed(app, client, get_message):
+    response = client.post("/login", json=dict(email="gal@lp.com"))
+    assert response.status_code == 400
+    assert response.json["response"]["errors"] == ["You are not allowed to do that"]
+    assert response.json["response"]["field_errors"]["email"] == [
+        "You are not allowed to do that"
+    ]

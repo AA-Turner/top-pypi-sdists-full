@@ -16,11 +16,12 @@ def classify_from_failure_reason(
     where the absence of a classification may simply mean the termination was
     user-guided / expected.
 
-    Categories:
-        ANTI_BOT_DETECTION, BROWSER_ERROR, NAVIGATION_FAILURE, PAGE_LOAD_TIMEOUT,
-        AUTH_FAILURE, LLM_ERROR, CREDENTIAL_ERROR, DATA_EXTRACTION_FAILURE,
-        ELEMENT_NOT_FOUND, WRONG_PAGE_STATE, MAX_STEPS_EXCEEDED,
-        INFRASTRUCTURE_ERROR, UNKNOWN
+    Categories (16):
+        ANTI_BOT_DETECTION, PROXY_ERROR, BROWSER_ERROR, NAVIGATION_FAILURE,
+        PAGE_LOAD_TIMEOUT, AUTH_FAILURE, LLM_ERROR, CREDENTIAL_ERROR,
+        DATA_EXTRACTION_FAILURE, ELEMENT_NOT_FOUND, WRONG_PAGE_STATE,
+        MAX_STEPS_EXCEEDED, LLM_REASONING_ERROR, INFRASTRUCTURE_ERROR,
+        PARAMETER_BINDING_ERROR, UNKNOWN
     """
     if not failure_reason and not exception:
         return None
@@ -61,8 +62,22 @@ def classify_from_failure_reason(
             }
         )
 
-    # Browser errors
-    if any(kw in exc_name for kw in ["Browser", "CDP", "TargetClosed"]) or any(
+    # Proxy errors — check before browser errors so proxy failures don't fall into BROWSER_ERROR.
+    # The exception name may contain "Browser" (e.g. UnknownErrorWhileCreatingBrowserContext) but the
+    # root cause is proxy pool exhaustion.
+    _proxy_exc_keywords = ["NoProxy", "ProxyError"]
+    _proxy_reason_keywords = ["no proxy available", "proxy unavailable"]
+    if any(kw in exc_name for kw in _proxy_exc_keywords) or any(kw in reason for kw in _proxy_reason_keywords):
+        categories.append(
+            {
+                "category": "PROXY_ERROR",
+                "confidence_float": 0.9,
+                "reasoning": f"Exception: {exc_name}" if exc_name else "Keywords matched",
+            }
+        )
+
+    # Browser errors — only match if not already classified as PROXY_ERROR above
+    elif any(kw in exc_name for kw in ["Browser", "CDP", "TargetClosed"]) or any(
         kw in reason for kw in ["browser context closed", "page closed", "browser crash"]
     ):
         categories.append(
@@ -173,6 +188,21 @@ def classify_from_failure_reason(
             {
                 "category": "LLM_REASONING_ERROR",
                 "confidence_float": 0.6,
+                "reasoning": "Keywords matched",
+            }
+        )
+
+    # Internal configuration mismatch — not a site/selector failure.
+    _param_binding_keywords = [
+        "should have already been set through workflow run parameters",
+        "should have already been set through workflow run context init",
+        "pre-run invariant: workflow_definition and persisted parameter rows disagree",
+    ]
+    if any(kw in reason for kw in _param_binding_keywords):
+        categories.append(
+            {
+                "category": "PARAMETER_BINDING_ERROR",
+                "confidence_float": 0.95,
                 "reasoning": "Keywords matched",
             }
         )

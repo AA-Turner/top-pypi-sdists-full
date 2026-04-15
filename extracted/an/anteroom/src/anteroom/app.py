@@ -27,6 +27,7 @@ from anteroom import __version__
 
 from .config import AppConfig, SessionConfig, ensure_identity, load_config
 from .db import DatabaseManager, init_db
+from .services.client_ip import resolve_client_ip
 from .services.embedding_worker import EmbeddingWorker
 from .services.embeddings import create_embedding_service, get_effective_dimensions
 from .services.event_bus import EventBus
@@ -564,9 +565,11 @@ class MaxBodySizeMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > self.max_body_size:
+            tp_cfg = getattr(getattr(request.app, "state", None), "config", None)
+            tp_proxy = getattr(tp_cfg, "trusted_proxy", None) if tp_cfg else None
             security_logger.warning(
                 "Request body too large from %s: %s bytes",
-                request.client.host if request.client else "unknown",
+                resolve_client_ip(request, tp_proxy),
                 content_length,
             )
             return JSONResponse(status_code=413, content={"detail": "Request body too large"})
@@ -595,7 +598,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if request.url.path in self.exempt_paths:
             return await call_next(request)
 
-        client_ip = request.client.host if request.client else "unknown"
+        tp_cfg = getattr(getattr(request.app, "state", None), "config", None)
+        tp_proxy = getattr(tp_cfg, "trusted_proxy", None) if tp_cfg else None
+        client_ip = resolve_client_ip(request, tp_proxy)
         now = time.time()
 
         while len(self._hits) > self.MAX_TRACKED_IPS:
@@ -763,7 +768,9 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         self._ensure_store(request)
-        client_ip = request.client.host if request.client else "unknown"
+        tp_cfg = getattr(getattr(request.app, "state", None), "config", None)
+        tp_proxy = getattr(tp_cfg, "trusted_proxy", None) if tp_cfg else None
+        client_ip = resolve_client_ip(request, tp_proxy)
 
         # IP allowlist check
         if not check_ip_allowed(client_ip, self._session_config.allowed_ips):

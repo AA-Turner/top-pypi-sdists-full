@@ -19,6 +19,7 @@ class SafetyVerdict:
     hard_denied: bool = False
     is_hard_blocked: bool = False
     hard_block_description: str = ""
+    bypass_immune: bool = False
 
 
 _DEFAULT_DESTRUCTIVE_PATTERNS: list[re.Pattern[str]] = [
@@ -89,6 +90,139 @@ def check_bash_command(
                     )
 
     return SafetyVerdict(needs_approval=False, reason="", tool_name="bash")
+
+
+_DEFAULT_BYPASS_IMMUNE_PATHS: list[str] = [
+    ".git/hooks",
+    ".anteroom/config.yaml",
+    ".bashrc",
+    ".bash_profile",
+    ".zshrc",
+    ".profile",
+    ".ssh/",
+    ".gnupg/",
+    ".aws/credentials",
+    ".config/gcloud/",
+    ".netrc",
+    ".kube/config",
+    ".config/gh/hosts.yml",
+]
+
+# Patterns in bash commands that indicate a write to a target path.
+_BASH_WRITE_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r">{1,2}\s*(\S+)"),  # > or >> redirect
+    re.compile(r"\btee\s+(?:-[a-zA-Z]*\s+)*(\S+)"),  # tee [flags] path
+    re.compile(r"\bmv\s+\S+\s+(\S+)"),  # mv src dest
+    re.compile(r"\bcp\s+\S+\s+(\S+)"),  # cp src dest
+]
+
+
+def _path_matches_immune(
+    path: str,
+    working_dir: str,
+    immune_paths: list[str],
+) -> str | None:
+    """Return the matched immune path pattern if *path* targets one, else None."""
+    if not path or not immune_paths:
+        return None
+
+    if os.path.isabs(path):
+        resolved = os.path.normpath(path)
+    else:
+        resolved = os.path.normpath(os.path.join(working_dir, path))
+
+    home = os.path.expanduser("~")
+    path_normalized = os.path.normpath(path)
+    path_parts = path_normalized.replace("\\", "/").split("/")
+
+    for immune in immune_paths:
+        expanded = os.path.expanduser(immune) if immune.startswith("~") else immune
+
+        if os.path.isabs(expanded):
+            immune_resolved = os.path.normpath(expanded)
+        else:
+            immune_resolved = os.path.normpath(os.path.join(home, expanded))
+
+        if resolved == immune_resolved or resolved.startswith(immune_resolved + os.sep):
+            return immune
+
+        # Component matching for relative paths (same approach as check_write_path).
+        immune_stripped = immune.lstrip("~").lstrip("/").lstrip("\\")
+        immune_norm = os.path.normpath(immune_stripped).replace("\\", "/")
+        # Trailing-slash immune entries (e.g. ".ssh/") mean "anything under this dir".
+        # After normpath the slash is gone so we treat them as prefix matches.
+        is_dir_pattern = immune.rstrip("/\\") != immune
+        immune_parts = immune_norm.split("/")
+        for i in range(len(path_parts)):
+            segment = path_parts[i : i + len(immune_parts)]
+            if segment == immune_parts:
+                if is_dir_pattern or len(path_parts) == i + len(immune_parts):
+                    return immune
+                # Exact-file pattern but path extends deeper — still a match
+                # (e.g. immune=".anteroom/config.yaml" matches that file exactly).
+                if not is_dir_pattern and len(path_parts) == i + len(immune_parts):
+                    return immune
+                # For dir patterns, any deeper path matches.
+                if is_dir_pattern:
+                    return immune
+                # For exact file patterns that matched components, accept.
+                return immune
+
+    return None
+
+
+def check_bypass_immune_path(
+    tool_name: str,
+    arguments: dict[str, str],
+    working_dir: str,
+    immune_paths: list[str] | None = None,
+) -> SafetyVerdict | None:
+    """Check if a tool call targets a bypass-immune path.
+
+    Returns a SafetyVerdict with ``bypass_immune=True`` if the call targets an
+    immune path, or ``None`` if no immune path is matched.  The verdict has
+    ``needs_approval=True`` but ``hard_denied=False`` — the user can approve,
+    but the prompt cannot be skipped by AUTO mode or allowed_tools.
+    """
+    paths_to_check = list(_DEFAULT_BYPASS_IMMUNE_PATHS) if immune_paths is None else list(immune_paths)
+    if not paths_to_check:
+        return None
+
+    target_path: str | None = None
+
+    if tool_name == "write_file":
+        target_path = arguments.get("path", "")
+    elif tool_name == "edit_file":
+        target_path = arguments.get("file_path", "") or arguments.get("path", "")
+
+    if tool_name in ("write_file", "edit_file") and target_path:
+        matched = _path_matches_immune(target_path, working_dir, paths_to_check)
+        if matched is not None:
+            return SafetyVerdict(
+                needs_approval=True,
+                reason=f"Write to bypass-immune path: {target_path}",
+                tool_name=tool_name,
+                details={"path": target_path, "matched_immune": matched},
+                bypass_immune=True,
+            )
+
+    if tool_name == "bash":
+        command = arguments.get("command", "")
+        if command:
+            for pattern in _BASH_WRITE_PATTERNS:
+                for m in pattern.finditer(command):
+                    candidate = m.group(1)
+                    matched = _path_matches_immune(candidate, working_dir, paths_to_check)
+                    if matched is not None:
+                        return SafetyVerdict(
+                            needs_approval=True,
+                            reason=f"Bash write to bypass-immune path: {candidate}",
+                            tool_name="bash",
+                            details={"command": command, "target_path": candidate, "matched_immune": matched},
+                            bypass_immune=True,
+                        )
+
+    return None
 
 
 def check_write_path(

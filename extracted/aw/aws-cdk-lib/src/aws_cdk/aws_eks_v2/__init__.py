@@ -4560,7 +4560,8 @@ class ClusterCommonOptions:
                     private_subnets=[subnet],
                     removal_policy=cdk.RemovalPolicy.DESTROY,
                     role=role,
-                    security_group=security_group
+                    security_group=security_group,
+                    security_groups=[security_group]
                 ),
                 masters_role=role,
                 prune=False,
@@ -8297,6 +8298,7 @@ class KubectlProvider(
         removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         role: typing.Optional["_IRole_235f5d8e"] = None,
         security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -8309,7 +8311,8 @@ class KubectlProvider(
         :param private_subnets: Subnets to host the ``kubectl`` compute resources. If not specified, the k8s endpoint is expected to be accessible publicly. Default: - the k8s is accessible publicly
         :param removal_policy: The removal policy applied to the custom resource that provides kubectl. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param role: An IAM role that can perform kubectl operations against this cluster. The role should be mapped to the ``system:masters`` Kubernetes RBAC role. This role is directly passed to the lambda handler that sends Kube Ctl commands to the cluster. Default: - if not specified, the default role created by a lambda function will be used.
-        :param security_group: A security group to use for ``kubectl`` execution. Default: - If not specified, the k8s endpoint is expected to be accessible publicly.
+        :param security_group: (deprecated) A security group to use for ``kubectl`` execution. Default: - If not specified, the k8s endpoint is expected to be accessible publicly.
+        :param security_groups: Security groups to use for ``kubectl`` execution. Default: - If not specified, the k8s endpoint is expected to be accessible publicly.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1aad34a8b7c85b8fafa3a60b89cf1904902b5f18ab4c50ae367481347e5c0b1c)
@@ -8325,6 +8328,7 @@ class KubectlProvider(
             removal_policy=removal_policy,
             role=role,
             security_group=security_group,
+            security_groups=security_groups,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -8471,6 +8475,7 @@ class KubectlProviderAttributes:
         "removal_policy": "removalPolicy",
         "role": "role",
         "security_group": "securityGroup",
+        "security_groups": "securityGroups",
     },
 )
 class KubectlProviderOptions:
@@ -8485,6 +8490,7 @@ class KubectlProviderOptions:
         removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         role: typing.Optional["_IRole_235f5d8e"] = None,
         security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
     ) -> None:
         '''Options for creating the kubectl provider - a lambda function that executes ``kubectl`` and ``helm`` against the cluster.
 
@@ -8495,7 +8501,8 @@ class KubectlProviderOptions:
         :param private_subnets: Subnets to host the ``kubectl`` compute resources. If not specified, the k8s endpoint is expected to be accessible publicly. Default: - the k8s is accessible publicly
         :param removal_policy: The removal policy applied to the custom resource that provides kubectl. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param role: An IAM role that can perform kubectl operations against this cluster. The role should be mapped to the ``system:masters`` Kubernetes RBAC role. This role is directly passed to the lambda handler that sends Kube Ctl commands to the cluster. Default: - if not specified, the default role created by a lambda function will be used.
-        :param security_group: A security group to use for ``kubectl`` execution. Default: - If not specified, the k8s endpoint is expected to be accessible publicly.
+        :param security_group: (deprecated) A security group to use for ``kubectl`` execution. Default: - If not specified, the k8s endpoint is expected to be accessible publicly.
+        :param security_groups: Security groups to use for ``kubectl`` execution. Default: - If not specified, the k8s endpoint is expected to be accessible publicly.
 
         :exampleMetadata: infused
 
@@ -8524,6 +8531,7 @@ class KubectlProviderOptions:
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument security_group", value=security_group, expected_type=type_hints["security_group"])
+            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "kubectl_layer": kubectl_layer,
         }
@@ -8541,6 +8549,8 @@ class KubectlProviderOptions:
             self._values["role"] = role
         if security_group is not None:
             self._values["security_group"] = security_group
+        if security_groups is not None:
+            self._values["security_groups"] = security_groups
 
     @builtins.property
     def kubectl_layer(self) -> "_ILayerVersion_5ac127c8":
@@ -8624,15 +8634,33 @@ class KubectlProviderOptions:
 
     @builtins.property
     def security_group(self) -> typing.Optional["_ISecurityGroup_acf8a799"]:
-        '''A security group to use for ``kubectl`` execution.
+        '''(deprecated) A security group to use for ``kubectl`` execution.
+
+        :default:
+
+        - If not specified, the k8s endpoint is expected to be accessible
+        publicly.
+
+        :deprecated: Use ``securityGroups`` instead.
+
+        :stability: deprecated
+        '''
+        result = self._values.get("security_group")
+        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+
+    @builtins.property
+    def security_groups(
+        self,
+    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+        '''Security groups to use for ``kubectl`` execution.
 
         :default:
 
         - If not specified, the k8s endpoint is expected to be accessible
         publicly.
         '''
-        result = self._values.get("security_group")
-        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+        result = self._values.get("security_groups")
+        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8658,6 +8686,7 @@ class KubectlProviderOptions:
         "removal_policy": "removalPolicy",
         "role": "role",
         "security_group": "securityGroup",
+        "security_groups": "securityGroups",
         "cluster": "cluster",
     },
 )
@@ -8673,6 +8702,7 @@ class KubectlProviderProps(KubectlProviderOptions):
         removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         role: typing.Optional["_IRole_235f5d8e"] = None,
         security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
         cluster: "ICluster",
     ) -> None:
         '''Properties for a KubectlProvider.
@@ -8684,7 +8714,8 @@ class KubectlProviderProps(KubectlProviderOptions):
         :param private_subnets: Subnets to host the ``kubectl`` compute resources. If not specified, the k8s endpoint is expected to be accessible publicly. Default: - the k8s is accessible publicly
         :param removal_policy: The removal policy applied to the custom resource that provides kubectl. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param role: An IAM role that can perform kubectl operations against this cluster. The role should be mapped to the ``system:masters`` Kubernetes RBAC role. This role is directly passed to the lambda handler that sends Kube Ctl commands to the cluster. Default: - if not specified, the default role created by a lambda function will be used.
-        :param security_group: A security group to use for ``kubectl`` execution. Default: - If not specified, the k8s endpoint is expected to be accessible publicly.
+        :param security_group: (deprecated) A security group to use for ``kubectl`` execution. Default: - If not specified, the k8s endpoint is expected to be accessible publicly.
+        :param security_groups: Security groups to use for ``kubectl`` execution. Default: - If not specified, the k8s endpoint is expected to be accessible publicly.
         :param cluster: The cluster to control.
 
         :exampleMetadata: fixture=_generated
@@ -8719,7 +8750,8 @@ class KubectlProviderProps(KubectlProviderOptions):
                 private_subnets=[subnet],
                 removal_policy=cdk.RemovalPolicy.DESTROY,
                 role=role,
-                security_group=security_group
+                security_group=security_group,
+                security_groups=[security_group]
             )
         '''
         if __debug__:
@@ -8732,6 +8764,7 @@ class KubectlProviderProps(KubectlProviderOptions):
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument security_group", value=security_group, expected_type=type_hints["security_group"])
+            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "kubectl_layer": kubectl_layer,
@@ -8751,6 +8784,8 @@ class KubectlProviderProps(KubectlProviderOptions):
             self._values["role"] = role
         if security_group is not None:
             self._values["security_group"] = security_group
+        if security_groups is not None:
+            self._values["security_groups"] = security_groups
 
     @builtins.property
     def kubectl_layer(self) -> "_ILayerVersion_5ac127c8":
@@ -8834,15 +8869,33 @@ class KubectlProviderProps(KubectlProviderOptions):
 
     @builtins.property
     def security_group(self) -> typing.Optional["_ISecurityGroup_acf8a799"]:
-        '''A security group to use for ``kubectl`` execution.
+        '''(deprecated) A security group to use for ``kubectl`` execution.
+
+        :default:
+
+        - If not specified, the k8s endpoint is expected to be accessible
+        publicly.
+
+        :deprecated: Use ``securityGroups`` instead.
+
+        :stability: deprecated
+        '''
+        result = self._values.get("security_group")
+        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+
+    @builtins.property
+    def security_groups(
+        self,
+    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+        '''Security groups to use for ``kubectl`` execution.
 
         :default:
 
         - If not specified, the k8s endpoint is expected to be accessible
         publicly.
         '''
-        result = self._values.get("security_group")
-        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+        result = self._values.get("security_groups")
+        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
 
     @builtins.property
     def cluster(self) -> "ICluster":
@@ -14601,6 +14654,7 @@ def _typecheckingstub__1aad34a8b7c85b8fafa3a60b89cf1904902b5f18ab4c50ae367481347
     removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     role: typing.Optional[_IRole_235f5d8e] = None,
     security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14640,6 +14694,7 @@ def _typecheckingstub__db0d43994acd7b6b330a5f26b52341ec27f5672d45b11639c9e406ad6
     removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     role: typing.Optional[_IRole_235f5d8e] = None,
     security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14654,6 +14709,7 @@ def _typecheckingstub__61a433dab330d6710bafea4cc09c474eaf4b60af830112e448baa5107
     removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     role: typing.Optional[_IRole_235f5d8e] = None,
     security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
     cluster: ICluster,
 ) -> None:
     """Type checking stubs"""

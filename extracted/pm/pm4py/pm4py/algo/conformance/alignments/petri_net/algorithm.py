@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -83,6 +83,8 @@ def __variant_mapper(variant):
             variant = Variants.VERSION_DIJKSTRA_NO_HEURISTICS
         elif variant == "Variants.VERSION_DIJKSTRA_LESS_MEMORY":
             variant = Variants.VERSION_DIJKSTRA_LESS_MEMORY
+        elif variant == "Variants.VERSION_DISCOUNTED_A_STAR":
+            variant = Variants.VERSION_DISCOUNTED_A_STAR
 
     return variant
 
@@ -94,11 +96,13 @@ if solver.DEFAULT_LP_SOLVER_VARIANT is not None:
 VERSION_STATE_EQUATION_A_STAR = Variants.VERSION_STATE_EQUATION_A_STAR
 VERSION_DIJKSTRA_NO_HEURISTICS = Variants.VERSION_DIJKSTRA_NO_HEURISTICS
 VERSION_DIJKSTRA_LESS_MEMORY = Variants.VERSION_DIJKSTRA_LESS_MEMORY
+VERSION_DISCOUNTED_A_STAR = Variants.VERSION_DISCOUNTED_A_STAR
 
 VERSIONS = {
     Variants.VERSION_DIJKSTRA_NO_HEURISTICS,
-    Variants.VERSION_DIJKSTRA_NO_HEURISTICS,
+    Variants.VERSION_STATE_EQUATION_A_STAR,
     Variants.VERSION_DIJKSTRA_LESS_MEMORY,
+    Variants.VERSION_DISCOUNTED_A_STAR,
 }
 
 

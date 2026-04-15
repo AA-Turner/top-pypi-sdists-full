@@ -33,7 +33,7 @@ class ConnectionCompat(object):
     """
     Mixin that delegates `Connection`-level attributes and
     methods through a `connection` property, allowing
-    protocol and transport objects to be used transparently
+    `Protocol` and `Transport` objects to be used transparently
     in code paths that still expect the older `Connection`
     interface (eg proxy servers, throttle callbacks).
 
@@ -41,6 +41,13 @@ class ConnectionCompat(object):
     that returns the underlying `Connection` instance
     (or `None` when unavailable).
     """
+
+    @property
+    def id(self):
+        connection = self.connection
+        if not connection:
+            return None
+        return connection.id
 
     @property
     def socket(self):
@@ -62,6 +69,20 @@ class ConnectionCompat(object):
         connection = self.connection
         if connection:
             connection.address = value
+
+    @property
+    def status(self):
+        connection = self.connection
+        if connection:
+            return connection.status
+        return getattr(self, "_status", None)
+
+    @status.setter
+    def status(self, value):
+        self._status = value
+        connection = self.connection
+        if connection:
+            connection.status = value
 
     @property
     def renable(self):
@@ -134,3 +155,59 @@ class ConnectionCompat(object):
         connection = self.connection
         if connection:
             connection.min_pending = value
+
+    @property
+    def waiting(self):
+        connection = self.connection
+        if connection:
+            return getattr(connection, "waiting", False)
+        return getattr(self, "_waiting", False)
+
+    @waiting.setter
+    def waiting(self, value):
+        self._waiting = value
+        connection = self.connection
+        if connection:
+            connection.waiting = value
+
+    @property
+    def busy(self):
+        connection = self.connection
+        if connection:
+            return getattr(connection, "busy", 0)
+        return getattr(self, "_busy", 0)
+
+    @busy.setter
+    def busy(self, value):
+        self._busy = value
+        connection = self.connection
+        if connection:
+            connection.busy = value
+
+    @property
+    def state(self):
+        connection = self.connection
+        if connection:
+            return getattr(connection, "state", None)
+        return getattr(self, "_state", None)
+
+    @state.setter
+    def state(self, value):
+        self._state = value
+        connection = self.connection
+        if connection:
+            connection.state = value
+
+    @property
+    def error_url(self):
+        connection = self.connection
+        if connection:
+            return getattr(connection, "error_url", None)
+        return getattr(self, "_error_url", None)
+
+    @error_url.setter
+    def error_url(self, value):
+        self._error_url = value
+        connection = self.connection
+        if connection:
+            connection.error_url = value

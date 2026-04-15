@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentence-transformers
-Version: 5.4.0
+Version: 5.4.1
 Summary: Embeddings, Retrieval, and Reranking
 Author-email: Nils Reimers <info@nils-reimers.de>, Tom Aarsen <tom.aarsen@huggingface.co>
 Maintainer-email: Tom Aarsen <tom.aarsen@huggingface.co>

@@ -246,6 +246,7 @@ struct mjtDyn {
     std::make_pair("mjDYN_FILTER", ::mjtDyn::mjDYN_FILTER),
     std::make_pair("mjDYN_FILTEREXACT", ::mjtDyn::mjDYN_FILTEREXACT),
     std::make_pair("mjDYN_MUSCLE", ::mjtDyn::mjDYN_MUSCLE),
+    std::make_pair("mjDYN_DCMOTOR", ::mjtDyn::mjDYN_DCMOTOR),
     std::make_pair("mjDYN_USER", ::mjtDyn::mjDYN_USER)};
 };
 
@@ -256,6 +257,7 @@ struct mjtGain {
     std::make_pair("mjGAIN_FIXED", ::mjtGain::mjGAIN_FIXED),
     std::make_pair("mjGAIN_AFFINE", ::mjtGain::mjGAIN_AFFINE),
     std::make_pair("mjGAIN_MUSCLE", ::mjtGain::mjGAIN_MUSCLE),
+    std::make_pair("mjGAIN_DCMOTOR", ::mjtGain::mjGAIN_DCMOTOR),
     std::make_pair("mjGAIN_USER", ::mjtGain::mjGAIN_USER)};
 };
 
@@ -266,6 +268,7 @@ struct mjtBias {
     std::make_pair("mjBIAS_NONE", ::mjtBias::mjBIAS_NONE),
     std::make_pair("mjBIAS_AFFINE", ::mjtBias::mjBIAS_AFFINE),
     std::make_pair("mjBIAS_MUSCLE", ::mjtBias::mjBIAS_MUSCLE),
+    std::make_pair("mjBIAS_DCMOTOR", ::mjtBias::mjBIAS_DCMOTOR),
     std::make_pair("mjBIAS_USER", ::mjtBias::mjBIAS_USER)};
 };
 
@@ -539,7 +542,6 @@ struct mjtWarning {
     std::make_pair("mjWARN_INERTIA", ::mjtWarning::mjWARN_INERTIA),
     std::make_pair("mjWARN_CONTACTFULL", ::mjtWarning::mjWARN_CONTACTFULL),
     std::make_pair("mjWARN_CNSTRFULL", ::mjtWarning::mjWARN_CNSTRFULL),
-    std::make_pair("mjWARN_VGEOMFULL", ::mjtWarning::mjWARN_VGEOMFULL),
     std::make_pair("mjWARN_BADQPOS", ::mjtWarning::mjWARN_BADQPOS),
     std::make_pair("mjWARN_BADQVEL", ::mjtWarning::mjWARN_BADQVEL),
     std::make_pair("mjWARN_BADQACC", ::mjtWarning::mjWARN_BADQACC),

@@ -1635,7 +1635,7 @@ class NodejsFunction(
         :param bundling: Bundling options. Default: - use default bundling options: no minify, no sourcemap, all modules are bundled.
         :param code: The code that will be deployed to the Lambda Handler. If included, then properties related to bundling of the code are ignored. - If the ``code`` field is specified, then you must include the ``handler`` property. Default: - the code is bundled by esbuild
         :param deps_lock_file_path: The path to the dependencies lock file (``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb``, ``bun.lock`` or ``package-lock.json``). This will be used as the source for the volume mounted in the Docker container. Modules specified in ``nodeModules`` will be installed using the right installer (``yarn``, ``pnpm``, ``bun`` or ``npm``) along with this lock file. Default: - the path is found by walking up parent directories searching for a ``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb``, ``bun.lock`` or ``package-lock.json`` file
-        :param entry: Path to the entry file (JavaScript or TypeScript). Default: - Derived from the name of the defining file and the construct's id. If the ``NodejsFunction`` is defined in ``stack.ts`` with ``my-handler`` as id (``new NodejsFunction(this, 'my-handler')``), the construct will look at ``stack.my-handler.ts`` and ``stack.my-handler.js``.
+        :param entry: Path to the entry file (JavaScript or TypeScript). If this is a relative path, it will be evaluated with respect to the JavaScript/TypeScript source file that instantiates the ``NodejsFunction`` construct. If the current project is not a Node project, relative paths are not reliable and absolute paths should be used. This file should be located underneath the ``projectRoot`` directory (by default, the directory containing the package manager's lock file). If omitted, the entry file will be derived from the TypeScript/JavaScript file that instantiates the ``NodejsFunction`` construct, and the construct identifier of the ``NodejsFunction`` construct, in the following way:: <filename>.<construct-id>.(ts|js) // Example, if stack.ts contains the following: new NodejsFunction(this, 'my-handler', { ... }); // Then the implicit entry point(s) will be stack.my-handler.ts stack.my-handler.js Again: if the current project is not a Node project this is not reliable, and instead explicit, absolute paths should be used. Default: - (Realible in Node projects only) derived from the defining file's name and construct ID as described in the documentation.
         :param handler: The name of the exported handler in the entry file. - If the ``code`` property is supplied, then you must include the ``handler`` property. The handler should be the name of the file that contains the exported handler and the function that should be called when the AWS Lambda is invoked. For example, if you had a file called ``myLambda.js`` and the function to be invoked was ``myHandler``, then you should input ``handler`` property as ``myLambda.myHandler``. - If the ``code`` property is not supplied and the handler input does not contain a ``.``, then the handler is prefixed with ``index.`` (index period). Otherwise, the handler property is not modified. Default: handler
         :param project_root: The path to the directory containing project config files (``package.json`` or ``tsconfig.json``). Default: - the directory containing the ``depsLockFilePath``
         :param runtime: The runtime environment. Only runtimes of the Node.js family are supported. Default: ``Runtime.NODEJS_LATEST`` if the ``@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion`` feature flag is enabled, otherwise ``Runtime.NODEJS_16_X``
@@ -1951,7 +1951,7 @@ class NodejsFunctionProps(_FunctionOptions_328f4d39):
         :param bundling: Bundling options. Default: - use default bundling options: no minify, no sourcemap, all modules are bundled.
         :param code: The code that will be deployed to the Lambda Handler. If included, then properties related to bundling of the code are ignored. - If the ``code`` field is specified, then you must include the ``handler`` property. Default: - the code is bundled by esbuild
         :param deps_lock_file_path: The path to the dependencies lock file (``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb``, ``bun.lock`` or ``package-lock.json``). This will be used as the source for the volume mounted in the Docker container. Modules specified in ``nodeModules`` will be installed using the right installer (``yarn``, ``pnpm``, ``bun`` or ``npm``) along with this lock file. Default: - the path is found by walking up parent directories searching for a ``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb``, ``bun.lock`` or ``package-lock.json`` file
-        :param entry: Path to the entry file (JavaScript or TypeScript). Default: - Derived from the name of the defining file and the construct's id. If the ``NodejsFunction`` is defined in ``stack.ts`` with ``my-handler`` as id (``new NodejsFunction(this, 'my-handler')``), the construct will look at ``stack.my-handler.ts`` and ``stack.my-handler.js``.
+        :param entry: Path to the entry file (JavaScript or TypeScript). If this is a relative path, it will be evaluated with respect to the JavaScript/TypeScript source file that instantiates the ``NodejsFunction`` construct. If the current project is not a Node project, relative paths are not reliable and absolute paths should be used. This file should be located underneath the ``projectRoot`` directory (by default, the directory containing the package manager's lock file). If omitted, the entry file will be derived from the TypeScript/JavaScript file that instantiates the ``NodejsFunction`` construct, and the construct identifier of the ``NodejsFunction`` construct, in the following way:: <filename>.<construct-id>.(ts|js) // Example, if stack.ts contains the following: new NodejsFunction(this, 'my-handler', { ... }); // Then the implicit entry point(s) will be stack.my-handler.ts stack.my-handler.js Again: if the current project is not a Node project this is not reliable, and instead explicit, absolute paths should be used. Default: - (Realible in Node projects only) derived from the defining file's name and construct ID as described in the documentation.
         :param handler: The name of the exported handler in the entry file. - If the ``code`` property is supplied, then you must include the ``handler`` property. The handler should be the name of the file that contains the exported handler and the function that should be called when the AWS Lambda is invoked. For example, if you had a file called ``myLambda.js`` and the function to be invoked was ``myHandler``, then you should input ``handler`` property as ``myLambda.myHandler``. - If the ``code`` property is not supplied and the handler input does not contain a ``.``, then the handler is prefixed with ``index.`` (index period). Otherwise, the handler property is not modified. Default: handler
         :param project_root: The path to the directory containing project config files (``package.json`` or ``tsconfig.json``). Default: - the directory containing the ``depsLockFilePath``
         :param runtime: The runtime environment. Only runtimes of the Node.js family are supported. Default: ``Runtime.NODEJS_LATEST`` if the ``@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion`` feature flag is enabled, otherwise ``Runtime.NODEJS_16_X``
@@ -2882,12 +2882,31 @@ class NodejsFunctionProps(_FunctionOptions_328f4d39):
     def entry(self) -> typing.Optional[builtins.str]:
         '''Path to the entry file (JavaScript or TypeScript).
 
-        :default:
+        If this is a relative path, it will be evaluated with respect to the
+        JavaScript/TypeScript source file that instantiates the ``NodejsFunction``
+        construct. If the current project is not a Node project, relative paths are
+        not reliable and absolute paths should be used.
 
-        - Derived from the name of the defining file and the construct's id.
-        If the ``NodejsFunction`` is defined in ``stack.ts`` with ``my-handler`` as id
-        (``new NodejsFunction(this, 'my-handler')``), the construct will look at ``stack.my-handler.ts``
-        and ``stack.my-handler.js``.
+        This file should be located underneath the ``projectRoot`` directory (by default,
+        the directory containing the package manager's lock file).
+
+        If omitted, the entry file will be derived from the TypeScript/JavaScript file
+        that instantiates the ``NodejsFunction`` construct, and the construct identifier
+        of the ``NodejsFunction`` construct, in the following way::
+
+           <filename>.<construct-id>.(ts|js)
+
+           // Example, if stack.ts contains the following:
+           new NodejsFunction(this, 'my-handler', { ... });
+
+           // Then the implicit entry point(s) will be
+           stack.my-handler.ts
+           stack.my-handler.js
+
+        Again: if the current project is not a Node project this is not reliable,
+        and instead explicit, absolute paths should be used.
+
+        :default: - (Realible in Node projects only) derived from the defining file's name and construct ID as described in the documentation.
         '''
         result = self._values.get("entry")
         return typing.cast(typing.Optional[builtins.str], result)

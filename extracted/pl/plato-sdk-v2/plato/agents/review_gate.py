@@ -268,18 +268,6 @@ def attach_review_gate(
         else:
             parts.append("No detailed feedback available — re-run validate.sh to check for errors.")
 
-        # Include prior review history so the agent knows what was already tried
-        if len(_review_history) > 1:
-            history_lines = []
-            for i, prev in enumerate(_review_history[:-1], 1):
-                prev_score = prev.get("score", "?")
-                prev_verdict = prev.get("verdict", "?")
-                prev_feedback = str(prev.get("feedback", ""))
-                history_lines.append(
-                    f"  Review #{i}: verdict={prev_verdict} score={prev_score}\n    Feedback: {prev_feedback}"
-                )
-            parts.append("Previous review attempts for this branch:\n" + "\n".join(history_lines))
-
         parts.append("\nFix the issues described above and commit your changes.")
         return "\n\n".join(parts)
 

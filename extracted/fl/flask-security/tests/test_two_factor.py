@@ -4,7 +4,7 @@ test_two_factor
 
 two_factor tests
 
-:copyright: (c) 2019-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2019-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 """
 
@@ -37,6 +37,7 @@ from tests.test_utils import (
     is_authenticated,
     json_authenticate,
     logout,
+    check_signals,
 )
 
 pytestmark = pytest.mark.two_factor()
@@ -268,7 +269,7 @@ def test_two_factor_two_factor_setup_anonymous(app, client, get_message):
 
     with capture_flashes() as flashes:
         response = client.post("/tf-setup", data=data)
-        assert response.status_code == 302
+        assert response.status_code in [302, 303]
     assert flashes[0]["category"] == "error"
     assert flashes[0]["message"].encode("utf-8") == get_message(
         "TWO_FACTOR_PERMISSION_DENIED"
@@ -282,7 +283,7 @@ def test_two_factor_illegal_state(app, client, get_message):
 
     with capture_flashes() as flashes:
         response = client.post("/api/tf-setup", data=data)
-        assert response.status_code == 302
+        assert response.status_code in [302, 303]
         assert "/api/login" in response.location
     assert flashes[0]["category"] == "error"
     assert flashes[0]["message"].encode("utf-8") == get_message(
@@ -293,19 +294,19 @@ def test_two_factor_illegal_state(app, client, get_message):
     response = client.post(
         "/api/tf-validate", data=dict(code=b"333"), follow_redirects=False
     )
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert "/api/login" in response.location
 
     # try rescue
     response = client.post(
         "/api/tf-rescue", data=dict(help_setup="lost_device"), follow_redirects=False
     )
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert "/api/login" in response.location
 
 
 @pytest.mark.settings(two_factor_required=True)
-def test_two_factor_flag(app, clients, get_message, outbox):
+def test_two_factor_flag(app, clients, get_message, outbox, signals):
     # trying to verify code without going through two-factor
     # first login function
     client = clients
@@ -393,6 +394,13 @@ def test_two_factor_flag(app, clients, get_message, outbox):
     # submit bad token to two_factor_token_validation
     response = client.post("/tf-validate", data=dict(code=wrong_code))
     assert get_message("TWO_FACTOR_INVALID_TOKEN") in response.data
+    assert (
+        signals["user_failed_authn"][2]["request_endpoint"]
+        == "security.two_factor_token_validation"
+    )
+    assert signals["user_failed_authn"][2]["user"].email == "gal@lp.com"
+    assert signals["user_failed_authn"][2]["auth_type"] == "code"
+    assert signals["user_failed_authn"][2]["tfa"]
 
     # submit right token and show appropriate response
     response = client.post("/tf-validate", data=dict(code=code), follow_redirects=True)
@@ -576,7 +584,7 @@ def test_setup_bad_phone(app, client, get_message):
 
 
 @pytest.mark.settings(two_factor_required=True)
-def test_json(app, client):
+def test_json(app, client, signals):
     """
     Test login/setup using JSON.
     """
@@ -594,8 +602,11 @@ def test_json(app, client):
     # Verify SMS sent
     assert sms_sender.get_count() == 1
     code = sms_sender.messages[0].split()[-1]
+    assert signals["tf_security_token_sent"][0]["token"] == code
+    assert signals["tf_security_token_sent"][0]["method"] == "sms"
     response = client.post("/tf-validate", json=dict(code=code))
     assert response.status_code == 200
+    assert signals["tf_code_confirmed"][0]["user_email"] == "gal@lp.com"
     # verify logged in
     response = client.get("/profile", follow_redirects=False)
     assert response.status_code == 200
@@ -619,6 +630,7 @@ def test_json(app, client):
     assert response.json["response"]["tf_state"] == "validating_profile"
     assert response.json["response"]["tf_primary_method"] == "sms"
     code = sms_sender.messages[0].split()[-1]
+    assert signals["tf_security_token_sent"][1]["token"] == code
     response = client.post("/tf-validate", json=dict(code=code), headers=headers)
     assert response.status_code == 200
     assert "csrf_token" in response.json["response"]
@@ -637,6 +649,13 @@ def test_json(app, client):
     assert response.status_code == 400
     assert response.json["response"]["field_errors"]["code"][0] == "Invalid code"
     assert response.json["response"]["errors"][0] == "Invalid code"
+    assert (
+        signals["user_failed_authn"][0]["request_endpoint"]
+        == "security.two_factor_token_validation"
+    )
+    assert signals["user_failed_authn"][0]["user"].email == "matt@lp.com"
+    assert signals["user_failed_authn"][0]["auth_type"] == "code"
+    assert signals["user_failed_authn"][0]["tfa"]
 
     # Do a GET - should get recovery options
     response = client.get("/tf-validate", headers=headers)
@@ -660,6 +679,10 @@ def test_json(app, client):
     assert response.json["response"]["tf_primary_method"] == "sms"
     assert response.json["response"]["tf_phone_number"] == "+442083661177"
     assert not tf_in_session(get_session(response))
+    check_signals(
+        signals,
+        {"user_failed_authn": 1, "tf_security_token_sent": 3, "tf_code_confirmed": 3},
+    )
 
 
 @pytest.mark.settings(two_factor_rescue_mail="helpme@myapp.com")
@@ -761,9 +784,9 @@ def test_custom_urls(client):
     response = client.get("/tf-setup")
     assert response.status_code == 404
     response = client.get("/custom-setup")
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     response = client.get("/custom-rescue")
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
 
 
 def test_evil_validate(app, client):
@@ -870,7 +893,7 @@ def test_opt_in(app, client, get_message):
         assert signalled_identity[0] == user.fs_uniquifier
 
 
-def test_opt_in_nc(app, client_nc, get_message):
+def test_opt_in_nc(app, client_nc, get_message, signals):
     """
     Test tf-setup without cookies
     """
@@ -904,6 +927,8 @@ def test_opt_in_nc(app, client_nc, get_message):
     assert response.json["response"]["errors"][0].encode("utf-8") == get_message(
         "TWO_FACTOR_INVALID_TOKEN"
     )
+    # setup shouldn't trigger this.
+    assert len(signals["user_failed_authn"]) == 0
 
     # Validate token - this should complete 2FA setup
     @tf_profile_changed.connect_via(app)
@@ -952,7 +977,7 @@ def test_opt_in_nc_expired(app, client_nc, get_message):
     )
 
 
-def test_opt_in_state_token(app, client, get_message):
+def test_opt_in_state_token(app, client, get_message, signals):
     """
     Test using forms and new state_token approach (rather than sessions to store
     intermediate state)
@@ -979,6 +1004,8 @@ def test_opt_in_state_token(app, client, get_message):
     response = client.post(verify_url, data=dict(code=12345), follow_redirects=True)
     assert check_location(app, response.history[0].location, "/tf-setup")
     assert get_message("TWO_FACTOR_INVALID_TOKEN") in response.data
+    # setup shouldn't trigger this.
+    assert len(signals["user_failed_authn"]) == 0
 
     # Validate token - this should complete 2FA setup
     response = client.post(verify_url, data=dict(code=code), follow_redirects=True)
@@ -1040,7 +1067,7 @@ def test_recoverable(app, client, get_message):
 
     # we shouldn't be logged in
     response = client.get("/profile", follow_redirects=False)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
 
     # Grab code that was sent
     assert sms_sender.get_count() == 1
@@ -1067,7 +1094,7 @@ def test_admin_setup_reset(app, client, get_message):
 
     # we shouldn't be logged in
     response = client.get("/profile", follow_redirects=False)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert response.location == "/login?next=/profile"
 
     # Use admin to setup gene's SMS/phone.
@@ -1109,7 +1136,7 @@ def test_admin_setup_reset(app, client, get_message):
 
     # we shouldn't be logged in
     response = client.get("/profile", follow_redirects=False)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
 
 
 @pytest.mark.settings(two_factor_required=True)
@@ -1238,10 +1265,18 @@ def test_authr_identity(app, client):
 
     setup_data = dict(setup="authenticator")
     response = client.post("/tf-setup", json=setup_data, headers=headers)
-    assert response.json["response"]["tf_authr_issuer"] == "tests"
-    assert response.json["response"]["tf_authr_username"] == "jill"
-    assert response.json["response"]["tf_state"] == "validating_profile"
+    jr = response.json["response"]
+    assert jr["tf_authr_issuer"] == "tests"
+    assert jr["tf_authr_username"] == "jill"
+    assert jr["tf_state"] == "validating_profile"
+    assert len(jr["tf_authr_b32key"]) % 8 == 0 and re.match(
+        r"^[A-Z2-7]+=*$", jr["tf_authr_b32key"]
+    )
     assert "tf_authr_key" in response.json["response"]
+    assert (
+        jr["tf_authr_uri"]
+        == f"otpauth://totp/tests:jill?secret={jr['tf_authr_b32key']}&issuer=tests"
+    )
 
 
 @pytest.mark.settings(
@@ -1307,7 +1342,7 @@ def test_bad_sender(app, client, get_message):
     with capture_flashes() as flashes:
         data = {"email": "gal@lp.com", "password": "password"}
         response = client.post("login", data=data, follow_redirects=False)
-        assert response.status_code == 302
+        assert response.status_code in [302, 303]
         assert "/login" in response.location
     assert get_message("FAILED_TO_SEND_CODE") in flashes[0]["message"].encode("utf-8")
 
@@ -1332,47 +1367,20 @@ def test_bad_sender(app, client, get_message):
     )
 
 
-def test_replace_send_code(app, get_message):
-    pytest.importorskip("sqlalchemy")
-    pytest.importorskip("flask_sqlalchemy")
+cresponse = [None, "That didnt work out as we planned", "Failed Again"]
 
-    # replace tf_send_code - and have it return an error to check that.
-    from flask_sqlalchemy import SQLAlchemy
-    from flask_security.models import fsqla_v2 as fsqla
-    from flask_security import Security, hash_password
 
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-    db = SQLAlchemy(app)
+def _tf_send_code(self, method, totp_secret, phone_number):
+    return self.code_response.pop(0)
 
-    fsqla.FsModels.set_db_info(db)
 
-    class Role(db.Model, fsqla.FsRoleMixin):
-        pass
-
-    class User(db.Model, fsqla.FsUserMixin):
-        rv = [None, "That didnt work out as we planned", "Failed Again"]
-
-        def tf_send_security_token(self, method, **kwargs):
-            return User.rv.pop(0)
-
-    with app.app_context():
-        db.create_all()
-
-    ds = SQLAlchemyUserDatastore(db, User, Role)
-    app.security = Security(app, datastore=ds)
-
-    with app.app_context():
-        client = app.test_client()
-
-        ds.create_user(
-            email="trp@lp.com",
-            password=hash_password("password"),
-            tf_primary_method="sms",
-            tf_totp_secret=app.security._totp_factory.generate_totp_secret(),
-        )
-        ds.commit()
-
-    data = dict(email="trp@lp.com", password="password")
+@pytest.mark.app_settings(
+    TESTING_USER_INJECT=dict(
+        tf_send_security_token=_tf_send_code, code_response=cresponse
+    )
+)
+def test_replace_send_code(app, client, get_message):
+    data = dict(email="gal@lp.com", password="password")
     response = client.post("/login", data=data, follow_redirects=True)
     assert b"Please enter your authentication code" in response.data
     rescue_data = dict(help_setup="email")
@@ -1384,8 +1392,6 @@ def test_replace_send_code(app, get_message):
     response = client.post("/tf-rescue", json=rescue_data, headers=headers)
     assert response.status_code == 500
     assert response.json["response"]["field_errors"]["help_setup"][0] == "Failed Again"
-    with app.app_context():
-        db.engine.dispose()
 
 
 def test_propagate_next(app, client):
@@ -1445,7 +1451,7 @@ def test_verify(app, client, get_message):
             data=dict(password="password"),
             follow_redirects=False,
         )
-        assert response.status_code == 302
+        assert response.status_code in [302, 303]
         assert check_location(app, response.location, "/tf-setup")
 
     assert get_message("REAUTHENTICATION_SUCCESSFUL") == flashes[0]["message"].encode(
@@ -1720,3 +1726,47 @@ def test_csrf_2fa_nounauth_cookie(app, client):
     )
     assert response.status_code == 200
     assert response.json["label"] == "label"
+
+
+def _tf_required(self, tf_setup_methods, tf_fresh):
+    if self.email == "gal@lp.com":
+        return False, tf_setup_methods
+    return True, tf_setup_methods
+
+
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(check_tf_required=_tf_required))
+@pytest.mark.settings(two_factor_required=True)
+def test_override_tf_required(app, client, get_message):
+    data = dict(email="jill@lp.com", password="password")
+    response = client.post("/login", json=data)
+    assert response.status_code == 200
+    assert response.json["response"]["tf_required"]
+
+    data = dict(email="gal@lp.com", password="password")
+    response = client.post("/login", json=data)
+    assert response.status_code == 200
+    assert not response.json["response"]["tf_required"]
+
+
+def _tf_required_admin(self, tf_setup_methods, tf_fresh):
+    if self.has_role("admin"):
+        return True, tf_setup_methods
+    return False, tf_setup_methods
+
+
+@pytest.mark.app_settings(
+    TESTING_USER_INJECT=dict(check_tf_required=_tf_required_admin)
+)
+def test_override_tf_required_admin(app, client, get_message):
+    # jill is an 'author' so shouldn't require TF
+    data = dict(email="jill@lp.com", password="password")
+    response = client.post("/login", json=data)
+    assert response.status_code == 200
+    assert not response.json["response"]["tf_required"]
+    client.post("/logout")
+
+    # gal is an admin so should require TF
+    data = dict(email="gal@lp.com", password="password")
+    response = client.post("/login", json=data)
+    assert response.status_code == 200
+    assert response.json["response"]["tf_required"]

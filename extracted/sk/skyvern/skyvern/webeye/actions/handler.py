@@ -67,6 +67,7 @@ from skyvern.forge.sdk.api.files import (
 from skyvern.forge.sdk.api.llm.api_handler_factory import LLMAPIHandlerFactory, LLMCallerManager
 from skyvern.forge.sdk.api.llm.exceptions import LLMProviderError
 from skyvern.forge.sdk.api.llm.schema_validator import validate_and_fill_extraction_result
+from skyvern.forge.sdk.cache import extraction_cache, extraction_shadow
 from skyvern.forge.sdk.core import skyvern_context
 from skyvern.forge.sdk.core.skyvern_context import current as skyvern_current
 from skyvern.forge.sdk.core.skyvern_context import ensure_context
@@ -3095,6 +3096,7 @@ async def input_or_auto_complete_input(
             fallback_result = await discover_and_select_from_full_dropdown(
                 context=input_or_select_context,
                 page=page,
+                scraped_page=scraped_page,
                 dom=dom,
                 original_text=text,
                 skyvern_element=skyvern_element,
@@ -3115,6 +3117,7 @@ async def input_or_auto_complete_input(
 async def discover_and_select_from_full_dropdown(
     context: InputOrSelectContext,
     page: Page,
+    scraped_page: ScrapedPage,
     dom: DomUtil,
     original_text: str,
     skyvern_element: SkyvernElement,
@@ -3122,7 +3125,7 @@ async def discover_and_select_from_full_dropdown(
     task: Task,
     relevance_threshold: float = 0.6,
 ) -> ActionResult | None:
-    """Fallback for auto-completion: clear input, press ArrowDown to reveal all options,
+    """Fallback for auto-completion: clear input, click/ArrowDown to reveal all options,
     then ask LLM to pick the best semantic match from actual dropdown values."""
     if not await skyvern_element.is_visible():
         return None
@@ -3136,27 +3139,73 @@ async def discover_and_select_from_full_dropdown(
         await skyvern_element.scroll_into_view()
         await skyvern_element.input_clear()
 
+        # Try click first to open the dropdown (most combobox components respond to click)
         try:
-            await skyvern_element.press_key("ArrowDown")
-        except TimeoutError:
+            await skyvern_element.get_locator().click(timeout=settings.BROWSER_ACTION_TIMEOUT_MS)
+        except Exception:
             LOG.info(
-                "Timeout pressing ArrowDown in discover fallback, continuing",
+                "Click failed in discover fallback, continuing to ArrowDown",
                 element_id=skyvern_element.get_id(),
             )
 
         await skyvern_frame.safe_wait_for_animation_end(before_wait_sec=1)
 
-        incremental_element = await incremental_scraped.get_incremental_element_tree(
-            clean_and_remove_element_tree_factory(
-                task=task,
-                step=step,
-                check_filter_funcs=[check_existed_but_not_option_element_in_dom_factory(dom)],
-            ),
+        cleanup_func = clean_and_remove_element_tree_factory(
+            task=task,
+            step=step,
+            check_filter_funcs=[check_existed_but_not_option_element_in_dom_factory(dom)],
         )
+        incremental_element = await incremental_scraped.get_incremental_element_tree(cleanup_func)
+
+        # If click didn't produce options, try ArrowDown as fallback
+        if not incremental_element:
+            LOG.info(
+                "Discover fallback: no options after click, trying ArrowDown",
+                element_id=skyvern_element.get_id(),
+            )
+            try:
+                await skyvern_element.press_key("ArrowDown")
+            except TimeoutError:
+                LOG.info(
+                    "Timeout pressing ArrowDown in discover fallback, continuing",
+                    element_id=skyvern_element.get_id(),
+                )
+
+            await skyvern_frame.safe_wait_for_animation_end(before_wait_sec=1)
+            incremental_element = await incremental_scraped.get_incremental_element_tree(cleanup_func)
+
+        # If incremental detection failed (e.g. options in a different shadow root),
+        # try a full page re-scrape diff as last resort
+        if not incremental_element:
+            LOG.info(
+                "Discover fallback: no options from incremental detection, trying re-scrape diff",
+                element_id=skyvern_element.get_id(),
+            )
+            scraped_page_after = await scraped_page.generate_scraped_page_without_screenshots()
+            new_element_ids_from_rescrape = list(
+                set(scraped_page_after.id_to_css_dict.keys()) - set(scraped_page.id_to_css_dict.keys())
+            )
+            if new_element_ids_from_rescrape:
+                # Feed re-scrape results back into incremental_element so the unified
+                # auto-completion-choose-option path below handles them (best-effort,
+                # with relevance_threshold). This avoids select_from_emerging_elements
+                # which uses the more aggressive custom-select prompt.
+                rescrape_elements = [
+                    scraped_page_after.id_to_element_dict[eid]
+                    for eid in new_element_ids_from_rescrape
+                    if eid in scraped_page_after.id_to_element_dict
+                ]
+                if rescrape_elements:
+                    LOG.info(
+                        "Discover fallback: re-scrape diff found new elements",
+                        new_element_count=len(rescrape_elements),
+                    )
+                    incremental_element = rescrape_elements
+                    incremental_scraped.id_to_element_dict.update(scraped_page_after.id_to_element_dict)
 
         if not incremental_element:
             LOG.info(
-                "Discover fallback: no options appeared after ArrowDown",
+                "Discover fallback: no options found after all attempts",
                 element_id=skyvern_element.get_id(),
             )
             return None
@@ -3199,28 +3248,44 @@ async def discover_and_select_from_full_dropdown(
             )
             return None
 
+        discovered_value = json_response.get("value", "")
         LOG.info(
-            "Discover fallback: found suitable option",
+            "Discover fallback: found suitable option, typing discovered value to trigger auto-completion",
             element_id=element_id,
             relevance_float=relevance_float,
+            discovered_value=discovered_value,
         )
 
-        locator = current_frame.locator(f'[{SKYVERN_ID_ATTR}="{element_id}"]')
-        if await locator.count() == 0:
-            LOG.warning(
-                "Discover fallback: selected element not found in DOM",
-                element_id=element_id,
-            )
+        if not discovered_value:
+            # FIXME: when element_id is valid and the dropdown is still open (incremental path),
+            # we could try clicking the element directly instead of requiring the value text.
+            # Currently this only affects the re-scrape path where the dropdown is closed.
             return None
 
-        selected_element = SkyvernElement(
-            locator=locator,
-            frame=current_frame,
-            static_element=incremental_scraped.id_to_element_dict.get(element_id, {}),
-        )
-        await selected_element.scroll_into_view()
-        await selected_element.click(page=page)
-        return ActionSuccess()
+        # Instead of clicking the option directly (dropdown may have closed during re-scrape),
+        # input the discovered value into the combobox. Since it's an exact match, the combobox's
+        # filter will show it as the only option. Then find and click it directly via Playwright.
+        await skyvern_element.input_clear()
+        await skyvern_element.press_fill(discovered_value)
+        await skyvern_frame.safe_wait_for_animation_end(before_wait_sec=1)
+
+        # Select the first matching option via keyboard: ArrowDown highlights it, Enter confirms.
+        # This avoids needing to locate the option element in shadow DOM.
+        try:
+            await skyvern_element.press_key("ArrowDown")
+            await skyvern_element.press_key("Enter")
+            LOG.info(
+                "Discover fallback: selected option via keyboard",
+                discovered_value=discovered_value,
+            )
+            return ActionSuccess()
+        except Exception:
+            LOG.info(
+                "Discover fallback: keyboard selection failed",
+                exc_info=True,
+                discovered_value=discovered_value,
+            )
+            return None
 
     except Exception:
         LOG.warning(
@@ -4182,9 +4247,31 @@ async def extract_information_for_navigation_goal(
     Scrapes a webpage and returns the scraped response, including:
     1. JSON representation of what the user is seeing
     2. The scraped page
+
+    Extraction-result cache
+    --------------------------------
+    Many workflows re-extract the same page on every iteration of a loop
+    (e.g. navigate back to a documents list, extract, click one row, repeat).
+    When the page content, data-extraction goal, and output schema are
+    identical to a previous call within the same workflow run, reuse the
+    prior LLM result instead of paying for another extract-information call.
     """
     scraped_page_refreshed = await scraped_page.refresh()
     context = ensure_context()
+
+    # Compute llm key up-front so the cache key includes it.
+    llm_key_override = task.llm_key
+    if await service_utils.is_cua_task(task=task):
+        # CUA tasks should use the default data extraction llm key
+        llm_key_override = None
+
+    # Compute local_datetime once so both the cache key and the prompt use the
+    # same value (avoids stale hits when date-relative extraction goals cross midnight).
+    local_datetime_str = datetime.now(context.tz_info).isoformat()
+
+    # Render the prompt FIRST so the cache key hashes the exact string that
+    # will be sent to the LLM (captures economy-tree swaps and 2/3 truncation
+    # inside load_prompt_with_elements).
     extract_information_prompt = load_prompt_with_elements(
         element_tree_builder=scraped_page_refreshed,
         prompt_engine=prompt_engine,
@@ -4198,13 +4285,117 @@ async def extract_information_for_navigation_goal(
         current_url=scraped_page_refreshed.url,
         extracted_text=scraped_page_refreshed.extracted_text,
         error_code_mapping_str=(json.dumps(task.error_code_mapping) if task.error_code_mapping else None),
-        local_datetime=datetime.now(context.tz_info).isoformat(),
+        local_datetime=local_datetime_str,
     )
 
-    llm_key_override = task.llm_key
-    if await service_utils.is_cua_task(task=task):
-        # CUA tasks should use the default data extraction llm key
-        llm_key_override = None
+    # Best-effort cache lookup — any failure falls through to LLM. The `try`
+    # is narrowed to just compute_cache_key + lookup so a downstream log
+    # failure can't re-enter the except block and double-count the call as
+    # both a hit/miss and a `lookup_error` in the Datadog miss-reason metric.
+    cache_key: str | None = None
+    lookup_result: extraction_cache.LookupResult | None = None
+    try:
+        cache_key = extraction_cache.compute_cache_key(
+            rendered_prompt=extract_information_prompt,
+            llm_key=llm_key_override,
+        )
+        lookup_result = extraction_cache.lookup(task.workflow_run_id, cache_key)
+    except Exception:
+        LOG.warning(
+            "extract_information cache lookup failed; falling through to LLM",
+            task_id=task.task_id,
+            workflow_run_id=task.workflow_run_id,
+            cache_key=cache_key,
+            cache_hit=False,
+            cache_scope=extraction_cache.SCOPE_RUN,
+            cache_age_seconds=None,
+            fallback_reason=extraction_cache.FALLBACK_LOOKUP_ERROR,
+            cache_path="agent",
+            exc_info=True,
+        )
+        # Preserve cache_key so the downstream store() can still warm the cache
+        # for subsequent identical calls even when lookup() fails transiently.
+
+    if lookup_result is not None and lookup_result.hit:
+        LOG.info(
+            "extract_information cache hit — skipping LLM call",
+            task_id=task.task_id,
+            workflow_run_id=task.workflow_run_id,
+            cache_key=cache_key,
+            cache_hit=True,
+            cache_scope=lookup_result.scope,
+            cache_age_seconds=lookup_result.age_seconds,
+            fallback_reason=None,
+            cache_path="agent",
+        )
+        # Fire-and-forget shadow sampling on sampled hits. Flag lookup happens
+        # inside the background task so the cache-hit return is not blocked
+        # by the flag provider (e.g. PostHog latency on the first hit per run).
+        if cache_key is not None and task.workflow_run_id is not None:
+            shadow_llm_api_handler = LLMAPIHandlerFactory.get_override_llm_api_handler(
+                llm_key_override, default=app.EXTRACTION_LLM_API_HANDLER
+            )
+            shadow_schema = task.extracted_information_schema
+            # Snapshot screenshots at schedule time — scraped_page is mutable
+            # and may be refreshed before the background task runs.
+            shadow_screenshots = list(scraped_page.screenshots)
+
+            async def _shadow_gate() -> bool:
+                # Captures `task` by reference — safe because the cloud override
+                # only reads immutable identifiers (workflow_run_id, organization_id,
+                # workflow_permanent_id, task_id) set at construction.
+                return await app.AGENT_FUNCTION.should_shadow_extraction_cache_hit(task)
+
+            async def _shadow_llm_call() -> Any:
+                fresh = await shadow_llm_api_handler(
+                    prompt=extract_information_prompt,
+                    # step=None suppresses both update_step (token/cost accounting)
+                    # and artifact persistence in LLMAPIHandlerFactory. Shadow calls
+                    # are an observability side-channel — the user-visible request
+                    # was served from cache, so they must not inflate step usage,
+                    # billing, or artifact counts.
+                    step=None,
+                    screenshots=shadow_screenshots,
+                    # Use the same prompt_name as the miss path so prompt-level
+                    # LLM tuning (e.g. thinking-budget overrides) matches — otherwise
+                    # cached (tuned) vs fresh (untuned) would diverge for config
+                    # reasons unrelated to cache correctness.
+                    prompt_name="extract-information",
+                    force_dict=False,
+                )
+                # Apply the same post-processing the miss path applies so the
+                # comparison is apples-to-apples against the cached value.
+                if shadow_schema:
+                    fresh = validate_and_fill_extraction_result(
+                        extraction_result=fresh,
+                        schema=shadow_schema,
+                    )
+                return fresh
+
+            extraction_shadow.schedule_shadow_check(
+                gate=_shadow_gate,
+                cache_key=cache_key,
+                workflow_run_id=task.workflow_run_id,
+                cached_value=lookup_result.value,
+                # -1.0 sentinel marks "age unknown" so it's distinguishable in
+                # Datadog from "just-cached (0.0)".
+                cached_age_seconds=lookup_result.age_seconds if lookup_result.age_seconds is not None else -1.0,
+                llm_call=_shadow_llm_call,
+                schema=shadow_schema,
+            )
+        return ScrapeResult(scraped_data=lookup_result.value)
+    if lookup_result is not None:
+        LOG.info(
+            "extract_information cache miss",
+            task_id=task.task_id,
+            workflow_run_id=task.workflow_run_id,
+            cache_key=cache_key,
+            cache_hit=False,
+            cache_scope=lookup_result.scope,
+            cache_age_seconds=None,
+            fallback_reason=lookup_result.fallback_reason,
+            cache_path="agent",
+        )
 
     # Use the appropriate LLM handler based on the feature flag
     llm_api_handler = LLMAPIHandlerFactory.get_override_llm_api_handler(
@@ -4224,6 +4415,14 @@ async def extract_information_for_navigation_goal(
             extraction_result=json_response,
             schema=task.extracted_information_schema,
         )
+
+    # Cache the post-validation result so cache hits return the same shape as
+    # a fresh LLM call (schema-validated with missing fields filled).
+    if cache_key is not None and json_response is not None:
+        try:
+            extraction_cache.store(task.workflow_run_id, cache_key, json_response)
+        except Exception:
+            LOG.warning("extract_information cache store failed; ignoring", exc_info=True)
 
     return ScrapeResult(
         scraped_data=json_response,

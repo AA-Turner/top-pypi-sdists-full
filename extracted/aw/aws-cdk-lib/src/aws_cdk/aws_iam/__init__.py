@@ -11792,24 +11792,34 @@ class PolicyStatement(
 ):
     '''Represents a statement in an IAM policy document.
 
-    :exampleMetadata: infused
+    :exampleMetadata: lit=aws-ec2/test/integ.vpc-endpoint.lit.ts infused
 
     Example::
 
-        access_logs_bucket = s3.Bucket(self, "AccessLogsBucket",
-            object_ownership=s3.ObjectOwnership.BUCKET_OWNER_ENFORCED
+        # Add gateway endpoints when creating the VPC
+        vpc = ec2.Vpc(self, "MyVpc",
+            gateway_endpoints={
+                "S3": cdk.aws_ec2.GatewayVpcEndpointOptions(
+                    service=ec2.GatewayVpcEndpointAwsService.S3
+                )
+            }
         )
         
-        access_logs_bucket.add_to_resource_policy(
-            iam.PolicyStatement(
-                actions=["s3:*"],
-                resources=[access_logs_bucket.bucket_arn, access_logs_bucket.arn_for_objects("*")],
-                principals=[iam.AnyPrincipal()]
-            ))
+        # Alternatively gateway endpoints can be added on the VPC
+        dynamo_db_endpoint = vpc.add_gateway_endpoint("DynamoDbEndpoint",
+            service=ec2.GatewayVpcEndpointAwsService.DYNAMODB
+        )
         
-        bucket = s3.Bucket(self, "MyBucket",
-            server_access_logs_bucket=access_logs_bucket,
-            server_access_logs_prefix="logs"
+        # This allows to customize the endpoint policy
+        dynamo_db_endpoint.add_to_policy(
+            iam.PolicyStatement( # Restrict to listing and describing tables
+                principals=[iam.AnyPrincipal()],
+                actions=["dynamodb:DescribeTable", "dynamodb:ListTables"],
+                resources=["*"]))
+        
+        # Add an interface endpoint
+        vpc.add_interface_endpoint("EcrDockerEndpoint",
+            service=ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER
         )
     '''
 
@@ -15246,25 +15256,30 @@ class Role(
     Defines an IAM role. The role is created with an assume policy document associated with
     the specified AWS service principal defined in ``serviceAssumeRole``.
 
-    :exampleMetadata: infused
+    :exampleMetadata: fixture=default infused
 
     Example::
 
-        lambda_role = iam.Role(self, "Role",
-            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
-            description="Example role..."
+        # Create a browser
+        browser = agentcore.BrowserCustom(self, "MyBrowser",
+            browser_custom_name="my_browser",
+            description="Browser for web automation",
+            network_configuration=agentcore.BrowserNetworkConfiguration.using_public_network()
         )
         
-        stream = kinesis.Stream(self, "MyEncryptedStream",
-            encryption=kinesis.StreamEncryption.KMS
-        )
-        stream_consumer = kinesis.StreamConsumer(self, "MyStreamConsumer",
-            stream_consumer_name="MyStreamConsumer",
-            stream=stream
+        # Create a role that needs access to the browser
+        user_role = iam.Role(self, "UserRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com")
         )
         
-        # give lambda permissions to read stream via the stream consumer
-        stream_consumer.grant_read(lambda_role)
+        # Grant read permissions (Get and List actions)
+        browser.grant_read(user_role)
+        
+        # Grant use permissions (Start, Update, Stop actions)
+        browser.grant_use(user_role)
+        
+        # Grant specific custom permissions
+        browser.grant(user_role, "bedrock-agentcore:GetBrowserSession")
     '''
 
     def __init__(
@@ -15699,24 +15714,22 @@ class ServicePrincipal(
 ):
     '''An IAM principal that represents an AWS service (i.e. ``sqs.amazonaws.com``).
 
-    :exampleMetadata: fixture=default infused
+    :exampleMetadata: infused
 
     Example::
 
-        # Create a custom execution role
-        execution_role = iam.Role(self, "BrowserExecutionRole",
-            assumed_by=iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
-            managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonBedrockAgentCoreBrowserExecutionRolePolicy")
-            ]
+        # vpc: ec2.Vpc
+        
+        
+        log_group = logs.LogGroup(self, "MyCustomLogGroup")
+        
+        role = iam.Role(self, "MyCustomRole",
+            assumed_by=iam.ServicePrincipal("vpc-flow-logs.amazonaws.com")
         )
         
-        # Create browser with custom execution role
-        browser = agentcore.BrowserCustom(self, "MyBrowser",
-            browser_custom_name="my_browser",
-            description="Browser with custom execution role",
-            network_configuration=agentcore.BrowserNetworkConfiguration.using_public_network(),
-            execution_role=execution_role
+        ec2.FlowLog(self, "FlowLog",
+            resource_type=ec2.FlowLogResourceType.from_vpc(vpc),
+            destination=ec2.FlowLogDestination.to_cloud_watch_logs(log_group, role)
         )
     '''
 

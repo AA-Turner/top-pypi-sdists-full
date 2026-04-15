@@ -1534,8 +1534,8 @@ class CfnLoadBalancer(
             owner_alias: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
-            :param group_name: The name of the security group that you can use as part of your inbound rules for your load balancer's back-end instances.
-            :param owner_alias: The owner of the source security group.
+            :param group_name: 
+            :param owner_alias: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancing-loadbalancer-sourcesecuritygroup.html
             :exampleMetadata: fixture=_generated
@@ -1563,8 +1563,7 @@ class CfnLoadBalancer(
 
         @builtins.property
         def group_name(self) -> typing.Optional[builtins.str]:
-            '''The name of the security group that you can use as part of your inbound rules for your load balancer's back-end instances.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancing-loadbalancer-sourcesecuritygroup.html#cfn-elasticloadbalancing-loadbalancer-sourcesecuritygroup-groupname
             '''
             result = self._values.get("group_name")
@@ -1572,8 +1571,7 @@ class CfnLoadBalancer(
 
         @builtins.property
         def owner_alias(self) -> typing.Optional[builtins.str]:
-            '''The owner of the source security group.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancing-loadbalancer-sourcesecuritygroup.html#cfn-elasticloadbalancing-loadbalancer-sourcesecuritygroup-owneralias
             '''
             result = self._values.get("owner_alias")

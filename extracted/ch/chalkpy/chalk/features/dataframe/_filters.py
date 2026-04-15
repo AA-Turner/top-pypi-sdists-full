@@ -90,6 +90,48 @@ class FilterConverter(Protocol[TExpr]):
     def fill_null(self, expr: TExpr, fill_with: TExpr) -> TExpr:
         return self.if_else(self.is_null(expr), fill_with, expr)
 
+    def greatest(self, left_expr: TExpr, right_expr: TExpr, /) -> TExpr:
+        """
+        Returns the larger value of the two inputs. Ignores expressions that evaluate to null.
+        If all expressions evaluate to null, the result evaluates to null.
+
+        All of the provided expressions should have the same type.
+        """
+        return self.if_else(
+            self.is_null(left_expr),
+            right_expr,
+            self.if_else(
+                self.is_null(right_expr),
+                left_expr,
+                self.if_else(  # Pick the larger of the two
+                    left_expr > right_expr,
+                    left_expr,
+                    right_expr,
+                ),
+            ),
+        )
+
+    def least(self, left_expr: TExpr, right_expr: TExpr, /) -> TExpr:
+        """
+        Returns the larger value of the two inputs. Ignores expressions that evaluate to null.
+        If all expressions evaluate to null, the result evaluates to null.
+
+        All of the provided expressions should have the same type.
+        """
+        return self.if_else(
+            self.is_null(left_expr),
+            right_expr,
+            self.if_else(
+                self.is_null(right_expr),
+                left_expr,
+                self.if_else(  # Pick the smaller of the two
+                    left_expr < right_expr,
+                    left_expr,
+                    right_expr,
+                ),
+            ),
+        )
+
     def _expr_is_in_sequence_lit(self, expr: TExpr, values: Sequence[TExpr], dtype: pa.DataType) -> TExpr:
         """
         Returns an expression that checks whether `expr` is in a sequence of literal values.
@@ -433,7 +475,6 @@ def filter_data_frame(
     underlying: pl.LazyFrame,
     namespace: Optional[str],
 ) -> Union[pl.DataFrame, pl.LazyFrame]:
-
     # Use the Chalk projection / selection syntax, where we support our Filter objects and
     # selection by column name
 

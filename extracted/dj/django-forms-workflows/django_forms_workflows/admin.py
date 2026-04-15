@@ -194,6 +194,18 @@ class FormFieldInline(nested_admin.NestedStackedInline):
         ),
     )
 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "workflow_stage":
+            # Resolve the parent FormDefinition from the request path.
+            parent_id = request.resolver_match.kwargs.get("object_id")
+            if parent_id:
+                kwargs["queryset"] = WorkflowStage.objects.filter(
+                    workflow__form_definition_id=parent_id
+                )
+            else:
+                kwargs["queryset"] = WorkflowStage.objects.none()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
     @admin.display(description="Conditional rules (summary)")
     def conditional_rules_summary(self, obj):
         result = _render_conditional_rules(obj.conditional_rules)
@@ -289,7 +301,7 @@ class FormFieldAdmin(admin.ModelAdmin):
     ]
     search_fields = ["field_name", "field_label"]
     ordering = ["form_definition", "order"]
-    autocomplete_fields = ["form_definition", "prefill_source_config", "workflow_stage"]
+    autocomplete_fields = ["form_definition", "prefill_source_config"]
     readonly_fields = ["conditional_rules_summary"]
 
     fieldsets = (
@@ -350,6 +362,29 @@ class FormFieldAdmin(admin.ModelAdmin):
             },
         ),
     )
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "workflow_stage":
+            # On change views, limit stages to those belonging to the same
+            # form definition.  On add views, we can't know the form yet so
+            # start with an empty queryset — the autocomplete widget will
+            # populate once a form_definition is selected.
+            obj_id = request.resolver_match.kwargs.get("object_id")
+            if obj_id:
+                try:
+                    fd_id = (
+                        FormField.objects.filter(pk=obj_id)
+                        .values_list("form_definition_id", flat=True)
+                        .first()
+                    )
+                    kwargs["queryset"] = WorkflowStage.objects.filter(
+                        workflow__form_definition_id=fd_id
+                    )
+                except (FormField.DoesNotExist, ValueError):
+                    kwargs["queryset"] = WorkflowStage.objects.none()
+            else:
+                kwargs["queryset"] = WorkflowStage.objects.none()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     @admin.display(description="Conditional rules")
     def conditional_rules_summary(self, obj):
@@ -632,7 +667,7 @@ class FormDefinitionAdmin(nested_admin.NestedModelAdmin):
     list_select_related = ["category"]
     search_fields = ("name", "slug", "description")
     prepopulated_fields = {"slug": ("name",)}
-    readonly_fields = ("created_at", "updated_at", "created_by")
+    readonly_fields = ("uuid", "created_at", "updated_at", "created_by")
     inlines = [FormFieldInline, WorkflowDefinitionInline, ChangeHistoryInline]
     filter_horizontal = (
         "submit_groups",
@@ -734,7 +769,7 @@ class FormDefinitionAdmin(nested_admin.NestedModelAdmin):
         (
             "Metadata",
             {
-                "fields": ("created_at", "updated_at", "created_by"),
+                "fields": ("uuid", "created_at", "updated_at", "created_by"),
                 "classes": ("collapse",),
             },
         ),
@@ -1557,6 +1592,7 @@ class WorkflowStageAdmin(nested_admin.NestedModelAdmin):
     list_select_related = ("workflow", "workflow__form_definition")
     search_fields = ("name", "workflow__form_definition__name")
     ordering = ("workflow", "order")
+    readonly_fields = ("uuid",)
     inlines = [
         StageApprovalGroupInline,
         ChangeHistoryInline,
@@ -1566,6 +1602,7 @@ class WorkflowStageAdmin(nested_admin.NestedModelAdmin):
             None,
             {
                 "fields": (
+                    "uuid",
                     "workflow",
                     ("order", "name"),
                     "approval_logic",
@@ -1646,11 +1683,13 @@ class WorkflowDefinitionAdmin(nested_admin.NestedModelAdmin):
         "allow_bulk_pdf_export",
     )
     search_fields = ("form_definition__name",)
+    readonly_fields = ("uuid",)
     fieldsets = (
         (
             None,
             {
                 "fields": (
+                    "uuid",
                     "form_definition",
                     ("name_label", "start_trigger"),
                     "requires_approval",
@@ -2791,6 +2830,7 @@ class SubWorkflowDefinitionAdmin(admin.ModelAdmin):
         "label_template",
     )
     list_filter = ("trigger",)
+    readonly_fields = ("uuid",)
     raw_id_fields = ("parent_workflow", "sub_workflow")
 
 

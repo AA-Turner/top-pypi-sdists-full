@@ -21,9 +21,14 @@ __all__ = [
 
 LOG = logging.getLogger(__name__)
 
+
+def _normalize_task_key(name: str) -> str:
+    """Normalize task name for registry lookup: lowercase and replace dashes with underscores."""
+    return (name or "").strip().lower().replace("-", "_")
+
 # Combine LM-eval and HuggingFace manifests (HF takes precedence for overlapping keys)
 _COMBINED_MANIFEST = {**_LM_MANIFEST, **_HF_MANIFEST}
-_REGISTRY: dict[str, Union[str, Type[LMEvalBenchmarkExtractor]]] = {k.lower(): v for k, v in _COMBINED_MANIFEST.items()}
+_REGISTRY: dict[str, Union[str, Type[LMEvalBenchmarkExtractor]]] = {(k or "").strip().lower().replace("-", "_"): v for k, v in _COMBINED_MANIFEST.items()}
 
 
 def register_extractor(name: str, ref: Union[str, Type[LMEvalBenchmarkExtractor]]) -> None:
@@ -48,7 +53,7 @@ def register_extractor(name: str, ref: Union[str, Type[LMEvalBenchmarkExtractor]
         >>> register_extractor("mytask", MyExtractor)
         >>> register_extractor("mytask2", "my_module:MyExtractor")
     """
-    key = (name or "").strip().lower()
+    key = _normalize_task_key(name)
     if not key:
         raise InvalidValueError(param_name="name/key", actual="empty string", expected="non-empty string")
 
@@ -60,7 +65,7 @@ def register_extractor(name: str, ref: Union[str, Type[LMEvalBenchmarkExtractor]
 
     if not issubclass(ref, LMEvalBenchmarkExtractor):
         raise TypeError(f"{getattr(ref, '__name__', ref)!r} must subclass LMEvalBenchmarkExtractor")
-    
+
     _REGISTRY[key] = ref
 
 
@@ -86,7 +91,7 @@ def get_extractor(task_name: str) -> LMEvalBenchmarkExtractor:
             If the resolved class does not subclass LMEvalBenchmarkExtractor.
     """
 
-    key = (task_name or "").strip().lower()
+    key = _normalize_task_key(task_name)
     if not key:
         raise UnsupportedLMEvalBenchmarkError("Empty task name is not supported.")
 
@@ -95,23 +100,16 @@ def get_extractor(task_name: str) -> LMEvalBenchmarkExtractor:
     if ref:
         return _instantiate(ref)
 
-    # Try prefix matching for hierarchical task names
-    # This handles cases like AraDiCE_ArabicMMLU_high_humanities_history_lev -> aradice
-    # Sort prefixes by length descending to match longest prefix first
-    PREFIX_FALLBACKS = {
-        "aradice_": "aradice",
-        "aexams_": "aexams",
-        "afrimgsm_": "afrimgsm",
-        "afrimmlu_": "afrimmlu",
-        "afrobench_": "afrobench",
-        "afridiacritics_": "afrobench",
-        "mmlu_": "mmlu",
-        "bigbench_": "bigbench",
-    }
-    for prefix, fallback_key in PREFIX_FALLBACKS.items():
-        if key.startswith(prefix) and fallback_key in _REGISTRY:
-            LOG.info(f"Using prefix fallback: '{task_name}' -> '{fallback_key}'")
-            return _instantiate(_REGISTRY[fallback_key])
+    # Try longest-prefix matching for hierarchical task names.
+    # This handles cases like "belebele_afr_latn" -> "belebele",
+    # "bbh_fewshot_boolean_expressions" -> "bbh", etc.
+    parts = key.split("_")
+    for i in range(len(parts) - 1, 0, -1):
+        prefix = "_".join(parts[:i])
+        ref = _REGISTRY.get(prefix)
+        if ref:
+            LOG.info(f"Using prefix match: '{task_name}' -> '{prefix}'")
+            return _instantiate(ref)
 
     raise UnsupportedLMEvalBenchmarkError(
         f"No extractor registered for task '{task_name}'. "

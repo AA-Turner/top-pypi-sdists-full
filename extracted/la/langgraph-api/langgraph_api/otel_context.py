@@ -6,7 +6,8 @@ across the API-to-worker boundary in distributed LangGraph deployments.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+import sys
+from contextlib import ExitStack, contextmanager
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -142,7 +143,7 @@ def restore_otel_trace_context(
 
     Note:
         - No-ops if OTEL is disabled or unavailable
-        - Never raises - tracing failures won't break run execution
+        - Tracing setup failures won't break run execution
     """
     if not config.OTEL_ENABLED or not _check_otel_available():
         yield
@@ -153,6 +154,7 @@ def restore_otel_trace_context(
         yield
         return
 
+    stack: ExitStack | None = None
     try:
         from opentelemetry import trace  # noqa: PLC0415
 
@@ -164,20 +166,45 @@ def restore_otel_trace_context(
         # Extract context from carrier
         ctx = _get_propagator().extract(carrier=carrier)
 
-        with _get_tracer().start_as_current_span(
-            "worker.stream_run",
-            context=ctx,
-            kind=trace.SpanKind.CONSUMER,
-        ) as span:
-            if run_id:
-                span.set_attribute(OTEL_RUN_ID_ATTR_NAME, run_id)
-            if thread_id:
-                span.set_attribute(OTEL_THREAD_ID_ATTR_NAME, thread_id)
-
-            yield
+        stack = ExitStack()
+        span = stack.enter_context(
+            _get_tracer().start_as_current_span(
+                "worker.stream_run",
+                context=ctx,
+                kind=trace.SpanKind.CONSUMER,
+            )
+        )
+        if run_id:
+            span.set_attribute(OTEL_RUN_ID_ATTR_NAME, run_id)
+        if thread_id:
+            span.set_attribute(OTEL_THREAD_ID_ATTR_NAME, thread_id)
     except Exception:
-        logger.debug("Failed to restore OTEL trace context", exc_info=True)
+        logger.debug("Failed to initialize OTEL worker span context", exc_info=True)
+        if stack is not None:
+            try:
+                stack.close()
+            except Exception:
+                logger.warning("Failed to close OTEL worker span", exc_info=True)
         yield
+        return
+
+    try:
+        yield
+    except BaseException:
+        # Preserve exception metadata when unwinding managed contexts so OTEL
+        # can record body errors on the span.
+        exc_type, exc, tb = sys.exc_info()
+        try:
+            if stack.__exit__(exc_type, exc, tb):
+                return
+        except Exception:
+            logger.warning("Failed to close OTEL worker span", exc_info=True)
+        raise
+    else:
+        try:
+            stack.close()
+        except Exception:
+            logger.warning("Failed to close OTEL worker span", exc_info=True)
 
 
 def inject_otel_headers() -> dict[str, str]:

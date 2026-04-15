@@ -146,10 +146,9 @@ def _store_shap_to_db(
 
     try:
         utils.to_db(db_path, "shap_values", df_shap)
-        logger.info("Stored %d SHAP value rows for %s %s %s",
-                     len(df_shap), country, crop, model_name)
+        logger.info(f"Stored {len(df_shap)} SHAP value rows for {country} {crop} {model_name}")
     except Exception as e:
-        logger.warning("Failed to store SHAP values: %s", e)
+        logger.warning(f"Failed to store SHAP values: {e}")
 
     # ── feature_importance table: one row per feature ──
     mean_abs_shap = np.abs(shap_values.values).mean(axis=0)
@@ -166,7 +165,6 @@ def _store_shap_to_db(
 
     try:
         utils.to_db(db_path, "feature_importance", df_imp)
-        logger.info("Stored %d feature importance rows for %s %s %s",
-                     len(df_imp), country, crop, model_name)
+        logger.info(f"Stored {len(df_imp)} feature importance rows for {country} {crop} {model_name}")
     except Exception as e:
-        logger.warning("Failed to store feature importance: %s", e)
+        logger.warning(f"Failed to store feature importance: {e}")

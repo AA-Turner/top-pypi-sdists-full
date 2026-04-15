@@ -19,7 +19,10 @@ import subprocess
 import sys
 import webbrowser
 from pathlib import Path
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional, cast
+
+if TYPE_CHECKING:
+    import torch
 from uuid import UUID
 
 import httpx
@@ -104,9 +107,9 @@ from cogames.cli.submit import (
 from cogames.device import resolve_training_device
 from cogames.display_detect import has_display
 from cogames.games.cogs_vs_clips.train.curricula import make_rotation
+from cogames.optional_deps import require_neural
 from cogames.seed import seed_rollout_rng
-from softmax.auth import DEFAULT_COGAMES_SERVER, load_token
-from softmax.token_storage import TokenKind
+from softmax.auth import DEFAULT_COGAMES_SERVER, load_current_cogames_token
 
 # Always add current directory to Python path so optional plugins in the repo are discoverable.
 sys.path.insert(0, ".")
@@ -1065,15 +1068,17 @@ def make_policy(
         raise typer.Exit(1)
 
     try:
-        # Deferred: trainable_policy_template imports torch at module level
-        import cogames.policy.starter_agent as starter_agent  # noqa: PLC0415
-        import cogames.policy.trainable_policy_template as trainable_policy_template  # noqa: PLC0415
-
         if trainable:
+            require_neural("cogames make-policy --trainable")
+            import cogames.policy.trainable_policy_template as trainable_policy_template  # noqa: PLC0415
+
             template_path = Path(trainable_policy_template.__file__)
             policy_class = "MyTrainablePolicy"
             policy_type = "Trainable"
         else:
+            # Deferred: imported only to locate its source file as a template.
+            import cogames.policy.starter_agent as starter_agent  # noqa: PLC0415
+
             template_path = Path(starter_agent.__file__)
             policy_class = "StarterPolicy"
             policy_type = "Scripted"
@@ -1114,6 +1119,9 @@ app.command(name="make-policy", hidden=True)(make_policy)
 @tutorial_app.command(
     name="train",
     help="""Train a policy on one or more missions.
+
+Requires the ``neural`` extra (PyTorch + PufferLib).
+Install with: ``pip install cogames[neural]``.
 
 By default, our 'lstm' policy architecture is used. You can select a different architecture
 (like 'stateless' or 'baseline'), or define your own implementing the MultiAgentPolicy
@@ -1277,7 +1285,7 @@ def train_cmd(
         rich_help_panel="Other",
     ),
 ) -> None:
-    # Deferred: train module imports torch at module level
+    require_neural("cogames train")
     from cogames import train as train_module  # noqa: PLC0415
 
     selected_missions = get_mission_names_and_configs(
@@ -1299,7 +1307,8 @@ def train_cmd(
         raise ValueError("Please specify at least one mission")
 
     policy_spec = get_policy_spec(ctx, policy)
-    torch_device = resolve_training_device(console, device)
+    # require_neural above guarantees torch is installed, so this always returns torch.device.
+    torch_device = cast("torch.device", resolve_training_device(console, device))
 
     try:
         train_module.train(
@@ -1834,6 +1843,8 @@ app.command(
 
 [cyan]cogames matches <match-id> --logs[/cyan]            Show available logs
 
+[cyan]cogames match-artifacts <match-id> error-info[/cyan]  Show runner error info
+
 [cyan]cogames matches <match-id> -d ./logs[/cyan]         Download logs""",
     add_help_option=False,
 )(matches_cmd)
@@ -1845,6 +1856,8 @@ app.command(
     epilog="""[dim]Examples:[/dim]
 
 [cyan]cogames match-artifacts <match-id>[/cyan]                     Get match logs
+
+[cyan]cogames match-artifacts <match-id> error-info[/cyan]          Get runner error info
 
 [cyan]cogames match-artifacts <match-id> logs -o out.txt[/cyan]     Save to file""",
     add_help_option=False,
@@ -1877,7 +1890,7 @@ def diagnose_cmd(ctx: typer.Context) -> None:
 
 
 def _resolve_season(server: str, login_server: str | None = None, season_name: str | None = None) -> SeasonDetail:
-    auth_token = load_token(token_kind=TokenKind.COGAMES, server=login_server) if login_server else None
+    auth_token = load_current_cogames_token(login_server=login_server) if login_server else None
     try:
         with TournamentServerClient(server_url=server, token=auth_token, login_server=login_server) as client:
             if season_name is None:
@@ -1911,6 +1924,14 @@ def _resolve_validation_config_pool(season_info: SeasonDetail) -> tuple[str, UUI
     name="create-bundle",
     help="Create a submission bundle zip from a policy.",
     rich_help_panel="Policies",
+    epilog="""[dim]Examples:[/dim]
+
+[cyan]cogames create-bundle -p <POLICY_OR_CHECKPOINT> -o submission.zip[/cyan]
+  Create a submission bundle
+
+[cyan]cogames create-bundle -p <POLICY_OR_CHECKPOINT> -o submission.zip
+  -f <EXTRA_PATH> ... --setup-script <SETUP.py>[/cyan]
+  Include extra runtime files or setup when needed""",
     add_help_option=False,
 )
 def create_bundle_cmd(
@@ -2040,7 +2061,7 @@ def validate_bundle_cmd(
     if image == DEFAULT_EPISODE_RUNNER_IMAGE and season_info.compat_version is not None:
         image = f"ghcr.io/metta-ai/episode-runner:compat-v{season_info.compat_version}"
 
-    auth_token = load_token(token_kind=TokenKind.COGAMES, server=login_server)
+    auth_token = load_current_cogames_token(login_server=login_server)
     with TournamentServerClient(server_url=server, token=auth_token, login_server=login_server) as client:
         config_data = client.get_config(config_id)
 
@@ -2073,13 +2094,11 @@ def _parse_secret_env(value: str) -> tuple[str, str]:
     rich_help_panel="Tournament",
     epilog="""[dim]Examples:[/dim]
 
-[cyan]cogames upload -p ./train_dir/my_run -n my-policy[/cyan]       Upload and submit to default season
+[cyan]cogames upload -p ./submission.zip -n my-policy --no-submit[/cyan]
+  Upload a submission bundle without submitting
 
-[cyan]cogames upload -p ./run -n my-policy --season beta-cvc[/cyan]  Upload and submit to specific season
-
-[cyan]cogames upload -p ./run -n my-policy --no-submit[/cyan]        Upload without submitting
-
-[cyan]cogames upload -p lstm -n my-lstm --dry-run[/cyan]             Validate only""",
+[cyan]cogames upload -p ./submission.zip -n my-policy --dry-run[/cyan]
+  Validate a submission bundle locally without uploading""",
     add_help_option=False,
 )
 def upload_cmd(
@@ -2158,13 +2177,13 @@ def upload_cmd(
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
-        help="Run validation only without uploading.",
+        help="Run the Docker smoke test only without uploading.",
         rich_help_panel="Validation",
     ),
     skip_validation: bool = typer.Option(
         False,
         "--skip-validation",
-        help="Skip policy validation in Docker.",
+        help="Skip the Docker smoke test.",
         rich_help_panel="Validation",
     ),
     image: str = typer.Option(
@@ -2354,9 +2373,11 @@ def submit_cmd(
     rich_help_panel="Tournament",
     epilog="""[dim]Examples:[/dim]
 
-[cyan]cogames ship -p ./train_dir/my_run -n my-policy[/cyan]            Ship and submit
+[cyan]cogames ship -p ./submission.zip -n my-policy --season beta-cvc[/cyan]
+  Ship a prepared submission bundle
 
-[cyan]cogames ship -p ./run -n my-policy --dry-run[/cyan]               Validate only""",
+[cyan]cogames ship -p ./submission.zip -n my-policy --dry-run[/cyan]
+  Validate a prepared submission bundle locally""",
     add_help_option=False,
 )
 def ship_cmd(
@@ -2410,13 +2431,13 @@ def ship_cmd(
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
-        help="Run validation only without uploading.",
+        help="Run the Docker smoke test only without uploading.",
         rich_help_panel="Validation",
     ),
     skip_validation: bool = typer.Option(
         False,
         "--skip-validation",
-        help="Skip policy validation in Docker.",
+        help="Skip the Docker smoke test.",
         rich_help_panel="Validation",
     ),
     image: str = typer.Option(

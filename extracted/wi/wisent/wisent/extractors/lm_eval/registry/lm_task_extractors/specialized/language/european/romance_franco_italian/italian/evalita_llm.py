@@ -81,6 +81,74 @@ class EvalitaLlmExtractor(LMEvalBenchmarkExtractor):
         log = bind(_LOG, doc_id=doc.get("id", "unknown"))
 
         try:
+            # NER format: text + entities (list of {entity_text, type})
+            if "text" in doc and "entities" in doc:
+                text = str(doc.get("text", "")).strip()
+                entities = doc.get("entities", [])
+                if text and isinstance(entities, list):
+                    correct_parts = [
+                        f"{e.get('entity_text', '')}:{e.get('type', '')}"
+                        for e in entities
+                        if isinstance(e, dict) and e.get("entity_text")
+                    ]
+                    if correct_parts:
+                        correct = " | ".join(correct_parts)
+                    else:
+                        correct = "(no entities)"
+                    # Always produce a pair for NER docs (even if no entities)
+                    return self._build_pair(
+                        question=f"Estrai le entità nominate dal seguente testo:\n{text}",
+                        correct=correct,
+                        incorrect="(no entities)" if correct_parts else "Roma:LOC | Italia:LOC",
+                        metadata={"label": "evalita_llm"},
+                    )
+
+            # TE (textual entailment) format: text1 + text2 + entailment (SI/NO)
+            if "text1" in doc and "text2" in doc and "entailment" in doc:
+                t1 = str(doc.get("text1", "")).strip()
+                t2 = str(doc.get("text2", "")).strip()
+                ent = str(doc.get("entailment", "")).strip().upper()
+                if t1 and t2:
+                    correct = "Sì" if ent == "SI" else "No"
+                    incorrect = "No" if ent == "SI" else "Sì"
+                    return self._build_pair(
+                        question=f"La frase: '{t1}' implica logicamente che la frase: '{t2}' sia vera?",
+                        correct=correct,
+                        incorrect=incorrect,
+                        metadata={"label": "evalita_llm_te"},
+                    )
+
+            # RE (relation extraction) format: text + relations
+            if "text" in doc and "relations" in doc and "entities" not in doc:
+                text = str(doc.get("text", "")).strip()
+                relations = doc.get("relations", [])
+                if text and isinstance(relations, list):
+                    parts = [f"{r[0]}:{r[1]}" for r in relations if isinstance(r, (list, tuple)) and len(r) >= 2]
+                    correct = " | ".join(parts) if parts else "(no relations)"
+                    incorrect = "(no relations)" if parts else "misura1:esame1"
+                    return self._build_pair(
+                        question=f"Estrai le relazioni dal seguente testo:\n{text}",
+                        correct=correct,
+                        incorrect=incorrect,
+                        metadata={"label": "evalita_llm_re"},
+                    )
+
+            # Lexical-substitution format: id + context + head + answers (list of {word, count})
+            if "context" in doc and "head" in doc and "answers" in doc:
+                context = str(doc.get("context", "")).strip()
+                head = str(doc.get("head", "")).strip()
+                answers = doc.get("answers", [])
+                if context and head and answers and isinstance(answers, list):
+                    correct = str(answers[0].get("word", "")).strip() if isinstance(answers[0], dict) else str(answers[0]).strip()
+                    incorrect = str(answers[1].get("word", "")).strip() if len(answers) > 1 and isinstance(answers[1], dict) else "incorrect"
+                    if correct:
+                        return self._build_pair(
+                            question=f"In '{context}', what is a synonym for '{head}'?",
+                            correct=correct,
+                            incorrect=incorrect,
+                            metadata={"label": "evalita_llm"},
+                        )
+
             # Try multiple possible schema formats
             question = None
             choices = None

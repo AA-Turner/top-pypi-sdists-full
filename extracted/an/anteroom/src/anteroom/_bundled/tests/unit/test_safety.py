@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
-from anteroom.tools.safety import SafetyVerdict, check_bash_command, check_write_path
+from anteroom.config import SafetyConfig
+from anteroom.tools import ToolRegistry
+from anteroom.tools.safety import (
+    _DEFAULT_BYPASS_IMMUNE_PATHS,
+    SafetyVerdict,
+    check_bash_command,
+    check_bypass_immune_path,
+    check_write_path,
+)
 from anteroom.tools.security import check_hard_block
 
 
@@ -238,3 +246,214 @@ class TestSafetyVerdictHardBlockFields:
         )
         assert v.is_hard_blocked is True
         assert "rm -rf" in v.hard_block_description
+
+
+class TestSafetyVerdictBypassImmuneField:
+    def test_default_bypass_immune_is_false(self) -> None:
+        v = SafetyVerdict(needs_approval=True, reason="test", tool_name="bash")
+        assert v.bypass_immune is False
+
+    def test_bypass_immune_set_true(self) -> None:
+        v = SafetyVerdict(needs_approval=True, reason="test", tool_name="bash", bypass_immune=True)
+        assert v.bypass_immune is True
+
+
+class TestCheckBypassImmunePath:
+    """Tests for check_bypass_immune_path()."""
+
+    def test_write_file_git_hooks_matches(self) -> None:
+        v = check_bypass_immune_path("write_file", {"path": ".git/hooks/pre-commit"}, "/home/user/project")
+        assert v is not None
+        assert v.needs_approval
+        assert v.bypass_immune
+        assert v.tool_name == "write_file"
+
+    def test_write_file_anteroom_config_matches(self) -> None:
+        v = check_bypass_immune_path("write_file", {"path": ".anteroom/config.yaml"}, "/home/user/project")
+        assert v is not None
+        assert v.bypass_immune
+
+    def test_write_file_bashrc_matches(self) -> None:
+        v = check_bypass_immune_path("write_file", {"path": ".bashrc"}, "/home/user")
+        assert v is not None
+        assert v.bypass_immune
+
+    def test_write_file_zshrc_matches(self) -> None:
+        v = check_bypass_immune_path("write_file", {"path": ".zshrc"}, "/home/user")
+        assert v is not None
+        assert v.bypass_immune
+
+    def test_write_file_ssh_dir_matches(self) -> None:
+        v = check_bypass_immune_path("write_file", {"path": ".ssh/id_rsa"}, "/home/user")
+        assert v is not None
+        assert v.bypass_immune
+
+    def test_write_file_netrc_matches(self) -> None:
+        v = check_bypass_immune_path("write_file", {"path": ".netrc"}, "/home/user")
+        assert v is not None
+        assert v.bypass_immune
+
+    def test_write_file_kube_config_matches(self) -> None:
+        v = check_bypass_immune_path("write_file", {"path": ".kube/config"}, "/home/user")
+        assert v is not None
+        assert v.bypass_immune
+
+    def test_write_file_safe_path_returns_none(self) -> None:
+        v = check_bypass_immune_path("write_file", {"path": "src/foo.py"}, "/home/user/project")
+        assert v is None
+
+    def test_edit_file_git_hooks_matches(self) -> None:
+        v = check_bypass_immune_path("edit_file", {"file_path": ".git/hooks/pre-commit"}, "/home/user/project")
+        assert v is not None
+        assert v.bypass_immune
+        assert v.tool_name == "edit_file"
+
+    def test_edit_file_bashrc_matches(self) -> None:
+        v = check_bypass_immune_path("edit_file", {"file_path": ".bashrc"}, "/home/user")
+        assert v is not None
+        assert v.bypass_immune
+
+    def test_bash_redirect_to_immune_path(self) -> None:
+        v = check_bypass_immune_path("bash", {"command": "echo 'evil' > .git/hooks/pre-commit"}, "/home/user/project")
+        assert v is not None
+        assert v.bypass_immune
+        assert v.tool_name == "bash"
+
+    def test_bash_append_to_immune_path(self) -> None:
+        v = check_bypass_immune_path("bash", {"command": "echo 'evil' >> .bashrc"}, "/home/user")
+        assert v is not None
+        assert v.bypass_immune
+
+    def test_bash_tee_to_immune_path(self) -> None:
+        v = check_bypass_immune_path("bash", {"command": "echo 'data' | tee .ssh/authorized_keys"}, "/home/user")
+        assert v is not None
+        assert v.bypass_immune
+
+    def test_bash_mv_to_immune_path(self) -> None:
+        v = check_bypass_immune_path("bash", {"command": "mv malicious.sh .git/hooks/pre-commit"}, "/home/user/project")
+        assert v is not None
+        assert v.bypass_immune
+
+    def test_bash_cp_to_immune_path(self) -> None:
+        v = check_bypass_immune_path("bash", {"command": "cp payload.sh .git/hooks/post-merge"}, "/home/user/project")
+        assert v is not None
+        assert v.bypass_immune
+
+    def test_bash_safe_command_returns_none(self) -> None:
+        v = check_bypass_immune_path("bash", {"command": "echo hello > output.txt"}, "/home/user/project")
+        assert v is None
+
+    def test_bash_no_write_pattern_returns_none(self) -> None:
+        v = check_bypass_immune_path("bash", {"command": "ls -la .git/hooks"}, "/home/user/project")
+        assert v is None
+
+    def test_custom_paths_override_defaults(self) -> None:
+        v = check_bypass_immune_path("write_file", {"path": ".custom/secret"}, "/home/user", immune_paths=[".custom/"])
+        assert v is not None
+        assert v.bypass_immune
+
+    def test_custom_paths_do_not_include_defaults(self) -> None:
+        """When custom immune_paths are provided, defaults are not included."""
+        v = check_bypass_immune_path(
+            "write_file", {"path": ".git/hooks/pre-commit"}, "/home/user/project", immune_paths=[".custom/"]
+        )
+        assert v is None
+
+    def test_empty_list_disables_feature(self) -> None:
+        v = check_bypass_immune_path(
+            "write_file", {"path": ".git/hooks/pre-commit"}, "/home/user/project", immune_paths=[]
+        )
+        assert v is None
+
+    def test_read_file_not_checked(self) -> None:
+        v = check_bypass_immune_path("read_file", {"path": ".git/hooks/pre-commit"}, "/home/user/project")
+        assert v is None
+
+    def test_default_immune_paths_list_populated(self) -> None:
+        assert len(_DEFAULT_BYPASS_IMMUNE_PATHS) >= 13
+
+    def test_verdict_not_hard_denied(self) -> None:
+        """Bypass-immune verdicts are approval prompts, not hard denials."""
+        v = check_bypass_immune_path("write_file", {"path": ".bashrc"}, "/home/user")
+        assert v is not None
+        assert v.hard_denied is False
+        assert v.is_hard_blocked is False
+
+
+class TestCheckSafetyBypassImmuneIntegration:
+    """Integration tests for ToolRegistry.check_safety() bypass-immune precedence rules.
+
+    These tests exercise the full check_safety() flow to verify that:
+    1. Bypass-immune forces approval even in AUTO mode.
+    2. Hard-block patterns win over bypass-immune when both match.
+    """
+
+    def _make_registry(self, approval_mode: str = "auto") -> ToolRegistry:
+        registry = ToolRegistry()
+        config = SafetyConfig(
+            enabled=True,
+            approval_mode=approval_mode,
+            # Use the default immune paths (includes .git/hooks, .bashrc, .ssh/, etc.)
+        )
+        registry.set_safety_config(config, working_dir="/home/user/project")
+        return registry
+
+    def test_auto_mode_bash_immune_path_requires_approval(self) -> None:
+        """In AUTO mode a bash command targeting an immune path must still require approval."""
+        registry = self._make_registry(approval_mode="auto")
+        verdict = registry.check_safety(
+            "bash",
+            {"command": "echo 'hook' > .git/hooks/pre-commit"},
+        )
+        assert verdict is not None
+        assert verdict.needs_approval is True
+        assert verdict.bypass_immune is True
+        assert verdict.hard_denied is False
+        assert verdict.is_hard_blocked is False
+
+    def test_auto_mode_bash_immune_path_plus_hard_block_is_hard_blocked(self) -> None:
+        """When a bash command both targets an immune path AND matches a hard-block pattern,
+        the hard-block must win — the verdict must have is_hard_blocked=True.
+
+        Uses `dd if=/dev/urandom > .git/hooks/pre-commit`:
+        - `dd if=/dev/urandom` matches the hard-block pattern for disk overwrite
+        - `> .git/hooks/pre-commit` is a redirect write to a bypass-immune path
+        """
+        registry = self._make_registry(approval_mode="auto")
+        verdict = registry.check_safety(
+            "bash",
+            {"command": "dd if=/dev/urandom > .git/hooks/pre-commit"},
+        )
+        assert verdict is not None
+        assert verdict.needs_approval is True
+        assert verdict.is_hard_blocked is True
+
+    def test_non_auto_mode_bash_immune_path_safe_command_requires_approval(self) -> None:
+        """In ask mode a bash command targeting an immune path (but otherwise safe) needs approval."""
+        registry = self._make_registry(approval_mode="ask")
+        verdict = registry.check_safety(
+            "bash",
+            {"command": "echo 'alias ll=ls' >> .bashrc"},
+        )
+        assert verdict is not None
+        assert verdict.needs_approval is True
+        assert verdict.bypass_immune is True
+
+    def test_non_auto_mode_bash_immune_path_plus_hard_block_is_hard_blocked(self) -> None:
+        """In non-AUTO mode, hard-block still wins when both conditions match."""
+        registry = self._make_registry(approval_mode="ask")
+        verdict = registry.check_safety(
+            "bash",
+            {"command": "rm -rf .ssh/id_rsa"},
+        )
+        assert verdict is not None
+        assert verdict.is_hard_blocked is True
+
+    def test_auto_mode_bash_safe_command_not_immune_is_auto_allowed(self) -> None:
+        """In AUTO mode a safe bash command to a non-immune path is auto-allowed (None)."""
+        registry = self._make_registry(approval_mode="auto")
+        verdict = registry.check_safety(
+            "bash",
+            {"command": "echo hello > output.txt"},
+        )
+        assert verdict is None

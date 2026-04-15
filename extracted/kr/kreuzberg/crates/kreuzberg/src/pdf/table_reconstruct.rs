@@ -792,6 +792,7 @@ mod tests {
             is_italic: false,
             is_monospace: false,
             baseline_y: y,
+            assigned_role: None,
         }
     }
 

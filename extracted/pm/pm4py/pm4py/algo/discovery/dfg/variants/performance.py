@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -158,7 +158,7 @@ def performance(
     ret0 = {}
     for el in dfgs0:
         for couple in el:
-            if not couple[0] in ret0:
+            if couple[0] not in ret0:
                 ret0[couple[0]] = []
             ret0[couple[0]].append(couple[1])
     ret = Counter()

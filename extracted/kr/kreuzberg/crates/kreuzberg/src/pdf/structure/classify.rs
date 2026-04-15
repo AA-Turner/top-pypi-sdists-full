@@ -1220,6 +1220,7 @@ mod tests {
                 is_italic: false,
                 is_monospace: false,
                 baseline_y: 700.0,
+                assigned_role: None,
             })
             .collect();
 
@@ -1345,6 +1346,7 @@ mod tests {
                 is_italic: false,
                 is_monospace: false,
                 baseline_y: 700.0,
+                assigned_role: None,
             })
             .collect();
 
@@ -1613,6 +1615,7 @@ mod tests {
             is_italic: false,
             is_monospace: false,
             baseline_y: 700.0,
+            assigned_role: None,
         }];
         PdfParagraph {
             text: String::new(),

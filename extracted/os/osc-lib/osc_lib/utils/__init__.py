@@ -16,14 +16,14 @@
 """Common client utilities"""
 
 import argparse
-import collections.abc
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 import copy
 import functools
 import getpass
 import logging
 import os
 import time
-import typing as ty
+from typing import Any, TextIO, TypeVar
 import uuid
 import warnings
 
@@ -36,7 +36,7 @@ from osc_lib.i18n import _
 
 LOG = logging.getLogger(__name__)
 
-_T = ty.TypeVar('_T')
+_T = TypeVar('_T')
 
 
 def backward_compat_col_lister(
@@ -76,10 +76,10 @@ def backward_compat_col_lister(
 
 
 def backward_compat_col_showone(
-    show_object: collections.abc.MutableMapping[str, _T],
+    show_object: MutableMapping[str, _T],
     columns: list[str],
     column_map: dict[str, str],
-) -> collections.abc.MutableMapping[str, _T]:
+) -> MutableMapping[str, _T]:
     """Convert the output object to keep column backward compatibility.
 
     Replace the new column name of output object by old name, so that
@@ -118,10 +118,10 @@ def build_kwargs_dict(arg_name: str, value: _T) -> dict[str, _T]:
 
 
 def calculate_header_and_attrs(
-    column_headers: collections.abc.Sequence[str],
-    attrs: collections.abc.Sequence[str],
+    column_headers: Sequence[str],
+    attrs: Sequence[str],
     parsed_args: argparse.Namespace,
-) -> tuple[collections.abc.Sequence[str], collections.abc.Sequence[str]]:
+) -> tuple[Sequence[str], Sequence[str]]:
     """Calculate headers and attribute names based on parsed_args.column.
 
     When --column (-c) option is specified, this function calculates
@@ -156,7 +156,7 @@ def calculate_header_and_attrs(
         return column_headers, attrs
 
 
-def env(*vars: str, **kwargs: ty.Any) -> str | None:
+def env(*vars: str, **kwargs: Any) -> str | None:
     """Search for the first defined of possibly many env vars
 
     Returns the first environment variable defined in vars, or
@@ -174,10 +174,10 @@ def env(*vars: str, **kwargs: ty.Any) -> str | None:
 
 
 def find_min_match(
-    items: collections.abc.Sequence[_T],
+    items: Sequence[_T],
     sort_attr: str,
-    **kwargs: ty.Any,
-) -> collections.abc.Sequence[_T]:
+    **kwargs: Any,
+) -> Sequence[_T]:
     """Find all resources meeting the given minimum constraints
 
     :param items: A List of objects to consider
@@ -202,10 +202,10 @@ def find_min_match(
 # using generics? We should also deprecate this but there are a lot of users
 # still.
 def find_resource(
-    manager: ty.Any,
+    manager: Any,
     name_or_id: str,
-    **kwargs: ty.Any,
-) -> ty.Any:
+    **kwargs: Any,
+) -> Any:
     """Helper for the _find_* methods.
 
     :param manager: A client manager class
@@ -328,7 +328,7 @@ def find_resource(
         raise exceptions.CommandError(msg % name_or_id)
 
 
-def format_dict(data: dict[str, ty.Any], prefix: str | None = None) -> str:
+def format_dict(data: dict[str, Any], prefix: str | None = None) -> str:
     """Return a formatted string of key value pairs
 
     :param data: a dict
@@ -357,7 +357,7 @@ def format_dict(data: dict[str, ty.Any], prefix: str | None = None) -> str:
 
 
 def format_dict_of_list(
-    data: dict[str, list[ty.Any]] | None, separator: str = '; '
+    data: dict[str, list[Any]] | None, separator: str = '; '
 ) -> str | None:
     """Return a formatted string of key value pair
 
@@ -383,9 +383,7 @@ def format_dict_of_list(
     return separator.join(output)
 
 
-def format_list(
-    data: list[ty.Any] | None, separator: str = ', '
-) -> str | None:
+def format_list(data: list[Any] | None, separator: str = ', ') -> str | None:
     """Return a formatted strings
 
     :param data: a list of strings
@@ -399,7 +397,7 @@ def format_list(
 
 
 def format_list_of_dicts(
-    data: list[dict[str, ty.Any]] | None,
+    data: list[dict[str, Any]] | None,
 ) -> str | None:
     """Return a formatted string of key value pairs for each dict
 
@@ -445,7 +443,7 @@ def get_client_class(
     api_name: str,
     version: str | int | float,
     version_map: dict[str, str],
-) -> ty.Any:
+) -> Any:
     """Returns the client class for the requested API version
 
     :param api_name: the name of the API, e.g. 'compute', 'image', etc
@@ -482,16 +480,16 @@ def get_client_class(
 
 
 FormatterT = (
-    type[cliff_columns.FormattableColumn[ty.Any]] | functools.partial[ty.Any]
+    type[cliff_columns.FormattableColumn[Any]] | functools.partial[Any]
 )
 
 
 def get_dict_properties(
     item: dict[str, _T],
-    fields: collections.abc.Sequence[str],
-    mixed_case_fields: collections.abc.Sequence[str] | None = None,
-    formatters: collections.abc.Mapping[str, FormatterT] | None = None,
-) -> tuple[ty.Any, ...]:
+    fields: Sequence[str],
+    mixed_case_fields: Sequence[str] | None = None,
+    formatters: Mapping[str, FormatterT] | None = None,
+) -> tuple[Any, ...]:
     """Return a tuple containing the item properties.
 
     :param item: a single dict resource
@@ -512,7 +510,7 @@ def get_dict_properties(
             field_name = field.replace(' ', '_')
         else:
             field_name = field.lower().replace(' ', '_')
-        data: ty.Any = item[field_name] if field_name in item else ''
+        data: Any = item[field_name] if field_name in item else ''
         if field in formatters:
             formatter = formatters[field]
             # columns must be either a subclass of FormattableColumn
@@ -539,10 +537,10 @@ def get_dict_properties(
 
 def get_item_properties(
     item: dict[str, _T],
-    fields: collections.abc.Sequence[str],
-    mixed_case_fields: collections.abc.Sequence[str] | None = None,
-    formatters: collections.abc.Mapping[str, FormatterT] | None = None,
-) -> tuple[ty.Any, ...]:
+    fields: Sequence[str],
+    mixed_case_fields: Sequence[str] | None = None,
+    formatters: Mapping[str, FormatterT] | None = None,
+) -> tuple[Any, ...]:
     """Return a tuple containing the item properties.
 
     :param item: a single item resource (e.g. Server, Project, etc)
@@ -600,7 +598,7 @@ def get_effective_log_level() -> int:
     return min_log_lvl
 
 
-def get_field(item: _T, field: str) -> ty.Any:
+def get_field(item: _T, field: str) -> Any:
     try:
         if isinstance(item, dict):
             return item[field]
@@ -612,7 +610,7 @@ def get_field(item: _T, field: str) -> ty.Any:
 
 
 def get_password(
-    stdin: ty.TextIO,
+    stdin: TextIO,
     prompt: str | None = None,
     confirm: bool = True,
 ) -> str:
@@ -657,10 +655,10 @@ def read_blob_file_contents(blob_file: str) -> str:
 
 
 def sort_items(
-    items: collections.abc.Sequence[_T],
+    items: Sequence[_T],
     sort_str: str,
-    sort_type: type[ty.Any] | None = None,
-) -> collections.abc.Sequence[_T]:
+    sort_type: type[Any] | None = None,
+) -> list[_T]:
     """Sort items based on sort keys and sort directions given by sort_str.
 
     :param items: a list or generator object of items
@@ -671,7 +669,9 @@ def sort_items(
     :return: sorted items
     """
     if not sort_str:
-        return items
+        # wrap in list so we return a consistent type
+        return list(items)
+
     # items may be a generator object, transform it to a list
     items = list(items)
     sort_keys = sort_str.strip().split(',')
@@ -699,7 +699,7 @@ def sort_items(
             if direction == 'desc':
                 reverse = True
 
-        def f(x: ty.Any) -> ty.Any:
+        def f(x: Any) -> Any:
             # Attempts to convert items to same 'sort_type' if provided.
             # This is due to Python 3 throwing TypeError if you attempt to
             # compare different types
@@ -718,14 +718,14 @@ def sort_items(
 
 
 def wait_for_delete(
-    manager: ty.Any,
+    manager: Any,
     res_id: str,
     status_field: str = 'status',
-    error_status: collections.abc.Sequence[str] = ['error'],
-    exception_name: collections.abc.Sequence[str] = ['NotFound'],
+    error_status: Sequence[str] = ['error'],
+    exception_name: Sequence[str] = ['NotFound'],
     sleep_time: int = 5,
     timeout: int = 300,
-    callback: collections.abc.Callable[[int], None] | None = None,
+    callback: Callable[[int], None] | None = None,
 ) -> bool:
     """Wait for resource deletion
 
@@ -777,13 +777,13 @@ def wait_for_delete(
 
 
 def wait_for_status(
-    status_f: collections.abc.Callable[[str], object],
+    status_f: Callable[[str], object],
     res_id: str,
     status_field: str = 'status',
-    success_status: collections.abc.Sequence[str] = ['active'],
-    error_status: collections.abc.Sequence[str] = ['error'],
+    success_status: Sequence[str] = ['active'],
+    error_status: Sequence[str] = ['error'],
     sleep_time: int = 5,
-    callback: collections.abc.Callable[[int], None] | None = None,
+    callback: Callable[[int], None] | None = None,
 ) -> bool:
     """Wait for status change on a resource during a long-running operation
 
@@ -821,7 +821,7 @@ def wait_for_status(
 def get_osc_show_columns_for_sdk_resource(
     sdk_resource: resource.Resource,
     osc_column_map: dict[str, str],
-    invisible_columns: collections.abc.Sequence[str] | None = None,
+    invisible_columns: Sequence[str] | None = None,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Get and filter the display and attribute columns for an SDK resource.
 
@@ -871,7 +871,7 @@ def get_osc_show_columns_for_sdk_resource(
     return tuple(sorted_display_columns), tuple(attr_columns)
 
 
-def is_uuid_like(value: ty.Any) -> bool:
+def is_uuid_like(value: Any) -> bool:
     """Returns validation of a value as a UUID.
 
     :param val: Value to verify

@@ -6763,48 +6763,6 @@ class CfnWirelessDeviceImportTask(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWirelessDeviceImportTask", [resource]))
 
-    @jsii.member(jsii_name="fromWirelessDeviceImportTaskArn")
-    @builtins.classmethod
-    def from_wireless_device_import_task_arn(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        arn: builtins.str,
-    ) -> "_IWirelessDeviceImportTaskRef_84dee71f":
-        '''Creates a new IWirelessDeviceImportTaskRef from an ARN.
-
-        :param scope: -
-        :param id: -
-        :param arn: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0c293252db3b2463ec5dfc198c9ca809a983a4ac7c329a34635fd53b19f6b97)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IWirelessDeviceImportTaskRef_84dee71f", jsii.sinvoke(cls, "fromWirelessDeviceImportTaskArn", [scope, id, arn]))
-
-    @jsii.member(jsii_name="fromWirelessDeviceImportTaskId")
-    @builtins.classmethod
-    def from_wireless_device_import_task_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        wireless_device_import_task_id: builtins.str,
-    ) -> "_IWirelessDeviceImportTaskRef_84dee71f":
-        '''Creates a new IWirelessDeviceImportTaskRef from a wirelessDeviceImportTaskId.
-
-        :param scope: -
-        :param id: -
-        :param wireless_device_import_task_id: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50573423c06641c7238fcaa89088754c478960c1ce3fc1363300661b7fdde907)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument wireless_device_import_task_id", value=wireless_device_import_task_id, expected_type=type_hints["wireless_device_import_task_id"])
-        return typing.cast("_IWirelessDeviceImportTaskRef_84dee71f", jsii.sinvoke(cls, "fromWirelessDeviceImportTaskId", [scope, id, wireless_device_import_task_id]))
-
     @jsii.member(jsii_name="isCfnWirelessDeviceImportTask")
     @builtins.classmethod
     def is_cfn_wireless_device_import_task(cls, x: typing.Any) -> builtins.bool:
@@ -9150,22 +9108,6 @@ def _typecheckingstub__9b81904b6ea4a40be4179e391a0bb52c165600b850295d5a6b580ad76
 
 def _typecheckingstub__0d121c90d7dfb0259cd82cd60fb07e4d513bab61d418ad9a9c01e74eba9f65ba(
     resource: _IWirelessDeviceImportTaskRef_84dee71f,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a0c293252db3b2463ec5dfc198c9ca809a983a4ac7c329a34635fd53b19f6b97(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__50573423c06641c7238fcaa89088754c478960c1ce3fc1363300661b7fdde907(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    wireless_device_import_task_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

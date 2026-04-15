@@ -92,7 +92,7 @@ parameters."""
            # if we have applications, check, if there is a specific image to use, or other OS to use
            for app in apps:
                # I really hope we never have packages with dots in them, but only versions...
-               appName, appVersion= app.split(".", 2)
+               appName, appVersion= app.split(".", 1)
                # check if the software app has an ApptainerImage defined and use that
                if theImage := ops.getValue(f"/AvailableTarBalls/{jobConfig}/{appName}/{appVersion}/ApptainerImage", None):
                    self.log.info(f"And found {theImage!r} from the {appName}/{appVersion}")

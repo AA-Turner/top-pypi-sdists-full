@@ -365,6 +365,77 @@ pub unsafe extern "C" fn kreuzberg_result_get_metadata_field(
     )
 }
 
+/// Get LLM usage metrics from extraction result.
+///
+/// Returns LLM usage information as a JSON string if the extraction was performed
+/// with LLM-based processing (e.g., for code intelligence). Returns NULL if no
+/// LLM usage data is available.
+///
+/// # Arguments
+///
+/// * `result` - Pointer to an ExtractionResult structure
+///
+/// # Returns
+///
+/// A pointer to a C string containing a JSON array of LLM usage objects, or NULL
+/// if no LLM usage data is available or on error (check `kreuzberg_last_error`).
+///
+/// The returned pointer (if non-NULL) must be freed with `kreuzberg_free_string()`.
+///
+/// # Safety
+///
+/// - `result` must be a valid pointer to an ExtractionResult
+/// - `result` cannot be NULL
+/// - The returned pointer (if non-NULL) must be freed with `kreuzberg_free_string`
+///
+/// # Example (C)
+///
+/// ```c
+/// ExtractionResult* result = kreuzberg_extract_file("document.pdf", NULL);
+/// if (result != NULL) {
+///     char* llm_usage = kreuzberg_result_get_llm_usage_json(result);
+///     if (llm_usage != NULL) {
+///         printf("LLM usage: %s\n", llm_usage);
+///         kreuzberg_free_string(llm_usage);
+///     }
+///     kreuzberg_result_free(result);
+/// }
+/// ```
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn kreuzberg_result_get_llm_usage_json(result: *const ExtractionResult) -> *mut c_char {
+    ffi_panic_guard!("kreuzberg_result_get_llm_usage_json", {
+        if result.is_null() {
+            set_last_error("Result cannot be NULL".to_string());
+            return ptr::null_mut();
+        }
+
+        clear_last_error();
+
+        let result_ref = unsafe { &*result };
+
+        if let Some(usage) = &result_ref.llm_usage {
+            if usage.is_empty() {
+                return ptr::null_mut();
+            }
+            match serde_json::to_string(&usage) {
+                Ok(json) => match CString::new(json) {
+                    Ok(c_string) => c_string.into_raw(),
+                    Err(e) => {
+                        set_last_error(format!("Failed to convert LLM usage to C string: {}", e));
+                        ptr::null_mut()
+                    }
+                },
+                Err(e) => {
+                    set_last_error(format!("Failed to serialize LLM usage: {}", e));
+                    ptr::null_mut()
+                }
+            }
+        } else {
+            ptr::null_mut()
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

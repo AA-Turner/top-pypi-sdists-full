@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import importlib.util
 import json
 import os
@@ -53,12 +54,13 @@ from skyvern.forge import app
 from skyvern.forge.failure_classifier import classify_from_failure_reason
 from skyvern.forge.prompts import prompt_engine
 from skyvern.forge.sdk.artifact.models import Artifact, ArtifactType
+from skyvern.forge.sdk.cache import extraction_cache
 from skyvern.forge.sdk.cache.factory import CacheFactory
 from skyvern.forge.sdk.core import skyvern_context
 from skyvern.forge.sdk.core.security import generate_skyvern_webhook_signature
 from skyvern.forge.sdk.core.skyvern_context import SkyvernContext
 from skyvern.forge.sdk.db.enums import OrganizationAuthTokenType, WorkflowRunTriggerType
-from skyvern.forge.sdk.models import Step, StepStatus
+from skyvern.forge.sdk.models import Step
 from skyvern.forge.sdk.schemas.files import FileInfo
 from skyvern.forge.sdk.schemas.organizations import Organization
 from skyvern.forge.sdk.schemas.persistent_browser_sessions import PersistentBrowserSession
@@ -699,7 +701,7 @@ class WorkflowService:
         root_workflow_run_id = (
             context.root_workflow_run_id if context and context.root_workflow_run_id else workflow_run.workflow_run_id
         )
-        skyvern_context.set(
+        skyvern_context.replace(
             SkyvernContext(
                 organization_id=organization.organization_id,
                 organization_name=organization.organization_name,
@@ -711,6 +713,7 @@ class WorkflowService:
                 workflow_permanent_id=workflow_run.workflow_permanent_id,
                 max_steps_override=max_steps_override,
                 max_screenshot_scrolls=workflow_request.max_screenshot_scrolls,
+                loop_internal_state=copy.deepcopy(context.loop_internal_state) if context else None,
             )
         )
 
@@ -3116,6 +3119,34 @@ class WorkflowService:
                 )
             ]
 
+        # Track task_generation for observability (SKY-8842)
+        try:
+            user_prompt_hash = sha256(user_prompt.encode("utf-8")).hexdigest()
+            v1_kwargs: dict[str, Any] = {}
+            if task_version == "v1":
+                v1_kwargs = {
+                    "url": url,
+                    "navigation_goal": navigation_goal,
+                    "navigation_payload": task_response.get("navigation_payload"),
+                    "data_extraction_goal": data_extraction_goal,
+                    "suggested_title": task_response.get("suggested_title"),
+                    "llm": settings.LLM_KEY,
+                    "llm_prompt": task_prompt,
+                    "llm_response": str(task_response),
+                }
+            await app.DATABASE.workflow_params.create_task_generation(
+                organization_id=organization.organization_id,
+                user_prompt=user_prompt,
+                user_prompt_hash=user_prompt_hash,
+                **v1_kwargs,
+            )
+        except Exception:
+            LOG.warning(
+                "Failed to create task_generation record",
+                exc_info=True,
+                organization_id=organization.organization_id,
+            )
+
         new_workflow = await self.create_workflow(
             title=title,
             workflow_definition=WorkflowDefinition(parameters=[], blocks=blocks),
@@ -3692,7 +3723,9 @@ class WorkflowService:
             ai_fallback=ai_fallback,
             failure_category=failure_category,
         )
-        if status in [WorkflowRunStatus.completed, WorkflowRunStatus.failed, WorkflowRunStatus.terminated]:
+        if status.is_final():
+            # Free extraction-cache entries for this run.
+            extraction_cache.clear_workflow_run(workflow_run_id)
             start_time = (
                 workflow_run.started_at.replace(tzinfo=UTC)
                 if workflow_run.started_at
@@ -4362,10 +4395,10 @@ class WorkflowService:
         total_steps = None
         total_cost = None
         if include_step_count or include_cost:
-            workflow_run_steps = await app.DATABASE.tasks.get_steps_by_task_ids(
+            step_count, completed_step_count = await app.DATABASE.tasks.get_step_counts_by_task_ids(
                 task_ids=[task.task_id for task in workflow_run_tasks], organization_id=organization_id
             )
-            total_steps = len(workflow_run_steps)
+            total_steps = step_count
 
             if include_cost:
                 workflow_run_blocks = await app.DATABASE.observer.get_workflow_run_blocks(
@@ -4375,9 +4408,7 @@ class WorkflowService:
                     block for block in workflow_run_blocks if block.block_type == BlockType.TEXT_PROMPT
                 ]
                 # TODO: This is a temporary cost calculation. We need to implement a more accurate cost calculation.
-                # successful steps are the ones that have a status of completed and the total count of unique step.order
-                successful_steps = [step for step in workflow_run_steps if step.status == StepStatus.completed]
-                total_cost = 0.05 * (len(successful_steps) + len(text_prompt_blocks))
+                total_cost = 0.05 * (completed_step_count + len(text_prompt_blocks))
         return WorkflowRunResponseBase(
             workflow_id=workflow.workflow_permanent_id,
             workflow_run_id=workflow_run_id,
@@ -5144,6 +5175,28 @@ class WorkflowService:
                         workflow_id=workflow.workflow_id,
                         workflow_run_id=workflow_run.workflow_run_id,
                         missing_labels=list(missing_labels),
+                    )
+
+            # Don't regenerate blocks already in the cached script — doing so
+            # just churns the version number without producing a different script.
+            already_cached = blocks_to_update & cached_block_labels
+            if already_cached:
+                blocks_to_update -= already_cached
+                if not blocks_to_update:
+                    LOG.info(
+                        "All blocks in blocks_to_update are already cached; skipping regeneration",
+                        workflow_id=workflow.workflow_id,
+                        workflow_run_id=workflow_run.workflow_run_id,
+                        already_cached=sorted(already_cached),
+                        script_id=existing_script.script_id,
+                    )
+                else:
+                    LOG.debug(
+                        "Removed already-cached blocks from blocks_to_update",
+                        workflow_id=workflow.workflow_id,
+                        workflow_run_id=workflow_run.workflow_run_id,
+                        removed=sorted(already_cached),
+                        remaining=sorted(blocks_to_update),
                     )
 
             should_regenerate = bool(blocks_to_update) or bool(code_gen)

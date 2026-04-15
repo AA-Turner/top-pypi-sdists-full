@@ -4,13 +4,13 @@ import multiprocessing
 import os
 import signal
 import traceback
-import warnings
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from contextvars import copy_context
 from datetime import timedelta
 from functools import partial
 from functools import wraps
+from multiprocessing.synchronize import Event
 from multiprocessing.context import ForkProcess
 from pickle import PicklingError
 from queue import Empty
@@ -54,7 +54,8 @@ SPAWN_PROGRESS_CLEANUP = 0.1
 SPAWN_PROGRESS_INIT = 0.1
 
 
-Process = multiprocessing.get_context('fork').Process
+multiprocessing_ctx = multiprocessing.get_context('fork')
+Process = multiprocessing_ctx.Process
 forked = False
 
 
@@ -69,6 +70,7 @@ class Worker(Generic[Res]):
         target: Callable[[
             Queue[tuple[Params, GradioPartialContext]],
             Queue[Res | None],
+            Event,
             AllowToken,
             NvidiaUUID,
             list[int],
@@ -79,6 +81,7 @@ class Worker(Generic[Res]):
         self._sentinel = Thread(target=self._close_on_exit, daemon=True)
         self.arg_queue = Queue()
         self.res_queue = Queue()
+        self.stop_event = Event(ctx=multiprocessing_ctx)
         debug(f"{self.arg_queue._writer.fileno()=}") # pyright: ignore [reportAttributeAccessIssue]
         debug(f"{self.res_queue._writer.fileno()=}") # pyright: ignore [reportAttributeAccessIssue]
         server_ports: set[int] = set()
@@ -86,7 +89,7 @@ class Worker(Generic[Res]):
             server_ports |= {gradio_server_port}
         server_ports |= reload_server_ports
         fds = [conn.fd for conn in psutil.Process().connections() if conn.laddr.port in server_ports]
-        args = self.arg_queue, self.res_queue, allow_token, nvidia_uuid, fds
+        args = self.arg_queue, self.res_queue, self.stop_event, allow_token, nvidia_uuid, fds
         if TYPE_CHECKING:
             target(*args)
         self.process = Process(
@@ -235,6 +238,7 @@ def regular_function_wrapper(
     def thread_wrapper(
         arg_queue: Queue[tuple[Params, GradioPartialContext]],
         res_queue: Queue[RegularResQueueResult[Res, gr.Error] | None],
+        _stop_event: Event,
         allow_token: str,
         nvidia_uuid: str,
         fds: list[int],
@@ -376,7 +380,11 @@ def generator_function_wrapper(
                 if isinstance(res, EndResult):
                     break
                 if isinstance(res, OkResult):
-                    yield res.value
+                    try:
+                        yield res.value
+                    except GeneratorExit:
+                        worker.stop_event.set()
+                        raise
                     continue
                 debug(f"gradio_handler: assert_never({res=})")
                 assert_never(res)
@@ -385,6 +393,7 @@ def generator_function_wrapper(
     def thread_wrapper(
         arg_queue: Queue[tuple[Params, GradioPartialContext]],
         res_queue: Queue[GeneratorResQueueResult[Res, gr.Error] | None],
+        stop_event: Event,
         allow_token: str,
         nvidia_uuid: str,
         fds: list[int],
@@ -398,6 +407,7 @@ def generator_function_wrapper(
                 (args, kwargs), gradio_context = arg_queue.get()
             except OSError:
                 break
+            stop_event.clear()
             if not initialized:
                 if (res := worker_init(
                     res_queue=res_queue,
@@ -417,6 +427,9 @@ def generator_function_wrapper(
                         break
                     except Exception as e:
                         res_queue.put(exception_result(e))
+                        break
+                    if stop_event.is_set():
+                        gen.close()
                         break
                     try:
                         res_queue.put(OkResult(res))

@@ -60,15 +60,15 @@ class Footnote(TypedDict):
 class CubeMetadata(TypedDict):
     responseStatusCode: int
     productId: int
-    cansimId: str
+    cansimId: str | None
     cubeTitleEn: str
     cubeTitleFr: str
-    cubeStartDate: str
-    cubeEndDate: str
+    cubeStartDate: str | None
+    cubeEndDate: str | None
     frequencyCode: int
     nbSeriesCube: int
     nbDatapointsCube: int
-    releaseTime: str
+    releaseTime: str | None
     archiveStatusCode: str
     archiveStatusEn: str
     archiveStatusFr: str
@@ -78,7 +78,7 @@ class CubeMetadata(TypedDict):
     footnote: list[Footnote]
     correction: list[Any]
     correctionFootnote: list[Any]
-    issueDate: str
+    issueDate: str | None
 
 
 class SeriesInfo(TypedDict):

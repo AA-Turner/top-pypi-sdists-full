@@ -20,7 +20,7 @@ use std::borrow::Cow;
 /// return are preserved.
 ///
 /// Returns `Cow::Borrowed` when no replacements are needed (zero-cost for clean text).
-fn fix_pdf_control_chars(text: &str) -> Cow<'_, str> {
+pub(crate) fn fix_pdf_control_chars(text: &str) -> Cow<'_, str> {
     // Quick scan: skip allocation if no problematic chars exist.
     if !text.bytes().any(|b| b < 0x20 && b != b'\t' && b != b'\n' && b != b'\r') {
         return Cow::Borrowed(text);

@@ -19,3 +19,9 @@
 from orbax.checkpoint.experimental.v1._src.tree.structure_utils import (
     merge_trees as merge,
 )
+from orbax.checkpoint.experimental.v1._src.tree.types import (
+    PyTreeOf,
+    PyTreeKey,
+    PyTreeKeyPath,
+    JsonType,
+)

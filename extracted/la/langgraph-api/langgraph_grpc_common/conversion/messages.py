@@ -292,7 +292,7 @@ def chat_message_from_proto(
         additional_kwargs = cast("dict[str, Any]", m.get("additional_kwargs") or {})
         additional_kwargs["__openai_role__"] = "developer"
         m["additional_kwargs"] = additional_kwargs
-    return msg_cls(**m)  # type: ignore[no-matching-overload, invalid-argument-type]
+    return msg_cls(**m)  # type: ignore[no-matching-overload, invalid-argument-type]  # ty: ignore[no-matching-overload, invalid-argument-type]
 
 
 _TUPLE_KEYS = (

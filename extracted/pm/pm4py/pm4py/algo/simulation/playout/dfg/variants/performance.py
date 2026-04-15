@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -150,7 +150,7 @@ def apply(
 
     choices = {}
     for el in frequency_dfg:
-        if not el[0] in choices:
+        if el[0] not in choices:
             choices[el[0]] = {}
         choices[el[0]][el[1]] = frequency_dfg[el]
 

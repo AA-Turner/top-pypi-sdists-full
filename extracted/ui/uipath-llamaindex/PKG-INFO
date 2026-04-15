@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uipath-llamaindex
-Version: 0.5.9
+Version: 0.5.11
 Summary: Python SDK that enables developers to build and deploy LlamaIndex agents to the UiPath Cloud Platform
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-integrations-python/
@@ -14,7 +14,7 @@ Requires-Python: >=3.11
 Requires-Dist: aiosqlite>=0.21.0
 Requires-Dist: llama-index-embeddings-azure-openai>=0.4.1
 Requires-Dist: llama-index-llms-azure-openai>=0.4.2
-Requires-Dist: llama-index-workflows<3.0.0,>=2.14.1
+Requires-Dist: llama-index-workflows<3.0.0,>=2.18.0
 Requires-Dist: llama-index<1.0.0,>=0.14.13
 Requires-Dist: openinference-instrumentation-llama-index>=4.3.9
 Requires-Dist: uipath-runtime<0.11.0,>=0.10.0

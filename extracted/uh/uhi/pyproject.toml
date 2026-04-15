@@ -14,7 +14,7 @@ authors = [
 maintainers = [
   {name="The Scikit-HEP admins", email="scikit-hep-admins@googlegroups.com"},
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = "README.md"
 license = "bsd-3-clause"
 license-files =["LICENSE"]
@@ -27,7 +27,6 @@ classifiers = [
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -47,7 +46,6 @@ Changelog = "https://github.com/scikit-hep/uhi/releases"
 [project.optional-dependencies]
 schema = [
   "fastjsonschema",
-  "importlib-resources; python_version<'3.9'",
 ]
 hdf5 = [
   "h5py",
@@ -63,11 +61,13 @@ docs = [
   "sphinx_github_changelog",
 ]
 test-core = [
-  "pytest>=6",
-  "boost-histogram>=1.4",
+  "pytest>=7",
+  "boost-histogram>=1.6.1",
   "hist>=2.6",
   "fastjsonschema",
   "packaging",
+  "tomli; python_version<'3.11'",
+  "dependency-groups>=1.3",
 ]
 test = [
   { include-group = "test-core" },
@@ -82,17 +82,19 @@ build.hooks.vcs.version-file = "src/uhi/_version.py"
 
 
 [tool.pytest.ini_options]
-minversion = "6.0"
+minversion = "7.0"
+pythonpath = ["tests/utils"]
 addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = ["error"]
 testpaths = ["tests"]
-log_cli_level = "INFO"
+log_level = "INFO"
 
 
 [tool.mypy]
 files = ["src", "tests"]
-python_version = "3.9"
+mypy_path = "tests/utils"
+python_version = "3.10"
 warn_unused_configs = true
 strict = true
 warn_unreachable = true

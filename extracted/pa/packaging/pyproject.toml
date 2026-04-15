@@ -26,6 +26,7 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
+  "Programming Language :: Python :: Free Threading :: 4 - Resilient",
   "Typing :: Typed",
 ]
 dependencies = []
@@ -38,18 +39,37 @@ Source = "https://github.com/pypa/packaging"
 [dependency-groups]
 test = [
   "coverage[toml]>=7.2.0",
+  "hypothesis>=6.0.0",
   "pip>=21.1",
   "pretend",
   "pytest>=6.2.0",
   "tomli; python_version<'3.11'",
   "tomli_w",
 ]
-dev = [{ include-group = "test" }]
+docs = [
+  "furo",
+  "typing-extensions>=4.1.0; python_version < '3.9'",
+]
+benchmark = [
+  "asv",
+  "pip",
+]
+dev = [
+  { include-group = "test" },
+  { include-group = "benchmark" },
+]
 
 
 [tool.flit.sdist]
 include = ["tests/", "docs/", "CHANGELOG.rst"]
-exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__"]
+exclude = [
+  "docs/_build",
+  "tests/manylinux/build-hello-world.sh",
+  "tests/musllinux/build.sh",
+  "tests/hello-world.c",
+  "tests/__pycache__",
+  "build/__pycache__",
+]
 
 [tool.typos.default.extend-identifiers]
 iMatix = "iMatix"
@@ -69,15 +89,22 @@ source_pkgs = ["packaging"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 100
-exclude_also = ["@abc.abstractmethod", "@abc.abstractproperty", "if typing.TYPE_CHECKING:"]
+exclude_also = [
+    "@(abc.)?abstractmethod",
+    "@(abc.)?abstractproperty",
+    "if (typing.)?TYPE_CHECKING:",
+    "@(typing.)?overload",
+    "def __dir__()",
+]
 
 [tool.pytest.ini_options]
 minversion = "6.2"
-addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config", "-m", "not property"]
 xfail_strict = true
 filterwarnings = ["error"]
 log_level = "INFO"
 testpaths = ["tests"]
+markers = ["property: property-based tests (opt-in)"]
 
 
 [tool.mypy]
@@ -132,6 +159,7 @@ flake8-unused-arguments.ignore-variadic-names = true
 [tool.ruff.lint.per-file-ignores]
 "tests/test_*.py" = ["PYI024", "PLR", "SIM201", "T20", "S301"]
 "tasks/check.py" = ["UP032", "T20"]
+"tasks/check_frozen_revs.py" = ["T20", "ANN401"]
 "tests/test_requirements.py" = ["UP032"]
 "src/packaging/_musllinux.py" = ["T20"]
 "docs/conf.py" = ["INP001", "S", "A001"]

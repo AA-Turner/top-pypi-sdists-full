@@ -245,7 +245,7 @@ def text(
         page=page,
         backend=backend,
     )
-    query = _sanitize_query(query)
+    query = _sanitize_query(keywords or query)
     if output:
         _save_data(query, data, "text", filename=output)
     if download:
@@ -274,7 +274,7 @@ def text(
     "-b",
     "--backend",
     default=["auto"],
-    type=click.Choice(["auto", "all", "duckduckgo"]),
+    type=click.Choice(["auto", "all", "bing", "duckduckgo"]),
     multiple=True,
     callback=_convert_tuple_to_csv,
 )
@@ -354,7 +354,7 @@ def images(
         layout=layout,
         license_image=license_image,
     )
-    query = _sanitize_query(query)
+    query = _sanitize_query(keywords or query)
     if output:
         _save_data(query, data, function_name="images", filename=output)
     if download:
@@ -426,7 +426,7 @@ def videos(
         duration=duration,
         license_videos=license_videos,
     )
-    query = _sanitize_query(query)
+    query = _sanitize_query(keywords or query)
     if output:
         _save_data(query, data, function_name="videos", filename=output)
     else:
@@ -479,7 +479,7 @@ def news(
         page=page,
         backend=backend,
     )
-    query = _sanitize_query(query)
+    query = _sanitize_query(keywords or query)
     if output:
         _save_data(query, data, function_name="news", filename=output)
     else:

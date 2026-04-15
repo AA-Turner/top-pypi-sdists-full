@@ -19,23 +19,46 @@ from geocif import __version__
 logger = logging.getLogger(__name__)
 
 
+_CANON_PRED = "Predicted Yield (tn per ha)"
+
+
+def _resolve_pred_col(table_cols):
+    """Find the DB's Predicted-yield column (prefix ``Predicted `` + ``Yield``).
+
+    Handles configs with ``rename_target = True`` + ``new_name_target = Yield``
+    where the DB stores ``"Predicted Yield"`` instead of the canonical
+    ``"Predicted Yield (tn per ha)"``.
+    """
+    return next(
+        (c for c in table_cols if c.startswith("Predicted ") and "Yield" in c),
+        None,
+    )
+
+
 def _query_forecast(db_path, table, model, experiment_name, forecast_year, min_year=None):
     """Query forecast-year predictions from the database.
 
-    Returns DataFrame with columns needed for FDW export.
-    If min_year is set, returns all years in [min_year, forecast_year].
+    Returns DataFrame with columns needed for FDW export, with the
+    Predicted-yield column renamed to the canonical form regardless of
+    the user's ``rename_target`` config.  If min_year is set, returns all
+    years in [min_year, forecast_year].
     """
     if not db_path.exists():
-        logger.error("Database not found: %s", db_path)
+        logger.error(f"Database not found: {db_path}")
         return pd.DataFrame()
 
     con = sqlite3.connect(db_path)
     try:
+        table_cols = pd.read_sql(f'PRAGMA table_info("{table}")', con)["name"].tolist()
+        pred_col = _resolve_pred_col(table_cols)
+        if pred_col is None:
+            logger.warning(f"Table '{table}' missing Predicted yield column")
+            return pd.DataFrame()
+
         if min_year is not None and min_year < forecast_year:
             df = pd.read_sql(
                 f'SELECT "Country", "Region", "Season", "Harvest Year", '
-                f'"Stage Name", "Date", '
-                f'"Predicted Yield (tn per ha)" '
+                f'"Stage Name", "Date", "{pred_col}" '
                 f'FROM "{table}" '
                 f'WHERE "Experiment Name" = ? AND "Model" = ? '
                 f'AND "Harvest Year" >= ? AND "Harvest Year" <= ?',
@@ -45,8 +68,7 @@ def _query_forecast(db_path, table, model, experiment_name, forecast_year, min_y
         else:
             df = pd.read_sql(
                 f'SELECT "Country", "Region", "Season", "Harvest Year", '
-                f'"Stage Name", "Date", '
-                f'"Predicted Yield (tn per ha)" '
+                f'"Stage Name", "Date", "{pred_col}" '
                 f'FROM "{table}" '
                 f'WHERE "Experiment Name" = ? AND "Model" = ? '
                 f'AND "Harvest Year" = ?',
@@ -54,17 +76,19 @@ def _query_forecast(db_path, table, model, experiment_name, forecast_year, min_y
                 params=(experiment_name, model, forecast_year),
             )
     except (pd.errors.DatabaseError, sqlite3.OperationalError) as e:
-        logger.warning("Failed to query table '%s': %s", table, e)
+        logger.warning(f"Failed to query table '{table}': {e}")
         df = pd.DataFrame()
     finally:
         con.close()
 
     if not df.empty:
+        # Rename to canonical form so downstream code keeps using the
+        # canonical column name regardless of rename_target config.
+        if pred_col and pred_col != _CANON_PRED:
+            df = df.rename(columns={pred_col: _CANON_PRED})
         df["Harvest Year"] = df["Harvest Year"].astype(int)
         df["Season"] = pd.to_numeric(df["Season"], errors="coerce").astype("Int64")
-        df["Predicted Yield (tn per ha)"] = pd.to_numeric(
-            df["Predicted Yield (tn per ha)"], errors="coerce"
-        )
+        df[_CANON_PRED] = pd.to_numeric(df[_CANON_PRED], errors="coerce")
     return df
 
 
@@ -82,7 +106,7 @@ def _load_hvstat(parser):
     )
     hvstat_path = dir_stats / hvstat_fn
     if not hvstat_path.exists():
-        logger.warning("hvstat file not found: %s", hvstat_path)
+        logger.warning(f"hvstat file not found: {hvstat_path}")
         return pd.DataFrame()
 
     df = pd.read_csv(hvstat_path, low_memory=False)
@@ -90,7 +114,7 @@ def _load_hvstat(parser):
     needed = ["fnid", "product", "season_name", "planting_month", "harvest_month"]
     missing = [c for c in needed if c not in df.columns]
     if missing:
-        logger.warning("hvstat missing columns %s — month data will be blank", missing)
+        logger.warning(f"hvstat missing columns {missing} — month data will be blank")
         return pd.DataFrame()
 
     # Keep needed columns + area-related columns for national yield computation
@@ -172,13 +196,13 @@ def _query_area_weights(parser, crop, n_years=5):
         csv_path = csv_dir / fname
 
         if not csv_path.exists():
-            logger.warning("CID indices CSV not found: %s", csv_path)
+            logger.warning(f"CID indices CSV not found: {csv_path}")
             continue
 
-        logger.info("Reading CID area data: %s", csv_path)
+        logger.info(f"Reading CID area data: {csv_path}")
         df = pd.read_csv(csv_path, low_memory=False)
         if "Area (ha)" not in df.columns or "Region" not in df.columns:
-            logger.warning("CID CSV missing required columns: %s", csv_path)
+            logger.warning(f"CID CSV missing required columns: {csv_path}")
             continue
 
         df["Area (ha)"] = pd.to_numeric(df["Area (ha)"], errors="coerce")
@@ -187,7 +211,7 @@ def _query_area_weights(parser, crop, n_years=5):
             continue
 
         if "Harvest Year" not in df.columns:
-            logger.warning("CID CSV missing 'Harvest Year': %s", csv_path)
+            logger.warning(f"CID CSV missing 'Harvest Year': {csv_path}")
             continue
         df["Harvest Year"] = pd.to_numeric(df["Harvest Year"], errors="coerce")
         # Normalize country to DB convention (lowercase with underscores)
@@ -301,7 +325,7 @@ def export_forecast(
         country = country_crop.replace(f"_{crop}", "")
 
         for model in config["models"]:
-            logger.info("FDW export: %s %s %s", country, crop, model)
+            logger.info(f"FDW export: {country} {crop} {model}")
 
             min_year = forecast_year - n_years if n_years > 1 else None
             df_pred = _query_forecast(
@@ -310,8 +334,7 @@ def export_forecast(
             )
             if df_pred.empty:
                 logger.warning(
-                    "No forecast predictions for %s %s %s year=%d",
-                    country, crop, model, forecast_year,
+                    f"No forecast predictions for {country} {crop} {model} year={forecast_year}"
                 )
                 continue
 
@@ -449,7 +472,7 @@ def export_forecast(
     fname = f"geocif_{scope}_{admin_unit}_forecast_{forecast_issue_date}.csv"
     csv_path = dir_out / fname
     df_fdw.to_csv(csv_path, index=False)
-    logger.info("FDW forecast CSV saved to %s (%d rows)", csv_path, len(df_fdw))
+    logger.info(f"FDW forecast CSV saved to {csv_path} ({len(df_fdw)} rows)")
 
     return csv_path
 
@@ -541,7 +564,7 @@ def export_national_forecast(
             df_weighted = df_weighted.dropna(subset=[pred_col, "avg_area"])
 
             if df_weighted.empty:
-                logger.warning("No area weights for %s %s — skipping national yield", country_crop, model)
+                logger.warning(f"No area weights for {country_crop} {model} — skipping national yield")
                 continue
 
             # Compute national yield per country
@@ -609,7 +632,7 @@ def export_national_forecast(
     fname = f"geocif_{scope}_national_forecast_{forecast_issue_date}.csv"
     csv_path = dir_out / fname
     df_fdw.to_csv(csv_path, index=False)
-    logger.info("FDW national forecast CSV saved to %s (%d rows)", csv_path, len(df_fdw))
+    logger.info(f"FDW national forecast CSV saved to {csv_path} ({len(df_fdw)} rows)")
 
     return csv_path
 

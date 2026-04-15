@@ -127,3 +127,16 @@ POLYMATH_DEFAULT_K = 16
 BIGCODE_K_VALUES = (1, 10, 100)
 # --- Evaluator thresholds ---
 CONALA_BLEU_THRESHOLD = 0.5
+
+# Datasets removed from HuggingFace Hub upstream and the canonical mirror to use instead.
+# Used by lm_loader to redirect datasets.load_dataset() calls.
+REMOVED_DATASET_REPLACEMENTS = {
+    "Rakuten/JGLUE": "shunk031/JGLUE",
+}
+
+# Minimum lexical diversity (unique_words / total_words) for a response
+# to be evaluated semantically. Below this, the response is repetitive
+# garbage and scores UNTRUTHFUL without running NLI/embedding comparison.
+# Empirically: garbage 0.10-0.25, coherent verbose 0.40-0.50, normal 0.89+.
+# Threshold 0.5 with content word ratio check (both must be below).
+EVAL_MIN_LEXICAL_DIVERSITY = 0.5

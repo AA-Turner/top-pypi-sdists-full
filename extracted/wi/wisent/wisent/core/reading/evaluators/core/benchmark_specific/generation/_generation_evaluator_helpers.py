@@ -5,6 +5,7 @@ from typing import Any
 
 from wisent.core.reading.evaluators.core.atoms import EvalResult
 from wisent.core.utils.config_tools.constants import (
+    EVAL_MIN_LEXICAL_DIVERSITY,
     ROUNDING_PRECISION,
 )
 
@@ -30,6 +31,37 @@ class GenerationEvaluatorHelpersMixin:
         Uses semantic similarity to determine which reference the response is closer to.
         Returns TRUTHFUL if closer to correct, UNTRUTHFUL if closer to incorrect.
         """
+        # Reject repetitive garbage before running semantic comparison.
+        # Pure repetition (diversity < 0.15): "within within within..."
+        # Stop-word soup (content ratio < 0.5): "nor nor except other..."
+        # Verbose coherent text has diversity 0.40+ and content ratio 0.50+.
+        words = response.lower().split()
+        if words:
+            diversity = len(set(words)) / len(words)
+            _STOP = frozenset({
+                "nor", "not", "no", "the", "a", "an", "and", "or", "but",
+                "is", "are", "was", "were", "be", "been", "being", "have",
+                "has", "had", "do", "does", "did", "will", "would", "could",
+                "should", "may", "might", "shall", "can", "to", "of", "in",
+                "for", "on", "with", "at", "by", "from", "as", "into",
+                "through", "during", "before", "after", "it", "its", "this",
+                "that", "these", "those", "i", "you", "he", "she", "we",
+                "they", "me", "him", "her", "us", "them", "my", "your",
+                "his", "our", "their", "except", "other", "anything",
+            })
+            content_words = [w for w in words if w not in _STOP]
+            content_ratio = len(content_words) / len(words) if words else 0
+            is_pure_repetition = diversity < EVAL_MIN_LEXICAL_DIVERSITY / 3
+            is_stopword_soup = content_ratio < EVAL_MIN_LEXICAL_DIVERSITY
+            if is_pure_repetition or is_stopword_soup:
+                return EvalResult(
+                    ground_truth="UNTRUTHFUL",
+                    method_used=self.name,
+                    confidence=0.0,
+                    details=f"Repetitive response (diversity={diversity:.3f}, content={content_ratio:.3f})",
+                    meta={"lexical_diversity": round(diversity, ROUNDING_PRECISION)},
+                )
+
         # Get max similarity to correct answers
         max_correct_sim = 0.0
         best_correct = None
@@ -99,7 +131,7 @@ class GenerationEvaluatorHelpersMixin:
             )
         else:
             return EvalResult(
-                ground_truth="UNKNOWN",
+                ground_truth="UNTRUTHFUL",
                 method_used=self.name,
                 confidence=0.0,
                 details=f"Response ambiguous (margin={margin:.3f})",

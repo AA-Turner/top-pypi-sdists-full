@@ -48,6 +48,13 @@ def test_rmsnorm_forward_backward(M, N, input_dtype, weight_dtype, eps, use_comp
     """Test RMSNorm forward pass against reference implementation."""
     if N >= 256 * 1024 and input_dtype == torch.float32 and M >= 8 * 1024:
         pytest.skip("Skipping large tensor test for float32 to avoid OOM")
+    # SM12x (consumer Blackwell) has 99 KB SMEM — skip dims that exceed capacity
+    major, _ = torch.cuda.get_device_capability()
+    if major == 12:
+        if input_dtype == torch.float32 and N > 4096:
+            pytest.skip("SM12x: 99 KB SMEM limit exceeded for fp32")
+        if input_dtype != torch.float32 and N > 8192:
+            pytest.skip("SM12x: 99 KB SMEM limit exceeded for fp16/bf16")
     torch.cuda.empty_cache()
     device = "cuda"
     atol = TOLERANCES[input_dtype]
@@ -80,7 +87,9 @@ def test_rmsnorm_forward_backward(M, N, input_dtype, weight_dtype, eps, use_comp
     torch.testing.assert_close(x.grad, x_ref.grad, atol=atol, rtol=1e-3)
     if weight_dtype is not None:
         if weight_dtype == torch.float32:
-            weight_atol = 2e-4
+            # Kernel and reference reduce dout*x_hat in float32 but in different summation
+            # orders, so the error grows with sqrt(M) (number of rows being reduced).
+            weight_atol = 5e-6 * (M**0.5)
         else:
             weight_atol = 2 * (weight_ref.grad + 0.3 - 0.3 - weight_ref.grad).abs().max()
         torch.testing.assert_close(weight.grad, weight_ref.grad, atol=weight_atol, rtol=1e-3)
@@ -105,6 +114,76 @@ def test_rmsnorm_noncontiguous_grad(input_dtype, use_compile):
     out.sum().backward()
     out_ref.sum().backward()
     torch.testing.assert_close(x.grad, x_ref.grad, atol=atol, rtol=1e-3)
+
+
+@pytest.mark.parametrize("use_compile", [False, True])
+@pytest.mark.parametrize("input_dtype", [torch.bfloat16, torch.float16, torch.float32])
+@pytest.mark.parametrize("use_bias,use_residual", [(False, False), (True, True)])
+def test_rmsnorm_qk(use_compile, input_dtype, use_bias, use_residual):
+    device = "cuda"
+    B, S, H, D = 2, 16, 4, 64
+    eps = 1e-6
+    atol = TOLERANCES[input_dtype]
+    torch.random.manual_seed(0)
+
+    x = torch.randn(B, S, H, D, device=device, dtype=input_dtype, requires_grad=True)
+    weight = torch.randn(H, D, device=device, dtype=torch.float32, requires_grad=True)
+    bias = (
+        torch.randn(H, D, device=device, dtype=torch.float32, requires_grad=True)
+        if use_bias
+        else None
+    )
+    residual = (
+        torch.randn(B, S, H, D, device=device, dtype=input_dtype, requires_grad=True)
+        if use_residual
+        else None
+    )
+
+    x_ref = x.detach().clone().requires_grad_()
+    weight_ref = weight.detach().clone().requires_grad_()
+    bias_ref = bias.detach().clone().requires_grad_() if bias is not None else None
+    residual_ref = residual.detach().clone().requires_grad_() if residual is not None else None
+
+    function = torch.compile(rmsnorm, fullgraph=True) if use_compile else rmsnorm
+    out = function(x, weight, bias=bias, residual=residual, eps=eps)
+    out_ref = rmsnorm_ref(x_ref, weight_ref, bias=bias_ref, residual=residual_ref, eps=eps)
+    if residual is not None:
+        out_ref = out_ref[0]
+
+    torch.testing.assert_close(out, out_ref, atol=atol, rtol=1e-3)
+
+    grad_out = torch.randn_like(out)
+    torch.cuda.synchronize()
+    out_ref.backward(grad_out)
+    out.backward(grad_out)
+
+    torch.testing.assert_close(x.grad, x_ref.grad, atol=atol, rtol=1e-3)
+    torch.testing.assert_close(weight.grad, weight_ref.grad, atol=atol, rtol=1e-3)
+    if bias is not None:
+        torch.testing.assert_close(bias.grad, bias_ref.grad, atol=atol, rtol=1e-3)
+    if residual is not None:
+        torch.testing.assert_close(residual.grad, residual_ref.grad, atol=atol, rtol=1e-3)
+
+
+def test_rmsnorm_qk_many_heads():
+    device = "cuda"
+    B, S, H, D = 1, 1, 32, 128
+    torch.random.manual_seed(0)
+
+    x = torch.randn(B, S, H, D, device=device, dtype=torch.bfloat16, requires_grad=True)
+    weight = torch.randn(H, D, device=device, dtype=torch.float32, requires_grad=True)
+    x_ref = x.detach().clone().requires_grad_()
+    weight_ref = weight.detach().clone().requires_grad_()
+
+    out = rmsnorm(x, weight)
+    out_ref = rmsnorm_ref(x_ref, weight_ref)
+    torch.testing.assert_close(out, out_ref, atol=1e-1, rtol=1e-3)
+
+    grad_out = torch.randn_like(out)
+    out_ref.backward(grad_out)
+    out.backward(grad_out)
+    torch.testing.assert_close(x.grad, x_ref.grad, atol=1e-1, rtol=1e-3)
+    torch.testing.assert_close(weight.grad, weight_ref.grad, atol=1e-1, rtol=1e-3)
 
 
 @pytest.mark.parametrize("use_compile", [False, True])
@@ -148,6 +227,9 @@ def test_rmsnorm_strided_tensor(use_compile):
 @pytest.mark.parametrize("use_compile", [False, True])
 def test_rmsnorm_large_tensor(M, N, input_dtype, eps, use_compile):
     """Test RMSNorm forward pass against reference implementation."""
+    major, _ = torch.cuda.get_device_capability()
+    if major == 12:
+        pytest.skip("SM12x: large tensors exceed 16 GB VRAM on consumer cards")
     device = "cuda"
     atol = TOLERANCES[input_dtype]
     torch.random.manual_seed(0)

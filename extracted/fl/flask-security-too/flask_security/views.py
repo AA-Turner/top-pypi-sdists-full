@@ -5,7 +5,7 @@ flask_security.views
 Flask-Security views module
 
 :copyright: (c) 2012 by Matt Wright.
-:copyright: (c) 2019-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2019-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 
 CSRF is tricky. By default all our forms have CSRF protection built in via
@@ -105,6 +105,7 @@ from .utils import (
     check_and_update_authn_fresh,
     check_and_get_token_status,
     config_value as cv,
+    confirm_redirect,
     do_flash,
     get_identity_attributes,
     get_message,
@@ -191,7 +192,9 @@ def login() -> ResponseValue:
         login_user(form.user, remember=remember_me, authn_via=["password"])
 
         if _security._want_json(request):
-            return base_render_json(form, include_auth_token=True)
+            return base_render_json(
+                form, include_auth_token=True, additional=dict(tf_required=False)
+            )
         return redirect(get_post_login_redirect())
 
     if request.method == "POST" and cv("RETURN_GENERIC_RESPONSES"):
@@ -215,21 +218,9 @@ def login() -> ResponseValue:
         }
         return base_render_json(form, additional=payload)
 
-    if (
-        form.requires_confirmation
-        and cv("REQUIRES_CONFIRMATION_ERROR_VIEW")
-        and not cv("RETURN_GENERIC_RESPONSES")
-    ):
-        # Validation failed BECAUSE user needs to confirm
-        assert form.user_authenticated
-        assert form.email.data  # email_required validator
-        do_flash(*get_message("CONFIRMATION_REQUIRED"))
-        return redirect(
-            get_url(
-                cv("REQUIRES_CONFIRMATION_ERROR_VIEW"),
-                qparams={"email": form.email.data},
-            )
-        )
+    if rurl := confirm_redirect(form, "email"):
+        return rurl
+
     return _security.render_template(
         cv("LOGIN_USER_TEMPLATE"),
         login_user_form=form,
@@ -259,6 +250,10 @@ def verify():
     if _security._want_json(request):
         payload = {
             "has_webauthn_verify_credential": webauthn_available,
+            "oauth_enabled": cv("OAUTH_ENABLE"),
+            "oauth_providers": (
+                _security.oauthglue.provider_names if cv("OAUTH_ENABLE") else []
+            ),
         }
         return base_render_json(form, additional=payload)
 
@@ -300,7 +295,6 @@ def register() -> ResponseValue:
 
     if form.validate_on_submit():
         after_this_request(view_commit)
-        did_login = False
         user = register_user(form)
         form.user = user
 
@@ -316,13 +310,15 @@ def register() -> ResponseValue:
                 return response
             # two factor not required - login user.
             login_user(user, authn_via=["register"])
-            did_login = True
+            if _security._want_json(request):
+                return base_render_json(
+                    form, include_auth_token=True, additional=dict(tf_required=False)
+                )
 
         if not _security._want_json(request):
             return redirect(get_post_register_redirect())
 
-        # Only include auth token if in fact user is permitted to login
-        return base_render_json(form, include_auth_token=did_login)
+        return base_render_json(form)
 
     # Here on GET or failed validate
     if request.method == "POST" and cv("RETURN_GENERIC_RESPONSES"):
@@ -545,18 +541,8 @@ def forgot_password():
         # Never include user info since this is an anonymous endpoint.
         return base_render_json(form, include_user=False)
 
-    if (
-        form.requires_confirmation
-        and cv("REQUIRES_CONFIRMATION_ERROR_VIEW")
-        and not cv("RETURN_GENERIC_RESPONSES")
-    ):
-        do_flash(*get_message("CONFIRMATION_REQUIRED"))
-        return redirect(
-            get_url(
-                cv("REQUIRES_CONFIRMATION_ERROR_VIEW"),
-                qparams={"email": form.email.data},
-            )
-        )
+    if rurl := confirm_redirect(form, "email"):
+        return rurl
 
     if is_user_authenticated(current_user):
         form.email.data = current_user.email
@@ -655,7 +641,11 @@ def reset_password(token):
             if _security._want_json(request):
                 dummy_form = DummyForm(formdata=None)
                 dummy_form.user = user
-                return base_render_json(dummy_form, include_auth_token=True)
+                return base_render_json(
+                    dummy_form,
+                    include_auth_token=True,
+                    additional=dict(tf_required=False),
+                )
             else:
                 do_flash(*get_message("PASSWORD_RESET"))
                 return redirect(
@@ -773,13 +763,15 @@ def two_factor_setup():
                 cv("FRESHNESS"), cv("FRESHNESS_GRACE_PERIOD")
             )
         user = current_user
+    form.user = user
 
     if form.validate_on_submit():
         # Before storing in DB and therefore requiring 2FA we need to
         # make sure it actually works.
-        # Requiring 2FA is triggered by having BOTH tf_totp_secret and
-        # tf_primary_method in the user record (or having the application
-        # global config TWO_FACTOR_REQUIRED)
+        # Requiring 2FA is triggered by having:
+        # - BOTH tf_totp_secret and tf_primary_method in the user record
+        # - OR having the application global config TWO_FACTOR_REQUIRED
+        # - OR User.check_tf_required() returns True (overridden by app).
         # Until we correctly validate the 2FA - we don't set primary_method in
         # user model but use the session to store it.
         pm = form.setup.data
@@ -841,8 +833,10 @@ def two_factor_setup():
             authr_setup_values = _security.totp_factory.fetch_setup_values(totp, user)
             # Add all the values used in qrcode to json response
             json_response["tf_authr_key"] = authr_setup_values["key"]
+            json_response["tf_authr_b32key"] = authr_setup_values["b32key"]
             json_response["tf_authr_username"] = authr_setup_values["username"]
             json_response["tf_authr_issuer"] = authr_setup_values["issuer"]
+            json_response["tf_authr_uri"] = authr_setup_values["uri"]
 
             qrcode_values = dict(
                 authr_qrcode=authr_setup_values["image"],
@@ -870,13 +864,14 @@ def two_factor_setup():
 
     # We get here on GET and POST with failed validation.
     choices = cv("TWO_FACTOR_ENABLED_METHODS")[:]
-    if (not cv("TWO_FACTOR_REQUIRED")) and user.tf_primary_method is not None:
+    tf_required = user.check_tf_required_setup()
+    if (not tf_required) and user.tf_primary_method is not None:
         choices.insert(0, "disable")
 
     if _security._want_json(request):
         # Provide information application/UI might need to render their own form/input
         json_response = {
-            "tf_required": cv("TWO_FACTOR_REQUIRED"),
+            "tf_required": tf_required,
             "tf_primary_method": getattr(user, "tf_primary_method", None),  # old
             "tf_method": getattr(user, "tf_primary_method", None),
             "tf_phone_number": getattr(user, "tf_phone_number", None),
@@ -896,7 +891,7 @@ def two_factor_setup():
         ),
         changing=changing,
         state_token=None,
-        two_factor_required=cv("TWO_FACTOR_REQUIRED"),
+        two_factor_required=tf_required,
         **_ctx("tf_setup"),
     )
 
@@ -905,7 +900,7 @@ def two_factor_setup():
 def two_factor_setup_validate(token: str) -> ResponseValue:
     """
     Validate new setup.
-    The token is the state variable which is signed and timed
+    The token is the state variable that is signed and timed
     and contains all the state that once confirmed will be stored in the user record.
     Unlike the code in two_factor_token_validation - this works w/o a session.
     It also is JUST for setting up/changing two factor for an authenticated user.
@@ -937,6 +932,7 @@ def two_factor_setup_validate(token: str) -> ResponseValue:
     form.tf_totp_secret = totp_secret
     form.primary_method = method
     form.user = current_user
+    form.is_setup = True
 
     if form.validate_on_submit():
         tf_clean_session()  # until we completely remove session based setup/state
@@ -1026,6 +1022,7 @@ def two_factor_token_validation():
             logout_user()
             return tf_illegal_state(form, cv("TWO_FACTOR_ERROR_VIEW"))
         form.user = current_user
+        form.is_setup = True
 
     form.primary_method = pm
     form.tf_totp_secret = totp_secret
@@ -1179,6 +1176,9 @@ def recover_username():
 
     if _security._want_json(request):
         return base_render_json(form, include_user=False)
+
+    if rurl := confirm_redirect(form, "email"):
+        return rurl
 
     return _security.render_template(
         cv("USERNAME_RECOVERY_TEMPLATE"),

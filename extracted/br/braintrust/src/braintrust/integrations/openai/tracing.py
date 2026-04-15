@@ -1,19 +1,21 @@
 """OpenAI-specific tracing wrappers, stream proxies, and serialization helpers."""
 
 import abc
+import base64
+import binascii
 import inspect
+import json
 import time
 from collections.abc import Callable
 from typing import Any
 
 from braintrust.integrations.utils import (
-    _attachment_filename_for_mime_type,
-    _attachment_from_base64_data,
-    _attachment_from_file_input,
-    _convert_data_url_to_attachment,
-    _image_url_payload,
+    _extract_audio_output,
+    _infer_audio_mime_type,
+    _materialize_attachment,
     _parse_openai_usage_metrics,
     _prettify_response_params,
+    _ResolvedAttachment,
     _timing_metrics,
     _try_to_dict,
 )
@@ -104,50 +106,123 @@ def _raw_response_requested(kwargs: dict[str, Any]) -> bool:
     return False
 
 
+def _materialize_logged_file_input(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_materialize_logged_file_input(item) for item in value]
+
+    resolved = _materialize_attachment(value)
+    return resolved.attachment if resolved is not None else value
+
+
 def _process_attachments_in_input(input_data: Any) -> Any:
     """Process input to convert data URL images and base64 documents to Attachment objects."""
     if isinstance(input_data, list):
         return [_process_attachments_in_input(item) for item in input_data]
 
     if isinstance(input_data, dict):
-        # Check for OpenAI's image_url format with data URLs
         if (
             input_data.get("type") == "image_url"
             and isinstance(input_data.get("image_url"), dict)
             and isinstance(input_data["image_url"].get("url"), str)
         ):
-            processed_url = _convert_data_url_to_attachment(input_data["image_url"]["url"])
+            url = input_data["image_url"]["url"]
+            resolved = _materialize_attachment(url)
             return {
                 **input_data,
                 "image_url": {
                     **input_data["image_url"],
-                    "url": processed_url,
+                    "url": resolved.attachment if resolved is not None else url,
                 },
             }
 
-        # Check for OpenAI's file format with data URL (e.g., PDFs)
         if (
             input_data.get("type") == "file"
             and isinstance(input_data.get("file"), dict)
             and isinstance(input_data["file"].get("file_data"), str)
         ):
+            file_data = input_data["file"]["file_data"]
             file_filename = input_data["file"].get("filename")
-            processed_file_data = _convert_data_url_to_attachment(
-                input_data["file"]["file_data"],
+            resolved = _materialize_attachment(
+                file_data,
                 filename=file_filename if isinstance(file_filename, str) else None,
             )
             return {
                 **input_data,
                 "file": {
                     **input_data["file"],
-                    "file_data": processed_file_data,
+                    "file_data": resolved.attachment if resolved is not None else file_data,
                 },
             }
 
-        # Recursively process nested objects
         return {key: _process_attachments_in_input(value) for key, value in input_data.items()}
 
     return input_data
+
+
+def _get_requested_audio_format(params: dict[str, Any]) -> str | None:
+    audio = params.get("audio")
+    if not isinstance(audio, dict):
+        return None
+
+    audio_format = audio.get("format")
+    return audio_format if isinstance(audio_format, str) else None
+
+
+def _decode_chat_completion_audio_chunk(data: Any) -> bytes | None:
+    if isinstance(data, (bytes, bytearray)):
+        return bytes(data)
+    if not isinstance(data, str):
+        return None
+
+    raw_data = data.partition(",")[2] if data.startswith("data:") else data
+    try:
+        return base64.b64decode(raw_data, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+
+
+def _process_chat_completion_audio(audio: Any, *, audio_format: str | None = None) -> Any:
+    if not isinstance(audio, dict):
+        return audio
+
+    processed_audio = {key: value for key, value in audio.items() if key not in {"data", "_decoded_data"}}
+    audio_data = audio.get("_decoded_data", audio.get("data"))
+    if audio_data is None:
+        return processed_audio
+
+    resolved = _materialize_attachment(
+        audio_data,
+        mime_type=_infer_audio_mime_type(None, response_format=audio_format),
+        prefix="generated_audio",
+    )
+    if resolved is None:
+        processed_audio["data"] = audio.get("data", audio_data)
+        return processed_audio
+
+    processed_audio.update(
+        {
+            "mime_type": resolved.mime_type,
+            "audio_size_bytes": len(resolved.attachment.data),
+            **resolved.multimodal_part_payload,
+        }
+    )
+    return processed_audio
+
+
+def _process_attachments_in_chat_output(output_data: Any, *, audio_format: str | None = None) -> Any:
+    if isinstance(output_data, list):
+        return [_process_attachments_in_chat_output(item, audio_format=audio_format) for item in output_data]
+
+    if isinstance(output_data, dict):
+        processed = {}
+        for key, value in output_data.items():
+            if key == "audio" and isinstance(value, dict):
+                processed[key] = _process_chat_completion_audio(value, audio_format=audio_format)
+            else:
+                processed[key] = _process_attachments_in_chat_output(value, audio_format=audio_format)
+        return processed
+
+    return output_data
 
 
 def _is_async_callable(fn: Any) -> bool:
@@ -332,6 +407,7 @@ class ChatCompletionWrapper:
 
     def create(self, *args: Any, **kwargs: Any) -> Any:
         raw_requested = _raw_response_requested(kwargs)
+        audio_format = _get_requested_audio_format(kwargs)
         params = self._parse_params(kwargs)
         stream = kwargs.get("stream", False)
 
@@ -365,7 +441,7 @@ class ChatCompletionWrapper:
                             all_results.append(_try_to_dict(item))
                             yield item
 
-                        span.log(**self._postprocess_streaming_results(all_results))
+                        span.log(**self._postprocess_streaming_results(all_results, audio_format=audio_format))
                     finally:
                         span.end()
 
@@ -379,7 +455,7 @@ class ChatCompletionWrapper:
                 metrics["time_to_first_token"] = time.time() - start
                 span.log(
                     metrics=metrics,
-                    output=log_response["choices"],
+                    output=_process_attachments_in_chat_output(log_response["choices"], audio_format=audio_format),
                 )
                 return create_response if (raw_requested and hasattr(create_response, "parse")) else raw_response
         finally:
@@ -388,6 +464,7 @@ class ChatCompletionWrapper:
 
     async def acreate(self, *args: Any, **kwargs: Any) -> Any:
         raw_requested = _raw_response_requested(kwargs)
+        audio_format = _get_requested_audio_format(kwargs)
         params = self._parse_params(kwargs)
         stream = kwargs.get("stream", False)
 
@@ -423,7 +500,7 @@ class ChatCompletionWrapper:
                             all_results.append(_try_to_dict(item))
                             yield item
 
-                        span.log(**self._postprocess_streaming_results(all_results))
+                        span.log(**self._postprocess_streaming_results(all_results, audio_format=audio_format))
                     finally:
                         span.end()
 
@@ -438,7 +515,7 @@ class ChatCompletionWrapper:
                 metrics["time_to_first_token"] = time.time() - start
                 span.log(
                     metrics=metrics,
-                    output=log_response["choices"],
+                    output=_process_attachments_in_chat_output(log_response["choices"], audio_format=audio_format),
                 )
                 return create_response if (raw_requested and hasattr(create_response, "parse")) else raw_response
         finally:
@@ -466,9 +543,16 @@ class ChatCompletionWrapper:
         )
 
     @classmethod
-    def _postprocess_streaming_results(cls, all_results: list[dict[str, Any]]) -> dict[str, Any]:
+    def _postprocess_streaming_results(
+        cls,
+        all_results: list[dict[str, Any]],
+        *,
+        audio_format: str | None = None,
+    ) -> dict[str, Any]:
         role = None
         content = None
+        refusal = None
+        audio: dict[str, Any] | None = None
         tool_calls: list[Any] | None = None
         finish_reason = None
         logprobs_content: list[Any] | None = None
@@ -515,6 +599,28 @@ class ChatCompletionWrapper:
             if delta.get("content") is not None:
                 content = (content or "") + delta.get("content")
 
+            if delta.get("refusal") is not None:
+                refusal = (refusal or "") + delta.get("refusal")
+
+            delta_audio = delta.get("audio")
+            if isinstance(delta_audio, dict):
+                if audio is None:
+                    audio = {}
+
+                if delta_audio.get("id") is not None:
+                    audio["id"] = delta_audio.get("id")
+                if delta_audio.get("transcript") is not None:
+                    audio["transcript"] = (audio.get("transcript") or "") + delta_audio.get("transcript")
+                if delta_audio.get("data") is not None:
+                    delta_audio_data = delta_audio.get("data")
+                    decoded_audio = _decode_chat_completion_audio_chunk(delta_audio_data)
+                    if decoded_audio is not None:
+                        audio["_decoded_data"] = (audio.get("_decoded_data") or b"") + decoded_audio
+                    else:
+                        audio["data"] = (audio.get("data") or "") + delta_audio_data
+                if delta_audio.get("expires_at") is not None:
+                    audio["expires_at"] = delta_audio.get("expires_at")
+
             if delta.get("tool_calls") is not None:
                 delta_tool_calls = delta.get("tool_calls")
                 if not delta_tool_calls:
@@ -543,6 +649,9 @@ class ChatCompletionWrapper:
                         # pylint: disable=unsubscriptable-object
                         tool_calls[-1]["function"]["arguments"] += args
 
+        processed_audio = (
+            _process_chat_completion_audio(audio, audio_format=audio_format) if audio is not None else None
+        )
         return {
             "metrics": metrics,
             "output": [
@@ -552,6 +661,8 @@ class ChatCompletionWrapper:
                         "role": role,
                         "content": content,
                         "tool_calls": tool_calls,
+                        **({"refusal": refusal} if refusal is not None else {}),
+                        **({"audio": processed_audio} if processed_audio is not None else {}),
                     },
                     "logprobs": (
                         {
@@ -629,6 +740,140 @@ class _RawResponseWithTracedStream(NamedWrapper):
         return self._traced_stream
 
 
+_RESPONSE_TOOL_ITEM_INPUT_KEYS = {
+    "function_call": ("arguments",),
+    "web_search_call": ("action",),
+    "file_search_call": ("queries",),
+    "code_interpreter_call": ("code", "container_id"),
+    "computer_call": ("action",),
+    "image_generation_call": (),
+    "mcp_call": ("arguments",),
+}
+
+
+def _maybe_parse_json_string(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+
+    stripped = value.strip()
+    if not stripped or stripped[0] not in "[{":
+        return value
+
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError:
+        return value
+
+
+def _serialize_response_output_items(value: Any) -> list[dict[str, Any]]:
+    serialized = _try_to_dict(value)
+    if serialized is None:
+        return []
+
+    items = serialized if isinstance(serialized, list) else [serialized]
+    serialized_items = []
+    for item in items:
+        item_dict = _try_to_dict(item)
+        if isinstance(item_dict, dict):
+            serialized_items.append(item_dict)
+    return serialized_items
+
+
+def _response_tool_span_name(item: dict[str, Any]) -> str:
+    if item.get("server_label") and item.get("name"):
+        return f"{item['server_label']}.{item['name']}"
+    if item.get("name"):
+        return str(item["name"])
+    return str(item.get("type") or "response_tool")
+
+
+def _response_tool_span_input(item: dict[str, Any]) -> Any:
+    input_keys = _RESPONSE_TOOL_ITEM_INPUT_KEYS.get(item.get("type"), ())
+    if not input_keys:
+        return None
+
+    input_data = clean_nones({key: _maybe_parse_json_string(item.get(key)) for key in input_keys})
+    if not input_data:
+        return None
+
+    if input_keys == ("arguments",):
+        return input_data["arguments"]
+    return input_data
+
+
+def _response_tool_span_output(item: dict[str, Any]) -> Any:
+    if item.get("type") == "function_call":
+        return None
+
+    excluded_keys = {
+        "id",
+        "type",
+        "name",
+        "call_id",
+        "server_label",
+        "error",
+        *(_RESPONSE_TOOL_ITEM_INPUT_KEYS.get(item.get("type"), ())),
+    }
+    output = clean_nones(
+        {
+            key: _maybe_parse_json_string(value) if key in {"output", "error"} else value
+            for key, value in item.items()
+            if key not in excluded_keys
+        }
+    )
+    return output or None
+
+
+def _response_tool_span_error(item: dict[str, Any]) -> Any:
+    error = item.get("error")
+    if error is None:
+        return None
+    parsed_error = _maybe_parse_json_string(error)
+    if isinstance(parsed_error, (dict, list)):
+        return parsed_error
+    return str(parsed_error)
+
+
+def _response_tool_span_metadata(item: dict[str, Any]) -> dict[str, Any] | None:
+    return (
+        clean_nones(
+            {
+                "tool_type": item.get("type"),
+                "tool_id": item.get("id"),
+                "call_id": item.get("call_id"),
+                "status": item.get("status"),
+                "server_label": item.get("server_label"),
+            }
+        )
+        or None
+    )
+
+
+def _log_response_tool_spans(output: Any, *, parent_export: str | None) -> None:
+    for item in _serialize_response_output_items(output):
+        if item.get("type") not in _RESPONSE_TOOL_ITEM_INPUT_KEYS:
+            continue
+
+        span_args = {
+            "name": _response_tool_span_name(item),
+            "type": SpanTypeAttribute.TOOL,
+            "input": _response_tool_span_input(item),
+            "metadata": _response_tool_span_metadata(item),
+        }
+        if parent_export is not None:
+            span_args["parent"] = parent_export
+
+        with start_span(**span_args) as tool_span:
+            error = _response_tool_span_error(item)
+            if error is not None:
+                tool_span.log(error=error)
+                continue
+
+            output_data = _response_tool_span_output(item)
+            if output_data is not None:
+                tool_span.log(output=output_data)
+
+
 class ResponseWrapper:
     def __init__(
         self,
@@ -675,7 +920,9 @@ class ResponseWrapper:
                             all_results.append(item)
                             yield item
 
-                        span.log(**self._postprocess_streaming_results(all_results))
+                        event_data = self._postprocess_streaming_results(all_results)
+                        span.log(**event_data)
+                        _log_response_tool_spans(event_data.get("output"), parent_export=span.export())
                     finally:
                         span.end()
 
@@ -690,6 +937,7 @@ class ResponseWrapper:
                     event_data["metrics"] = {}
                 event_data["metrics"]["time_to_first_token"] = time.time() - start
                 span.log(**event_data)
+                _log_response_tool_spans(event_data.get("output"), parent_export=span.export())
                 return create_response if (raw_requested and hasattr(create_response, "parse")) else raw_response
         finally:
             if should_end:
@@ -728,7 +976,9 @@ class ResponseWrapper:
                             all_results.append(item)
                             yield item
 
-                        span.log(**self._postprocess_streaming_results(all_results))
+                        event_data = self._postprocess_streaming_results(all_results)
+                        span.log(**event_data)
+                        _log_response_tool_spans(event_data.get("output"), parent_export=span.export())
                     finally:
                         span.end()
 
@@ -744,6 +994,7 @@ class ResponseWrapper:
                     event_data["metrics"] = {}
                 event_data["metrics"]["time_to_first_token"] = time.time() - start
                 span.log(**event_data)
+                _log_response_tool_spans(event_data.get("output"), parent_export=span.export())
                 return create_response if (raw_requested and hasattr(create_response, "parse")) else raw_response
         finally:
             if should_end:
@@ -883,20 +1134,20 @@ def _image_attachment_from_base64(
     *,
     output_format: Any,
     index: int,
-) -> tuple[Any | None, int | None, str | None]:
+) -> tuple[_ResolvedAttachment | None, int | None]:
     if not isinstance(data, str):
-        return None, None, None
+        return None, None
 
     extension = output_format if isinstance(output_format, str) and output_format else "png"
     mime_type = extension if "/" in extension else f"image/{extension}"
-    attachment = _attachment_from_base64_data(
+    resolved_attachment = _materialize_attachment(
         data,
-        mime_type,
-        filename=_attachment_filename_for_mime_type(mime_type, prefix=f"generated_image_{index}"),
+        mime_type=mime_type,
+        prefix=f"generated_image_{index}",
     )
-    if attachment is None:
-        return None, None, None
-    return attachment, len(attachment.data), mime_type
+    if resolved_attachment is None:
+        return None, None
+    return resolved_attachment, len(resolved_attachment.attachment.data)
 
 
 def _extract_images_output(response: dict[str, Any]) -> dict[str, Any]:
@@ -915,18 +1166,18 @@ def _extract_images_output(response: dict[str, Any]) -> dict[str, Any]:
         )
 
         if isinstance(image_dict.get("url"), str):
-            image_entry.update(_image_url_payload(image_dict["url"]))
+            image_entry["image_url"] = {"url": image_dict["url"]}
 
         b64_json = image_dict.get("b64_json")
-        attachment, image_size_bytes, mime_type = _image_attachment_from_base64(
+        resolved_attachment, image_size_bytes = _image_attachment_from_base64(
             b64_json,
             output_format=output_format,
             index=index,
         )
-        if attachment is not None:
-            image_entry.update(_image_url_payload(attachment))
+        if resolved_attachment is not None:
+            image_entry.update(resolved_attachment.multimodal_part_payload)
             image_entry["image_size_bytes"] = image_size_bytes
-            image_entry["mime_type"] = mime_type
+            image_entry["mime_type"] = resolved_attachment.mime_type
         elif isinstance(b64_json, str):
             image_entry["b64_json_present"] = True
 
@@ -1067,8 +1318,8 @@ class _ImageBaseWrapper(BaseWrapper):
         input_data = clean_nones(
             {
                 "prompt": prompt,
-                "image": _attachment_from_file_input(image),
-                "mask": _attachment_from_file_input(mask),
+                "image": _materialize_logged_file_input(image),
+                "mask": _materialize_logged_file_input(mask),
             }
         )
 
@@ -1126,7 +1377,7 @@ class SpeechWrapper(BaseWrapper):
         super().__init__(create_fn, acreate_fn, "Speech")
 
     def process_output(self, response: Any, span: Span):
-        span.log(output={"type": "audio"})
+        span.log(output=_extract_audio_output(response, prefix="generated_speech"))
 
 
 class _AudioFileWrapper(BaseWrapper):
@@ -1138,10 +1389,12 @@ class _AudioFileWrapper(BaseWrapper):
         params = prettify_params(params)
         # Remove the file object after prettifying — prettify_params already
         # made a copy so the original kwargs (used by the API call) are preserved.
-        params.pop("file", None)
+        file_input = _materialize_logged_file_input(params.pop("file", None))
+        input_data = {"file": file_input} if file_input is not None else None
         return merge_dicts(
             ret,
             {
+                "input": input_data,
                 "metadata": {**params, "provider": "openai"},
             },
         )

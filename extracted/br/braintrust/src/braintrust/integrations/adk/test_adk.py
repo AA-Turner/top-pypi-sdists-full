@@ -61,6 +61,17 @@ async def _create_runner(agent: Agent, *, app_name: str, user_id: str, session_i
     return Runner(agent=agent, app_name=app_name, session_service=session_service)
 
 
+def get_weather(location: str):
+    """Get the weather for a location."""
+    return {
+        "location": location,
+        "temperature": "72°F",
+        "condition": "sunny",
+        "humidity": "45%",
+        "wind": "5 mph NW",
+    }
+
+
 def _extract_text_parts(contents):
     texts = []
     for content in contents or []:
@@ -314,8 +325,9 @@ async def test_adk_document_inline_data_attachment_conversion(memory_logger):
     assert len(new_message["parts"]) == 2
 
     document_part = new_message["parts"][0]
-    assert "image_url" in document_part
-    attachment = document_part["image_url"]["url"]
+    assert "file" in document_part
+    assert document_part["file"]["filename"] == "file.pdf"
+    attachment = document_part["file"]["file_data"]
     assert isinstance(attachment, Attachment)
     assert attachment.reference["content_type"] == "application/pdf"
     assert attachment.reference["filename"] == "file.pdf"
@@ -329,24 +341,70 @@ async def test_adk_document_inline_data_attachment_conversion(memory_logger):
     llm_span = next(row for row in spans if row["span_attributes"]["type"] == "llm")
     llm_contents = llm_span["input"]["contents"]
     llm_document_part = llm_contents[0]["parts"][0]
-    assert isinstance(llm_document_part["image_url"]["url"], Attachment)
-    assert llm_document_part["image_url"]["url"].reference["content_type"] == "application/pdf"
+    assert isinstance(llm_document_part["file"]["file_data"], Attachment)
+    assert llm_document_part["file"]["file_data"].reference["content_type"] == "application/pdf"
+
+
+@pytest.mark.vcr
+def test_adk_sync_runner_run_does_not_duplicate_invocation_spans(memory_logger):
+    """Runner.run() should emit a single invocation span even though it delegates to run_async()."""
+    import asyncio
+
+    from braintrust.util import LazyValue
+
+    assert not memory_logger.pop()
+
+    agent = Agent(
+        name="weather_agent",
+        model="gemini-2.0-flash",
+        instruction="You are a helpful weather assistant. Use the get_weather tool to answer questions about weather.",
+        tools=[get_weather],
+    )
+
+    app_name = "weather_app"
+    user_id = "test-user"
+    session_id = "test-session"
+
+    runner = asyncio.run(_create_runner(agent, app_name=app_name, user_id=user_id, session_id=session_id))
+    user_msg = types.Content(role="user", parts=[types.Part(text="What's the weather in San Francisco?")])
+
+    # The memory_logger fixture overrides via thread-local (_override_bg_logger),
+    # but Runner.run() dispatches to a background thread where that's invisible.
+    # We must also set _global_bg_logger so spans emitted on the worker thread
+    # are captured.
+    original_global_bg_logger = logger._state._global_bg_logger
+    logger._state._global_bg_logger = LazyValue(lambda: memory_logger, use_mutex=False)
+    try:
+        responses = [
+            event
+            for event in runner.run(user_id=user_id, session_id=session_id, new_message=user_msg)
+            if event.is_final_response()
+        ]
+    finally:
+        logger._state._global_bg_logger = original_global_bg_logger
+
+    assert responses
+    spans = memory_logger.pop()
+
+    invocation_spans = [row for row in spans if row["span_attributes"]["name"] == f"invocation [{app_name}]"]
+    assert len(invocation_spans) == 1, (
+        f"expected exactly one invocation span for Runner.run(), got {len(invocation_spans)}: "
+        f"{[span['span_id'] for span in invocation_spans]}"
+    )
+
+    invocation_span = invocation_spans[0]
+    agent_spans = [row for row in spans if row["span_attributes"]["name"] == "agent_run [weather_agent]"]
+    assert len(agent_spans) == 1
+    assert invocation_span["span_id"] in agent_spans[0].get("span_parents", []), (
+        f"agent span should be parented to the single sync invocation span {invocation_span['span_id']}, "
+        f"got parents {agent_spans[0].get('span_parents')}"
+    )
 
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
 async def test_adk_braintrust_integration(memory_logger):
     assert not memory_logger.pop()
-
-    def get_weather(location: str):
-        """Get the weather for a location."""
-        return {
-            "location": location,
-            "temperature": "72°F",
-            "condition": "sunny",
-            "humidity": "45%",
-            "wind": "5 mph NW",
-        }
 
     agent = Agent(
         name="weather_agent",
@@ -592,7 +650,7 @@ def test_serialize_content_with_binary_data():
     assert isinstance(attachment, Attachment), "Should be an Attachment object"
     assert attachment.reference["type"] == "braintrust_attachment"
     assert attachment.reference["content_type"] == "image/png"
-    assert attachment.reference["filename"] == "file.png"
+    assert attachment.reference["filename"] == "image.png"
     assert "key" in attachment.reference
 
     # Test serializing a Part with text
@@ -740,7 +798,7 @@ async def test_adk_binary_data_attachment_conversion(memory_logger):
     assert "filename" in ref, "Attachment reference should have a filename"
     assert "content_type" in ref, "Attachment reference should have a content_type"
     assert ref["content_type"] == "image/png", "Content type should be image/png"
-    assert ref["filename"] == "file.png", "Filename should be file.png"
+    assert ref["filename"] == "image.png", "Filename should be image.png"
 
     # Second part should be the text
     text_part = new_message["parts"][1]

@@ -1,9 +1,10 @@
 import asyncio
+import os
 import time
 
 import litellm
 import pytest
-from braintrust import logger
+from braintrust import Attachment, logger
 from braintrust.integrations.litellm import patch_litellm
 from braintrust.test_helpers import assert_dict_matches, init_test_logger
 from braintrust.wrappers.test_utils import assert_metrics_are_valid, verify_autoinstrument_script
@@ -14,6 +15,16 @@ PROJECT_NAME = "test-project-litellm-py-tracing"
 TEST_MODEL = "gpt-4o-mini"  # cheapest model for tests
 TEST_PROMPT = "What's 12 + 12?"
 TEST_SYSTEM_PROMPT = "You are a helpful assistant that only responds with numbers."
+TEST_AUDIO_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "fixtures", "test_audio.wav")
+
+
+def _assert_speech_output_attachment(span) -> None:
+    assert span["output"]["type"] == "audio"
+    assert span["output"]["audio_size_bytes"] > 0
+    attachment = span["output"]["file"]["file_data"]
+    assert isinstance(attachment, Attachment)
+    assert attachment.reference["content_type"].startswith("audio/")
+    assert attachment.reference["filename"].startswith("generated_speech")
 
 
 @pytest.fixture(autouse=True)
@@ -275,6 +286,65 @@ def test_litellm_moderation(memory_logger):
 
 
 @pytest.mark.vcr
+def test_litellm_image_generation(memory_logger):
+    assert not memory_logger.pop()
+
+    prompt = "A tiny red square on a white background"
+
+    response = litellm.image_generation(
+        model="dall-e-2",
+        prompt=prompt,
+        size="256x256",
+        response_format="url",
+    )
+
+    assert response
+    assert response.data
+    assert response.data[0].url
+
+    spans = memory_logger.pop()
+    assert len(spans) == 1
+    span = spans[0]
+    assert span["metadata"]["model"] == "dall-e-2"
+    assert span["metadata"]["provider"] == "litellm"
+    assert span["metadata"]["response_format"] == "url"
+    assert span["input"] == prompt
+    assert span["output"]["images_count"] == 1
+    assert span["output"]["images"][0]["image_url"]["url"].startswith("https://")
+    assert span["metrics"]["duration"] >= 0
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_litellm_aimage_generation(memory_logger):
+    assert not memory_logger.pop()
+
+    prompt = "A tiny blue square on a white background"
+
+    response = await litellm.aimage_generation(
+        model="dall-e-2",
+        prompt=prompt,
+        size="256x256",
+        response_format="url",
+    )
+
+    assert response
+    assert response.data
+    assert response.data[0].url
+
+    spans = memory_logger.pop()
+    assert len(spans) == 1
+    span = spans[0]
+    assert span["metadata"]["model"] == "dall-e-2"
+    assert span["metadata"]["provider"] == "litellm"
+    assert span["metadata"]["response_format"] == "url"
+    assert span["input"] == prompt
+    assert span["output"]["images_count"] == 1
+    assert span["output"]["images"][0]["image_url"]["url"].startswith("https://")
+    assert span["metrics"]["duration"] >= 0
+
+
+@pytest.mark.vcr
 def test_litellm_completion_with_system_prompt(memory_logger):
     assert not memory_logger.pop()
 
@@ -296,6 +366,100 @@ def test_litellm_completion_with_system_prompt(memory_logger):
     assert inputs[0]["content"] == TEST_SYSTEM_PROMPT
     assert inputs[1]["role"] == "user"
     assert inputs[1]["content"] == TEST_PROMPT
+
+
+@pytest.mark.vcr
+def test_litellm_transcription(memory_logger):
+    assert not memory_logger.pop()
+
+    with open(TEST_AUDIO_FILE, "rb") as f:
+        response = litellm.transcription(model="whisper-1", file=f)
+
+    assert response
+    assert response.text == "you"
+
+    spans = memory_logger.pop()
+    assert len(spans) == 1
+    span = spans[0]
+    assert span["metadata"]["model"] == "whisper-1"
+    assert span["metadata"]["provider"] == "litellm"
+    assert isinstance(span["input"]["file"], Attachment)
+    assert span["input"]["file"].reference["filename"] == "test_audio.wav"
+    assert span["input"]["file"].reference["content_type"] in ("audio/x-wav", "audio/wav")  # OS-dependent
+    assert span["output"] == "you"
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_litellm_atranscription(memory_logger):
+    assert not memory_logger.pop()
+
+    with open(TEST_AUDIO_FILE, "rb") as f:
+        response = await litellm.atranscription(model="whisper-1", file=f)
+
+    assert response
+    assert response.text == "you"
+
+    spans = memory_logger.pop()
+    assert len(spans) == 1
+    span = spans[0]
+    assert span["metadata"]["model"] == "whisper-1"
+    assert span["metadata"]["provider"] == "litellm"
+    assert isinstance(span["input"]["file"], Attachment)
+    assert span["input"]["file"].reference["filename"] == "test_audio.wav"
+    assert span["input"]["file"].reference["content_type"] in ("audio/x-wav", "audio/wav")  # OS-dependent
+    assert span["output"] == "you"
+
+
+@pytest.mark.vcr
+def test_litellm_speech(memory_logger):
+    assert not memory_logger.pop()
+
+    response = litellm.speech(
+        model="tts-1",
+        voice="alloy",
+        input="Hello, this is a test.",
+        response_format="mp3",
+    )
+
+    assert response
+    assert response.content
+
+    spans = memory_logger.pop()
+    assert len(spans) == 1
+    span = spans[0]
+    assert span["metadata"]["model"] == "tts-1"
+    assert span["metadata"]["voice"] == "alloy"
+    assert span["metadata"]["response_format"] == "mp3"
+    assert span["metadata"]["provider"] == "litellm"
+    assert span["input"] == "Hello, this is a test."
+    _assert_speech_output_attachment(span)
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_litellm_aspeech(memory_logger):
+    assert not memory_logger.pop()
+
+    response = await litellm.aspeech(
+        model="tts-1",
+        voice="alloy",
+        input="Hello, this is a test.",
+        response_format="mp3",
+    )
+
+    assert response
+    assert response.content
+
+    spans = memory_logger.pop()
+    assert len(spans) == 1
+    span = spans[0]
+    assert span["metadata"]["model"] == "tts-1"
+    assert span["metadata"]["voice"] == "alloy"
+    assert span["metadata"]["response_format"] == "mp3"
+    assert span["metadata"]["provider"] == "litellm"
+    assert span["input"] == "Hello, this is a test."
+    _assert_speech_output_attachment(span)
 
 
 @pytest.mark.vcr

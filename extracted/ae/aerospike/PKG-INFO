@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aerospike
-Version: 19.1.0
+Version: 19.2.0
 Summary: Aerospike Client Library for Python
 Author-email: "Aerospike, Inc." <info@aerospike.com>
 License: Apache Software License

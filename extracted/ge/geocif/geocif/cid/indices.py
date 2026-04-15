@@ -330,8 +330,7 @@ def compute_indices(
         ds = icclim.index(**kwargs)
     except Exception as e:
         logger.error(
-            "Error computing %s for %s to %s: %s",
-            index_name, start_tr, end_tr, e
+            f"Error computing {index_name} for {start_tr} to {end_tr}: {e}"
         )
 
     return ds
@@ -500,7 +499,7 @@ class CIDs:
         try:
             df = pd.read_csv(self.file_path)
         except FileNotFoundError:
-            logger.error("File not found: %s", self.file_path)
+            logger.error(f"File not found: {self.file_path}")
             return pd.DataFrame()
 
         # Clean up columns, rename, unify climate vars, etc.
@@ -599,7 +598,7 @@ class CIDs:
                     self._append_csv(df_result)
                     regions_written += 1
             except Exception as e:
-                logger.error("Error in process_group for %s: %s", key, e)
+                logger.error(f"Error in process_group for {key}: {e}")
 
         return regions_written
 
@@ -764,7 +763,7 @@ class CIDs:
                     )
                 except Exception as e:
                     logger.error(
-                        "Error computing %s for %s: %s", index_name, key, e
+                        f"Error computing {index_name} for {key}: {e}"
                     )
                     continue
 
@@ -934,7 +933,7 @@ class CIDs:
             elif "PRECIP" in iname.upper():
                 col_name = "pr"
             else:
-                logger.warning("Unrecognized EO index name: %s", iname)
+                logger.warning(f"Unrecognized EO index name: {iname}")
                 continue
 
             if col_name not in df_time_period.columns:
@@ -1066,7 +1065,7 @@ def _run_one_year(obj: "CIDs") -> None:
     obj.df_harvest_year = obj.filter_data_for_harvest_year()
     if obj.df_harvest_year.empty:
         logger.warning(
-            "No data for harvest year %s. Skipping.", obj.harvest_year
+            f"No data for harvest year {obj.harvest_year}. Skipping."
         )
         return
 
@@ -1087,10 +1086,10 @@ def _run_one_year(obj: "CIDs") -> None:
 
     regions_written = obj.process_data_by_region_and_stage()
     if regions_written:
-        logger.info("Saved CID results to %s (%d regions)", out_path, regions_written)
+        logger.info(f"Saved CID results to {out_path} ({regions_written} regions)")
     else:
         logger.warning(
-            "No results produced for %s year %s", obj.file_name, obj.harvest_year
+            f"No results produced for {obj.file_name} year {obj.harvest_year}"
         )
 
 
@@ -1134,7 +1133,7 @@ def process_task(args: ProcessTaskArgs) -> tuple:
         try:
             _preprocess_cache[file_key] = obj_tmp.preprocess_input_df(args.vi_var)
         except Exception as e:
-            logger.error("preprocess_input_df failed for %s: %s", args.file_path, e)
+            logger.error(f"preprocess_input_df failed for {args.file_path}: {e}")
             return ("", pd.DataFrame(), task_desc)
 
     df_country_crop = _preprocess_cache[file_key]
@@ -1171,8 +1170,9 @@ def process_task(args: ProcessTaskArgs) -> tuple:
     try:
         df_result = obj.process_group(df_group, args.region)
     except Exception as e:
-        logger.error("Error in process_task for %s yr %s rgn %s: %s",
-                     args.file_name, args.year, adm1, e)
+        logger.error(
+            f"Error in process_task for {args.file_name} yr {args.year} rgn {adm1}: {e}"
+        )
         return ("", pd.DataFrame(), task_desc)
 
     return (str(obj._output_path()), df_result, task_desc)
@@ -1220,10 +1220,10 @@ def process_file(row) -> None:
     try:
         df_country_crop = _build_cids(years[0]).preprocess_input_df(args.vi_var)
     except Exception as e:
-        logger.error("preprocess_input_df failed for %s: %s", args.file_path, e)
+        logger.error(f"preprocess_input_df failed for {args.file_path}: {e}")
         return
     if df_country_crop.empty:
-        logger.warning("No data after preprocessing. Skipping %s.", args.file_name)
+        logger.warning(f"No data after preprocessing. Skipping {args.file_name}.")
         return
 
     show_progress = args.show_progress
@@ -1243,7 +1243,7 @@ def process_file(row) -> None:
             _run_one_year(obj)
         except Exception as e:
             logger.error(
-                "Error in process_file for %s year %s: %s", args.file_path, year, e
+                f"Error in process_file for {args.file_path} year {year}: {e}"
             )
 
 

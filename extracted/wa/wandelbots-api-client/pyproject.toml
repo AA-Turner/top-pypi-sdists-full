@@ -1,6 +1,6 @@
 [project]
 name = "wandelbots_api_client"
-version = "26.2.0"
+version = "26.3.0"
 description = "Wandelbots Python Client: Interact with robots in an easy and intuitive way. "
 authors = [{ name="Copyright (c) 2025 Wandelbots GmbH", email="contact@wandelbots.com" }]
 license = "Apache-2.0"
@@ -33,21 +33,20 @@ dependencies = [
   "pydantic[email]",
 ]
 
-[tool.setuptools.package-data]
-wandelbots_api_client = ["py.typed"]
-
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-    "pytest>=7.2.1",
-    "tox>=3.9.0",
-    "flake8>=4.0.0",
-    "types-python-dateutil>=2.8.19.14",
-    "mypy==1.4.1"
+  "pytest>=7.2.1",
+  "types-python-dateutil>=2.8.19.14",
+  "mypy>=1.4.1"
 ]
 
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.10.9,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+module-name = "wandelbots_api_client"
 
 [tool.pylint.'MESSAGES CONTROL']
 extension-pkg-whitelist = "pydantic"
@@ -56,8 +55,9 @@ extension-pkg-whitelist = "pydantic"
 files = [
   "wandelbots_api_client",
   #"test",  # auto-generated tests
-  "tests", # hand-written tests
+  #"tests", # hand-written tests
 ]
+
 # TODO: enable "strict" once all these individual checks are passing
 # strict = true
 
@@ -68,7 +68,7 @@ warn_unused_ignores = true
 
 ## Getting these passing should be easy
 strict_equality = true
-strict_concatenate = true
+extra_checks = true
 
 ## Strongly recommend enabling this one as soon as you can
 check_untyped_defs = true
@@ -89,3 +89,7 @@ disallow_any_generics = true
 #
 ### This one can be tricky to get passing if you use a lot of untyped libraries
 #warn_return_any = true
+
+[[tool.mypy.overrides]]
+module = ["furl.*"]
+follow_untyped_imports = true

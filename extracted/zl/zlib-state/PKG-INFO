@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: zlib-state
-Version: 0.1.10
+Version: 0.1.12
 Summary: Low-level interface to the zlib library that enables capturing the decoding state
 Home-page: https://github.com/seanmacavaney/zlib-state
 Author: Sean MacAvaney
 Author-email: sean.macavaney@gmail.com
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.6
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: author

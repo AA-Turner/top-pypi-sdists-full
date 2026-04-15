@@ -12,7 +12,13 @@ import typing
 import pretend
 import pytest
 
-from packaging.version import InvalidVersion, Version, _VersionReplace, parse
+from packaging.version import (
+    InvalidVersion,
+    Version,
+    _BaseVersion,
+    _VersionReplace,
+    parse,
+)
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable
@@ -45,62 +51,121 @@ def test_parse_raises() -> None:
 # This list must be in the correct sorting order
 VERSIONS = [
     # Implicit epoch of 0
+    "1.0.dev0",
     "1.0.dev456",
+    "1.0.dev456+local",
+    "1.0a0",
+    "1.0a0.post0.dev0",
+    "1.0a0.post0",
+    "1.0a1.dev1",
+    "1.0a1.dev1+local",
     "1.0a1",
-    "1.0a2.dev456",
-    "1.0a12.dev456",
-    "1.0a12",
+    "1.0a1+local",
+    "1.0b0",
     "1.0b1.dev456",
     "1.0b2",
     "1.0b2.post345.dev456",
     "1.0b2.post345",
     "1.0b2-346",
-    "1.0c1.dev456",
+    "1.0rc0",
+    "1.0rc1.dev1",
     "1.0c1",
     "1.0rc2",
-    "1.0c3",
     "1.0",
+    "1.0.post0.dev0",
+    "1.0.post0",
     "1.0.post456.dev34",
     "1.0.post456",
+    "1.0.post456+local",
+    "1.0.1.dev1",
+    "1.0.1a1",
+    "1.0.1",
+    "1.0.1+local",
+    "1.0.1.post1",
     "1.1.dev1",
-    "1.2+123abc",
-    "1.2+123abc456",
+    "1.2+a",
     "1.2+abc",
-    "1.2+abc123",
-    "1.2+abc123def",
-    "1.2+1234.abc",
+    "1.2+abcdef",
+    "1.2+def",
+    "1.2+0",
+    "1.2+1",
+    "1.2+1.abc",
+    "1.2+1.1",
+    "1.2+1.1.0",
+    "1.2+2",
+    "1.2+123",
     "1.2+123456",
     "1.2.r32+123456",
     "1.2.rev33+123456",
     # Explicit epoch of 1
+    "1!1.0.dev0",
     "1!1.0.dev456",
+    "1!1.0.dev456+local",
+    "1!1.0a0",
+    "1!1.0a0.post0.dev0",
+    "1!1.0a0.post0",
+    "1!1.0a1.dev1",
+    "1!1.0a1.dev1+local",
     "1!1.0a1",
-    "1!1.0a2.dev456",
-    "1!1.0a12.dev456",
-    "1!1.0a12",
+    "1!1.0a1+local",
+    "1!1.0b0",
     "1!1.0b1.dev456",
     "1!1.0b2",
     "1!1.0b2.post345.dev456",
     "1!1.0b2.post345",
     "1!1.0b2-346",
-    "1!1.0c1.dev456",
+    "1!1.0rc0",
+    "1!1.0rc1.dev1",
     "1!1.0c1",
     "1!1.0rc2",
-    "1!1.0c3",
     "1!1.0",
+    "1!1.0.post0.dev0",
+    "1!1.0.post0",
     "1!1.0.post456.dev34",
     "1!1.0.post456",
+    "1!1.0.post456+local",
+    "1!1.0.1.dev1",
+    "1!1.0.1a1",
+    "1!1.0.1",
+    "1!1.0.1+local",
+    "1!1.0.1.post1",
     "1!1.1.dev1",
-    "1!1.2+123abc",
-    "1!1.2+123abc456",
+    "1!1.2+a",
     "1!1.2+abc",
-    "1!1.2+abc123",
-    "1!1.2+abc123def",
-    "1!1.2+1234.abc",
+    "1!1.2+abcdef",
+    "1!1.2+def",
+    "1!1.2+0",
+    "1!1.2+1",
+    "1!1.2+1.abc",
+    "1!1.2+1.1",
+    "1!1.2+1.1.0",
+    "1!1.2+2",
+    "1!1.2+123",
     "1!1.2+123456",
     "1!1.2.r32+123456",
     "1!1.2.rev33+123456",
 ]
+
+
+# Simple _BaseVersion subclass for testing comparison with non-Version types
+class SimpleVersion(_BaseVersion):
+    """A simple _BaseVersion subclass for testing cross-type comparisons."""
+
+    def __init__(self, key: typing.Any) -> None:  # noqa: ANN401
+        # If key is a string, parse it as a version to create a compatible key
+        if isinstance(key, str):
+            parsed = Version(key)
+            self._key_tuple = parsed._key
+        else:
+            self._key_tuple = key
+
+    @property
+    def _key(self) -> typing.Any:  # noqa: ANN401
+        return self._key_tuple
+
+    @_key.setter
+    def _key(self, value: typing.Any) -> None:  # noqa: ANN401
+        self._key_tuple = value
 
 
 class TestVersion:
@@ -123,11 +188,52 @@ class TestVersion:
             "1.0+_foobar",
             "1.0+foo&asd",
             "1.0+1+1",
+            # Spaces in versions are also invalid
+            "1. 0",
+            "1 .0",
+            "1. 0a1",
+            "1 .0a1",
+            "1.0 a1",
+            "1.0a 1",
+            # Versions do need to be standard numbers
+            "٠١٢.٣٤٥.٦٧٨٩",
+            # Invalid versions that trigger the fast path (digits/dots only)
+            ".",
+            "..",
+            "1..0",
+            "1.0.",
+            ".1.0",
+            "1..2.3",
+            # Local version which includes a non-ASCII letter that matches
+            # regex '[a-z]' when re.IGNORECASE is in force and re.ASCII is not
+            "1.0+\u0130",
         ],
     )
     def test_invalid_versions(self, version: str) -> None:
         with pytest.raises(InvalidVersion):
             Version(version)
+
+    @pytest.mark.skipif(
+        not hasattr(sys, "get_int_max_str_digits"),
+        reason="requires int max str digits limit",
+    )
+    @pytest.mark.parametrize(
+        "version",
+        [
+            # Simple path (digits only)
+            "1" * 5000,
+            # Regex path (has pre-release)
+            "1.0a" + "1" * 5000,
+        ],
+    )
+    def test_oversized_version_raises_valueerror(self, version: str) -> None:
+        old = sys.get_int_max_str_digits()
+        sys.set_int_max_str_digits(4300)
+        try:
+            with pytest.raises(ValueError, match="Exceeds the limit"):
+                Version(version)
+        finally:
+            sys.set_int_max_str_digits(old)
 
     @pytest.mark.parametrize(
         ("version", "normalized"),
@@ -241,6 +347,8 @@ class TestVersion:
             # Various other normalizations
             ("v1.0", "1.0"),
             ("   v1.0\t\n", "1.0"),
+            # Non-ASCII whitespace
+            ("\N{NARROW NO-BREAK SPACE}1.0\t\N{PARAGRAPH SEPARATOR}\n ", "1.0"),
         ],
     )
     def test_normalized_versions(self, version: str, normalized: str) -> None:
@@ -308,6 +416,12 @@ class TestVersion:
     @pytest.mark.parametrize("version", VERSIONS)
     def test_version_hash(self, version: str) -> None:
         assert hash(Version(version)) == hash(Version(version))
+
+    def test_version_hash_with_warm_key_cache(self) -> None:
+        v = Version("1.0")
+        # Populate _key_cache via comparison before hashing
+        assert v > Version("0.9")
+        assert hash(v) == hash(Version("1.0"))
 
     @pytest.mark.parametrize(
         ("version", "public"),
@@ -784,6 +898,76 @@ class TestVersion:
 
         assert getattr(operator, op)(Version("1"), other) is expected
 
+    @pytest.mark.parametrize(
+        "op", ["__lt__", "__le__", "__eq__", "__ge__", "__gt__", "__ne__"]
+    )
+    def test_base_version_notimplemented_with_non_base_version(self, op: str) -> None:
+        """Test _BaseVersion returns NotImplemented with non-_BaseVersion."""
+        v = SimpleVersion("1.0")
+        assert getattr(v, op)(1) is NotImplemented
+
+    def test_base_version_hash(self) -> None:
+        """Test that _BaseVersion hash works"""
+        v = SimpleVersion("1.0")
+        assert isinstance(hash(v), int)
+
+    def test_base_version_ne_with_base_version(self) -> None:
+        """Test _BaseVersion.__ne__ with another _BaseVersion."""
+        v1 = SimpleVersion("1.0")
+        v2 = SimpleVersion("2.0")
+        assert v1 != v2
+
+    def test_version_compare_with_base_version_subclass(self) -> None:
+        """Test Version comparison with another _BaseVersion subclass"""
+        v1 = Version("1.0")
+        v2 = SimpleVersion("1.0")
+
+        # All comparisons should work with compatible keys
+        assert v1 == v2
+        assert v1 <= v2
+        assert v1 >= v2
+        assert v1 == v2
+        assert not (v1 < v2)
+        assert not (v1 > v2)
+
+        # Test with different versions to exercise != path
+        v3 = Version("1.0")
+        v4 = SimpleVersion("2.0")
+        assert v3 != v4
+
+    def test_version_ne_with_uncached_keys(self) -> None:
+        """Test Version.__ne__ populates cache when comparing with another Version"""
+        v1 = Version("1.0")
+        v2 = Version("2.0")
+
+        # Test with both caches None
+        result = v1 != v2
+        assert result is True
+
+        # Test with v1 cached, v3 uncached
+        v3 = Version("1.5")
+        result = v1 != v3
+        assert result is True
+
+        # Test with v3 cached, v4 uncached (the reverse case)
+        v4 = Version("1.2")
+        result = v4 != v3
+        assert result is True
+
+    def test_version_le_with_uncached_keys(self) -> None:
+        """Test Version.__le__ populates cache when comparing with another Version"""
+        v1 = Version("1.0")
+        v2 = Version("2.0")
+
+        # Test <= with both caches None
+        result = v1 <= v2
+        assert result is True
+
+        # Test with v1 cached (from above), v3 uncached
+        v3 = Version("1.5")
+        result = v1 <= v3
+        assert result is True
+
     def test_major_version(self) -> None:
         assert Version("2.1.0").major == 2
 
@@ -826,7 +1010,8 @@ class TestVersion:
     def test_replace_pre_alpha(self) -> None:
         v = Version("1.2.3")
         assert str(replace(v, pre=("a", 1))) == "1.2.3a1"
-        assert str(replace(v, pre=("a", 0))) == "1.2.3a0"
+        assert str(replace(v, pre=("A", 0))) == "1.2.3a0"
+        assert str(replace(v, pre=("Alpha", 2))) == "1.2.3a2"
 
     def test_replace_pre_alpha_none(self) -> None:
         v = Version("1.2.3a1")
@@ -836,6 +1021,7 @@ class TestVersion:
         v = Version("1.2.3")
         assert str(replace(v, pre=("b", 1))) == "1.2.3b1"
         assert str(replace(v, pre=("b", 0))) == "1.2.3b0"
+        assert str(replace(v, pre=("bEta", 2))) == "1.2.3b2"
 
     def test_replace_pre_beta_none(self) -> None:
         v = Version("1.2.3b1")
@@ -966,7 +1152,7 @@ class TestVersion:
     def test_replace_invalid_pre_type(self) -> None:
         v = Version("1.2.3")
         with pytest.raises(InvalidVersion, match="pre must be a tuple"):
-            replace(v, pre=("x", 1))  # type: ignore[arg-type]
+            replace(v, pre=("x", 1))
 
     def test_replace_invalid_pre_format(self) -> None:
         v = Version("1.2.3")
@@ -1031,3 +1217,43 @@ def test_hatchling_usage__version() -> None:
     with pytest.warns(DeprecationWarning, match="is private"):
         reset_version_parts(v, post=("post", 1))
     assert v == Version("2.3.4.post1")
+
+
+@pytest.mark.parametrize(
+    ("args", "string"),
+    [
+        ({"release": (1, 2, 3)}, "1.2.3"),
+        ({"release": (1, 2, 3), "epoch": 2}, "2!1.2.3"),
+        ({"release": (1, 2, 3), "pre": ("b", 1)}, "1.2.3b1"),
+        ({"release": (1, 2, 3), "pre": ("B", 1)}, "1.2.3b1"),
+        ({"release": (1, 2, 3), "pre": ("beta", 1)}, "1.2.3b1"),
+        ({"release": (1, 2, 3), "post": 2}, "1.2.3post2"),
+        ({"release": (1, 2, 3), "dev": 3}, "1.2.3.dev3"),
+        ({"release": (1, 2, 3), "local": "abc"}, "1.2.3+abc"),
+        (
+            {
+                "release": (1, 2, 3),
+                "epoch": None,
+                "pre": None,
+                "post": None,
+                "dev": None,
+                "local": None,
+            },
+            "1.2.3",
+        ),
+        (
+            {
+                "release": (2, 3, 4),
+                "epoch": 1,
+                "pre": ("a", 5),
+                "post": 6,
+                "dev": 7,
+                "local": "zzz",
+            },
+            "1!2.3.4a5.post6.dev7+zzz",
+        ),
+    ],
+)
+def test_from_parts(args: dict[str, typing.Any], string: str) -> None:
+    v = Version.from_parts(**args)
+    assert v == Version(string)

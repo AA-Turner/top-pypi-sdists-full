@@ -225,7 +225,8 @@ class GrpcCheckpointer(BaseCheckpointSaver):
 
         response = await self._call("alist", _request)
         for proto_tuple in response.checkpoint_tuples:
-            yield ckpt_conv.checkpoint_tuple_from_proto(proto_tuple)
+            if (tup := ckpt_conv.checkpoint_tuple_from_proto(proto_tuple)) is not None:
+                yield tup
 
     def delete_thread(self, thread_id: str) -> None:
         self._run_sync(self.adelete_thread(thread_id))

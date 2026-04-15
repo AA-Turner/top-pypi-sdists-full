@@ -60,7 +60,7 @@ class WorldWorkspaceSpec(BaseModel):
     mount_path: str | None = None
     relative_path: str | None = None
     dvcignore: list[str] = Field(default_factory=list)
-    transport: Literal["nfs_kernel", "sshfs", "git"] | None = None
+    transport: Literal["nfs_kernel", "sshfs", "git", "rsync"] | None = None
     git_config: GitTransportConfig | None = None
     commit_strategy: Literal["manifest", "archive"] = "manifest"
     source_ref: str | None = None

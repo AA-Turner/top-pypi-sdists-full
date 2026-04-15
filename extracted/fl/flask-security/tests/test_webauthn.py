@@ -4,7 +4,7 @@ test_webauthn
 
 WebAuthn tests
 
-:copyright: (c) 2021-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2021-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 
 """
@@ -32,6 +32,7 @@ from tests.test_utils import (
     reset_fresh,
     setup_tf_sms,
     verify_token,
+    check_signals,
 )
 
 from flask_security import (
@@ -41,7 +42,7 @@ from flask_security import (
     wan_deleted,
 )
 
-# We can't/don't test the actual client-side javascript and browser APIs - so
+# We can't/don't test the actual client-side JavaScript and browser APIs - so
 # to create reproducible tests, use view_scaffold, set breakpoints in the views and
 # cut-and-paste the responses. That requires that 'challenge' and 'rp_origin' be
 # identical between view_scaffold and tests here.
@@ -156,7 +157,7 @@ REG_DATA_UH = {
         "Q6NTAwMSIsImNyb3NzT3JpZ2luIjpmYWxzZX0",
         "transports": ["nfc", "usb"],
     },
-    "extensions": '{"credProps":{"rk": true}}"',
+    "extensions": '{"credProps":{"rk": true}}',
 }
 SIGNIN_DATA_UH = {
     "id": "rHb1OXVM--dgGcWg0u3cfomyc-Tu4l4kK8GjVkS8bms-foXmBAlWHyTzuhgGgCnx",
@@ -569,7 +570,7 @@ def test_bad_data_register(app, client, get_message):
             data=dict(credential=json.dumps(bad_register)),
             follow_redirects=False,
         )
-        assert response.status_code == 302
+        assert response.status_code in [302, 303]
         assert "/wan-register" in response.location
     assert flashes[0]["category"] == "error"
     assert flashes[0]["message"].encode("utf-8") == get_message(
@@ -577,7 +578,7 @@ def test_bad_data_register(app, client, get_message):
     )
 
 
-def test_bad_data_signin(app, client, get_message):
+def test_bad_data_signin(app, client, get_message, signals):
     authenticate(client)
     register_options, response_url = _register_start_json(client, usage="first")
     response = client.post(response_url, json=dict(credential=json.dumps(REG_DATA1)))
@@ -615,6 +616,16 @@ def test_bad_data_signin(app, client, get_message):
     assert response.json["response"]["errors"][0].encode("utf-8") == get_message(
         "WEBAUTHN_NO_VERIFY", cause="Could not verify authentication signature"
     )
+    assert (
+        signals["user_failed_authn"][0]["request_endpoint"]
+        == "security.wan_signin_response"
+    )
+    assert signals["user_failed_authn"][0]["user"].email == "matt@lp.com"
+    assert signals["user_failed_authn"][0]["auth_type"] == "passkey"
+    assert not signals["user_failed_authn"][0]["tfa"]
+    check_signals(
+        signals, ["user_failed_authn", "wan_registered", "user_authenticated"]
+    )
 
 
 def test_delete(app, clients, get_message):
@@ -637,7 +648,7 @@ def test_delete(app, clients, get_message):
     # Make sure GET works - this is important if we get a freshness redirect when
     # attempting to delete - the verify endpoint will redirect back to here.
     response = clients.get("/wan-delete", follow_redirects=False)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
 
     """
     response = clients.post("/wan-delete")
@@ -675,13 +686,13 @@ def test_delete_json(app, clients, get_message):
 
     response = clients.post("/wan-delete", json=dict())
     assert response.status_code == 400
-    assert response.json["response"]["errors"][0].encode("utf=8") == get_message(
+    assert response.json["response"]["errors"][0].encode("utf-8") == get_message(
         "WEBAUTHN_NAME_REQUIRED"
     )
 
     response = clients.post("/wan-delete", json=dict(name="testr1"))
     assert response.status_code == 400
-    assert response.json["response"]["errors"][0].encode("utf=8") == get_message(
+    assert response.json["response"]["errors"][0].encode("utf-8") == get_message(
         "WEBAUTHN_NAME_NOT_FOUND", name="testr1"
     )
 
@@ -729,6 +740,37 @@ def test_disabled_account(app, client, get_message):
     )
 
 
+def _allowed(self, form_error):
+    if self.email == "gal@lp.com":
+        from flask import request
+
+        if request.endpoint != "security.login":
+            form_error.append("You are not allowed to do that")
+            return False
+    return True
+
+
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_allowed))
+def test_override_user_allowed(app, client, get_message):
+    authenticate(client, email="gal@lp.com")
+    register_options, response_url = _register_start_json(
+        client, name="testr3", usage="first"
+    )
+    response = client.post(response_url, json=dict(credential=json.dumps(REG_DATA1)))
+    logout(client)
+
+    signin_options, response_url, _ = _signin_start_json(client, "gal@lp.com")
+    response = client.post(
+        response_url,
+        json=dict(credential=json.dumps(SIGNIN_DATA1)),
+    )
+    assert response.status_code == 400
+    assert response.json["response"]["errors"] == ["You are not allowed to do that"]
+    assert response.json["response"]["field_errors"]["credential"] == [
+        "You are not allowed to do that"
+    ]
+
+
 def test_unk_credid(app, client, get_message):
     authenticate(client)
 
@@ -761,7 +803,7 @@ def test_unk_credid(app, client, get_message):
             data=dict(credential=json.dumps(bad_signin)),
             follow_redirects=False,
         )
-        assert response.status_code == 302
+        assert response.status_code in [302, 303]
         assert "/wan-signin" in response.location
     assert flashes[0]["category"] == "error"
     assert flashes[0]["message"].encode("utf-8") == get_message(
@@ -1333,7 +1375,7 @@ def test_verify_timeout(app, client, get_message):
     )
 
 
-def test_verify_validate_error(app, client, get_message):
+def test_verify_validate_error(app, client, get_message, signals):
     authenticate(client)
     register_options, response_url = _register_start_json(client, name="testr3")
     response = client.post(response_url, json=dict(credential=json.dumps(REG_DATA1)))
@@ -1357,11 +1399,32 @@ def test_verify_validate_error(app, client, get_message):
             data=dict(credential=json.dumps(SIGNIN_DATA_UH)),
             follow_redirects=False,
         )
-        assert response.status_code == 302
+        assert response.status_code in [302, 303]
         assert "/wan-verify" in response.location
     assert flashes[0]["category"] == "error"
     assert flashes[0]["message"].encode("utf-8") == get_message(
         "WEBAUTHN_UNKNOWN_CREDENTIAL_ID"
+    )
+
+    # now muck with attestation - should get VERIFY ERROR
+    bad_signin = copy.deepcopy(SIGNIN_DATA1)
+    bad_signin["response"]["signature"] = bad_signin["response"]["signature"].replace(
+        "M", "N"
+    )
+    response = client.post(response_url, json=dict(credential=json.dumps(bad_signin)))
+    assert response.status_code == 400
+    assert response.json["response"]["errors"][0].encode("utf-8") == get_message(
+        "WEBAUTHN_NO_VERIFY", cause="Could not verify authentication signature"
+    )
+    assert (
+        signals["user_failed_authn"][0]["request_endpoint"]
+        == "security.wan_verify_response"
+    )
+    assert signals["user_failed_authn"][0]["user"].email == "matt@lp.com"
+    assert signals["user_failed_authn"][0]["auth_type"] == "passkey"
+    assert not signals["user_failed_authn"][0]["tfa"]
+    check_signals(
+        signals, ["user_failed_authn", "wan_registered", "user_authenticated"]
     )
 
 
@@ -1532,7 +1595,7 @@ def test_post_register_redirect(app, client, get_message):
         data=dict(credential=json.dumps(REG_DATA1)),
         follow_redirects=False,
     )
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert "/post_register" in response.location
 
 

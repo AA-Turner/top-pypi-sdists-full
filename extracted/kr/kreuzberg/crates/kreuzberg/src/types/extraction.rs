@@ -181,6 +181,17 @@ pub struct ExtractionResult {
     #[cfg_attr(feature = "api", schema(value_type = Option<serde_json::Value>))]
     pub code_intelligence: Option<tree_sitter_language_pack::ProcessResult>,
 
+    /// LLM token usage and cost data for all LLM calls made during this extraction.
+    ///
+    /// Contains one entry per LLM call. Multiple entries are produced when
+    /// VLM OCR, structured extraction, and/or LLM embeddings all run during
+    /// the same extraction.
+    ///
+    /// `None` when no LLM was used.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub llm_usage: Option<Vec<LlmUsage>>,
+
     /// Pre-rendered content in the requested output format.
     ///
     /// Populated during `derive_extraction_result` before tree derivation consumes
@@ -227,6 +238,36 @@ pub struct ProcessingWarning {
     /// Human-readable description of what went wrong.
     #[cfg_attr(feature = "api", schema(value_type = String))]
     pub message: Cow<'static, str>,
+}
+
+/// Token usage and cost data for a single LLM call made during extraction.
+///
+/// Populated when VLM OCR, structured extraction, or LLM-based embeddings
+/// are used. Multiple entries may be present when multiple LLM calls occur
+/// within one extraction (e.g. VLM OCR + structured extraction).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
+pub struct LlmUsage {
+    /// The LLM model identifier (e.g. "openai/gpt-4o", "anthropic/claude-sonnet-4-20250514").
+    pub model: String,
+    /// The pipeline stage that triggered this LLM call
+    /// (e.g. "vlm_ocr", "structured_extraction", "embeddings").
+    pub source: String,
+    /// Number of input/prompt tokens consumed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_tokens: Option<u64>,
+    /// Number of output/completion tokens generated.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_tokens: Option<u64>,
+    /// Total tokens (input + output).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_tokens: Option<u64>,
+    /// Estimated cost in USD based on the provider's published pricing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimated_cost: Option<f64>,
+    /// Why the model stopped generating (e.g. "stop", "length", "content_filter").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub finish_reason: Option<String>,
 }
 
 /// Semantic structural classification of a text chunk.

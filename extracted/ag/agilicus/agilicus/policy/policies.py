@@ -5,6 +5,7 @@ import os
 import time
 from ..input_helpers import (
     get_org_from_input_or_ctx,
+    update_org_from_input_or_ctx,
     model_from_dict,
     strip_none,
 )
@@ -24,10 +25,8 @@ from agilicus import (
     StandaloneRuleName,
     RuleAction,
     ResourceConfig,
-    RuleConfig,
     RulesConfig,
     RuleCondition,
-    RuleScopeEnum,
     HttpRuleCondition,
     EmptiableObjectType,
     TimeperiodPolicyTemplate,
@@ -45,7 +44,6 @@ from ..output import json as out_json
 from ..resources import query_resources
 from ..resources import reconcile_default_policy
 from .. import orgs
-from ..rules.rules import make_http_condition
 
 
 class InstanceAddInfo:
@@ -255,6 +253,43 @@ def add_default_to_resource_policies(
         )
 
 
+def update_resource_policy(
+    ctx,
+    instance_id,
+    org_id=None,
+    clear_default_actions=None,
+    default_action=None,
+):
+    token = context.get_token(ctx)
+    apiclient = context.get_apiclient(ctx, token)
+    kwargs = {}
+    update_org_from_input_or_ctx(kwargs, ctx, org_id=org_id)
+
+    policy = apiclient.policy_templates_api.get_policy_template_instance(
+        instance_id=instance_id, **kwargs
+    )
+    template_type = policy.spec.template.template_type
+    if template_type != "simple_resource":
+        raise TypeError(
+            f"instance {instance_id} is {template_type}; expected 'simple_resource'"
+        )
+
+    default_actions = None
+    if default_action and len(default_action) > 0:
+        default_actions = list(default_action)
+    elif clear_default_actions:
+        default_actions = []
+
+    if default_actions is not None:
+        policy.spec.template.default_actions = [
+            RuleAction(action=a) for a in default_actions
+        ]
+
+    return apiclient.policy_templates_api.replace_policy_template_instance(
+        instance_id=instance_id, policy_template_instance=policy
+    )
+
+
 def _dump_policy_template(ctx, policy, dump_dir):
     now = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     file_name = (
@@ -286,9 +321,7 @@ def _add_default_to_resource_policies(
             f"\t - {template.metadata.id}, res={spec.object_id}, name={spec.name}...",
             end="",
         )
-        should_migrate = add_default_rule(
-            spec.template.policy_structure, spec.template.rules, replace=replace
-        )
+        should_migrate = add_default_rule(spec.template, replace=replace)
         if not should_migrate:
             print(" [SKIPPED]")
             continue
@@ -322,7 +355,7 @@ def fetch_resource_rules(ctx, org_id=None, dump_dir=None, **kwargs):
         fetch_resource(ctx, res, dump_dir=dump_dir)
 
 
-def add_default_rule(policy_structures: list, rules: list, replace=False):
+def add_default_rule(template, replace=False):
     """
     Builds a default rule for the resource template. The rule matches only if the
     request is http (so we don't hit the network layer policy), and we insert it
@@ -330,54 +363,11 @@ def add_default_rule(policy_structures: list, rules: list, replace=False):
     action. Users may override the behaviour, since it is just a normal rule under
     their control.
     """
-    min_priority = min(
-        [structure.root_node.priority for structure in policy_structures], default=0
-    )
-    min_priority = min_priority - 1
+    if template.default_actions and not replace:
+        return False
 
-    default_rule = RuleConfig(
-        name="ag-default-rule",
-        scope=RuleScopeEnum("anyone"),
-        roles=[],
-        extended_condition=RuleCondition(
-            negated=False, condition=make_http_condition(path_regex="/", methods=["all"])
-        ),
-        comments="default fallthrough action",
-        actions=[RuleAction(action="no_permissions")],
-        priority=min_priority,
-    )
-
-    node = SimpleResourcePolicyTemplateStructureNode(
-        priority=min_priority,
-        rule_name=StandaloneRuleName(default_rule.name),
-        children=[],
-    )
-    default_struct = SimpleResourcePolicyTemplateStructure(
-        root_node=node,
-        name=StandaloneRuleName(default_rule.name),
-        children=[],
-    )
-
-    existing_rule_idx = -1
-    for idx, rule in enumerate(rules):
-        if rule.name == default_rule.name:
-            existing_rule_idx = idx
-            break
-
-    existing_node = list(
-        filter(lambda structure: structure.name == node.rule_name, policy_structures)
-    )
-    result = False
-    if existing_rule_idx < 0:
-        rules.append(default_rule)
-        result = True
-    elif replace:
-        rules[existing_rule_idx] = default_rule
-        result = True
-    if not existing_node:
-        policy_structures.append(default_struct)
-        result = True
-    return result
+    template.default_actions = [RuleAction(action="no_permissions")]
+    return True
 
 
 def migrate_resource(ctx, resource, dump_dir=None):
@@ -402,13 +392,13 @@ def migrate_resource(ctx, resource, dump_dir=None):
             )
         )
     new_rules = [_migrate_http_rule(rule) for rule in rules]
-    add_default_rule(policy_structures, new_rules)
 
     template = SimpleResourcePolicyTemplate(
         rules=new_rules,
         policy_structure=policy_structures,
         template_type="simple_resource",
     )
+    add_default_rule(template)
     instance_spec = PolicyTemplateInstanceSpec(
         org_id=resource.spec.org_id,
         template=template,

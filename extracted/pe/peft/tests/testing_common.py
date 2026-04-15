@@ -25,7 +25,6 @@ from operator import attrgetter
 
 import pytest
 import torch
-import transformers
 import yaml
 from diffusers import StableDiffusionPipeline
 from packaging import version
@@ -34,33 +33,32 @@ from safetensors.torch import save_file
 from peft import (
     AdaLoraConfig,
     BOFTConfig,
-    BoneConfig,
     CPTConfig,
-    DeloraConfig,
-    FourierFTConfig,
-    HRAConfig,
+    GraloraConfig,
     IA3Config,
+    LilyConfig,
     LNTuningConfig,
     LoHaConfig,
     LoKrConfig,
     LoraConfig,
-    MissConfig,
-    OFTConfig,
     OSFConfig,
     PeftModel,
-    PeftType,
     PrefixTuningConfig,
     PromptEncoderConfig,
     PromptLearningConfig,
     PromptTuningConfig,
-    RandLoraConfig,
+    PveraConfig,
+    RoadConfig,
     VBLoRAConfig,
     VeraConfig,
+    convert_to_lora,
     get_peft_model,
     get_peft_model_state_dict,
     inject_adapter_in_model,
     prepare_model_for_kbit_training,
+    set_peft_model_state_dict,
 )
+from peft.import_utils import is_transformers_ge_v5
 from peft.tuners._buffer_dict import BufferDict
 from peft.tuners.lora import LoraLayer
 from peft.tuners.tuners_utils import BaseTunerLayer
@@ -75,146 +73,36 @@ from peft.utils import (
 from .testing_utils import get_state_dict, hub_online_once
 
 
-CONFIG_TESTING_KWARGS = (
-    # IA³
-    {
-        "target_modules": None,
-        "feedforward_modules": None,
-    },
-    # LoRA
-    {
-        "r": 8,
-        "lora_alpha": 32,
-        "target_modules": None,
-        "lora_dropout": 0.05,
-        "bias": "none",
-    },
-    # prefix tuning
-    {
-        "num_virtual_tokens": 10,
-    },
-    # prompt encoder
-    {
-        "num_virtual_tokens": 10,
-        "encoder_hidden_size": 32,
-    },
-    # prompt tuning
-    {
-        "num_virtual_tokens": 10,
-    },
-    # AdaLoRA
-    {
-        "target_modules": None,
-        "total_step": 1,
-    },
-    # BOFT
-    {
-        "target_modules": None,
-    },
-    # VeRA
-    {
-        "r": 8,
-        "target_modules": None,
-        "vera_dropout": 0.05,
-        "projection_prng_key": 0xFF,
-        "d_initial": 0.1,
-        "save_projection": True,
-        "bias": "none",
-    },
-    # FourierFT
-    {
-        "n_frequency": 10,
-        "target_modules": None,
-    },
-    # HRA
-    {
-        "target_modules": None,
-    },
-    # VBLoRA
-    {"target_modules": None, "vblora_dropout": 0.05, "vector_length": 1, "num_vectors": 2},
-    # OFT
-    {
-        "target_modules": None,
-    },
-    # Bone
-    {
-        "target_modules": None,
-        "r": 2,
-    },
-    # MiSS
-    {
-        "target_modules": None,
-        "r": 2,
-    },
-    # LoRA + trainable_tokens
-    {
-        "r": 8,
-        "lora_alpha": 32,
-        "target_modules": None,
-        "lora_dropout": 0.05,
-        "bias": "none",
-        "trainable_token_indices": [0, 1, 3],
-    },
-    # RandLoRA
-    {
-        "r": 32,
-        "randlora_alpha": 64,
-        "target_modules": None,
-        "randlora_dropout": 0.05,
-        "projection_prng_key": 0xFF,
-        "save_projection": True,
-        "bias": "none",
-    },
-    # CPT tuninig
-    {
-        "cpt_token_ids": [0, 1, 2, 3, 4, 5, 6, 7],  # Example token IDs for testing
-        "cpt_mask": [1, 1, 1, 1, 1, 1, 1, 1],
-        "cpt_tokens_type_mask": [1, 2, 2, 2, 3, 3, 4, 4],
-    },
-    # DeLoRA
-    {
-        "r": 8,
-        "target_modules": None,
-        "bias": "none",
-    },
-)
-
-CLASSES_MAPPING = {
-    "ia3": (IA3Config, CONFIG_TESTING_KWARGS[0]),
-    "lora": (LoraConfig, CONFIG_TESTING_KWARGS[1]),
-    "prefix_tuning": (PrefixTuningConfig, CONFIG_TESTING_KWARGS[2]),
-    "prompt_encoder": (PromptEncoderConfig, CONFIG_TESTING_KWARGS[3]),
-    "prompt_tuning": (PromptTuningConfig, CONFIG_TESTING_KWARGS[4]),
-    "adalora": (AdaLoraConfig, CONFIG_TESTING_KWARGS[5]),
-    "boft": (BOFTConfig, CONFIG_TESTING_KWARGS[6]),
-    "vera": (VeraConfig, CONFIG_TESTING_KWARGS[7]),
-    "fourierft": (FourierFTConfig, CONFIG_TESTING_KWARGS[8]),
-    "hra": (HRAConfig, CONFIG_TESTING_KWARGS[9]),
-    "vblora": (VBLoRAConfig, CONFIG_TESTING_KWARGS[10]),
-    "oft": (OFTConfig, CONFIG_TESTING_KWARGS[11]),
-    "bone": (BoneConfig, CONFIG_TESTING_KWARGS[12]),
-    "miss": (MissConfig, CONFIG_TESTING_KWARGS[12]),
-    "lora+trainable_tokens": (LoraConfig, CONFIG_TESTING_KWARGS[13]),
-    "randlora": (RandLoraConfig, CONFIG_TESTING_KWARGS[14]),
-    "delora": (DeloraConfig, CONFIG_TESTING_KWARGS[17]),
-}
-
-DECODER_MODELS_EXTRA = {"cpt": (CPTConfig, CONFIG_TESTING_KWARGS[15])}
-
-
-def _skip_if_merging_not_supported(model_id, config_cls):
-    """Skip tests for cases where adapter merge is unavailable.
-
-    - Conv2dGroups: merge is not supported (by design) — see PR #2403.
-    - OSF: merge/unload are not implemented yet in the tuner.
-    """
-    if model_id in ["Conv2dGroups", "Conv2dGroups2"]:
-        pytest.skip(
-            f"Skipping test for {model_id} as adapter merging is not supported for Conv2dGroups. "
-            "(See https://github.com/huggingface/peft/pull/2403)"
-        )
+def _skip_if_merging_not_supported(model_id, config_cls, config_kwargs):
+    if issubclass(config_cls, PromptLearningConfig):
+        pytest.skip("Prompt learning does not support merging, skipping this test.")
+    if config_kwargs.get("alora_invocation_tokens") is not None:
+        pytest.skip("Test not applicable for Activated LoRA")
     if issubclass(config_cls, OSFConfig):
         pytest.skip(f"Skipping test for {model_id} with {config_cls} as OSF adapter merge/unload are not implemented.")
+    if model_id.startswith("Conv2dGroups") and (config_cls == LoraConfig):
+        # note: right now, only LoRA supports groups>1, if other PEFT methods add support, they might also need to skip
+        pytest.skip("Merging conv layers with groups>1 and LoRA is not supported.")
+    if issubclass(config_cls, LilyConfig):
+        pytest.skip("Lily does not support merging adapters, skipping this test.")
+
+
+def _skip_if_adding_weighted_adapters_not_supported(config):
+    if not isinstance(config, (IA3Config, LoraConfig)):
+        pytest.skip("This PEFT method does not support adding weighted adapters, skipping this test.")
+
+
+def _skip_if_deleting_adapter_not_supported(config_cls, config_kwargs):
+    if issubclass(config_cls, PromptLearningConfig):
+        pytest.skip("Prompt learning does not support deletion of adapters, skipping this test.")
+
+
+def _skip_if_conv1d_not_supported(model_id, config_cls, config_kwargs):
+    if "gpt2" not in model_id.lower():
+        return
+
+    if config_cls not in (IA3Config, LoHaConfig, LoKrConfig, LoraConfig):
+        pytest.skip("This PEFT method does not support Conv1D layers, skipping this test.")
 
 
 class PeftCommonTester:
@@ -322,7 +210,7 @@ class PeftCommonTester:
     def _test_prepare_for_training(self, model_id, config_cls, config_kwargs):
         if config_kwargs.get("trainable_token_indices", None) is not None:
             # incompatible because trainable tokens is marking embeddings as trainable
-            self.skipTest("Trainable tokens is incompatible with this test.")
+            pytest.skip("Trainable tokens is incompatible with this test.")
 
         # some tests require specific tokenizers, make sure that they can be fetched as well
         with hub_online_once(model_id + config_kwargs.get("tokenizer_name_or_path", "")):
@@ -408,17 +296,6 @@ class PeftCommonTester:
                 assert "meta" in {p.device.type for p in model.parameters()}
 
     def _test_save_pretrained(self, model_id, config_cls, config_kwargs, safe_serialization=True):
-        # ensure that the weights are randomly initialized
-        if issubclass(config_cls, LoraConfig):
-            config_kwargs = config_kwargs.copy()
-            config_kwargs["init_lora_weights"] = False
-        if issubclass(config_cls, IA3Config):
-            config_kwargs = config_kwargs.copy()
-            config_kwargs["init_ia3_weights"] = False
-        if hasattr(config_cls, "init_weights"):
-            config_kwargs = config_kwargs.copy()
-            config_kwargs["init_weights"] = False
-
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
             config = config_cls(
@@ -477,17 +354,7 @@ class PeftCommonTester:
     def _test_save_pretrained_selected_adapters(self, model_id, config_cls, config_kwargs, safe_serialization=True):
         if issubclass(config_cls, AdaLoraConfig):
             # AdaLora does not support adding more than 1 adapter
-            return pytest.skip(f"Test not applicable for {config_cls}")
-
-        # ensure that the weights are randomly initialized
-        if issubclass(config_cls, LoraConfig):
-            config_kwargs = config_kwargs.copy()
-            config_kwargs["init_lora_weights"] = False
-        elif issubclass(config_cls, IA3Config):
-            config_kwargs = config_kwargs.copy()
-            config_kwargs["init_ia3_weights"] = False
-        elif hasattr(config_cls, "init_weights"):
-            config_kwargs["init_weights"] = False
+            pytest.skip(f"Test not applicable for {config_cls}")
 
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
@@ -612,22 +479,10 @@ class PeftCommonTester:
                     assert load_result2.missing_keys == []
 
     def _test_merge_layers_fp16(self, model_id, config_cls, config_kwargs):
-        _skip_if_merging_not_supported(model_id, config_cls)
-
-        if (
-            config_cls not in (LoraConfig, IA3Config, AdaLoraConfig, LoHaConfig, LoKrConfig, VBLoRAConfig)
-            or config_kwargs.get("alora_invocation_tokens") is not None
-        ):
-            # Merge layers only supported for LoRA and IA³, and not for Activated LoRA (aLoRA)
-            if config_kwargs.get("alora_invocation_tokens") is None:
-                return pytest.skip(f"Test not applicable for {config_cls}")
-            else:
-                return pytest.skip("Test not applicable for Activated LoRA")
-        if ("gpt2" in model_id.lower()) and (config_cls != LoraConfig):
-            self.skipTest("Merging GPT2 adapters not supported for IA³ (yet)")
-
+        _skip_if_merging_not_supported(model_id, config_cls, config_kwargs)
+        _skip_if_conv1d_not_supported(model_id, config_cls, config_kwargs)
         if (self.torch_device in ["cpu"]) and (version.parse(torch.__version__) <= version.parse("2.1")):
-            self.skipTest("PyTorch 2.1 not supported for Half of addmm_impl_cpu_ ")
+            pytest.skip("PyTorch 2.1 not supported for Half of addmm_impl_cpu_ ")
 
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id, dtype=torch.float16)
@@ -644,29 +499,8 @@ class PeftCommonTester:
             _ = model.merge_and_unload()
 
     def _test_merge_layers_nan(self, model_id, config_cls, config_kwargs):
-        _skip_if_merging_not_supported(model_id, config_cls)
-
-        if (
-            config_cls
-            not in (
-                LoraConfig,
-                IA3Config,
-                AdaLoraConfig,
-                LoHaConfig,
-                LoKrConfig,
-                VeraConfig,
-                FourierFTConfig,
-            )
-            or config_kwargs.get("alora_invocation_tokens") is not None
-        ):
-            # Merge layers only supported for LoRA and IA³, and not for Activated LoRA (aLoRA)
-            return
-        if ("gpt2" in model_id.lower()) and (config_cls != LoraConfig):
-            self.skipTest("Merging GPT2 adapters not supported for IA³ (yet)")
-
-        if "gemma" in model_id.lower():
-            # TODO: could be related to tied weights
-            self.skipTest("Merging currently fails with gemma")
+        _skip_if_merging_not_supported(model_id, config_cls, config_kwargs)
+        _skip_if_conv1d_not_supported(model_id, config_cls, config_kwargs)
 
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
@@ -701,14 +535,7 @@ class PeftCommonTester:
             model = model.to(self.torch_device)
 
             for name, module in model.named_parameters():
-                if (
-                    "lora_A" in name
-                    or "ia3" in name
-                    or "lora_E" in name
-                    or "lora_B" in name
-                    or "vera_lambda" in name
-                    or "fourierft_spectrum" in name
-                ):
+                if model.prefix in name:
                     module.data[0] = torch.nan
 
             with pytest.raises(
@@ -733,23 +560,8 @@ class PeftCommonTester:
                 model = model.merge_and_unload(safe_merge=True)
 
     def _test_merge_layers(self, model_id, config_cls, config_kwargs):
-        _skip_if_merging_not_supported(model_id, config_cls)
-
-        if issubclass(config_cls, PromptLearningConfig):
-            return pytest.skip(f"Test not applicable for {config_cls}")
-
-        if issubclass(config_cls, (OFTConfig, BOFTConfig)):
-            return pytest.skip(f"Test not applicable for {config_cls}")
-
-        if config_kwargs.get("alora_invocation_tokens") is not None:
-            return pytest.skip("Merging not applicable to aLoRA")
-
-        if ("gpt2" in model_id.lower()) and (config_cls != LoraConfig):
-            self.skipTest("Merging GPT2 adapters not supported for IA³ (yet)")
-
-        if "gemma" in model_id.lower():
-            # TODO: could be related to tied weights
-            self.skipTest("Merging currently fails with gemma")
+        _skip_if_merging_not_supported(model_id, config_cls, config_kwargs)
+        _skip_if_conv1d_not_supported(model_id, config_cls, config_kwargs)
 
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
@@ -776,17 +588,28 @@ class PeftCommonTester:
 
             # check that PEFT layers are completely removed
             assert not any(isinstance(module, BaseTunerLayer) for module in model.modules())
+            assert not hasattr(model, "peft_config")
             logits_merged_unloaded = model(**dummy_input)[0]
 
             conv_ids = ["Conv2d", "Conv3d", "Conv2d2"]
+            is_decoder = getattr(getattr(model, "config", None), "is_decoder", False)
             atol, rtol = 1e-4, 1e-4
             if self.torch_device in ["mlu"]:
                 atol, rtol = 1e-3, 1e-3  # MLU
-            if config.peft_type == "ADALORA":
-                # AdaLoRA is a bit flaky on CI, but this cannot be reproduced locally
+            if model_id == "trl-internal-testing/tiny-GptOssForCausalLM":
+                # this tolerance issue with the target_parameters test only occurrs on CI with transformers v5
+                atol, rtol = 1e-3, 1e-3
+            if config.peft_type in ("ADALORA", "OFT"):
+                # these methods require a bit higher tolerance
                 atol, rtol = 1e-2, 1e-2
-            if (config.peft_type in {"IA3", "LORA"}) and (model_id in conv_ids):
+            if config.peft_type == "ADAMSS":
+                # AdaMSS merges via B @ A @ newB (triple matmul), which accumulates more FP32
+                # rounding error on CPU than the default 1e-4 allows
+                atol, rtol = 1e-3, 1e-3
+            if (config.peft_type in {"IA3", "LORA", "OFT"}) and (model_id in conv_ids):
                 # for some reason, the Conv introduces a larger error
+                atol, rtol = 0.3, 0.01
+            if (config.peft_type == "OFT") and not is_decoder:
                 atol, rtol = 0.3, 0.01
             if model_id == "trl-internal-testing/tiny-Llama4ForCausalLM":
                 # also getting larger errors here, not exactly sure why
@@ -823,25 +646,12 @@ class PeftCommonTester:
             assert torch.allclose(logits_merged, logits_merged_from_pretrained, atol=atol, rtol=rtol)
 
     def _test_merge_layers_multi(self, model_id, config_cls, config_kwargs):
-        _skip_if_merging_not_supported(model_id, config_cls)
-
-        supported_peft_types = [
-            PeftType.LORA,
-            PeftType.LOHA,
-            PeftType.LOKR,
-            PeftType.IA3,
-            PeftType.OFT,
-            PeftType.BOFT,
-            PeftType.HRA,
-            PeftType.BONE,
-            PeftType.MISS,
-        ]
-
-        if ("gpt2" in model_id.lower()) and (config_cls == IA3Config):
-            self.skipTest("Merging GPT2 adapters not supported for IA³ (yet)")
-
+        _skip_if_merging_not_supported(model_id, config_cls, config_kwargs)
+        if issubclass(config_cls, AdaLoraConfig):
+            # AdaLora does not support adding more than 1 adapter
+            pytest.skip("AdaLoRA does not support multiple adapters, skipping this test.")
         if config_kwargs.get("trainable_token_indices", None) is not None:
-            self.skipTest(
+            pytest.skip(
                 "Merging two adapters with trainable tokens is tested elsewhere since adapters with "
                 "the same token indices cannot be merged."
             )
@@ -850,12 +660,14 @@ class PeftCommonTester:
             base_model_name_or_path=model_id,
             **config_kwargs,
         )
-
-        if config.peft_type not in supported_peft_types or config_kwargs.get("alora_invocation_tokens") is not None:
-            return
+        if config_cls == VBLoRAConfig:
+            # for VBLoRA, increase this value or else the two adapters are too similar
+            config.init_logits_std *= 100
+            config.init_vector_bank_bound *= 100
 
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
+            torch.manual_seed(0)
             model = get_peft_model(model, config)
             model = model.to(self.torch_device)
 
@@ -865,6 +677,7 @@ class PeftCommonTester:
             with torch.inference_mode():
                 logits_adapter_1 = model(**dummy_input)[0]
 
+            torch.manual_seed(1)
             model.add_adapter("adapter-2", config)
             model.set_adapter("adapter-2")
             model.eval()
@@ -913,11 +726,9 @@ class PeftCommonTester:
             assert torch.allclose(logits_merged_adapter_default, logits_adapter_1, atol=1e-3, rtol=1e-3)
 
     def _test_merge_layers_is_idempotent(self, model_id, config_cls, config_kwargs):
-        _skip_if_merging_not_supported(model_id, config_cls)
+        _skip_if_merging_not_supported(model_id, config_cls, config_kwargs)
+        _skip_if_conv1d_not_supported(model_id, config_cls, config_kwargs)
 
-        if config_kwargs.get("alora_invocation_tokens") is not None:
-            # Merging not supported for Activated LoRA (aLoRA)
-            return pytest.skip("Test not applicable for Activated LoRA (aLoRA)")
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
             config = config_cls(
@@ -940,12 +751,9 @@ class PeftCommonTester:
             assert torch.allclose(logits_0, logits_1, atol=1e-6, rtol=1e-6)
 
     def _test_safe_merge(self, model_id, config_cls, config_kwargs):
-        _skip_if_merging_not_supported(model_id, config_cls)
-
-        if config_kwargs.get("alora_invocation_tokens") is not None:
-            # Merging not supported for Activated LoRA (aLoRA)
-            return pytest.skip("Test not applicable for Activated LoRA (aLoRA)")
+        _skip_if_merging_not_supported(model_id, config_cls, config_kwargs)
         torch.manual_seed(0)
+
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
             config = config_cls(
@@ -975,6 +783,13 @@ class PeftCommonTester:
             conv_ids = ["Conv2d", "Conv3d", "Conv2d2"]
             if issubclass(config_cls, (IA3Config, LoraConfig)) and model_id in conv_ids:  # more instability with Conv
                 atol, rtol = 1e-3, 1e-3
+            elif issubclass(config_cls, PveraConfig):
+                atol, rtol = 1e-5, 1e-5
+
+            if config.peft_type == "ADAMSS":
+                # AdaMSS merges via B @ A @ newB (triple matmul), which accumulates more FP32
+                # rounding error on CPU than the default 1e-6 allows
+                atol, rtol = 1e-3, 1e-3
 
             # check that the logits are the same after unloading
             assert torch.allclose(logits_peft, logits_unloaded, atol=atol, rtol=rtol)
@@ -989,8 +804,8 @@ class PeftCommonTester:
 
     def _test_mixed_adapter_batches(self, model_id, config_cls, config_kwargs):
         # Test for mixing different adapters in a single batch by passing the adapter_names argument
-        if config_cls not in (LoraConfig,):
-            return pytest.skip(f"Mixed adapter batches not supported for {config_cls}")
+        if config_cls not in (LoraConfig, RoadConfig):
+            pytest.skip(f"Mixed adapter batches not supported for {config_cls}")
 
         config = config_cls(
             base_model_name_or_path=model_id,
@@ -1010,10 +825,9 @@ class PeftCommonTester:
         dummy_input = self.prepare_inputs_for_testing()
         # ensure that we have at least 3 samples for this test
         dummy_input = {k: torch.cat([v for _ in range(3)]) for k, v in dummy_input.items()}
-        with torch.inference_mode():
-            with model.disable_adapter():
-                output_base = model(**dummy_input)[0]
-                logits_base = model.generate(**dummy_input, return_dict_in_generate=True, output_scores=True).scores[0]
+        with torch.inference_mode(), model.disable_adapter():
+            output_base = model(**dummy_input)[0]
+            logits_base = model.generate(**dummy_input, return_dict_in_generate=True, output_scores=True).scores[0]
 
         model.set_adapter("adapter0")
         with torch.inference_mode():
@@ -1054,13 +868,14 @@ class PeftCommonTester:
         # Test generating with beam search and with mixing different adapters in a single batch by passing the
         # adapter_names argument. See #2283.
         if config_cls not in (LoraConfig,):
-            return pytest.skip(f"Mixed adapter batches not supported for {config_cls}")
+            # note: RoAD supports mixed adapter batches but not beam search
+            pytest.skip(f"Mixed adapter batches not supported for {config_cls}")
         if config_kwargs.get("alora_invocation_tokens") is not None:
-            return pytest.skip("Beam search not yet supported for aLoRA")  # beam search not yet fully supported
+            pytest.skip("Beam search not yet supported for aLoRA")  # beam search not yet fully supported
         if config_kwargs.get("trainable_token_indices", None) is not None:
             # for some configurations this test will fail since the adapter values don't differ.
             # this is probably a problem with the test setup and not with the implementation.
-            return pytest.skip("Trainable token indices is not supported here (yet).")
+            pytest.skip("Trainable token indices is not supported here (yet).")
 
         config = config_cls(
             base_model_name_or_path=model_id,
@@ -1086,9 +901,8 @@ class PeftCommonTester:
             # ensure that we have at least 3 samples for this test
             dummy_input = {k: torch.cat([v for _ in range(3)]) for k, v in dummy_input.items()}
             gen_kwargs = {**dummy_input, "max_length": 20, "num_beams": 10, "early_stopping": True}
-            with torch.inference_mode():
-                with model.disable_adapter():
-                    gen_base = model.generate(**gen_kwargs)
+            with torch.inference_mode(), model.disable_adapter():
+                gen_base = model.generate(**gen_kwargs)
 
             model.set_adapter("adapter0")
             with torch.inference_mode():
@@ -1172,11 +986,7 @@ class PeftCommonTester:
                 _ = model.generate(inputs["input_ids"])
 
     def _test_generate_half_prec(self, model_id, config_cls, config_kwargs):
-        if config_cls not in (IA3Config, LoraConfig, PrefixTuningConfig):
-            return pytest.skip(f"Test not applicable for {config_cls}")
-
-        if self.torch_device == "mps":  # BFloat16 is not supported on MPS
-            return pytest.skip("BFloat16 is not supported on MPS")
+        _skip_if_conv1d_not_supported(model_id, config_cls, config_kwargs)
 
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id, dtype=torch.bfloat16)
@@ -1193,28 +1003,13 @@ class PeftCommonTester:
             # check if `generate` works
             _ = model.generate(input_ids=input_ids, attention_mask=attention_mask)
 
-    def _test_prefix_tuning_half_prec_conversion(self, model_id, config_cls, config_kwargs):
-        if config_cls not in (PrefixTuningConfig,):
-            return pytest.skip(f"Test not applicable for {config_cls}")
-
-        config = config_cls(
-            base_model_name_or_path=model_id,
-            **config_kwargs,
-        )
-
-        with hub_online_once(model_id):
-            model = self.transformers_class.from_pretrained(model_id)
-            model = get_peft_model(model, config)
-            model = model.half()
-
-            assert model.base_model_torch_dtype == torch.float16
-
     def _test_training(self, model_id, config_cls, config_kwargs):
-        if issubclass(config_cls, PromptLearningConfig):
-            return pytest.skip(f"Test not applicable for {config_cls}")
         if (config_cls == AdaLoraConfig) and ("roberta" in model_id.lower()):
             # TODO: no gradients on the "dense" layer, other layers work, not sure why
-            self.skipTest("AdaLora with RoBERTa does not work correctly")
+            pytest.skip("AdaLora with RoBERTa does not work correctly")
+        if (config_cls == PrefixTuningConfig) and ("bert" in model_id.lower()):
+            # TODO: prefix tuning fails with roberta, deberta, etc., requires investigation
+            pytest.skip("Prefix tuning fails with Bert* type models.")
 
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
@@ -1231,9 +1026,13 @@ class PeftCommonTester:
             output = model(**inputs)[0]
             loss = output.sum()
             loss.backward()
-            parameter_prefix = model.prefix
+
+            if issubclass(config_cls, PromptLearningConfig):
+                # we cannot reliably identify the trainable part of the prompt learning method, thus skipping this check
+                return
+
             for n, param in model.named_parameters():
-                if (parameter_prefix in n) or ("modules_to_save" in n) or ("token_adapter.trainable_tokens" in n):
+                if (model.prefix in n) or ("modules_to_save" in n) or ("token_adapter.trainable_tokens" in n):
                     assert param.grad is not None
                 else:
                     assert param.grad is None
@@ -1242,7 +1041,7 @@ class PeftCommonTester:
         if (config_cls == PrefixTuningConfig) and ("deberta" in model_id.lower()):
             # TODO: raises an error:
             # TypeError: DebertaModel.forward() got an unexpected keyword argument 'past_key_values'
-            self.skipTest("DeBERTa with PrefixTuning does not work correctly")
+            pytest.skip("DeBERTa with PrefixTuning does not work correctly")
 
         config = config_cls(
             base_model_name_or_path=model_id,
@@ -1280,14 +1079,21 @@ class PeftCommonTester:
                 assert torch.allclose(logits, logits_from_pretrained, atol=1e-4, rtol=1e-4)
 
     def _test_training_layer_indexing(self, model_id, config_cls, config_kwargs):
-        if config_cls not in (LoraConfig,):
-            return pytest.skip(f"Test not applicable for {config_cls}")
+        if config_cls in (VBLoRAConfig, VeraConfig):
+            # TODO investigate why these two are flaky
+            # pytest tests/test_decoder_models.py tests/test_feature_extraction_models.py -k "layer_indexing and (vera
+            # or vblora)"
+            pytest.skip("VBLoRA and VeRA are flaky with layer indexing, possibly because of shared weights.")
+        try:
+            config = config_cls(
+                base_model_name_or_path=model_id,
+                layers_to_transform=[0],
+                **config_kwargs,
+            )
+        except TypeError:
+            pytest.skip("This PEFT method does not support layers_to_transform, skipping it.")
+        _skip_if_conv1d_not_supported(model_id, config_cls, config_kwargs)
 
-        config = config_cls(
-            base_model_name_or_path=model_id,
-            layers_to_transform=[0],
-            **config_kwargs,
-        )
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
             model = get_peft_model(model, config)
@@ -1297,7 +1103,6 @@ class PeftCommonTester:
 
             # check if `training` works
             output = model(**inputs)[0]
-            logits = output[0]
 
             loss = output.sum()
             loss.backward()
@@ -1313,6 +1118,9 @@ class PeftCommonTester:
                     assert param.grad is None
 
             with tempfile.TemporaryDirectory() as tmp_dirname:
+                model.eval()
+                logits = model(**inputs)[0][0]
+
                 model.save_pretrained(tmp_dirname)
 
                 model_from_pretrained = self.transformers_class.from_pretrained(model_id)
@@ -1321,7 +1129,8 @@ class PeftCommonTester:
                 )
 
                 logits_from_pretrained = model_from_pretrained(**inputs)[0][0]
-                assert torch.allclose(logits, logits_from_pretrained, atol=1e-4, rtol=1e-4)
+                atol, rtol = 1e-4, 1e-4
+                assert torch.allclose(logits, logits_from_pretrained, atol=atol, rtol=rtol)
 
             # check the nb of trainable params again but without layers_to_transform
             model = self.transformers_class.from_pretrained(model_id)
@@ -1350,29 +1159,25 @@ class PeftCommonTester:
         # a valid test but it might be confusing to see a test pass if it is not supposed to.
 
         if config_cls == PrefixTuningConfig:
-            return pytest.skip(f"Test not applicable for {config_cls}")
-
+            pytest.skip("Prefix Tuning does not support gradient checkpointing, skipping this test.")
         if (config_cls == AdaLoraConfig) and ("roberta" in model_id.lower()):
             # TODO: no gradients on the "dense" layer, other layers work, not sure why
-            self.skipTest("AdaLora with RoBERTa does not work correctly")
+            pytest.skip("AdaLora with RoBERTa does not work correctly")
 
-        if "bart" in model_id.lower() and version.parse(transformers.__version__) <= version.parse("5.0"):
-            self.skipTest(
-                "Bart in transformers < 5.0 doesn't handle input sharing well enough. See transformers#41821"
-            )
-
-        if (config_cls == OFTConfig) and ("deberta" in model_id.lower()):
-            # TODO: no gradients on the "dense" layer, other layers work, not sure why
-            self.skipTest("OFT with Deberta does not work correctly")
-
-        if "gptbigcode" in model_id.lower():
-            self.skipTest("GPTBigCode currently doesn't implement gradient checkpointing correctly.")
+        if not is_transformers_ge_v5:
+            # TODO: remove once transformers < 5.0 no longer supported
+            if "gptbigcode" in model_id.lower():
+                pytest.skip("GPTBigCode doesn't implement gradient checkpointing correctly in transformers < 5.0.")
+            if "bart" in model_id.lower():
+                pytest.skip(
+                    "Bart in transformers < 5.0 doesn't handle input sharing well enough. See transformers#41821"
+                )
 
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
 
             if not getattr(model, "supports_gradient_checkpointing", False):
-                return pytest.skip(f"Model {model_id} does not support gradient checkpointing")
+                pytest.skip(f"Model {model_id} does not support gradient checkpointing")
 
             # Disable lora_dropout and friends to remove non-determinism in gradient creation
             for key in list(config_kwargs.keys()):
@@ -1432,9 +1237,7 @@ class PeftCommonTester:
                     assert param.grad is None
 
     def _test_peft_model_device_map(self, model_id, config_cls, config_kwargs):
-        if config_cls not in (LoraConfig, VBLoRAConfig):
-            return pytest.skip(f"Test not applicable for {config_cls}")
-
+        _skip_if_conv1d_not_supported(model_id, config_cls, config_kwargs)
         config = config_cls(
             base_model_name_or_path=model_id,
             **config_kwargs,
@@ -1456,7 +1259,7 @@ class PeftCommonTester:
 
     def _test_training_prompt_learning_tasks(self, model_id, config_cls, config_kwargs):
         if not issubclass(config_cls, PromptLearningConfig):
-            return pytest.skip(f"Test not applicable for {config_cls}")
+            pytest.skip(f"Test not applicable for {config_cls}")
 
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
@@ -1487,29 +1290,14 @@ class PeftCommonTester:
                 assert param.grad is not None
 
     def _test_delete_adapter(self, model_id, config_cls, config_kwargs):
-        supported_peft_types = [
-            PeftType.LORA,
-            PeftType.LOHA,
-            PeftType.LOKR,
-            PeftType.IA3,
-            PeftType.OFT,
-            PeftType.BOFT,
-            PeftType.VERA,
-            PeftType.FOURIERFT,
-            PeftType.HRA,
-            PeftType.VBLORA,
-            PeftType.BONE,
-            PeftType.MISS,
-            PeftType.DELORA,
-        ]
-        # IA3 does not support deleting adapters yet, but it just needs to be added
-        # AdaLora does not support multiple adapters
+        _skip_if_deleting_adapter_not_supported(config_cls, config_kwargs)
+        if config_cls == AdaLoraConfig:
+            pytest.skip("AdaLoRA does not support multiple adapters")
+
         config = config_cls(
             base_model_name_or_path=model_id,
             **config_kwargs,
         )
-        if config.peft_type not in supported_peft_types:
-            return pytest.skip(f"Test not applicable for {config.peft_type}")
 
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
@@ -1562,28 +1350,14 @@ class PeftCommonTester:
             model.base_model(**input)  # should not raise an error
 
     def _test_delete_inactive_adapter(self, model_id, config_cls, config_kwargs):
-        # same as test_delete_adapter, but this time an inactive adapter is deleted
-        supported_peft_types = [
-            PeftType.LORA,
-            PeftType.LOHA,
-            PeftType.LOKR,
-            PeftType.IA3,
-            PeftType.OFT,
-            PeftType.BOFT,
-            PeftType.FOURIERFT,
-            PeftType.HRA,
-            PeftType.VBLORA,
-            PeftType.BONE,
-            PeftType.MISS,
-        ]
-        # IA3 does not support deleting adapters yet, but it just needs to be added
-        # AdaLora does not support multiple adapters
+        if config_cls == AdaLoraConfig:
+            pytest.skip("AdaLoRA does not support multiple adapters")
+        _skip_if_deleting_adapter_not_supported(config_cls, config_kwargs)
+
         config = config_cls(
             base_model_name_or_path=model_id,
             **config_kwargs,
         )
-        if config.peft_type not in supported_peft_types:
-            return pytest.skip(f"Test not applicable for {config.peft_type}")
 
         with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
@@ -1679,11 +1453,13 @@ class PeftCommonTester:
 
             # check that PEFT layers are completely removed
             assert not any(isinstance(module, BaseTunerLayer) for module in model.modules())
+            assert not hasattr(model, "peft_config")
             assert not torch.allclose(logits_with_adapter, logits_unload, atol=1e-10, rtol=1e-10)
             assert torch.allclose(logits_transformers, logits_unload, atol=1e-4, rtol=1e-4)
             assert num_params_base == num_params_unloaded
 
     def _test_weighted_combination_of_adapters_lora(self, model, config, adapter_list, weight_list):
+        _skip_if_adding_weighted_adapters_not_supported(config)
         model.add_adapter(adapter_list[1], config)
         model.add_adapter(adapter_list[2], replace(config, r=20))
         model = model.to(self.torch_device)
@@ -1935,7 +1711,7 @@ class PeftCommonTester:
     def _test_disable_adapter(self, model_id, config_cls, config_kwargs):
         task_type = config_kwargs.get("task_type")
         if (task_type == "SEQ_2_SEQ_LM") and (config_cls in (PromptTuningConfig, PromptEncoderConfig)):
-            self.skipTest("Seq2Seq + prompt tuning/prompt encoder does not work with disabling adapters")
+            pytest.skip("Seq2Seq + prompt tuning/prompt encoder does not work with disabling adapters")
 
         def get_output(model):
             # helper function that works with different model types
@@ -1991,9 +1767,8 @@ class PeftCommonTester:
 
             # output with DISABLED ADAPTER
             if isinstance(peft_model, StableDiffusionPipeline):
-                with peft_model.unet.disable_adapter():
-                    with peft_model.text_encoder.disable_adapter():
-                        output_peft_disabled = get_output(peft_model)
+                with peft_model.unet.disable_adapter(), peft_model.text_encoder.disable_adapter():
+                    output_peft_disabled = get_output(peft_model)
                 # for SD, very rarely, a pixel can differ
                 assert (output_before != output_peft_disabled).float().mean() < 1e-4
             else:
@@ -2014,19 +1789,17 @@ class PeftCommonTester:
             # TODO: add tests to check if disabling adapters works after calling merge_adapter
 
     def _test_adding_multiple_adapters_with_bias_raises(self, model_id, config_cls, config_kwargs):
-        # When trying to add multiple adapters with bias in Lora, AdaLora or BOFTConfig, an error should be
-        # raised. Also, the peft model should not be left in a half-initialized state.
-        if not issubclass(config_cls, (LoraConfig, AdaLoraConfig, BOFTConfig)):
-            return pytest.skip(f"Test not applicable for {config_cls}")
-
-        with hub_online_once(model_id):
-            config_kwargs = config_kwargs.copy()
-            config_kwargs["bias"] = "all"
+        config_kwargs = config_kwargs.copy()
+        config_kwargs["bias"] = "all"
+        try:
             config = config_cls(
                 base_model_name_or_path=model_id,
                 **config_kwargs,
             )
+        except TypeError:
+            pytest.skip(f"{config_cls} does not support the 'bias' argument, skipping this test.")
 
+        with hub_online_once(model_id):
             model = self.transformers_class.from_pretrained(model_id)
             model = get_peft_model(model, config, "adapter0")
 
@@ -2055,3 +1828,58 @@ class PeftCommonTester:
             inputs_embeds = model.get_input_embeddings()(dummy_input["input_ids"])
             # just check that no error is raised
             model.forward(inputs_embeds=inputs_embeds)
+
+    def _test_lora_conversion(self, model_id, config_cls, config_kwargs):
+        # This is a simple test that converting a non-LoRA adapter to LoRA works. If the model doesn't support
+        # conversion, the test is skipped. For detailed tests of this functionality, check test_lora_conversion.py,
+        # which provides depper tests. The purpose of this test is only provide a broad check across PEFT methods.
+        torch.manual_seed(0)
+        if "qwen2" in model_id:  # dummy qwen2 has very small weights
+            rank = 4
+        else:
+            rank = 8
+
+        if config_cls == GraloraConfig:
+            # GraLoRA exhibits higher conversion error
+            max_mse = 1.0
+        else:
+            # relatively high upper limit for MSE since we have to work with a low LoRA rank for dummy models
+            max_mse = 0.5
+
+        with hub_online_once(model_id):
+            model = self.transformers_class.from_pretrained(model_id).to(self.torch_device)
+            config = config_cls(
+                base_model_name_or_path=model_id,
+                **config_kwargs,
+            )
+            model = get_peft_model(model, config).eval()
+
+            if not model.supports_lora_conversion():
+                return
+            if ("OPT" in model_id) and ("fc1" in config.target_modules):
+                # the fc1 and fc2 layers in OPT have size (16, 4), thus choose smaller rank
+                rank = 4
+
+            X = self.prepare_inputs_for_testing()
+            with torch.no_grad():
+                with model.disable_adapter():
+                    output_base = model(**X, output_hidden_states=True)
+                output_before = model(**X, output_hidden_states=True)
+
+            # create the converted lora adapter
+            lora_config, state_dict = convert_to_lora(model, rank=rank)
+            del model
+
+            # load the converted LoRA model
+            model = self.transformers_class.from_pretrained(model_id).to(self.torch_device)
+            model = get_peft_model(model, lora_config).eval()
+            load_result = set_peft_model_state_dict(model, state_dict)
+            assert not load_result.unexpected_keys
+
+            with torch.no_grad():
+                output_after = model(**X, output_hidden_states=True)
+
+            diff1 = output_before.hidden_states[-1] - output_base.hidden_states[-1]
+            diff2 = output_after.hidden_states[-1] - output_base.hidden_states[-1]
+            mse = torch.nn.functional.mse_loss(diff1, diff2).item()
+            assert mse < max_mse, f"LoRA conversion MSE too high, {mse:.4f}, only {max_mse:.1f} allowed"

@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -239,7 +239,7 @@ def get_relations(log: EventLog):
                             else:
                                 causal[key] = [element]
                     else:
-                        if not (key in follows[element]):
+                        if key not in follows[element]:
                             if key in causal:
                                 causal[key].append(element)
                             else:
@@ -253,7 +253,7 @@ def get_relations(log: EventLog):
         for key in follows:
             for element in follows[key]:
                 if element in follows:
-                    if not (key in follows[element]):
+                    if key not in follows[element]:
                         if key in causal:
                             causal[key].append(element)
                         else:

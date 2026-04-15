@@ -28,6 +28,7 @@ from ..models import (
     TagUpdate,
 )
 from ..services import storage
+from ..services.async_tasks import silence_task
 from ..services.export import export_conversation_markdown
 from ..services.rewind import rewind_conversation as rewind_service
 
@@ -138,17 +139,19 @@ async def create_conversation(request: Request) -> Any:
 
     event_bus = _get_event_bus(request)
     if event_bus:
-        asyncio.create_task(
-            event_bus.publish(
-                f"global:{_get_db_name(request)}",
-                {
-                    "type": "conversation_created",
-                    "data": {
-                        "conversation_id": conv["id"],
-                        "title": conv["title"],
-                        "client_id": _get_client_id(request),
+        silence_task(
+            asyncio.create_task(
+                event_bus.publish(
+                    f"global:{_get_db_name(request)}",
+                    {
+                        "type": "conversation_created",
+                        "data": {
+                            "conversation_id": conv["id"],
+                            "title": conv["title"],
+                            "client_id": _get_client_id(request),
+                        },
                     },
-                },
+                )
             )
         )
 
@@ -192,17 +195,19 @@ async def update_conversation(conversation_id: str, body: ConversationUpdate, re
 
         event_bus = _get_event_bus(request)
         if event_bus:
-            asyncio.create_task(
-                event_bus.publish(
-                    f"global:{_get_db_name(request)}",
-                    {
-                        "type": "title_changed",
-                        "data": {
-                            "conversation_id": conversation_id,
-                            "title": body.title,
-                            "client_id": _get_client_id(request),
+            silence_task(
+                asyncio.create_task(
+                    event_bus.publish(
+                        f"global:{_get_db_name(request)}",
+                        {
+                            "type": "title_changed",
+                            "data": {
+                                "conversation_id": conversation_id,
+                                "title": body.title,
+                                "client_id": _get_client_id(request),
+                            },
                         },
-                    },
+                    )
                 )
             )
 
@@ -244,16 +249,18 @@ async def delete_conversation(conversation_id: str, request: Request) -> None:
 
     event_bus = _get_event_bus(request)
     if event_bus:
-        asyncio.create_task(
-            event_bus.publish(
-                f"global:{_get_db_name(request)}",
-                {
-                    "type": "conversation_deleted",
-                    "data": {
-                        "conversation_id": conversation_id,
-                        "client_id": _get_client_id(request),
+        silence_task(
+            asyncio.create_task(
+                event_bus.publish(
+                    f"global:{_get_db_name(request)}",
+                    {
+                        "type": "conversation_deleted",
+                        "data": {
+                            "conversation_id": conversation_id,
+                            "client_id": _get_client_id(request),
+                        },
                     },
-                },
+                )
             )
         )
 
@@ -275,24 +282,26 @@ async def create_entry(conversation_id: str, body: EntryCreate, request: Request
 
     _embedding_worker = getattr(request.app.state, "embedding_worker", None)
     if _embedding_worker:
-        asyncio.create_task(_embedding_worker.embed_message(msg["id"], body.content, conversation_id))
+        silence_task(asyncio.create_task(_embedding_worker.embed_message(msg["id"], body.content, conversation_id)))
 
     event_bus = _get_event_bus(request)
     if event_bus:
-        asyncio.create_task(
-            event_bus.publish(
-                f"conversation:{conversation_id}",
-                {
-                    "type": "new_message",
-                    "data": {
-                        "conversation_id": conversation_id,
-                        "message_id": msg["id"],
-                        "role": "user",
-                        "content": body.content,
-                        "position": msg["position"],
-                        "client_id": _get_client_id(request),
+        silence_task(
+            asyncio.create_task(
+                event_bus.publish(
+                    f"conversation:{conversation_id}",
+                    {
+                        "type": "new_message",
+                        "data": {
+                            "conversation_id": conversation_id,
+                            "message_id": msg["id"],
+                            "role": "user",
+                            "content": body.content,
+                            "position": msg["position"],
+                            "client_id": _get_client_id(request),
+                        },
                     },
-                },
+                )
             )
         )
 

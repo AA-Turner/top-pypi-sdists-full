@@ -475,9 +475,18 @@ def _build_api_context(request: Request) -> tuple[dict[str, str], list[str]]:
 
 @router.post("/config/validate")
 async def validate_connection(request: Request) -> ConnectionValidation:
+    from ..services.token_provider import TokenProviderError
+
     config = request.app.state.config
-    ai_service = create_ai_service(config.ai)
-    valid, message, models = await ai_service.validate_connection()
+    try:
+        ai_service = create_ai_service(config.ai)
+        valid, message, models = await ai_service.validate_connection()
+    except TokenProviderError as e:
+        return ConnectionValidation(
+            valid=False,
+            message=f"api_key_command failed: {e}",
+            models=[],
+        )
     if config.ai.allowed_models:
         allowed = set(config.ai.allowed_models)
         models = [m for m in models if m in allowed]

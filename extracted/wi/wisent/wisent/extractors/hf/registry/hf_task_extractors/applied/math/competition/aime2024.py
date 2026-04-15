@@ -24,9 +24,9 @@ class AIME2024Extractor(HuggingFaceBenchmarkExtractor):
     ) -> list[ContrastivePair]:
         max_items = self._normalize_limit(limit)
 
-        # Load AIME 2024 dataset
+        # Load AIME 2024 dataset (HuggingFaceH4/aime_2024 contains all 30 problems from 2024 I+II)
         docs = self.load_dataset(
-            dataset_name="Maxwell-Jia/AIME_2024",
+            dataset_name="HuggingFaceH4/aime_2024",
             split="train",
             limit=max_items,
         )
@@ -48,17 +48,19 @@ class AIME2024Extractor(HuggingFaceBenchmarkExtractor):
 
     def _extract_pair_from_doc(self, doc: dict[str, Any]) -> ContrastivePair | None:
         try:
-            # Fields are capitalized in Maxwell-Jia/AIME_2024: Problem, Answer, Solution
-            problem = str(doc.get("Problem", doc.get("problem", ""))).strip()
-            correct = str(doc.get("Answer", doc.get("answer", ""))).strip()
+            # Fields in HuggingFaceH4/aime_2024: problem, answer (strings)
+            question = str(doc.get("problem", doc.get("question", ""))).strip()
+            correct = str(doc.get("answer", doc.get("Answer", ""))).strip()
 
-            if not problem or not correct:
+            if not question or not correct:
                 log.debug("Skipping: missing problem or answer")
                 return None
 
-            incorrect = str(int(correct) + SENSOR_LAST_OFFSET)
+            correct_int = int(float(correct))
+            correct = str(correct_int)
+            incorrect = str(correct_int + SENSOR_LAST_OFFSET)
 
-            prompt = f"Question: {problem}\n\nWhat is the answer?"
+            prompt = f"Question: {question}\n\nWhat is the answer?"
 
             metadata = {"label": "aime2024"}
 

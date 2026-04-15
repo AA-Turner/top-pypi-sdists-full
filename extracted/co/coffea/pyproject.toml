@@ -44,8 +44,8 @@ classifiers = [
   "Topic :: Utilities",
 ]
 dependencies = [
-  "awkward>=2.8.9",
-  "uproot>=5.6.0",
+  "awkward>=2.8.11",
+  "uproot>=5.7.0",
   "dask[array]>=2024.3.0",
   "dask-awkward>=2025.9.0",
   "dask-histogram>=2025.2.0",
@@ -97,6 +97,10 @@ xrootd = [
 triton = [
   "tritonclient[grpc,http]>=2.56.0",
 ]
+caches = [
+  "numcodecs>=0.13.1",
+  "zict>=3.0.0",
+]
 dev = [
   "pre-commit",
   "flake8",
@@ -139,6 +143,3 @@ filterwarnings = [
 
 [tool.ruff]
 line-length = 160
-
-[tool.ruff.lint]
-ignore = ["F403", "F405", "E402"]

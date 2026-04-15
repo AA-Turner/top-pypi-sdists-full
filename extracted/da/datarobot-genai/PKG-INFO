@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.14.2
+Version: 0.14.6
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -41,7 +41,7 @@ Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.14; extra == "crewai"
 Requires-Dist: pyarrow==21.0.0; extra == "crewai"
 Requires-Dist: anthropic<1.0.0,~=0.71.0; extra == "crewai"
 Requires-Dist: azure-ai-inference<2.0.0,>=1.0.0b9; extra == "crewai"
-Requires-Dist: crewai[litellm]==1.6.1; extra == "crewai"
+Requires-Dist: crewai[litellm]>=1.11.0; extra == "crewai"
 Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "crewai"
 Requires-Dist: crewai-tools[mcp]<0.77.0,>=0.69.0; extra == "crewai"
 Requires-Dist: nvidia-nat-crewai==1.4.1; extra == "crewai"
@@ -63,8 +63,8 @@ Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == 
 Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.14; extra == "langgraph"
 Requires-Dist: pyarrow==21.0.0; extra == "langgraph"
 Requires-Dist: langchain-mcp-adapters<0.2.0,>=0.1.12; extra == "langgraph"
-Requires-Dist: langgraph<1.1.0,>=1.0.0; extra == "langgraph"
-Requires-Dist: langgraph-prebuilt<1.1.0,>=1.0.0; extra == "langgraph"
+Requires-Dist: langgraph<2.0.0,>=1.0.0; extra == "langgraph"
+Requires-Dist: langgraph-prebuilt<2.0.0,>=1.0.0; extra == "langgraph"
 Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "langgraph"
 Requires-Dist: nvidia-nat-langchain==1.4.1; extra == "langgraph"
 Requires-Dist: opentelemetry-instrumentation-langchain<1.0.0,>=0.40.5; extra == "langgraph"

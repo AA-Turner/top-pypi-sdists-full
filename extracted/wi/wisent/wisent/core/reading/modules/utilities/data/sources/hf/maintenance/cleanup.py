@@ -84,30 +84,30 @@ def _worker_process_chunk(database_url, chunk, counter, lock):
     conn = _get_db_connection(database_url)
     cur = conn.cursor()
     for model, task, strategy, layer, model_id, set_id in chunk:
-        try:
-            cur.execute(
-                """DELETE FROM "Activation"
-                   WHERE "modelId" = %s AND "contrastivePairSetId" = %s
-                     AND "extractionStrategy" = %s AND layer = %s""",
-                (model_id, set_id, strategy, layer),
-            )
-            deleted = cur.rowcount
-            conn.commit()
-        except Exception:
+        deleted = RECURSION_INITIAL_DEPTH
+        while True:
             try:
-                conn.close()
-            except Exception:
-                pass
-            conn = _get_db_connection(database_url)
-            cur = conn.cursor()
-            cur.execute(
-                """DELETE FROM "Activation"
-                   WHERE "modelId" = %s AND "contrastivePairSetId" = %s
-                     AND "extractionStrategy" = %s AND layer = %s""",
-                (model_id, set_id, strategy, layer),
-            )
-            deleted = cur.rowcount
-            conn.commit()
+                cur.execute(
+                    """DELETE FROM "Activation"
+                       WHERE "modelId" = %s AND "contrastivePairSetId" = %s
+                         AND "extractionStrategy" = %s AND layer = %s""",
+                    (model_id, set_id, strategy, layer),
+                )
+                deleted = cur.rowcount
+                conn.commit()
+                break
+            except Exception as exc:
+                with lock:
+                    print(f"  RETRY {model}/{task}/layer={layer}: {exc}")
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                try:
+                    conn = _get_db_connection(database_url)
+                    cur = conn.cursor()
+                except Exception:
+                    continue
         if deleted > RECURSION_INITIAL_DEPTH:
             with lock:
                 counter.append(deleted)

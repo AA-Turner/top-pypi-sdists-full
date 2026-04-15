@@ -7,11 +7,17 @@ from braintrust.integrations.base import FunctionWrapperPatcher
 from .tracing import (
     _acompletion_wrapper_async,
     _aembedding_wrapper_async,
+    _aimage_generation_wrapper_async,
     _aresponses_wrapper_async,
+    _aspeech_wrapper_async,
+    _atranscription_wrapper_async,
     _completion_wrapper,
     _embedding_wrapper,
+    _image_generation_wrapper,
     _moderation_wrapper,
     _responses_wrapper,
+    _speech_wrapper,
+    _transcription_wrapper,
 )
 
 
@@ -44,6 +50,18 @@ class LiteLLMAresponsesPatcher(FunctionWrapperPatcher):
     wrapper = _aresponses_wrapper_async
 
 
+class LiteLLMImageGenerationPatcher(FunctionWrapperPatcher):
+    name = "litellm.image_generation"
+    target_path = "image_generation"
+    wrapper = _image_generation_wrapper
+
+
+class LiteLLMAimageGenerationPatcher(FunctionWrapperPatcher):
+    name = "litellm.aimage_generation"
+    target_path = "aimage_generation"
+    wrapper = _aimage_generation_wrapper_async
+
+
 class LiteLLMEmbeddingPatcher(FunctionWrapperPatcher):
     name = "litellm.embedding"
     target_path = "embedding"
@@ -62,6 +80,30 @@ class LiteLLMModerationPatcher(FunctionWrapperPatcher):
     wrapper = _moderation_wrapper
 
 
+class LiteLLMSpeechPatcher(FunctionWrapperPatcher):
+    name = "litellm.speech"
+    target_path = "speech"
+    wrapper = _speech_wrapper
+
+
+class LiteLLMAspeechPatcher(FunctionWrapperPatcher):
+    name = "litellm.aspeech"
+    target_path = "aspeech"
+    wrapper = _aspeech_wrapper_async
+
+
+class LiteLLMTranscriptionPatcher(FunctionWrapperPatcher):
+    name = "litellm.transcription"
+    target_path = "transcription"
+    wrapper = _transcription_wrapper
+
+
+class LiteLLMATranscriptionPatcher(FunctionWrapperPatcher):
+    name = "litellm.atranscription"
+    target_path = "atranscription"
+    wrapper = _atranscription_wrapper_async
+
+
 # ---------------------------------------------------------------------------
 # All patchers, in declaration order
 # ---------------------------------------------------------------------------
@@ -71,9 +113,15 @@ _ALL_LITELLM_PATCHERS = (
     LiteLLMAcompletionPatcher,
     LiteLLMResponsesPatcher,
     LiteLLMAresponsesPatcher,
+    LiteLLMImageGenerationPatcher,
+    LiteLLMAimageGenerationPatcher,
     LiteLLMEmbeddingPatcher,
     LiteLLMAembeddingPatcher,
     LiteLLMModerationPatcher,
+    LiteLLMSpeechPatcher,
+    LiteLLMAspeechPatcher,
+    LiteLLMTranscriptionPatcher,
+    LiteLLMATranscriptionPatcher,
 )
 
 
@@ -88,9 +136,10 @@ def wrap_litellm(litellm: Any) -> Any:
     Unlike :func:`patch_litellm`, which patches the globally-imported ``litellm``
     module, this function instruments a specific module object (or any object
     that exposes the same top-level callables such as ``completion``,
-    ``acompletion``, ``responses``, ``aresponses``, ``embedding``,
-    ``aembedding``, and ``moderation``).  Each patcher is applied
-    idempotently — calling
+    ``acompletion``, ``responses``, ``aresponses``, ``image_generation``,
+    ``aimage_generation``, ``embedding``, ``aembedding``, ``moderation``,
+    ``speech``, ``aspeech``, ``transcription``, and ``atranscription``).
+    Each patcher is applied idempotently — calling
     ``wrap_litellm`` twice on the same object is safe.
 
     Args:

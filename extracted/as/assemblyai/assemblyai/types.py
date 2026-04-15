@@ -645,6 +645,9 @@ class SpeakerIdentificationRequest(BaseModel):
     known_values: Optional[List[str]] = None
     "Known speaker values (required when speaker_type is 'role')"
 
+    speakers: Optional[List[Dict[str, Any]]] = None
+    "Known speaker definitions with optional descriptions for improved accuracy"
+
 
 class TranslationRequest(BaseModel):
     """
@@ -2358,6 +2361,9 @@ class BaseTranscript(BaseModel):
     temperature: Optional[float] = None
     "Change how deterministic the response is, with 0 being the most deterministic and 1 being the least deterministic."
 
+    remove_audio_tags: Optional[str] = None
+    "When set to 'all', removes all bracketed audio/speaker tags (e.g. [MUSIC], [Speaker: A]) from the transcript. Only supported for Universal-3 Pro."
+
     keyterms_prompt: Optional[List[str]] = None
     "The list of key terms used to generate the transcript with the Slam-1 speech model. Can't be used together with `prompt`."
 
@@ -2377,6 +2383,13 @@ class TranscriptRequest(BaseTranscript):
     """
 
 
+class TranscriptWarning(BaseModel):
+    "A warning about the transcription."
+
+    message: str
+    "The warning message."
+
+
 class TranscriptMetadata(BaseModel):
     "Metadata returned from the transcription API."
 
@@ -2384,6 +2397,8 @@ class TranscriptMetadata(BaseModel):
     "The domain that was actually used for the transcription."
     warning: Optional[str] = None
     "An optional warning message, if applicable."
+    warnings: Optional[List[TranscriptWarning]] = None
+    "A list of warnings about the transcription."
 
 
 class TranscriptResponse(BaseTranscript):

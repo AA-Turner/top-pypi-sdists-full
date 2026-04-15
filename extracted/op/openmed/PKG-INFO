@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openmed
-Version: 0.6.4
+Version: 1.0.0
 Summary: OpenMed delivers state-of-the-art biomedical and clinical LLMs that rival proprietary enterprise stacks, unifying model discovery, advanced extractions, and one-line orchestration.
 Author: Maziyar Panahi
 License: Apache-2.0
@@ -8,6 +8,10 @@ License-File: LICENSE
 Keywords: LLM,NLP,biomedical,clinical,healthcare,medical,medical LLMs,medical NER,medical NLP,medical de-identification,medical extraction,medical language models,medical reasoning,natural language processing
 Requires-Python: >=3.10
 Requires-Dist: pysbd<0.4,>=0.3.4
+Provides-Extra: coreml
+Requires-Dist: coremltools>=8.0; extra == 'coreml'
+Requires-Dist: torch>=2.0; extra == 'coreml'
+Requires-Dist: transformers>=4.50; extra == 'coreml'
 Provides-Extra: dev
 Requires-Dist: fastapi>=0.110; extra == 'dev'
 Requires-Dist: flake8>=7.0; extra == 'dev'
@@ -28,6 +32,12 @@ Requires-Dist: accelerate>=0.29; extra == 'hf'
 Requires-Dist: huggingface-hub>=0.30; extra == 'hf'
 Requires-Dist: tokenizers>=0.15; extra == 'hf'
 Requires-Dist: transformers>=4.50; extra == 'hf'
+Provides-Extra: mlx
+Requires-Dist: huggingface-hub>=0.30; extra == 'mlx'
+Requires-Dist: mlx>=0.22; extra == 'mlx'
+Requires-Dist: safetensors>=0.4; extra == 'mlx'
+Requires-Dist: tokenizers>=0.15; extra == 'mlx'
+Requires-Dist: transformers>=4.50; extra == 'mlx'
 Provides-Extra: service
 Requires-Dist: fastapi>=0.110; extra == 'service'
 Requires-Dist: uvicorn[standard]>=0.29; extra == 'service'
@@ -77,12 +87,36 @@ for entity in result.entities:
 ### Installation
 
 ```bash
+# From a local checkout of this repo:
 # Install with Hugging Face support
-uv pip install "openmed[hf]"
+uv pip install -e ".[hf]"
 
 # Or include REST service dependencies
-uv pip install "openmed[hf,service]"
+uv pip install -e ".[hf,service]"
 ```
+
+Apple Silicon acceleration in Python:
+
+```bash
+uv pip install -e ".[mlx]"
+```
+
+Swift apps on macOS and iOS use `OpenMedKit`. In `1.0.0`, that means:
+
+- **MLX** on Apple Silicon macOS and real iPhone/iPad hardware for the supported BERT-family OpenMed artifacts
+- **CoreML** when you already have a bundled Apple model package or want the fallback Apple path
+
+Add the Swift package like this:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/maziyarpanahi/openmed.git", from: "1.0.0"),
+]
+```
+
+OpenMedKit is public in `1.0.0`. The universal OpenMed model-packaging flow for Apple platforms is still being hardened across BERT, DistilBERT, RoBERTa, XLM-R, Longformer, ModernBERT, and related families, so treat conversion as active work rather than a fully universal public release surface.
+
+After `1.0.0` is published to PyPI, the editable install examples above can be replaced with plain `uv pip install "openmed[...]"`.
 
 ### Three Ways to Use OpenMed
 
@@ -132,7 +166,7 @@ result = processor.process_texts([
 - **Advanced NER Processing**: Confidence filtering, entity grouping, and span alignment
 - **Multiple Output Formats**: Dict, JSON, HTML, CSV for any downstream system
 
-### Production Tools (v0.6.4)
+### Production Tools (v1.0.0)
 
 - **Batch Processing**: Multi-text and multi-file workflows with progress tracking
 - **Configuration Profiles**: `dev`/`prod`/`test`/`fast` presets with flexible overrides
@@ -150,6 +184,8 @@ Quick links:
 
 - [Getting Started](https://openmed.life/docs/) — Installation and first analysis
 - [Analyze Text Helper](https://openmed.life/docs/analyze-text) — Python API reference
+- [MLX Backend](docs/mlx-backend.md) — Apple Silicon Python runtime
+- [OpenMedKit (Swift)](docs/swift-openmedkit.md) — Use OpenMed models in macOS and iOS apps
 - [PII Detection Guide](examples/notebooks/PII_Detection_Complete_Guide.ipynb) — Complete de-identification tutorial (v0.5.0)
 - [Batch Processing](https://openmed.life/docs/batch-processing) — Multi-text and multi-file workflows
 - [Configuration Profiles](https://openmed.life/docs/profiles) — Environment-specific presets
@@ -159,7 +195,7 @@ Quick links:
 
 ---
 
-## REST API (v0.6.4)
+## REST API (v1.0.0)
 
 OpenMed includes a Docker-friendly FastAPI service with reliability hardening:
 
@@ -185,8 +221,8 @@ uvicorn openmed.service.app:app --host 0.0.0.0 --port 8080
 ### Run with Docker
 
 ```bash
-docker build -t openmed:0.6.4 .
-docker run --rm -p 8080:8080 -e OPENMED_PROFILE=prod openmed:0.6.4
+docker build -t openmed:1.0.0 .
+docker run --rm -p 8080:8080 -e OPENMED_PROFILE=prod openmed:1.0.0
 ```
 
 ### Example request

@@ -14,11 +14,20 @@ import httpx
 from stream_unzip import stream_unzip
 
 import arrow
-import eccodes
 import requests
 from lxml import etree
 
+try:
+    import eccodes
+
+    _ECCODES_AVAILABLE = True
+except Exception:
+    eccodes = None  # type: ignore
+    _ECCODES_AVAILABLE = False
+
 from .dwdairquality import AirQuality as AirQuality
+from .dwdradar import DWDRadar as DWDRadar
+from .dwdradar import NotInAreaError, RadarNotAvailableError
 
 with (
     importlib.resources.files("simple_dwd_weatherforecast")
@@ -143,6 +152,22 @@ class Weather:
     airquality_daily = None
     airquality_hourly = None
     apparent_temperature_data = None
+
+    _ECCODES_HINT = (
+        "Apparent temperature requires the optional dependency 'eccodes' and the "
+        "native ecCodes library. Install package extra 'apparent-temperature' "
+        "for platforms where supported."
+    )
+
+    @staticmethod
+    def supports_apparent_temperature() -> bool:
+        """Return whether apparent temperature support is available."""
+        return _ECCODES_AVAILABLE
+
+    @staticmethod
+    def get_apparent_temperature_unavailable_reason() -> str | None:
+        """Return a hint when apparent temperature support is unavailable."""
+        return None if _ECCODES_AVAILABLE else Weather._ECCODES_HINT
 
     namespaces = {
         "kml": "http://www.opengis.net/kml/2.2",
@@ -285,6 +310,7 @@ class Weather:
             self.station_id = station_id
             self.region = get_region(station_id)
             self.nearest_uv_index_station = self.get_nearest_station_id_with_uv()
+            self._radar = DWDRadar()
         else:
             msg = "Not a valid station_id"
             raise ValueError(msg)
@@ -557,6 +583,81 @@ class Weather:
             key for key in self.apparent_temperature_data.keys() if key >= now_key
         )
         return {key: self.apparent_temperature_data[key] for key in future_keys}
+
+    def get_radar_precipitation_forecast(
+        self,
+        lat: float | None = None,
+        lon: float | None = None,
+        shouldUpdate: bool = True,
+    ) -> dict[datetime, float] | None:
+        """Get radar-based precipitation forecast for the next ~2 hours.
+
+        Retrieves precipitation intensities (mm/h) from the DWD rain radar
+        composite in 5-minute steps. The data covers approximately the next
+        2 hours and is updated every 5 minutes.
+
+        Args:
+            lat: Latitude in decimal degrees. Defaults to the station's
+                latitude when not provided.
+            lon: Longitude in decimal degrees. Defaults to the station's
+                longitude when not provided.
+            shouldUpdate: Whether to download fresh radar data. Defaults
+                to ``True``.
+
+        Returns:
+            Ordered dictionary mapping UTC datetime objects to precipitation
+            intensity in mm/h, or ``None`` if the location is outside the
+            radar coverage area or data is unavailable.
+
+        """
+        if shouldUpdate:
+            self._radar.update()
+        _lat = lat if lat is not None else float(self.station["lat"])  # type: ignore[index]
+        _lon = lon if lon is not None else float(self.station["lon"])  # type: ignore[index]
+        try:
+            return self._radar.get_precipitation_values(_lat, _lon)
+        except (NotInAreaError, RadarNotAvailableError):
+            return None
+
+    def get_radar_next_precipitation(
+        self,
+        lat: float | None = None,
+        lon: float | None = None,
+        shouldUpdate: bool = True,
+    ) -> dict[str, datetime | timedelta | float | None] | None:
+        """Get details about the next precipitation event from radar data.
+
+        Scans the available radar forecast and returns information about the
+        first upcoming precipitation event.
+
+        Args:
+            lat: Latitude in decimal degrees. Defaults to the station's
+                latitude when not provided.
+            lon: Longitude in decimal degrees. Defaults to the station's
+                longitude when not provided.
+            shouldUpdate: Whether to download fresh radar data. Defaults
+                to ``True``.
+
+        Returns:
+            Dictionary with the following keys, or ``None`` if the location
+            is outside the radar coverage area or data is unavailable:
+
+            - ``start``: UTC datetime when precipitation begins, or ``None``.
+            - ``end``: UTC datetime when precipitation ends, or ``None`` if
+              rain persists until the end of the forecast window.
+            - ``length``: timedelta of precipitation duration, or ``None``.
+            - ``max``: Maximum precipitation intensity in mm/h.
+            - ``sum``: Total precipitation amount in mm.
+
+        """
+        if shouldUpdate:
+            self._radar.update()
+        _lat = lat if lat is not None else float(self.station["lat"])  # type: ignore[index]
+        _lon = lon if lon is not None else float(self.station["lon"])  # type: ignore[index]
+        try:
+            return self._radar.get_next_precipitation(_lat, _lon)
+        except (NotInAreaError, RadarNotAvailableError):
+            return None
 
     def get_timeframe_max(
         self,
@@ -1053,6 +1154,10 @@ class Weather:
         using eccodes, and stores apparent temperature values (°C) keyed by UTC hour
         string in ``self.apparent_temperature_data``.
         """
+        if not _ECCODES_AVAILABLE:
+            print(self._ECCODES_HINT)
+            return
+
         base_url = "https://opendata.dwd.de/climate_environment/health/forecasts/"
         try:
             # Fetch directory listing to find the latest apparent temperature file
@@ -1110,6 +1215,9 @@ class Weather:
         Returns:
             Dict mapping timestamp string to apparent temperature value in °C.
         """
+        if not _ECCODES_AVAILABLE:
+            raise RuntimeError(self._ECCODES_HINT)
+
         result = {}
         station_lat = float(self.station["lat"])  # type: ignore
         station_lon = float(self.station["lon"])  # type: ignore

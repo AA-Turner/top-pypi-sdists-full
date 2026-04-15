@@ -64,12 +64,14 @@ from .. import (
     TreeInspector as _TreeInspector_488e0dd5,
 )
 from ..interfaces.aws_bedrockagentcore import (
+    ApiKeyCredentialProviderReference as _ApiKeyCredentialProviderReference_cd6b5fa8,
     BrowserCustomReference as _BrowserCustomReference_ceb8fdba,
     BrowserProfileReference as _BrowserProfileReference_7d69eac7,
     CodeInterpreterCustomReference as _CodeInterpreterCustomReference_0b253bc0,
     EvaluatorReference as _EvaluatorReference_a3ac0235,
     GatewayReference as _GatewayReference_350c3a07,
     GatewayTargetReference as _GatewayTargetReference_8759ec47,
+    IApiKeyCredentialProviderRef as _IApiKeyCredentialProviderRef_be95a523,
     IBrowserCustomRef as _IBrowserCustomRef_f12bfa35,
     IBrowserProfileRef as _IBrowserProfileRef_87a4b1a8,
     ICodeInterpreterCustomRef as _ICodeInterpreterCustomRef_2d5c05fb,
@@ -77,6 +79,7 @@ from ..interfaces.aws_bedrockagentcore import (
     IGatewayRef as _IGatewayRef_a3ed30fe,
     IGatewayTargetRef as _IGatewayTargetRef_e3008479,
     IMemoryRef as _IMemoryRef_2d13cc89,
+    IOAuth2CredentialProviderRef as _IOAuth2CredentialProviderRef_0815c2a4,
     IOnlineEvaluationConfigRef as _IOnlineEvaluationConfigRef_cf19cabf,
     IPolicyEngineRef as _IPolicyEngineRef_6d885cfc,
     IPolicyRef as _IPolicyRef_ceb8b108,
@@ -84,6 +87,7 @@ from ..interfaces.aws_bedrockagentcore import (
     IRuntimeRef as _IRuntimeRef_00302e12,
     IWorkloadIdentityRef as _IWorkloadIdentityRef_dc6077a7,
     MemoryReference as _MemoryReference_a1aef278,
+    OAuth2CredentialProviderReference as _OAuth2CredentialProviderReference_0c62007e,
     OnlineEvaluationConfigReference as _OnlineEvaluationConfigReference_13c14f3c,
     PolicyEngineReference as _PolicyEngineReference_471db68b,
     PolicyReference as _PolicyReference_d2f6bd10,
@@ -91,6 +95,344 @@ from ..interfaces.aws_bedrockagentcore import (
     RuntimeReference as _RuntimeReference_bdb3da48,
     WorkloadIdentityReference as _WorkloadIdentityReference_255b3126,
 )
+
+
+@jsii.implements(_IInspectable_c2943556, _IApiKeyCredentialProviderRef_be95a523, _ITaggableV2_4e6798f8)
+class CfnApiKeyCredentialProvider(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnApiKeyCredentialProvider",
+):
+    '''Resource Type definition for AWS::BedrockAgentCore::ApiKeyCredentialProvider.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-apikeycredentialprovider.html
+    :cloudformationResource: AWS::BedrockAgentCore::ApiKeyCredentialProvider
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+        
+        cfn_api_key_credential_provider = bedrockagentcore.CfnApiKeyCredentialProvider(self, "MyCfnApiKeyCredentialProvider",
+            name="name",
+        
+            # the properties below are optional
+            api_key="apiKey",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        api_key: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::BedrockAgentCore::ApiKeyCredentialProvider``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the API key credential provider.
+        :param api_key: The API key to use for authentication.
+        :param tags: Tags to assign to the API key credential provider.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3bd42e9263df03a59e830c8f21f47046aaba131c40f7a04b1ec0d161b204d8c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnApiKeyCredentialProviderProps(name=name, api_key=api_key, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnApiKeyCredentialProvider")
+    @builtins.classmethod
+    def is_cfn_api_key_credential_provider(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnApiKeyCredentialProvider.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5d0c0fe34f129861044ac7004e0f0acf5b995f5eb9851ad3e5642ad6ae2ff8e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApiKeyCredentialProvider", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06cfa027295bd109936895b4d8381627189393c4545e260ac3ced374709baf43)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__00b3bed5cea35c2326c146c1f71728fd0356a76c5fe051d4c978409699e4f76c)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKeyCredentialProviderRef")
+    def api_key_credential_provider_ref(
+        self,
+    ) -> "_ApiKeyCredentialProviderReference_cd6b5fa8":
+        '''A reference to a ApiKeyCredentialProvider resource.'''
+        return typing.cast("_ApiKeyCredentialProviderReference_cd6b5fa8", jsii.get(self, "apiKeyCredentialProviderRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrApiKeySecretArn")
+    def attr_api_key_secret_arn(self) -> "_IResolvable_da3f097b":
+        '''Contains information about the API key secret in AWS Secrets Manager.
+
+        :cloudformationAttribute: ApiKeySecretArn
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrApiKeySecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTime")
+    def attr_created_time(self) -> builtins.str:
+        '''The timestamp when the credential provider was created.
+
+        :cloudformationAttribute: CreatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCredentialProviderArn")
+    def attr_credential_provider_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the API key credential provider.
+
+        :cloudformationAttribute: CredentialProviderArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCredentialProviderArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTime")
+    def attr_last_updated_time(self) -> builtins.str:
+        '''The timestamp when the credential provider was last updated.
+
+        :cloudformationAttribute: LastUpdatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the API key credential provider.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b05b22ffa304b792245956d79b1c2ba640a9237690428a9af22050fdd1827d2d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKey")
+    def api_key(self) -> typing.Optional[builtins.str]:
+        '''The API key to use for authentication.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "apiKey"))
+
+    @api_key.setter
+    def api_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__572314d56565afad27a2de74fcbde6794165f48c670c8a475bfdcec160a85c8c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "apiKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to assign to the API key credential provider.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6544d35fad3c1f4b4c01730b4d1698ab35b124d3a9655140a3ffa90a7f43d043)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnApiKeyCredentialProvider.ApiKeySecretArnProperty",
+        jsii_struct_bases=[],
+        name_mapping={"secret_arn": "secretArn"},
+    )
+    class ApiKeySecretArnProperty:
+        def __init__(self, *, secret_arn: builtins.str) -> None:
+            '''Contains information about the API key secret in AWS Secrets Manager.
+
+            :param secret_arn: The ARN of the secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-apikeycredentialprovider-apikeysecretarn.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                api_key_secret_arn_property = bedrockagentcore.CfnApiKeyCredentialProvider.ApiKeySecretArnProperty(
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2504a07b4f3be05d07ad5db904eb92de18eefc443844d2ec67b70a264ec62a20)
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''The ARN of the secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-apikeycredentialprovider-apikeysecretarn.html#cfn-bedrockagentcore-apikeycredentialprovider-apikeysecretarn-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ApiKeySecretArnProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnApiKeyCredentialProviderProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "api_key": "apiKey", "tags": "tags"},
+)
+class CfnApiKeyCredentialProviderProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        api_key: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApiKeyCredentialProvider``.
+
+        :param name: The name of the API key credential provider.
+        :param api_key: The API key to use for authentication.
+        :param tags: Tags to assign to the API key credential provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-apikeycredentialprovider.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            cfn_api_key_credential_provider_props = bedrockagentcore.CfnApiKeyCredentialProviderProps(
+                name="name",
+            
+                # the properties below are optional
+                api_key="apiKey",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb76a2edf3865bdbdece780b83e38390cac0e28bcdc052fe44627dd0b40ac6f1)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if api_key is not None:
+            self._values["api_key"] = api_key
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the API key credential provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-apikeycredentialprovider.html#cfn-bedrockagentcore-apikeycredentialprovider-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def api_key(self) -> typing.Optional[builtins.str]:
+        '''The API key to use for authentication.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-apikeycredentialprovider.html#cfn-bedrockagentcore-apikeycredentialprovider-apikey
+        '''
+        result = self._values.get("api_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to assign to the API key credential provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-apikeycredentialprovider.html#cfn-bedrockagentcore-apikeycredentialprovider-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApiKeyCredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.implements(_IInspectable_c2943556, _IBrowserCustomRef_f12bfa35, _ITaggableV2_4e6798f8)
@@ -7640,8 +7982,6 @@ class CfnMemory(
                     namespace_templates=["namespaceTemplates"],
                     reflection_configuration=bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
                         namespaces=["namespaces"],
-        
-                        # the properties below are optional
                         namespace_templates=["namespaceTemplates"]
                     ),
                     status="status",
@@ -8580,8 +8920,6 @@ class CfnMemory(
                     namespace_templates=["namespaceTemplates"],
                     reflection_configuration=bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
                         namespaces=["namespaces"],
-                
-                        # the properties below are optional
                         namespace_templates=["namespaceTemplates"]
                     ),
                     status="status",
@@ -9087,7 +9425,7 @@ class CfnMemory(
         def __init__(
             self,
             *,
-            namespaces: typing.Sequence[builtins.str],
+            namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
             namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''
@@ -9105,8 +9443,6 @@ class CfnMemory(
                 
                 episodic_reflection_configuration_input_property = bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
                     namespaces=["namespaces"],
-                
-                    # the properties below are optional
                     namespace_templates=["namespaceTemplates"]
                 )
             '''
@@ -9114,21 +9450,20 @@ class CfnMemory(
                 type_hints = typing.get_type_hints(_typecheckingstub__4d10801b6b457e9912061807464c00e48d36901349246d4c00671ab17eaee367)
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
                 check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "namespaces": namespaces,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if namespaces is not None:
+                self._values["namespaces"] = namespaces
             if namespace_templates is not None:
                 self._values["namespace_templates"] = namespace_templates
 
         @builtins.property
-        def namespaces(self) -> typing.List[builtins.str]:
+        def namespaces(self) -> typing.Optional[typing.List[builtins.str]]:
             '''List of namespaces for memory strategy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-episodicreflectionconfigurationinput.html#cfn-bedrockagentcore-memory-episodicreflectionconfigurationinput-namespaces
             '''
             result = self._values.get("namespaces")
-            assert result is not None, "Required property 'namespaces' is missing"
-            return typing.cast(typing.List[builtins.str], result)
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
         def namespace_templates(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9428,8 +9763,6 @@ class CfnMemory(
                         namespace_templates=["namespaceTemplates"],
                         reflection_configuration=bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
                             namespaces=["namespaces"],
-                
-                            # the properties below are optional
                             namespace_templates=["namespaceTemplates"]
                         ),
                         status="status",
@@ -11341,8 +11674,6 @@ class CfnMemoryProps:
                         namespace_templates=["namespaceTemplates"],
                         reflection_configuration=bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
                             namespaces=["namespaces"],
-            
-                            # the properties below are optional
                             namespace_templates=["namespaceTemplates"]
                         ),
                         status="status",
@@ -11520,6 +11851,1770 @@ class CfnMemoryProps:
 
     def __repr__(self) -> str:
         return "CfnMemoryProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IOAuth2CredentialProviderRef_0815c2a4, _ITaggableV2_4e6798f8)
+class CfnOAuth2CredentialProvider(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider",
+):
+    '''Resource Type definition for AWS::BedrockAgentCore::OAuth2CredentialProvider.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-oauth2credentialprovider.html
+    :cloudformationResource: AWS::BedrockAgentCore::OAuth2CredentialProvider
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+        
+        cfn_oAuth2_credential_provider = bedrockagentcore.CfnOAuth2CredentialProvider(self, "MyCfnOAuth2CredentialProvider",
+            credential_provider_vendor="credentialProviderVendor",
+            name="name",
+        
+            # the properties below are optional
+            oauth2_provider_config_input=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty(
+                atlassian_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret"
+                ),
+                custom_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret",
+                    oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
+                        authorization_server_metadata=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty(
+                            authorization_endpoint="authorizationEndpoint",
+                            issuer="issuer",
+                            token_endpoint="tokenEndpoint",
+        
+                            # the properties below are optional
+                            response_types=["responseTypes"]
+                        ),
+                        discovery_url="discoveryUrl"
+                    )
+                ),
+                github_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret"
+                ),
+                google_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret"
+                ),
+                included_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret",
+        
+                    # the properties below are optional
+                    authorization_endpoint="authorizationEndpoint",
+                    issuer="issuer",
+                    token_endpoint="tokenEndpoint"
+                ),
+                linkedin_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret"
+                ),
+                microsoft_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret",
+        
+                    # the properties below are optional
+                    tenant_id="tenantId"
+                ),
+                salesforce_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret"
+                ),
+                slack_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret"
+                )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        credential_provider_vendor: builtins.str,
+        name: builtins.str,
+        oauth2_provider_config_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::BedrockAgentCore::OAuth2CredentialProvider``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param credential_provider_vendor: The vendor of the OAuth2 credential provider.
+        :param name: The name of the OAuth2 credential provider.
+        :param oauth2_provider_config_input: Input configuration for an OAuth2 provider.
+        :param tags: Tags to assign to the OAuth2 credential provider.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8599b0f43c1805e73bbdfd3975c825ed6eb6ccf62826e4f7cb994807c43d672e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnOAuth2CredentialProviderProps(
+            credential_provider_vendor=credential_provider_vendor,
+            name=name,
+            oauth2_provider_config_input=oauth2_provider_config_input,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnOAuth2CredentialProvider")
+    @builtins.classmethod
+    def is_cfn_o_auth2_credential_provider(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnOAuth2CredentialProvider.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4258aebbbbd62ad8d2e2dd7af3ff18b6a104e5501f35dbeec9a0d60dfb0e57ea)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOAuth2CredentialProvider", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97bc83f745b45ec827678f0fbc0877d71069b36388314e0b847f20290bc7b25a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b7bbf351a514156bf8e4601be9cadd1b1a19bbf61a0924149ed217988dbc4751)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCallbackUrl")
+    def attr_callback_url(self) -> builtins.str:
+        '''The callback URL for the OAuth2 authorization flow.
+
+        :cloudformationAttribute: CallbackUrl
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCallbackUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrClientSecretArn")
+    def attr_client_secret_arn(self) -> "_IResolvable_da3f097b":
+        '''Contains information about a secret in AWS Secrets Manager.
+
+        :cloudformationAttribute: ClientSecretArn
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrClientSecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTime")
+    def attr_created_time(self) -> builtins.str:
+        '''The timestamp when the credential provider was created.
+
+        :cloudformationAttribute: CreatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCredentialProviderArn")
+    def attr_credential_provider_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the OAuth2 credential provider.
+
+        :cloudformationAttribute: CredentialProviderArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCredentialProviderArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTime")
+    def attr_last_updated_time(self) -> builtins.str:
+        '''The timestamp when the credential provider was last updated.
+
+        :cloudformationAttribute: LastUpdatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOauth2ProviderConfigOutput")
+    def attr_oauth2_provider_config_output(self) -> "_IResolvable_da3f097b":
+        '''Output configuration for an OAuth2 provider.
+
+        :cloudformationAttribute: Oauth2ProviderConfigOutput
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrOauth2ProviderConfigOutput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="oAuth2CredentialProviderRef")
+    def o_auth2_credential_provider_ref(
+        self,
+    ) -> "_OAuth2CredentialProviderReference_0c62007e":
+        '''A reference to a OAuth2CredentialProvider resource.'''
+        return typing.cast("_OAuth2CredentialProviderReference_0c62007e", jsii.get(self, "oAuth2CredentialProviderRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialProviderVendor")
+    def credential_provider_vendor(self) -> builtins.str:
+        '''The vendor of the OAuth2 credential provider.'''
+        return typing.cast(builtins.str, jsii.get(self, "credentialProviderVendor"))
+
+    @credential_provider_vendor.setter
+    def credential_provider_vendor(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1053dba6ed3cd54aa58a8c07ab487b080f7e81b6c069e2429d6bef2cb02b90f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "credentialProviderVendor", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the OAuth2 credential provider.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0e8ff655cc234247f21cbfc8aa12117652865b0e599333761c7bf45c4f4f2283)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="oauth2ProviderConfigInput")
+    def oauth2_provider_config_input(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty"]]:
+        '''Input configuration for an OAuth2 provider.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty"]], jsii.get(self, "oauth2ProviderConfigInput"))
+
+    @oauth2_provider_config_input.setter
+    def oauth2_provider_config_input(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1cf2b9ff631714c19206d1bd9290015c6f2c8b80f6ac51b1b67596708e0bc21)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "oauth2ProviderConfigInput", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to assign to the OAuth2 credential provider.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8bba8072aeb1f20cf52a3c389f69b43ac6fa25bdcbeb12b53cb9715ddd3bfe8a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={"client_id": "clientId", "client_secret": "clientSecret"},
+    )
+    class AtlassianOauth2ProviderConfigInputProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            client_secret: builtins.str,
+        ) -> None:
+            '''Input configuration for an Atlassian OAuth2 provider.
+
+            :param client_id: 
+            :param client_secret: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-atlassianoauth2providerconfiginput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                atlassian_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__edf8d18f950f441227828390c6556f4cd8b9ae4cf1620505a7e75db072927b14)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+            }
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-atlassianoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-atlassianoauth2providerconfiginput-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_secret(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-atlassianoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-atlassianoauth2providerconfiginput-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            assert result is not None, "Required property 'client_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AtlassianOauth2ProviderConfigInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.ClientSecretArnProperty",
+        jsii_struct_bases=[],
+        name_mapping={"secret_arn": "secretArn"},
+    )
+    class ClientSecretArnProperty:
+        def __init__(self, *, secret_arn: builtins.str) -> None:
+            '''Contains information about a secret in AWS Secrets Manager.
+
+            :param secret_arn: The ARN of the secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-clientsecretarn.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                client_secret_arn_property = bedrockagentcore.CfnOAuth2CredentialProvider.ClientSecretArnProperty(
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8eb9a632255092d4608ff9847420b12a146ff9613a10423cd0f2a3e4c44f5028)
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''The ARN of the secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-clientsecretarn.html#cfn-bedrockagentcore-oauth2credentialprovider-clientsecretarn-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClientSecretArnProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "oauth_discovery": "oauthDiscovery",
+        },
+    )
+    class CustomOauth2ProviderConfigInputProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            client_secret: builtins.str,
+            oauth_discovery: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Input configuration for a custom OAuth2 provider.
+
+            :param client_id: The client ID for the custom OAuth2 provider.
+            :param client_secret: The client secret for the custom OAuth2 provider.
+            :param oauth_discovery: Discovery information for an OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                custom_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret",
+                    oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
+                        authorization_server_metadata=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty(
+                            authorization_endpoint="authorizationEndpoint",
+                            issuer="issuer",
+                            token_endpoint="tokenEndpoint",
+                
+                            # the properties below are optional
+                            response_types=["responseTypes"]
+                        ),
+                        discovery_url="discoveryUrl"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__42db5b69a3eb1cbedcb30d7f7d13d301d38de8e6caed7f630567a892724c1f10)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument oauth_discovery", value=oauth_discovery, expected_type=type_hints["oauth_discovery"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "oauth_discovery": oauth_discovery,
+            }
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''The client ID for the custom OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_secret(self) -> builtins.str:
+            '''The client secret for the custom OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            assert result is not None, "Required property 'client_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def oauth_discovery(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty"]:
+            '''Discovery information for an OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput-oauthdiscovery
+            '''
+            result = self._values.get("oauth_discovery")
+            assert result is not None, "Required property 'oauth_discovery' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomOauth2ProviderConfigInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={"client_id": "clientId", "client_secret": "clientSecret"},
+    )
+    class GithubOauth2ProviderConfigInputProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            client_secret: builtins.str,
+        ) -> None:
+            '''Input configuration for a GitHub OAuth2 provider.
+
+            :param client_id: 
+            :param client_secret: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-githuboauth2providerconfiginput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                github_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ccc739073da5461907f696292b551e731a9bb2831e895e683059920c6296f3af)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+            }
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-githuboauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-githuboauth2providerconfiginput-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_secret(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-githuboauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-githuboauth2providerconfiginput-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            assert result is not None, "Required property 'client_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GithubOauth2ProviderConfigInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={"client_id": "clientId", "client_secret": "clientSecret"},
+    )
+    class GoogleOauth2ProviderConfigInputProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            client_secret: builtins.str,
+        ) -> None:
+            '''Input configuration for a Google OAuth2 provider.
+
+            :param client_id: 
+            :param client_secret: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-googleoauth2providerconfiginput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                google_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__048116d9962b172d5fb331fa9dccae1f98231bc69e79ed840474fa8d346d8d63)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+            }
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-googleoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-googleoauth2providerconfiginput-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_secret(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-googleoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-googleoauth2providerconfiginput-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            assert result is not None, "Required property 'client_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GoogleOauth2ProviderConfigInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "authorization_endpoint": "authorizationEndpoint",
+            "issuer": "issuer",
+            "token_endpoint": "tokenEndpoint",
+        },
+    )
+    class IncludedOauth2ProviderConfigInputProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            client_secret: builtins.str,
+            authorization_endpoint: typing.Optional[builtins.str] = None,
+            issuer: typing.Optional[builtins.str] = None,
+            token_endpoint: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Input configuration for a supported non-custom OAuth2 provider.
+
+            :param client_id: 
+            :param client_secret: 
+            :param authorization_endpoint: OAuth2 authorization endpoint for your isolated OAuth2 application tenant.
+            :param issuer: Token issuer of your isolated OAuth2 application tenant.
+            :param token_endpoint: OAuth2 token endpoint for your isolated OAuth2 application tenant.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                included_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret",
+                
+                    # the properties below are optional
+                    authorization_endpoint="authorizationEndpoint",
+                    issuer="issuer",
+                    token_endpoint="tokenEndpoint"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9096fe6ae3873d799459c281a97332ca25d46e057efe138ef0826414315aec4c)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
+                check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
+                check_type(argname="argument token_endpoint", value=token_endpoint, expected_type=type_hints["token_endpoint"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+            }
+            if authorization_endpoint is not None:
+                self._values["authorization_endpoint"] = authorization_endpoint
+            if issuer is not None:
+                self._values["issuer"] = issuer
+            if token_endpoint is not None:
+                self._values["token_endpoint"] = token_endpoint
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_secret(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            assert result is not None, "Required property 'client_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authorization_endpoint(self) -> typing.Optional[builtins.str]:
+            '''OAuth2 authorization endpoint for your isolated OAuth2 application tenant.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput-authorizationendpoint
+            '''
+            result = self._values.get("authorization_endpoint")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def issuer(self) -> typing.Optional[builtins.str]:
+            '''Token issuer of your isolated OAuth2 application tenant.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput-issuer
+            '''
+            result = self._values.get("issuer")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def token_endpoint(self) -> typing.Optional[builtins.str]:
+            '''OAuth2 token endpoint for your isolated OAuth2 application tenant.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput-tokenendpoint
+            '''
+            result = self._values.get("token_endpoint")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IncludedOauth2ProviderConfigInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={"client_id": "clientId", "client_secret": "clientSecret"},
+    )
+    class LinkedinOauth2ProviderConfigInputProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            client_secret: builtins.str,
+        ) -> None:
+            '''Input configuration for a LinkedIn OAuth2 provider.
+
+            :param client_id: 
+            :param client_secret: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-linkedinoauth2providerconfiginput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                linkedin_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ef370342d5385a92ca3dcb2641d84e8aa2a80af451799ab2bc05beadac34087f)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+            }
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-linkedinoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-linkedinoauth2providerconfiginput-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_secret(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-linkedinoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-linkedinoauth2providerconfiginput-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            assert result is not None, "Required property 'client_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LinkedinOauth2ProviderConfigInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "tenant_id": "tenantId",
+        },
+    )
+    class MicrosoftOauth2ProviderConfigInputProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            client_secret: builtins.str,
+            tenant_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Input configuration for a Microsoft OAuth2 provider.
+
+            :param client_id: 
+            :param client_secret: 
+            :param tenant_id: The Microsoft Entra ID tenant ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                microsoft_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret",
+                
+                    # the properties below are optional
+                    tenant_id="tenantId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7595c98de3c71aead5997fb48d4515b6544d7120b8b6d0db58cf916a069478b3)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument tenant_id", value=tenant_id, expected_type=type_hints["tenant_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+            }
+            if tenant_id is not None:
+                self._values["tenant_id"] = tenant_id
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_secret(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            assert result is not None, "Required property 'client_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def tenant_id(self) -> typing.Optional[builtins.str]:
+            '''The Microsoft Entra ID tenant ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput-tenantid
+            '''
+            result = self._values.get("tenant_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MicrosoftOauth2ProviderConfigInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorization_endpoint": "authorizationEndpoint",
+            "issuer": "issuer",
+            "token_endpoint": "tokenEndpoint",
+            "response_types": "responseTypes",
+        },
+    )
+    class Oauth2AuthorizationServerMetadataProperty:
+        def __init__(
+            self,
+            *,
+            authorization_endpoint: builtins.str,
+            issuer: builtins.str,
+            token_endpoint: builtins.str,
+            response_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Authorization server metadata for the OAuth2 provider.
+
+            :param authorization_endpoint: The authorization endpoint URL.
+            :param issuer: The issuer URL for the OAuth2 authorization server.
+            :param token_endpoint: The token endpoint URL.
+            :param response_types: The supported response types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2authorizationservermetadata.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                oauth2_authorization_server_metadata_property = bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty(
+                    authorization_endpoint="authorizationEndpoint",
+                    issuer="issuer",
+                    token_endpoint="tokenEndpoint",
+                
+                    # the properties below are optional
+                    response_types=["responseTypes"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__38cbf25422d97b84e53375a10a447a7cd66deb71a2bc98f6308d587e70e1bd0a)
+                check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
+                check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
+                check_type(argname="argument token_endpoint", value=token_endpoint, expected_type=type_hints["token_endpoint"])
+                check_type(argname="argument response_types", value=response_types, expected_type=type_hints["response_types"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization_endpoint": authorization_endpoint,
+                "issuer": issuer,
+                "token_endpoint": token_endpoint,
+            }
+            if response_types is not None:
+                self._values["response_types"] = response_types
+
+        @builtins.property
+        def authorization_endpoint(self) -> builtins.str:
+            '''The authorization endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2authorizationservermetadata.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2authorizationservermetadata-authorizationendpoint
+            '''
+            result = self._values.get("authorization_endpoint")
+            assert result is not None, "Required property 'authorization_endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def issuer(self) -> builtins.str:
+            '''The issuer URL for the OAuth2 authorization server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2authorizationservermetadata.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2authorizationservermetadata-issuer
+            '''
+            result = self._values.get("issuer")
+            assert result is not None, "Required property 'issuer' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_endpoint(self) -> builtins.str:
+            '''The token endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2authorizationservermetadata.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2authorizationservermetadata-tokenendpoint
+            '''
+            result = self._values.get("token_endpoint")
+            assert result is not None, "Required property 'token_endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def response_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The supported response types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2authorizationservermetadata.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2authorizationservermetadata-responsetypes
+            '''
+            result = self._values.get("response_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "Oauth2AuthorizationServerMetadataProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorization_server_metadata": "authorizationServerMetadata",
+            "discovery_url": "discoveryUrl",
+        },
+    )
+    class Oauth2DiscoveryProperty:
+        def __init__(
+            self,
+            *,
+            authorization_server_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            discovery_url: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Discovery information for an OAuth2 provider.
+
+            :param authorization_server_metadata: Authorization server metadata for the OAuth2 provider.
+            :param discovery_url: The discovery URL for the OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2discovery.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                oauth2_discovery_property = bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
+                    authorization_server_metadata=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty(
+                        authorization_endpoint="authorizationEndpoint",
+                        issuer="issuer",
+                        token_endpoint="tokenEndpoint",
+                
+                        # the properties below are optional
+                        response_types=["responseTypes"]
+                    ),
+                    discovery_url="discoveryUrl"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__32d997b67efa3108e83f09fe342c619abc372c78da9b66d363367fb5469fa777)
+                check_type(argname="argument authorization_server_metadata", value=authorization_server_metadata, expected_type=type_hints["authorization_server_metadata"])
+                check_type(argname="argument discovery_url", value=discovery_url, expected_type=type_hints["discovery_url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if authorization_server_metadata is not None:
+                self._values["authorization_server_metadata"] = authorization_server_metadata
+            if discovery_url is not None:
+                self._values["discovery_url"] = discovery_url
+
+        @builtins.property
+        def authorization_server_metadata(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty"]]:
+            '''Authorization server metadata for the OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2discovery.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2discovery-authorizationservermetadata
+            '''
+            result = self._values.get("authorization_server_metadata")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty"]], result)
+
+        @builtins.property
+        def discovery_url(self) -> typing.Optional[builtins.str]:
+            '''The discovery URL for the OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2discovery.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2discovery-discoveryurl
+            '''
+            result = self._values.get("discovery_url")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "Oauth2DiscoveryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "atlassian_oauth2_provider_config": "atlassianOauth2ProviderConfig",
+            "custom_oauth2_provider_config": "customOauth2ProviderConfig",
+            "github_oauth2_provider_config": "githubOauth2ProviderConfig",
+            "google_oauth2_provider_config": "googleOauth2ProviderConfig",
+            "included_oauth2_provider_config": "includedOauth2ProviderConfig",
+            "linkedin_oauth2_provider_config": "linkedinOauth2ProviderConfig",
+            "microsoft_oauth2_provider_config": "microsoftOauth2ProviderConfig",
+            "salesforce_oauth2_provider_config": "salesforceOauth2ProviderConfig",
+            "slack_oauth2_provider_config": "slackOauth2ProviderConfig",
+        },
+    )
+    class Oauth2ProviderConfigInputProperty:
+        def __init__(
+            self,
+            *,
+            atlassian_oauth2_provider_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_oauth2_provider_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            github_oauth2_provider_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            google_oauth2_provider_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            included_oauth2_provider_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            linkedin_oauth2_provider_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            microsoft_oauth2_provider_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            salesforce_oauth2_provider_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            slack_oauth2_provider_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Input configuration for an OAuth2 provider.
+
+            :param atlassian_oauth2_provider_config: Input configuration for an Atlassian OAuth2 provider.
+            :param custom_oauth2_provider_config: Input configuration for a custom OAuth2 provider.
+            :param github_oauth2_provider_config: Input configuration for a GitHub OAuth2 provider.
+            :param google_oauth2_provider_config: Input configuration for a Google OAuth2 provider.
+            :param included_oauth2_provider_config: Input configuration for a supported non-custom OAuth2 provider.
+            :param linkedin_oauth2_provider_config: Input configuration for a LinkedIn OAuth2 provider.
+            :param microsoft_oauth2_provider_config: Input configuration for a Microsoft OAuth2 provider.
+            :param salesforce_oauth2_provider_config: Input configuration for a Salesforce OAuth2 provider.
+            :param slack_oauth2_provider_config: Input configuration for a Slack OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty(
+                    atlassian_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    custom_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+                        oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
+                            authorization_server_metadata=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty(
+                                authorization_endpoint="authorizationEndpoint",
+                                issuer="issuer",
+                                token_endpoint="tokenEndpoint",
+                
+                                # the properties below are optional
+                                response_types=["responseTypes"]
+                            ),
+                            discovery_url="discoveryUrl"
+                        )
+                    ),
+                    github_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    google_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    included_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+                
+                        # the properties below are optional
+                        authorization_endpoint="authorizationEndpoint",
+                        issuer="issuer",
+                        token_endpoint="tokenEndpoint"
+                    ),
+                    linkedin_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    microsoft_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+                
+                        # the properties below are optional
+                        tenant_id="tenantId"
+                    ),
+                    salesforce_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    slack_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ec7956413d58aa6ce25b61e8a19800eef3868a5def79879b12fdd44431025c79)
+                check_type(argname="argument atlassian_oauth2_provider_config", value=atlassian_oauth2_provider_config, expected_type=type_hints["atlassian_oauth2_provider_config"])
+                check_type(argname="argument custom_oauth2_provider_config", value=custom_oauth2_provider_config, expected_type=type_hints["custom_oauth2_provider_config"])
+                check_type(argname="argument github_oauth2_provider_config", value=github_oauth2_provider_config, expected_type=type_hints["github_oauth2_provider_config"])
+                check_type(argname="argument google_oauth2_provider_config", value=google_oauth2_provider_config, expected_type=type_hints["google_oauth2_provider_config"])
+                check_type(argname="argument included_oauth2_provider_config", value=included_oauth2_provider_config, expected_type=type_hints["included_oauth2_provider_config"])
+                check_type(argname="argument linkedin_oauth2_provider_config", value=linkedin_oauth2_provider_config, expected_type=type_hints["linkedin_oauth2_provider_config"])
+                check_type(argname="argument microsoft_oauth2_provider_config", value=microsoft_oauth2_provider_config, expected_type=type_hints["microsoft_oauth2_provider_config"])
+                check_type(argname="argument salesforce_oauth2_provider_config", value=salesforce_oauth2_provider_config, expected_type=type_hints["salesforce_oauth2_provider_config"])
+                check_type(argname="argument slack_oauth2_provider_config", value=slack_oauth2_provider_config, expected_type=type_hints["slack_oauth2_provider_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if atlassian_oauth2_provider_config is not None:
+                self._values["atlassian_oauth2_provider_config"] = atlassian_oauth2_provider_config
+            if custom_oauth2_provider_config is not None:
+                self._values["custom_oauth2_provider_config"] = custom_oauth2_provider_config
+            if github_oauth2_provider_config is not None:
+                self._values["github_oauth2_provider_config"] = github_oauth2_provider_config
+            if google_oauth2_provider_config is not None:
+                self._values["google_oauth2_provider_config"] = google_oauth2_provider_config
+            if included_oauth2_provider_config is not None:
+                self._values["included_oauth2_provider_config"] = included_oauth2_provider_config
+            if linkedin_oauth2_provider_config is not None:
+                self._values["linkedin_oauth2_provider_config"] = linkedin_oauth2_provider_config
+            if microsoft_oauth2_provider_config is not None:
+                self._values["microsoft_oauth2_provider_config"] = microsoft_oauth2_provider_config
+            if salesforce_oauth2_provider_config is not None:
+                self._values["salesforce_oauth2_provider_config"] = salesforce_oauth2_provider_config
+            if slack_oauth2_provider_config is not None:
+                self._values["slack_oauth2_provider_config"] = slack_oauth2_provider_config
+
+        @builtins.property
+        def atlassian_oauth2_provider_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty"]]:
+            '''Input configuration for an Atlassian OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput-atlassianoauth2providerconfig
+            '''
+            result = self._values.get("atlassian_oauth2_provider_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty"]], result)
+
+        @builtins.property
+        def custom_oauth2_provider_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty"]]:
+            '''Input configuration for a custom OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput-customoauth2providerconfig
+            '''
+            result = self._values.get("custom_oauth2_provider_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty"]], result)
+
+        @builtins.property
+        def github_oauth2_provider_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty"]]:
+            '''Input configuration for a GitHub OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput-githuboauth2providerconfig
+            '''
+            result = self._values.get("github_oauth2_provider_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty"]], result)
+
+        @builtins.property
+        def google_oauth2_provider_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty"]]:
+            '''Input configuration for a Google OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput-googleoauth2providerconfig
+            '''
+            result = self._values.get("google_oauth2_provider_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty"]], result)
+
+        @builtins.property
+        def included_oauth2_provider_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty"]]:
+            '''Input configuration for a supported non-custom OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput-includedoauth2providerconfig
+            '''
+            result = self._values.get("included_oauth2_provider_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty"]], result)
+
+        @builtins.property
+        def linkedin_oauth2_provider_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty"]]:
+            '''Input configuration for a LinkedIn OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput-linkedinoauth2providerconfig
+            '''
+            result = self._values.get("linkedin_oauth2_provider_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty"]], result)
+
+        @builtins.property
+        def microsoft_oauth2_provider_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty"]]:
+            '''Input configuration for a Microsoft OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput-microsoftoauth2providerconfig
+            '''
+            result = self._values.get("microsoft_oauth2_provider_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty"]], result)
+
+        @builtins.property
+        def salesforce_oauth2_provider_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty"]]:
+            '''Input configuration for a Salesforce OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput-salesforceoauth2providerconfig
+            '''
+            result = self._values.get("salesforce_oauth2_provider_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty"]], result)
+
+        @builtins.property
+        def slack_oauth2_provider_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty"]]:
+            '''Input configuration for a Slack OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput-slackoauth2providerconfig
+            '''
+            result = self._values.get("slack_oauth2_provider_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "Oauth2ProviderConfigInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2ProviderConfigOutputProperty",
+        jsii_struct_bases=[],
+        name_mapping={"client_id": "clientId", "oauth_discovery": "oauthDiscovery"},
+    )
+    class Oauth2ProviderConfigOutputProperty:
+        def __init__(
+            self,
+            *,
+            client_id: typing.Optional[builtins.str] = None,
+            oauth_discovery: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Output configuration for an OAuth2 provider.
+
+            :param client_id: 
+            :param oauth_discovery: Discovery information for an OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfigoutput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                oauth2_provider_config_output_property = bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2ProviderConfigOutputProperty(
+                    client_id="clientId",
+                    oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
+                        authorization_server_metadata=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty(
+                            authorization_endpoint="authorizationEndpoint",
+                            issuer="issuer",
+                            token_endpoint="tokenEndpoint",
+                
+                            # the properties below are optional
+                            response_types=["responseTypes"]
+                        ),
+                        discovery_url="discoveryUrl"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__80d5d340375743330f03bcce541b4baa53d74dc34fb39c747fa18f2aa3e6e9af)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument oauth_discovery", value=oauth_discovery, expected_type=type_hints["oauth_discovery"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if client_id is not None:
+                self._values["client_id"] = client_id
+            if oauth_discovery is not None:
+                self._values["oauth_discovery"] = oauth_discovery
+
+        @builtins.property
+        def client_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfigoutput.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfigoutput-clientid
+            '''
+            result = self._values.get("client_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def oauth_discovery(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty"]]:
+            '''Discovery information for an OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfigoutput.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfigoutput-oauthdiscovery
+            '''
+            result = self._values.get("oauth_discovery")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "Oauth2ProviderConfigOutputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={"client_id": "clientId", "client_secret": "clientSecret"},
+    )
+    class SalesforceOauth2ProviderConfigInputProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            client_secret: builtins.str,
+        ) -> None:
+            '''Input configuration for a Salesforce OAuth2 provider.
+
+            :param client_id: 
+            :param client_secret: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-salesforceoauth2providerconfiginput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                salesforce_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__32bc2bfa7692293860f88e5a06cdd0667eff7ad2e5eb1faedfe0edb1211c3395)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+            }
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-salesforceoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-salesforceoauth2providerconfiginput-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_secret(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-salesforceoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-salesforceoauth2providerconfiginput-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            assert result is not None, "Required property 'client_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SalesforceOauth2ProviderConfigInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={"client_id": "clientId", "client_secret": "clientSecret"},
+    )
+    class SlackOauth2ProviderConfigInputProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            client_secret: builtins.str,
+        ) -> None:
+            '''Input configuration for a Slack OAuth2 provider.
+
+            :param client_id: 
+            :param client_secret: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-slackoauth2providerconfiginput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                slack_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d481c4e03c457cb3488d486219733d6daf49bc2037b001de9ced0c972e7bfb09)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+            }
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-slackoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-slackoauth2providerconfiginput-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_secret(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-slackoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-slackoauth2providerconfiginput-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            assert result is not None, "Required property 'client_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SlackOauth2ProviderConfigInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProviderProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "credential_provider_vendor": "credentialProviderVendor",
+        "name": "name",
+        "oauth2_provider_config_input": "oauth2ProviderConfigInput",
+        "tags": "tags",
+    },
+)
+class CfnOAuth2CredentialProviderProps:
+    def __init__(
+        self,
+        *,
+        credential_provider_vendor: builtins.str,
+        name: builtins.str,
+        oauth2_provider_config_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnOAuth2CredentialProvider``.
+
+        :param credential_provider_vendor: The vendor of the OAuth2 credential provider.
+        :param name: The name of the OAuth2 credential provider.
+        :param oauth2_provider_config_input: Input configuration for an OAuth2 provider.
+        :param tags: Tags to assign to the OAuth2 credential provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-oauth2credentialprovider.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            cfn_oAuth2_credential_provider_props = bedrockagentcore.CfnOAuth2CredentialProviderProps(
+                credential_provider_vendor="credentialProviderVendor",
+                name="name",
+            
+                # the properties below are optional
+                oauth2_provider_config_input=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty(
+                    atlassian_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    custom_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+                        oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
+                            authorization_server_metadata=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty(
+                                authorization_endpoint="authorizationEndpoint",
+                                issuer="issuer",
+                                token_endpoint="tokenEndpoint",
+            
+                                # the properties below are optional
+                                response_types=["responseTypes"]
+                            ),
+                            discovery_url="discoveryUrl"
+                        )
+                    ),
+                    github_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    google_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    included_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+            
+                        # the properties below are optional
+                        authorization_endpoint="authorizationEndpoint",
+                        issuer="issuer",
+                        token_endpoint="tokenEndpoint"
+                    ),
+                    linkedin_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    microsoft_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+            
+                        # the properties below are optional
+                        tenant_id="tenantId"
+                    ),
+                    salesforce_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    slack_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__681cd63f932a01c1242dd1b5e48e18e2115ec7a60342c417b6331c2d29711a38)
+            check_type(argname="argument credential_provider_vendor", value=credential_provider_vendor, expected_type=type_hints["credential_provider_vendor"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument oauth2_provider_config_input", value=oauth2_provider_config_input, expected_type=type_hints["oauth2_provider_config_input"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "credential_provider_vendor": credential_provider_vendor,
+            "name": name,
+        }
+        if oauth2_provider_config_input is not None:
+            self._values["oauth2_provider_config_input"] = oauth2_provider_config_input
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def credential_provider_vendor(self) -> builtins.str:
+        '''The vendor of the OAuth2 credential provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-oauth2credentialprovider.html#cfn-bedrockagentcore-oauth2credentialprovider-credentialprovidervendor
+        '''
+        result = self._values.get("credential_provider_vendor")
+        assert result is not None, "Required property 'credential_provider_vendor' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the OAuth2 credential provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-oauth2credentialprovider.html#cfn-bedrockagentcore-oauth2credentialprovider-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def oauth2_provider_config_input(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty"]]:
+        '''Input configuration for an OAuth2 provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-oauth2credentialprovider.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput
+        '''
+        result = self._values.get("oauth2_provider_config_input")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to assign to the OAuth2 credential provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-oauth2credentialprovider.html#cfn-bedrockagentcore-oauth2credentialprovider-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOAuth2CredentialProviderProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -13727,6 +15822,11 @@ class CfnRuntime(
             environment_variables={
                 "environment_variables_key": "environmentVariables"
             },
+            filesystem_configurations=[bedrockagentcore.CfnRuntime.FilesystemConfigurationProperty(
+                session_storage=bedrockagentcore.CfnRuntime.SessionStorageConfigurationProperty(
+                    mount_path="mountPath"
+                )
+            )],
             lifecycle_configuration=bedrockagentcore.CfnRuntime.LifecycleConfigurationProperty(
                 idle_runtime_session_timeout=123,
                 max_lifetime=123
@@ -13753,6 +15853,7 @@ class CfnRuntime(
         authorizer_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.AuthorizerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        filesystem_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.FilesystemConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         lifecycle_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         protocol_configuration: typing.Optional[builtins.str] = None,
         request_header_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.RequestHeaderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -13769,6 +15870,7 @@ class CfnRuntime(
         :param authorizer_configuration: Represents inbound authorization configuration options used to authenticate incoming requests.
         :param description: The agent runtime description.
         :param environment_variables: The environment variables for the agent.
+        :param filesystem_configurations: List of filesystem configurations.
         :param lifecycle_configuration: Configuration for managing the lifecycle of runtime sessions and resources.
         :param protocol_configuration: The protocol configuration for an agent runtime. This structure defines how the agent runtime communicates with clients.
         :param request_header_configuration: Configuration for HTTP request headers.
@@ -13786,6 +15888,7 @@ class CfnRuntime(
             authorizer_configuration=authorizer_configuration,
             description=description,
             environment_variables=environment_variables,
+            filesystem_configurations=filesystem_configurations,
             lifecycle_configuration=lifecycle_configuration,
             protocol_configuration=protocol_configuration,
             request_header_configuration=request_header_configuration,
@@ -14046,6 +16149,24 @@ class CfnRuntime(
             type_hints = typing.get_type_hints(_typecheckingstub__27b52f571e16cbee3d0cb6aef888169b2fdf172a92199c29075b1bbfe5eb3091)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentVariables", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="filesystemConfigurations")
+    def filesystem_configurations(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuntime.FilesystemConfigurationProperty"]]]]:
+        '''List of filesystem configurations.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuntime.FilesystemConfigurationProperty"]]]], jsii.get(self, "filesystemConfigurations"))
+
+    @filesystem_configurations.setter
+    def filesystem_configurations(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuntime.FilesystemConfigurationProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43dce50c07657c4484dd2a544f837a2e47e5097106df2861e11b011172bc14dc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "filesystemConfigurations", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="lifecycleConfiguration")
@@ -14880,6 +17001,65 @@ class CfnRuntime(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnRuntime.FilesystemConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"session_storage": "sessionStorage"},
+    )
+    class FilesystemConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            session_storage: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.SessionStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Filesystem configuration for the runtime.
+
+            :param session_storage: Configuration for session storage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-filesystemconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                filesystem_configuration_property = bedrockagentcore.CfnRuntime.FilesystemConfigurationProperty(
+                    session_storage=bedrockagentcore.CfnRuntime.SessionStorageConfigurationProperty(
+                        mount_path="mountPath"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9c6ed3ffc88e8f51fb4002dbc69380cb5deff931c76d63bc29648fe0b3c464bf)
+                check_type(argname="argument session_storage", value=session_storage, expected_type=type_hints["session_storage"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if session_storage is not None:
+                self._values["session_storage"] = session_storage
+
+        @builtins.property
+        def session_storage(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuntime.SessionStorageConfigurationProperty"]]:
+            '''Configuration for session storage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-filesystemconfiguration.html#cfn-bedrockagentcore-runtime-filesystemconfiguration-sessionstorage
+            '''
+            result = self._values.get("session_storage")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuntime.SessionStorageConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FilesystemConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnRuntime.LifecycleConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -15179,6 +17359,58 @@ class CfnRuntime(
 
         def __repr__(self) -> str:
             return "S3LocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnRuntime.SessionStorageConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"mount_path": "mountPath"},
+    )
+    class SessionStorageConfigurationProperty:
+        def __init__(self, *, mount_path: builtins.str) -> None:
+            '''Configuration for session storage.
+
+            :param mount_path: Mount path for session storage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-sessionstorageconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                session_storage_configuration_property = bedrockagentcore.CfnRuntime.SessionStorageConfigurationProperty(
+                    mount_path="mountPath"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__73e2efb0356c0d48bb30b8552033c7f3fb7101661cf07f427abc232884b09eef)
+                check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "mount_path": mount_path,
+            }
+
+        @builtins.property
+        def mount_path(self) -> builtins.str:
+            '''Mount path for session storage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-sessionstorageconfiguration.html#cfn-bedrockagentcore-runtime-sessionstorageconfiguration-mountpath
+            '''
+            result = self._values.get("mount_path")
+            assert result is not None, "Required property 'mount_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SessionStorageConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -15725,6 +17957,7 @@ class CfnRuntimeEndpointProps:
         "authorizer_configuration": "authorizerConfiguration",
         "description": "description",
         "environment_variables": "environmentVariables",
+        "filesystem_configurations": "filesystemConfigurations",
         "lifecycle_configuration": "lifecycleConfiguration",
         "protocol_configuration": "protocolConfiguration",
         "request_header_configuration": "requestHeaderConfiguration",
@@ -15742,6 +17975,7 @@ class CfnRuntimeProps:
         authorizer_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.AuthorizerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        filesystem_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.FilesystemConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         lifecycle_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         protocol_configuration: typing.Optional[builtins.str] = None,
         request_header_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.RequestHeaderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -15756,6 +17990,7 @@ class CfnRuntimeProps:
         :param authorizer_configuration: Represents inbound authorization configuration options used to authenticate incoming requests.
         :param description: The agent runtime description.
         :param environment_variables: The environment variables for the agent.
+        :param filesystem_configurations: List of filesystem configurations.
         :param lifecycle_configuration: Configuration for managing the lifecycle of runtime sessions and resources.
         :param protocol_configuration: The protocol configuration for an agent runtime. This structure defines how the agent runtime communicates with clients.
         :param request_header_configuration: Configuration for HTTP request headers.
@@ -15827,6 +18062,11 @@ class CfnRuntimeProps:
                 environment_variables={
                     "environment_variables_key": "environmentVariables"
                 },
+                filesystem_configurations=[bedrockagentcore.CfnRuntime.FilesystemConfigurationProperty(
+                    session_storage=bedrockagentcore.CfnRuntime.SessionStorageConfigurationProperty(
+                        mount_path="mountPath"
+                    )
+                )],
                 lifecycle_configuration=bedrockagentcore.CfnRuntime.LifecycleConfigurationProperty(
                     idle_runtime_session_timeout=123,
                     max_lifetime=123
@@ -15849,6 +18089,7 @@ class CfnRuntimeProps:
             check_type(argname="argument authorizer_configuration", value=authorizer_configuration, expected_type=type_hints["authorizer_configuration"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+            check_type(argname="argument filesystem_configurations", value=filesystem_configurations, expected_type=type_hints["filesystem_configurations"])
             check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
             check_type(argname="argument protocol_configuration", value=protocol_configuration, expected_type=type_hints["protocol_configuration"])
             check_type(argname="argument request_header_configuration", value=request_header_configuration, expected_type=type_hints["request_header_configuration"])
@@ -15865,6 +18106,8 @@ class CfnRuntimeProps:
             self._values["description"] = description
         if environment_variables is not None:
             self._values["environment_variables"] = environment_variables
+        if filesystem_configurations is not None:
+            self._values["filesystem_configurations"] = filesystem_configurations
         if lifecycle_configuration is not None:
             self._values["lifecycle_configuration"] = lifecycle_configuration
         if protocol_configuration is not None:
@@ -15948,6 +18191,17 @@ class CfnRuntimeProps:
         '''
         result = self._values.get("environment_variables")
         return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def filesystem_configurations(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuntime.FilesystemConfigurationProperty"]]]]:
+        '''List of filesystem configurations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-runtime.html#cfn-bedrockagentcore-runtime-filesystemconfigurations
+        '''
+        result = self._values.get("filesystem_configurations")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuntime.FilesystemConfigurationProperty"]]]], result)
 
     @builtins.property
     def lifecycle_configuration(
@@ -16316,6 +18570,8 @@ class CfnWorkloadIdentityProps:
 
 
 __all__ = [
+    "CfnApiKeyCredentialProvider",
+    "CfnApiKeyCredentialProviderProps",
     "CfnBrowserCustom",
     "CfnBrowserCustomProps",
     "CfnBrowserProfile",
@@ -16330,6 +18586,8 @@ __all__ = [
     "CfnGatewayTargetProps",
     "CfnMemory",
     "CfnMemoryProps",
+    "CfnOAuth2CredentialProvider",
+    "CfnOAuth2CredentialProviderProps",
     "CfnOnlineEvaluationConfig",
     "CfnOnlineEvaluationConfigProps",
     "CfnPolicy",
@@ -16345,6 +18603,69 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__b3bd42e9263df03a59e830c8f21f47046aaba131c40f7a04b1ec0d161b204d8c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    api_key: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5d0c0fe34f129861044ac7004e0f0acf5b995f5eb9851ad3e5642ad6ae2ff8e(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06cfa027295bd109936895b4d8381627189393c4545e260ac3ced374709baf43(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00b3bed5cea35c2326c146c1f71728fd0356a76c5fe051d4c978409699e4f76c(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b05b22ffa304b792245956d79b1c2ba640a9237690428a9af22050fdd1827d2d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__572314d56565afad27a2de74fcbde6794165f48c670c8a475bfdcec160a85c8c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6544d35fad3c1f4b4c01730b4d1698ab35b124d3a9655140a3ffa90a7f43d043(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2504a07b4f3be05d07ad5db904eb92de18eefc443844d2ec67b70a264ec62a20(
+    *,
+    secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb76a2edf3865bdbdece780b83e38390cac0e28bcdc052fe44627dd0b40ac6f1(
+    *,
+    name: builtins.str,
+    api_key: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__e817ad5ee6496ab54cf569758c4d73da62a4d6f5cf0c34866960f6e4677343e1(
     scope: _constructs_77d1e7e8.Construct,
@@ -17480,7 +19801,7 @@ def _typecheckingstub__df10fcf9a92c0373c158e2aa4763d8107995e1f7b4403a8c8001a6afe
 
 def _typecheckingstub__4d10801b6b457e9912061807464c00e48d36901349246d4c00671ab17eaee367(
     *,
-    namespaces: typing.Sequence[builtins.str],
+    namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
     namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17684,6 +20005,195 @@ def _typecheckingstub__28dda218e5909d8e89c4ab4ee9bac6335e1f1cde1c399e1ac3c1c739e
     memory_strategies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MemoryStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     stream_delivery_resources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.StreamDeliveryResourcesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8599b0f43c1805e73bbdfd3975c825ed6eb6ccf62826e4f7cb994807c43d672e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    credential_provider_vendor: builtins.str,
+    name: builtins.str,
+    oauth2_provider_config_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4258aebbbbd62ad8d2e2dd7af3ff18b6a104e5501f35dbeec9a0d60dfb0e57ea(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97bc83f745b45ec827678f0fbc0877d71069b36388314e0b847f20290bc7b25a(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7bbf351a514156bf8e4601be9cadd1b1a19bbf61a0924149ed217988dbc4751(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1053dba6ed3cd54aa58a8c07ab487b080f7e81b6c069e2429d6bef2cb02b90f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e8ff655cc234247f21cbfc8aa12117652865b0e599333761c7bf45c4f4f2283(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1cf2b9ff631714c19206d1bd9290015c6f2c8b80f6ac51b1b67596708e0bc21(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8bba8072aeb1f20cf52a3c389f69b43ac6fa25bdcbeb12b53cb9715ddd3bfe8a(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__edf8d18f950f441227828390c6556f4cd8b9ae4cf1620505a7e75db072927b14(
+    *,
+    client_id: builtins.str,
+    client_secret: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8eb9a632255092d4608ff9847420b12a146ff9613a10423cd0f2a3e4c44f5028(
+    *,
+    secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42db5b69a3eb1cbedcb30d7f7d13d301d38de8e6caed7f630567a892724c1f10(
+    *,
+    client_id: builtins.str,
+    client_secret: builtins.str,
+    oauth_discovery: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ccc739073da5461907f696292b551e731a9bb2831e895e683059920c6296f3af(
+    *,
+    client_id: builtins.str,
+    client_secret: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__048116d9962b172d5fb331fa9dccae1f98231bc69e79ed840474fa8d346d8d63(
+    *,
+    client_id: builtins.str,
+    client_secret: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9096fe6ae3873d799459c281a97332ca25d46e057efe138ef0826414315aec4c(
+    *,
+    client_id: builtins.str,
+    client_secret: builtins.str,
+    authorization_endpoint: typing.Optional[builtins.str] = None,
+    issuer: typing.Optional[builtins.str] = None,
+    token_endpoint: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef370342d5385a92ca3dcb2641d84e8aa2a80af451799ab2bc05beadac34087f(
+    *,
+    client_id: builtins.str,
+    client_secret: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7595c98de3c71aead5997fb48d4515b6544d7120b8b6d0db58cf916a069478b3(
+    *,
+    client_id: builtins.str,
+    client_secret: builtins.str,
+    tenant_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38cbf25422d97b84e53375a10a447a7cd66deb71a2bc98f6308d587e70e1bd0a(
+    *,
+    authorization_endpoint: builtins.str,
+    issuer: builtins.str,
+    token_endpoint: builtins.str,
+    response_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32d997b67efa3108e83f09fe342c619abc372c78da9b66d363367fb5469fa777(
+    *,
+    authorization_server_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    discovery_url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec7956413d58aa6ce25b61e8a19800eef3868a5def79879b12fdd44431025c79(
+    *,
+    atlassian_oauth2_provider_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_oauth2_provider_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    github_oauth2_provider_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    google_oauth2_provider_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    included_oauth2_provider_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    linkedin_oauth2_provider_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    microsoft_oauth2_provider_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    salesforce_oauth2_provider_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    slack_oauth2_provider_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80d5d340375743330f03bcce541b4baa53d74dc34fb39c747fa18f2aa3e6e9af(
+    *,
+    client_id: typing.Optional[builtins.str] = None,
+    oauth_discovery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32bc2bfa7692293860f88e5a06cdd0667eff7ad2e5eb1faedfe0edb1211c3395(
+    *,
+    client_id: builtins.str,
+    client_secret: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d481c4e03c457cb3488d486219733d6daf49bc2037b001de9ced0c972e7bfb09(
+    *,
+    client_id: builtins.str,
+    client_secret: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__681cd63f932a01c1242dd1b5e48e18e2115ec7a60342c417b6331c2d29711a38(
+    *,
+    credential_provider_vendor: builtins.str,
+    name: builtins.str,
+    oauth2_provider_config_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18040,6 +20550,7 @@ def _typecheckingstub__d8f75c2b58380182b53165109480fecdbf9bcd35c2fcfcfea5141466b
     authorizer_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.AuthorizerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    filesystem_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.FilesystemConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     protocol_configuration: typing.Optional[builtins.str] = None,
     request_header_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.RequestHeaderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -18110,6 +20621,12 @@ def _typecheckingstub__86887c96ad11d54aa9be7288cd5dfe9a9b3cb370236b2cf8c98f0ea09
 
 def _typecheckingstub__27b52f571e16cbee3d0cb6aef888169b2fdf172a92199c29075b1bbfe5eb3091(
     value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43dce50c07657c4484dd2a544f837a2e47e5097106df2861e11b011172bc14dc(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRuntime.FilesystemConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18212,6 +20729,13 @@ def _typecheckingstub__6479ff33c6925aa85dcd6d4587cd46a0d073bd9992bb93c306d366f07
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9c6ed3ffc88e8f51fb4002dbc69380cb5deff931c76d63bc29648fe0b3c464bf(
+    *,
+    session_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.SessionStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f7dbc8b9876a11d54d81ef95ffe47ee5c649dfccb99ee31d9fba5b23defef9a4(
     *,
     idle_runtime_session_timeout: typing.Optional[jsii.Number] = None,
@@ -18240,6 +20764,13 @@ def _typecheckingstub__f7c4beadb07e8c6b725d20f4621457e58be14242062fb450da57aa4e9
     bucket: builtins.str,
     prefix: builtins.str,
     version_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73e2efb0356c0d48bb30b8552033c7f3fb7101661cf07f427abc232884b09eef(
+    *,
+    mount_path: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18340,6 +20871,7 @@ def _typecheckingstub__0e489b12cef85647a902e6bba6db3bf5f3ef1a856b74cf0fc5a7f8d1d
     authorizer_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.AuthorizerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    filesystem_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.FilesystemConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     protocol_configuration: typing.Optional[builtins.str] = None,
     request_header_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.RequestHeaderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

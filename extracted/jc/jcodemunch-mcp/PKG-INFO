@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.43.0
+Version: 1.44.1
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -84,6 +84,8 @@ Quickstart - https://github.com/jgravelle/jcodemunch-mcp/blob/main/QUICKSTART.md
 | [QUICKSTART.md](QUICKSTART.md) | Zero-to-indexed in three steps |
 | [USER_GUIDE.md](USER_GUIDE.md) | Full tool reference, workflows, and best practices |
 | [AGENT_HOOKS.md](AGENT_HOOKS.md) | Agent hooks and prompt policies |
+| [CONFIGURATION.md](CONFIGURATION.md) | JSONC config file reference, migration from env vars |
+| [GROQ.md](GROQ.md) | Groq Remote MCP integration, deployment, gcm CLI |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Internal design, storage model, and extension points |
 | [LANGUAGE_SUPPORT.md](LANGUAGE_SUPPORT.md) | Supported languages and parsing details |
 | [CONTEXT_PROVIDERS.md](CONTEXT_PROVIDERS.md) | dbt, Git, and custom context provider docs |
@@ -535,10 +537,14 @@ Project config merges over global config — closest to the work wins.
 
 | Config key | What it controls | Typical savings |
 |-----------|-----------------|----------------|
-| `disabled_tools` | Remove tools from schema entirely | ~100–400 tokens/tool |
+| `tool_profile` | `"core"` (16 tools), `"standard"` (~40), `"full"` (all, default) | ~5-6k tokens (core) |
+| `compact_schemas` | Strip rarely-used advanced params from schemas | ~1-2k tokens |
+| `disabled_tools` | Remove individual tools from schema entirely | ~100–400 tokens/tool |
 | `languages` | Shrink language enum + gate features | ~2–86 tokens/turn |
 | `meta_fields` | Filter `_meta` response fields | ~50–150 tokens/call |
 | `descriptions` | Control description verbosity | ~0–600 tokens/turn |
+
+**Recommended for context-conscious setups:** `"tool_profile": "core", "compact_schemas": true` reduces the schema footprint from ~11.5k tokens to ~4k tokens.
 
 See the full template for all available keys. Run `jcodemunch-mcp config --init` to generate one.
 

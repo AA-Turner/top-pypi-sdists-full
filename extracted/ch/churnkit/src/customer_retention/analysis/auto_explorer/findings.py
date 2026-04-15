@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from customer_retention.core.config.column_config import ColumnConfig, ColumnType, DatasetGranularity
+from customer_retention.stages.modeling.feature_spec import LeakageExclusion
 
 _NUMERIC_TYPES = frozenset({ColumnType.NUMERIC_CONTINUOUS, ColumnType.NUMERIC_DISCRETE})
 _CATEGORICAL_TYPES = frozenset({
@@ -25,6 +26,21 @@ class ColumnClassification:
     text: List[str] = field(default_factory=list)
     identifier: List[str] = field(default_factory=list)
     target: Optional[str] = None
+
+
+def apply_zero_inflation_opt_in(
+    findings: Dict[str, "ExplorationFindings"],
+    opt_in: Dict[str, List[str]],
+) -> None:
+    if opt_in is None:
+        raise TypeError("apply_zero_inflation_opt_in: opt_in config cannot be None")
+    unknown = sorted(name for name in opt_in if name not in findings)
+    if unknown:
+        raise KeyError(
+            f"apply_zero_inflation_opt_in: unknown dataset(s) in opt-in config: {unknown}"
+        )
+    for name, cols in opt_in.items():
+        findings[name].zero_inflation_opt_in = list(cols)
 
 
 def classify_columns(
@@ -231,7 +247,7 @@ class ExplorationFindings:
     datetime_ordering: List[str] = field(default_factory=list)
     datetime_derivation_sources: List[str] = field(default_factory=list)
     datetime_allow_future_columns: List[str] = field(default_factory=list)
-    excluded_leaking_features: List[str] = field(default_factory=list)
+    excluded_leaking_features: List[LeakageExclusion] = field(default_factory=list)
     zero_inflation_opt_in: List[str] = field(default_factory=list)
     field_availability_audit: Optional[Dict[str, Any]] = None
     label_timestamp_column: Optional[str] = None
@@ -352,6 +368,9 @@ class ExplorationFindings:
         data["time_series_metadata"] = cls._deserialize_time_series_metadata(data.get("time_series_metadata"))
         data["text_processing"] = {k: TextProcessingMetadata(**v) for k, v in data.get("text_processing", {}).items()}
         data["feature_availability"] = cls._deserialize_feature_availability(data.get("feature_availability"))
+        data["excluded_leaking_features"] = [
+            LeakageExclusion.from_dict(e) for e in data.get("excluded_leaking_features") or []
+        ]
         return cls(**data)
 
     @classmethod

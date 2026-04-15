@@ -349,6 +349,7 @@ fn build_paragraph_from_lines(line_groups: &[&Vec<usize>], elements: &[ContentEl
                 is_italic: elem.is_italic,
                 is_monospace,
                 baseline_y: y_min,
+                assigned_role: None,
             });
 
             total_word_count += 1;
@@ -527,6 +528,7 @@ fn element_to_paragraph(elem: &ContentElement) -> Option<PdfParagraph> {
                 is_italic: elem.is_italic,
                 is_monospace,
                 baseline_y: 0.0,
+                assigned_role: None,
             })
             .collect()
     } else {
@@ -542,6 +544,7 @@ fn element_to_paragraph(elem: &ContentElement) -> Option<PdfParagraph> {
             is_italic: elem.is_italic,
             is_monospace,
             baseline_y: elem.bbox.map_or(0.0, |r| r.y_min),
+            assigned_role: None,
         }]
     };
 

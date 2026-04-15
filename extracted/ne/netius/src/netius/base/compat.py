@@ -657,6 +657,17 @@ def _connect_stream_native(
             on_error(connection)
 
     def on_connect(connection):
+        # verifies that the protocol is still valid before wrapping
+        # the connection, if the protocol has been closed the
+        # connection must be closed to avoid orphan connections,
+        # this is only possible to assess in Netius based Protocol
+        # instances for which these high level methods exist
+        if (hasattr(protocol, "is_closed") and protocol.is_closed()) or (
+            hasattr(protocol, "is_closing") and protocol.is_closing()
+        ):
+            connection.close()
+            return
+
         _transport = transport.TransportStream(loop, connection)
         _transport._set_compat(protocol)
         if not callback:

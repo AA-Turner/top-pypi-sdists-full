@@ -219,7 +219,7 @@ def login_user(
     if remember is None:
         remember = config_value("DEFAULT_REMEMBER_ME")
 
-    if not _login_user(user, remember):  # pragma: no cover
+    if not _login_user(user, remember, force=True):  # pragma: no cover
         return False
 
     if _security.trackable:
@@ -395,6 +395,8 @@ def verify_password(password: str | bytes, password_hash: str | bytes) -> bool:
     """
     if use_double_hash(password_hash):
         password = get_hmac(password)
+        if _pwd_context.identify(password_hash) == "bcrypt":
+            password = password[:72]
 
     return _pwd_context.verify(password, password_hash)
 
@@ -520,6 +522,25 @@ def suppress_form_csrf():
     ):
         return {"csrf": False}
     return {}
+
+
+def confirm_redirect(form, identity_attribute):
+    """This is a very specific utility that all open endpoints call
+    to implement the confirm redirect feature.
+    """
+    if (
+        form.requires_confirmation
+        and config_value("REQUIRES_CONFIRMATION_ERROR_VIEW")
+        and not config_value("RETURN_GENERIC_RESPONSES")
+    ):
+        do_flash(*get_message("CONFIRMATION_REQUIRED"))
+        return redirect(
+            get_url(
+                config_value("REQUIRES_CONFIRMATION_ERROR_VIEW"),
+                qparams={identity_attribute: getattr(form.user, identity_attribute)},
+            )
+        )
+    return None
 
 
 def do_flash(message: str, category: str) -> None:
@@ -748,7 +769,7 @@ def get_post_action_redirect(
     The solution is to simply 'quote' the path.
     """
     rurl = propagate_next(find_redirect(config_key), next_loc)
-    (scheme, netloc, path, query, fragment) = urlsplit(rurl)
+    scheme, netloc, path, query, fragment = urlsplit(rurl)
     safe_url = urlunsplit((scheme, netloc, quote(path), query, fragment))
     return safe_url
 
@@ -1154,6 +1175,14 @@ def csrf_cookie_handler(response: Response) -> Response:
     if send:
         response.set_cookie(csrf_cookie_name, value=csrf.generate_csrf(), **csrf_cookie)
     return response
+
+
+def add_cache_control(resp: Response) -> Response:
+    """Add cache control header attributes to response."""
+    cc = config_value("CACHE_CONTROL") or dict()
+    for attr, v in cc.items():
+        resp.cache_control[attr] = v
+    return resp
 
 
 def base_render_json(

@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -105,7 +105,7 @@ class LoopCut(Cut[T], ABC, Generic[T]):
                 for x, b in dfg.graph:
                     if x == a and b in start_activities:
                         for s in start_activities:
-                            if not (a, s) in dfg.graph:
+                            if (a, s) not in dfg.graph:
                                 merge = True
             if merge:
                 groups[0] = set(groups[0]).union(groups[i])
@@ -132,7 +132,7 @@ class LoopCut(Cut[T], ABC, Generic[T]):
                 for b, x in dfg.graph:
                     if x == a and b in end_activities:
                         for e in end_activities:
-                            if not (e, a) in dfg.graph:
+                            if (e, a) not in dfg.graph:
                                 merge = True
             if merge:
                 groups[0] = set(groups[0]).union(groups[i])

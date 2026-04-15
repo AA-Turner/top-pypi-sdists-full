@@ -22,10 +22,14 @@ from huey.constants import WORKER_PROCESS
 from huey.constants import WORKER_THREAD
 from huey.constants import WORKER_TYPES
 from huey.exceptions import ConfigurationError
-from huey.utils import time_clock
+from huey.utils import greenlet_timeout
+from huey.utils import process_timeout
+from huey.utils import thread_timeout
 
 
 class ConsumerStopped(Exception): pass
+
+class WorkerRecycle(Exception): pass
 
 
 class BaseProcess(object):
@@ -50,13 +54,13 @@ class BaseProcess(object):
         if the current timestamp is 1340, we'll only sleep for 7 seconds (the
         goal being to sleep until 1347, or 1337 + 10).
         """
-        sleep_time = nseconds - (time_clock() - start_ts)
+        sleep_time = nseconds - (time.monotonic() - start_ts)
         if sleep_time <= 0:
             return
         self._logger.debug('Sleeping for %s', sleep_time)
         # Recompute time to sleep to improve accuracy in case the process was
         # pre-empted by the kernel while logging.
-        sleep_time = nseconds - (time_clock() - start_ts)
+        sleep_time = nseconds - (time.monotonic() - start_ts)
         if sleep_time > 0:
             time.sleep(sleep_time)
 
@@ -85,10 +89,13 @@ class Worker(BaseProcess):
     """
     process_name = 'Worker'
 
-    def __init__(self, huey, default_delay, max_delay, backoff):
+    def __init__(self, huey, default_delay, max_delay, backoff,
+                 max_tasks=None):
         self.delay = self.default_delay = default_delay
         self.max_delay = max_delay
         self.backoff = backoff
+        self.max_tasks = max_tasks
+        self.task_count = 0
         super(Worker, self).__init__(huey)
 
     def initialize(self):
@@ -122,6 +129,12 @@ class Worker(BaseProcess):
                 except Exception as exc:
                     self._logger.exception('Unhandled error during execution '
                                            'of task %s.', task.id)
+                finally:
+                    self.task_count += 1
+                    if self.max_tasks and self.task_count >= self.max_tasks:
+                        self._logger.info('Worker reached max tasks (%d), '
+                                          'exiting.', self.max_tasks)
+                        raise WorkerRecycle()
             elif not self.huey.storage.blocking:
                 self.sleep()
 
@@ -150,13 +163,13 @@ class Scheduler(BaseProcess):
         self.interval = max(min(interval, 60), 1)
 
         self.periodic = periodic
-        self._next_loop = time_clock()
-        self._next_periodic = time_clock()
+        self._next_loop = time.monotonic()
+        self._next_periodic = time.monotonic()
 
     def loop(self, now=None):
         current = self._next_loop
         self._next_loop += self.interval
-        if self._next_loop < time_clock():
+        if self._next_loop < time.monotonic():
             self._logger.debug('scheduler skipping iteration to avoid race.')
             return
 
@@ -169,7 +182,7 @@ class Scheduler(BaseProcess):
                 self._logger.debug('Enqueueing %s', task)
                 self.huey.enqueue(task)
 
-        if self.periodic and self._next_periodic <= time_clock():
+        if self.periodic and self._next_periodic <= time.monotonic():
             self._next_periodic += self.periodic_task_seconds
             self.enqueue_periodic_tasks(now)
 
@@ -208,6 +221,9 @@ class ThreadEnvironment(Environment):
     def is_alive(self, proc):
         return proc.is_alive()
 
+    def set_timeout_handler(self, huey):
+        huey.set_timeout_handler(thread_timeout)
+
 
 class GreenletEnvironment(Environment):
     def get_stop_flag(self):
@@ -223,6 +239,9 @@ class GreenletEnvironment(Environment):
     def is_alive(self, proc):
         return not proc.dead
 
+    def set_timeout_handler(self, huey):
+        huey.set_timeout_handler(greenlet_timeout)
+
 
 class ProcessEnvironment(Environment):
     def get_stop_flag(self):
@@ -235,6 +254,9 @@ class ProcessEnvironment(Environment):
 
     def is_alive(self, proc):
         return proc.is_alive()
+
+    def set_timeout_handler(self, huey):
+        huey.set_timeout_handler(process_timeout)
 
 
 WORKER_TO_ENVIRONMENT = {
@@ -258,7 +280,7 @@ class Consumer(object):
                  backoff=1.15, max_delay=10.0, scheduler_interval=1,
                  worker_type=WORKER_THREAD, check_worker_health=True,
                  health_check_interval=10, flush_locks=False,
-                 extra_locks=None):
+                 extra_locks=None, max_tasks=None):
 
         self._logger = logging.getLogger('huey.consumer')
         if huey.immediate:
@@ -272,6 +294,11 @@ class Consumer(object):
         self.default_delay = initial_delay  # Default queue polling interval.
         self.backoff = backoff  # Exponential backoff factor when queue empty.
         self.max_delay = max_delay  # Maximum interval between polling events.
+        self.max_tasks = max_tasks  # Max tasks to execute before recycling.
+
+        if max_tasks and not check_worker_health:
+            raise ConfigurationError('max_tasks requires check_worker_health '
+                                     'be enabled.')
 
         # Ensure that the scheduler runs at an interval between 1 and 60s.
         self.scheduler_interval = max(min(scheduler_interval, 60), 1)
@@ -291,6 +318,9 @@ class Consumer(object):
 
         # Create the execution environment helper.
         self.environment = self.get_environment(self.worker_type)
+
+        # Install environment-specific timeout handler.
+        self.environment.set_timeout_handler(self.huey)
 
         # Create the event used to signal the process should terminate. We'll
         # also store a boolean flag to indicate whether we should restart after
@@ -339,7 +369,8 @@ class Consumer(object):
             huey=self.huey,
             default_delay=self.default_delay,
             max_delay=self.max_delay,
-            backoff=self.backoff)
+            backoff=self.backoff,
+            max_tasks=self.max_tasks)
 
     def _create_scheduler(self):
         return self.scheduler_class(
@@ -362,6 +393,8 @@ class Consumer(object):
                     process.loop()
             except KeyboardInterrupt:
                 pass
+            except WorkerRecycle:
+                self._logger.info('Process %s restarting (max tasks).', name)
             except:
                 self._logger.exception('Process %s died!', name)
             finally:
@@ -435,7 +468,7 @@ class Consumer(object):
         Run the consumer.
         """
         self.start()
-        health_check_ts = time_clock()
+        health_check_ts = time.monotonic()
 
         while True:
             try:
@@ -448,7 +481,11 @@ class Consumer(object):
         if self._restart:
             self._logger.info('Consumer will restart.')
             python = sys.executable
-            os.execl(python, python, *sys.argv)
+            if not python:
+                self._logger.error('Could not determine Python executable, '
+                                   'unable to restart.')
+            else:
+                os.execl(python, python, *sys.argv)
         else:
             self._logger.info('Consumer exiting.')
 
@@ -470,7 +507,7 @@ class Consumer(object):
             raise ConsumerStopped
 
         if self._health_check and health_check_ts:
-            now = time_clock()
+            now = time.monotonic()
             if now >= health_check_ts + self._health_check_interval:
                 health_check_ts = now
                 self.check_worker_health()
@@ -547,6 +584,7 @@ class Consumer(object):
         self._logger.info('Received SIGHUP, will restart')
         self._received_signal = True
         self._restart = True
+        self._graceful = True  # Restart shuts down gracefully.
 
     def _set_child_signal_handlers(self):
         # Install signal handlers in child process. We ignore SIGHUP (restart)

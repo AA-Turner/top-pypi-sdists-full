@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -148,7 +148,7 @@ class TbrStreamingConformance(StreamingAlgorithm):
                         if type(x) is PetriNet.Transition
                     ]
                     if spath:
-                        if not el[0] in dictio_spaths:
+                        if el[0] not in dictio_spaths:
                             dictio_spaths[el[0]] = {}
                         dictio_spaths[el[0]][sel] = spath
         return dictio_spaths

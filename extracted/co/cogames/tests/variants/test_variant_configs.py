@@ -8,9 +8,11 @@ import pytest
 
 from cogames.games.cogs_vs_clips.game import GEAR
 from cogames.games.cogs_vs_clips.game.cargo import CargoLimitVariant
+from cogames.games.cogs_vs_clips.game.clear_vibes import ClearVibesVariant
 from cogames.games.cogs_vs_clips.game.damage import DamageVariant
 from cogames.games.cogs_vs_clips.game.days import DayConfig, DaysVariant
 from cogames.games.cogs_vs_clips.game.elements import ElementsVariant
+from cogames.games.cogs_vs_clips.game.endless import EndlessVariant
 from cogames.games.cogs_vs_clips.game.energy import EnergyVariant
 from cogames.games.cogs_vs_clips.game.extractors import ExtractorsVariant
 from cogames.games.cogs_vs_clips.game.forced_role_vibes import ForcedRoleVibesVariant
@@ -34,7 +36,59 @@ from cogames.games.cogs_vs_clips.missions.arena import make_arena_map_builder
 from cogames.games.cogs_vs_clips.missions.machina_1 import CvCMachina1Variant
 from cogames.games.cogs_vs_clips.missions.mission import CvCMission
 from mettagrid.config.filter import GameValueFilter, ResourceFilter
+from mettagrid.config.filter.periodic_filter import PeriodicFilter
+from mettagrid.config.game_value import GameValue, RatioGameValue
+from mettagrid.config.handler_config import AllOf, FirstMatch, Handler
+from mettagrid.config.mutation.query_inventory_mutation import QueryInventoryMutation
+from mettagrid.config.mutation.resource_mutation import ResourceTransferMutation
+from mettagrid.simulator import Simulation
 from variants.conftest import StationTestHarness
+
+
+def _handler_by_name(obj, name) -> Handler:
+    """Find a handler by name in a FirstMatch on_use_handler."""
+    assert isinstance(obj.on_use_handler, FirstMatch), f"Expected FirstMatch, got {type(obj.on_use_handler)}"
+    for h in obj.on_use_handler.handlers:
+        if isinstance(h, Handler) and h.name == name:
+            return h
+    names = [h.name for h in obj.on_use_handler.handlers if isinstance(h, Handler)]
+    raise KeyError(f"Handler '{name}' not found in {names}")
+
+
+def _has_handler(obj, name) -> bool:
+    """Check if a handler with the given name exists in a FirstMatch on_use_handler."""
+    if not isinstance(obj.on_use_handler, FirstMatch):
+        return False
+    return any(isinstance(h, Handler) and h.name == name for h in obj.on_use_handler.handlers)
+
+
+def _handler_names(handler) -> set[str]:
+    """Collect all handler names from a handler tree."""
+    if handler is None:
+        return set()
+    if isinstance(handler, Handler):
+        return {handler.name} if handler.name else set()
+    if isinstance(handler, (FirstMatch, AllOf)):
+        names = set()
+        for h in handler.handlers:
+            names |= _handler_names(h)
+        return names
+    return set()
+
+
+def _find_handler(handler, name: str):
+    """Find a handler by name in a handler tree."""
+    if handler is None:
+        return None
+    if isinstance(handler, Handler):
+        return handler if handler.name == name else None
+    if isinstance(handler, (FirstMatch, AllOf)):
+        for h in handler.handlers:
+            found = _find_handler(h, name)
+            if found is not None:
+                return found
+    return None
+
 
 ELEMENTS = ElementsVariant().elements
 VIBE_NAMES = [v.name for v in VibesVariant().vibes]
@@ -52,8 +106,9 @@ def _make_mission(variants, num_cogs=4, max_steps=100):
     ).with_variants([TeamVariant(default_teams={"cogs": TeamConfig(name="cogs", num_agents=num_cogs)}), *variants])
 
 
-def _make_env_without_default(variants):
-    return _make_mission(variants).model_copy(update={"default_variant": None}).make_env()
+def _make_env_without_default(variants, num_cogs=4):
+    mission = _make_mission(variants, num_cogs=num_cogs)
+    return mission.model_copy(update={"default_variant": None, "num_agents": num_cogs}).make_env()
 
 
 class TestElementsVariant:
@@ -88,7 +143,7 @@ class TestSolarVariant:
     def test_adds_solar_to_energy_tick_handler(self):
         env = _make_mission([SolarVariant()]).make_env()
         for agent in env.game.agents:
-            assert "solar_to_energy" in agent.on_tick
+            assert "solar_to_energy" in _handler_names(agent.on_tick)
 
 
 class TestDaysVariant:
@@ -120,6 +175,85 @@ class TestExtractorsVariant:
             key = f"{element}_extractor"
             assert key in env.game.objects, f"Missing {key}"
 
+    def test_default_limit_set_to_initial_amount(self):
+        initial = 300
+        env = _make_mission([ExtractorsVariant(initial_amount=initial)]).make_env()
+        for element in ELEMENTS:
+            obj = env.game.objects[f"{element}_extractor"]
+            assert obj.inventory.default_limit == initial
+
+    def test_remove_when_empty_defaults_true(self):
+        env = _make_mission([ExtractorsVariant()]).make_env()
+        for element in ELEMENTS:
+            obj = env.game.objects[f"{element}_extractor"]
+            assert isinstance(obj.on_use_handler, FirstMatch)
+            for handler in obj.on_use_handler.handlers:
+                if not isinstance(handler, Handler):
+                    continue
+                for mutation in handler.mutations:
+                    if isinstance(mutation, ResourceTransferMutation):
+                        assert mutation.remove_source_when_empty is True
+
+
+class TestEndlessVariant:
+    def test_sets_max_steps_zero(self):
+        env = _make_mission([EndlessVariant()]).make_env()
+        assert env.game.max_steps == 0
+
+    def test_works_without_extractors(self):
+        env = _make_env_without_default([EndlessVariant()])
+        assert env.game.max_steps == 0
+        # No on_tick refill handlers when extractors not present
+        for key in _handler_names(env.game.on_tick):
+            assert "refill" not in key
+
+    def test_sets_remove_when_empty_false(self):
+        env = _make_mission([EndlessVariant(), ExtractorsVariant()]).make_env()
+        for element in ELEMENTS:
+            obj = env.game.objects[f"{element}_extractor"]
+            assert isinstance(obj.on_use_handler, FirstMatch)
+            for handler in obj.on_use_handler.handlers:
+                if not isinstance(handler, Handler):
+                    continue
+                for mutation in handler.mutations:
+                    if isinstance(mutation, ResourceTransferMutation):
+                        assert mutation.remove_source_when_empty is False
+
+    def test_adds_refill_tick_handlers(self):
+        env = _make_mission([EndlessVariant(), ExtractorsVariant()]).make_env()
+        for element in ELEMENTS:
+            key = f"{element}_extractor_refill"
+            assert key in _handler_names(env.game.on_tick), f"Missing on_tick handler {key}"
+
+    def test_refill_handler_uses_periodic_filter(self):
+        period = 500
+        env = _make_mission([EndlessVariant(refill_period=period), ExtractorsVariant()]).make_env()
+        handler = _find_handler(env.game.on_tick, f"{ELEMENTS[0]}_extractor_refill")
+        assert handler is not None
+        periodic_filters = [f for f in handler.filters if isinstance(f, PeriodicFilter)]
+        assert len(periodic_filters) == 1
+        assert periodic_filters[0].period == period
+
+    def test_refill_handler_uses_gamevalue_max_items(self):
+        env = _make_mission([EndlessVariant(refill_fraction=4), ExtractorsVariant()]).make_env()
+        handler = _find_handler(env.game.on_tick, f"{ELEMENTS[0]}_extractor_refill")
+        assert handler is not None
+        qi_mutations = [m for m in handler.mutations if isinstance(m, QueryInventoryMutation)]
+        assert len(qi_mutations) == 1
+        q = qi_mutations[0].query
+        assert isinstance(q.max_items, GameValue)
+        assert isinstance(q.max_items, RatioGameValue)
+
+    def test_produces_runnable_simulation(self):
+        """EndlessVariant + ExtractorsVariant produces a config that can be compiled to C++ and stepped."""
+        env = _make_env_without_default([EndlessVariant(refill_period=5), ExtractorsVariant()])
+        sim = Simulation(env, seed=42)
+        for _ in range(20):
+            for i in range(sim.num_agents):
+                sim.agent(i).set_action("noop")
+            sim.step()
+        sim.close()
+
 
 class TestGearVariant:
     def test_adds_gear_limit_to_agents(self):
@@ -143,7 +277,7 @@ class TestGearVariant:
         )
         assert set(GEAR) <= env.game.objects.keys()
         assert env.game.render.symbols["aligner"] == "A"
-        cost_filter = env.game.objects["aligner"].on_use_handlers["change_gear"].filters[0]
+        cost_filter = _handler_by_name(env.game.objects["aligner"], "change_gear").filters[0]
         assert isinstance(cost_filter, ResourceFilter)
         assert cost_filter.resources == {"carbon": 2}
 
@@ -162,7 +296,7 @@ class TestGearVariant:
         assert set(GEAR).isdisjoint(env.game.objects)
         assert env.game.objects["c:miner"].name == "miner"
         assert env.game.render.symbols["c:miner"] == "M"
-        cost_filter = env.game.objects["c:miner"].on_use_handlers["change_gear"].filters[1]
+        cost_filter = _handler_by_name(env.game.objects["c:miner"], "change_gear").filters[1]
         assert isinstance(cost_filter, GameValueFilter)
         assert cost_filter.min == 2
 
@@ -178,7 +312,7 @@ class TestTeamHubVariant:
     def test_hub_has_deposit_handler(self):
         env = _make_mission([TeamHubVariant()]).make_env()
         hub = env.game.objects["c:hub"]
-        assert "deposit" in hub.on_use_handlers
+        assert _has_handler(hub, "deposit")
 
     def test_initial_hearts_override_preserves_default_element_inventory(self):
         env = _make_env_without_default(
@@ -208,8 +342,8 @@ class TestHeartVariant:
     def test_adds_heart_handlers_to_hub(self):
         env = _make_mission([TeamHubVariant(), HeartVariant(cost={"oxygen": 7})]).make_env()
         hub = env.game.objects["c:hub"]
-        assert "get_heart" in hub.on_use_handlers
-        assert "make_and_get_heart" in hub.on_use_handlers
+        assert _has_handler(hub, "get_heart")
+        assert _has_handler(hub, "make_and_get_heart")
 
 
 class TestJunctionVariant:
@@ -259,7 +393,7 @@ class TestDamageVariant:
     def test_adds_regen_tick_handler(self):
         env = _make_mission([DamageVariant()]).make_env()
         for agent in env.game.agents:
-            assert "hp_regen" in agent.on_tick
+            assert "hp_regen" in _handler_names(agent.on_tick)
 
     def test_hp_resource_added(self):
         env = _make_mission([DamageVariant()]).make_env()
@@ -305,6 +439,26 @@ class TestVibesVariant:
     def test_enables_change_vibe_action(self):
         env = _make_mission([VibesVariant()]).make_env()
         assert env.game.actions.change_vibe.enabled is True
+
+
+class TestClearVibesVariant:
+    def test_sets_on_after_use_handler_on_agents(self):
+        env = _make_mission([ClearVibesVariant()]).make_env()
+        for agent in env.game.agents:
+            assert agent.on_after_use_handler is not None
+
+    def test_on_after_use_handler_has_heart_filter(self):
+        env = _make_mission([ClearVibesVariant()]).make_env()
+        handler = env.game.agents[0].on_after_use_handler
+        assert isinstance(handler, Handler)
+        assert len(handler.filters) == 1
+        assert len(handler.mutations) == 1
+
+    def test_does_not_modify_object_handlers(self):
+        env = _make_mission([ExtractorsVariant(), ClearVibesVariant()]).make_env()
+        for element in ELEMENTS:
+            obj = env.game.objects[f"{element}_extractor"]
+            assert isinstance(obj.on_use_handler, FirstMatch)
 
 
 class TestNoVibesVariant:
@@ -362,7 +516,10 @@ class TestRoleVariants:
         env = _make_mission([JunctionVariant(), MinerVariant(), JunctionDepositVariant()]).make_env()
         junction = env.game.objects.get("junction")
         assert junction is not None
-        deposit_handlers = [k for k in junction.on_use_handlers if k.startswith("deposit_")]
+        assert isinstance(junction.on_use_handler, FirstMatch)
+        deposit_handlers = [
+            h.name for h in junction.on_use_handler.handlers if isinstance(h, Handler) and h.name.startswith("deposit_")
+        ]
         assert len(deposit_handlers) > 0
 
 
@@ -388,7 +545,10 @@ class TestMachina1Variant:
         assert "team_territory" in env.game.territories
         assert len(env.game.agents) > 0
         assert "day" in env.game.events
-        assert {"deposit_cogs", "deposit_clips"} <= set(env.game.objects["junction"].on_use_handlers)
+        junction = env.game.objects["junction"]
+        assert isinstance(junction.on_use_handler, FirstMatch)
+        junction_handler_names = {h.name for h in junction.on_use_handler.handlers if isinstance(h, Handler)}
+        assert {"deposit_cogs", "deposit_clips"} <= junction_handler_names
         for agent in env.game.agents:
             assert "hp" in agent.inventory.limits
             assert "energy" in agent.inventory.limits

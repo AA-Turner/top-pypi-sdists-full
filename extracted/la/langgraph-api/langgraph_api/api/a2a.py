@@ -2032,7 +2032,7 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
         ):
             base_url = f"{scheme}://{host}:{port}{path}"
         else:
-            base_url = f"{scheme}://{host}"
+            base_url = f"{scheme}://{host}{path}"
     agent_path = f"/a2a/{assistant_id}"
 
     agent_url = f"{base_url}{agent_path}"

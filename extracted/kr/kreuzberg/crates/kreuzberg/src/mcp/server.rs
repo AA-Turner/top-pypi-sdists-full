@@ -642,7 +642,7 @@ async fn extract_structured_impl(
         },
     };
 
-    let structured_output = crate::llm::structured::extract_structured(&result.content, &structured_config)
+    let (structured_output, _usage) = crate::llm::structured::extract_structured(&result.content, &structured_config)
         .await
         .map_err(map_kreuzberg_error_to_mcp)?;
 

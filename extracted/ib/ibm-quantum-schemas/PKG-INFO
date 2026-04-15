@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibm-quantum-schemas
-Version: 0.5.20260320
+Version: 0.6.20260414
 Summary: IBM Quantum Pydantic models.
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
 License-Expression: Apache-2.0
@@ -14,9 +14,10 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: pydantic<3.0.0,>=2.5
+Requires-Dist: pydantic<3.0.0,>=2.11
 Requires-Dist: qiskit<3.0.0,>=2.2.0
 Requires-Dist: samplomatic>=0.12.0
+Requires-Dist: pybase64>=1.3.0
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"

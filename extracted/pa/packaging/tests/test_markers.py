@@ -4,12 +4,11 @@
 
 from __future__ import annotations
 
-import collections
 import itertools
 import os
 import platform
 import sys
-from typing import cast
+from typing import Any, NamedTuple, cast
 from unittest import mock
 
 import pytest
@@ -19,8 +18,8 @@ from packaging.markers import (
     InvalidMarker,
     Marker,
     UndefinedComparison,
+    _format_full_version,
     default_environment,
-    format_full_version,
 )
 
 VARIABLES = [
@@ -110,9 +109,12 @@ class TestOperatorEvaluation:
         )
 
 
-FakeVersionInfo = collections.namedtuple(
-    "FakeVersionInfo", ["major", "minor", "micro", "releaselevel", "serial"]
-)
+class FakeVersionInfo(NamedTuple):
+    major: int
+    minor: int
+    micro: int
+    releaselevel: str
+    serial: int
 
 
 class TestDefaultEnvironment:
@@ -158,11 +160,11 @@ class TestDefaultEnvironment:
 
     def tests_when_releaselevel_final(self) -> None:
         v = FakeVersionInfo(3, 4, 2, "final", 0)
-        assert format_full_version(v) == "3.4.2"  # type: ignore[arg-type]
+        assert _format_full_version(v) == "3.4.2"  # type: ignore[arg-type]
 
     def tests_when_releaselevel_not_final(self) -> None:
         v = FakeVersionInfo(3, 4, 2, "beta", 4)
-        assert format_full_version(v) == "3.4.2b4"  # type: ignore[arg-type]
+        assert _format_full_version(v) == "3.4.2b4"  # type: ignore[arg-type]
 
 
 class TestMarker:
@@ -345,8 +347,10 @@ class TestMarker:
     def test_evaluates(
         self, marker_string: str, environment: dict[str, str] | None, expected: bool
     ) -> None:
-        args = () if environment is None else (environment,)
-        assert Marker(marker_string).evaluate(*args) == expected
+        if environment is None:
+            assert Marker(marker_string).evaluate() == expected
+        else:
+            assert Marker(marker_string).evaluate(environment) == expected
 
     @pytest.mark.parametrize(
         "marker_string",
@@ -384,8 +388,10 @@ class TestMarker:
     def test_evaluate_pep345_markers(
         self, marker_string: str, environment: dict[str, str] | None, expected: bool
     ) -> None:
-        args = () if environment is None else (environment,)
-        assert Marker(marker_string).evaluate(*args) == expected
+        if environment is None:
+            assert Marker(marker_string).evaluate() == expected
+        else:
+            assert Marker(marker_string).evaluate(environment) == expected
 
     @pytest.mark.parametrize(
         "marker_string",
@@ -479,3 +485,82 @@ class TestMarker:
         """
         marker = Marker(marker_string)
         assert marker.evaluate(environment) is expected
+
+
+def test_and_operator_evaluates_true() -> None:
+    env = {"python_version": "3.8", "os_name": "posix"}
+
+    m = Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
+    assert m.evaluate(env) is True
+
+
+def test_and_operator_str_equality() -> None:
+    a = Marker('python_version >= "3.6" and os_name == "posix"')
+    b = Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
+    assert a == b
+    assert str(a) == str(b)
+
+
+def test_or_operator_evaluates_true() -> None:
+    env = {"python_version": "3.7", "os_name": "windows"}
+
+    m = Marker('python_version < "3.6"') | Marker('os_name == "windows"')
+    assert m.evaluate(env) is True
+
+
+def test_or_operator_str_equality() -> None:
+    a = Marker('python_version < "3.6" or os_name == "windows"')
+    b = Marker('python_version < "3.6"') | Marker('os_name == "windows"')
+    assert a == b
+    assert str(a) == str(b)
+
+
+def test_operator_rejects_non_marker() -> None:
+    m = Marker('python_version >= "3.6"')
+    # dunder returns NotImplemented for non-Marker
+    assert m.__and__(cast("Any", "not-a-marker")) is NotImplemented
+    assert m.__or__(cast("Any", 123)) is NotImplemented
+
+
+def test_inplace_operators_fallback() -> None:
+    m = Marker('python_version >= "3.6"')
+    m &= Marker('os_name == "posix"')
+    assert isinstance(m, Marker)
+    assert m == Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
+
+
+def test_right_hand_ops_and_typeerror() -> None:
+    m = Marker('python_version >= "3.6"')
+    assert m.__and__(cast("Any", "x")) is NotImplemented
+    with pytest.raises(TypeError):
+        cast("Any", "not-a-marker") & Marker('python_version >= "3.6"')
+
+
+def test_chaining_associativity_and_str() -> None:
+    a = Marker(
+        '(python_version >= "3.6" and os_name == "posix") '
+        'and platform_system == "Linux"'
+    )
+    b = (
+        Marker('python_version >= "3.6"')
+        & Marker('os_name == "posix"')
+        & Marker('platform_system == "Linux"')
+    )
+    assert a == b
+    assert str(a) == str(b)
+
+
+def test_hash_eq_for_combined_markers() -> None:
+    assert hash(Marker('python_version >= "3.6" and os_name == "posix"')) == hash(
+        Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
+    )
+
+
+def test_evaluation_of_combined_markers() -> None:
+    env = {"python_version": "3.8", "os_name": "posix", "platform_system": "Linux"}
+    m = (
+        Marker('python_version >= "3.6"')
+        & Marker('os_name == "posix"')
+        & Marker('platform_system == "Linux"')
+    )
+    assert m.evaluate(env) is True

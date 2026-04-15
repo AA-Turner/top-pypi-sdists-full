@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uhi
-Version: 1.0.0
+Version: 1.1.0
 Summary: Unified Histogram Interface: tools to help library authors work with histograms
 Project-URL: Homepage, https://github.com/Scikit-HEP/uhi
 Project-URL: Repository, https://github.com/Scikit-HEP/uhi
@@ -14,7 +14,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -22,14 +21,13 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: numpy>=1.19.3
 Requires-Dist: typing-extensions>=4; python_version < '3.11'
 Provides-Extra: hdf5
 Requires-Dist: h5py; extra == 'hdf5'
 Provides-Extra: schema
 Requires-Dist: fastjsonschema; extra == 'schema'
-Requires-Dist: importlib-resources; (python_version < '3.9') and extra == 'schema'
 Description-Content-Type: text/markdown
 
 # UHI: Universal Histogram Interface

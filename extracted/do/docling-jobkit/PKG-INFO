@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-jobkit
-Version: 1.16.0
+Version: 1.17.0
 Summary: Running a distributed job processing documents with Docling.
 Project-URL: Homepage, https://github.com/docling-project/docling-jobkit
 Project-URL: Documentation, https://docling-project.github.io/docling/usage/jobkit/
@@ -27,7 +27,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: boto3~=1.35
-Requires-Dist: docling<3.0.0,>=2.74.0
+Requires-Dist: docling<3.0.0,>=2.88.0
 Requires-Dist: httpx<1,>=0.28
 Requires-Dist: pandas~=2.2
 Requires-Dist: pydantic-settings~=2.4

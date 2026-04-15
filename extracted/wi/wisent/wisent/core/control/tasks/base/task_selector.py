@@ -18,7 +18,12 @@ class TaskSelector:
     
     def __init__(self):
         """Initialize the task selector by loading metadata."""
-        self.base_path = Path(__file__).parent.parent / "parameters" / "tasks"
+        # Resolve to wisent/support/parameters/tasks/ — the canonical location.
+        # Walk up from __file__ until we find the wisent/ root, then descend.
+        wisent_root = Path(__file__).resolve()
+        while wisent_root.name != "wisent" and wisent_root.parent != wisent_root:
+            wisent_root = wisent_root.parent
+        self.base_path = wisent_root / "support" / "parameters" / "tasks"
         self.skills = self._load_json("skills.json")
         self.risks = self._load_json("risks.json")
         self.tasks_data = self._load_json("tasks.json")
@@ -207,17 +212,34 @@ def expand_task_if_skill_or_risk(task: str) -> str:
     """
     if not task:
         return task
-    
+
     task_lower = task.lower().strip()
-    
+
     # Already comma-separated, return as-is
     if "," in task:
         return task
-    
+
+    # If the task already exists as a known benchmark/extractor, treat it as a
+    # literal task name and skip the skill/risk expansion. This prevents words
+    # like "law", "math", "coding" — which happen to be both legitimate cache
+    # entries (e.g. mapped to a representative subtask) AND skill tags — from
+    # being silently expanded into a 1000-character comma-separated benchmark
+    # list that crashes downstream loaders.
+    try:
+        from wisent.extractors.lm_eval.lm_extractor_registry import _REGISTRY as _LM_REG
+        if task_lower in _LM_REG:
+            return task
+        for i in range(len(task_lower.split("_")) - 1, 0, -1):
+            prefix = "_".join(task_lower.split("_")[:i])
+            if prefix in _LM_REG:
+                return task
+    except Exception:
+        pass
+
     selector = TaskSelector()
     available_skills = [s.lower() for s in selector.get_available_skills()]
     available_risks = [r.lower() for r in selector.get_available_risks()]
-    
+
     if task_lower in available_skills:
         matching_tasks = selector.find_tasks_by_tags(skills=[task_lower])
         if matching_tasks:
@@ -228,6 +250,6 @@ def expand_task_if_skill_or_risk(task: str) -> str:
         if matching_tasks:
             logger.info(f"Expanded risk '{task}' to {len(matching_tasks)} benchmarks")
             return ",".join(matching_tasks)
-    
+
     # Not a skill or risk, return original
     return task

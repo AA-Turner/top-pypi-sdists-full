@@ -88,6 +88,8 @@ pub struct CExtractionResult {
     pub images_json: *mut c_char,
     /// Document language (null-terminated string, or NULL if not available, must be freed with kreuzberg_free_string)
     pub language: *mut c_char,
+    /// JSON-serialized LLM usage metrics array (null-terminated, or null pointer if none, must be freed with kreuzberg_free_string)
+    pub llm_usage_json: *mut c_char,
     /// Metadata as JSON object (null-terminated string, or NULL if no metadata, must be freed with kreuzberg_free_string)
     pub metadata_json: *mut c_char,
     /// Detected MIME type (null-terminated string, must be freed with kreuzberg_free_string)
@@ -174,7 +176,7 @@ pub struct CBatchResult {
 const _: () = {
     const fn assert_c_extraction_result_size() {
         const SIZE: usize = std::mem::size_of::<CExtractionResult>();
-        const _: () = assert!(SIZE == 200, "CExtractionResult size must be 200 bytes");
+        const _: () = assert!(SIZE == 208, "CExtractionResult size must be 208 bytes");
     }
 
     const fn assert_c_extraction_result_alignment() {
@@ -219,8 +221,8 @@ mod tests {
     fn test_c_extraction_result_size() {
         assert_eq!(
             std::mem::size_of::<CExtractionResult>(),
-            200,
-            "CExtractionResult must be exactly 200 bytes"
+            208,
+            "CExtractionResult must be exactly 208 bytes"
         );
     }
 
@@ -351,19 +353,20 @@ mod tests {
         assert_eq!(offset_of!(CExtractionResult, extracted_keywords_json), 72);
         assert_eq!(offset_of!(CExtractionResult, images_json), 80);
         assert_eq!(offset_of!(CExtractionResult, language), 88);
-        assert_eq!(offset_of!(CExtractionResult, metadata_json), 96);
-        assert_eq!(offset_of!(CExtractionResult, mime_type), 104);
-        assert_eq!(offset_of!(CExtractionResult, ocr_elements_json), 112);
-        assert_eq!(offset_of!(CExtractionResult, page_structure_json), 120);
-        assert_eq!(offset_of!(CExtractionResult, pages_json), 128);
-        assert_eq!(offset_of!(CExtractionResult, processing_warnings_json), 136);
-        assert_eq!(offset_of!(CExtractionResult, quality_score_json), 144);
-        assert_eq!(offset_of!(CExtractionResult, subject), 152);
-        assert_eq!(offset_of!(CExtractionResult, tables_json), 160);
-        assert_eq!(offset_of!(CExtractionResult, uris_json), 168);
-        assert_eq!(offset_of!(CExtractionResult, code_intelligence_json), 176);
-        assert_eq!(offset_of!(CExtractionResult, structured_output_json), 184);
-        assert_eq!(offset_of!(CExtractionResult, success), 192);
+        assert_eq!(offset_of!(CExtractionResult, llm_usage_json), 96);
+        assert_eq!(offset_of!(CExtractionResult, metadata_json), 104);
+        assert_eq!(offset_of!(CExtractionResult, mime_type), 112);
+        assert_eq!(offset_of!(CExtractionResult, ocr_elements_json), 120);
+        assert_eq!(offset_of!(CExtractionResult, page_structure_json), 128);
+        assert_eq!(offset_of!(CExtractionResult, pages_json), 136);
+        assert_eq!(offset_of!(CExtractionResult, processing_warnings_json), 144);
+        assert_eq!(offset_of!(CExtractionResult, quality_score_json), 152);
+        assert_eq!(offset_of!(CExtractionResult, subject), 160);
+        assert_eq!(offset_of!(CExtractionResult, tables_json), 168);
+        assert_eq!(offset_of!(CExtractionResult, uris_json), 176);
+        assert_eq!(offset_of!(CExtractionResult, code_intelligence_json), 184);
+        assert_eq!(offset_of!(CExtractionResult, structured_output_json), 192);
+        assert_eq!(offset_of!(CExtractionResult, success), 200);
     }
 
     /// Verify field offsets in CBatchResult match expectations

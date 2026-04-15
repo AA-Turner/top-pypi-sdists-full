@@ -687,10 +687,12 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         runtime_info = self._runtime_info
         annotations = self.config.get_field_annotations()
 
-        # Separate workspaces by transport type so git transports can init in parallel
-        # while NFS workspaces share a single server (sequential add_export).
+        # Separate workspaces by transport type so git/rsync/sshfs transports can
+        # init in parallel while NFS workspaces share a single server
+        # (sequential add_export).
         nfs_ws: list[Workspace] = []
         git_ws: list[tuple[Workspace, WorkspaceMarker]] = []
+        rsync_ws: list[Workspace] = []
         sshfs_ws: list[Workspace] = []
 
         for ws in self._workspaces.values():
@@ -698,6 +700,8 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             marker_transport = marker.transport if isinstance(marker, WorkspaceMarker) else None
             if marker_transport == "git" and isinstance(marker, WorkspaceMarker):
                 git_ws.append((ws, marker))
+            elif marker_transport == "rsync":
+                rsync_ws.append(ws)
             elif self.config.transport_mode == "sshfs" and marker_transport != "git":
                 sshfs_ws.append(ws)
             else:
@@ -718,7 +722,14 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                 transport_mode="sshfs",
             )
 
+        async def _setup_rsync(ws: Workspace) -> None:
+            await ws.setup_transport(
+                runtime_info,
+                marker_transport="rsync",
+            )
+
         parallel_tasks = [_setup_git(ws, m) for ws, m in git_ws]
+        parallel_tasks.extend(_setup_rsync(ws) for ws in rsync_ws)
         parallel_tasks.extend(_setup_sshfs(ws) for ws in sshfs_ws)
 
         # NFS: first workspace creates server, rest add exports (sequential)

@@ -55,11 +55,12 @@ impl OcrBackend for VlmOcrBackend {
         // Detect MIME type from image bytes
         let mime = infer::get(image_bytes).map(|t| t.mime_type()).unwrap_or("image/png");
 
-        let text = vlm_ocr(image_bytes, mime, &config.language, vlm_config).await?;
+        let (text, usage) = vlm_ocr(image_bytes, mime, &config.language, vlm_config).await?;
 
         Ok(crate::ExtractionResult {
             content: text,
             mime_type: Cow::Borrowed("text/plain"),
+            llm_usage: usage.map(|u| vec![u]),
             ..Default::default()
         })
     }
@@ -100,7 +101,7 @@ pub async fn vlm_ocr(
     image_mime_type: &str,
     language: &str,
     config: &LlmConfig,
-) -> crate::Result<String> {
+) -> crate::Result<(String, Option<crate::types::LlmUsage>)> {
     let client = super::client::create_client(config)?;
 
     // Base64-encode the image into a data URL.
@@ -141,6 +142,8 @@ pub async fn vlm_ocr(
         ))
     })?;
 
+    let usage = super::usage::extract_usage_from_chat(&response, "vlm_ocr");
+
     // Extract the text content from the first choice.
     let text = response
         .choices
@@ -149,7 +152,7 @@ pub async fn vlm_ocr(
         .ok_or_else(|| crate::KreuzbergError::ocr(format!("VLM OCR returned no content (model={})", config.model)))?
         .to_string();
 
-    Ok(text)
+    Ok((text, usage))
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -133,7 +133,7 @@ def __export_extensions(log, root):
         log_extension = etree.SubElement(root, xes_util.TAG_EXTENSION)
         if (
             ext is not None
-            and not ext_value[xes_util.KEY_PREFIX] is None
+            and ext_value[xes_util.KEY_PREFIX] is not None
             and ext_value[xes_util.KEY_URI] is not None
         ):
             log_extension.set(xes_util.KEY_NAME, ext)

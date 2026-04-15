@@ -66,6 +66,24 @@ class _DataCategoryEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._E
     """UI profile chunks."""
     DATA_CATEGORY_SPAN_INDEXED: _DataCategory.ValueType  # 21
     """Spans stored in full (indexed)."""
+    DATA_CATEGORY_TRANSACTION_PROCESSED: _DataCategory.ValueType  # 22
+    """Processed transaction events."""
+    DATA_CATEGORY_TRANSACTION_INDEXED: _DataCategory.ValueType  # 23
+    """Indexed transaction events."""
+    DATA_CATEGORY_PROFILE_INDEXED: _DataCategory.ValueType  # 24
+    """Indexed profiles."""
+    DATA_CATEGORY_METRIC_BUCKET: _DataCategory.ValueType  # 25
+    """Metric buckets."""
+    DATA_CATEGORY_ATTACHMENT_ITEM: _DataCategory.ValueType  # 26
+    """Individual attachment items."""
+    DATA_CATEGORY_LOG_ITEM: _DataCategory.ValueType  # 27
+    """Individual log items."""
+    DATA_CATEGORY_PROFILE_BACKEND: _DataCategory.ValueType  # 30
+    """Backend profile events."""
+    DATA_CATEGORY_PROFILE_UI: _DataCategory.ValueType  # 31
+    """UI profile events."""
+    DATA_CATEGORY_TRACE_METRIC_BYTE: _DataCategory.ValueType  # 32
+    """Trace metric bytes."""
     DATA_CATEGORY_UNKNOWN: _DataCategory.ValueType  # -1
     """Any other data category not known by this version."""
 
@@ -120,6 +138,24 @@ DATA_CATEGORY_PROFILE_CHUNK_UI: DataCategory.ValueType  # 20
 """UI profile chunks."""
 DATA_CATEGORY_SPAN_INDEXED: DataCategory.ValueType  # 21
 """Spans stored in full (indexed)."""
+DATA_CATEGORY_TRANSACTION_PROCESSED: DataCategory.ValueType  # 22
+"""Processed transaction events."""
+DATA_CATEGORY_TRANSACTION_INDEXED: DataCategory.ValueType  # 23
+"""Indexed transaction events."""
+DATA_CATEGORY_PROFILE_INDEXED: DataCategory.ValueType  # 24
+"""Indexed profiles."""
+DATA_CATEGORY_METRIC_BUCKET: DataCategory.ValueType  # 25
+"""Metric buckets."""
+DATA_CATEGORY_ATTACHMENT_ITEM: DataCategory.ValueType  # 26
+"""Individual attachment items."""
+DATA_CATEGORY_LOG_ITEM: DataCategory.ValueType  # 27
+"""Individual log items."""
+DATA_CATEGORY_PROFILE_BACKEND: DataCategory.ValueType  # 30
+"""Backend profile events."""
+DATA_CATEGORY_PROFILE_UI: DataCategory.ValueType  # 31
+"""UI profile events."""
+DATA_CATEGORY_TRACE_METRIC_BYTE: DataCategory.ValueType  # 32
+"""Trace metric bytes."""
 DATA_CATEGORY_UNKNOWN: DataCategory.ValueType  # -1
 """Any other data category not known by this version."""
 global___DataCategory = DataCategory

@@ -1,20 +1,6 @@
 from enum import StrEnum
 from pathlib import Path
 
-# Parallel loop iteration browser key separator
-LOOP_ITERATION_SEPARATOR = "__iter_"
-
-
-def loop_iteration_key(workflow_run_id: str, loop_idx: int) -> str:
-    """Build the cache key for a parallel loop iteration's browser state."""
-    return f"{workflow_run_id}{LOOP_ITERATION_SEPARATOR}{loop_idx}"
-
-
-def is_loop_iteration_key(key: str) -> bool:
-    """Check whether a browser_session_id belongs to a parallel loop iteration."""
-    return LOOP_ITERATION_SEPARATOR in key
-
-
 # This is the attribute name used to tag interactable elements
 SKYVERN_ID_ATTR: str = "unique_id"
 SKYVERN_DIR = Path(__file__).parent
@@ -30,6 +16,18 @@ DOWNLOAD_FILE_PREFIX = "downloads"
 SAVE_DOWNLOADED_FILES_TIMEOUT = 180
 GET_DOWNLOADED_FILES_TIMEOUT = 30
 NAVIGATION_MAX_RETRY_TIME = 5
+PERMANENT_NAV_ERRORS = ("net::ERR_INVALID_URL",)
+PROXY_SENSITIVE_NAV_ERRORS = (
+    "net::ERR_NAME_NOT_RESOLVED",
+    "net::ERR_NAME_RESOLUTION_FAILED",
+    "net::ERR_CERT_",
+    "net::ERR_SSL_",
+)
+# Errors that should not be retried within the same browser context/proxy.
+# The outer context-recreation retry in get_or_create_page may still attempt
+# recovery for proxy-sensitive errors by picking a different proxy node.
+SKIP_INNER_NAV_RETRY_ERRORS = PERMANENT_NAV_ERRORS + PROXY_SENSITIVE_NAV_ERRORS
+
 AUTO_COMPLETION_POTENTIAL_VALUES_COUNT = 3
 DROPDOWN_MENU_MAX_DISTANCE = 100
 BROWSER_DOWNLOADING_SUFFIX = ".crdownload"

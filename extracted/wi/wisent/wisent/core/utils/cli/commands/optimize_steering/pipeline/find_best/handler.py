@@ -1,11 +1,4 @@
-"""Find the best steering method for a given benchmark.
-
-Uses the BaseOptimizer with distribution-based search spaces
-to optimize each steering method independently and rank them.
-Generates ALL contrastive pairs once, splits into train/test,
-trains steering on train set, evaluates on held-out test set.
-Trials per method = dimensions * trials_multiplier.
-"""
+"""Find best steering method for a benchmark via Optuna optimization."""
 import json
 import math
 import os
@@ -45,7 +38,10 @@ def execute_find_best_method(args):
     from transformers import AutoConfig as _AC
     cfg = _AC.from_pretrained(model_name, trust_remote_code=True)
     num_layers = cfg.num_hidden_layers
+    method_filter = getattr(args, "method", None)
     all_methods = SteeringMethodRegistry.list_methods()
+    if method_filter:
+        all_methods = [m for m in all_methods if m.upper() == method_filter.upper()]
     train_file, test_file, n_train, n_test = _load_pairs_from_hf(
         benchmark, output_dir,
     )
@@ -57,9 +53,7 @@ def execute_find_best_method(args):
     print(f"   Train pairs:   {n_train}")
     print(f"   Test pairs:    {n_test}")
     print(f"   Methods:       {len(all_methods)}")
-    print(f"   Trials/dim:    {trials_mult}x")
-    print(f"   Backend:       {backend}")
-    print(f"   Output:        {output_dir}")
+    print(f"   Trials/dim:    {trials_mult}x  Backend: {backend}  Output: {output_dir}")
     for method_name in all_methods:
         space = get_method_space(method_name.upper(), num_layers)
         print(f"   {method_name.upper()}: {len(space)} dims, "
@@ -154,7 +148,14 @@ def _run_method(
     trial_counter = []
 
     def persisted_objective(params):
-        score = objective(params)
+        try:
+            score = objective(params)
+        except Exception as exc:
+            print(f"   Trial {len(trial_counter)} failed: {exc}")
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            score = 0.0
         trial_idx = len(trial_counter)
         trial_counter.append(trial_idx)
         trial_dir = os.path.join(method_dir, f"trial_{trial_idx:04d}")
@@ -166,13 +167,15 @@ def _run_method(
         with open(os.path.join(trial_dir, "trial_meta.json"), "w") as f:
             json.dump({"params": params, "score": score, "trial": trial_idx},
                       f, indent=JSON_INDENT, default=str)
+        from .activation_cache import upload_trial
+        upload_trial(model_name, benchmark, method_name, trial_idx, trial_dir)
         return score
 
     optimizer = BaseOptimizer()
     optimizer.direction = "maximize"
     result = optimizer.optimize_fn(
         persisted_objective, space, n_trials, cfg=HPOConfig(backend=backend),
-    )
+        model=model_name, benchmark=benchmark, method=method_upper)
     method_time = time.time() - method_start
     method_results[method_name] = {
         "method": method_name, "best_score": result.best_score,
@@ -198,18 +201,10 @@ def _run_method(
 
 
 def _run_baseline(model_name, benchmark, test_file, output_dir):
-    """Evaluate unsteered model, using HF cache if available."""
-    if baseline_cache.check_baseline_exists(model_name, benchmark):
-        print("   Loading cached baseline from HuggingFace...")
-        _, scores, meta = baseline_cache.load_baseline_from_hf(
-            model_name, benchmark,
-        )
-        return meta.get(
-            "accuracy", sum(s["correct"] for s in scores) / len(scores),
-        )
-    print("   Generating baseline (no cache found)...")
-    acc, _, _ = baseline_cache.generate_and_upload_baseline(
-        model_name, benchmark, test_file, None,
+    """Evaluate unsteered model, using per-pair HF cache."""
+    print("   Evaluating baseline (with per-pair HF cache)...")
+    acc, _, _ = baseline_cache.generate_baseline_with_cache(
+        model_name, benchmark, test_file, device=None,
     )
     return acc
 
@@ -234,16 +229,21 @@ def _save_final_report(
         key=lambda x: x["score"], reverse=True,
     )
     diff = build_winner_diff(output_dir, winner, model_name, benchmark)
-    act_effect = measure_activation_space_effect(
-        output_dir, winner, method_results[winner]["best_params"],
-        model_name, benchmark, train_file, test_file,
-    )
+    all_effects = {}
+    for mname, mdata in method_results.items():
+        if "best_params" in mdata:
+            all_effects[mname] = measure_activation_space_effect(
+                output_dir, mname, mdata["best_params"],
+                model_name, benchmark, train_file, test_file,
+            )
+    act_effect = all_effects.get(winner, {})
     final = {
         "model": model_name, "benchmark": benchmark,
         "baseline_score": baseline_score, "winner": winner,
         "winner_score": scored[winner],
         "winner_delta": scored[winner] - baseline_score,
         "winner_response_diff": diff, "activation_space_effect": act_effect,
+        "all_activation_effects": all_effects,
         "total_time_seconds": total_time,
         "timestamp": datetime.now().isoformat(),
         "method_results": method_results, "ranking": ranking,
@@ -251,8 +251,28 @@ def _save_final_report(
     final_path = os.path.join(output_dir, f"best_method_{benchmark}.json")
     with open(final_path, "w") as f:
         json.dump(final, f, indent=JSON_INDENT, default=str)
+    _upload_best_method(model_name, benchmark, final)
     _print_final(ranking, winner, baseline_score, benchmark,
                  diff, act_effect, total_time, final_path)
+
+
+def _upload_best_method(model_name, benchmark, results):
+    """Upload find-best-method results to HF (best-effort)."""
+    try:
+        from wisent.core.reading.modules.utilities.data.sources.hf.hf_config import (
+            best_method_hf_path, HF_REPO_ID, HF_REPO_TYPE)
+        from wisent.core.reading.modules.utilities.data.sources.hf.hf_writers import _get_api
+        import tempfile
+        hf_path = best_method_hf_path(model_name, benchmark)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+            json.dump(results, tmp, indent=JSON_INDENT, default=str)
+            tmp_path = tmp.name
+        _get_api().upload_file(path_or_fileobj=tmp_path, path_in_repo=hf_path,
+                               repo_id=HF_REPO_ID, repo_type=HF_REPO_TYPE)
+        Path(tmp_path).unlink(missing_ok=True)
+        print(f"   Uploaded results to HF: {hf_path}")
+    except Exception as exc:
+        print(f"   Warning: HF upload failed: {exc}")
 
 
 def _print_final(ranking, winner, baseline, benchmark,

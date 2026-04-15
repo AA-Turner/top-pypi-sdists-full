@@ -113,7 +113,8 @@ class WorkspaceMarker:
         dvcignore: Extra patterns to add to .dvcignore (merged with DEFAULT_DVCIGNORE).
         transport: Per-workspace transport override. When ``None`` (default), the
             workspace inherits the world config ``transport_mode``. Set to ``"git"`` to
-            use git clone/push instead of NFS/SSHFS for this workspace.
+            use git clone/push, or ``"rsync"`` to do one-shot SSH file sync instead of
+            NFS/SSHFS for this workspace.
         git_config: Git transport configuration. Only used when ``transport="git"``.
         commit_strategy: DVC commit strategy. ``"manifest"`` (default) uploads individual
             files; ``"archive"`` uploads the entire directory as a single tar.gz.
@@ -137,7 +138,7 @@ class WorkspaceMarker:
         tracked: bool = True,
         mount_path: str | None = None,
         dvcignore: list[str] | None = None,
-        transport: Literal["nfs_kernel", "sshfs", "git"] | None = None,
+        transport: Literal["nfs_kernel", "sshfs", "git", "rsync"] | None = None,
         git_config: GitTransportConfig | None = None,
         commit_strategy: Literal["manifest", "archive"] = "manifest",
     ):

@@ -384,13 +384,23 @@ def form_submit(request, slug):
         # Draft save: only for authenticated users.                          #
         # ------------------------------------------------------------------ #
         if "save_draft" in request.POST and not is_anonymous:
-            _skip = {"csrfmiddlewaretoken", "save_draft", "submit"}
+            _skip = {"csrfmiddlewaretoken", "save_draft", "submit", "_stashed_files"}
             raw_data = {}
             for k in request.POST:
                 if k in _skip:
                     continue
                 values = request.POST.getlist(k)
                 raw_data[k] = values[0] if len(values) == 1 else values
+
+            # Recover previously-stashed file metadata so it persists in draft.
+            prev_stashed = request.POST.get("_stashed_files")
+            if prev_stashed:
+                try:
+                    prev = json.loads(prev_stashed)
+                    if isinstance(prev, dict):
+                        raw_data.update(prev)
+                except (json.JSONDecodeError, TypeError):
+                    pass
 
             draft_obj, created = FormSubmission.objects.update_or_create(
                 form_definition=form_def,
@@ -426,6 +436,18 @@ def form_submit(request, slug):
         stashed_files = (
             _stash_uploaded_files(request.FILES, form_def) if request.FILES else {}
         )
+
+        # Recover previously-stashed file metadata from the hidden input
+        # (carried forward from a prior validation-failure render).
+        prev_stashed = request.POST.get("_stashed_files")
+        if prev_stashed:
+            try:
+                prev = json.loads(prev_stashed)
+                if isinstance(prev, dict):
+                    for k, v in prev.items():
+                        stashed_files.setdefault(k, v)
+            except (json.JSONDecodeError, TypeError):
+                pass
 
         form = DynamicForm(
             form_definition=form_def,
@@ -977,7 +999,15 @@ def my_submissions(request):
             fd = FormDefinition.objects.get(slug=form_slug)
             form_fields = list(
                 FormField.objects.filter(form_definition=fd)
-                .exclude(field_type__in=["section", "file", "multifile", "signature"])
+                .exclude(
+                    field_type__in=[
+                        "section",
+                        "display_text",
+                        "file",
+                        "multifile",
+                        "signature",
+                    ]
+                )
                 .order_by("order")
                 .values("field_name", "field_label")
             )
@@ -1397,7 +1427,15 @@ def approval_inbox(request):
             form_def_obj = FormDefinition.objects.get(slug=form_slug)
             form_fields = list(
                 FormField.objects.filter(form_definition=form_def_obj)
-                .exclude(field_type__in=["section", "file", "multifile", "signature"])
+                .exclude(
+                    field_type__in=[
+                        "section",
+                        "display_text",
+                        "file",
+                        "multifile",
+                        "signature",
+                    ]
+                )
                 .order_by("order")
                 .values("field_name", "field_label")
             )
@@ -2193,7 +2231,15 @@ def completed_approvals(request):
             form_def_obj = FormDefinition.objects.get(slug=form_slug)
             form_fields = list(
                 FormField.objects.filter(form_definition=form_def_obj)
-                .exclude(field_type__in=["section", "file", "multifile", "signature"])
+                .exclude(
+                    field_type__in=[
+                        "section",
+                        "display_text",
+                        "file",
+                        "multifile",
+                        "signature",
+                    ]
+                )
                 .order_by("order")
                 .values("field_name", "field_label")
             )
@@ -2754,6 +2800,8 @@ def serialize_form_data(data, submission_id=None, existing_file_data=None):
     existing_file_data = existing_file_data or {}
     serialized = {}
     for key, value in data.items():
+        if key == "_stashed_files":
+            continue
         if isinstance(value, date | datetime | time):
             serialized[key] = value.isoformat()
         elif isinstance(value, Decimal):
@@ -2974,6 +3022,20 @@ def _build_ordered_form_data(submission, form_data):
             rows.append({"type": "section", "label": field.field_label})
             continue
 
+        if field.field_type == "display_text":
+            _flush_half()
+            _flush_third()
+            _flush_fourth()
+            rows.append(
+                {
+                    "type": "display_text",
+                    "label": field.field_label,
+                    "value": field.default_value or "",
+                }
+            )
+            seen_keys.add(field.field_name)
+            continue
+
         key = field.field_name
         if key not in form_data:
             continue
@@ -3113,6 +3175,19 @@ def _build_pdf_rows(submission, hide_approval_history=False):
             rows.append({"type": "section", "label": field.field_label})
             continue
 
+        if field.field_type == "display_text":
+            flush_half()
+            flush_third()
+            rows.append(
+                {
+                    "type": "display_text",
+                    "label": field.field_label,
+                    "value": field.default_value or "",
+                }
+            )
+            seen_keys.add(field.field_name)
+            continue
+
         key = field.field_name
 
         if key not in form_data:
@@ -3178,6 +3253,77 @@ def _build_pdf_rows(submission, hide_approval_history=False):
     return rows
 
 
+def _group_fields_into_rows(flat_fields):
+    """Group a flat list of field entries into width-aware rows.
+
+    Each entry in *flat_fields* must have a ``_type`` key:
+    * ``"section"``      → emitted as ``{"type": "section", "label": …}``
+    * ``"display_text"`` → emitted as ``{"type": "display_text", …}``
+    * ``"data"``         → grouped by ``width`` into pair / triple / full rows
+                           using the same schema as ``_form_data_rows.html``.
+    """
+    rows: list = []
+    pending_half: list = []
+    pending_third: list = []
+
+    def _flush_half():
+        if pending_half:
+            rows.append({"type": "pair", "fields": list(pending_half)})
+            pending_half.clear()
+
+    def _flush_third():
+        while len(pending_third) >= 3:
+            rows.append({"type": "triple", "fields": list(pending_third[:3])})
+            del pending_third[:3]
+        for leftover in pending_third:
+            rows.append({"type": "full", "fields": [leftover]})
+        pending_third.clear()
+
+    for entry in flat_fields:
+        t = entry.get("_type", "data")
+        if t == "section":
+            _flush_half()
+            _flush_third()
+            rows.append({"type": "section", "label": entry["label"]})
+            continue
+        if t == "display_text":
+            _flush_half()
+            _flush_third()
+            rows.append(
+                {
+                    "type": "display_text",
+                    "label": entry["label"],
+                    "value": entry.get("value", ""),
+                }
+            )
+            continue
+
+        # Regular data field — strip the internal _type key before storing.
+        field_entry = {k: v for k, v in entry.items() if k != "_type"}
+        width = entry.get("width", "full")
+
+        if width == "half":
+            _flush_third()
+            pending_half.append(field_entry)
+            if len(pending_half) == 2:
+                rows.append({"type": "pair", "fields": list(pending_half)})
+                pending_half.clear()
+        elif width == "third":
+            _flush_half()
+            pending_third.append(field_entry)
+            if len(pending_third) == 3:
+                rows.append({"type": "triple", "fields": list(pending_third)})
+                pending_third.clear()
+        else:
+            _flush_half()
+            _flush_third()
+            rows.append({"type": "full", "fields": [field_entry]})
+
+    _flush_half()
+    _flush_third()
+    return rows
+
+
 def _build_approval_step_sections(submission):
     """Return one section per completed approval task for display in detail and PDF.
 
@@ -3219,6 +3365,7 @@ def _build_approval_step_sections(submission):
                 "key": field.field_name,
                 "field_type": field.field_type,
                 "choices": field.choices,
+                "width": field.width or "full",
             }
         )
 
@@ -3245,48 +3392,63 @@ def _build_approval_step_sections(submission):
             else None
         )
 
-        visible_fields = []
+        # Build a flat list of resolved field entries, then group into
+        # width-aware rows (same format as _form_data_rows.html expects).
+        flat_fields = []
         for f in field_defs:
             if f.get("field_type") == "section":
-                visible_fields.append({"label": f["label"], "type": "section"})
+                flat_fields.append({"_type": "section", "label": f["label"]})
                 continue
-            lookup_key = f"{f['key']}_{swi_index}" if swi_index else f["key"]
-            if lookup_key in form_data:
-                raw_value = form_data[lookup_key]
-                # Resolve choice label if applicable (e.g. select/radio fields
-                # store the option value, not the human-readable label).
-                field_type = f.get("field_type", "")
-                if field_type == "currency" and raw_value not in (None, ""):
-                    try:
-                        from decimal import Decimal, InvalidOperation
-
-                        raw_value = f"${Decimal(str(raw_value)):,.2f}"
-                    except (InvalidOperation, TypeError, ValueError):
-                        logger.debug("Could not format currency value %r", raw_value)
-                elif f.get("choices") and isinstance(f["choices"], list):
-                    if field_type in ("select", "radio"):
-                        str_val = str(raw_value) if raw_value is not None else ""
-                        for choice in f["choices"]:
-                            if str(choice.get("value", "")) == str_val:
-                                raw_value = choice.get("label", raw_value)
-                                break
-                    elif field_type in (
-                        "multiselect",
-                        "multiselect_list",
-                        "checkboxes",
-                    ) and isinstance(raw_value, list):
-                        label_map = {
-                            str(c.get("value", "")): c.get("label", c.get("value", ""))
-                            for c in f["choices"]
-                        }
-                        raw_value = [label_map.get(str(v), v) for v in raw_value]
-                visible_fields.append(
+            if f.get("field_type") == "display_text":
+                flat_fields.append(
                     {
+                        "_type": "display_text",
                         "label": f["label"],
-                        "key": lookup_key,
-                        "value": raw_value,
+                        "value": form_data.get(f["key"], ""),
                     }
                 )
+                continue
+            lookup_key = f"{f['key']}_{swi_index}" if swi_index else f["key"]
+            if lookup_key not in form_data:
+                continue
+            raw_value = form_data[lookup_key]
+            field_type = f.get("field_type", "")
+            if field_type == "currency" and raw_value not in (None, ""):
+                try:
+                    from decimal import Decimal, InvalidOperation
+
+                    raw_value = f"${Decimal(str(raw_value)):,.2f}"
+                except (InvalidOperation, TypeError, ValueError):
+                    logger.debug("Could not format currency value %r", raw_value)
+            elif f.get("choices") and isinstance(f["choices"], list):
+                if field_type in ("select", "radio"):
+                    str_val = str(raw_value) if raw_value is not None else ""
+                    for choice in f["choices"]:
+                        if str(choice.get("value", "")) == str_val:
+                            raw_value = choice.get("label", raw_value)
+                            break
+                elif field_type in (
+                    "multiselect",
+                    "multiselect_list",
+                    "checkboxes",
+                ) and isinstance(raw_value, list):
+                    label_map = {
+                        str(c.get("value", "")): c.get("label", c.get("value", ""))
+                        for c in f["choices"]
+                    }
+                    raw_value = [label_map.get(str(v), v) for v in raw_value]
+            flat_fields.append(
+                {
+                    "_type": "data",
+                    "label": f["label"],
+                    "key": lookup_key,
+                    "value": raw_value,
+                    "width": f.get("width", "full"),
+                }
+            )
+
+        # Group flat_fields into width-aware rows for _form_data_rows.html
+        visible_fields = _group_fields_into_rows(flat_fields)
 
         completed_by = None
         if task.completed_by:
@@ -3481,7 +3643,11 @@ def bulk_export_submissions(request):
         ws = wb.create_sheet(title=sheet_name)
 
         # Determine columns from form field definitions
-        fields = list(fd.fields.exclude(field_type="section").order_by("order"))
+        fields = list(
+            fd.fields.exclude(field_type__in=["section", "display_text"]).order_by(
+                "order"
+            )
+        )
         field_names = [f.field_name for f in fields]
         field_labels = [f.field_label for f in fields]
 
@@ -3848,7 +4014,15 @@ def completed_approvals_ajax(request):
             fd = FormDefinition.objects.get(slug=form_slug)
             extra_fields = list(
                 FormField.objects.filter(form_definition=fd)
-                .exclude(field_type__in=["section", "file", "multifile", "signature"])
+                .exclude(
+                    field_type__in=[
+                        "section",
+                        "display_text",
+                        "file",
+                        "multifile",
+                        "signature",
+                    ]
+                )
                 .order_by("order")
                 .values("field_name")
             )
@@ -3976,7 +4150,15 @@ def approval_inbox_ajax(request):
             fd = FormDefinition.objects.get(slug=form_slug)
             extra_fields = list(
                 FormField.objects.filter(form_definition=fd)
-                .exclude(field_type__in=["section", "file", "multifile", "signature"])
+                .exclude(
+                    field_type__in=[
+                        "section",
+                        "display_text",
+                        "file",
+                        "multifile",
+                        "signature",
+                    ]
+                )
                 .order_by("order")
                 .values("field_name")
             )
@@ -3992,6 +4174,7 @@ def approval_inbox_ajax(request):
         "workflow_stage",
         "assigned_group",
         "assigned_to",
+        "sub_workflow_instance",
     ).prefetch_related("submission__form_definition__workflows")[start : start + length]
 
     # --- Serialise ---
@@ -4002,6 +4185,14 @@ def approval_inbox_ajax(request):
         can_exp = wf and (wf.allow_bulk_export or wf.allow_bulk_pdf_export)
         approve_url = reverse("forms_workflows:approve_submission", args=[task.id])
         det_url = reverse("forms_workflows:submission_detail", args=[sub.id])
+
+        # For sub-workflow tasks, prefix the stage name with the instance index
+        # so "Payment Request" becomes "Payment 1: Payment Request".
+        stage_name = task.workflow_stage.name if task.workflow_stage else ""
+        swi = task.sub_workflow_instance
+        if swi and stage_name:
+            stage_name = f"Payment {swi.index}: {stage_name}"
+
         row = {
             "DT_RowId": f"row_{task.id}",
             "checkbox": (
@@ -4021,7 +4212,7 @@ def approval_inbox_ajax(request):
                 sub.submitter.get_full_name() or sub.submitter.username
             ),
             "stage": f"Stage {task.stage_number}" if task.stage_number else "—",
-            "step_num": escape(task.workflow_stage.name if task.workflow_stage else ""),
+            "step_num": escape(stage_name),
             "assigned": escape(
                 task.assigned_group.name
                 if task.assigned_group
@@ -4115,7 +4306,15 @@ def my_submissions_ajax(request):
             fd = FormDefinition.objects.get(slug=form_slug)
             extra_fields = list(
                 FormField.objects.filter(form_definition=fd)
-                .exclude(field_type__in=["section", "file", "multifile", "signature"])
+                .exclude(
+                    field_type__in=[
+                        "section",
+                        "display_text",
+                        "file",
+                        "multifile",
+                        "signature",
+                    ]
+                )
                 .order_by("order")
                 .values("field_name")
             )

@@ -71,7 +71,7 @@ def config_from_proto(
 
     if config_proto.extra_json:
         for k, v in config_proto.extra_json.items():
-            config[k] = orjson.loads(v)  # type: ignore[invalid-key]
+            config[k] = orjson.loads(v)  # type: ignore[invalid-key]  # ty: ignore[invalid-key]
 
     return config
 

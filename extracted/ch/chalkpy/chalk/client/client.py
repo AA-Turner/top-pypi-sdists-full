@@ -1067,7 +1067,7 @@ class ChalkClient:
             If specified, the query will be run asynchronously across a maximum `num_workers` pod workers at any time.
             This parameter is useful if you have a large number of shards and would like to limit the number of pods running at once.
         completion_deadline
-            If specified as a timedelta, applies a completion deadline to each shard; each shard of the query will fail (allowing retries) if not completed within the duration.
+            If specified as a timedelta, applies a completion deadline to each shard; each shard of the query will fail (without being retried) if not completed within the duration.
             If specified as an OfflineQueryDeadlineOptions, allows more fine-grained control of shard- or query-level deadlines, with options to retry on shard failure or not.
         max_retries
             Number of times failed offline query shards can be retried. The maximum number of attempts is 1 higher than this number and each shard has an independent retry budget.
@@ -2660,6 +2660,7 @@ class ChalkClient:
             Resolver tags to prefer when running the backfill.
         store_offline : bool, optional
             If `True`, store materialized aggregate values in the offline store.
+            Requires both `lower_bound` and `upper_bound`.
         """
         ...
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import faiss
 from numpy import typing as npt
@@ -65,7 +65,7 @@ class FaissBackend(AbstractBackend[FaissArgs]):
         cls: type[FaissBackend],
         vectors: npt.NDArray,
         index_type: str = "flat",
-        metric: Union[str, Metric] = "cosine",
+        metric: str | Metric = "cosine",
         nlist: int = 100,
         m: int = 8,
         nbits: int = 8,
@@ -191,14 +191,14 @@ class FaissBackend(AbstractBackend[FaissArgs]):
 
         return out
 
-    def save(self, base_path: Path) -> None:
+    def save(self, path: Path) -> None:
         """Save the FAISS index and arguments."""
-        faiss.write_index(self.index, str(base_path / "index.faiss"))
-        self.arguments.dump(base_path / "arguments.json")
+        faiss.write_index(self.index, str(path / "index.faiss"))
+        self.arguments.dump(path / "arguments.json")
 
     @classmethod
-    def load(cls: type[FaissBackend], base_path: Path) -> FaissBackend:
+    def load(cls: type[FaissBackend], path: Path) -> FaissBackend:
         """Load a FAISS index and arguments."""
-        arguments = FaissArgs.load(base_path / "arguments.json")
-        index = faiss.read_index(str(base_path / "index.faiss"))
+        arguments = FaissArgs.load(path / "arguments.json")
+        index = faiss.read_index(str(path / "index.faiss"))
         return cls(index=index, arguments=arguments)

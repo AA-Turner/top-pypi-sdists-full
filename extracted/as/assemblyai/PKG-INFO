@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: assemblyai
-Version: 0.59.0
+Version: 0.61.0
 Summary: AssemblyAI Python SDK
 Home-page: https://github.com/AssemblyAI/assemblyai-python-sdk
 Author: AssemblyAI
@@ -58,6 +58,17 @@ Requires-Dist: pyaudio>=0.2.13; extra == "extras"
 > _Build with AI models that can transcribe and understand audio_
 
 With a single API call, get access to AI models built on the latest AI breakthroughs to transcribe and understand audio and speech data securely at large scale.
+
+> **⚠️ WARNING**
+> This SDK is intended for **testing and light usage only**. It is not
+> recommended for use at scale or with production traffic. For best
+> results, we recommend calling the AssemblyAI API directly via HTTP
+> request. See our [official documentation](https://www.assemblyai.com/docs)
+> for more information, including HTTP code examples.
+
+## Claude Code
+
+This repository includes a [`CLAUDE.md`](CLAUDE.md) file that provides context to Claude Code about this SDK — key APIs, common patterns, and gotchas. When you open this repo in Claude Code, it automatically reads this file to give better assistance.
 
 # Overview
 

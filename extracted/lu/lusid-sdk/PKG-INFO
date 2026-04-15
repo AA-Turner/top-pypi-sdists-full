@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lusid-sdk
-Version: 2.3.98
+Version: 2.3.100
 Summary: LUSID API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,LUSID API,lusid-sdk
@@ -1874,6 +1874,7 @@ Class | Method | HTTP request | Description
  - [StagedModificationDecision](docs/StagedModificationDecision.md)
  - [StagedModificationDecisionRequest](docs/StagedModificationDecisionRequest.md)
  - [StagedModificationEffectiveRange](docs/StagedModificationEffectiveRange.md)
+ - [StagedModificationSourceEntity](docs/StagedModificationSourceEntity.md)
  - [StagedModificationStagingRule](docs/StagedModificationStagingRule.md)
  - [StagedModificationsEntityHrefs](docs/StagedModificationsEntityHrefs.md)
  - [StagedModificationsInfo](docs/StagedModificationsInfo.md)
@@ -1924,6 +1925,7 @@ Class | Method | HTTP request | Description
  - [TransactionDateWindows](docs/TransactionDateWindows.md)
  - [TransactionDiagnostics](docs/TransactionDiagnostics.md)
  - [TransactionFee](docs/TransactionFee.md)
+ - [TransactionFeeCapitalisation](docs/TransactionFeeCapitalisation.md)
  - [TransactionFieldMap](docs/TransactionFieldMap.md)
  - [TransactionMatchingAlternativeId](docs/TransactionMatchingAlternativeId.md)
  - [TransactionPrice](docs/TransactionPrice.md)

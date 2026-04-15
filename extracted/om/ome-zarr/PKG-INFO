@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ome-zarr
-Version: 0.15.0
+Version: 0.16.0
 Summary: Implementation of images in Zarr files.
 Author: The Open Microscopy Team
 License-Expression: BSD-2-Clause
@@ -18,7 +18,7 @@ Requires-Python: >3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: numpy
-Requires-Dist: dask<=2026.1.1,>=2025.12.0
+Requires-Dist: dask!=2025.12.*,!=2026.1.*,!=2026.2.*,>=2025.2.0
 Requires-Dist: zarr>=3.0.0
 Requires-Dist: fsspec[s3]!=2021.07.0,!=2023.9.0,>=0.8
 Requires-Dist: aiohttp

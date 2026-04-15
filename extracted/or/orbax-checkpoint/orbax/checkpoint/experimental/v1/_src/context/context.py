@@ -92,17 +92,28 @@ class Context(epy.ContextManager):
 
 
   Attributes:
-    pytree_options: Options for PyTree checkpointing.
+    pytree_options: Options for PyTree checkpointing. See
+      :class:`~orbax.checkpoint.experimental.v1.options.PyTreeOptions`.
     array_options: Options for saving and loading array (and array-like
-      objects).
-    async_options: Options for controlling asynchronous behavior.
-    multiprocessing_options: Options for multiprocessing behavior.
-    file_options: Options for working with the file system.
+      objects). See
+      :class:`~orbax.checkpoint.experimental.v1.options.ArrayOptions`.
+    async_options: Options for controlling asynchronous behavior. See
+      :class:`~orbax.checkpoint.experimental.v1.options.AsyncOptions`.
+    multiprocessing_options: Options for multiprocessing behavior. See
+      :class:`~orbax.checkpoint.experimental.v1.options.MultiprocessingOptions`.
+    file_options: Options for working with the file system. See
+      :class:`~orbax.checkpoint.experimental.v1.options.FileOptions`.
     checkpointables_options: Options for controlling checkpointables behavior.
-    pathways_options: Options for Pathways checkpointing.
-    checkpoint_layout: The layout of the checkpoint. Defaults to ORBAX.
-    deletion_options: Options for controlling deletion behavior.
+      See
+      :class:`~orbax.checkpoint.experimental.v1.options.CheckpointablesOptions`.
+    pathways_options: Options for Pathways checkpointing. See
+      :class:`~orbax.checkpoint.experimental.v1.options.PathwaysOptions`.
+    checkpoint_layout: The layout of the checkpoint. Defaults to ORBAX. See
+      :class:`~orbax.checkpoint.experimental.v1.options.CheckpointLayout`.
+    deletion_options: Options for controlling deletion behavior. See
+      :class:`~orbax.checkpoint.experimental.v1.options.DeletionOptions`.
     memory_options: Options for controlling memory limits during save / load.
+      See :class:`~orbax.checkpoint.experimental.v1.options.MemoryOptions`.
   """
 
   def __init__(
@@ -119,6 +130,7 @@ class Context(epy.ContextManager):
       checkpoint_layout: options_lib.CheckpointLayout | None = None,
       deletion_options: options_lib.DeletionOptions | None = None,
       memory_options: options_lib.MemoryOptions | None = None,
+      safetensors_options: options_lib.SafetensorsOptions | None = None,
   ):
     self._pytree_options = pytree_options or (
         context.pytree_options if context else options_lib.PyTreeOptions()
@@ -155,6 +167,11 @@ class Context(epy.ContextManager):
     )
     self._memory_options = memory_options or (
         context.memory_options if context else options_lib.MemoryOptions()
+    )
+    self._safetensors_options = safetensors_options or (
+        context.safetensors_options
+        if context
+        else options_lib.SafetensorsOptions()
     )
 
   @property
@@ -196,6 +213,10 @@ class Context(epy.ContextManager):
   @property
   def memory_options(self) -> options_lib.MemoryOptions:
     return self._memory_options
+
+  @property
+  def safetensors_options(self) -> options_lib.SafetensorsOptions:
+    return self._safetensors_options
 
   def operation_id(self) -> str:
     return synchronization.OperationIdGenerator.get_current_operation_id()

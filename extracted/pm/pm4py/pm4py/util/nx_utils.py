@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -68,6 +68,10 @@ def connected_components(*args, **kwargs):
 
 def bfs_tree(*args, **kwargs):
     return DEFAULT_NX_ENVIRONMENT.bfs_tree(*args, **kwargs)
+
+
+def topological_sort(*args, **kwargs):
+    return DEFAULT_NX_ENVIRONMENT.topological_sort(*args, **kwargs)
 
 
 def contracted_nodes(*args, **kwargs):

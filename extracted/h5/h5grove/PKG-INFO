@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: h5grove
-Version: 3.0.0
+Version: 4.0.0
 Summary: Core utilities to serve HDF5 file contents
 Project-URL: Homepage, https://github.com/silx-kit/h5grove
 Project-URL: Documentation, https://silx-kit.github.io/h5grove/

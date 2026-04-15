@@ -32,60 +32,64 @@ Quick Start
 
 ::
 
-    import baostock as bs
-    import pandas as pd
+	import baostock as bs
+	import pandas as pd
 
-    # 登陆系统
-    lg = bs.login()
-    # 显示登陆返回信息
-    print(lg.error_code)
-    print(lg.error_msg)
-    # 详细指标参数，参见“历史行情指标参数”章节
-    rs = bs.query_history_k_data_plus("sh.601398",
-        "date,code,open,high,low,close,volume,amount,adjustflag",
-        start_date='2017-01-01', end_date='2017-01-31',
-        frequency="d", adjustflag="3")
-    print(rs.error_code)
-    print(rs.error_msg)
-    # 获取具体的信息
-    result_list = []
-    while (rs.error_code == '0') & rs.next():
-        # 分页查询，将每页信息合并在一起
-        result_list.append(rs.get_row_data())
-    result = pd.DataFrame(result_list, columns=rs.fields)
-    result.to_csv("D:/history_k_data.csv", encoding="gbk", index=False)
-    print(result)
-    # 登出系统
-    bs.logout()
+	#### 登陆系统 ####
+	lg = bs.login()
+	# 显示登陆返回信息
+	print('login respond error_code:'+lg.error_code)
+	print('login respond  error_msg:'+lg.error_msg)
+
+	#### 获取历史K线数据 ####
+	# 详细指标参数，参见“历史行情指标参数”章节
+	rs = bs.query_history_k_data_plus("sh.600000",
+		"date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,peTTM,pbMRQ,psTTM,pcfNcfTTM,isST",
+		start_date='2025-06-01', end_date='2025-12-31',
+		frequency="d", adjustflag="2") #frequency="d"取日k线，adjustflag="3"默认不复权，"2"前复权
+
+	print('query_history_k_data_plus respond error_code:'+rs.error_code)
+	print('query_history_k_data_plus respond  error_msg:'+rs.error_msg)
+
+	#### 打印结果集 ####
+	data_list = []
+	while (rs.error_code == '0') & rs.next():
+		# 获取一条记录，将记录合并在一起
+		data_list.append(rs.get_row_data())
+	result = pd.DataFrame(data_list, columns=rs.fields)
+	#### 结果集输出到csv文件 ####
+	result.to_csv("D:/history_k_data.csv", encoding="gbk", index=False)
+	print(result)
+
+	#### 登出系统 ####
+	bs.logout()
 
 return::
 
-              date       code    open    high     low   close preclose     volume
-    0   2017-01-03  sh.601398  4.4000  4.4300  4.3900  4.4300   4.4100  104161632   
-    1   2017-01-04  sh.601398  4.4200  4.4400  4.4100  4.4300   4.4300  118923425   
-    2   2017-01-05  sh.601398  4.4300  4.4500  4.4200  4.4400   4.4300   87356137   
-    3   2017-01-06  sh.601398  4.4400  4.4500  4.4300  4.4400   4.4400   87008191   
-    4   2017-01-09  sh.601398  4.4500  4.4800  4.4300  4.4600   4.4400  117454094   
-    5   2017-01-10  sh.601398  4.4500  4.4700  4.4400  4.4600   4.4600   63663257   
-    6   2017-01-11  sh.601398  4.4600  4.4800  4.4500  4.4700   4.4600   52395427   
-    7   2017-01-12  sh.601398  4.4600  4.4700  4.4400  4.4700   4.4700   62166279    
-    
-                 amount adjustflag      turn tradestatus  
-    0    460087744.0000          3  0.038634           1  
-    1    526408816.0000          3  0.044109           1  
-    2    387580736.0000          3  0.032401           1  
-    3    386138112.0000          3  0.032272           1  
-    4    523539392.0000          3  0.043564           1  
-    5    283646224.0000          3  0.023613           1  
-    6    233898107.0000          3  0.019434           1  
-    7    277258304.0000          3  0.023058           1  
+	login success!
+	login respond error_code:0
+	login respond  error_msg:success
+	query_history_k_data_plus respond error_code:0
+	query_history_k_data_plus respond  error_msg:success
+	date       code           open  ...     psTTM  pcfNcfTTM isST
+	0    2025-06-03  sh.600000  11.9476797700  ...  2.148197  -9.209045    0
+	1    2025-06-04  sh.600000  12.1126761600  ...  2.120788  -9.091545    0
+	2    2025-06-05  sh.600000  12.0544421400  ...  2.110509  -9.047483    0
+	3    2025-06-06  sh.600000  11.9670911100  ...  2.110509  -9.047483    0
+	4    2025-06-09  sh.600000  11.9476797700  ...  2.108796  -9.040139    0
+	..          ...        ...            ...  ...       ...        ...  ...
+	141  2025-12-25  sh.600000  11.8000000000  ...  2.263479  -1.849434    0
+	142  2025-12-26  sh.600000  11.7700000000  ...  2.253864  -1.841577    0
+	143  2025-12-29  sh.600000  11.7400000000  ...  2.340403  -1.912286    0
+	144  2025-12-30  sh.600000  12.1700000000  ...  2.382711  -1.946855    0
+	145  2025-12-31  sh.600000  12.3500000000  ...  2.392326  -1.954712    0
 
 """
 
 
 setup(
     name='baostock',
-    version='0.8.9',
+    version='0.9.1',
     description=(
         'A tool for obtaining historical data of China stock market'
     ),
@@ -104,8 +108,8 @@ setup(
         'Environment :: Console',  # 运行环境
         'License :: OSI Approved :: BSD License',  # BSD协议
         'Operating System :: OS Independent',  # 与平台无关
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.9',
         'Topic :: Software Development :: Libraries'
     ],
 )

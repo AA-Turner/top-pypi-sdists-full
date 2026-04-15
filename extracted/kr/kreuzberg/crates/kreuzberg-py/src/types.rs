@@ -84,6 +84,8 @@ pub struct ExtractionResult {
     uris: Option<Py<PyList>>,
 
     code_intelligence: Option<Py<PyAny>>,
+
+    llm_usage: Option<Py<PyList>>,
 }
 
 #[pymethods]
@@ -172,6 +174,11 @@ impl ExtractionResult {
     #[getter]
     fn code_intelligence<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyAny>> {
         self.code_intelligence.as_ref().map(|c| c.bind(py).clone())
+    }
+
+    #[getter]
+    fn llm_usage<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyList>> {
+        self.llm_usage.as_ref().map(|l| l.bind(py).clone())
     }
 
     fn __repr__(&self) -> String {
@@ -746,6 +753,25 @@ impl ExtractionResult {
             None
         };
 
+        let llm_usage = if let Some(usage_vec) = result.llm_usage {
+            let usage_list = PyList::empty(py);
+            for usage in usage_vec {
+                let py_usage = PyLlmUsage {
+                    model: usage.model,
+                    source: usage.source,
+                    input_tokens: usage.input_tokens,
+                    output_tokens: usage.output_tokens,
+                    total_tokens: usage.total_tokens,
+                    estimated_cost: usage.estimated_cost,
+                    finish_reason: usage.finish_reason,
+                };
+                usage_list.append(Py::new(py, py_usage)?)?;
+            }
+            Some(usage_list.unbind())
+        } else {
+            None
+        };
+
         Ok(Self {
             content: result.content,
             mime_type: result.mime_type.to_string(),
@@ -773,9 +799,8 @@ impl ExtractionResult {
             annotations,
             children,
             uris,
-            // code_intelligence will be populated once the core ExtractionResult
-            // adds the field; for now, always None.
             code_intelligence: None,
+            llm_usage,
         })
     }
 }
@@ -1052,6 +1077,46 @@ impl PyProcessingWarning {
         format!(
             "ProcessingWarning(source='{}', message='{}')",
             self.source, self.message
+        )
+    }
+}
+
+#[pyclass(name = "LlmUsage", module = "kreuzberg")]
+pub struct PyLlmUsage {
+    #[pyo3(get)]
+    pub model: String,
+
+    #[pyo3(get)]
+    pub source: String,
+
+    #[pyo3(get)]
+    pub input_tokens: Option<u64>,
+
+    #[pyo3(get)]
+    pub output_tokens: Option<u64>,
+
+    #[pyo3(get)]
+    pub total_tokens: Option<u64>,
+
+    #[pyo3(get)]
+    pub estimated_cost: Option<f64>,
+
+    #[pyo3(get)]
+    pub finish_reason: Option<String>,
+}
+
+#[pymethods]
+impl PyLlmUsage {
+    fn __repr__(&self) -> String {
+        format!(
+            "LlmUsage(model='{}', source='{}', input_tokens={:?}, output_tokens={:?}, total_tokens={:?}, estimated_cost={:?}, finish_reason={:?})",
+            self.model,
+            self.source,
+            self.input_tokens,
+            self.output_tokens,
+            self.total_tokens,
+            self.estimated_cost,
+            self.finish_reason
         )
     }
 }

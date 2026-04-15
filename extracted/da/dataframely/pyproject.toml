@@ -27,7 +27,7 @@ description = "A declarative, polars-native data frame validation library"
 name = "dataframely"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "2.9.0"
+version = "2.9.1"
 
 [project.optional-dependencies]
 deltalake = ["deltalake"]

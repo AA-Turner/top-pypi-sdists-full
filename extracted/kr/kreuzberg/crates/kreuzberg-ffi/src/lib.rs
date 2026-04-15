@@ -35,7 +35,6 @@ pub use config::{
     kreuzberg_config_get_field, kreuzberg_config_is_valid, kreuzberg_config_merge, kreuzberg_config_to_json,
     kreuzberg_get_embedding_preset, kreuzberg_list_embedding_presets, kreuzberg_load_extraction_config_from_file,
 };
-#[cfg(feature = "layout-detection")]
 pub use config_builder::kreuzberg_config_builder_set_layout;
 pub use config_builder::{
     kreuzberg_config_builder_build, kreuzberg_config_builder_free, kreuzberg_config_builder_new,
@@ -153,8 +152,8 @@ mod tests {
         // Test size
         assert_eq!(
             std::mem::size_of::<CExtractionResult>(),
-            200,
-            "CExtractionResult must be exactly 200 bytes"
+            208,
+            "CExtractionResult must be exactly 208 bytes"
         );
 
         // Test alignment
@@ -226,6 +225,7 @@ mod tests {
             processing_warnings_json: ptr::null_mut(),
             annotations_json: ptr::null_mut(),
             uris_json: ptr::null_mut(),
+            llm_usage_json: ptr::null_mut(),
             code_intelligence_json: ptr::null_mut(),
             structured_output_json: ptr::null_mut(),
             success: true,
@@ -554,6 +554,7 @@ mod tests {
                 processing_warnings_json: ptr::null_mut(),
                 annotations_json: ptr::null_mut(),
                 uris_json: ptr::null_mut(),
+                llm_usage_json: ptr::null_mut(),
                 code_intelligence_json: ptr::null_mut(),
                 structured_output_json: ptr::null_mut(),
                 success: true,
@@ -595,6 +596,7 @@ mod tests {
                     .into_raw(),
                 annotations_json: ptr::null_mut(),
                 uris_json: ptr::null_mut(),
+                llm_usage_json: ptr::null_mut(),
                 code_intelligence_json: ptr::null_mut(),
                 structured_output_json: ptr::null_mut(),
                 success: true,
@@ -681,7 +683,7 @@ mod tests {
     /// Test CExtractionResult size exactly matches FFI contract
     #[test]
     fn test_c_extraction_result_size() {
-        assert_eq!(std::mem::size_of::<CExtractionResult>(), 200);
+        assert_eq!(std::mem::size_of::<CExtractionResult>(), 208);
         assert_eq!(std::mem::align_of::<CExtractionResult>(), 8);
     }
 

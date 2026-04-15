@@ -25,7 +25,7 @@ class AppsExtractor(HuggingFaceBenchmarkExtractor):
         - solutions: str (answer/solution)
     """
 
-    evaluator_name = "coding"
+    evaluator_name = "generation"
 
     def extract_contrastive_pairs(
         self,
@@ -42,12 +42,13 @@ class AppsExtractor(HuggingFaceBenchmarkExtractor):
         """
         max_items = self._normalize_limit(limit)
 
-        # Load dataset (apps requires a configuration)
+        # Load dataset - codeparrot/apps requires trust_remote_code for its
+        # dataset script. No config is specified to load all difficulty levels.
         docs = self.load_dataset(
             dataset_name="codeparrot/apps",
-            dataset_config="all",
             split="train",
             limit=max_items,
+            trust_remote_code=True,
         )
 
         pairs: list[ContrastivePair] = []

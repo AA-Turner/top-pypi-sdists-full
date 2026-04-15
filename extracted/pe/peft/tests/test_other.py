@@ -27,6 +27,7 @@ from transformers import (
 )
 
 from peft import LoraConfig, PeftModel, VeraConfig, get_peft_model
+from peft.import_utils import is_transformers_ge_v5_1_0
 from peft.utils.other import ModulesToSaveWrapper, _get_module_names_tied_with_embedding, _get_no_split_modules
 
 from .testing_utils import hub_online_once
@@ -432,7 +433,7 @@ class TestTargetingAuxiliaryTrainingWrapper:
         # will not target the same layer with both a tuner and ModulesToSaveWrapper. However, if modules_to_save is
         # automatically inferred, e.g. when using AutoModelForSequenceClassification, the ModulesToSaveWrapper is applied ex
         # post, which can lead to the double wrapping.
-        model_id = "hf-internal-testing/tiny-random-OPTForCausalLM"
+        model_id = "peft-internal-testing/tiny-random-OPTForCausalLM"
         model = AutoModelForSequenceClassification.from_pretrained(model_id)
 
         # Note: target_modules="all-linear" would also work and is closer to the original issue, but let's explicitly target
@@ -446,7 +447,7 @@ class TestTargetingAuxiliaryTrainingWrapper:
             get_peft_model(model, peft_config)
 
     def test_targeting_trainable_tokens_raises(self):
-        model_id = "hf-internal-testing/tiny-random-OPTForCausalLM"
+        model_id = "peft-internal-testing/tiny-random-OPTForCausalLM"
         model = AutoModelForSequenceClassification.from_pretrained(model_id)
 
         peft_config = LoraConfig(target_modules=["embed_tokens"], task_type="SEQ_CLS", trainable_token_indices=[0, 1])
@@ -524,9 +525,9 @@ class TestGetNoSplitModules:
 
     def test_get_no_split_modules_simple(self):
         # choose a model where recursively visiting children is *not* required
-        model_id = "facebook/opt-125m"
+        model_id = "peft-internal-testing/opt-125m"
         model = AutoModelForCausalLM.from_pretrained(model_id)
-        assert model._no_split_modules == ["OPTDecoderLayer"]
+        assert list(model._no_split_modules) == ["OPTDecoderLayer"]
         no_split_modules = _get_no_split_modules(model)
         assert no_split_modules == {"OPTDecoderLayer"}
 
@@ -534,8 +535,18 @@ class TestGetNoSplitModules:
         # choose a model where recursively visiting children is required
         model_id = "hf-internal-testing/tiny-random-LlavaForConditionalGeneration"
         model = LlavaForConditionalGeneration.from_pretrained(model_id)
-        # sanity check: just visiting the model itself is not enough:
-        assert model._no_split_modules == []
+
+        # model._no_split_modules is recursively generated as of transformers 5.1.0 so
+        # depending on which transformers version we have in the test environment the
+        # attribute will deliver either the same result as `_get_no_split_modules`
+        # or an empty list.
+        #
+        # TODO remove this distinction once transformers <5.1.0 is not supported anymore
+        if not is_transformers_ge_v5_1_0:
+            # sanity check: just visiting the model itself is not enough:
+            assert model._no_split_modules == []
+        else:
+            assert model._no_split_modules == {"CLIPEncoderLayer", "LlamaDecoderLayer"}
 
         no_split_modules = _get_no_split_modules(model)
         assert no_split_modules == {"CLIPEncoderLayer", "LlamaDecoderLayer"}
@@ -549,10 +560,10 @@ class TestGetModuleNamesTiedWithEmbedding:
             "cls.predictions.decoder.weight": "bert.embeddings.word_embeddings.weight",
             "cls.predictions.decoder.bias": "bert.embeddings.word_embeddings.bias",
         },
-        "facebook/opt-125m": {
+        "peft-internal-testing/opt-125m": {
             "lm_head.weight": "model.decoder.embed_tokens.weight",
         },
-        "hf-internal-testing/tiny-random-t5": {
+        "peft-internal-testing/tiny-random-t5": {
             "lm_head.weight": "shared.weight",
             "encoder.embed_tokens.weight": "shared.weight",
             "decoder.embed_tokens.weight": "shared.weight",
@@ -560,9 +571,9 @@ class TestGetModuleNamesTiedWithEmbedding:
     }
 
     model_ids = [
-        "facebook/opt-125m",
+        "peft-internal-testing/opt-125m",
         "peft-internal-testing/tiny-random-BertModel",
-        "hf-internal-testing/tiny-random-t5",
+        "peft-internal-testing/tiny-random-t5",
     ]
 
     @contextmanager
@@ -622,3 +633,12 @@ class TestGetModuleNamesTiedWithEmbedding:
             modules = peft_model._get_module_names_tied_with_embedding()
 
             assert expected == modules
+
+
+# TODO for PEFT 0.20 remove this
+class TestLoftQDeprecation:
+    def test_nfquantizer_deprecation(self):
+        from peft.utils.loftq_utils import NFQuantizer
+
+        with pytest.warns(match="NFQuantizer is deprecated") as record:
+            _ = NFQuantizer(device="cpu")

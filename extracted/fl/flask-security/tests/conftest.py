@@ -5,7 +5,7 @@ conftest
 Test fixtures and what not
 
 :copyright: (c) 2017 by CERN.
-:copyright: (c) 2019-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2019-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 """
 
@@ -532,6 +532,14 @@ def sqlalchemy_setup(app, tmpdir, realdburl):
     class User(db.Model, fsqla.FsUserMixin):
         security_number = Column(Integer, unique=True)
 
+        def __init__(self, *args, **kwargs):
+            from flask import current_app
+
+            super().__init__(*args, **kwargs)
+            inject = current_app.config.get("TESTING_USER_INJECT") or dict()
+            for k, v in inject.items():
+                setattr(User, k, v)
+
         def get_security_payload(self):
             # Make sure we still properly hook up to flask's JSON extension
             # which handles datetime
@@ -976,6 +984,41 @@ def client_nc(request, app, sqlalchemy_datastore):
     app.security = Security(app, datastore=sqlalchemy_datastore)
     populate_data(app)
     return app.test_client(use_cookies=False)
+
+
+@pytest.fixture()
+def signals():
+    """Tracks signal calls for testing purposes.
+
+    This sets up a receiver for all signals and tracks the data
+    """
+    from flask_security import signals
+    import inspect
+    import blinker
+
+    signal_calls = dict()
+    def_signals = inspect.getmembers(
+        signals, lambda v: isinstance(v, blinker.NamedSignal)
+    )
+
+    for name, sig in def_signals:
+        sc = signal_calls[name] = []
+
+        def _on(app, _sc=sc, **kwargs):
+            assert isinstance(app, Flask)
+            kwargs["request_endpoint"] = (
+                flask_request.endpoint if flask_request else None
+            )
+            # user argument is an ORM structure so may not be available in a test
+            # outside of the request - capture value(s) here
+            user = kwargs.get("user", None)
+            if user:
+                assert isinstance(kwargs["user"], UserMixin)
+                kwargs["user_email"] = user.email
+            _sc.append(kwargs)
+
+        sig.connect(_on, weak=False)
+    return signal_calls
 
 
 @pytest.fixture(

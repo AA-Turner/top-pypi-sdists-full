@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -265,7 +265,7 @@ class TraceMatcher:
                     previousEvent = currentEvent
                 currentEvent = trace[eventNr]
                 self.__handleAttributesOfDict(currentEvent, distributionOfAttributes, attributeIgnorelist, previousEvent)
-                if not currentEvent["concept:name"] in eventStructure:
+                if currentEvent["concept:name"] not in eventStructure:
                     attributesOfEvent = set(currentEvent.keys())
                     attributesOfEvent.remove("concept:name")
                     eventStructure[currentEvent["concept:name"]] = attributesOfEvent

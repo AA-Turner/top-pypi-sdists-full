@@ -1669,6 +1669,99 @@ fn = lambda_.Function(self, "MyLambda",
 )
 ```
 
+## S3 Files Filesystem
+
+[Amazon S3 Files](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files.html) provides a fully managed NFS file system backed by an S3 bucket.
+Lambda functions can mount an S3 Files file system to read and write files using standard filesystem operations,
+which is useful for workloads that need POSIX-compatible file access to S3 data — such as ML inference, media processing, or legacy applications that expect a local mount path.
+
+> **Note:** S3 Files currently only has L1 (CloudFormation) constructs. The setup below
+> requires more manual wiring than the equivalent EFS integration. L2 constructs will
+> simplify this in a future release.
+
+S3 Files uses the same NFS infrastructure as Amazon EFS. To mount the file system in Lambda, you need:
+
+* **File system** (`CfnFileSystem`) — the NFS file system backed by your S3 bucket. The backing bucket must have [versioning enabled](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html), as S3 Files relies on object versions to maintain consistency between the file system and S3. The file system requires an IAM role with two sets of permissions:
+
+  * **S3 permissions** — read/write access to the bucket and its objects so S3 Files can synchronize data.
+  * **EventBridge permissions** — S3 Files creates and manages EventBridge rules (prefixed `DO-NOT-DELETE-S3-Files`) to detect S3 object changes and trigger data synchronization. The role needs permission to manage these rules, plus read-only access to list rules for monitoring.
+* **Mount targets** (`CfnMountTarget`) — ENIs placed in your VPC subnets that allow NFS clients (like Lambda) to connect. Each mount target needs a security group that permits inbound NFS traffic (TCP port 2049).
+* **Access point** (`CfnAccessPoint`) — defines the POSIX user identity and root directory path that Lambda uses when accessing the file system. This scopes and isolates the function's view of the file system.
+
+```python
+import aws_cdk as cdk
+import aws_cdk.aws_ec2 as ec2
+import aws_cdk.aws_s3 as s3
+import aws_cdk.aws_s3files as s3files
+
+
+vpc = ec2.Vpc(self, "Vpc")
+
+# Versioning is required — S3 Files relies on object versions for consistency.
+bucket = s3.Bucket(self, "Bucket", versioned=True)
+
+# S3 Files assumes this role to sync data between S3 and the file system.
+role = iam.Role(self, "S3FilesRole",
+    assumed_by=iam.ServicePrincipal("elasticfilesystem.amazonaws.com")
+)
+
+# S3 permissions: read/write access to the bucket and objects
+role.add_to_policy(iam.PolicyStatement(
+    actions=["s3:ListBucket*"],
+    resources=[bucket.bucket_arn]
+))
+role.add_to_policy(iam.PolicyStatement(
+    actions=["s3:AbortMultipartUpload", "s3:DeleteObject", "s3:GetObject*", "s3:List*", "s3:PutObject*"],
+    resources=[bucket.arn_for_objects("*")]
+))
+
+# EventBridge permissions: S3 Files creates rules prefixed "DO-NOT-DELETE-S3-Files"
+# to detect S3 object changes and trigger data synchronization.
+role.add_to_policy(iam.PolicyStatement(
+    actions=["events:DeleteRule", "events:DisableRule", "events:EnableRule", "events:PutRule", "events:PutTargets", "events:RemoveTargets"
+    ],
+    resources=[f"arn:{cdk.Aws.PARTITION}:events:*:*:rule/DO-NOT-DELETE-S3-Files*"],
+    conditions={"StringEquals": {"events:ManagedBy": "elasticfilesystem.amazonaws.com"}}
+))
+role.add_to_policy(iam.PolicyStatement(
+    actions=["events:DescribeRule", "events:ListRuleNamesByTarget", "events:ListRules", "events:ListTargetsByRule"],
+    resources=[f"arn:{cdk.Aws.PARTITION}:events:*:*:rule/*"]
+))
+
+file_system = s3files.CfnFileSystem(self, "S3FilesFs",
+    bucket=bucket.bucket_arn,
+    role_arn=role.role_arn
+)
+
+sg = ec2.SecurityGroup(self, "MountTargetSG", vpc=vpc)
+
+# Create a mount target in each private subnet so Lambda can reach the file system via NFS.
+vpc.private_subnets.for_each((subnet, i) =>
+      new s3files.CfnMountTarget(this, `MountTarget${i}`, {
+        fileSystemId: fileSystem.attrFileSystemId,
+        subnetId: subnet.subnetId,
+        securityGroups: [sg.securityGroupId],
+      }))
+
+# The access point defines the POSIX identity and root path Lambda uses on the file system.
+access_point = s3files.CfnAccessPoint(self, "AccessPoint",
+    file_system_id=file_system.attr_file_system_id,
+    root_directory=s3files.CfnAccessPoint.RootDirectoryProperty(
+        path="/export/lambda",
+        creation_permissions=s3files.CfnAccessPoint.CreationPermissionsProperty(owner_gid="1001", owner_uid="1001", permissions="750")
+    ),
+    posix_user=s3files.CfnAccessPoint.PosixUserProperty(gid="1001", uid="1001")
+)
+
+fn = lambda_.Function(self, "MyFunction",
+    runtime=lambda_.Runtime.NODEJS_LATEST,
+    handler="index.handler",
+    code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler")),
+    vpc=vpc,
+    filesystem=lambda_.FileSystem.from_s3_files_access_point(access_point, "/mnt/s3files")
+)
+```
+
 ## IPv6 support
 
 You can configure IPv6 connectivity for lambda function by setting `Ipv6AllowedForDualStack` to true.
@@ -2049,6 +2142,7 @@ from ..interfaces.aws_lambda import (
 from ..interfaces.aws_logs import ILogGroupRef as _ILogGroupRef_874d025a
 from ..interfaces.aws_msk import IClusterRef as _IClusterRef_c904150a
 from ..interfaces.aws_s3 import IBucketRef as _IBucketRef_3debe44e
+from ..interfaces.aws_s3files import IAccessPointRef as _IAccessPointRef_95e8d0d6
 from ..interfaces.aws_sns import ITopicRef as _ITopicRef_29aa9a88
 from ..interfaces.aws_sqs import IQueueRef as _IQueueRef_fa8b2198
 
@@ -9142,6 +9236,7 @@ class CfnFunction(
                 image_uri="imageUri",
                 s3_bucket="s3Bucket",
                 s3_key="s3Key",
+                s3_object_storage_mode="s3ObjectStorageMode",
                 s3_object_version="s3ObjectVersion",
                 source_kms_key_arn="sourceKmsKeyArn",
                 zip_file="zipFile"
@@ -10055,6 +10150,7 @@ class CfnFunction(
             "image_uri": "imageUri",
             "s3_bucket": "s3Bucket",
             "s3_key": "s3Key",
+            "s3_object_storage_mode": "s3ObjectStorageMode",
             "s3_object_version": "s3ObjectVersion",
             "source_kms_key_arn": "sourceKmsKeyArn",
             "zip_file": "zipFile",
@@ -10067,6 +10163,7 @@ class CfnFunction(
             image_uri: typing.Optional[builtins.str] = None,
             s3_bucket: typing.Optional[builtins.str] = None,
             s3_key: typing.Optional[builtins.str] = None,
+            s3_object_storage_mode: typing.Optional[builtins.str] = None,
             s3_object_version: typing.Optional[builtins.str] = None,
             source_kms_key_arn: typing.Optional[builtins.str] = None,
             zip_file: typing.Optional[builtins.str] = None,
@@ -10082,6 +10179,7 @@ class CfnFunction(
             :param image_uri: URI of a `container image <https://docs.aws.amazon.com/lambda/latest/dg/lambda-images.html>`_ in the Amazon ECR registry.
             :param s3_bucket: An Amazon S3 bucket in the same AWS Region as your function. The bucket can be in a different AWS account .
             :param s3_key: The Amazon S3 key of the deployment package.
+            :param s3_object_storage_mode: 
             :param s3_object_version: For versioned objects, the version of the deployment package object to use.
             :param source_kms_key_arn: The ARN of the AWS Key Management Service ( AWS ) customer managed key that's used to encrypt your function's .zip deployment package. If you don't provide a customer managed key, Lambda uses an `AWS owned key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-owned-cmk>`_ .
             :param zip_file: (Node.js and Python) The source code of your Lambda function. If you include your function source inline with this parameter, CloudFormation places it in a file named ``index`` and zips it to create a `deployment package <https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-package.html>`_ . This zip file cannot exceed 4MB. For the ``Handler`` property, the first part of the handler identifier must be ``index`` . For example, ``index.handler`` . .. epigraph:: When you specify source code inline for a Node.js function, the ``index`` file that CloudFormation creates uses the extension ``.js`` . This means that Node.js treats the file as a CommonJS module. When using Node.js 24 or later, Node.js can automatically detect if a ``.js`` file should be treated as CommonJS or as an ES module. To enable auto-detection, add the ``--experimental-detect-module`` flag to the ``NODE_OPTIONS`` environment variable. For more information, see `Experimental Node.js features <https://docs.aws.amazon.com//lambda/latest/dg/lambda-nodejs.html#nodejs-experimental-features>`_ . For JSON, you must escape quotes and special characters such as newline ( ``\\n`` ) with a backslash. If you specify a function that interacts with an AWS CloudFormation custom resource, you don't have to write your own functions to send responses to the custom resource that invoked the function. AWS CloudFormation provides a response module ( `cfn-response <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-lambda-function-code-cfnresponsemodule.html>`_ ) that simplifies sending responses. See `Using AWS Lambda with AWS CloudFormation <https://docs.aws.amazon.com/lambda/latest/dg/services-cloudformation.html>`_ for details.
@@ -10099,6 +10197,7 @@ class CfnFunction(
                     image_uri="imageUri",
                     s3_bucket="s3Bucket",
                     s3_key="s3Key",
+                    s3_object_storage_mode="s3ObjectStorageMode",
                     s3_object_version="s3ObjectVersion",
                     source_kms_key_arn="sourceKmsKeyArn",
                     zip_file="zipFile"
@@ -10109,6 +10208,7 @@ class CfnFunction(
                 check_type(argname="argument image_uri", value=image_uri, expected_type=type_hints["image_uri"])
                 check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
                 check_type(argname="argument s3_key", value=s3_key, expected_type=type_hints["s3_key"])
+                check_type(argname="argument s3_object_storage_mode", value=s3_object_storage_mode, expected_type=type_hints["s3_object_storage_mode"])
                 check_type(argname="argument s3_object_version", value=s3_object_version, expected_type=type_hints["s3_object_version"])
                 check_type(argname="argument source_kms_key_arn", value=source_kms_key_arn, expected_type=type_hints["source_kms_key_arn"])
                 check_type(argname="argument zip_file", value=zip_file, expected_type=type_hints["zip_file"])
@@ -10119,6 +10219,8 @@ class CfnFunction(
                 self._values["s3_bucket"] = s3_bucket
             if s3_key is not None:
                 self._values["s3_key"] = s3_key
+            if s3_object_storage_mode is not None:
+                self._values["s3_object_storage_mode"] = s3_object_storage_mode
             if s3_object_version is not None:
                 self._values["s3_object_version"] = s3_object_version
             if source_kms_key_arn is not None:
@@ -10153,6 +10255,14 @@ class CfnFunction(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-code.html#cfn-lambda-function-code-s3key
             '''
             result = self._values.get("s3_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_object_storage_mode(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-code.html#cfn-lambda-function-code-s3objectstoragemode
+            '''
+            result = self._values.get("s3_object_storage_mode")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -11442,6 +11552,7 @@ class CfnFunctionProps:
                     image_uri="imageUri",
                     s3_bucket="s3Bucket",
                     s3_key="s3Key",
+                    s3_object_storage_mode="s3ObjectStorageMode",
                     s3_object_version="s3ObjectVersion",
                     source_kms_key_arn="sourceKmsKeyArn",
                     zip_file="zipFile"
@@ -18186,6 +18297,24 @@ class FileSystem(
             check_type(argname="argument ap", value=ap, expected_type=type_hints["ap"])
             check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
         return typing.cast("FileSystem", jsii.sinvoke(cls, "fromEfsAccessPoint", [ap, mount_path]))
+
+    @jsii.member(jsii_name="fromS3FilesAccessPoint")
+    @builtins.classmethod
+    def from_s3_files_access_point(
+        cls,
+        ap: "_IAccessPointRef_95e8d0d6",
+        mount_path: builtins.str,
+    ) -> "FileSystem":
+        '''Mount the filesystem from Amazon S3 Files.
+
+        :param ap: the S3 Files access point.
+        :param mount_path: the target path in the lambda runtime environment.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dfd6f52dc8ee2573cb2e7fead72468f4b4e8850c96fb5718ef3fd9d6ea99bec0)
+            check_type(argname="argument ap", value=ap, expected_type=type_hints["ap"])
+            check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
+        return typing.cast("FileSystem", jsii.sinvoke(cls, "fromS3FilesAccessPoint", [ap, mount_path]))
 
     @builtins.property
     @jsii.member(jsii_name="config")
@@ -36189,6 +36318,7 @@ def _typecheckingstub__7102a6215772d5cf5b9392746e4c0cd11ba84424f7dbcd39e9d78ba08
     image_uri: typing.Optional[builtins.str] = None,
     s3_bucket: typing.Optional[builtins.str] = None,
     s3_key: typing.Optional[builtins.str] = None,
+    s3_object_storage_mode: typing.Optional[builtins.str] = None,
     s3_object_version: typing.Optional[builtins.str] = None,
     source_kms_key_arn: typing.Optional[builtins.str] = None,
     zip_file: typing.Optional[builtins.str] = None,
@@ -37220,6 +37350,13 @@ def _typecheckingstub__e74d0bc5516fc715f7302bdf199df23dddf769e98771f0bac2ff026a4
 
 def _typecheckingstub__7962f6f4b398747cd2f496a8d711eb02f71c477dc2809a700efdcc9fa29e98af(
     ap: _IAccessPoint_ce87b375,
+    mount_path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dfd6f52dc8ee2573cb2e7fead72468f4b4e8850c96fb5718ef3fd9d6ea99bec0(
+    ap: _IAccessPointRef_95e8d0d6,
     mount_path: builtins.str,
 ) -> None:
     """Type checking stubs"""

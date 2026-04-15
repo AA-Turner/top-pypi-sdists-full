@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -109,7 +109,7 @@ def apply(ocel: OCEL, parameters: Optional[Dict[Any, Any]] = None) -> str:
     ot_edges = {}
 
     for edg in edges_values:
-        if not edg[0] in ot_edges:
+        if edg[0] not in ot_edges:
             ot_edges[edg[0]] = []
 
         ot_edges[edg[0]].append(edg)

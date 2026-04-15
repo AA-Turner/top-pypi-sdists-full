@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -72,7 +72,7 @@ def get_object_type_activities(
     )
 
     for el in prel_dict:
-        if not el[1] in matching_dict:
+        if el[1] not in matching_dict:
             matching_dict[el[1]] = set()
         matching_dict[el[1]].add(el[0])
 

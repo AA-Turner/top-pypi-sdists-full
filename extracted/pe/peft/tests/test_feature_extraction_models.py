@@ -17,22 +17,27 @@ from transformers import AutoModel
 
 from peft import (
     AdaLoraConfig,
+    AdamssConfig,
     BOFTConfig,
-    BoneConfig,
     C3AConfig,
     DeloraConfig,
     FourierFTConfig,
+    GraloraConfig,
     HRAConfig,
     IA3Config,
+    LilyConfig,
     LoraConfig,
     MissConfig,
     OFTConfig,
+    PeanutConfig,
     PrefixTuningConfig,
     PromptEncoderConfig,
     PromptLearningConfig,
     PromptTuningConfig,
+    PsoftConfig,
     RoadConfig,
     ShiraConfig,
+    TinyLoraConfig,
     VBLoRAConfig,
     VeraConfig,
     WaveFTConfig,
@@ -42,11 +47,12 @@ from .testing_common import PeftCommonTester
 from .testing_utils import set_init_weights_false
 
 
+# Note: models from peft-internal-testing are just the safetensors versions of hf-internal-testing
 PEFT_FEATURE_EXTRACTION_MODELS_TO_TEST = [
-    "hf-internal-testing/tiny-random-BertModel",
-    "hf-internal-testing/tiny-random-RobertaModel",
-    "hf-internal-testing/tiny-random-DebertaModel",
-    "hf-internal-testing/tiny-random-DebertaV2Model",
+    "peft-internal-testing/tiny-random-BertModel",
+    "peft-internal-testing/tiny-random-RobertaModel",
+    "peft-internal-testing/tiny-random-DebertaModel",
+    "peft-internal-testing/tiny-random-DebertaV2Model",
 ]
 
 # TODO Missing from this list are LoKr, LoHa, LN Tuning, add them
@@ -64,14 +70,6 @@ ALL_CONFIGS = [
         {
             "task_type": "FEATURE_EXTRACTION",
             "target_modules": None,
-        },
-    ),
-    (
-        BoneConfig,
-        {
-            "task_type": "FEATURE_EXTRACTION",
-            "target_modules": None,
-            "r": 2,
         },
     ),
     (
@@ -99,6 +97,13 @@ ALL_CONFIGS = [
         },
     ),
     (
+        GraloraConfig,
+        {
+            "task_type": "FEATURE_EXTRACTION",
+            "target_modules": None,
+        },
+    ),
+    (
         HRAConfig,
         {
             "task_type": "FEATURE_EXTRACTION",
@@ -111,6 +116,16 @@ ALL_CONFIGS = [
             "task_type": "FEATURE_EXTRACTION",
             "target_modules": None,
             "feedforward_modules": None,
+        },
+    ),
+    (
+        LilyConfig,
+        {
+            "task_type": "FEATURE_EXTRACTION",
+            "target_modules": None,
+            "r": 8,
+            "stride_A": 1,
+            "num_B": 2,
         },
     ),
     (
@@ -167,6 +182,17 @@ ALL_CONFIGS = [
         },
     ),
     (
+        PeanutConfig,
+        {
+            "task_type": "FEATURE_EXTRACTION",
+            "target_modules": None,
+            "r": 8,
+            "depth": 1,
+            "act_fn": "relu",
+            "scaling": 1.0,
+        },
+    ),
+    (
         RoadConfig,
         {
             "task_type": "FEATURE_EXTRACTION",
@@ -207,6 +233,13 @@ ALL_CONFIGS = [
         },
     ),
     (
+        TinyLoraConfig,
+        {
+            "task_type": "FEATURE_EXTRACTION",
+            "target_modules": None,
+        },
+    ),
+    (
         C3AConfig,
         {
             "task_type": "FEATURE_EXTRACTION",
@@ -222,6 +255,23 @@ ALL_CONFIGS = [
             "target_modules": None,
         },
     ),
+    (
+        PsoftConfig,
+        {
+            "task_type": "FEATURE_EXTRACTION",
+            "r": 4,
+            "psoft_alpha": 4,
+            "target_modules": None,
+        },
+    ),
+    (
+        AdamssConfig,
+        {
+            "task_type": "FEATURE_EXTRACTION",
+            "target_modules": None,
+            "r": 8,
+        },
+    ),
 ]
 
 
@@ -234,7 +284,7 @@ def skip_deberta_lora_tests(config_cls, model_id):
     if "deberta" not in model_id.lower():
         return
 
-    to_skip = ["lora", "ia3", "boft", "vera", "fourierft", "hra", "bone", "randlora"]
+    to_skip = ["lora", "ia3", "boft", "vera", "fourierft", "hra", "randlora"]
     config_name = config_cls.__name__.lower()
     if any(k in config_name for k in to_skip):
         pytest.skip(f"Skip tests that use {config_name} for Deberta models")
@@ -257,10 +307,6 @@ class TestPeftFeatureExtractionModel(PeftCommonTester):
     """
 
     transformers_class = AutoModel
-
-    def skipTest(self, reason=""):
-        # for backwards compatibility with unittest style test classes
-        pytest.skip(reason)
 
     def prepare_inputs_for_testing(self):
         input_ids = torch.tensor([[1, 1, 1], [1, 2, 1]]).to(self.torch_device)
@@ -291,11 +337,13 @@ class TestPeftFeatureExtractionModel(PeftCommonTester):
     @pytest.mark.parametrize("model_id", PEFT_FEATURE_EXTRACTION_MODELS_TO_TEST)
     @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
     def test_save_pretrained(self, model_id, config_cls, config_kwargs):
+        config_kwargs = set_init_weights_false(config_cls, config_kwargs)
         self._test_save_pretrained(model_id, config_cls, config_kwargs)
 
     @pytest.mark.parametrize("model_id", PEFT_FEATURE_EXTRACTION_MODELS_TO_TEST)
     @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
     def test_save_pretrained_selected_adapters(self, model_id, config_cls, config_kwargs):
+        config_kwargs = set_init_weights_false(config_cls, config_kwargs)
         self._test_save_pretrained_selected_adapters(model_id, config_cls, config_kwargs)
 
     def test_load_model_low_cpu_mem_usage(self):

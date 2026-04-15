@@ -614,6 +614,23 @@ class SafetyConfig:
     dlp: DlpConfig = field(default_factory=DlpConfig)
     prompt_injection: PromptInjectionConfig = field(default_factory=PromptInjectionConfig)
     output_filter: OutputFilterConfig = field(default_factory=OutputFilterConfig)
+    bypass_immune_paths: list[str] = field(
+        default_factory=lambda: [
+            ".git/hooks",
+            ".anteroom/config.yaml",
+            ".bashrc",
+            ".bash_profile",
+            ".zshrc",
+            ".profile",
+            ".ssh/",
+            ".gnupg/",
+            ".aws/credentials",
+            ".config/gcloud/",
+            ".netrc",
+            ".kube/config",
+            ".config/gh/hosts.yml",
+        ]
+    )
 
 
 @dataclass
@@ -812,6 +829,20 @@ class PackSourceConfig:
 
 
 @dataclass
+class TrustedProxyConfig:
+    """CIDR-based trusted proxy configuration for client IP resolution.
+
+    When ``enabled`` is ``True`` and the socket peer is within one of
+    ``trusted_cidrs``, the resolver walks the forwarded-header chain
+    right-to-left and returns the first IP not in the trusted set.
+    """
+
+    enabled: bool = False
+    trusted_cidrs: list[str] = field(default_factory=list)
+    header: str = "X-Forwarded-For"
+
+
+@dataclass
 class ComplianceConfig:
     """Declarative rules engine for configuration governance."""
 
@@ -980,6 +1011,7 @@ class AppConfig:
     rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
     audit: AuditConfig = field(default_factory=AuditConfig)
     compliance: ComplianceConfig = field(default_factory=ComplianceConfig)
+    trusted_proxy: TrustedProxyConfig = field(default_factory=TrustedProxyConfig)
     workflow: WorkflowConfig = field(default_factory=WorkflowConfig)
     pack_sources: list[PackSourceConfig] = field(default_factory=list)
 
@@ -1849,6 +1881,11 @@ def load_config(
     safety_sensitive_paths = safety_raw.get("sensitive_paths", [])
     if not isinstance(safety_sensitive_paths, list):
         safety_sensitive_paths = []
+    safety_bypass_immune_paths_raw = safety_raw.get("bypass_immune_paths", None)
+    if safety_bypass_immune_paths_raw is not None and isinstance(safety_bypass_immune_paths_raw, list):
+        safety_bypass_immune_paths: list[str] | None = [str(p) for p in safety_bypass_immune_paths_raw]
+    else:
+        safety_bypass_immune_paths = None
     safety_allowed_tools = safety_raw.get("allowed_tools", [])
     if not isinstance(safety_allowed_tools, list):
         safety_allowed_tools = []
@@ -2008,6 +2045,7 @@ def load_config(
         write_file=SafetyToolConfig(enabled=wf_safety_enabled),
         custom_patterns=[str(p) for p in safety_custom_patterns],
         sensitive_paths=[str(p) for p in safety_sensitive_paths],
+        **({"bypass_immune_paths": safety_bypass_immune_paths} if safety_bypass_immune_paths is not None else {}),
         allowed_tools=[str(t) for t in safety_allowed_tools],
         denied_tools=[str(t) for t in safety_denied_tools],
         tool_tiers={str(k): str(v) for k, v in safety_tool_tiers.items()},
@@ -2496,6 +2534,39 @@ def load_config(
         workflow_kwargs["transcript"] = TranscriptConfig(**tc_kwargs)
     workflow_config = WorkflowConfig(**workflow_kwargs)
 
+    # Trusted proxy config
+    tp_raw = raw.get("trusted_proxy", {})
+    if not isinstance(tp_raw, dict):
+        tp_raw = {}
+    tp_enabled_raw = tp_raw.get("enabled", os.environ.get("AI_CHAT_TRUSTED_PROXY_ENABLED", "false"))
+    tp_enabled = str(tp_enabled_raw).lower() in ("true", "1", "yes")
+    tp_cidrs_raw = tp_raw.get("trusted_cidrs", [])
+    if not isinstance(tp_cidrs_raw, list):
+        tp_cidrs_raw = []
+    tp_cidrs = [str(c).strip() for c in tp_cidrs_raw if c]
+    env_cidrs = os.environ.get("AI_CHAT_TRUSTED_PROXY_CIDRS", "")
+    if env_cidrs and not tp_cidrs:
+        tp_cidrs = [c.strip() for c in env_cidrs.split(",") if c.strip()]
+    tp_header = str(tp_raw.get("header", os.environ.get("AI_CHAT_TRUSTED_PROXY_HEADER", "X-Forwarded-For")))
+    if not tp_header.strip():
+        tp_header = "X-Forwarded-For"
+    # Validate CIDRs at parse time -- fail closed on invalid entries
+    import ipaddress as _ipaddress
+
+    for cidr_entry in tp_cidrs:
+        try:
+            _ipaddress.ip_network(cidr_entry, strict=False)
+        except ValueError:
+            raise ValueError(
+                f"Invalid CIDR in trusted_proxy.trusted_cidrs: {cidr_entry!r}. "
+                "Each entry must be a valid IPv4 or IPv6 CIDR (e.g. '10.0.0.0/8')."
+            )
+    trusted_proxy_config = TrustedProxyConfig(
+        enabled=tp_enabled,
+        trusted_cidrs=tp_cidrs,
+        header=tp_header,
+    )
+
     pack_sources_raw = raw.get("pack_sources", [])
     if not isinstance(pack_sources_raw, list):
         pack_sources_raw = []
@@ -2552,6 +2623,7 @@ def load_config(
             rate_limit=rate_limit_config,
             audit=audit_config,
             compliance=compliance_config,
+            trusted_proxy=trusted_proxy_config,
             workflow=workflow_config,
             pack_sources=pack_sources_list,
         ),

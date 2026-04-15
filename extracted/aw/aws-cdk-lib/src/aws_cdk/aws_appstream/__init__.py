@@ -3632,6 +3632,7 @@ class CfnFleet(
         name: builtins.str,
         compute_capacity: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ComputeCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        disable_imdsv1: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         disconnect_timeout_in_seconds: typing.Optional[jsii.Number] = None,
         display_name: typing.Optional[builtins.str] = None,
         domain_join_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.DomainJoinInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3660,6 +3661,7 @@ class CfnFleet(
         :param name: A unique name for the fleet.
         :param compute_capacity: The desired capacity for the fleet. This is not allowed for Elastic fleets.
         :param description: The description to display.
+        :param disable_imdsv1: 
         :param disconnect_timeout_in_seconds: The amount of time that a streaming session remains active after users disconnect. If users try to reconnect to the streaming session after a disconnection or network interruption within this time interval, they are connected to their previous session. Otherwise, they are connected to a new session with a new streaming instance. Specify a value between 60 and 36000.
         :param display_name: The fleet name to display.
         :param domain_join_info: The name of the directory and organizational unit (OU) to use to join the fleet to a Microsoft Active Directory domain. This is not allowed for Elastic fleets.
@@ -3689,6 +3691,7 @@ class CfnFleet(
             name=name,
             compute_capacity=compute_capacity,
             description=description,
+            disable_imdsv1=disable_imdsv1,
             disconnect_timeout_in_seconds=disconnect_timeout_in_seconds,
             display_name=display_name,
             domain_join_info=domain_join_info,
@@ -3838,6 +3841,23 @@ class CfnFleet(
             type_hints = typing.get_type_hints(_typecheckingstub__9409234ac32054c73634d4ffe5cc51eed2d25f9373a83380b7693f06ff5a9e56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="disableImdsv1")
+    def disable_imdsv1(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "disableImdsv1"))
+
+    @disable_imdsv1.setter
+    def disable_imdsv1(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f5b1cc4e62908d6530bfb8ef1a8ef5443d264e2b745cbb6a084b8f33a3fc36f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "disableImdsv1", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="disconnectTimeoutInSeconds")
@@ -4474,6 +4494,7 @@ class CfnFleet(
         "name": "name",
         "compute_capacity": "computeCapacity",
         "description": "description",
+        "disable_imdsv1": "disableImdsv1",
         "disconnect_timeout_in_seconds": "disconnectTimeoutInSeconds",
         "display_name": "displayName",
         "domain_join_info": "domainJoinInfo",
@@ -4503,6 +4524,7 @@ class CfnFleetProps:
         name: builtins.str,
         compute_capacity: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ComputeCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        disable_imdsv1: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         disconnect_timeout_in_seconds: typing.Optional[jsii.Number] = None,
         display_name: typing.Optional[builtins.str] = None,
         domain_join_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.DomainJoinInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4529,6 +4551,7 @@ class CfnFleetProps:
         :param name: A unique name for the fleet.
         :param compute_capacity: The desired capacity for the fleet. This is not allowed for Elastic fleets.
         :param description: The description to display.
+        :param disable_imdsv1: 
         :param disconnect_timeout_in_seconds: The amount of time that a streaming session remains active after users disconnect. If users try to reconnect to the streaming session after a disconnection or network interruption within this time interval, they are connected to their previous session. Otherwise, they are connected to a new session with a new streaming instance. Specify a value between 60 and 36000.
         :param display_name: The fleet name to display.
         :param domain_join_info: The name of the directory and organizational unit (OU) to use to join the fleet to a Microsoft Active Directory domain. This is not allowed for Elastic fleets.
@@ -4573,6 +4596,7 @@ class CfnFleetProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument compute_capacity", value=compute_capacity, expected_type=type_hints["compute_capacity"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument disable_imdsv1", value=disable_imdsv1, expected_type=type_hints["disable_imdsv1"])
             check_type(argname="argument disconnect_timeout_in_seconds", value=disconnect_timeout_in_seconds, expected_type=type_hints["disconnect_timeout_in_seconds"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument domain_join_info", value=domain_join_info, expected_type=type_hints["domain_join_info"])
@@ -4600,6 +4624,8 @@ class CfnFleetProps:
             self._values["compute_capacity"] = compute_capacity
         if description is not None:
             self._values["description"] = description
+        if disable_imdsv1 is not None:
+            self._values["disable_imdsv1"] = disable_imdsv1
         if disconnect_timeout_in_seconds is not None:
             self._values["disconnect_timeout_in_seconds"] = disconnect_timeout_in_seconds
         if display_name is not None:
@@ -4736,6 +4762,16 @@ class CfnFleetProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def disable_imdsv1(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-disableimdsv1
+        '''
+        result = self._values.get("disable_imdsv1")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def disconnect_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
@@ -8798,6 +8834,7 @@ def _typecheckingstub__043ee41cbba03b784a0f77c0a2cc8efea9ae9147537890e0795e72954
     name: builtins.str,
     compute_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ComputeCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    disable_imdsv1: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     disconnect_timeout_in_seconds: typing.Optional[jsii.Number] = None,
     display_name: typing.Optional[builtins.str] = None,
     domain_join_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.DomainJoinInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8859,6 +8896,12 @@ def _typecheckingstub__50699376ca4215fbf67913c64e0ae0edb7e243785d08cef6bc529f44c
 
 def _typecheckingstub__9409234ac32054c73634d4ffe5cc51eed2d25f9373a83380b7693f06ff5a9e56(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f5b1cc4e62908d6530bfb8ef1a8ef5443d264e2b745cbb6a084b8f33a3fc36f(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9022,6 +9065,7 @@ def _typecheckingstub__2c1696e8b6f6c109609fff783812cdcaafc37e209e10ad5c9f177ee96
     name: builtins.str,
     compute_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ComputeCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    disable_imdsv1: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     disconnect_timeout_in_seconds: typing.Optional[jsii.Number] = None,
     display_name: typing.Optional[builtins.str] = None,
     domain_join_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.DomainJoinInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

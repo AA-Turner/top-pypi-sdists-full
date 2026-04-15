@@ -18,6 +18,7 @@
 import dataclasses
 
 import mujoco
+import numpy as np
 import warp as wp
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -25,10 +26,20 @@ from absl.testing import parameterized
 from mujoco_warp._src.types import Data
 from mujoco_warp._src.types import Model
 from mujoco_warp._src.types import Option
-from mujoco_warp._src.util_pkg import check_version
+from mujoco_warp._src.types import TileSet
 
 
 class TypesTest(parameterized.TestCase):
+  @parameterized.parameters(1, 3)
+  def test_tileset_structural_equality_and_hash(self, count):
+    tile_a = TileSet(wp.array(np.arange(count) * 6, dtype=int), 16)
+    tile_b = TileSet(wp.array(np.arange(count) * 6, dtype=int), 16)
+    tile_c = TileSet(wp.array(np.arange(count) * 6 + 1, dtype=int), 16)
+
+    self.assertEqual(tile_a, tile_b)
+    self.assertEqual(hash(tile_a), hash(tile_b))
+    self.assertNotEqual(tile_a, tile_c)
+
   @parameterized.parameters((mujoco.MjOption, Option), (mujoco.MjModel, Model), (mujoco.MjData, Data))
   def test_field_order(self, mj_class, mjw_class):
     """Tests that MJW field order matches MuJoCo, and all warp-only fields are at the end."""
@@ -46,12 +57,6 @@ class TypesTest(parameterized.TestCase):
       # TODO(team): remove this reordering after MjData._all_fields order is fixed
       # there's a bug in _all_fields where solver_niter is in the wrong place
       mj_fields.insert(0, mj_fields.pop(mj_fields.index("solver_niter")))
-    elif mjw_class is Option:
-      if check_version("mujoco<3.5.1.dev869760513"):
-        # density/viscosity moved after magnetic in mujoco 3.5.1.dev869760513
-        for f in ("viscosity", "density"):
-          mj_fields.insert(mj_fields.index("magnetic") + 1, mj_fields.pop(mj_fields.index(f)))
-
     mj_set, mjw_set = set(mj_fields), set(mjw_fields)
 
     # first, put any union fields

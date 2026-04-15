@@ -22,7 +22,7 @@ SOFTWARE.
 """
 
 __title__ = "webexpythonsdk"
-__version__ = "2.0.5"  # This will be overwritten by the build process
+__version__ = "2.0.6"  # This will be overwritten by the build process
 __description__ = "Community-developed Python SDK for the Webex APIs"
 __url__ = "https://github.com/WebexCommunity/WebexPythonSDK"
 __download_url__ = "https://pypi.python.org/pypi/webexpythonsdk"

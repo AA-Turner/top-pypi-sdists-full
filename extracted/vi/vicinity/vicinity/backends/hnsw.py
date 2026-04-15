@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 from hnswlib import Index as HnswIndex
 from numpy import typing as npt
@@ -41,7 +41,7 @@ class HNSWBackend(AbstractBackend[HNSWArgs]):
     def from_vectors(
         cls: type[HNSWBackend],
         vectors: npt.NDArray,
-        metric: Union[str, Metric],
+        metric: str | Metric,
         ef_construction: int,
         m: int,
         **kwargs: Any,
@@ -76,20 +76,20 @@ class HNSWBackend(AbstractBackend[HNSWArgs]):
         return self.index.get_current_count()
 
     @classmethod
-    def load(cls: type[HNSWBackend], base_path: Path) -> HNSWBackend:
+    def load(cls: type[HNSWBackend], path: Path) -> HNSWBackend:
         """Load the vectors from a path."""
-        path = Path(base_path) / "index.bin"
-        arguments = HNSWArgs.load(base_path / "arguments.json")
+        index_path = path / "index.bin"
+        arguments = HNSWArgs.load(path / "arguments.json")
         mapped_metric = cls.inverse_metric_mapping[arguments.metric]
         index = HnswIndex(space=mapped_metric, dim=arguments.dim)
-        index.load_index(str(path))
+        index.load_index(str(index_path))
         return cls(index, arguments=arguments)
 
-    def save(self, base_path: Path) -> None:
+    def save(self, path: Path) -> None:
         """Save the vectors to a path."""
-        path = Path(base_path) / "index.bin"
-        self.index.save_index(str(path))
-        self.arguments.dump(base_path / "arguments.json")
+        index_path = path / "index.bin"
+        self.index.save_index(str(index_path))
+        self.arguments.dump(path / "arguments.json")
 
     def query(self, vectors: npt.NDArray, k: int) -> QueryResult:
         """Query the backend."""

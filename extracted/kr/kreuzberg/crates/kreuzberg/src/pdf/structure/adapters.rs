@@ -147,6 +147,7 @@ pub(crate) fn ocr_doc_to_paragraphs(
                         is_italic: false,
                         is_monospace: false,
                         baseline_y: line_y,
+                        assigned_role: None,
                     };
                     super::types::PdfLine {
                         segments: vec![seg],

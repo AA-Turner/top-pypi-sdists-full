@@ -349,3 +349,68 @@ class TestComplexConfig:
         result = validate_config(raw)
         assert result.is_valid  # all warnings, no errors
         assert len([e for e in result.errors if e.severity == "warning"]) >= 3
+
+
+class TestTrustedProxyValidation:
+    def test_valid_trusted_proxy_config(self) -> None:
+        raw = {
+            "trusted_proxy": {
+                "enabled": True,
+                "trusted_cidrs": ["10.0.0.0/8", "172.16.0.0/12"],
+                "header": "X-Forwarded-For",
+            }
+        }
+        result = validate_config(raw)
+        assert result.is_valid
+        assert not result.has_warnings
+
+    def test_invalid_cidr_fails_validation(self) -> None:
+        raw = {
+            "trusted_proxy": {
+                "enabled": True,
+                "trusted_cidrs": ["10.0.0.0/8", "not-a-cidr"],
+            }
+        }
+        result = validate_config(raw)
+        assert not result.is_valid
+        errors = [e for e in result.errors if e.severity == "error"]
+        assert any("invalid CIDR" in e.message for e in errors)
+
+    def test_empty_header_fails_validation(self) -> None:
+        raw = {
+            "trusted_proxy": {
+                "enabled": True,
+                "header": "",
+            }
+        }
+        result = validate_config(raw)
+        assert not result.is_valid
+        errors = [e for e in result.errors if e.severity == "error"]
+        assert any("non-empty string" in e.message for e in errors)
+
+    def test_unknown_trusted_proxy_key_warns(self) -> None:
+        raw = {
+            "trusted_proxy": {
+                "enabled": True,
+                "bogus_key": "test",
+            }
+        }
+        result = validate_config(raw)
+        assert result.is_valid  # unknown keys are warnings
+        assert result.has_warnings
+        warnings = [e for e in result.errors if e.severity == "warning"]
+        assert any("bogus_key" in e.message for e in warnings)
+
+    def test_trusted_cidrs_not_list_fails(self) -> None:
+        raw = {
+            "trusted_proxy": {
+                "trusted_cidrs": "10.0.0.0/8",
+            }
+        }
+        result = validate_config(raw)
+        assert not result.is_valid
+
+    def test_trusted_proxy_not_dict_fails(self) -> None:
+        raw = {"trusted_proxy": "bad"}
+        result = validate_config(raw)
+        assert not result.is_valid

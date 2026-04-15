@@ -162,7 +162,7 @@ class cid_runner(base.BaseGeo):
                             "admin_zone": admin_zone,
                         })
                     else:
-                        logger.warning("Expected file not found: %s", filepath)
+                        logger.warning(f"Expected file not found: {filepath}")
 
         return pd.DataFrame(rows, columns=self._FILE_COLUMNS)
 
@@ -236,9 +236,8 @@ class cid_runner(base.BaseGeo):
 
         if df_files.empty:
             logger.warning(
-                "No files found for data_source='%s' and countries=%s",
-                self.data_source,
-                self.countries,
+                f"No files found for data_source='{self.data_source}' "
+                f"and countries={self.countries}"
             )
             return
 
@@ -313,7 +312,7 @@ class cid_runner(base.BaseGeo):
                         stage_mode=self.stage_mode,
                     ))
         if skipped_years:
-            logger.info("Skipped %d file-year combos (output already exists)", skipped_years)
+            logger.info(f"Skipped {skipped_years} file-year combos (output already exists)")
 
         total_regions = sum(len(r) for r in file_regions.values())
         ut.display_run_summary("Producing Climatic Impact-Drivers", [

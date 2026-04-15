@@ -7,6 +7,12 @@ from geocif import utils
 
 
 def make_serializable(hparams):
+    # Baseline models (analog, median, last_year) return best_hyperparameters
+    # as np.nan from _predict_baseline; non-dict values have no .copy() and
+    # no callbacks/terms to sanitize — pass through as-is.
+    if not isinstance(hparams, dict):
+        return hparams
+
     serializable = hparams.copy()
 
     # Convert callbacks to strings

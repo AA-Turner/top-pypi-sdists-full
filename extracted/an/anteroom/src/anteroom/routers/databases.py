@@ -12,6 +12,8 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from anteroom.services.client_ip import resolve_client_ip
+
 security_logger = logging.getLogger("anteroom.security")
 
 router = APIRouter(tags=["databases"])
@@ -72,7 +74,9 @@ async def authenticate_database(name: str, body: DatabaseAuthRequest, request: R
     if not hasattr(request.app.state, "db_manager"):
         raise HTTPException(status_code=400, detail="Database manager not available")
 
-    client_ip = request.client.host if request.client else "unknown"
+    tp_cfg = getattr(getattr(request.app, "state", None), "config", None)
+    tp_proxy = getattr(tp_cfg, "trusted_proxy", None) if tp_cfg else None
+    client_ip = resolve_client_ip(request, tp_proxy)
     _check_auth_rate_limit(client_ip)
 
     db_manager = request.app.state.db_manager

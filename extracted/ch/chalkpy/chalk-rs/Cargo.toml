@@ -1,0 +1,25 @@
+[package]
+name = "chalk-rs"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = ["chalk-ast", "chalk-ignore", "chalk-lsp", "chalk-project", "chalk-proto", "chalk-sql-lsp", "chalk-ty-preprocess", "chalk-utils"]
+resolver = "2"
+
+[lib]
+name = "chalk_rs"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["python"]
+python = ["pyo3/extension-module"]
+
+[dependencies]
+pyo3 = { version = "0.28", optional = true }
+lsp-types = "0.97"
+chalk-ast = { path = "chalk-ast" }
+chalk-ignore = { path = "chalk-ignore" }
+chalk-project = { path = "chalk-project" }
+chalk-proto = { path = "chalk-proto" }
+chalk-utils = { path = "chalk-utils" }

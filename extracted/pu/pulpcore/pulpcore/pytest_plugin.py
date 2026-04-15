@@ -1,6 +1,5 @@
 import aiohttp
 import asyncio
-import gnupg
 import json
 import os
 import pathlib
@@ -31,6 +30,8 @@ from pulpcore.tests.functional.utils import (
     add_recording_route,
 )
 
+from pulpcore.plugin.find_url import find_api_root
+
 try:
     import pulp_smash  # noqa: F401
 except ImportError:
@@ -54,6 +55,14 @@ except ImportError:
         for item in items:
             if "nightly" in item.keywords:
                 item.add_marker(skip_nightly)
+
+        # Skip long_running tests if --timeout is below 600
+        timeout = config.getoption("--timeout", default=None)
+        if timeout is None or float(timeout) < 600:
+            skip_long = pytest.mark.skip(reason="needs --timeout >= 600 to run")
+            for item in items:
+                if "long_running" in item.keywords:
+                    item.add_marker(skip_long)
 
 
 class PulpTaskTimeoutError(Exception):
@@ -80,6 +89,10 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers",
         "nightly: marks tests as intended to run during the nightly CI run",
+    )
+    config.addinivalue_line(
+        "markers",
+        "long_running: marks tests that need a long pytest timeout (--timeout >= 600)",
     )
 
 
@@ -618,7 +631,7 @@ def backend_settings_factory(pulp_settings):
         ]
 
         def get_installation_storage_option(key, backend):
-            value = pulp_settings.STORAGES["default"]["OPTIONS"].get(key)
+            value = pulp_settings.STORAGES["default"].get("OPTIONS", {}).get(key)
             # Some FileSystem backend options may be defined in the top settings module
             if backend == "pulpcore.app.models.storage.FileSystem" and not value:
                 value = getattr(pulp_settings, key, None)
@@ -776,18 +789,18 @@ def pulp_content_origin_with_prefix(pulp_settings, bindings_cfg):
 
 @pytest.fixture(scope="session")
 def pulp_api_v3_path(pulp_settings, pulp_domain_enabled):
+    root, path = find_api_root(set_domain=True, rewrite_header=False, domain="default")
+
+    # Check that find_api_root() is doing what the tests expect
     if pulp_domain_enabled:
-        v3_api_root = pulp_settings.V3_DOMAIN_API_ROOT
-        v3_api_root = v3_api_root.replace("<slug:pulp_domain>", "default")
+        v3_api_root = f"{pulp_settings.API_ROOT}default/api/v3/"
     else:
-        v3_api_root = pulp_settings.V3_API_ROOT
-    if v3_api_root is None:
-        raise RuntimeError(
-            "This fixture requires the server to have the `V3_API_ROOT` setting set."
-        )
-    if pulp_settings.API_ROOT_REWRITE_HEADER:
-        v3_api_root = v3_api_root.replace("<path:api_root>", pulp_settings.API_ROOT.strip("/"))
-    return v3_api_root
+        v3_api_root = f"{pulp_settings.API_ROOT}api/v3/"
+    assert path == v3_api_root
+
+    if path is None:
+        raise RuntimeError("This fixture requires the server to have the `API_ROOT` setting set.")
+    return path
 
 
 @pytest.fixture(scope="session")
@@ -1134,6 +1147,21 @@ def sign_with_ascii_armored_detached_signing_service(signing_script_path, signin
     return _sign_with_ascii_armored_detached_signing_service
 
 
+class _GpgCompat:
+    """Wrapper around a pysequoia Cert that provides the python-gnupg GPG interface needed by
+    downstream plugins (e.g. pulp_container) which access .gnupghome and .export_keys()."""
+
+    def __init__(self, cert, gnupghome):
+        self.cert = cert
+        self.gnupghome = gnupghome
+
+    def export_keys(self, keyids=None):
+        return str(self.cert)
+
+    def __str__(self):
+        return str(self.cert)
+
+
 @pytest.fixture(scope="session")
 def signing_gpg_metadata(signing_gpg_homedir_path):
     """A fixture that returns a GPG instance and related metadata (i.e., fingerprint, keyid)."""
@@ -1149,14 +1177,29 @@ def signing_gpg_metadata(signing_gpg_homedir_path):
         with suppress(FileNotFoundError, PermissionError):
             key_file.write_text(private_key_data)
 
-    gpg = gnupg.GPG(gnupghome=signing_gpg_homedir_path)
-    gpg.import_keys(private_key_data)
+    from pysequoia import Cert
 
-    fingerprint = gpg.list_keys()[0]["fingerprint"]
-    keyid = gpg.list_keys()[0]["keyid"]
+    cert = Cert.from_bytes(private_key_data.encode())
+    fingerprint = cert.fingerprint.upper()
+    keyid = fingerprint[-16:]
 
-    gpg.trust_keys(fingerprint, "TRUST_ULTIMATE")
+    gpg_cmd = ["gpg", "--homedir", str(signing_gpg_homedir_path)]
+    subprocess.run(
+        gpg_cmd + ["--import"],
+        input=private_key_data,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    subprocess.run(
+        gpg_cmd + ["--import-ownertrust"],
+        input=f"{fingerprint}:6:\n",
+        capture_output=True,
+        text=True,
+        check=True,
+    )
 
+    gpg = _GpgCompat(cert, str(signing_gpg_homedir_path))
     return gpg, fingerprint, keyid
 
 
@@ -1164,7 +1207,7 @@ def signing_gpg_metadata(signing_gpg_homedir_path):
 def pulp_trusted_public_key(signing_gpg_metadata):
     """Fixture to extract the ascii armored trusted public test key."""
     gpg, _, keyid = signing_gpg_metadata
-    return gpg.export_keys([keyid])
+    return str(gpg)
 
 
 @pytest.fixture(scope="session")
@@ -1180,7 +1223,7 @@ def _ascii_armored_detached_signing_service_name(
     signing_gpg_homedir_path,
 ):
     service_name = str(uuid.uuid4())
-    gpg, fingerprint, keyid = signing_gpg_metadata
+    _, fingerprint, keyid = signing_gpg_metadata
 
     cmd = (
         "pulpcore-manager",

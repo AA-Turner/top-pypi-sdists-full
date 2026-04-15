@@ -881,27 +881,17 @@ def _plot_boxplot(df_exp_data, experiment_name, dir_plots):
 
 
 def _compute_production_pct(df_raw, country):
-    """Compute production share % per region (5-year avg, geoagmet approach)."""
-    df_c = df_raw[df_raw["Country"] == country].copy()
-    if df_c.empty or "Area (ha)" not in df_c.columns:
-        return {}
+    """Compute production share % per region (5-year avg).
 
-    obs_col, _ = _get_obs_pred_cols(df_c)
+    Thin wrapper around viz.diagnostics.compute_production_pct so the
+    logic lives in one place; experiments.py allows an arbitrary
+    Observed-Yield column name so we resolve it here first.
+    """
+    obs_col, _ = _get_obs_pred_cols(df_raw[df_raw["Country"] == country])
     if not obs_col:
         return {}
-
-    df_c["_prod"] = df_c["Area (ha)"] * df_c[obs_col]
-    df_c = df_c.dropna(subset=["_prod", "Harvest Year"])
-
-    # Last 5 years
-    last_5 = sorted(df_c["Harvest Year"].unique())[-5:]
-    df_c = df_c[df_c["Harvest Year"].isin(last_5)]
-
-    mean_by_region = df_c.groupby("Region")["_prod"].mean()
-    total = mean_by_region.sum()
-    if total <= 0:
-        return {}
-    return (mean_by_region / total * 100).to_dict()
+    from .viz import diagnostics as diag
+    return diag.compute_production_pct(df_raw, country, obs_col=obs_col)
 
 
 def _plot_regional_mape(df_metrics, df_exp_data, experiment_name, dir_plots):

@@ -5520,6 +5520,13 @@ class CfnQueryDefinition(
         
             # the properties below are optional
             log_group_names=["logGroupNames"],
+            parameters=[logs.CfnQueryDefinition.QueryParameterProperty(
+                name="name",
+        
+                # the properties below are optional
+                default_value="defaultValue",
+                description="description"
+            )],
             query_language="queryLanguage"
         )
     '''
@@ -5532,6 +5539,7 @@ class CfnQueryDefinition(
         name: builtins.str,
         query_string: builtins.str,
         log_group_names: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ILogGroupRef_874d025a"]]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueryDefinition.QueryParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         query_language: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::Logs::QueryDefinition``.
@@ -5541,6 +5549,7 @@ class CfnQueryDefinition(
         :param name: A name for the query definition. .. epigraph:: You can use the name to create a folder structure for your queries. To create a folder, use a forward slash (/) to prefix your desired query name with your desired folder name. For example, ``*folder-name* / *query-name*`` .
         :param query_string: The query string to use for this query definition. For more information, see `CloudWatch Logs Insights Query Syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_QuerySyntax.html>`_ .
         :param log_group_names: Use this parameter if you want the query to query only certain log groups.
+        :param parameters: Use this parameter to include specific query parameters as part of your query definition. Query parameters are supported only for Logs Insights QL queries. Query parameters allow you to use placeholder variables in your query string that are substituted with values at execution time. Use the {{parameterName}} syntax in your query string to reference a parameter.
         :param query_language: The query language used for this query. For more information about the query languages that CloudWatch Logs supports, see `Supported query languages <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_AnalyzeLogData_Languages.html>`_ . Default: - "CWLI"
         '''
         if __debug__:
@@ -5551,6 +5560,7 @@ class CfnQueryDefinition(
             name=name,
             query_string=query_string,
             log_group_names=log_group_names,
+            parameters=parameters,
             query_language=query_language,
         )
 
@@ -5661,6 +5671,24 @@ class CfnQueryDefinition(
         jsii.set(self, "logGroupNames", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnQueryDefinition.QueryParameterProperty"]]]]:
+        '''Use this parameter to include specific query parameters as part of your query definition.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnQueryDefinition.QueryParameterProperty"]]]], jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnQueryDefinition.QueryParameterProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c0a42fc848c4aec26142c98c711a4c3f1124f4470c12e51d04f33bc1eb5437a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="queryLanguage")
     def query_language(self) -> typing.Optional[builtins.str]:
         '''The query language used for this query.'''
@@ -5673,6 +5701,102 @@ class CfnQueryDefinition(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "queryLanguage", value) # pyright: ignore[reportArgumentType]
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_logs.CfnQueryDefinition.QueryParameterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "default_value": "defaultValue",
+            "description": "description",
+        },
+    )
+    class QueryParameterProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            default_value: typing.Optional[builtins.str] = None,
+            description: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''This structure defines a query parameter for a saved CloudWatch Logs Insights query definition.
+
+            Query parameters are supported only for Logs Insights QL queries. They are placeholder variables that you can reference in a query string using the {{parameterName}} syntax. Each parameter can include a default value and a description.
+
+            :param name: The name of the query parameter. A query parameter name must start with a letter or underscore, and contain only letters, digits, and underscores.
+            :param default_value: The default value to use for this query parameter if no value is supplied at execution time.
+            :param description: A description of the query parameter that explains its purpose or expected values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-querydefinition-queryparameter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_logs as logs
+                
+                query_parameter_property = logs.CfnQueryDefinition.QueryParameterProperty(
+                    name="name",
+                
+                    # the properties below are optional
+                    default_value="defaultValue",
+                    description="description"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fa00bb9cb74e7035fa57618f91bacd4f3ec33dd028282213a6a074c8a864e6f1)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+            }
+            if default_value is not None:
+                self._values["default_value"] = default_value
+            if description is not None:
+                self._values["description"] = description
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the query parameter.
+
+            A query parameter name must start with a letter or underscore, and contain only letters, digits, and underscores.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-querydefinition-queryparameter.html#cfn-logs-querydefinition-queryparameter-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def default_value(self) -> typing.Optional[builtins.str]:
+            '''The default value to use for this query parameter if no value is supplied at execution time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-querydefinition-queryparameter.html#cfn-logs-querydefinition-queryparameter-defaultvalue
+            '''
+            result = self._values.get("default_value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''A description of the query parameter that explains its purpose or expected values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-querydefinition-queryparameter.html#cfn-logs-querydefinition-queryparameter-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "QueryParameterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_logs.CfnQueryDefinitionProps",
@@ -5681,6 +5805,7 @@ class CfnQueryDefinition(
         "name": "name",
         "query_string": "queryString",
         "log_group_names": "logGroupNames",
+        "parameters": "parameters",
         "query_language": "queryLanguage",
     },
 )
@@ -5691,6 +5816,7 @@ class CfnQueryDefinitionProps:
         name: builtins.str,
         query_string: builtins.str,
         log_group_names: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ILogGroupRef_874d025a"]]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueryDefinition.QueryParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         query_language: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnQueryDefinition``.
@@ -5698,6 +5824,7 @@ class CfnQueryDefinitionProps:
         :param name: A name for the query definition. .. epigraph:: You can use the name to create a folder structure for your queries. To create a folder, use a forward slash (/) to prefix your desired query name with your desired folder name. For example, ``*folder-name* / *query-name*`` .
         :param query_string: The query string to use for this query definition. For more information, see `CloudWatch Logs Insights Query Syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_QuerySyntax.html>`_ .
         :param log_group_names: Use this parameter if you want the query to query only certain log groups.
+        :param parameters: Use this parameter to include specific query parameters as part of your query definition. Query parameters are supported only for Logs Insights QL queries. Query parameters allow you to use placeholder variables in your query string that are substituted with values at execution time. Use the {{parameterName}} syntax in your query string to reference a parameter.
         :param query_language: The query language used for this query. For more information about the query languages that CloudWatch Logs supports, see `Supported query languages <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_AnalyzeLogData_Languages.html>`_ . Default: - "CWLI"
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-querydefinition.html
@@ -5715,6 +5842,13 @@ class CfnQueryDefinitionProps:
             
                 # the properties below are optional
                 log_group_names=["logGroupNames"],
+                parameters=[logs.CfnQueryDefinition.QueryParameterProperty(
+                    name="name",
+            
+                    # the properties below are optional
+                    default_value="defaultValue",
+                    description="description"
+                )],
                 query_language="queryLanguage"
             )
         '''
@@ -5723,6 +5857,7 @@ class CfnQueryDefinitionProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
             check_type(argname="argument log_group_names", value=log_group_names, expected_type=type_hints["log_group_names"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -5730,6 +5865,8 @@ class CfnQueryDefinitionProps:
         }
         if log_group_names is not None:
             self._values["log_group_names"] = log_group_names
+        if parameters is not None:
+            self._values["parameters"] = parameters
         if query_language is not None:
             self._values["query_language"] = query_language
 
@@ -5769,6 +5906,19 @@ class CfnQueryDefinitionProps:
         '''
         result = self._values.get("log_group_names")
         return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ILogGroupRef_874d025a"]]], result)
+
+    @builtins.property
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnQueryDefinition.QueryParameterProperty"]]]]:
+        '''Use this parameter to include specific query parameters as part of your query definition.
+
+        Query parameters are supported only for Logs Insights QL queries. Query parameters allow you to use placeholder variables in your query string that are substituted with values at execution time. Use the {{parameterName}} syntax in your query string to reference a parameter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-querydefinition.html#cfn-logs-querydefinition-parameters
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnQueryDefinition.QueryParameterProperty"]]]], result)
 
     @builtins.property
     def query_language(self) -> typing.Optional[builtins.str]:
@@ -20810,6 +20960,7 @@ def _typecheckingstub__0d10075ae036bdf9f4049570cf68ab72c79ee717f007f45628b52d2ea
     name: builtins.str,
     query_string: builtins.str,
     log_group_names: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ILogGroupRef_874d025a]]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueryDefinition.QueryParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     query_language: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -20851,8 +21002,23 @@ def _typecheckingstub__a1d922394643a9758400b7e596dd6c6fe61ab7e1fb96d4a93a7061d0e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2c0a42fc848c4aec26142c98c711a4c3f1124f4470c12e51d04f33bc1eb5437a(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnQueryDefinition.QueryParameterProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__26eee5ed8d061567be82d404491f5a77b58778884692c8fbe2cf1ded06c91cd9(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa00bb9cb74e7035fa57618f91bacd4f3ec33dd028282213a6a074c8a864e6f1(
+    *,
+    name: builtins.str,
+    default_value: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20862,6 +21028,7 @@ def _typecheckingstub__dd7180e50961abf6b838dfc21ba186cc5b2c551eae8357613767f891a
     name: builtins.str,
     query_string: builtins.str,
     log_group_names: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ILogGroupRef_874d025a]]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueryDefinition.QueryParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     query_language: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

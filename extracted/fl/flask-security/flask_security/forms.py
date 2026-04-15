@@ -6,7 +6,7 @@ Flask-Security forms module
 
 :copyright: (c) 2012 by Matt Wright.
 :copyright: (c) 2017 by CERN.
-:copyright: (c) 2019-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2019-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 """
 
@@ -463,6 +463,8 @@ class ForgotPasswordForm(Form, UserEmailFormMixin):
         if not self.user.is_active:
             self.email.errors.append(get_message("DISABLED_ACCOUNT")[0])
             return False
+        if not self.user.is_locked(self.email.errors):
+            return False
         self.requires_confirmation = requires_confirmation(self.user)
         if self.requires_confirmation:
             self.email.errors.append(get_message("CONFIRMATION_REQUIRED")[0])
@@ -492,6 +494,8 @@ class PasswordlessLoginForm(Form):
         assert isinstance(self.email.errors, list)
         if not self.user.is_active:
             self.email.errors.append(get_message("DISABLED_ACCOUNT")[0])
+            return False
+        if not self.user.is_locked(self.email.errors):
             return False
         return True
 
@@ -596,12 +600,14 @@ class LoginForm(Form, PasswordFormMixin, NextFormMixin):
             return False
         if not self.user.password:
             # This is result of PASSWORD_REQUIRED=False and UNIFIED_SIGNIN
+            self.user.track_failed_authn("password")
             self.password.errors.append(get_message("INVALID_PASSWORD")[0])
             # Reduce timing variation between existing and non-existing users
             hash_password(self.password.data)
             return False
         self.password.data = _security.password_util.normalize(self.password.data)
         if not self.user.verify_and_update_password(self.password.data):
+            self.user.track_failed_authn("password")
             self.password.errors.append(get_message("INVALID_PASSWORD")[0])
             return False
 
@@ -611,11 +617,13 @@ class LoginForm(Form, PasswordFormMixin, NextFormMixin):
         self.requires_confirmation = requires_confirmation(self.user)
         assert self.ifield is not None
         assert isinstance(self.ifield.errors, list)
-        if self.requires_confirmation:
-            self.ifield.errors.append(get_message("CONFIRMATION_REQUIRED")[0])
-            return False
         if not self.user.is_active:
             self.ifield.errors.append(get_message("DISABLED_ACCOUNT")[0])
+            return False
+        if not self.user.is_locked(self.ifield.errors):
+            return False
+        if self.requires_confirmation:
+            self.ifield.errors.append(get_message("CONFIRMATION_REQUIRED")[0])
             return False
         return True
 
@@ -661,6 +669,7 @@ class VerifyForm(Form, PasswordFormMixin):
         self.password.data = _security.password_util.normalize(self.password.data)
         assert isinstance(self.password.errors, list)
         if not self.user.verify_and_update_password(self.password.data):
+            self.user.track_failed_authn("password")
             self.password.errors.append(get_message("INVALID_PASSWORD")[0])
             return False
         return True
@@ -969,19 +978,21 @@ class TwoFactorSetupForm(Form):
     phone = TelField(get_form_field_label("phone"))
     submit = SubmitField(get_form_field_label("submit"))
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: t.Any, **kwargs: t.Any):
         super().__init__(*args, **kwargs)
+        self.user: UserMixin | None = None  # set by view
 
     def validate(self, **kwargs: t.Any) -> bool:
         if not super().validate(**kwargs):  # pragma: no cover
             return False
+        assert self.user is not None
         choices = list(cv("TWO_FACTOR_ENABLED_METHODS"))
         assert isinstance(self.setup.errors, list)
         assert isinstance(self.phone.errors, list)
         if "email" in choices:
             # backwards compat
             choices.append("mail")
-        if not cv("TWO_FACTOR_REQUIRED"):
+        if not self.user.check_tf_required_setup():
             choices.append("disable")
         if "setup" not in self.data or self.data["setup"] not in choices:
             self.setup.errors.append(get_message("TWO_FACTOR_METHOD_NOT_AVAILABLE")[0])
@@ -1010,6 +1021,7 @@ class TwoFactorVerifyCodeForm(Form, CodeFormMixin):
         self.primary_method: str = ""
         self.tf_totp_secret: str = ""
         self.user: UserMixin | None = None  # set by view
+        self.is_setup: bool = False
 
     def validate(self, **kwargs: t.Any) -> bool:
         if not super().validate(**kwargs):  # pragma: no cover
@@ -1036,6 +1048,8 @@ class TwoFactorVerifyCodeForm(Form, CodeFormMixin):
             user=self.user,
             window=self.window,
         ):
+            if not self.is_setup:
+                self.user.track_failed_authn("code", True)
             self.code.errors.append(get_message("TWO_FACTOR_INVALID_TOKEN")[0])
             return False
 
@@ -1055,7 +1069,7 @@ class TwoFactorRescueForm(Form):
     submit = SubmitField(get_form_field_label("submit"), id="rescue")
 
 
-class UsernameRecoveryForm(Form, UserEmailFormMixin):
+class UsernameRecoveryForm(ForgotPasswordForm):
     """The username recovery form"""
 
     submit = SubmitField(get_form_field_label("recover_username"))

@@ -4,7 +4,7 @@ flask_security.webauthn
 
 Flask-Security WebAuthn module
 
-:copyright: (c) 2021-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2021-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 
 This implements support for webauthn/FIDO2 Level 2 using the py_webauthn package.
@@ -331,6 +331,7 @@ class WebAuthnSigninResponseForm(Form, NextFormMixin):
 
         if not self.user.is_active:
             self.credential.errors.append(get_message("DISABLED_ACCOUNT")[0])
+        if not self.user.is_locked(self.credential.errors):
             return False
 
         verify = partial(
@@ -342,7 +343,7 @@ class WebAuthnSigninResponseForm(Form, NextFormMixin):
             credential_public_key=self.cred.public_key,
             credential_current_sign_count=self.cred.sign_count,
         )
-        # Start by verifying requiring user_verification - if that succeeds then
+        # Start by verifying requiring user_verification - if that succeeds, then
         # this authn could be used for both primary and secondary.
         # If it fails, then try to verify with user_verification == False - unless
         # as part of signin the app required user_verification (as stored in the state)
@@ -358,6 +359,7 @@ class WebAuthnSigninResponseForm(Form, NextFormMixin):
                 self.credential.errors.append(
                     get_message("WEBAUTHN_NO_VERIFY", cause=str(exc))[0]
                 )
+                self.user.track_failed_authn("passkey")
                 return False
         return True
 
@@ -717,7 +719,7 @@ def webauthn_signin_response(token: str) -> ResponseValue:
         )
         _datastore.put(form.cred)
 
-        json_payload = {}
+        json_payload: dict[str, t.Any] = {}
         if is_secondary:
             tf_token = _security.two_factor_plugins.tf_complete(form.user, True)
             if tf_token:
@@ -750,6 +752,7 @@ def webauthn_signin_response(token: str) -> ResponseValue:
             # Tell caller where we would go if forms based - they can use it or
             # not.
             json_payload["post_login_url"] = goto_url
+            json_payload["tf_required"] = False
             return base_render_json(
                 form, include_auth_token=True, additional=json_payload
             )

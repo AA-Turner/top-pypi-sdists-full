@@ -34,6 +34,7 @@ from mettagrid.config.handler_config import (
     Handler,
     actorHas,
     deposit,
+    firstMatch,
     queryDelta,
     targetHas,
     updateActor,
@@ -47,6 +48,7 @@ from mettagrid.config.mettagrid_config import (
     InventoryConfig,
     MettaGridConfig,
     ResourceLimitsConfig,
+    TalkConfig,
     WallConfig,
 )
 from mettagrid.config.mutation.stats_mutation import logActorAgentStat, logStatToGame
@@ -306,42 +308,212 @@ def resource_names_for_tickets(ticket_specs: list[TicketSpec]) -> list[str]:
     ]
 
 
+def overcooked_render_asset(
+    asset_name: str,
+    *,
+    resources: dict[str, int] | None = None,
+) -> RenderAsset:
+    return RenderAsset(
+        asset=asset_name,
+        resources={} if resources is None else dict(resources),
+    )
+
+
+def overcooked_render_assets() -> dict[str, list[RenderAsset]]:
+    return {
+        "agent": [RenderAsset(asset="scrambler")],
+        "veg_station": [overcooked_render_asset("overcooked_veg_station")],
+        "meat_station": [overcooked_render_asset("overcooked_meat_station")],
+        "plate_station": [overcooked_render_asset("overcooked_plate_station")],
+        "chopping_station": [overcooked_render_asset("overcooked_chopping_station")],
+        "cooking_station": [
+            overcooked_render_asset(
+                "overcooked_cooking_burned",
+                resources={POT_SOUP_BURNED: 1},
+            ),
+            overcooked_render_asset(
+                "overcooked_cooking_ready",
+                resources={POT_SOUP_READY: 1},
+            ),
+            overcooked_render_asset(
+                "overcooked_cooking_station",
+                resources={POT_SOUP_COOKING: 1},
+            ),
+            overcooked_render_asset("overcooked_cooking_station"),
+        ],
+        "fryer_station": [
+            overcooked_render_asset(
+                "overcooked_fryer_burned",
+                resources={FRYER_FRIES_BURNED: 1},
+            ),
+            overcooked_render_asset(
+                "overcooked_fryer_ready",
+                resources={FRYER_FRIES_READY: 1},
+            ),
+            overcooked_render_asset(
+                "overcooked_fryer_station",
+                resources={FRYER_FRIES_COOKING: 1},
+            ),
+            overcooked_render_asset("overcooked_fryer_station"),
+        ],
+        "serving_station": [overcooked_render_asset("overcooked_serving_station")],
+        "wash_station": [overcooked_render_asset("overcooked_wash_station")],
+        "order_board": [overcooked_render_asset("overcooked_order_board")],
+    }
+
+
+def overcooked_render_config(
+    settings: OvercookedSettings,
+    ticket_specs: list[TicketSpec],
+) -> RenderConfig:
+    return RenderConfig(
+        agent_huds={
+            DISH_SALAD: RenderHudConfig(resource=DISH_SALAD, short_name="SD", max=1, rank=0),
+            DISH_SOUP: RenderHudConfig(resource=DISH_SOUP, short_name="SP", max=1, rank=1),
+            DISH_FRIES: RenderHudConfig(resource=DISH_FRIES, short_name="FR", max=1, rank=2),
+            CLEAN_PLATE: RenderHudConfig(resource=CLEAN_PLATE, short_name="PL", max=1, rank=3),
+            DIRTY_PLATE: RenderHudConfig(resource=DIRTY_PLATE, short_name="DP", max=1, rank=4),
+        },
+        object_status={
+            "agent": {
+                CHOPPED_VEG: RenderStatusBarConfig(resource=CHOPPED_VEG, short_name="CV", max=1, rank=0),
+                CHOPPED_MEAT: RenderStatusBarConfig(resource=CHOPPED_MEAT, short_name="CM", max=1, rank=1),
+                DISH_SALAD: RenderStatusBarConfig(resource=DISH_SALAD, short_name="SD", max=1, rank=2),
+                DISH_SOUP: RenderStatusBarConfig(resource=DISH_SOUP, short_name="SP", max=1, rank=3),
+                DISH_FRIES: RenderStatusBarConfig(resource=DISH_FRIES, short_name="FR", max=1, rank=4),
+            },
+            "chopping_station": {
+                CHOP_VEG_PROGRESS: RenderStatusBarConfig(
+                    resource=CHOP_VEG_PROGRESS,
+                    short_name="VG",
+                    max=settings.chop_ticks,
+                    rank=0,
+                ),
+                CHOP_MEAT_PROGRESS: RenderStatusBarConfig(
+                    resource=CHOP_MEAT_PROGRESS,
+                    short_name="MT",
+                    max=settings.chop_ticks,
+                    rank=1,
+                ),
+            },
+            "order_board": {
+                QUEUE_SALAD: RenderStatusBarConfig(
+                    resource=QUEUE_SALAD,
+                    short_name="QSD",
+                    max=settings.order_queue_max,
+                    rank=0,
+                ),
+                QUEUE_SOUP: RenderStatusBarConfig(
+                    resource=QUEUE_SOUP,
+                    short_name="QSP",
+                    max=settings.order_queue_max,
+                    rank=1,
+                ),
+                QUEUE_FRIES: RenderStatusBarConfig(
+                    resource=QUEUE_FRIES,
+                    short_name="QFR",
+                    max=settings.order_queue_max,
+                    rank=2,
+                ),
+            },
+            "cooking_station": {
+                POT_SOUP_COOKING: RenderStatusBarConfig(
+                    resource=POT_SOUP_COOKING,
+                    short_name="CK",
+                    max=1,
+                    rank=0,
+                ),
+                POT_SOUP_READY: RenderStatusBarConfig(
+                    resource=POT_SOUP_READY,
+                    short_name="RD",
+                    max=1,
+                    rank=1,
+                ),
+                POT_SOUP_BURNED: RenderStatusBarConfig(
+                    resource=POT_SOUP_BURNED,
+                    short_name="BR",
+                    max=1,
+                    rank=2,
+                ),
+            },
+            "fryer_station": {
+                FRYER_FRIES_COOKING: RenderStatusBarConfig(
+                    resource=FRYER_FRIES_COOKING,
+                    short_name="FC",
+                    max=1,
+                    rank=0,
+                ),
+                FRYER_FRIES_READY: RenderStatusBarConfig(
+                    resource=FRYER_FRIES_READY,
+                    short_name="FR",
+                    max=1,
+                    rank=1,
+                ),
+                FRYER_FRIES_BURNED: RenderStatusBarConfig(
+                    resource=FRYER_FRIES_BURNED,
+                    short_name="FB",
+                    max=1,
+                    rank=2,
+                ),
+            },
+            "wash_station": {
+                WASH_PROGRESS: RenderStatusBarConfig(
+                    resource=WASH_PROGRESS,
+                    short_name="WS",
+                    max=settings.wash_ticks,
+                    rank=0,
+                ),
+            },
+        },
+        assets=overcooked_render_assets(),
+    )
+
+
 def veg_station_config(*, enable_veg_pickup: bool = True) -> GridObjectConfig:
-    handlers: dict[str, Handler] = {}
+    handlers: list[Handler] = []
     if enable_veg_pickup:
-        handlers["pickup_veg"] = Handler(
-            filters=[isNot(actorHasAnyOf(BASE_AGENT_RESOURCES))],
-            mutations=[updateActor({VEG: 1})],
+        handlers.append(
+            Handler(
+                name="pickup_veg",
+                filters=[isNot(actorHasAnyOf(BASE_AGENT_RESOURCES))],
+                mutations=[updateActor({VEG: 1})],
+            )
         )
     return GridObjectConfig(
         name="veg_station",
-        on_use_handlers=handlers,
+        on_use_handler=firstMatch(handlers),
     )
 
 
 def meat_station_config(*, enable_meat_pickup: bool = True) -> GridObjectConfig:
-    handlers: dict[str, Handler] = {}
+    handlers: list[Handler] = []
     if enable_meat_pickup:
-        handlers["pickup_meat"] = Handler(
-            filters=[isNot(actorHasAnyOf(BASE_AGENT_RESOURCES))],
-            mutations=[updateActor({MEAT: 1})],
+        handlers.append(
+            Handler(
+                name="pickup_meat",
+                filters=[isNot(actorHasAnyOf(BASE_AGENT_RESOURCES))],
+                mutations=[updateActor({MEAT: 1})],
+            )
         )
     return GridObjectConfig(
         name="meat_station",
-        on_use_handlers=handlers,
+        on_use_handler=firstMatch(handlers),
     )
 
 
 def plate_station_config(*, enable_plate_pickup: bool = True) -> GridObjectConfig:
-    handlers: dict[str, Handler] = {}
+    handlers: list[Handler] = []
     if enable_plate_pickup:
-        handlers["pickup_clean_plate"] = Handler(
-            filters=[isNot(actorHasAnyOf(BASE_AGENT_RESOURCES))],
-            mutations=[updateActor({CLEAN_PLATE: 1})],
+        handlers.append(
+            Handler(
+                name="pickup_clean_plate",
+                filters=[isNot(actorHasAnyOf(BASE_AGENT_RESOURCES))],
+                mutations=[updateActor({CLEAN_PLATE: 1})],
+            )
         )
     return GridObjectConfig(
         name="plate_station",
-        on_use_handlers=handlers,
+        on_use_handler=firstMatch(handlers),
     )
 
 
@@ -354,106 +526,139 @@ def chopping_station_config(
 ) -> GridObjectConfig:
     needs_chopped_veg = enable_salad_recipe or enable_soup_recipe or enable_fries_recipe
     stored_ingredients = [CHOPPED_VEG, CHOPPED_MEAT]
-    handlers: dict[str, Handler] = {}
+    handlers: list[Handler] = []
     if needs_chopped_veg:
-        handlers["finish_chop_veg"] = Handler(
-            filters=[targetHas({CHOP_VEG_PROGRESS: chop_ticks - 1})],
-            mutations=[
-                updateActor({CHOPPED_VEG: 1}),
-                updateTarget({CHOP_VEG_PROGRESS: -999}),
-                logActorAgentStat("veg_chopped"),
-                logStatToGame("veg_chopped"),
-            ],
+        handlers.append(
+            Handler(
+                name="finish_chop_veg",
+                filters=[targetHas({CHOP_VEG_PROGRESS: chop_ticks - 1})],
+                mutations=[
+                    updateActor({CHOPPED_VEG: 1}),
+                    updateTarget({CHOP_VEG_PROGRESS: -999}),
+                    logActorAgentStat("veg_chopped"),
+                    logStatToGame("veg_chopped"),
+                ],
+            )
         )
-        handlers["continue_chop_veg"] = Handler(
-            filters=[targetHas({CHOP_VEG_PROGRESS: 1}), isNot(targetHas({CHOP_VEG_PROGRESS: chop_ticks - 1}))],
-            mutations=[updateTarget({CHOP_VEG_PROGRESS: 1})],
+        handlers.append(
+            Handler(
+                name="continue_chop_veg",
+                filters=[targetHas({CHOP_VEG_PROGRESS: 1}), isNot(targetHas({CHOP_VEG_PROGRESS: chop_ticks - 1}))],
+                mutations=[updateTarget({CHOP_VEG_PROGRESS: 1})],
+            )
         )
     if enable_soup_recipe:
-        handlers["finish_chop_meat"] = Handler(
-            filters=[targetHas({CHOP_MEAT_PROGRESS: chop_ticks - 1})],
-            mutations=[
-                updateActor({CHOPPED_MEAT: 1}),
-                updateTarget({CHOP_MEAT_PROGRESS: -999}),
-                logActorAgentStat("meat_chopped"),
-                logStatToGame("meat_chopped"),
-            ],
+        handlers.append(
+            Handler(
+                name="finish_chop_meat",
+                filters=[targetHas({CHOP_MEAT_PROGRESS: chop_ticks - 1})],
+                mutations=[
+                    updateActor({CHOPPED_MEAT: 1}),
+                    updateTarget({CHOP_MEAT_PROGRESS: -999}),
+                    logActorAgentStat("meat_chopped"),
+                    logStatToGame("meat_chopped"),
+                ],
+            )
         )
-        handlers["continue_chop_meat"] = Handler(
-            filters=[targetHas({CHOP_MEAT_PROGRESS: 1}), isNot(targetHas({CHOP_MEAT_PROGRESS: chop_ticks - 1}))],
-            mutations=[updateTarget({CHOP_MEAT_PROGRESS: 1})],
+        handlers.append(
+            Handler(
+                name="continue_chop_meat",
+                filters=[targetHas({CHOP_MEAT_PROGRESS: 1}), isNot(targetHas({CHOP_MEAT_PROGRESS: chop_ticks - 1}))],
+                mutations=[updateTarget({CHOP_MEAT_PROGRESS: 1})],
+            )
         )
     if enable_salad_recipe:
-        handlers["plate_salad"] = Handler(
-            filters=[
-                actorHas({CLEAN_PLATE: 1}),
-                targetHas({CHOPPED_VEG: 1}),
-                isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
-                isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
-            ],
-            mutations=[updateActor({CLEAN_PLATE: -1, DISH_SALAD: 1}), updateTarget({CHOPPED_VEG: -1})],
+        handlers.append(
+            Handler(
+                name="plate_salad",
+                filters=[
+                    actorHas({CLEAN_PLATE: 1}),
+                    targetHas({CHOPPED_VEG: 1}),
+                    isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
+                    isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
+                ],
+                mutations=[updateActor({CLEAN_PLATE: -1, DISH_SALAD: 1}), updateTarget({CHOPPED_VEG: -1})],
+            )
         )
     if needs_chopped_veg:
-        handlers["store_chopped_veg"] = Handler(
-            filters=[
-                actorHas({CHOPPED_VEG: 1}),
-                isNot(targetHasAnyOf(stored_ingredients)),
-                isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
-                isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
-            ],
-            mutations=[updateActor({CHOPPED_VEG: -1}), updateTarget({CHOPPED_VEG: 1})],
+        handlers.append(
+            Handler(
+                name="store_chopped_veg",
+                filters=[
+                    actorHas({CHOPPED_VEG: 1}),
+                    isNot(targetHasAnyOf(stored_ingredients)),
+                    isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
+                    isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
+                ],
+                mutations=[updateActor({CHOPPED_VEG: -1}), updateTarget({CHOPPED_VEG: 1})],
+            )
         )
-        handlers["pickup_chopped_veg"] = Handler(
-            filters=[
-                isNot(actorHasAnyOf(BASE_AGENT_RESOURCES)),
-                targetHas({CHOPPED_VEG: 1}),
-                isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
-                isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
-            ],
-            mutations=[updateActor({CHOPPED_VEG: 1}), updateTarget({CHOPPED_VEG: -1})],
+        handlers.append(
+            Handler(
+                name="pickup_chopped_veg",
+                filters=[
+                    isNot(actorHasAnyOf(BASE_AGENT_RESOURCES)),
+                    targetHas({CHOPPED_VEG: 1}),
+                    isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
+                    isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
+                ],
+                mutations=[updateActor({CHOPPED_VEG: 1}), updateTarget({CHOPPED_VEG: -1})],
+            )
         )
-        handlers["start_chop_veg"] = Handler(
-            filters=[
-                actorHas({VEG: 1}),
-                isNot(targetHasAnyOf(stored_ingredients)),
-                isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
-                isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
-            ],
-            mutations=[updateActor({VEG: -1}), updateTarget({CHOP_VEG_PROGRESS: 1})],
+        handlers.append(
+            Handler(
+                name="start_chop_veg",
+                filters=[
+                    actorHas({VEG: 1}),
+                    isNot(targetHasAnyOf(stored_ingredients)),
+                    isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
+                    isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
+                ],
+                mutations=[updateActor({VEG: -1}), updateTarget({CHOP_VEG_PROGRESS: 1})],
+            )
         )
     if enable_soup_recipe:
-        handlers["store_chopped_meat"] = Handler(
-            filters=[
-                actorHas({CHOPPED_MEAT: 1}),
-                isNot(targetHasAnyOf(stored_ingredients)),
-                isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
-                isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
-            ],
-            mutations=[updateActor({CHOPPED_MEAT: -1}), updateTarget({CHOPPED_MEAT: 1})],
+        handlers.append(
+            Handler(
+                name="store_chopped_meat",
+                filters=[
+                    actorHas({CHOPPED_MEAT: 1}),
+                    isNot(targetHasAnyOf(stored_ingredients)),
+                    isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
+                    isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
+                ],
+                mutations=[updateActor({CHOPPED_MEAT: -1}), updateTarget({CHOPPED_MEAT: 1})],
+            )
         )
-        handlers["pickup_chopped_meat"] = Handler(
-            filters=[
-                isNot(actorHasAnyOf(BASE_AGENT_RESOURCES)),
-                targetHas({CHOPPED_MEAT: 1}),
-                isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
-                isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
-            ],
-            mutations=[updateActor({CHOPPED_MEAT: 1}), updateTarget({CHOPPED_MEAT: -1})],
+        handlers.append(
+            Handler(
+                name="pickup_chopped_meat",
+                filters=[
+                    isNot(actorHasAnyOf(BASE_AGENT_RESOURCES)),
+                    targetHas({CHOPPED_MEAT: 1}),
+                    isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
+                    isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
+                ],
+                mutations=[updateActor({CHOPPED_MEAT: 1}), updateTarget({CHOPPED_MEAT: -1})],
+            )
         )
-        handlers["start_chop_meat"] = Handler(
-            filters=[
-                actorHas({MEAT: 1}),
-                isNot(targetHasAnyOf(stored_ingredients)),
-                isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
-                isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
-            ],
-            mutations=[updateActor({MEAT: -1}), updateTarget({CHOP_MEAT_PROGRESS: 1})],
+        handlers.append(
+            Handler(
+                name="start_chop_meat",
+                filters=[
+                    actorHas({MEAT: 1}),
+                    isNot(targetHasAnyOf(stored_ingredients)),
+                    isNot(targetHas({CHOP_VEG_PROGRESS: 1})),
+                    isNot(targetHas({CHOP_MEAT_PROGRESS: 1})),
+                ],
+                mutations=[updateActor({MEAT: -1}), updateTarget({CHOP_MEAT_PROGRESS: 1})],
+            )
         )
 
     return GridObjectConfig(
         name="chopping_station",
         inventory=InventoryConfig(initial={CHOP_VEG_PROGRESS: 0, CHOP_MEAT_PROGRESS: 0}),
-        on_use_handlers=handlers,
+        on_use_handler=firstMatch(handlers),
     )
 
 
@@ -463,101 +668,126 @@ def cooking_station_config(
     enable_soup_recipe: bool = True,
     enable_soup_burn: bool = True,
 ) -> GridObjectConfig:
-    handlers: dict[str, Handler] = {}
+    handlers: list[Handler] = []
     if enable_soup_recipe:
-        handlers["collect_ready_soup"] = Handler(
-            filters=[actorHas({CLEAN_PLATE: 1}), targetHas({POT_SOUP_READY: 1})],
-            mutations=[
-                updateActor({CLEAN_PLATE: -1, DISH_SOUP: 1}),
-                updateTarget({POT_SOUP_READY: -1, POT_READY_AGE: -999}),
-            ],
+        handlers.append(
+            Handler(
+                name="collect_ready_soup",
+                filters=[actorHas({CLEAN_PLATE: 1}), targetHas({POT_SOUP_READY: 1})],
+                mutations=[
+                    updateActor({CLEAN_PLATE: -1, DISH_SOUP: 1}),
+                    updateTarget({POT_SOUP_READY: -1, POT_READY_AGE: -999}),
+                ],
+            )
         )
-        handlers["load_soup_veg_and_start"] = Handler(
-            filters=[
-                actorHas({CHOPPED_VEG: 1}),
-                targetHas({CHOPPED_MEAT: 1}),
-                isNot(targetHas({POT_SOUP_COOKING: 1})),
-                isNot(targetHas({POT_SOUP_READY: 1})),
-                isNot(targetHas({POT_SOUP_BURNED: 1})),
-            ],
-            mutations=[
-                updateActor({CHOPPED_VEG: -1}),
-                updateTarget({CHOPPED_MEAT: -1, POT_SOUP_COOKING: 1, POT_TIMER: soup_cook_ticks, POT_READY_AGE: -999}),
-                logActorAgentStat("soups_started"),
-                logStatToGame("soups_started"),
-            ],
+        handlers.append(
+            Handler(
+                name="load_soup_veg_and_start",
+                filters=[
+                    actorHas({CHOPPED_VEG: 1}),
+                    targetHas({CHOPPED_MEAT: 1}),
+                    isNot(targetHas({POT_SOUP_COOKING: 1})),
+                    isNot(targetHas({POT_SOUP_READY: 1})),
+                    isNot(targetHas({POT_SOUP_BURNED: 1})),
+                ],
+                mutations=[
+                    updateActor({CHOPPED_VEG: -1}),
+                    updateTarget(
+                        {CHOPPED_MEAT: -1, POT_SOUP_COOKING: 1, POT_TIMER: soup_cook_ticks, POT_READY_AGE: -999}
+                    ),
+                    logActorAgentStat("soups_started"),
+                    logStatToGame("soups_started"),
+                ],
+            )
         )
-        handlers["load_soup_meat_and_start"] = Handler(
-            filters=[
-                actorHas({CHOPPED_MEAT: 1}),
-                targetHas({CHOPPED_VEG: 1}),
-                isNot(targetHas({POT_SOUP_COOKING: 1})),
-                isNot(targetHas({POT_SOUP_READY: 1})),
-                isNot(targetHas({POT_SOUP_BURNED: 1})),
-            ],
-            mutations=[
-                updateActor({CHOPPED_MEAT: -1}),
-                updateTarget({CHOPPED_VEG: -1, POT_SOUP_COOKING: 1, POT_TIMER: soup_cook_ticks, POT_READY_AGE: -999}),
-                logActorAgentStat("soups_started"),
-                logStatToGame("soups_started"),
-            ],
+        handlers.append(
+            Handler(
+                name="load_soup_meat_and_start",
+                filters=[
+                    actorHas({CHOPPED_MEAT: 1}),
+                    targetHas({CHOPPED_VEG: 1}),
+                    isNot(targetHas({POT_SOUP_COOKING: 1})),
+                    isNot(targetHas({POT_SOUP_READY: 1})),
+                    isNot(targetHas({POT_SOUP_BURNED: 1})),
+                ],
+                mutations=[
+                    updateActor({CHOPPED_MEAT: -1}),
+                    updateTarget(
+                        {CHOPPED_VEG: -1, POT_SOUP_COOKING: 1, POT_TIMER: soup_cook_ticks, POT_READY_AGE: -999}
+                    ),
+                    logActorAgentStat("soups_started"),
+                    logStatToGame("soups_started"),
+                ],
+            )
         )
-        handlers["start_soup_cook"] = Handler(
-            filters=[
-                targetHas({CHOPPED_VEG: 1}),
-                targetHas({CHOPPED_MEAT: 1}),
-                isNot(targetHas({POT_SOUP_COOKING: 1})),
-                isNot(targetHas({POT_SOUP_READY: 1})),
-                isNot(targetHas({POT_SOUP_BURNED: 1})),
-            ],
-            mutations=[
-                updateTarget(
-                    {
-                        CHOPPED_VEG: -1,
-                        CHOPPED_MEAT: -1,
-                        POT_SOUP_COOKING: 1,
-                        POT_TIMER: soup_cook_ticks,
-                        POT_READY_AGE: -999,
-                    }
-                ),
-                logActorAgentStat("soups_started"),
-                logStatToGame("soups_started"),
-            ],
+        handlers.append(
+            Handler(
+                name="start_soup_cook",
+                filters=[
+                    targetHas({CHOPPED_VEG: 1}),
+                    targetHas({CHOPPED_MEAT: 1}),
+                    isNot(targetHas({POT_SOUP_COOKING: 1})),
+                    isNot(targetHas({POT_SOUP_READY: 1})),
+                    isNot(targetHas({POT_SOUP_BURNED: 1})),
+                ],
+                mutations=[
+                    updateTarget(
+                        {
+                            CHOPPED_VEG: -1,
+                            CHOPPED_MEAT: -1,
+                            POT_SOUP_COOKING: 1,
+                            POT_TIMER: soup_cook_ticks,
+                            POT_READY_AGE: -999,
+                        }
+                    ),
+                    logActorAgentStat("soups_started"),
+                    logStatToGame("soups_started"),
+                ],
+            )
         )
-        handlers["load_soup_veg"] = Handler(
-            filters=[
-                actorHas({CHOPPED_VEG: 1}),
-                isNot(targetHas({CHOPPED_VEG: 1})),
-                isNot(targetHas({POT_SOUP_COOKING: 1})),
-                isNot(targetHas({POT_SOUP_READY: 1})),
-                isNot(targetHas({POT_SOUP_BURNED: 1})),
-            ],
-            mutations=[updateActor({CHOPPED_VEG: -1}), updateTarget({CHOPPED_VEG: 1})],
+        handlers.append(
+            Handler(
+                name="load_soup_veg",
+                filters=[
+                    actorHas({CHOPPED_VEG: 1}),
+                    isNot(targetHas({CHOPPED_VEG: 1})),
+                    isNot(targetHas({POT_SOUP_COOKING: 1})),
+                    isNot(targetHas({POT_SOUP_READY: 1})),
+                    isNot(targetHas({POT_SOUP_BURNED: 1})),
+                ],
+                mutations=[updateActor({CHOPPED_VEG: -1}), updateTarget({CHOPPED_VEG: 1})],
+            )
         )
-        handlers["load_soup_meat"] = Handler(
-            filters=[
-                actorHas({CHOPPED_MEAT: 1}),
-                isNot(targetHas({CHOPPED_MEAT: 1})),
-                isNot(targetHas({POT_SOUP_COOKING: 1})),
-                isNot(targetHas({POT_SOUP_READY: 1})),
-                isNot(targetHas({POT_SOUP_BURNED: 1})),
-            ],
-            mutations=[updateActor({CHOPPED_MEAT: -1}), updateTarget({CHOPPED_MEAT: 1})],
+        handlers.append(
+            Handler(
+                name="load_soup_meat",
+                filters=[
+                    actorHas({CHOPPED_MEAT: 1}),
+                    isNot(targetHas({CHOPPED_MEAT: 1})),
+                    isNot(targetHas({POT_SOUP_COOKING: 1})),
+                    isNot(targetHas({POT_SOUP_READY: 1})),
+                    isNot(targetHas({POT_SOUP_BURNED: 1})),
+                ],
+                mutations=[updateActor({CHOPPED_MEAT: -1}), updateTarget({CHOPPED_MEAT: 1})],
+            )
         )
     if enable_soup_burn:
-        handlers["clear_burned_pot"] = Handler(
-            filters=[targetHas({POT_SOUP_BURNED: 1})],
-            mutations=[
-                updateTarget({POT_SOUP_BURNED: -1, POT_TIMER: -999, POT_READY_AGE: -999}),
-                logActorAgentStat("pots_cleared"),
-                logStatToGame("pots_cleared"),
-            ],
+        handlers.append(
+            Handler(
+                name="clear_burned_pot",
+                filters=[targetHas({POT_SOUP_BURNED: 1})],
+                mutations=[
+                    updateTarget({POT_SOUP_BURNED: -1, POT_TIMER: -999, POT_READY_AGE: -999}),
+                    logActorAgentStat("pots_cleared"),
+                    logStatToGame("pots_cleared"),
+                ],
+            )
         )
 
     return GridObjectConfig(
         name="cooking_station",
         inventory=InventoryConfig(initial={POT_TIMER: 0, POT_READY_AGE: 0, CHOPPED_VEG: 0, CHOPPED_MEAT: 0}),
-        on_use_handlers=handlers,
+        on_use_handler=firstMatch(handlers),
     )
 
 
@@ -567,43 +797,52 @@ def fryer_station_config(
     enable_fries_recipe: bool = True,
     enable_fries_burn: bool = True,
 ) -> GridObjectConfig:
-    handlers: dict[str, Handler] = {}
+    handlers: list[Handler] = []
     if enable_fries_recipe:
-        handlers["collect_ready_fries"] = Handler(
-            filters=[actorHas({CLEAN_PLATE: 1}), targetHas({FRYER_FRIES_READY: 1})],
-            mutations=[
-                updateActor({CLEAN_PLATE: -1, DISH_FRIES: 1}),
-                updateTarget({FRYER_FRIES_READY: -1, FRYER_READY_AGE: -999}),
-            ],
+        handlers.append(
+            Handler(
+                name="collect_ready_fries",
+                filters=[actorHas({CLEAN_PLATE: 1}), targetHas({FRYER_FRIES_READY: 1})],
+                mutations=[
+                    updateActor({CLEAN_PLATE: -1, DISH_FRIES: 1}),
+                    updateTarget({FRYER_FRIES_READY: -1, FRYER_READY_AGE: -999}),
+                ],
+            )
         )
-        handlers["start_fries_cook"] = Handler(
-            filters=[
-                actorHas({CHOPPED_VEG: 1}),
-                isNot(targetHas({FRYER_FRIES_COOKING: 1})),
-                isNot(targetHas({FRYER_FRIES_READY: 1})),
-                isNot(targetHas({FRYER_FRIES_BURNED: 1})),
-            ],
-            mutations=[
-                updateActor({CHOPPED_VEG: -1}),
-                updateTarget({FRYER_FRIES_COOKING: 1, FRYER_TIMER: fries_cook_ticks, FRYER_READY_AGE: -999}),
-                logActorAgentStat("fries_started"),
-                logStatToGame("fries_started"),
-            ],
+        handlers.append(
+            Handler(
+                name="start_fries_cook",
+                filters=[
+                    actorHas({CHOPPED_VEG: 1}),
+                    isNot(targetHas({FRYER_FRIES_COOKING: 1})),
+                    isNot(targetHas({FRYER_FRIES_READY: 1})),
+                    isNot(targetHas({FRYER_FRIES_BURNED: 1})),
+                ],
+                mutations=[
+                    updateActor({CHOPPED_VEG: -1}),
+                    updateTarget({FRYER_FRIES_COOKING: 1, FRYER_TIMER: fries_cook_ticks, FRYER_READY_AGE: -999}),
+                    logActorAgentStat("fries_started"),
+                    logStatToGame("fries_started"),
+                ],
+            )
         )
     if enable_fries_burn:
-        handlers["clear_burned_fryer"] = Handler(
-            filters=[targetHas({FRYER_FRIES_BURNED: 1})],
-            mutations=[
-                updateTarget({FRYER_FRIES_BURNED: -1, FRYER_TIMER: -999, FRYER_READY_AGE: -999}),
-                logActorAgentStat("fryers_cleared"),
-                logStatToGame("fryers_cleared"),
-            ],
+        handlers.append(
+            Handler(
+                name="clear_burned_fryer",
+                filters=[targetHas({FRYER_FRIES_BURNED: 1})],
+                mutations=[
+                    updateTarget({FRYER_FRIES_BURNED: -1, FRYER_TIMER: -999, FRYER_READY_AGE: -999}),
+                    logActorAgentStat("fryers_cleared"),
+                    logStatToGame("fryers_cleared"),
+                ],
+            )
         )
 
     return GridObjectConfig(
         name="fryer_station",
         inventory=InventoryConfig(initial={FRYER_TIMER: 0, FRYER_READY_AGE: 0}),
-        on_use_handlers=handlers,
+        on_use_handler=firstMatch(handlers),
     )
 
 
@@ -621,64 +860,76 @@ def serving_station_config(
     enable_queue_orders: bool = True,
     enabled_recipes: set[RecipeName] | None = None,
 ) -> GridObjectConfig:
-    handlers: dict[str, Handler] = {}
+    handlers: list[Handler] = []
     if not enable_queue_orders:
-        return GridObjectConfig(name="serving_station", on_use_handlers=handlers)
+        return GridObjectConfig(name="serving_station", on_use_handler=firstMatch(handlers))
 
     allowed_recipes = enabled_recipes if enabled_recipes is not None else {"salad", "soup", "fries"}
     for ticket in ticket_specs:
         if ticket.recipe not in allowed_recipes:
             continue
         dish_resource = dish_resource_for_recipe(ticket.recipe)
-        handlers[f"serve_ticket_{ticket.index:03d}_{ticket.recipe}"] = Handler(
-            filters=[
-                actorHas({dish_resource: 1}),
-                _ticket_is_active(ticket.resource),
-            ],
-            mutations=[
-                updateActor({dish_resource: -1, DIRTY_PLATE: 1}),
-                queryDelta(
-                    ORDER_BOARD_QUERY,
-                    {
-                        ticket.resource: -1,
-                        ticket.queue_resource: -1,
-                    },
-                ),
-                logActorAgentStat("orders_served"),
-                logActorAgentStat(f"orders_served_{ticket.recipe}"),
-                logStatToGame("orders_served"),
-                logStatToGame("orders_served_total"),
-                logStatToGame(f"orders_served_{ticket.recipe}"),
-            ],
+        handlers.append(
+            Handler(
+                name=f"serve_ticket_{ticket.index:03d}_{ticket.recipe}",
+                filters=[
+                    actorHas({dish_resource: 1}),
+                    _ticket_is_active(ticket.resource),
+                ],
+                mutations=[
+                    updateActor({dish_resource: -1, DIRTY_PLATE: 1}),
+                    queryDelta(
+                        ORDER_BOARD_QUERY,
+                        {
+                            ticket.resource: -1,
+                            ticket.queue_resource: -1,
+                        },
+                    ),
+                    logActorAgentStat("orders_served"),
+                    logActorAgentStat(f"orders_served_{ticket.recipe}"),
+                    logStatToGame("orders_served"),
+                    logStatToGame("orders_served_total"),
+                    logStatToGame(f"orders_served_{ticket.recipe}"),
+                ],
+            )
         )
 
-    return GridObjectConfig(name="serving_station", on_use_handlers=handlers)
+    return GridObjectConfig(name="serving_station", on_use_handler=firstMatch(handlers))
 
 
 def wash_station_config(wash_ticks: int, *, enable_wash_cycle: bool = True) -> GridObjectConfig:
-    handlers: dict[str, Handler] = {}
+    handlers: list[Handler] = []
     if enable_wash_cycle:
-        handlers["finish_wash_plate"] = Handler(
-            filters=[targetHas({WASH_PROGRESS: wash_ticks - 1})],
-            mutations=[
-                updateActor({CLEAN_PLATE: 1}),
-                updateTarget({WASH_PROGRESS: -999}),
-                logActorAgentStat("plates_washed"),
-                logStatToGame("plates_washed"),
-            ],
+        handlers.append(
+            Handler(
+                name="finish_wash_plate",
+                filters=[targetHas({WASH_PROGRESS: wash_ticks - 1})],
+                mutations=[
+                    updateActor({CLEAN_PLATE: 1}),
+                    updateTarget({WASH_PROGRESS: -999}),
+                    logActorAgentStat("plates_washed"),
+                    logStatToGame("plates_washed"),
+                ],
+            )
         )
-        handlers["continue_wash_plate"] = Handler(
-            filters=[targetHas({WASH_PROGRESS: 1}), isNot(targetHas({WASH_PROGRESS: wash_ticks - 1}))],
-            mutations=[updateTarget({WASH_PROGRESS: 1})],
+        handlers.append(
+            Handler(
+                name="continue_wash_plate",
+                filters=[targetHas({WASH_PROGRESS: 1}), isNot(targetHas({WASH_PROGRESS: wash_ticks - 1}))],
+                mutations=[updateTarget({WASH_PROGRESS: 1})],
+            )
         )
-        handlers["start_wash_plate"] = Handler(
-            filters=[actorHas({DIRTY_PLATE: 1}), isNot(targetHas({WASH_PROGRESS: 1}))],
-            mutations=[updateActor({DIRTY_PLATE: -1}), updateTarget({WASH_PROGRESS: 1})],
+        handlers.append(
+            Handler(
+                name="start_wash_plate",
+                filters=[actorHas({DIRTY_PLATE: 1}), isNot(targetHas({WASH_PROGRESS: 1}))],
+                mutations=[updateActor({DIRTY_PLATE: -1}), updateTarget({WASH_PROGRESS: 1})],
+            )
         )
     return GridObjectConfig(
         name="wash_station",
         inventory=InventoryConfig(initial={WASH_PROGRESS: 0}),
-        on_use_handlers=handlers,
+        on_use_handler=firstMatch(handlers),
     )
 
 
@@ -920,16 +1171,22 @@ def _agent_config() -> AgentConfig:
 
 
 def counter_config() -> WallConfig:
-    handlers: dict[str, Handler] = {}
+    handlers: list[Handler] = []
     for resource in BASE_AGENT_RESOURCES:
-        handlers[f"deposit_{resource}"] = Handler(
-            filters=[actorHas({resource: 1}), isNot(targetHasAnyOf(BASE_AGENT_RESOURCES))],
-            mutations=[deposit({resource: 1})],
+        handlers.append(
+            Handler(
+                name=f"deposit_{resource}",
+                filters=[actorHas({resource: 1}), isNot(targetHasAnyOf(BASE_AGENT_RESOURCES))],
+                mutations=[deposit({resource: 1})],
+            )
         )
     for resource in BASE_AGENT_RESOURCES:
-        handlers[f"withdraw_{resource}"] = Handler(
-            filters=[isNot(actorHasAnyOf(BASE_AGENT_RESOURCES)), targetHas({resource: 1})],
-            mutations=[withdraw({resource: 1})],
+        handlers.append(
+            Handler(
+                name=f"withdraw_{resource}",
+                filters=[isNot(actorHasAnyOf(BASE_AGENT_RESOURCES)), targetHas({resource: 1})],
+                mutations=[withdraw({resource: 1})],
+            )
         )
 
     return WallConfig(
@@ -939,7 +1196,7 @@ def counter_config() -> WallConfig:
                 "carry": ResourceLimitsConfig(base=1, max=1, resources=BASE_AGENT_RESOURCES),
             }
         ),
-        on_use_handlers=handlers,
+        on_use_handler=firstMatch(handlers),
     )
 
 
@@ -1073,6 +1330,7 @@ class OvercookedGame(CoGameMission):
                 noop=NoopActionConfig(),
                 change_vibe=ChangeVibeActionConfig(enabled=False, vibes=[]),
             ),
+            talk=TalkConfig(enabled=True, max_length=140, cooldown_steps=0),
             agents=[_agent_config() for _ in range(num_cogs)],
             objects={
                 "wall": counter_config(),
@@ -1127,129 +1385,7 @@ class OvercookedGame(CoGameMission):
                 ),
                 **queue_instrumentation_events(max_steps=settings.max_steps),
             },
-            render=RenderConfig(
-                agent_huds={
-                    DISH_SALAD: RenderHudConfig(resource=DISH_SALAD, short_name="SD", max=1, rank=0),
-                    DISH_SOUP: RenderHudConfig(resource=DISH_SOUP, short_name="SP", max=1, rank=1),
-                    DISH_FRIES: RenderHudConfig(resource=DISH_FRIES, short_name="FR", max=1, rank=2),
-                    CLEAN_PLATE: RenderHudConfig(resource=CLEAN_PLATE, short_name="PL", max=1, rank=3),
-                    DIRTY_PLATE: RenderHudConfig(resource=DIRTY_PLATE, short_name="DP", max=1, rank=4),
-                },
-                object_status={
-                    "agent": {
-                        CHOPPED_VEG: RenderStatusBarConfig(resource=CHOPPED_VEG, short_name="CV", max=1, rank=0),
-                        CHOPPED_MEAT: RenderStatusBarConfig(resource=CHOPPED_MEAT, short_name="CM", max=1, rank=1),
-                        DISH_SALAD: RenderStatusBarConfig(resource=DISH_SALAD, short_name="SD", max=1, rank=2),
-                        DISH_SOUP: RenderStatusBarConfig(resource=DISH_SOUP, short_name="SP", max=1, rank=3),
-                        DISH_FRIES: RenderStatusBarConfig(resource=DISH_FRIES, short_name="FR", max=1, rank=4),
-                    },
-                    "chopping_station": {
-                        CHOP_VEG_PROGRESS: RenderStatusBarConfig(
-                            resource=CHOP_VEG_PROGRESS,
-                            short_name="VG",
-                            max=settings.chop_ticks,
-                            rank=0,
-                        ),
-                        CHOP_MEAT_PROGRESS: RenderStatusBarConfig(
-                            resource=CHOP_MEAT_PROGRESS,
-                            short_name="MT",
-                            max=settings.chop_ticks,
-                            rank=1,
-                        ),
-                    },
-                    "order_board": {
-                        QUEUE_SALAD: RenderStatusBarConfig(
-                            resource=QUEUE_SALAD,
-                            short_name="QSD",
-                            max=settings.order_queue_max,
-                            rank=0,
-                        ),
-                        QUEUE_SOUP: RenderStatusBarConfig(
-                            resource=QUEUE_SOUP,
-                            short_name="QSP",
-                            max=settings.order_queue_max,
-                            rank=1,
-                        ),
-                        QUEUE_FRIES: RenderStatusBarConfig(
-                            resource=QUEUE_FRIES,
-                            short_name="QFR",
-                            max=settings.order_queue_max,
-                            rank=2,
-                        ),
-                    },
-                    "cooking_station": {
-                        POT_SOUP_COOKING: RenderStatusBarConfig(
-                            resource=POT_SOUP_COOKING,
-                            short_name="CK",
-                            max=1,
-                            rank=0,
-                        ),
-                        POT_SOUP_READY: RenderStatusBarConfig(
-                            resource=POT_SOUP_READY,
-                            short_name="RD",
-                            max=1,
-                            rank=1,
-                        ),
-                        POT_SOUP_BURNED: RenderStatusBarConfig(
-                            resource=POT_SOUP_BURNED,
-                            short_name="BR",
-                            max=1,
-                            rank=2,
-                        ),
-                    },
-                    "fryer_station": {
-                        FRYER_FRIES_COOKING: RenderStatusBarConfig(
-                            resource=FRYER_FRIES_COOKING,
-                            short_name="FC",
-                            max=1,
-                            rank=0,
-                        ),
-                        FRYER_FRIES_READY: RenderStatusBarConfig(
-                            resource=FRYER_FRIES_READY,
-                            short_name="FR",
-                            max=1,
-                            rank=1,
-                        ),
-                        FRYER_FRIES_BURNED: RenderStatusBarConfig(
-                            resource=FRYER_FRIES_BURNED,
-                            short_name="FB",
-                            max=1,
-                            rank=2,
-                        ),
-                    },
-                    "wash_station": {
-                        WASH_PROGRESS: RenderStatusBarConfig(
-                            resource=WASH_PROGRESS,
-                            short_name="WS",
-                            max=settings.wash_ticks,
-                            rank=0,
-                        ),
-                    },
-                },
-                assets={
-                    "agent": [RenderAsset(asset="scrambler")],
-                    "wall": [RenderAsset(asset="overcooked_wall")],
-                    "veg_station": [RenderAsset(asset="overcooked_veg_station")],
-                    "meat_station": [RenderAsset(asset="overcooked_meat_station")],
-                    "plate_station": [RenderAsset(asset="overcooked_plate_station")],
-                    "chopping_station": [RenderAsset(asset="overcooked_chopping_station")],
-                    "cooking_station": [
-                        RenderAsset(asset="overcooked_cooking_burned", resources={POT_SOUP_BURNED: 1}),
-                        RenderAsset(asset="overcooked_cooking_ready", resources={POT_SOUP_READY: 1}),
-                        RenderAsset(asset="overcooked_cooking_station", resources={POT_SOUP_COOKING: 1}),
-                        RenderAsset(asset="overcooked_cooking_station"),
-                    ],
-                    "fryer_station": [
-                        RenderAsset(asset="overcooked_fryer_burned", resources={FRYER_FRIES_BURNED: 1}),
-                        RenderAsset(asset="overcooked_fryer_ready", resources={FRYER_FRIES_READY: 1}),
-                        RenderAsset(asset="overcooked_fryer_station", resources={FRYER_FRIES_COOKING: 1}),
-                        RenderAsset(asset="overcooked_fryer_station"),
-                    ],
-                    "serving_station": [RenderAsset(asset="overcooked_serving_station")],
-                    "wash_station": [RenderAsset(asset="overcooked_wash_station")],
-                    "order_board": [RenderAsset(asset="overcooked_order_board")],
-                },
-            ),
+            render=overcooked_render_config(settings, ticket_specs),
         )
         return MettaGridConfig(game=game)
 

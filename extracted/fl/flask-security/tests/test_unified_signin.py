@@ -4,7 +4,7 @@ test_unified_signin
 
 Unified signin tests
 
-:copyright: (c) 2019-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2019-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 
 """
@@ -28,6 +28,7 @@ from tests.test_utils import (
     capture_flashes,
     capture_reset_password_requests,
     check_location,
+    check_signals,
     check_xlation,
     get_form_action,
     get_session,
@@ -41,7 +42,6 @@ from tests.test_webauthn import HackWebauthnUtil, reg_2_keys
 
 from flask_security import (
     SmsSenderFactory,
-    SQLAlchemyUserDatastore,
     UserMixin,
     uia_email_mapper,
     uia_phone_mapper,
@@ -148,13 +148,8 @@ def set_email(app, email="matt@lp.com"):
         app.security.datastore.commit()
 
 
-def test_simple_signin(app, clients, get_message, outbox):
+def test_simple_signin(app, clients, get_message, outbox, signals):
     set_email(app)
-    auths = []
-
-    @user_authenticated.connect_via(app)
-    def authned(myapp, user, **extra_args):
-        auths.append((user.email, extra_args["authn_via"]))
 
     # Test missing choice
     data = dict(identity="matt@lp.com")
@@ -196,6 +191,10 @@ def test_simple_signin(app, clients, get_message, outbox):
         follow_redirects=True,
     )
     assert get_message("INVALID_PASSWORD_CODE") in response.data
+    assert signals["user_failed_authn"][0]["request_endpoint"] == "security.us_signin"
+    assert signals["user_failed_authn"][0]["user"].email == "matt@lp.com"
+    assert signals["user_failed_authn"][0]["auth_type"] == "passcode"
+    assert not signals["user_failed_authn"][0]["tfa"]
 
     # Correct code
     assert not clients.get_cookie("remember_token")
@@ -206,7 +205,7 @@ def test_simple_signin(app, clients, get_message, outbox):
         follow_redirects=False,
     )
     assert not clients.get_cookie("remember_token")
-    assert "email" in auths[0][1]
+    assert signals["user_authenticated"][0]["authn_via"] == ["email"]
 
     assert is_authenticated(clients, get_message)
 
@@ -232,7 +231,7 @@ def test_simple_signin(app, clients, get_message, outbox):
     )
     assert response.status_code == 200
     assert clients.get_cookie("remember_token")
-    assert "sms" in auths[1][1]
+    assert signals["user_authenticated"][1]["authn_via"] == ["sms"]
 
     assert is_authenticated(clients, get_message)
 
@@ -240,14 +239,8 @@ def test_simple_signin(app, clients, get_message, outbox):
     assert not clients.get_cookie("remember_token")
 
 
-def test_simple_signin_json(app, client_nc, get_message, outbox):
+def test_simple_signin_json(app, client_nc, get_message, outbox, signals):
     set_email(app)
-    auths = []
-
-    @user_authenticated.connect_via(app)
-    def authned(myapp, user, **extra_args):
-        auths.append((user.email, extra_args["authn_via"]))
-
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
 
     with capture_flashes() as flashes:
@@ -283,6 +276,12 @@ def test_simple_signin_json(app, client_nc, get_message, outbox):
         assert response.json["response"]["errors"][0].encode("utf-8") == get_message(
             "INVALID_PASSWORD_CODE"
         )
+        assert (
+            signals["user_failed_authn"][0]["request_endpoint"] == "security.us_signin"
+        )
+        assert signals["user_failed_authn"][0]["user"].email == "matt@lp.com"
+        assert signals["user_failed_authn"][0]["auth_type"] == "passcode"
+        assert not signals["user_failed_authn"][0]["tfa"]
 
         # Login successfully with code
         response = client_nc.post(
@@ -293,7 +292,7 @@ def test_simple_signin_json(app, client_nc, get_message, outbox):
         )
         assert response.status_code == 200
         assert "authentication_token" in response.json["response"]["user"]
-        assert "email" in auths[0][1]
+        assert signals["user_authenticated"][0]["authn_via"] == ["email"]
 
         logout(client_nc)
         assert not is_authenticated(client_nc, get_message)
@@ -593,13 +592,8 @@ def test_post_already_authenticated(client, get_message):
 
 
 @pytest.mark.settings(us_email_subject="Code For You")
-def test_verify_link(app, client, get_message, outbox):
+def test_verify_link(app, client, get_message, outbox, signals):
     set_email(app)
-    auths = []
-
-    @user_authenticated.connect_via(app)
-    def authned(myapp, user, **extra_args):
-        auths.append((user.email, extra_args["authn_via"]))
 
     with capture_send_code_requests() as requests:
         response = client.post(
@@ -634,14 +628,21 @@ def test_verify_link(app, client, get_message, outbox):
         follow_redirects=True,
     )
     assert get_message("INVALID_CODE") in response.data
+    assert (
+        signals["user_failed_authn"][0]["request_endpoint"] == "security.us_verify_link"
+    )
+    assert signals["user_failed_authn"][0]["user"].email == "matt@lp.com"
+    assert signals["user_failed_authn"][0]["auth_type"] == "passcode"
+    assert not signals["user_failed_authn"][0]["tfa"]
 
     # Try actual link
     response = client.get(magic_link, follow_redirects=True)
     assert get_message("PASSWORDLESS_LOGIN_SUCCESSFUL") in response.data
-    assert "email" in auths[0][1]
+    assert signals["user_authenticated"][0]["authn_via"] == ["email"]
 
     # verify logged in
     assert is_authenticated(client, get_message)
+    check_signals(signals, {"user_failed_authn": 1, "us_security_token_sent": 1})
 
 
 @pytest.mark.settings(
@@ -650,7 +651,7 @@ def test_verify_link(app, client, get_message, outbox):
     login_error_view="/login-error",
     post_login_view="/post-login",
 )
-def test_verify_link_spa(app, client, get_message, outbox):
+def test_verify_link_spa(app, client, get_message, outbox, signals):
     # N.B. we use client here since this only works/ is supported if using
     # sessions.
     set_email(app)
@@ -671,7 +672,7 @@ def test_verify_link_spa(app, client, get_message, outbox):
 
     # Try with no code
     response = client.get("us-verify-link?id=matt@lp.com", follow_redirects=False)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     split = urlsplit(response.headers["Location"])
     assert "localhost:8081" == split.netloc
     assert "/login-error" == split.path
@@ -680,7 +681,7 @@ def test_verify_link_spa(app, client, get_message, outbox):
 
     # Try unknown user
     response = client.get("us-verify-link?id=98765&code=12345", follow_redirects=False)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     split = urlsplit(response.headers["Location"])
     assert "localhost:8081" == split.netloc
     assert "/login-error" == split.path
@@ -692,26 +693,33 @@ def test_verify_link_spa(app, client, get_message, outbox):
         f"us-verify-link?id={requests[0]['user'].fs_uniquifier}&code=12345",
         follow_redirects=False,
     )
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     split = urlsplit(response.headers["Location"])
     assert "localhost:8081" == split.netloc
     assert "/login-error" == split.path
     qparams = dict(parse_qsl(split.query))
     assert get_message("INVALID_CODE") == qparams["error"].encode("utf-8")
+    assert (
+        signals["user_failed_authn"][0]["request_endpoint"] == "security.us_verify_link"
+    )
+    assert signals["user_failed_authn"][0]["user"].email == "matt@lp.com"
+    assert signals["user_failed_authn"][0]["auth_type"] == "passcode"
+    assert not signals["user_failed_authn"][0]["tfa"]
 
     # Try actual link
     response = client.get(magic_link, follow_redirects=False)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     split = urlsplit(response.headers["Location"])
     assert "localhost:8081" == split.netloc
     assert "/post-login" == split.path
     qparams = dict(parse_qsl(split.query))
     assert qparams["email"] == "matt@lp.com"
+    check_signals(signals, {"user_failed_authn": 1, "us_security_token_sent": 1})
 
     assert is_authenticated(client, get_message)
 
 
-def test_setup(app, clients, get_message):
+def test_setup(app, clients, get_message, signals):
     tcl = clients
     set_email(app)
     us_authenticate(tcl)
@@ -752,6 +760,8 @@ def test_setup(app, clients, get_message):
     # Try invalid code
     response = tcl.post(verify_url, data=dict(passcode=12345), follow_redirects=True)
     assert get_message("INVALID_PASSWORD_CODE") in response.data
+    # a bad code during setup shouldn't trigger the signal
+    assert len(signals["user_failed_authn"]) == 0
 
     code = sms_sender.messages[0].split()[-1].strip(".")
     response = tcl.post(verify_url, data=dict(passcode=code), follow_redirects=True)
@@ -1000,10 +1010,10 @@ def test_unique_phone(app, client, get_message):
 
 
 @pytest.mark.settings(freshness=timedelta(minutes=0))
-def test_verify(app, clients, get_message):
+def test_verify(app, clients, get_message, signals):
     client = clients
     # Test setup when re-authenticate required
-    # With  freshness set to 0 - the first call should require reauth (by
+    # With freshness set to 0 - the first call should require reauth (by
     # redirecting); but the second should work due to grace period.
     set_email(app)
     us_authenticate(client)
@@ -1041,9 +1051,10 @@ def test_verify(app, clients, get_message):
     code = sms_sender.messages[0].split()[-1].strip(".")
     response = client.post(verify_url, data=dict(passcode=code), follow_redirects=False)
     assert check_location(app, response.location, "/us-setup")
+    check_signals(signals, {"user_failed_authn": 0, "us_security_token_sent": 3})
 
 
-def test_verify_json(app, client, get_message):
+def test_verify_json(app, client, get_message, signals):
     # Test setup when re-authenticate required
     # N.B. with freshness=0 we never set a grace period and should never be able to
     # get to /us-setup
@@ -1068,6 +1079,8 @@ def test_verify_json(app, client, get_message):
     assert set(response.json["response"]["code_methods"]) == {
         "email",
     }
+    assert not response.json["response"]["oauth_enabled"]
+    assert not response.json["response"]["oauth_providers"]
 
     response = client.post(
         "us-verify/send-code",
@@ -1095,6 +1108,10 @@ def test_verify_json(app, client, get_message):
     assert response.json["response"]["field_errors"]["passcode"][0].encode(
         "utf-8"
     ) == get_message("INVALID_PASSWORD_CODE")
+    assert signals["user_failed_authn"][0]["request_endpoint"] == "security.us_verify"
+    assert signals["user_failed_authn"][0]["user"].email == "matt@lp.com"
+    assert signals["user_failed_authn"][0]["auth_type"] == "passcode"
+    assert not signals["user_failed_authn"][0]["tfa"]
 
     response = client.post("us-verify", json=dict(passcode=None), headers=headers)
     assert response.status_code == 400
@@ -1109,6 +1126,8 @@ def test_verify_json(app, client, get_message):
     app.config["SECURITY_FRESHNESS"] = timedelta(minutes=60)
     response = client.get("us-setup", headers=headers)
     assert response.status_code == 200
+    assert len(signals["user_failed_authn"]) == 1
+    check_signals(signals, {"user_failed_authn": 1, "us_security_token_sent": 2})
 
 
 @pytest.mark.settings(freshness=timedelta(minutes=-1))
@@ -1297,19 +1316,19 @@ def test_requires_confirmation_error_redirect(app, client):
         data=dict(identity="jyl@lp.com", chosen_method="email"),
         follow_redirects=False,
     )
-    assert "/confirm" in response.location
+    assert response.location == "/confirm?email=jyl%40lp.com"
 
     response = client.post(
         "/us-signin",
         data=dict(identity="jyl@lp.com", passcode="password"),
         follow_redirects=False,
     )
-    assert "/confirm" in response.location
+    assert response.location == "/confirm?email=jyl%40lp.com"
 
 
 @pytest.mark.registerable()
 @pytest.mark.confirmable()
-def test_confirmable(app, client, get_message):
+def test_confirmable(app, client, get_message, signals):
     # Verify can't log in if need confirmation.
     data = dict(
         email="dude@lp.com", password="password", password_confirm="password", next=""
@@ -1326,6 +1345,7 @@ def test_confirmable(app, client, get_message):
     assert response.status_code == 200
 
     assert get_message("CONFIRMATION_REQUIRED") in response.data
+    check_signals(signals, "user_registered")
 
     # Verify not authenticated
     assert not is_authenticated(client, get_message)
@@ -1528,6 +1548,34 @@ def test_tf_link(app, client, get_message, outbox):
 
 
 @pytest.mark.two_factor()
+@pytest.mark.settings(two_factor_required=True, us_mfa_required=["password"])
+def test_tf_link_not_email(app, client, get_message, outbox):
+    # Verify two-factor not required when using magic link and us_mfa_required set
+    auths = []
+
+    @user_authenticated.connect_via(app)
+    def authned(myapp, user, **extra_args):
+        auths.append((user.email, extra_args["authn_via"]))
+
+    set_email(app)
+    response = client.post(
+        "/us-signin/send-code",
+        data=dict(identity="matt@lp.com", chosen_method="email"),
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"Sign In" in response.data
+
+    matcher = re.match(
+        r".*(http://[^\s*]*).*", outbox[0].body, re.IGNORECASE | re.DOTALL
+    )
+    magic_link = matcher.group(1)
+    client.get(magic_link, follow_redirects=True)
+    assert "email" in auths[0][1]
+    assert is_authenticated(client, get_message)
+
+
+@pytest.mark.two_factor()
 @pytest.mark.settings(
     two_factor_required=True,
     redirect_host="localhost:8081",
@@ -1652,49 +1700,18 @@ def test_bad_sender(app, client, get_message):
     ) == get_message("FAILED_TO_SEND_CODE")
 
 
+def _send_code(self, method, **kwargs):
+    assert method == "sms"
+    return "NO SMS AVAILABLE"
+
+
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(us_send_security_token=_send_code))
 @pytest.mark.registerable()
-def test_replace_send_code(app, get_message):
-    pytest.importorskip("sqlalchemy")
-    pytest.importorskip("flask_sqlalchemy")
-
-    from flask_sqlalchemy import SQLAlchemy
-    from flask_security.models import fsqla_v2 as fsqla
-    from flask_security import Security, us_send_security_token
-
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-    db = SQLAlchemy(app)
-
-    fsqla.FsModels.set_db_info(db)
-
-    class Role(db.Model, fsqla.FsRoleMixin):
-        pass
-
-    class User(db.Model, fsqla.FsUserMixin):
-        def us_send_security_token(self, method, **kwargs):
-            assert method == "sms"
-            us_send_security_token(self, method, **kwargs)
-
-    with app.app_context():
-        db.create_all()
-
-    ds = SQLAlchemyUserDatastore(db, User, Role)
-    app.security = Security(app, datastore=ds)
-
-    client = app.test_client()
-
-    # since we don't use client fixture - have to add user
-    data = dict(email="trp@lp.com", password="password", password_confirm="password")
-    response = client.post("/register", data=data, follow_redirects=True)
-    assert b"Welcome trp@lp.com" in response.data
-    logout(client)
-
-    set_phone(app, email="trp@lp.com")
-    data = dict(identity="trp@lp.com", chosen_method="sms")
+def test_replace_send_code(app, client, get_message):
+    set_phone(app, "gal@lp.com")
+    data = dict(identity="gal@lp.com", chosen_method="sms")
     response = client.post("/us-signin/send-code", data=data, follow_redirects=True)
-    assert b"Code has been sent" in response.data
-
-    with app.app_context():
-        db.engine.dispose()  # sqlite wants everything cleaned up
+    assert b"NO SMS AVAILABLE" in response.data
 
 
 @pytest.mark.settings(us_enabled_methods=["password"])
@@ -1748,9 +1765,17 @@ def test_totp_generation(app, client, get_message):
         "us-setup", json=dict(chosen_method="authenticator"), headers=headers
     )
     assert response.status_code == 200
-    assert response.json["response"]["authr_issuer"] == "tests"
-    assert response.json["response"]["authr_username"] == "dave@lp.com"
+    jr = response.json["response"]
+    assert jr["authr_issuer"] == "tests"
+    assert jr["authr_username"] == "dave@lp.com"
     assert "authr_key" in response.json["response"]
+    assert len(jr["authr_b32key"]) % 8 == 0 and re.match(
+        r"^[A-Z2-7]+=*$", jr["authr_b32key"]
+    )
+    assert (
+        jr["authr_uri"]
+        == f"otpauth://totp/tests:dave@lp.com?secret={jr['authr_b32key']}&issuer=tests"
+    )
 
     state = response.json["response"]["state"]
 
@@ -2376,3 +2401,59 @@ def test_us_setup_authenticator_sms(app, client, get_message):
     assert len(chosen_methods_choices) == 2
     assert chosen_methods_choices[0][0] == "authenticator"
     assert chosen_methods_choices[1][0] == "sms"
+
+
+def _tf_required(self, tf_setup_methods, tf_fresh):
+    if self.email == "gal@lp.com":
+        return False, tf_setup_methods
+    return True, tf_setup_methods
+
+
+@pytest.mark.two_factor()
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(check_tf_required=_tf_required))
+@pytest.mark.settings(two_factor_required=True)
+def test_override_tf_required(app, client, get_message):
+    data = dict(identity="jill@lp.com", passcode="password")
+    response = client.post("/us-signin", json=data)
+    assert response.status_code == 200
+    assert response.json["response"]["tf_required"]
+
+    data = dict(identity="gal@lp.com", passcode="password")
+    response = client.post("/us-signin", json=data)
+    assert response.status_code == 200
+    assert not response.json["response"]["tf_required"]
+
+
+def _allowed(self, form_error):
+    if self.email == "gal@lp.com":
+        form_error.append("You are not allowed to do that")
+        return False
+    return True
+
+
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_allowed))
+def test_override_user_allowed(app, client, get_message):
+    data = dict(identity="jill@lp.com", passcode="password")
+    response = client.post("/us-signin", json=data)
+    assert response.status_code == 200
+    logout(client)
+
+    data = dict(identity="gal@lp.com", passcode="password")
+    response = client.post("/us-signin", json=data)
+    assert response.status_code == 400
+    assert response.json["response"]["errors"] == ["You are not allowed to do that"]
+    assert response.json["response"]["field_errors"]["identity"] == [
+        "You are not allowed to do that"
+    ]
+
+
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_allowed))
+@pytest.mark.settings(return_generic_responses=True)
+def test_override_user_allowed_gr(app, client, get_message):
+    data = dict(identity="gal@lp.com", passcode="password")
+    response = client.post("/us-signin", json=data)
+    assert response.status_code == 400
+    assert response.json["response"]["errors"][0].encode("utf-8") == get_message(
+        "GENERIC_AUTHN_FAILED"
+    )
+    assert "identity" not in response.json["response"]["field_errors"]

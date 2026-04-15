@@ -1,6 +1,6 @@
 [package]
 name = "icechunk-python"
-version = "2.0.1"
+version = "2.0.2"
 description = "Transactional storage engine for Zarr designed for use on cloud object storage"
 readme = "README.md"
 repository = "https://github.com/earth-mover/icechunk"
@@ -27,6 +27,7 @@ chrono.workspace = true
 futures.workspace = true
 itertools.workspace = true
 miette.workspace = true
+numpy.workspace = true
 pyo3.workspace = true
 pyo3-async-runtimes.workspace = true
 pyo3-bytes.workspace = true

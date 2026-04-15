@@ -182,7 +182,10 @@ pub async fn run_pipeline(doc: InternalDocument, config: &ExtractionConfig) -> R
     #[cfg(feature = "liter-llm")]
     if let Some(ref structured_config) = config.structured_extraction {
         match crate::llm::structured::extract_structured(&result.content, structured_config).await {
-            Ok(output) => result.structured_output = Some(output),
+            Ok((output, usage)) => {
+                result.structured_output = Some(output);
+                crate::llm::usage::push_llm_usage(&mut result, usage);
+            }
             Err(e) => {
                 tracing::warn!("Structured extraction failed: {e}");
                 result.processing_warnings.push(crate::types::ProcessingWarning {

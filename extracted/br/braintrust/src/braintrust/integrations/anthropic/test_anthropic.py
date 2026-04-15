@@ -19,7 +19,8 @@ from braintrust.integrations.anthropic.tracing import (
     _get_metadata_from_kwargs,
     _log_message_to_span,
 )
-from braintrust.test_helpers import init_test_logger
+from braintrust.span_types import SpanTypeAttribute
+from braintrust.test_helpers import find_span_by_name, find_spans_by_type, init_test_logger
 
 
 PROJECT_NAME = "test-anthropic-app"
@@ -75,6 +76,67 @@ def _get_supported_structured_output_param():
     pytest.skip("Installed anthropic SDK does not support structured outputs parameters")
 
 
+def _skip_if_server_tool_content_blocks_unsupported():
+    required_type_names = ("ServerToolUseBlock", "WebSearchToolResultBlock")
+    if not all(hasattr(anthropic.types, type_name) for type_name in required_type_names):
+        pytest.skip("Installed anthropic SDK does not support Anthropic server tool content blocks")
+
+
+def _skip_if_managed_agents_unsupported():
+    client = _get_client()
+    if not hasattr(client.beta, "agents"):
+        pytest.skip("Installed anthropic SDK does not support beta managed agents")
+    if not hasattr(client.beta, "sessions"):
+        pytest.skip("Installed anthropic SDK does not support beta managed agent sessions")
+    if not hasattr(client.beta.sessions, "events") or not hasattr(client.beta.sessions.events, "send"):
+        pytest.skip("Installed anthropic SDK does not support beta managed agent session events")
+
+
+_MANAGED_AGENTS_EVENTS_PROMPT = "Use bash once to print 2+2, then reply with only the number."
+_MANAGED_AGENTS_AGENT_NAME = "braintrust-sdk-managed-agent"
+_MANAGED_AGENTS_BASH_AGENT_NAME = "braintrust-sdk-managed-agent-bash"
+_MANAGED_AGENTS_BASH_SYSTEM_PROMPT = (
+    "For arithmetic requests, use exactly one bash command and then answer with only the numeric result."
+)
+
+
+def _get_managed_agents_environment_id(client):
+    environments = client.beta.environments.list(limit=1)
+    for environment in environments:
+        return environment.id
+    pytest.skip("No Anthropic managed-agent environment available for re-recording")
+
+
+def _create_managed_agent(client, *, with_bash: bool = False):
+    create_kwargs = {
+        "model": "claude-haiku-4-5",
+        "name": _MANAGED_AGENTS_BASH_AGENT_NAME if with_bash else _MANAGED_AGENTS_AGENT_NAME,
+        "description": "Does math",
+        "tools": [],
+    }
+    if with_bash:
+        create_kwargs["description"] = "Uses bash for a single arithmetic command"
+        create_kwargs["system"] = _MANAGED_AGENTS_BASH_SYSTEM_PROMPT
+        create_kwargs["tools"] = [
+            {
+                "type": "agent_toolset_20260401",
+                "default_config": {"enabled": False},
+                "configs": [
+                    {"name": "bash", "enabled": True, "permission_policy": {"type": "always_allow"}},
+                ],
+            }
+        ]
+
+    return client.beta.agents.create(**create_kwargs)
+
+
+def _cleanup_managed_agent_resources(client, agent_id: str | None = None, session_id: str | None = None):
+    if session_id:
+        client.beta.sessions.delete(session_id)
+    if agent_id and hasattr(client.beta.agents, "archive"):
+        client.beta.agents.archive(agent_id)
+
+
 @pytest.fixture
 def memory_logger():
     init_test_logger(PROJECT_NAME)
@@ -124,9 +186,10 @@ def test_get_input_from_kwargs_converts_multimodal_base64_blocks_to_attachments(
 
     assert document_block["type"] == "document"
     assert document_block["source"] == {"type": "base64", "media_type": "application/pdf"}
-    assert isinstance(document_block["image_url"]["url"], Attachment)
-    assert document_block["image_url"]["url"].reference["content_type"] == "application/pdf"
-    assert document_block["image_url"]["url"].reference["filename"] == "document.pdf"
+    assert document_block["file"]["filename"] == "document.pdf"
+    assert isinstance(document_block["file"]["file_data"], Attachment)
+    assert document_block["file"]["file_data"].reference["content_type"] == "application/pdf"
+    assert document_block["file"]["file_data"].reference["filename"] == "document.pdf"
 
     serialized = str(processed_input)
     assert PNG_BASE64 not in serialized
@@ -365,9 +428,10 @@ def test_anthropic_messages_create_with_document_attachment_input(memory_logger)
 
     assert document_block["type"] == "document"
     assert document_block["source"] == {"type": "base64", "media_type": "application/pdf"}
-    assert isinstance(document_block["image_url"]["url"], Attachment)
-    assert document_block["image_url"]["url"].reference["content_type"] == "application/pdf"
-    assert document_block["image_url"]["url"].reference["filename"] == "document.pdf"
+    assert document_block["file"]["filename"] == "document.pdf"
+    assert isinstance(document_block["file"]["file_data"], Attachment)
+    assert document_block["file"]["file_data"].reference["content_type"] == "application/pdf"
+    assert document_block["file"]["file_data"].reference["filename"] == "document.pdf"
     assert PDF_BASE64 not in str(span["input"])
 
 
@@ -797,6 +861,73 @@ def test_anthropic_messages_sync(memory_logger):
     assert log["output"]["stop_reason"] == msg.stop_reason
 
 
+@pytest.mark.vcr
+def test_anthropic_messages_sync_server_tool_spans(memory_logger):
+    _skip_if_server_tool_content_blocks_unsupported()
+    assert not memory_logger.pop()
+
+    client = wrap_anthropic(_get_client())
+
+    start = time.time()
+    msg = client.messages.create(
+        model=MULTIMODAL_MODEL,
+        max_tokens=256,
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    "Use the web_search tool to find the Braintrust docs homepage. "
+                    "Then answer with exactly the homepage URL and no other text."
+                ),
+            }
+        ],
+        tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}],
+        tool_choice={"type": "tool", "name": "web_search", "disable_parallel_tool_use": True},
+    )
+    end = time.time()
+
+    tool_use_block = next(block for block in msg.content if block.type == "server_tool_use")
+    result_block = next(block for block in msg.content if block.type == "web_search_tool_result")
+    text_block = next(block for block in msg.content if block.type == "text")
+
+    assert text_block.text == "https://www.braintrust.dev/docs"
+
+    spans = memory_logger.pop()
+    llm_spans = find_spans_by_type(spans, SpanTypeAttribute.LLM)
+    tool_spans = find_spans_by_type(spans, SpanTypeAttribute.TOOL)
+
+    assert len(llm_spans) == 1
+    assert len(tool_spans) == 1
+
+    llm_span = find_span_by_name(llm_spans, "anthropic.messages.create")
+    tool_span = find_span_by_name(tool_spans, "web_search")
+
+    _assert_metrics_are_valid(llm_span["metrics"], start, end)
+    assert llm_span["metadata"]["model"] == MULTIMODAL_MODEL
+    assert llm_span["metrics"]["server_tool_use_web_search_requests"] == 1
+    assert llm_span["output"]["model"] == msg.model
+    assert llm_span["output"]["stop_reason"] == msg.stop_reason
+
+    llm_result_block = next(
+        block for block in llm_span["output"]["content"] if block["type"] == "web_search_tool_result"
+    )
+    assert "encrypted_content" in llm_result_block["content"][0]
+
+    assert tool_span["input"] == tool_use_block.input
+    assert isinstance(tool_span["output"], list)
+    assert tool_span["output"][0]["type"] == "web_search_result"
+    assert tool_span["output"][0]["url"] == text_block.text
+    assert tool_span["output"][0]["encrypted_content"] == "<redacted>"
+    assert tool_span["metadata"] == {
+        "tool_use_id": tool_use_block.id,
+        "tool_call_type": "server_tool_use",
+        "tool_result_type": result_block.type,
+        "caller": {"type": "direct"},
+    }
+    assert tool_span["span_parents"] == [llm_span["span_id"]]
+    assert tool_span["root_span_id"] == llm_span["root_span_id"]
+
+
 def _assert_metrics_are_valid(metrics, start, end):
     assert metrics["tokens"] > 0
     assert metrics["prompt_tokens"] > 0
@@ -934,6 +1065,179 @@ async def test_anthropic_beta_messages_streaming_async(memory_logger):
     assert metrics["prompt_tokens"] == usage.input_tokens
     assert metrics["completion_tokens"] == usage.output_tokens
     assert metrics["tokens"] == usage.input_tokens + usage.output_tokens
+
+
+@pytest.mark.vcr(match_on=["method", "scheme", "host", "port", "path", "body"])
+def test_anthropic_beta_agents_create(memory_logger):
+    _skip_if_managed_agents_unsupported()
+    assert not memory_logger.pop()
+
+    raw_client = _get_client()
+    agent_name = _MANAGED_AGENTS_AGENT_NAME
+    agent = None
+    try:
+        client = wrap_anthropic(_get_client())
+        agent = client.beta.agents.create(
+            model="claude-haiku-4-5",
+            name=agent_name,
+            description="Does math",
+            tools=[],
+        )
+
+        assert agent.id.startswith("agent_")
+        assert agent.version >= 1
+
+        spans = memory_logger.pop()
+        assert len(spans) == 1
+        span = spans[0]
+        assert span["span_attributes"]["name"] == "anthropic.beta.agents.create"
+        assert span["span_attributes"]["type"] == "task"
+        assert span["metadata"]["provider"] == "anthropic"
+        assert span["metadata"]["anthropic_api"] == "managed_agents"
+        assert span["metadata"]["model"] == "claude-haiku-4-5"
+        assert span["input"] == {
+            "model": "claude-haiku-4-5",
+            "name": agent_name,
+            "description": "Does math",
+            "tools": [],
+        }
+        assert span["output"]["id"] == agent.id
+        assert span["output"]["type"] == "agent"
+        assert span["output"]["model"]["id"] == "claude-haiku-4-5"
+    finally:
+        if agent is not None:
+            _cleanup_managed_agent_resources(raw_client, agent_id=agent.id)
+
+
+@pytest.mark.vcr(match_on=["method", "scheme", "host", "port", "path", "body"])
+def test_anthropic_beta_sessions_create(memory_logger):
+    _skip_if_managed_agents_unsupported()
+    assert not memory_logger.pop()
+
+    raw_client = _get_client()
+    environment_id = _get_managed_agents_environment_id(raw_client)
+    agent = _create_managed_agent(raw_client)
+    session = None
+    try:
+        client = wrap_anthropic(_get_client())
+        session = client.beta.sessions.create(
+            agent=agent.id,
+            environment_id=environment_id,
+            metadata={"purpose": "test"},
+            title="Issue 259 test",
+        )
+
+        assert session.id.startswith("sesn_")
+        assert session.status == "idle"
+
+        spans = memory_logger.pop()
+        assert len(spans) == 1
+        span = spans[0]
+        assert span["span_attributes"]["name"] == "anthropic.beta.sessions.create"
+        assert span["span_attributes"]["type"] == "task"
+        assert span["metadata"]["provider"] == "anthropic"
+        assert span["metadata"]["anthropic_api"] == "managed_agents"
+        assert span["metadata"]["session_status"] == "idle"
+        assert span["input"] == {
+            "agent": agent.id,
+            "environment_id": environment_id,
+            "metadata": {"purpose": "test"},
+            "title": "Issue 259 test",
+        }
+        assert span["metrics"]["prompt_tokens"] >= 0
+        assert span["metrics"]["completion_tokens"] >= 0
+        assert span["metrics"]["tokens"] >= span["metrics"]["prompt_tokens"]
+        assert span["metrics"]["active_seconds"] >= 0
+        assert span["metrics"]["duration_seconds"] >= span["metrics"]["active_seconds"]
+        assert span["output"]["id"] == session.id
+        assert span["output"]["status"] == "idle"
+        assert span["output"]["environment_id"] == environment_id
+    finally:
+        _cleanup_managed_agent_resources(raw_client, agent_id=agent.id, session_id=getattr(session, "id", None))
+
+
+@pytest.mark.vcr(match_on=["method", "scheme", "host", "port", "path", "body"])
+def test_anthropic_beta_sessions_events_send_and_stream(memory_logger):
+    _skip_if_managed_agents_unsupported()
+    assert not memory_logger.pop()
+
+    raw_client = _get_client()
+    environment_id = _get_managed_agents_environment_id(raw_client)
+    agent = _create_managed_agent(raw_client, with_bash=True)
+    session = raw_client.beta.sessions.create(
+        agent=agent.id,
+        environment_id=environment_id,
+        metadata={"purpose": "test"},
+        title="Issue 259 event stream",
+    )
+    try:
+        client = wrap_anthropic(_get_client())
+        sent = client.beta.sessions.events.send(
+            session.id,
+            events=[
+                {
+                    "type": "user.message",
+                    "content": [{"type": "text", "text": _MANAGED_AGENTS_EVENTS_PROMPT}],
+                }
+            ],
+        )
+        streamed_events = []
+        with client.beta.sessions.events.stream(session.id) as stream:
+            for event in stream:
+                streamed_events.append(event)
+                if event.type in {"session.status_idle", "session.status_terminated"}:
+                    break
+
+        assert sent.data and sent.data[0].type == "user.message"
+        event_types = [event.type for event in streamed_events]
+        assert event_types[0] == "session.status_running"
+        assert event_types[-1] == "session.status_idle"
+        assert "agent.tool_use" in event_types
+        assert "agent.tool_result" in event_types
+        assert "span.model_request_end" in event_types
+
+        spans = memory_logger.pop()
+        task_spans = find_spans_by_type(spans, SpanTypeAttribute.TASK)
+        tool_spans = find_spans_by_type(spans, SpanTypeAttribute.TOOL)
+
+        assert len(task_spans) == 2
+        assert len(tool_spans) >= 1
+
+        send_span = find_span_by_name(task_spans, "anthropic.beta.sessions.events.send")
+        stream_span = find_span_by_name(task_spans, "anthropic.beta.sessions.events.stream")
+        tool_span = find_span_by_name(tool_spans, "bash")
+
+        assert send_span["input"] == {
+            "session_id": session.id,
+            "events": [{"type": "user.message", "content": [{"type": "text", "text": _MANAGED_AGENTS_EVENTS_PROMPT}]}],
+        }
+        assert send_span["output"]["data"][0]["type"] == "user.message"
+        assert send_span["output"]["data"][0]["content"][0]["text"] == _MANAGED_AGENTS_EVENTS_PROMPT
+
+        assert stream_span["input"] == {"session_id": session.id}
+        streamed_output_types = [event["type"] for event in stream_span["output"]]
+        assert streamed_output_types[0] == "session.status_running"
+        assert streamed_output_types[-1] == "session.status_idle"
+        assert "agent.tool_use" in streamed_output_types
+        assert "agent.tool_result" in streamed_output_types
+        assert "agent.message" in streamed_output_types
+        assert stream_span["metadata"]["provider"] == "anthropic"
+        assert stream_span["metadata"]["anthropic_api"] == "managed_agents"
+        assert stream_span["metadata"]["session_status"] == "idle"
+        assert stream_span["metadata"]["stop_reason"] == "end_turn"
+        assert stream_span["metrics"]["prompt_tokens"] > 0
+        assert stream_span["metrics"]["completion_tokens"] > 0
+        assert stream_span["metrics"]["tokens"] >= stream_span["metrics"]["prompt_tokens"]
+
+        assert tool_span["input"]["command"]
+        assert tool_span["output"][0]["text"].strip() == "4"
+        assert tool_span["metadata"]["tool_call_type"] == "agent.tool_use"
+        assert tool_span["metadata"]["tool_result_type"] == "agent.tool_result"
+        assert tool_span["metadata"]["tool_use_id"]
+        assert tool_span["span_parents"] == [stream_span["span_id"]]
+        assert tool_span["root_span_id"] == stream_span["root_span_id"]
+    finally:
+        _cleanup_managed_agent_resources(raw_client, agent_id=agent.id, session_id=session.id)
 
 
 @pytest.mark.vcr

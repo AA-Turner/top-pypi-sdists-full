@@ -40,11 +40,14 @@ class ClickHouseConfig:
         CLICKHOUSE_PORT: The port number (default: 8443 if secure=True, 8123 if secure=False)
         CLICKHOUSE_SECURE: Enable HTTPS (default: true)
         CLICKHOUSE_VERIFY: Verify SSL certificates (default: true)
+        CLICKHOUSE_SERVER_HOST_NAME: Server hostname for SNI override and certificate validation (default: None)
         CLICKHOUSE_CONNECT_TIMEOUT: Connection timeout in seconds (default: 30)
         CLICKHOUSE_SEND_RECEIVE_TIMEOUT: Send/receive timeout in seconds (default: 300)
         CLICKHOUSE_DATABASE: Default database to use (default: None)
         CLICKHOUSE_PROXY_PATH: Path to be added to the host URL. For instance, for servers behind an HTTP proxy (default: None)
         CLICKHOUSE_ENABLED: Enable ClickHouse server (default: true)
+        CLICKHOUSE_ALLOW_WRITE_ACCESS: Allow write operations (DDL and DML) (default: false)
+        CLICKHOUSE_ALLOW_DROP: Allow destructive operations (DROP, TRUNCATE) when writes are also enabled (default: false)
     """
 
     def __init__(self):
@@ -113,6 +116,11 @@ class ClickHouseConfig:
         return os.getenv("CLICKHOUSE_VERIFY", "true").lower() == "true"
 
     @property
+    def server_host_name(self) -> Optional[str]:
+        """Get the server hostname for SNI override."""
+        return os.getenv("CLICKHOUSE_SERVER_HOST_NAME")
+
+    @property
     def connect_timeout(self) -> int:
         """Get the connection timeout in seconds.
 
@@ -131,6 +139,25 @@ class ClickHouseConfig:
     @property
     def proxy_path(self) -> str:
         return os.getenv("CLICKHOUSE_PROXY_PATH")
+
+    @property
+    def allow_write_access(self) -> bool:
+        """Get whether write operations (DDL and DML) are allowed.
+
+        Default: False
+        """
+        return os.getenv("CLICKHOUSE_ALLOW_WRITE_ACCESS", "false").lower() == "true"
+
+    @property
+    def allow_drop(self) -> bool:
+        """Get whether DROP operations (DROP TABLE, DROP DATABASE) are allowed.
+
+        This setting provides an additional safety layer when write access is enabled.
+        Even with CLICKHOUSE_ALLOW_WRITE_ACCESS=true, DROP operations require this flag.
+
+        Default: False
+        """
+        return os.getenv("CLICKHOUSE_ALLOW_DROP", "false").lower() == "true"
 
     def get_client_config(self) -> dict:
         """Get the configuration dictionary for clickhouse_connect client.
@@ -161,6 +188,9 @@ class ClickHouseConfig:
 
         if self.proxy_path:
             config["proxy_path"] = self.proxy_path
+
+        if self.server_host_name:
+            config["server_host_name"] = self.server_host_name
 
         return config
 

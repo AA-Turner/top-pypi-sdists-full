@@ -41,17 +41,17 @@ OauthCbType = cabc.Callable[["OAuth", t.Any], tuple[str, t.Any]]
 
 class FsOAuthProvider:
     """
-    Subclass this or instantiate to add new oauth providers.
+    Subclass this or instantiate to add new OAuth providers.
 
-    Subclassing allows for customizing additional aspects of the oauth flow
-    in particular - a custom error path for oauth flow state mismatches and
+    Subclassing allows for customizing additional aspects of the OAuth flow
+    in particular - a custom error path for OAuth flow state mismatches and
     other errors thrown by authlib.
 
     Call security.oauthglue.register_provider_ext(myproviderclass("myprovider"))
 
     :param name: a name for provider - must match what was passed if this
-     is already registered with Oauth.
-    :param registration_info: This dict is passed directly to Oauth as
+     is already registered with OAuth.
+    :param registration_info: This dict is passed directly to OAuth as
      part of registration - not needed if provider already registered with
      Oauth
     :param fetch_identity_cb: Call back from response to oauth flow.
@@ -81,7 +81,7 @@ class FsOAuthProvider:
             raise NotImplementedError
         return self._fetch_identity_cb(oauth, token)
 
-    def oauth_response_failure(self, e: OAuthError) -> ResponseValue:
+    def oauth_response_failure(self, error_view: str, e: OAuthError) -> ResponseValue:
         """Called if authlib authorize_access_token throws an error.
 
         N.B. flashing doesn't seem to work in some cases - if the session
@@ -91,7 +91,7 @@ class FsOAuthProvider:
             "OAUTH_HANDSHAKE_ERROR", exerror=e.error, exdesc=e.description
         )
         if cv("REDIRECT_BEHAVIOR") == "spa":
-            return redirect(get_url(cv("LOGIN_ERROR_VIEW"), qparams={c: m}))
+            return redirect(get_url(cv(error_view), qparams={c: m}))
         do_flash(m, c)
         return redirect(url_for_security("login"))
 

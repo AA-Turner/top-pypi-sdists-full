@@ -28,8 +28,6 @@ from mujoco_warp import EnableBit
 from mujoco_warp import GainType
 from mujoco_warp import IntegratorType
 from mujoco_warp import test_data
-from mujoco_warp._src.types import SPARSE_CONSTRAINT_JACOBIAN
-from mujoco_warp._src.util_pkg import check_version
 
 # tolerance for difference between MuJoCo and mjwarp smooth calculations - mostly
 # due to float precision
@@ -55,8 +53,9 @@ class ForwardTest(parameterized.TestCase):
     _assert_eq(d.actuator_velocity.numpy()[0], mjd.actuator_velocity, "actuator_velocity")
     _assert_eq(d.qfrc_bias.numpy()[0], mjd.qfrc_bias, "qfrc_bias")
 
-  def test_fwd_velocity_tendon(self):
-    _, mjd, m, d = test_data.fixture("tendon/fixed.xml")
+  @parameterized.parameters(mujoco.mjtJacobian.mjJAC_SPARSE, mujoco.mjtJacobian.mjJAC_DENSE)
+  def test_fwd_velocity_tendon(self, jacobian):
+    _, mjd, m, d = test_data.fixture("tendon/fixed.xml", overrides={"opt.jacobian": jacobian})
 
     d.ten_velocity.zero_()
     mjw.fwd_velocity(m, d)
@@ -182,7 +181,7 @@ class ForwardTest(parameterized.TestCase):
     _assert_eq(d.xpos.numpy()[0], mjd.xpos, "xpos")
 
     # test rungekutta determinism
-    def rk_step() -> wp.array(dtype=wp.float32, ndim=2):
+    def rk_step() -> wp.array2d[wp.float32]:
       d.qpos = wp.ones_like(d.qpos)
       d.qvel = wp.ones_like(d.qvel)
       d.act = wp.ones_like(d.act)
@@ -204,6 +203,8 @@ class ForwardTest(parameterized.TestCase):
         "opt.jacobian": jacobian,
         "opt.disableflags": DisableBit.CONTACT | actuation | spring | damper,
         "opt.integrator": IntegratorType.IMPLICITFAST,
+        # TODO(team): remove override when mujoco warp feature matches mujoco
+        "opt.enableflags": EnableBit.INVDISCRETE,
       },
     )
 
@@ -252,13 +253,14 @@ class ForwardTest(parameterized.TestCase):
     _assert_eq(d.qpos.numpy()[0], mjd.qpos, "qpos")
     _assert_eq(d.qvel.numpy()[0], mjd.qvel, "qvel")
 
-  def test_implicit_tendon_damping(self):
+  @parameterized.parameters(mujoco.mjtJacobian.mjJAC_SPARSE, mujoco.mjtJacobian.mjJAC_DENSE)
+  def test_implicit_tendon_damping(self, jacobian):
     mjm, mjd, m, d = test_data.fixture(
       "tendon/damping.xml",
       keyframe=0,
       qvel_noise=0.01,
       ctrl_noise=0.1,
-      overrides={"opt.integrator": IntegratorType.IMPLICITFAST},
+      overrides={"opt.integrator": IntegratorType.IMPLICITFAST, "opt.jacobian": jacobian},
     )
 
     mujoco.mj_implicit(mjm, mjd)
@@ -295,9 +297,12 @@ class ForwardTest(parameterized.TestCase):
     _assert_eq(d.energy.numpy()[0][0], mjd.energy[0], "potential energy")
     _assert_eq(d.energy.numpy()[0][1], mjd.energy[1], "kinetic energy")
 
-  def test_tendon_actuator_force_limits(self):
+  @parameterized.parameters(mujoco.mjtJacobian.mjJAC_SPARSE, mujoco.mjtJacobian.mjJAC_DENSE)
+  def test_tendon_actuator_force_limits(self, jacobian):
     for keyframe in range(7):
-      _, mjd, m, d = test_data.fixture("actuation/tendon_force_limit.xml", keyframe=keyframe)
+      _, mjd, m, d = test_data.fixture(
+        "actuation/tendon_force_limit.xml", keyframe=keyframe, overrides={"opt.jacobian": jacobian}
+      )
 
       d.actuator_force.zero_()
 
@@ -395,7 +400,7 @@ class ForwardTest(parameterized.TestCase):
     nefc = d.nefc.numpy()[0]
     if nefc > 0:
       nv = m.nv
-      if SPARSE_CONSTRAINT_JACOBIAN:
+      if m.is_sparse:
         # Reconstruct dense J from sparse representation
         d_efc_J = np.zeros((nefc, nv))
         mujoco.mju_sparse2dense(
@@ -447,16 +452,15 @@ class ForwardTest(parameterized.TestCase):
           d.moment_colind.numpy()[0],
         )
       elif arr == "ten_J":
-        if check_version("mujoco>=3.5.1.dev872479828"):
-          ten_J = np.zeros((mjm.ntendon, mjm.nv))
-          if mjm.ntendon:
-            if check_version("mujoco>=3.5.1.dev875093374"):
-              mujoco.mju_sparse2dense(ten_J, mjd.ten_J, mjm.ten_J_rownnz, mjm.ten_J_rowadr, mjm.ten_J_colind)
-            else:
-              mujoco.mju_sparse2dense(ten_J, mjd.ten_J, mjd.ten_J_rownnz, mjd.ten_J_rowadr, mjd.ten_J_colind)
-          mjd_arr = ten_J
-        else:
-          mjd_arr = mjd.ten_J.reshape((mjm.ntendon, mjm.nv))
+        # convert warp sparse ten_J to dense for comparison
+        d_ten_J = np.zeros((mjm.ntendon, mjm.nv))
+        if mjm.ntendon:
+          mujoco.mju_sparse2dense(d_ten_J, d_arr, m.ten_J_rownnz.numpy(), m.ten_J_rowadr.numpy(), m.ten_J_colind.numpy())
+        d_arr = d_ten_J
+        ten_J = np.zeros((mjm.ntendon, mjm.nv))
+        if mjm.ntendon:
+          mujoco.mju_sparse2dense(ten_J, mjd.ten_J, mjm.ten_J_rownnz, mjm.ten_J_rowadr, mjm.ten_J_colind)
+        mjd_arr = ten_J
       elif arr == "efc_J" or arr == "efc_id":
         # Already checked earlier
         continue
@@ -489,7 +493,11 @@ class ForwardTest(parameterized.TestCase):
     integrator=(IntegratorType.EULER, IntegratorType.IMPLICITFAST, IntegratorType.RK4),
   )
   def test_step2(self, xml, integrator):
-    mjm, mjd, m, _ = test_data.fixture(xml, qvel_noise=0.01, ctrl_noise=0.1, overrides={"opt.integrator": integrator})
+    # TODO(team): remove enableflags override when mujoco warp feature matches mujoco
+    enableflags = EnableBit.INVDISCRETE if integrator == IntegratorType.IMPLICITFAST else 0
+    mjm, mjd, m, _ = test_data.fixture(
+      xml, qvel_noise=0.01, ctrl_noise=0.1, overrides={"opt.integrator": integrator, "opt.enableflags": enableflags}
+    )
 
     # some of the fields updated by step2
     step2_field = [
@@ -575,7 +583,7 @@ class ForwardTest(parameterized.TestCase):
     """
 
     @wp.kernel
-    def _set_ctrl(ctrl_out: wp.array2d(dtype=float)):
+    def _set_ctrl(ctrl_out: wp.array2d[float]):
       worldid = wp.tid()
       ctrl_out[worldid, 0] = 2.0
 
@@ -602,9 +610,9 @@ class ForwardTest(parameterized.TestCase):
 
     @wp.kernel
     def _oscillator_act_dot(
-      act_in: wp.array2d(dtype=float),
-      ctrl_in: wp.array2d(dtype=float),
-      act_dot_out: wp.array2d(dtype=float),
+      act_in: wp.array2d[float],
+      ctrl_in: wp.array2d[float],
+      act_dot_out: wp.array2d[float],
     ):
       worldid = wp.tid()
       frequency = wp.static(2.0 * wp.pi) * ctrl_in[worldid, 0]
@@ -646,6 +654,12 @@ class ForwardTest(parameterized.TestCase):
     t_next = timestamp + mjm.opt.timestep
     np.testing.assert_allclose(d.act.numpy()[0, 0], np.cos(2 * np.pi * frequency * t_next), atol=1e-3)
     np.testing.assert_allclose(d.act.numpy()[0, 1], np.sin(2 * np.pi * frequency * t_next), atol=1e-3)
+
+  def test_multiflex(self):
+    """Tests multiflex model with different flex dimensions."""
+    _, _, m, d = test_data.fixture("flex/multiflex.xml")
+
+    mjw.forward(m, d)
 
 
 if __name__ == "__main__":

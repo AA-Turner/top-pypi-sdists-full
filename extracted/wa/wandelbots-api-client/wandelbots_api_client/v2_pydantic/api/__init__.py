@@ -11,6 +11,7 @@ from .kinematics_api import KinematicsApi
 from .license_api import LicenseApi
 from .motion_group_api import MotionGroupApi
 from .motion_group_models_api import MotionGroupModelsApi
+from .nova_cloud_api import NOVACloudApi
 from .program_api import ProgramApi
 from .robot_configurations_api import RobotConfigurationsApi
 from .store_collision_components_api import StoreCollisionComponentsApi
@@ -27,27 +28,28 @@ from .virtual_controller_inputs_outputs_api import VirtualControllerInputsOutput
 
 
 __all__ = [
-    "ApplicationApi", 
-    "BUSInputsOutputsApi", 
-    "CellApi", 
-    "ControllerApi", 
-    "ControllerInputsOutputsApi", 
-    "JoggingApi", 
-    "KinematicsApi", 
-    "LicenseApi", 
-    "MotionGroupApi", 
-    "MotionGroupModelsApi", 
-    "ProgramApi", 
-    "RobotConfigurationsApi", 
-    "StoreCollisionComponentsApi", 
-    "StoreCollisionSetupsApi", 
-    "StoreObjectApi", 
-    "SystemApi", 
-    "TrajectoryCachingApi", 
-    "TrajectoryExecutionApi", 
-    "TrajectoryPlanningApi", 
-    "VersionApi", 
-    "VirtualControllerApi", 
-    "VirtualControllerBehaviorApi", 
-    "VirtualControllerInputsOutputsApi"
+    "ApplicationApi",
+    "BUSInputsOutputsApi",
+    "CellApi",
+    "ControllerApi",
+    "ControllerInputsOutputsApi",
+    "JoggingApi",
+    "KinematicsApi",
+    "LicenseApi",
+    "MotionGroupApi",
+    "MotionGroupModelsApi",
+    "NOVACloudApi",
+    "ProgramApi",
+    "RobotConfigurationsApi",
+    "StoreCollisionComponentsApi",
+    "StoreCollisionSetupsApi",
+    "StoreObjectApi",
+    "SystemApi",
+    "TrajectoryCachingApi",
+    "TrajectoryExecutionApi",
+    "TrajectoryPlanningApi",
+    "VersionApi",
+    "VirtualControllerApi",
+    "VirtualControllerBehaviorApi",
+    "VirtualControllerInputsOutputsApi",
 ]

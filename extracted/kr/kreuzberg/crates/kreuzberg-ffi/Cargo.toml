@@ -21,50 +21,19 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 
 [features]
 default = []
-embeddings = []
 rayon = ["dep:rayon"]
-pdf = []
-keywords-yake = []
-keywords-rake = []
-layout-detection = ["kreuzberg/layout-detection"]
-tree-sitter = []
 
 [dependencies]
 ahash = { workspace = true }
 async-trait = { workspace = true }
 ctor = { workspace = true }
 html-to-markdown-rs = { workspace = true }
+kreuzberg = { workspace = true, features = ["bundled-pdfium", "full"] }
 log = { workspace = true }
 rayon = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-
-[target.'cfg(all(windows, target_env = "gnu"))'.dependencies]
-kreuzberg = { workspace = true, features = [
-    "pdf",
-    "excel",
-    "office",
-    "email",
-    "html",
-    "xml",
-    "archives",
-    "ocr",
-    "language-detection",
-    "chunking",
-    "chunking-tokenizers",
-    "embeddings",
-    "quality",
-    "keywords",
-    "api",
-    "mcp",
-    "otel",
-    "tree-sitter",
-    "bundled-pdfium",
-] }
-
-[target.'cfg(not(all(windows, target_env = "gnu")))'.dependencies]
-kreuzberg = { workspace = true, features = ["bundled-pdfium", "full"] }
 
 [build-dependencies]
 cbindgen = "0.29"

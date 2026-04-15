@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 import operator
+import re
 import warnings
 from contextlib import contextmanager
 from dataclasses import replace
@@ -26,10 +27,12 @@ import torch
 import transformers
 from torch import nn
 
-from peft.import_utils import is_bnb_4bit_available, is_bnb_available
+from peft.import_utils import is_bnb_4bit_available, is_bnb_available, is_transformers_ge_v5_4_0
 from peft.tuners.tuners_utils import (
     BaseTuner,
     BaseTunerLayer,
+    find_parameter_name_by_module,
+    get_device_map,
     replicate_layers,
 )
 from peft.utils import (
@@ -41,6 +44,7 @@ from peft.utils import (
     get_peft_model_state_dict,
     get_quantization_config,
 )
+from peft.utils.integrations import TpInfo
 from peft.utils.merge_utils import dare_linear, dare_ties, magnitude_prune, task_arithmetic, ties
 from peft.utils.other import get_pattern_key
 
@@ -52,6 +56,7 @@ from .gptq import dispatch_gptq
 from .hqq import dispatch_hqq
 from .inc import dispatch_inc
 from .layer import Conv2d, LoraLayer, ParamWrapper, dispatch_default
+from .te import dispatch_transformer_engine
 from .torchao import dispatch_torchao
 from .tp_layer import dispatch_megatron
 
@@ -65,6 +70,19 @@ def _adapter_names_pre_forward_hook(target, args, kwargs, adapter_names):
 def _alora_offsets_pre_forward_hook(target, args, kwargs, alora_offsets):
     kwargs["alora_offsets"] = alora_offsets
     return args, kwargs
+
+
+def _get_encoder(model: nn.Module) -> nn.Module | None:
+    """Check if the model has an encoder and if it has, returns it; otherwise returns None"""
+    if not hasattr(model, "get_encoder"):
+        return None
+
+    encoder = model.get_encoder()
+    # https://github.com/huggingface/transformers/pull/42156
+    # new logic in transformers v5: all PretrainedModels return a model here, but it is self if there is no encoder
+    if encoder is model:
+        return None
+    return encoder
 
 
 class LoraModel(BaseTuner):
@@ -189,23 +207,26 @@ class LoraModel(BaseTuner):
         r = lora_config.rank_pattern.get(r_key, lora_config.r)
         alpha = lora_config.alpha_pattern.get(alpha_key, lora_config.lora_alpha)
 
+        # Checks if the target is marked as a tied layer
+        # If true, we add the reference to lora adapters of embedding layer in `tied_adapter`
+        is_tied = target_name in (getattr(lora_config, "target_modules_to_tie", []) or [])
+        tied_adapter = {}
+        if is_tied:
+            tied_module = self.model.get_input_embeddings()
+            emb_A = tied_module.lora_embedding_A[adapter_name]
+            emb_B = tied_module.lora_embedding_B[adapter_name]
+
+            tied_adapter = {"lora_A": emb_B.t(), "lora_B": emb_A.t()}
+
         kwargs = {
             "r": r,
             "lora_alpha": alpha,
-            "lora_dropout": lora_config.lora_dropout,
-            "fan_in_fan_out": lora_config.fan_in_fan_out,
-            "init_lora_weights": lora_config.init_lora_weights,
-            "use_rslora": lora_config.use_rslora,
-            "use_dora": lora_config.use_dora,
-            "use_alora": lora_config.alora_invocation_tokens is not None,
-            "use_qalora": lora_config.use_qalora,
-            "qalora_group_size": lora_config.qalora_group_size,
-            "ephemeral_gpu_offload": lora_config.runtime_config.ephemeral_gpu_offload,
-            "lora_bias": lora_config.lora_bias,
-            "arrow_config": lora_config.arrow_config,
+            "target_name": current_key,
             "loaded_in_8bit": getattr(self.model, "is_loaded_in_8bit", False),
             "loaded_in_4bit": getattr(self.model, "is_loaded_in_4bit", False),
+            "ephemeral_gpu_offload": lora_config.runtime_config.ephemeral_gpu_offload,
             "parameter_name": parameter_name,
+            "tied_adapter": tied_adapter,
         }
 
         # for torchao merging, we need the get_apply_tensor_subclass from the quantization config
@@ -232,26 +253,85 @@ class LoraModel(BaseTuner):
                 adapter_name,
                 r,
                 lora_alpha=alpha,
-                lora_dropout=lora_config.lora_dropout,
-                init_lora_weights=lora_config.init_lora_weights,
-                use_rslora=lora_config.use_rslora,
-                use_dora=lora_config.use_dora,
-                lora_bias=lora_config.lora_bias,
-                arrow_config=lora_config.arrow_config,
-                inference_mode=lora_config.inference_mode,
+                target_name=current_key,
+                config=lora_config,
             )
+
+            base_layer = target.get_base_layer()
+            lora_module = target
         else:
             if isinstance(target, ParamWrapper) and (parameter_name == target.parameter_name):
                 raise ValueError(
                     "Trying to target the same nn.Parameter twice, this should not happen. Please open an issue on the "
                     "PEFT repo: https://github.com/huggingface/peft/issues"
                 )
-            device_map = self.model.hf_device_map if hasattr(self.model, "hf_device_map") else None
+            device_map = get_device_map(self.model)
             new_module = self._create_new_module(lora_config, adapter_name, target, device_map=device_map, **kwargs)
             if adapter_name not in self.active_adapters:
                 # adding an additional adapter: it is not automatically trainable
                 new_module.requires_grad_(False)
             self._replace_module(parent, target_name, new_module, target)
+
+            base_layer = target
+            lora_module = new_module
+
+        tp_plan = getattr(base_layer, "_hf_tp_plan", None)
+        device_mesh = getattr(base_layer, "_hf_device_mesh", None)
+
+        # If the module has a tp_plan, we add hooks to the LoRA layers to make sure they respect the plan
+        if tp_plan is not None:
+            if not is_transformers_ge_v5_4_0:
+                raise RuntimeError(
+                    "The base model is tensor-parallel sharded but the installed version of Transformers does not "
+                    "support LoRA with Tensor Parallelism. Please upgrade to transformers >= 5.4.0."
+                )
+            from transformers.integrations.tensor_parallel import (
+                add_tensor_parallel_hooks_to_module,
+            )
+
+            _SUPPORTED_TP_PLANS = ("colwise", "rowwise", "embedding_rowwise")
+
+            if tp_plan not in _SUPPORTED_TP_PLANS:
+                warnings.warn(
+                    f'TP plan "{tp_plan}" on the base layer is not supported for LoRA. '
+                    "LoRA adapters will be created without tensor parallel hooks."
+                )
+            else:
+                tp_plan_keys = []
+                tp_plans = []
+                generic_key = re.sub(r"\d+", "*", current_key)
+                if tp_plan in ["colwise", "rowwise"]:
+                    if tp_plan == "colwise":
+                        tp_plan_keys.append(f"{generic_key}.lora_B.{adapter_name}.weight")
+                        tp_module = lora_module.lora_B[adapter_name]
+                        tp_layer_name = (f"{current_key}.lora_B.{adapter_name}",)
+                    else:  # rowwise
+                        tp_plan_keys.append(f"{generic_key}.lora_A.{adapter_name}.weight")
+                        tp_module = lora_module.lora_A[adapter_name]
+                        tp_layer_name = (f"{current_key}.lora_A.{adapter_name}",)
+                    tp_plans.append(tp_plan)
+                    add_tensor_parallel_hooks_to_module(
+                        self.model,
+                        tp_module,
+                        tp_plan,
+                        tp_layer_name,
+                        device_mesh,
+                    )
+                else:  # embedding_rowwise
+                    # TP hooks are  handled in the `_embed` method in lora/layer.py where they are explicitely called.
+                    # Here we simply register the TP plans.
+                    tp_plan_keys.append(f"{generic_key}.base_layer.weight")
+                    tp_plan_keys.append(f"{generic_key}.lora_embedding_A.{adapter_name}")
+                    tp_plans.append(tp_plan)
+                    # Because lora_embedding_A is transposed compared to nn.Embedding, we set the TP plan
+                    # to embedding_colwise so that the gathering happens on the correct dimension at save time.
+                    tp_plans.append("embedding_colwise")
+
+                lora_module._tp_info = TpInfo(
+                    tp_plan=dict(zip(tp_plan_keys, tp_plans)),
+                    device_mesh=device_mesh,
+                    tp_size=self.model._tp_size,
+                )
 
     def _replace_module(self, parent, child_name, new_module, child):
         # override in LoraModel to handle quantized weights properly
@@ -290,7 +370,7 @@ class LoraModel(BaseTuner):
         if lora_config._custom_modules:
             # Experimental custom LoRA module support. Allows users to pass a custom mapping for unsupported layer
             # types by impelementing their own LoRA layers.
-            def dynamic_dispatch_func(target, adapter_name, lora_config, **kwargs):
+            def dynamic_dispatch_func(target, adapter_name, config, **kwargs):
                 new_module = None
 
                 if isinstance(target, BaseTunerLayer):
@@ -298,9 +378,9 @@ class LoraModel(BaseTuner):
                 else:
                     target_base_layer = target
 
-                for key, custom_cls in lora_config._custom_modules.items():
+                for key, custom_cls in config._custom_modules.items():
                     if isinstance(target_base_layer, key):
-                        new_module = custom_cls(target, adapter_name, **kwargs)
+                        new_module = custom_cls(target, adapter_name, config=config, **kwargs)
                         break
 
                 return new_module
@@ -328,13 +408,14 @@ class LoraModel(BaseTuner):
                 dispatch_inc,
                 dispatch_torchao,
                 dispatch_megatron,
+                dispatch_transformer_engine,
                 dispatch_default,
             ]
         )
 
         new_module = None
         for dispatcher in dispatchers:
-            new_module = dispatcher(target, adapter_name, lora_config=lora_config, **kwargs)
+            new_module = dispatcher(target, adapter_name, config=lora_config, **kwargs)
             if new_module is not None:  # first match wins
                 break
 
@@ -449,10 +530,11 @@ class LoraModel(BaseTuner):
                     handle = module.register_forward_pre_hook(pre_forward, with_kwargs=True)
                     hook_handles.append(handle)
 
-            if uses_beam_search and hasattr(self.model, "get_encoder"):
+            encoder = _get_encoder(self.model)
+            if uses_beam_search and (encoder is not None):
                 # For encoder-decoder models, even when applying beam search, the encoder part of the model should not use
                 # the extended adapter_names. This is because the encoder still uses the original, non-extended samples.
-                for module in self.model.get_encoder().modules():
+                for module in encoder.modules():
                     if isinstance(module, LoraLayer) or isinstance(module, AuxiliaryTrainingWrapper):
                         # Add another hook to overwrite the kwargs with the original adapter names -- this is easier than
                         # trying to exclude the encoder.
@@ -478,8 +560,12 @@ class LoraModel(BaseTuner):
 
     def _prepare_adapter_config(self, peft_config, model_config):
         if peft_config.target_modules is None:
-            if model_config["model_type"] in self.target_module_mapping:
-                peft_config.target_modules = set(self.target_module_mapping[model_config["model_type"]])
+            target_modules = self.target_module_mapping.get(model_config["model_type"])
+            if target_modules is not None:
+                if isinstance(target_modules, str):
+                    peft_config.target_modules = target_modules
+                else:
+                    peft_config.target_modules = set(target_modules)
             elif not peft_config.target_parameters:
                 raise ValueError("Please specify `target_modules` or `target_parameters`in `peft_config`")
         return peft_config
@@ -778,7 +864,8 @@ class LoraModel(BaseTuner):
         majority_sign_method,
     ):
         # account weights for LoRA A and B layers.
-        valid_weights = []
+        valid_weights_A = []
+        valid_weights_B = []
         lora_A_deltas = []
         lora_B_deltas = []
         for adapter, weight in zip(adapters, weights):
@@ -793,23 +880,27 @@ class LoraModel(BaseTuner):
             # Support negative weights: take absolute value for sqrt, then apply sign
             weight_with_scaling = weight * target.scaling[adapter]
             sign = 1 if weight_with_scaling >= 0 else -1
-            valid_weights.append(sign * math.sqrt(abs(weight_with_scaling)))
+            # apply sign only on one side of the weights, otherwise negative signs negate
+            valid_weights_A.append(math.sqrt(abs(weight_with_scaling)) * sign)
+            valid_weights_B.append(math.sqrt(abs(weight_with_scaling)))
             lora_A_deltas.append(current_adapter_lora_A.data)
             lora_B_deltas.append(current_adapter_lora_B.data)
-        valid_weights = torch.tensor(valid_weights).to(lora_A_deltas[0].device)
+        valid_weights_A = torch.tensor(valid_weights_A).to(lora_A_deltas[0].device)
+        valid_weights_B = torch.tensor(valid_weights_B).to(lora_B_deltas[0].device)
+        valid_weights = [valid_weights_A, valid_weights_B]
         lora_deltas = [lora_A_deltas, lora_B_deltas]
         dtype = lora_A_deltas[0].dtype
         for i, task_tensors in enumerate(lora_deltas):
             if combination_type == "linear":
-                lora_deltas[i] = task_arithmetic(task_tensors, valid_weights)
+                lora_deltas[i] = task_arithmetic(task_tensors, valid_weights[i])
             elif combination_type == "ties":
-                lora_deltas[i] = ties(task_tensors, valid_weights, density, majority_sign_method)
+                lora_deltas[i] = ties(task_tensors, valid_weights[i], density, majority_sign_method)
             elif combination_type == "dare_linear":
-                lora_deltas[i] = dare_linear(task_tensors, valid_weights, density)
+                lora_deltas[i] = dare_linear(task_tensors, valid_weights[i], density)
             elif combination_type == "dare_ties":
-                lora_deltas[i] = dare_ties(task_tensors, valid_weights, density, majority_sign_method)
+                lora_deltas[i] = dare_ties(task_tensors, valid_weights[i], density, majority_sign_method)
             elif combination_type == "magnitude_prune":
-                lora_deltas[i] = magnitude_prune(task_tensors, valid_weights, density)
+                lora_deltas[i] = magnitude_prune(task_tensors, valid_weights[i], density)
             else:
                 raise ValueError("Invalid combination type")
         lora_deltas = [delta.to(dtype) for delta in lora_deltas]
@@ -853,8 +944,80 @@ class LoraModel(BaseTuner):
 
         return tensors_lora
 
-    def _add_modules_to_tie(self, peft_config, tied_weight_keys):
-        modules_to_save = set(getattr(peft_config, "modules_to_save", []) or [])
-        missing_keys = set(tied_weight_keys) - modules_to_save
+    def _add_modules_to_save_to_tie(self, peft_config: LoraConfig, tied_weight_keys: list[str]):
+        """
+        Add embedding layer to `modules_to_save` and remove rest of the tied layers from `module_to_save`. Maintain a
+        separate set for layers to be tied in `peft_config.tied_weights_keys`.
 
-        peft_config.modules_to_tie = missing_keys
+        Args:
+            peft_config (LoraConfig) -- The configuration of the Lora model.
+            tied_weight_keys (list[str]) -- Contains the layers tied to the embedding layer.
+        """
+        tied_weight_keys = set(tied_weight_keys)
+        peft_config.modules_to_tie = tied_weight_keys
+
+        modules_to_save = getattr(peft_config, "modules_to_save", []) or []
+        embed_layer_name = find_parameter_name_by_module(self.model, self.model.get_input_embeddings())
+
+        # the layer may already be included but we assume that adding the same module twice is not a problem
+        if embed_layer_name not in modules_to_save:
+            modules_to_save.append(embed_layer_name)
+
+        # Iterate over `tied_weight_keys` which are
+        # fully qualified keys and remove matching keys from
+        # `modules_to_save`. It will only remove first encounter
+        # in `module_to_save`, which should be safe, because `tied_weight_keys`
+        # is a unique set of keys. These keys are removed because all the
+        # tied keys are handled in a separate flow
+        # outside of the usual `modules_to_save` flow
+        # See: peft.utils.other.set_additional_trainable_modules for details
+        for key in tied_weight_keys:
+            for m in modules_to_save:
+                if re.match(rf"(^|.*\.){m}($|\..*)", key):
+                    modules_to_save.remove(m)
+                    break
+
+        peft_config.modules_to_save = modules_to_save
+
+    def _add_targets_to_tie(self, peft_config: LoraConfig, tied_weight_keys: list[str]):
+        """
+        Add embedding layer to `target_modules` and remove rest of the tied layers from `target_modules`. Maintain a
+        separate set for layers to be tied in `peft_config.target_modules_to_tie`
+
+        Args:
+            peft_config (LoraConfig) -- The configuration of the Lora model.
+            tied_weight_keys (list[str]) -- Contains the layers tied to the embedding layer.
+        """
+        tied_weight_keys = set(tied_weight_keys)
+        peft_config.target_modules_to_tie = tied_weight_keys
+
+        raw_target_modules = getattr(peft_config, "target_modules", None)
+
+        embed_layer_name = find_parameter_name_by_module(self.model, self.model.get_input_embeddings())
+
+        if isinstance(raw_target_modules, str):
+            # The way weight tying is handled for adapters, we always want to add
+            # lora adapters to the input embedding layer (embed_tokens)
+            # instead of output embedding layer.
+            raw_target_modules = rf"(?:{raw_target_modules}|^{re.escape(embed_layer_name)}$)"
+            peft_config.target_modules = raw_target_modules
+            return
+
+        target_modules = set(raw_target_modules or [])
+        target_modules.add(embed_layer_name)
+
+        # Iterate over `tied_weight_keys` which are
+        # fully qualified keys and remove matching keys from
+        # `target_modules`. It will only remove first encounter
+        # in `target_modules`, which should be safe, because `tied_weight_keys`
+        # is a unique set of keys. These keys are removed because all the
+        # tied keys are handled in a separate flow
+        # outside of the usual `target_modules` flow
+        # See: peft.tuners.tuners_utils.BaseTuner.inject_adapter for details
+        for key in tied_weight_keys:
+            for m in target_modules:
+                if re.match(rf"(^|.*\.){m}($|\..*)", key):
+                    target_modules.remove(m)
+                    break
+
+        peft_config.target_modules = target_modules

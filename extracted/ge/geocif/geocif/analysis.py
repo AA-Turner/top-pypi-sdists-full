@@ -600,6 +600,8 @@ class Geoanalysis:
 
     def _plot_yield_with_ci(self, df):
         """Forest plot of predicted yield with CI and median yield reference."""
+        from .viz import diagnostics as diag
+
         self.logger.info(f"_plot_yield_with_ci: df shape={df.shape}, columns={list(df.columns)}")
         if "lower CI" not in df.columns or "upper CI" not in df.columns:
             self.logger.warning("_plot_yield_with_ci: 'lower CI' or 'upper CI' column missing, skipping")
@@ -611,7 +613,6 @@ class Geoanalysis:
             self.logger.warning("_plot_yield_with_ci: no rows with CI data, skipping")
             return
 
-        # Use latest stage per region
         df_ci = (
             df_ci.sort_values("Stage Name")
             .groupby("Region")
@@ -625,39 +626,19 @@ class Geoanalysis:
             median_col = f"{median_col}_y"
         has_median = median_col in df_ci.columns and df_ci[median_col].notna().any()
 
-        fig, ax = plt.subplots(figsize=(8, max(4, len(df_ci) * 0.4)))
-        y = range(len(df_ci))
-
-        # CI error bars
-        xerr_low = df_ci[self.predicted].values - df_ci["lower CI"].values
-        xerr_high = df_ci["upper CI"].values - df_ci[self.predicted].values
-        ax.errorbar(
-            df_ci[self.predicted].values, y,
-            xerr=[xerr_low, xerr_high],
-            fmt="o", color="steelblue", capsize=3, label="Predicted \u00b1 CI",
-        )
-
-        # Median yield markers
+        reference_df = None
         if has_median:
-            ax.scatter(
-                df_ci[median_col].values, y,
-                marker="D", color="darkorange", zorder=5,
-                s=30, label="Median (2018-2022)",
-            )
+            reference_df = df_ci[["Region", median_col]].rename(columns={median_col: "ref"})
 
-        ax.set_yticks(list(y))
-        ax.set_yticklabels(df_ci["Region"].values, fontsize=8)
-        ax.set_xlabel("Yield (tn per ha)")
-        ax.set_title(
-            f"Predicted Yield with CI \u2014 {self.country} {self.crop}",
-            fontsize=11, fontweight="bold",
+        diag.forest_yield_ci(
+            df_ci,
+            predicted_col=self.predicted,
+            out_path=self.dir_country_plots / f"yield_ci_{self.country}_{self.crop}.png",
+            title=f"Predicted Yield with CI \u2014 {self.country} {self.crop}",
+            reference_df=reference_df,
+            reference_value_col="ref",
+            reference_label="Median (2018-2022)",
         )
-        ax.legend(fontsize=8, loc="lower right")
-        plt.tight_layout()
-
-        fname = f"yield_ci_{self.country}_{self.crop}.png"
-        fig.savefig(self.dir_country_plots / fname, dpi=250)
-        plt.close(fig)
 
     def _plot_yield_with_ci_historical(self, df):
         """Forest plot of predicted yield with CI and individual historical year yields."""
@@ -1673,31 +1654,15 @@ class RegionalMapper(Geoanalysis):
 
     def plot_mape_by_year(self):
         """Compute MAPE by year and plot using a bar chart."""
-        # Compute the Mean Absolute Percentage Error (MAPE) by year
-        mape_by_year = (
-            self.df_regional_by_year.groupby("Harvest Year")[
-                "Mean Absolute Percentage Error"
-            ]
-            .mean()
-            .reset_index()
+        from .viz import diagnostics as diag
+        diag.mape_by_year(
+            self.df_regional_by_year,
+            title="",
+            dir_out=self.dir_plots,
+            fname=f"mape_year_{self.crop}.png",
+            mape_col="Mean Absolute Percentage Error",
+            threshold=20.0,
         )
-
-        # Plot MAPE by year
-        with plt.style.context("science"):
-            plt.figure(figsize=(10, 6))
-            sns.barplot(
-                x="Harvest Year", y="Mean Absolute Percentage Error", data=mape_by_year
-            )
-            # Draw a dashed gray line at y=20
-            plt.axhline(y=20, color="gray", linestyle="--")
-
-            plt.xlabel("")
-            plt.ylabel("Mean Absolute Percentage Error (%)")
-            plt.xticks(rotation=0)
-
-            plt.tight_layout()
-            plt.savefig(self.dir_plots / f"mape_year_{self.crop}.png", dpi=250)
-            plt.close()
 
 
 def run(path_config_files=[Path("../config/geocif.txt")]):

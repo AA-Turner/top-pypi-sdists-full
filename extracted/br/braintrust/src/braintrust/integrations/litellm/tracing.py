@@ -6,13 +6,17 @@ from types import TracebackType
 from typing import Any
 
 from braintrust.integrations.utils import (
+    _extract_audio_output,
+    _materialize_attachment,
     _parse_openai_usage_metrics,
     _prettify_response_params,
+    _ResolvedAttachment,
+    _timing_metrics,
     _try_to_dict,
 )
 from braintrust.logger import Span, start_span
 from braintrust.span_types import SpanTypeAttribute
-from braintrust.util import merge_dicts
+from braintrust.util import clean_nones, merge_dicts
 
 
 # LiteLLM's representation to Braintrust's representation
@@ -276,6 +280,114 @@ async def _aresponses_wrapper_async(wrapped, instance, args, kwargs):
             span.end()
 
 
+def _image_attachment_from_base64(
+    data: Any, *, output_format: Any, index: int
+) -> tuple[_ResolvedAttachment | None, int | None]:
+    if not isinstance(data, str):
+        return None, None
+
+    extension = output_format if isinstance(output_format, str) and output_format else "png"
+    mime_type = extension if "/" in extension else f"image/{extension}"
+    resolved_attachment = _materialize_attachment(
+        data,
+        mime_type=mime_type,
+        prefix=f"generated_image_{index}",
+    )
+    if resolved_attachment is None:
+        return None, None
+    return resolved_attachment, len(resolved_attachment.attachment.data)
+
+
+def _extract_image_generation_output(response: dict[str, Any]) -> dict[str, Any]:
+    images = []
+    output_format = response.get("output_format")
+
+    for index, image in enumerate(response.get("data") or []):
+        image_dict = _try_to_dict(image)
+        if not isinstance(image_dict, dict):
+            continue
+
+        image_entry = clean_nones(
+            {
+                "revised_prompt": image_dict.get("revised_prompt"),
+            }
+        )
+
+        if isinstance(image_dict.get("url"), str):
+            image_entry["image_url"] = {"url": image_dict["url"]}
+
+        b64_json = image_dict.get("b64_json")
+        resolved_attachment, image_size_bytes = _image_attachment_from_base64(
+            b64_json,
+            output_format=output_format,
+            index=index,
+        )
+        if resolved_attachment is not None:
+            image_entry.update(resolved_attachment.multimodal_part_payload)
+            image_entry["image_size_bytes"] = image_size_bytes
+            image_entry["mime_type"] = resolved_attachment.mime_type
+        elif isinstance(b64_json, str):
+            image_entry["b64_json_present"] = True
+
+        images.append(image_entry)
+
+    return clean_nones(
+        {
+            "created": response.get("created"),
+            "background": response.get("background"),
+            "output_format": output_format,
+            "quality": response.get("quality"),
+            "size": response.get("size"),
+            "images_count": len(images),
+            "images": images,
+        }
+    )
+
+
+def _image_generation_wrapper(wrapped, instance, args, kwargs):
+    """wrapt wrapper for litellm.image_generation."""
+    updated_span_payload = _update_span_payload_from_params(kwargs, input_key="prompt")
+
+    with start_span(
+        **merge_dicts(
+            dict(name="Image Generation", span_attributes={"type": SpanTypeAttribute.LLM}), updated_span_payload
+        )
+    ) as span:
+        start = time.time()
+        image_response = wrapped(*args, **kwargs)
+        log_response = _try_to_dict(image_response)
+        metrics = _timing_metrics(start, time.time())
+        if isinstance(log_response, dict):
+            metrics.update(_parse_metrics_from_usage(log_response.get("usage", {})))
+        span.log(
+            metrics=metrics,
+            output=_extract_image_generation_output(log_response) if isinstance(log_response, dict) else log_response,
+        )
+        return image_response
+
+
+async def _aimage_generation_wrapper_async(wrapped, instance, args, kwargs):
+    """wrapt wrapper for litellm.aimage_generation."""
+    updated_span_payload = _update_span_payload_from_params(kwargs, input_key="prompt")
+
+    with start_span(
+        **merge_dicts(
+            dict(name="Image Generation", span_attributes={"type": SpanTypeAttribute.LLM}), updated_span_payload
+        )
+    ) as span:
+        start = time.time()
+        image_response = await wrapped(*args, **kwargs)
+        log_response = _try_to_dict(image_response)
+        metrics = _timing_metrics(start, time.time())
+        if isinstance(log_response, dict):
+            metrics.update(_parse_metrics_from_usage(log_response.get("usage", {})))
+        span.log(
+            metrics=metrics,
+            output=_extract_image_generation_output(log_response) if isinstance(log_response, dict) else log_response,
+        )
+        return image_response
+
+
 def _embedding_wrapper(wrapped, instance, args, kwargs):
     """wrapt wrapper for litellm.embedding."""
     updated_span_payload = _update_span_payload_from_params(kwargs, input_key="input")
@@ -328,6 +440,80 @@ def _moderation_wrapper(wrapped, instance, args, kwargs):
             output=log_response["results"],
         )
         return moderation_response
+
+
+def _speech_wrapper(wrapped, instance, args, kwargs):
+    """wrapt wrapper for litellm.speech."""
+    updated_span_payload = _update_span_payload_from_params(kwargs, input_key="input")
+
+    with start_span(
+        **merge_dicts(dict(name="Speech", span_attributes={"type": SpanTypeAttribute.LLM}), updated_span_payload)
+    ) as span:
+        start = time.time()
+        speech_response = wrapped(*args, **kwargs)
+        span.log(
+            metrics=_timing_metrics(start, time.time()),
+            output=_extract_audio_output(
+                speech_response,
+                response_format=kwargs.get("response_format"),
+                prefix="generated_speech",
+            ),
+        )
+        return speech_response
+
+
+async def _aspeech_wrapper_async(wrapped, instance, args, kwargs):
+    """wrapt wrapper for litellm.aspeech."""
+    updated_span_payload = _update_span_payload_from_params(kwargs, input_key="input")
+
+    with start_span(
+        **merge_dicts(dict(name="Speech", span_attributes={"type": SpanTypeAttribute.LLM}), updated_span_payload)
+    ) as span:
+        start = time.time()
+        speech_response = await wrapped(*args, **kwargs)
+        span.log(
+            metrics=_timing_metrics(start, time.time()),
+            output=_extract_audio_output(
+                speech_response,
+                response_format=kwargs.get("response_format"),
+                prefix="generated_speech",
+            ),
+        )
+        return speech_response
+
+
+def _transcription_wrapper(wrapped, instance, args, kwargs):
+    """wrapt wrapper for litellm.transcription."""
+    updated_span_payload = _update_audio_span_payload_from_params(kwargs)
+
+    with start_span(
+        **merge_dicts(
+            dict(name="Transcription", span_attributes={"type": SpanTypeAttribute.LLM}), updated_span_payload
+        )
+    ) as span:
+        transcription_response = wrapped(*args, **kwargs)
+        log_response = _try_to_dict(transcription_response)
+        usage = log_response.get("usage") if isinstance(log_response, dict) else None
+        metrics = _parse_metrics_from_usage(usage)
+        span.log(metrics=metrics, output=_extract_transcription_text(log_response))
+        return transcription_response
+
+
+async def _atranscription_wrapper_async(wrapped, instance, args, kwargs):
+    """wrapt wrapper for litellm.atranscription."""
+    updated_span_payload = _update_audio_span_payload_from_params(kwargs)
+
+    with start_span(
+        **merge_dicts(
+            dict(name="Transcription", span_attributes={"type": SpanTypeAttribute.LLM}), updated_span_payload
+        )
+    ) as span:
+        transcription_response = await wrapped(*args, **kwargs)
+        log_response = _try_to_dict(transcription_response)
+        usage = log_response.get("usage") if isinstance(log_response, dict) else None
+        metrics = _parse_metrics_from_usage(usage)
+        span.log(metrics=metrics, output=_extract_transcription_text(log_response))
+        return transcription_response
 
 
 # ---------------------------------------------------------------------------
@@ -474,6 +660,32 @@ def _update_span_payload_from_params(params: dict[str, Any], input_key: str = "i
         span_info_d,
         {"input": input_data, "metadata": {**params, "provider": "litellm", "model": model}},
     )
+
+
+def _update_audio_span_payload_from_params(params: dict[str, Any]) -> dict[str, Any]:
+    """Update the span payload for audio transcription calls."""
+    params = params.copy()
+    span_info_d = params.pop("span_info", {})
+
+    params = _prettify_response_params(params)
+    audio_file = _materialize_attachment(params.pop("file", None))
+    model = params.pop("model", None)
+
+    input_data = {"file": audio_file.attachment} if audio_file is not None else None
+
+    return merge_dicts(
+        span_info_d,
+        {"input": input_data, "metadata": {**params, "provider": "litellm", "model": model}},
+    )
+
+
+def _extract_transcription_text(response: Any) -> str | None:
+    """Extract text output from a LiteLLM transcription response."""
+    if isinstance(response, dict):
+        return response.get("text")
+    if isinstance(response, str):
+        return response.strip()
+    return getattr(response, "text", None)
 
 
 def _parse_metrics_from_usage(usage: Any) -> dict[str, Any]:

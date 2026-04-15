@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Flask-Security-Too
-Version: 5.7.1
+Version: 5.8.0
 Summary: Quickly add security features to your Flask application.
 Keywords: flask security
 Author: Matt Wright
@@ -16,33 +16,28 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Development Status :: 5 - Production/Stable
 License-File: LICENSE.txt
-Requires-Dist: Flask>=3.1.0
+Requires-Dist: Flask>=3.1.1
 Requires-Dist: Flask-Login>=0.6.3
 Requires-Dist: Flask-Principal>=0.4.0
 Requires-Dist: Flask-WTF>=1.1.2
-Requires-Dist: email-validator>=2.0.0
+Requires-Dist: email-validator>=2.3.0
 Requires-Dist: markupsafe>=2.1.0
 Requires-Dist: libpass>=1.9.3
 Requires-Dist: wtforms>=3.0.0
-Requires-Dist: babel>=2.12.1 ; extra == "babel"
+Requires-Dist: babel>=2.17.0 ; extra == "babel"
 Requires-Dist: flask_babel>=4.0.0 ; extra == "babel"
-Requires-Dist: argon2_cffi>=23.1.0 ; extra == "common"
+Requires-Dist: argon2_cffi>=25.1.0 ; extra == "common"
 Requires-Dist: bcrypt>=4.2.1 ; extra == "common"
 Requires-Dist: flask_mail>=0.10.0 ; extra == "common"
 Requires-Dist: bleach>=6.0.0 ; extra == "common"
-Requires-Dist: flask_sqlalchemy>=3.1.0 ; extra == "fsqla"
-Requires-Dist: sqlalchemy>=2.0.18 ; extra == "fsqla"
-Requires-Dist: Flask==3.1.0 ; extra == "low"
-Requires-Dist: Flask-SQLAlchemy==3.1.0 ; extra == "low"
+Requires-Dist: flask_sqlalchemy>=3.1.1 ; extra == "fsqla"
+Requires-Dist: sqlalchemy>=2.0.41 ; extra == "fsqla"
+Requires-Dist: Flask==3.1.1 ; extra == "low"
+Requires-Dist: Flask-SQLAlchemy==3.1.1 ; extra == "low"
 Requires-Dist: Flask-SQLAlchemy-Lite==0.1.0 ; extra == "low"
 Requires-Dist: Flask-Babel==4.0.0 ; extra == "low"
 Requires-Dist: Flask-Mail==0.10.0 ; extra == "low"
@@ -51,7 +46,7 @@ Requires-Dist: Flask-WTF==1.1.2 ; extra == "low"
 Requires-Dist: peewee==3.17.9 ; extra == "low"
 Requires-Dist: argon2_cffi==21.3.0 ; extra == "low"
 Requires-Dist: authlib==1.2.0 ; extra == "low"
-Requires-Dist: babel==2.12.1 ; extra == "low"
+Requires-Dist: babel==2.16.0 ; extra == "low"
 Requires-Dist: bcrypt==4.0.1 ; extra == "low"
 Requires-Dist: bleach==6.0.0 ; extra == "low"
 Requires-Dist: freezegun ; extra == "low"
@@ -64,15 +59,15 @@ Requires-Dist: pony==0.7.16 ; extra == "low" and (python_version<'3.11')
 Requires-Dist: phonenumberslite==8.13.11 ; extra == "low"
 Requires-Dist: qrcode==7.4.2 ; extra == "low"
 Requires-Dist: requests ; extra == "low"
-Requires-Dist: sqlalchemy==2.0.18 ; extra == "low"
-Requires-Dist: sqlalchemy-utils==0.41.1 ; extra == "low"
+Requires-Dist: sqlalchemy==2.0.41 ; extra == "low"
+Requires-Dist: sqlalchemy-utils==0.42.0 ; extra == "low"
 Requires-Dist: webauthn==2.0.0 ; extra == "low"
-Requires-Dist: werkzeug==3.1.0 ; extra == "low"
+Requires-Dist: werkzeug==3.1.3 ; extra == "low"
 Requires-Dist: zxcvbn==4.4.28 ; extra == "low"
-Requires-Dist: cryptography>=42.0.4 ; extra == "mfa"
+Requires-Dist: cryptography>=45.0.7 ; extra == "mfa"
 Requires-Dist: qrcode>=7.4.2 ; extra == "mfa"
 Requires-Dist: phonenumberslite>=8.13.11 ; extra == "mfa"
-Requires-Dist: webauthn>=2.5.0 ; extra == "mfa"
+Requires-Dist: webauthn>=2.6.0 ; extra == "mfa"
 Project-URL: Documentation, https://flask-security.readthedocs.io
 Project-URL: Homepage, https://github.com/pallets-eco/flask-security
 Project-URL: Releases, https://pypi.org/project/Flask-Security/
@@ -149,7 +144,7 @@ Goals
 * Follow the `Pallets <https://github.com/pallets>`_ lead on supported versions, documentation
   standards and any other guidelines for extensions that they come up with.
 * Continue to add newer authentication/authorization standards:
-    * 'Social Auth' integrated (using authlib) (5.1)
+    * 'Social Login (OAuth)' integrated (using authlib) (5.1)
     * WebAuthn/Passkey support (5.0)
     * Two-Factor recovery codes (5.0)
     * First-class support for username as identity (4.1)

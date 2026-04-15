@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, TYPE_CHECKING
 
 from wisent.core.primitives.contrastive_pairs.core.pair import ContrastivePair
-from wisent.extractors.hf.atoms import HuggingFaceBenchmarkExtractor
+from wisent.extractors.lm_eval.atoms import LMEvalBenchmarkExtractor
 from wisent.core.utils.cli.cli_logger import setup_logger, bind
 
 if TYPE_CHECKING:
@@ -14,7 +14,7 @@ __all__ = ["SuperGlueLmEvalV1Extractor"]
 _LOG = setup_logger(__name__)
 
 task_names = ("super-glue-lm-eval-v1",)
-class SuperGlueLmEvalV1Extractor(HuggingFaceBenchmarkExtractor):
+class SuperGlueLmEvalV1Extractor(LMEvalBenchmarkExtractor):
     """Extractor for Super Glue Lm Eval V1 benchmark."""
 
 
@@ -24,10 +24,12 @@ class SuperGlueLmEvalV1Extractor(HuggingFaceBenchmarkExtractor):
         lm_eval_task_data: ConfigurableTask,
         limit: int | None = None,
         preferred_doc: str | None = None,
+        *,
+        train_ratio: float,
     ) -> list[ContrastivePair]:
         log = bind(_LOG, task=getattr(lm_eval_task_data, "NAME", "unknown"))
         max_items = self._normalize_limit(limit)
-        docs = self.load_docs(lm_eval_task_data, max_items, preferred_doc=preferred_doc)
+        docs = self.load_docs(lm_eval_task_data, max_items, preferred_doc=preferred_doc, train_ratio=train_ratio)
         pairs: list[ContrastivePair] = []
         log.info("Extracting contrastive pairs", extra={"doc_count": len(docs)})
 
@@ -48,6 +50,25 @@ class SuperGlueLmEvalV1Extractor(HuggingFaceBenchmarkExtractor):
         log = bind(_LOG, doc_id=doc.get("id", "unknown"))
 
         try:
+            # BoolQ format: passage + question + label (boolean 0/1)
+            if "passage" in doc and "question" in doc and "label" in doc:
+                passage = str(doc.get("passage", "")).strip()
+                question = str(doc.get("question", "")).strip()
+                label = doc.get("label", 0)
+                if passage and question:
+                    try:
+                        label_idx = int(label)
+                    except (TypeError, ValueError):
+                        return None
+                    correct = "Yes" if label_idx == 1 else "No"
+                    incorrect = "No" if label_idx == 1 else "Yes"
+                    prompt = f"{passage}\n\nQuestion: {question}"
+                    return self._build_pair(
+                        question=prompt,
+                        correct=correct,
+                        incorrect=incorrect,
+                        metadata={"label": "super_glue_lm_eval_v1"},
+                    )
 
             # Try multiple format patterns for question
             question = doc.get("question", doc.get("query", doc.get("input", doc.get("instruction", doc.get("prompt", ""))))).strip()

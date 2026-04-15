@@ -89,6 +89,7 @@ _KNOWN_TOP_LEVEL = {
     "rate_limit",
     "audit",
     "compliance",
+    "trusted_proxy",
     "workflow",
     "pack_sources",
 }
@@ -180,6 +181,7 @@ _KNOWN_KEYS: dict[str, set[str]] = {
         "dlp",
         "prompt_injection",
         "output_filter",
+        "bypass_immune_paths",
     },
     "safety.dlp": {
         "enabled",
@@ -307,6 +309,7 @@ _KNOWN_KEYS: dict[str, set[str]] = {
         "events",
     },
     "compliance": {"rules"},
+    "trusted_proxy": {"enabled", "trusted_cidrs", "header"},
 }
 
 # Int fields: (section_path, key, min, max, default)
@@ -477,6 +480,7 @@ def validate_config(raw: dict[str, Any]) -> ValidationResult:
     _check_section_type(raw, "session", dict, result)
     _check_section_type(raw, "audit", dict, result)
     _check_section_type(raw, "compliance", dict, result)
+    _check_section_type(raw, "trusted_proxy", dict, result)
     _check_section_type(raw, "mcp_servers", list, result)
 
     # Validate int fields
@@ -608,6 +612,7 @@ def validate_config(raw: dict[str, Any]) -> ValidationResult:
         ("safety", "sensitive_paths"),
         ("safety", "allowed_tools"),
         ("safety", "denied_tools"),
+        ("safety", "bypass_immune_paths"),
         ("proxy", "allowed_origins"),
         ("ai", "allowed_domains"),
         ("ai", "allowed_models"),
@@ -624,6 +629,53 @@ def validate_config(raw: dict[str, Any]) -> ValidationResult:
                     severity="warning",
                 )
             )
+
+    # Validate trusted_proxy config
+    tp_section = _get_section(raw, "trusted_proxy")
+    if tp_section is not None:
+        tp_enabled = tp_section.get("enabled")
+        if tp_enabled is not None:
+            if not isinstance(tp_enabled, bool):
+                if not (isinstance(tp_enabled, str) and tp_enabled.lower() in _BOOL_VALUES):
+                    if not (isinstance(tp_enabled, int) and tp_enabled in (0, 1)):
+                        result.errors.append(
+                            ConfigError(
+                                path="trusted_proxy.enabled",
+                                message=f"expected boolean, got: {tp_enabled!r}",
+                                severity="warning",
+                            )
+                        )
+        tp_cidrs = tp_section.get("trusted_cidrs")
+        if tp_cidrs is not None:
+            if not isinstance(tp_cidrs, list):
+                result.errors.append(
+                    ConfigError(
+                        path="trusted_proxy.trusted_cidrs",
+                        message=f"expected list, got {type(tp_cidrs).__name__}",
+                    )
+                )
+            else:
+                import ipaddress
+
+                for i, entry in enumerate(tp_cidrs):
+                    try:
+                        ipaddress.ip_network(str(entry), strict=False)
+                    except ValueError:
+                        result.errors.append(
+                            ConfigError(
+                                path=f"trusted_proxy.trusted_cidrs[{i}]",
+                                message=f"invalid CIDR: {entry!r}",
+                            )
+                        )
+        tp_header = tp_section.get("header")
+        if tp_header is not None:
+            if not isinstance(tp_header, str) or not tp_header.strip():
+                result.errors.append(
+                    ConfigError(
+                        path="trusted_proxy.header",
+                        message="header must be a non-empty string",
+                    )
+                )
 
     # Validate mcp_servers entries
     mcp_servers = raw.get("mcp_servers")

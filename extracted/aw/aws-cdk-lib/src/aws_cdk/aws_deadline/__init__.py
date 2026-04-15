@@ -537,6 +537,11 @@ class CfnFleet(
                     ),
         
                     # the properties below are optional
+                    auto_scaling_configuration=deadline.CfnFleet.CustomerManagedAutoScalingConfigurationProperty(
+                        scale_out_workers_per_minute=123,
+                        standby_worker_count=123,
+                        worker_idle_duration_seconds=123
+                    ),
                     storage_profile_id="storageProfileId",
                     tag_propagation_mode="tagPropagationMode"
                 ),
@@ -598,6 +603,11 @@ class CfnFleet(
                     ),
         
                     # the properties below are optional
+                    auto_scaling_configuration=deadline.CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty(
+                        scale_out_workers_per_minute=123,
+                        standby_worker_count=123,
+                        worker_idle_duration_seconds=123
+                    ),
                     storage_profile_id="storageProfileId",
                     vpc_configuration=deadline.CfnFleet.VpcConfigurationProperty(
                         resource_configuration_arns=["resourceConfigurationArns"]
@@ -1274,11 +1284,97 @@ class CfnFleet(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnFleet.CustomerManagedAutoScalingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "scale_out_workers_per_minute": "scaleOutWorkersPerMinute",
+            "standby_worker_count": "standbyWorkerCount",
+            "worker_idle_duration_seconds": "workerIdleDurationSeconds",
+        },
+    )
+    class CustomerManagedAutoScalingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            scale_out_workers_per_minute: typing.Optional[jsii.Number] = None,
+            standby_worker_count: typing.Optional[jsii.Number] = None,
+            worker_idle_duration_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param scale_out_workers_per_minute: 
+            :param standby_worker_count: 
+            :param worker_idle_duration_seconds: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedautoscalingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                customer_managed_auto_scaling_configuration_property = deadline.CfnFleet.CustomerManagedAutoScalingConfigurationProperty(
+                    scale_out_workers_per_minute=123,
+                    standby_worker_count=123,
+                    worker_idle_duration_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8c1cfe3f05aba39c56c382361943715334bf46778423ea2363fb7d33e8e5c32b)
+                check_type(argname="argument scale_out_workers_per_minute", value=scale_out_workers_per_minute, expected_type=type_hints["scale_out_workers_per_minute"])
+                check_type(argname="argument standby_worker_count", value=standby_worker_count, expected_type=type_hints["standby_worker_count"])
+                check_type(argname="argument worker_idle_duration_seconds", value=worker_idle_duration_seconds, expected_type=type_hints["worker_idle_duration_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if scale_out_workers_per_minute is not None:
+                self._values["scale_out_workers_per_minute"] = scale_out_workers_per_minute
+            if standby_worker_count is not None:
+                self._values["standby_worker_count"] = standby_worker_count
+            if worker_idle_duration_seconds is not None:
+                self._values["worker_idle_duration_seconds"] = worker_idle_duration_seconds
+
+        @builtins.property
+        def scale_out_workers_per_minute(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedautoscalingconfiguration.html#cfn-deadline-fleet-customermanagedautoscalingconfiguration-scaleoutworkersperminute
+            '''
+            result = self._values.get("scale_out_workers_per_minute")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def standby_worker_count(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedautoscalingconfiguration.html#cfn-deadline-fleet-customermanagedautoscalingconfiguration-standbyworkercount
+            '''
+            result = self._values.get("standby_worker_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def worker_idle_duration_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedautoscalingconfiguration.html#cfn-deadline-fleet-customermanagedautoscalingconfiguration-workeridledurationseconds
+            '''
+            result = self._values.get("worker_idle_duration_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomerManagedAutoScalingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_deadline.CfnFleet.CustomerManagedFleetConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
             "mode": "mode",
             "worker_capabilities": "workerCapabilities",
+            "auto_scaling_configuration": "autoScalingConfiguration",
             "storage_profile_id": "storageProfileId",
             "tag_propagation_mode": "tagPropagationMode",
         },
@@ -1289,6 +1385,7 @@ class CfnFleet(
             *,
             mode: builtins.str,
             worker_capabilities: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.CustomerManagedWorkerCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]],
+            auto_scaling_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.CustomerManagedAutoScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             storage_profile_id: typing.Optional[builtins.str] = None,
             tag_propagation_mode: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -1296,6 +1393,7 @@ class CfnFleet(
 
             :param mode: The Auto Scaling mode for the customer managed fleet.
             :param worker_capabilities: The worker capabilities for the customer managed fleet.
+            :param auto_scaling_configuration: 
             :param storage_profile_id: The storage profile ID for the customer managed fleet.
             :param tag_propagation_mode: The tag propagation mode for the customer managed fleet.
 
@@ -1354,6 +1452,11 @@ class CfnFleet(
                     ),
                 
                     # the properties below are optional
+                    auto_scaling_configuration=deadline.CfnFleet.CustomerManagedAutoScalingConfigurationProperty(
+                        scale_out_workers_per_minute=123,
+                        standby_worker_count=123,
+                        worker_idle_duration_seconds=123
+                    ),
                     storage_profile_id="storageProfileId",
                     tag_propagation_mode="tagPropagationMode"
                 )
@@ -1362,12 +1465,15 @@ class CfnFleet(
                 type_hints = typing.get_type_hints(_typecheckingstub__1e0d0744c60a31b3157ef03f930266f6c000eafa44c6050607897ea5b3e3881d)
                 check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
                 check_type(argname="argument worker_capabilities", value=worker_capabilities, expected_type=type_hints["worker_capabilities"])
+                check_type(argname="argument auto_scaling_configuration", value=auto_scaling_configuration, expected_type=type_hints["auto_scaling_configuration"])
                 check_type(argname="argument storage_profile_id", value=storage_profile_id, expected_type=type_hints["storage_profile_id"])
                 check_type(argname="argument tag_propagation_mode", value=tag_propagation_mode, expected_type=type_hints["tag_propagation_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "mode": mode,
                 "worker_capabilities": worker_capabilities,
             }
+            if auto_scaling_configuration is not None:
+                self._values["auto_scaling_configuration"] = auto_scaling_configuration
             if storage_profile_id is not None:
                 self._values["storage_profile_id"] = storage_profile_id
             if tag_propagation_mode is not None:
@@ -1394,6 +1500,16 @@ class CfnFleet(
             result = self._values.get("worker_capabilities")
             assert result is not None, "Required property 'worker_capabilities' is missing"
             return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFleet.CustomerManagedWorkerCapabilitiesProperty"], result)
+
+        @builtins.property
+        def auto_scaling_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.CustomerManagedAutoScalingConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedfleetconfiguration.html#cfn-deadline-fleet-customermanagedfleetconfiguration-autoscalingconfiguration
+            '''
+            result = self._values.get("auto_scaling_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.CustomerManagedAutoScalingConfigurationProperty"]], result)
 
         @builtins.property
         def storage_profile_id(self) -> typing.Optional[builtins.str]:
@@ -2066,6 +2182,11 @@ class CfnFleet(
                         ),
                 
                         # the properties below are optional
+                        auto_scaling_configuration=deadline.CfnFleet.CustomerManagedAutoScalingConfigurationProperty(
+                            scale_out_workers_per_minute=123,
+                            standby_worker_count=123,
+                            worker_idle_duration_seconds=123
+                        ),
                         storage_profile_id="storageProfileId",
                         tag_propagation_mode="tagPropagationMode"
                     ),
@@ -2127,6 +2248,11 @@ class CfnFleet(
                         ),
                 
                         # the properties below are optional
+                        auto_scaling_configuration=deadline.CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty(
+                            scale_out_workers_per_minute=123,
+                            standby_worker_count=123,
+                            worker_idle_duration_seconds=123
+                        ),
                         storage_profile_id="storageProfileId",
                         vpc_configuration=deadline.CfnFleet.VpcConfigurationProperty(
                             resource_configuration_arns=["resourceConfigurationArns"]
@@ -2345,11 +2471,97 @@ class CfnFleet(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "scale_out_workers_per_minute": "scaleOutWorkersPerMinute",
+            "standby_worker_count": "standbyWorkerCount",
+            "worker_idle_duration_seconds": "workerIdleDurationSeconds",
+        },
+    )
+    class ServiceManagedEc2AutoScalingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            scale_out_workers_per_minute: typing.Optional[jsii.Number] = None,
+            standby_worker_count: typing.Optional[jsii.Number] = None,
+            worker_idle_duration_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param scale_out_workers_per_minute: 
+            :param standby_worker_count: 
+            :param worker_idle_duration_seconds: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2autoscalingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                service_managed_ec2_auto_scaling_configuration_property = deadline.CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty(
+                    scale_out_workers_per_minute=123,
+                    standby_worker_count=123,
+                    worker_idle_duration_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6a18ab11a125a4b6c943defd6bbee05c87f2e1e35b3e83540d34cb8dae673d40)
+                check_type(argname="argument scale_out_workers_per_minute", value=scale_out_workers_per_minute, expected_type=type_hints["scale_out_workers_per_minute"])
+                check_type(argname="argument standby_worker_count", value=standby_worker_count, expected_type=type_hints["standby_worker_count"])
+                check_type(argname="argument worker_idle_duration_seconds", value=worker_idle_duration_seconds, expected_type=type_hints["worker_idle_duration_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if scale_out_workers_per_minute is not None:
+                self._values["scale_out_workers_per_minute"] = scale_out_workers_per_minute
+            if standby_worker_count is not None:
+                self._values["standby_worker_count"] = standby_worker_count
+            if worker_idle_duration_seconds is not None:
+                self._values["worker_idle_duration_seconds"] = worker_idle_duration_seconds
+
+        @builtins.property
+        def scale_out_workers_per_minute(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2autoscalingconfiguration.html#cfn-deadline-fleet-servicemanagedec2autoscalingconfiguration-scaleoutworkersperminute
+            '''
+            result = self._values.get("scale_out_workers_per_minute")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def standby_worker_count(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2autoscalingconfiguration.html#cfn-deadline-fleet-servicemanagedec2autoscalingconfiguration-standbyworkercount
+            '''
+            result = self._values.get("standby_worker_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def worker_idle_duration_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2autoscalingconfiguration.html#cfn-deadline-fleet-servicemanagedec2autoscalingconfiguration-workeridledurationseconds
+            '''
+            result = self._values.get("worker_idle_duration_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceManagedEc2AutoScalingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_deadline.CfnFleet.ServiceManagedEc2FleetConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
             "instance_capabilities": "instanceCapabilities",
             "instance_market_options": "instanceMarketOptions",
+            "auto_scaling_configuration": "autoScalingConfiguration",
             "storage_profile_id": "storageProfileId",
             "vpc_configuration": "vpcConfiguration",
         },
@@ -2360,6 +2572,7 @@ class CfnFleet(
             *,
             instance_capabilities: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]],
             instance_market_options: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+            auto_scaling_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             storage_profile_id: typing.Optional[builtins.str] = None,
             vpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -2367,6 +2580,7 @@ class CfnFleet(
 
             :param instance_capabilities: The instance capabilities for the service managed EC2 fleet.
             :param instance_market_options: The instance market options for the service managed EC2 fleet.
+            :param auto_scaling_configuration: 
             :param storage_profile_id: The storage profile ID for the service managed EC2 fleet.
             :param vpc_configuration: The VPC configuration for the service managed EC2 fleet.
 
@@ -2437,6 +2651,11 @@ class CfnFleet(
                     ),
                 
                     # the properties below are optional
+                    auto_scaling_configuration=deadline.CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty(
+                        scale_out_workers_per_minute=123,
+                        standby_worker_count=123,
+                        worker_idle_duration_seconds=123
+                    ),
                     storage_profile_id="storageProfileId",
                     vpc_configuration=deadline.CfnFleet.VpcConfigurationProperty(
                         resource_configuration_arns=["resourceConfigurationArns"]
@@ -2447,12 +2666,15 @@ class CfnFleet(
                 type_hints = typing.get_type_hints(_typecheckingstub__a24a660b503191048581077a517891d27502b69620643c509073603283a2cb39)
                 check_type(argname="argument instance_capabilities", value=instance_capabilities, expected_type=type_hints["instance_capabilities"])
                 check_type(argname="argument instance_market_options", value=instance_market_options, expected_type=type_hints["instance_market_options"])
+                check_type(argname="argument auto_scaling_configuration", value=auto_scaling_configuration, expected_type=type_hints["auto_scaling_configuration"])
                 check_type(argname="argument storage_profile_id", value=storage_profile_id, expected_type=type_hints["storage_profile_id"])
                 check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "instance_capabilities": instance_capabilities,
                 "instance_market_options": instance_market_options,
             }
+            if auto_scaling_configuration is not None:
+                self._values["auto_scaling_configuration"] = auto_scaling_configuration
             if storage_profile_id is not None:
                 self._values["storage_profile_id"] = storage_profile_id
             if vpc_configuration is not None:
@@ -2481,6 +2703,16 @@ class CfnFleet(
             result = self._values.get("instance_market_options")
             assert result is not None, "Required property 'instance_market_options' is missing"
             return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty"], result)
+
+        @builtins.property
+        def auto_scaling_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2fleetconfiguration.html#cfn-deadline-fleet-servicemanagedec2fleetconfiguration-autoscalingconfiguration
+            '''
+            result = self._values.get("auto_scaling_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty"]], result)
 
         @builtins.property
         def storage_profile_id(self) -> typing.Optional[builtins.str]:
@@ -3049,6 +3281,11 @@ class CfnFleetProps:
                         ),
             
                         # the properties below are optional
+                        auto_scaling_configuration=deadline.CfnFleet.CustomerManagedAutoScalingConfigurationProperty(
+                            scale_out_workers_per_minute=123,
+                            standby_worker_count=123,
+                            worker_idle_duration_seconds=123
+                        ),
                         storage_profile_id="storageProfileId",
                         tag_propagation_mode="tagPropagationMode"
                     ),
@@ -3110,6 +3347,11 @@ class CfnFleetProps:
                         ),
             
                         # the properties below are optional
+                        auto_scaling_configuration=deadline.CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty(
+                            scale_out_workers_per_minute=123,
+                            standby_worker_count=123,
+                            worker_idle_duration_seconds=123
+                        ),
                         storage_profile_id="storageProfileId",
                         vpc_configuration=deadline.CfnFleet.VpcConfigurationProperty(
                             resource_configuration_arns=["resourceConfigurationArns"]
@@ -6914,10 +7156,20 @@ def _typecheckingstub__6e87ae0b2cf7001539dfe803c414d6da11bd37d8db4fe33e1b4847d22
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8c1cfe3f05aba39c56c382361943715334bf46778423ea2363fb7d33e8e5c32b(
+    *,
+    scale_out_workers_per_minute: typing.Optional[jsii.Number] = None,
+    standby_worker_count: typing.Optional[jsii.Number] = None,
+    worker_idle_duration_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1e0d0744c60a31b3157ef03f930266f6c000eafa44c6050607897ea5b3e3881d(
     *,
     mode: builtins.str,
     worker_capabilities: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.CustomerManagedWorkerCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]],
+    auto_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.CustomerManagedAutoScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     storage_profile_id: typing.Optional[builtins.str] = None,
     tag_propagation_mode: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -6997,10 +7249,20 @@ def _typecheckingstub__e0c49c5364d9d5abab3267eb2a6afca69f203020da3e42493624297dd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6a18ab11a125a4b6c943defd6bbee05c87f2e1e35b3e83540d34cb8dae673d40(
+    *,
+    scale_out_workers_per_minute: typing.Optional[jsii.Number] = None,
+    standby_worker_count: typing.Optional[jsii.Number] = None,
+    worker_idle_duration_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a24a660b503191048581077a517891d27502b69620643c509073603283a2cb39(
     *,
     instance_capabilities: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]],
     instance_market_options: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
+    auto_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     storage_profile_id: typing.Optional[builtins.str] = None,
     vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

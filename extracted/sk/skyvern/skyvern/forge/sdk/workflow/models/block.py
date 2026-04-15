@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import ast
 import asyncio
+import copy
 import csv
 import json
 import os
@@ -38,7 +39,6 @@ from skyvern.constants import (
     GET_DOWNLOADED_FILES_TIMEOUT,
     MAX_FILE_PARSE_INPUT_TOKENS,
     MAX_UPLOAD_FILE_COUNT,
-    loop_iteration_key,
 )
 from skyvern.exceptions import (
     AzureConfigurationError,
@@ -69,6 +69,7 @@ from skyvern.forge.sdk.api.llm.api_handler_factory import LLMAPIHandlerFactory
 from skyvern.forge.sdk.artifact.models import ArtifactType
 from skyvern.forge.sdk.core import skyvern_context
 from skyvern.forge.sdk.core.aiohttp_helper import aiohttp_request
+from skyvern.forge.sdk.core.skyvern_context import SkyvernContext
 from skyvern.forge.sdk.db.enums import TaskType
 from skyvern.forge.sdk.db.exceptions import NotFoundError
 from skyvern.forge.sdk.experimentation.llm_prompt_config import get_llm_handler_for_prompt_type
@@ -82,11 +83,7 @@ from skyvern.forge.sdk.settings_manager import SettingsManager
 from skyvern.forge.sdk.trace import traced
 from skyvern.forge.sdk.utils.pdf_parser import extract_pdf_file, render_pdf_pages_as_images, validate_pdf_file
 from skyvern.forge.sdk.utils.sanitization import sanitize_postgres_text
-from skyvern.forge.sdk.workflow.context_manager import (
-    BlockMetadata,
-    WorkflowRunContext,
-    set_iteration_workflow_run_context,
-)
+from skyvern.forge.sdk.workflow.context_manager import BlockMetadata, WorkflowRunContext
 from skyvern.forge.sdk.workflow.exceptions import (
     CustomizedCodeException,
     FailedToFormatJinjaStyleParameter,
@@ -99,6 +96,7 @@ from skyvern.forge.sdk.workflow.exceptions import (
     NoValidEmailRecipient,
 )
 from skyvern.forge.sdk.workflow.loop_download_filter import (
+    DOWNLOADED_FILE_SIGS_KEY,
     filter_downloaded_files_for_current_iteration,
     to_downloaded_file_signature,
 )
@@ -121,6 +119,95 @@ from skyvern.webeye.browser_state import BrowserState
 from skyvern.webeye.utils.page import SkyvernFrame
 
 LOG = structlog.get_logger()
+
+
+# SKY-8818: observability threshold for under-configured file_download blocks.
+# Warning fires when `max_steps_per_run` is set below this value. Not a behavior change —
+# purely a Datadog-searchable signal (`log_code=file_download_low_max_steps`).
+MAX_STEPS_DOWNLOAD_WARNING_THRESHOLD = 5
+
+
+def warn_if_file_download_max_steps_low(
+    block: BaseTaskBlock,
+    workflow_run_id: str | None = None,
+) -> None:
+    """Emit a structured warning if a file_download block has an under-configured step budget.
+
+    A `max_steps_per_run` of None means "use org default", which is not a misconfiguration.
+    Only configured values strictly below MAX_STEPS_DOWNLOAD_WARNING_THRESHOLD warn.
+    """
+    if block.block_type != BlockType.FILE_DOWNLOAD:
+        return
+    configured = block.max_steps_per_run
+    if configured is None:
+        return
+    if configured >= MAX_STEPS_DOWNLOAD_WARNING_THRESHOLD:
+        return
+    LOG.warning(
+        "file_download block configured with low max_steps_per_run",
+        log_code="file_download_low_max_steps",
+        block_label=block.label,
+        max_steps_per_run=configured,
+        recommended_minimum=MAX_STEPS_DOWNLOAD_WARNING_THRESHOLD,
+        workflow_run_id=workflow_run_id,
+    )
+
+
+BLOCK_BASELINE_MARKER = "_set_by_block"
+
+
+async def capture_block_download_baseline(
+    context: SkyvernContext,
+    organization_id: str,
+    workflow_run_id: str,
+    block_label: str,
+) -> None:
+    """Snapshot downloaded files before a task block runs.
+
+    Sets ``loop_internal_state`` so ``filter_downloaded_files_for_current_iteration``
+    scopes the block's output to only files it downloaded.  Skips capture when the
+    baseline was already set by a ForLoopBlock (no marker).
+    """
+    existing = context.loop_internal_state
+    if existing and BLOCK_BASELINE_MARKER not in existing:
+        return
+    try:
+        async with asyncio.timeout(GET_DOWNLOADED_FILES_TIMEOUT):
+            baseline_files = await app.STORAGE.get_downloaded_files(
+                organization_id=organization_id,
+                run_id=context.run_id or workflow_run_id,
+            )
+            context.loop_internal_state = {
+                DOWNLOADED_FILE_SIGS_KEY: [to_downloaded_file_signature(fi) for fi in baseline_files],
+                BLOCK_BASELINE_MARKER: True,
+            }
+            LOG.debug(
+                "Captured block download baseline",
+                workflow_run_id=workflow_run_id,
+                organization_id=organization_id,
+                block_label=block_label,
+                file_count=len(baseline_files),
+            )
+    except asyncio.TimeoutError:
+        context.loop_internal_state = None
+        LOG.warning(
+            "Timeout capturing baseline downloaded files for task block",
+            workflow_run_id=workflow_run_id,
+            organization_id=organization_id,
+            block_label=block_label,
+        )
+    except Exception:
+        # Baseline capture is best-effort — transient S3/network errors should
+        # not abort the block. Degrade to unscoped filtering (the pre-fix behavior).
+        context.loop_internal_state = None
+        LOG.warning(
+            "Failed to capture baseline downloaded files for task block",
+            workflow_run_id=workflow_run_id,
+            organization_id=organization_id,
+            block_label=block_label,
+            exc_info=True,
+        )
+
 
 if settings.WORKFLOW_TEMPLATING_STRICTNESS == "strict":
     jinja_sandbox_env = SandboxedEnvironment(undefined=StrictUndefined)
@@ -808,6 +895,12 @@ class BaseTaskBlock(Block):
             workflow_run_id=workflow_run_id,
             organization_id=organization_id,
         )
+
+        # Scope downloaded files to this block only.
+        block_context = skyvern_context.current()
+        if block_context:
+            await capture_block_download_baseline(block_context, organization_id or "", workflow_run_id, self.label)
+
         # Get workflow from context if available, otherwise query database
         workflow = workflow_run_context.workflow
         if workflow is None:
@@ -870,6 +963,16 @@ class BaseTaskBlock(Block):
                 organization_id=organization_id,
             )
 
+        # SKY-8818: observability + wait_until override. Computed ONCE per block
+        # execution — hoisted outside the retry loop so the Datadog signal counts
+        # block runs, not retries, and `_navigate_wait_until` is a pure function of
+        # self.block_type (which does not change between retries).
+        warn_if_file_download_max_steps_low(self, workflow_run_id=workflow_run_id)
+        _is_file_download = self.block_type == BlockType.FILE_DOWNLOAD
+        _navigate_wait_until: Literal["load", "domcontentloaded", "commit"] = (
+            "domcontentloaded" if _is_file_download else "load"
+        )
+
         # TODO (kerem) we should always retry on terminated. We should make a distinction between retriable and
         # non-retryable terminations
         while will_retry:
@@ -899,9 +1002,13 @@ class BaseTaskBlock(Block):
             if is_first_task:
                 # the first task block will create the browser state and do the navigation
                 try:
+                    # SKY-8818: for file_download blocks, skip the browser factory's built-in
+                    # goto (which uses wait_until='load' and stalls on slow subresources) and
+                    # let the about:blank fallback below handle navigation with our override.
+                    _bm_url = None if _is_file_download else self.url
                     browser_state = await app.BROWSER_MANAGER.get_or_create_for_workflow_run(
                         workflow_run=workflow_run,
-                        url=self.url,
+                        url=_bm_url,
                         browser_session_id=browser_session_id,
                         browser_profile_id=workflow_run.browser_profile_id,
                     )
@@ -912,8 +1019,21 @@ class BaseTaskBlock(Block):
                             workflow_run_id=workflow_run.workflow_run_id,
                         )
                         raise MissingBrowserStatePage(workflow_run_id=workflow_run.workflow_run_id)
-                    if working_page.url == "about:blank" and self.url:
-                        await browser_state.navigate_to_url(page=working_page, url=self.url)
+                    # SKY-8818: for file_download we passed url=None above so the factory
+                    # skipped its built-in goto. We must therefore navigate explicitly to
+                    # self.url — not just when the page is about:blank, but whenever the
+                    # working page is not already on the target URL (e.g. persistent
+                    # browser sessions that carry state from a prior block).
+                    if self.url:
+                        _needs_navigation = working_page.url == "about:blank" or (
+                            _is_file_download and working_page.url.rstrip("/") != self.url.rstrip("/")
+                        )
+                        if _needs_navigation:
+                            await browser_state.navigate_to_url(
+                                page=working_page,
+                                url=self.url,
+                                wait_until=_navigate_wait_until,
+                            )
 
                     # When a browser profile is loaded, wait for the page to fully settle
                     # so that cookie-based authentication can redirect or restore the session
@@ -965,8 +1085,6 @@ class BaseTaskBlock(Block):
                     )
             else:
                 # if not the first task block, need to navigate manually
-                # get_for_workflow_run checks SkyvernContext for iteration-specific
-                # browser keys (__iter_N) first, falling back to bare workflow_run_id.
                 browser_state = app.BROWSER_MANAGER.get_for_workflow_run(workflow_run_id=workflow_run_id)
                 if browser_state is None:
                     raise MissingBrowserState(task_id=task.task_id, workflow_run_id=workflow_run_id)
@@ -990,7 +1108,13 @@ class BaseTaskBlock(Block):
                         step_id=step.step_id,
                     )
                     try:
-                        await browser_state.navigate_to_url(page=working_page, url=self.url)
+                        # SKY-8818: use the hoisted wait_until override so file_download
+                        # pages with slow subresources can still resolve via domcontentloaded.
+                        await browser_state.navigate_to_url(
+                            page=working_page,
+                            url=self.url,
+                            wait_until=_navigate_wait_until,
+                        )
                     except Exception as e:
                         await self._handle_task_failure_with_error_detection(
                             task=task,
@@ -1346,14 +1470,6 @@ class ForLoopBlock(Block):
     # Note: intentionally excludes `list` (unlike BaseTaskBlock.data_schema) because a list schema
     # does not describe the shape of individual loop items -- only dict schemas are meaningful here.
     data_schema: dict[str, Any] | str | None = None
-    # Parallel execution: None or 1 = sequential (existing behavior), 2-20 = parallel batch size.
-    max_concurrency: int | None = None
-
-    @model_validator(mode="after")
-    def _clamp_max_concurrency(self) -> ForLoopBlock:
-        if self.max_concurrency is not None:
-            self.max_concurrency = max(1, min(self.max_concurrency, 20))
-        return self
 
     def get_all_parameters(
         self,
@@ -1845,53 +1961,6 @@ class ForLoopBlock(Block):
         organization_id: str | None = None,
         browser_session_id: str | None = None,
     ) -> LoopBlockExecutedResult:
-        # Dispatch to parallel path when max_concurrency > 1
-        effective_concurrency = self.max_concurrency or 1
-        if effective_concurrency > 1 and browser_session_id:
-            # Persistent browser sessions cannot be safely shared across
-            # parallel iterations — every iteration would race on the same
-            # live page. Fall back to sequential execution rather than
-            # corrupt the session.
-            LOG.info(
-                "Persistent browser session set; forcing sequential execution for for-loop",
-                workflow_run_id=workflow_run_id,
-                browser_session_id=browser_session_id,
-                requested_concurrency=self.max_concurrency,
-            )
-            effective_concurrency = 1
-        if effective_concurrency > 1:
-            # Check per-org quota — may reduce concurrency or force sequential
-            if organization_id:
-                effective_concurrency = await app.AGENT_FUNCTION.check_parallel_loop_quota(
-                    organization_id, effective_concurrency
-                )
-                if effective_concurrency <= 1:
-                    # Release whatever was granted before falling back to sequential.
-                    # A return value of 0 means no slots were acquired, so nothing
-                    # to release. A return value of 1 means one slot was incremented
-                    # in Redis and must be decremented to avoid a leak.
-                    if effective_concurrency > 0:
-                        await app.AGENT_FUNCTION.release_parallel_loop_quota(organization_id, effective_concurrency)
-                    LOG.info(
-                        "Org concurrency quota exhausted, falling back to sequential execution",
-                        workflow_run_id=workflow_run_id,
-                        organization_id=organization_id,
-                        requested_concurrency=self.max_concurrency,
-                    )
-                    # Fall through to sequential path below
-
-            if effective_concurrency > 1:
-                return await self._execute_loop_parallel(
-                    workflow_run_id=workflow_run_id,
-                    workflow_run_block_id=workflow_run_block_id,
-                    workflow_run_context=workflow_run_context,
-                    loop_over_values=loop_over_values,
-                    organization_id=organization_id,
-                    browser_session_id=browser_session_id,
-                    granted_concurrency=effective_concurrency,
-                )
-
-        # --- Sequential path (existing behavior, unchanged) ---
         outputs_with_loop_values: list[list[dict[str, Any]]] = []
         block_outputs: list[BlockResult] = []
         current_block: BlockTypeVar | None = None
@@ -1949,7 +2018,7 @@ class ForLoopBlock(Block):
                     loop_context.loop_internal_state = None
                 else:
                     loop_context.loop_internal_state = {
-                        "downloaded_file_signatures_before_iteration": downloaded_file_sigs_before,
+                        DOWNLOADED_FILE_SIGS_KEY: downloaded_file_sigs_before,
                     }
 
             # context parameter has been deprecated. However, it's still used by task v2 - we should migrate away from it.
@@ -2199,500 +2268,32 @@ class ForLoopBlock(Block):
             last_block=current_block,
         )
 
-    async def _execute_single_iteration_parallel(
-        self,
-        loop_idx: int,
-        loop_over_value: Any,
-        workflow_run_id: str,
-        workflow_run_block_id: str,
-        workflow_run_context: WorkflowRunContext,
-        start_label: str,
-        label_to_block: dict[str, BlockTypeVar],
-        default_next_map: dict[str, str | None],
-        conditional_scopes: dict[str, str],
-        organization_id: str | None = None,
-        browser_session_id: str | None = None,
-    ) -> tuple[int, list[dict[str, Any]], list[BlockResult], BlockTypeVar | None, WorkflowRunContext]:
-        """Execute a single loop iteration with its own isolated context.
-
-        Returns (loop_idx, iteration_outputs, block_results, last_block, context_snapshot).
-        """
-        each_loop_output_values: list[dict[str, Any]] = []
-        block_outputs: list[BlockResult] = []
-        current_block: BlockTypeVar | None = None
-
-        # Create isolated browser context for this iteration and register it
-        # under workflow_run_id so existing task block browser lookups find it.
-        # This is safe because each coroutine in asyncio.gather holds its own
-        # reference and the SkyvernContext iteration key provides disambiguation.
-        try:
-            await app.BROWSER_MANAGER.get_or_create_for_loop_iteration(
-                workflow_run_id=workflow_run_id,
-                loop_idx=loop_idx,
-                organization_id=organization_id,
-                browser_session_id=browser_session_id,
-            )
-            # The iteration browser is stored under the iteration key
-            # (e.g. "wr_xxx__iter_0") and resolved via SkyvernContext in
-            # get_or_create_for_workflow_run(). We intentionally do NOT
-            # alias it under the bare workflow_run_id to avoid races
-            # between concurrent iterations.
-        except Exception:
-            # Fail this iteration immediately. Falling back to the shared
-            # workflow browser would cause concurrent iterations to race on
-            # the same page, corrupting navigation/actions and producing
-            # non-deterministic data. Sequential loops can safely share a
-            # browser; parallel loops cannot.
-            LOG.error(
-                "Failed to create isolated browser for parallel iteration",
-                workflow_run_id=workflow_run_id,
-                loop_idx=loop_idx,
-                exc_info=True,
-            )
-            failure_block_result = await self.build_block_result(
-                success=False,
-                status=BlockStatus.failed,
-                failure_reason=f"Failed to create isolated browser for parallel iteration {loop_idx}",
-                workflow_run_block_id=None,
-                organization_id=organization_id,
-            )
-            return loop_idx, [], [failure_block_result], None, workflow_run_context
-
-        # Capture baseline downloaded files for per-iteration scoping (SKY-7005)
-        loop_context = skyvern_context.current()
-        if loop_context:
-            downloaded_file_sigs_before: list[tuple[str | None, str | None, str | None]] = []
-            baseline_timed_out = False
-            try:
-                async with asyncio.timeout(GET_DOWNLOADED_FILES_TIMEOUT):
-                    downloaded_file_sigs_before = [
-                        to_downloaded_file_signature(fi)
-                        for fi in await app.STORAGE.get_downloaded_files(
-                            organization_id=organization_id or "",
-                            run_id=loop_context.run_id if loop_context.run_id else workflow_run_id,
-                        )
-                    ]
-            except asyncio.TimeoutError:
-                baseline_timed_out = True
-                LOG.warning(
-                    "Timeout getting baseline downloaded files for parallel loop iteration",
-                    workflow_run_id=workflow_run_id,
-                    loop_idx=loop_idx,
-                )
-            if baseline_timed_out:
-                loop_context.loop_internal_state = None
-            else:
-                loop_context.loop_internal_state = {
-                    "downloaded_file_signatures_before_iteration": downloaded_file_sigs_before,
-                }
-
-        context_parameters_with_value = self.get_loop_block_context_parameters(workflow_run_id, loop_over_value)
-        for context_parameter in context_parameters_with_value:
-            workflow_run_context.set_value(context_parameter.key, context_parameter.value)
-
-        iteration_step_count = 0
-        LOG.info(
-            "ForLoopBlock parallel: starting iteration",
-            workflow_run_id=workflow_run_id,
-            loop_idx=loop_idx,
-            max_steps_per_iteration=DEFAULT_MAX_STEPS_PER_ITERATION,
-        )
-
-        block_idx = 0
-        current_label: str | None = start_label
-        conditional_wrb_ids: dict[str, str] = {}
-        while current_label:
-            loop_block = label_to_block.get(current_label)
-            if not loop_block:
-                LOG.error(
-                    "Unable to find loop block with label in parallel loop graph",
-                    workflow_run_id=workflow_run_id,
-                    loop_label=self.label,
-                    current_label=current_label,
-                )
-                failure_block_result = await self.build_block_result(
-                    success=False,
-                    status=BlockStatus.failed,
-                    failure_reason=f"Unable to find block with label {current_label} inside loop {self.label}",
-                    workflow_run_block_id=workflow_run_block_id,
-                    organization_id=organization_id,
-                )
-                block_outputs.append(failure_block_result)
-                return (loop_idx, each_loop_output_values, block_outputs, current_block, workflow_run_context)
-
-            metadata: BlockMetadata = {
-                "current_index": loop_idx,
-                "current_value": loop_over_value,
-                "current_item": loop_over_value,
-            }
-            workflow_run_context.update_block_metadata(self.label, metadata)
-            workflow_run_context.update_block_metadata(loop_block.label, metadata)
-
-            original_loop_block = loop_block
-            loop_block = loop_block.model_copy(deep=True)
-            current_block = loop_block
-
-            parent_wrb_id = workflow_run_block_id
-            if current_label in conditional_scopes:
-                cond_label = conditional_scopes[current_label]
-                if cond_label in conditional_wrb_ids:
-                    parent_wrb_id = conditional_wrb_ids[cond_label]
-
-            block_output = await loop_block.execute_safe(
-                workflow_run_id=workflow_run_id,
-                parent_workflow_run_block_id=parent_wrb_id,
-                organization_id=organization_id,
-                browser_session_id=browser_session_id,
-                current_value=str(loop_over_value),
-                current_index=loop_idx,
-            )
-
-            if loop_block.block_type == BlockType.CONDITIONAL and block_output.workflow_run_block_id:
-                conditional_wrb_ids[current_label] = block_output.workflow_run_block_id
-
-            output_value = (
-                workflow_run_context.get_value(block_output.output_parameter.key)
-                if workflow_run_context.has_value(block_output.output_parameter.key)
-                else None
-            )
-
-            if block_output.output_parameter.key.endswith("_output"):
-                LOG.debug("Block output (parallel)", block_type=loop_block.block_type, output_value=output_value)
-
-            each_loop_output_values.append(
-                {
-                    "loop_value": loop_over_value,
-                    "output_parameter": block_output.output_parameter,
-                    "output_value": output_value,
-                }
-            )
-            try:
-                if block_output.workflow_run_block_id:
-                    await app.DATABASE.observer.update_workflow_run_block(
-                        workflow_run_block_id=block_output.workflow_run_block_id,
-                        organization_id=organization_id,
-                        current_value=str(loop_over_value),
-                        current_index=loop_idx,
-                    )
-            except Exception:
-                LOG.warning(
-                    "Failed to update workflow run block (parallel)",
-                    workflow_run_block_id=block_output.workflow_run_block_id,
-                    loop_over_value=loop_over_value,
-                    loop_idx=loop_idx,
-                )
-            loop_block = original_loop_block
-            block_outputs.append(block_output)
-
-            iteration_step_count += 1
-            if iteration_step_count >= DEFAULT_MAX_STEPS_PER_ITERATION:
-                LOG.info(
-                    "ForLoopBlock parallel: reached max_steps_per_iteration limit",
-                    workflow_run_id=workflow_run_id,
-                    loop_idx=loop_idx,
-                )
-                failure_block_result = await self.build_block_result(
-                    success=False,
-                    status=BlockStatus.failed,
-                    failure_reason=f"Reached max_steps_per_iteration limit of {DEFAULT_MAX_STEPS_PER_ITERATION}",
-                    workflow_run_block_id=workflow_run_block_id,
-                    organization_id=organization_id,
-                )
-                block_outputs.append(failure_block_result)
-                break
-
-            if block_output.status == BlockStatus.canceled:
-                LOG.info(
-                    "ForLoopBlock parallel: iteration was canceled",
-                    workflow_run_id=workflow_run_id,
-                    loop_idx=loop_idx,
-                )
-                break
-
-            if (
-                not block_output.success
-                and not loop_block.continue_on_failure
-                and not loop_block.next_loop_on_failure
-                and not self.next_loop_on_failure
-            ):
-                LOG.info(
-                    "ForLoopBlock parallel: iteration block failed, terminating",
-                    loop_idx=loop_idx,
-                    block_idx=block_idx,
-                    failure_reason=block_output.failure_reason,
-                )
-                break
-
-            if block_output.success or loop_block.continue_on_failure:
-                next_label: str | None = None
-                if loop_block.block_type == BlockType.CONDITIONAL:
-                    branch_metadata = (
-                        block_output.output_parameter_value
-                        if isinstance(block_output.output_parameter_value, dict)
-                        else None
-                    )
-                    next_label = (branch_metadata or {}).get("next_block_label")
-                else:
-                    next_label = default_next_map.get(loop_block.label)
-
-                if not next_label:
-                    break
-
-                if next_label not in label_to_block:
-                    failure_block_result = await self.build_block_result(
-                        success=False,
-                        status=BlockStatus.failed,
-                        failure_reason=f"Next block label {next_label} not found inside loop {self.label}",
-                        workflow_run_block_id=workflow_run_block_id,
-                        organization_id=organization_id,
-                    )
-                    block_outputs.append(failure_block_result)
-                    break
-
-                current_label = next_label
-                block_idx += 1
-                continue
-
-            if loop_block.next_loop_on_failure or self.next_loop_on_failure:
-                LOG.info(
-                    "ForLoopBlock parallel: iteration block failed, continuing to next",
-                    loop_idx=loop_idx,
-                    block_idx=block_idx,
-                )
-                break
-
-            break
-
-        return (loop_idx, each_loop_output_values, block_outputs, current_block, workflow_run_context)
-
-    async def _execute_loop_parallel(
-        self,
-        workflow_run_id: str,
-        workflow_run_block_id: str,
-        workflow_run_context: WorkflowRunContext,
-        loop_over_values: list[Any],
-        organization_id: str | None = None,
-        browser_session_id: str | None = None,
-        granted_concurrency: int | None = None,
-    ) -> LoopBlockExecutedResult:
-        """Execute loop iterations in parallel batches of max_concurrency.
-
-        Slot ownership contract:
-        - The CALLER (`execute_loop_helper`) acquires `granted_concurrency`
-          slots via `check_parallel_loop_quota` before invoking this method.
-        - This method takes ownership of those slots and is responsible for
-          releasing exactly `granted_concurrency` slots in its `finally` block.
-        - Callers must NOT release the slots themselves after this method
-          returns or raises.
-        """
-        # Caller (execute_loop_helper) only invokes this method when the
-        # post-quota granted_concurrency is > 1. Use an explicit check rather
-        # than `assert` so the contract holds when running with -O.
-        if not granted_concurrency or granted_concurrency <= 1:
-            raise ValueError(f"_execute_loop_parallel requires granted_concurrency > 1, got {granted_concurrency}")
-        effective_concurrency = granted_concurrency
-        outputs_with_loop_values: list[list[dict[str, Any]]] = []
-        all_block_outputs: list[BlockResult] = []
-        last_block: BlockTypeVar | None = None
-        # Release exactly what we acquired. acquire_parallel_slots already
-        # returns min(requested, available), so effective_concurrency is the
-        # true granted count. Releasing fewer (e.g. min(granted, len(values)))
-        # would orphan the unused slots in Redis until TTL expiry.
-        slots_to_release = effective_concurrency
-
-        # Wrap the entire method body so concurrency slots are always released,
-        # even if _build_loop_graph or compute_conditional_scopes fails.
-        try:
-            start_label, label_to_block, default_next_map = self._build_loop_graph(self.loop_blocks)
-            conditional_scopes = compute_conditional_scopes(label_to_block, default_next_map)
-
-            # Enforce max iterations
-            capped_values = loop_over_values[:DEFAULT_MAX_LOOP_ITERATIONS]
-            if len(loop_over_values) > DEFAULT_MAX_LOOP_ITERATIONS:
-                LOG.info(
-                    "ForLoopBlock parallel: capping iterations",
-                    workflow_run_id=workflow_run_id,
-                    max_iterations=DEFAULT_MAX_LOOP_ITERATIONS,
-                    total_values=len(loop_over_values),
-                )
-            # Process in batches
-            for batch_start in range(0, len(capped_values), effective_concurrency):
-                batch_end = min(batch_start + effective_concurrency, len(capped_values))
-                batch = [(idx, val) for idx, val in enumerate(capped_values[batch_start:batch_end], start=batch_start)]
-
-                LOG.info(
-                    "ForLoopBlock parallel: executing batch",
-                    workflow_run_id=workflow_run_id,
-                    batch_start=batch_start,
-                    batch_end=batch_end,
-                    batch_size=len(batch),
-                    max_concurrency=effective_concurrency,
-                )
-
-                # Create context snapshots for each iteration in the batch
-                iteration_tasks = []
-                batch_loop_indices = []
-                for loop_idx, loop_over_value in batch:
-                    batch_loop_indices.append(loop_idx)
-                    ctx_snapshot = workflow_run_context.create_iteration_snapshot(loop_idx)
-
-                    # Default args freeze loop variables at definition time so each
-                    # task closes over its own loop_idx/value/snapshot rather than
-                    # the late-binding loop locals.
-                    async def _run_iteration(
-                        _loop_idx: int = loop_idx,
-                        _loop_value: Any = loop_over_value,
-                        _ctx_snapshot: WorkflowRunContext = ctx_snapshot,
-                    ) -> tuple[int, list[dict[str, Any]], list[BlockResult], BlockTypeVar | None, WorkflowRunContext]:
-                        # Install the per-iteration workflow_run_context snapshot
-                        # into the ContextVar override so child blocks that resolve
-                        # context via Block.get_workflow_run_context(workflow_run_id)
-                        # see the isolated snapshot instead of the shared global.
-                        # create_task() snapshotted ContextVars at task creation,
-                        # so this set() only mutates the current task's copy.
-                        set_iteration_workflow_run_context(_ctx_snapshot)
-
-                        # Fork SkyvernContext for this iteration with isolated mutable fields.
-                        # Uses create_iteration_copy() which shallow-copies scalars and creates
-                        # fresh dicts/lists/sets, avoiding deepcopy issues with Playwright
-                        # Frame/Page objects that are not safely copyable.
-                        parent_skyvern_ctx = skyvern_context.current()
-                        if parent_skyvern_ctx:
-                            iter_ctx = parent_skyvern_ctx.create_iteration_copy(
-                                browser_session_id=loop_iteration_key(workflow_run_id, _loop_idx),
-                            )
-                            skyvern_context.set(iter_ctx)
-                        else:
-                            LOG.warning(
-                                "No parent SkyvernContext to fork for parallel iteration — "
-                                "per-iteration file tracking skipped",
-                                workflow_run_id=workflow_run_id,
-                                loop_idx=_loop_idx,
-                            )
-
-                        return await self._execute_single_iteration_parallel(
-                            loop_idx=_loop_idx,
-                            loop_over_value=_loop_value,
-                            workflow_run_id=workflow_run_id,
-                            workflow_run_block_id=workflow_run_block_id,
-                            workflow_run_context=_ctx_snapshot,
-                            start_label=start_label,
-                            label_to_block=label_to_block,
-                            default_next_map=default_next_map,
-                            conditional_scopes=conditional_scopes,
-                            organization_id=organization_id,
-                            browser_session_id=browser_session_id,
-                        )
-
-                    # asyncio.create_task() copies the current ContextVar state at
-                    # creation time, giving each iteration its own isolated copy.
-                    # Plain coroutines in asyncio.gather() share the caller's
-                    # ContextVar scope, so skyvern_context.set() would race.
-                    iteration_tasks.append(asyncio.create_task(_run_iteration()))
-
-                # Execute batch concurrently; return_exceptions=True so one failure doesn't kill the batch
-                batch_results = await asyncio.gather(*iteration_tasks, return_exceptions=True)
-
-                # Collect snapshots for merging
-                context_snapshots: list[tuple[int, WorkflowRunContext]] = []
-
-                # Sort results by loop_idx to preserve ordering
-                indexed_results: list[tuple[int, Any]] = []
-                for i, result in enumerate(batch_results):
-                    loop_idx_for_result = batch[i][0]
-                    indexed_results.append((loop_idx_for_result, result))
-                indexed_results.sort(key=lambda t: t[0])
-
-                # Process every result in the batch before deciding whether to
-                # stop. asyncio.gather(return_exceptions=True) already ran all
-                # iterations to completion, so successful outputs from indices
-                # after a failing one must still be captured — otherwise we'd
-                # silently discard data the browser already produced.
-                batch_had_failure = False
-                for loop_idx_sorted, result in indexed_results:
-                    if isinstance(result, Exception):
-                        LOG.error(
-                            "ForLoopBlock parallel: iteration raised an exception",
-                            workflow_run_id=workflow_run_id,
-                            loop_idx=loop_idx_sorted,
-                            error=str(result),
-                            exc_info=result,
-                        )
-                        failure_block_result = await self.build_block_result(
-                            success=False,
-                            status=BlockStatus.failed,
-                            failure_reason=f"Parallel iteration {loop_idx_sorted} failed: {str(result)}",
-                            workflow_run_block_id=workflow_run_block_id,
-                            organization_id=organization_id,
-                        )
-                        all_block_outputs.append(failure_block_result)
-                        outputs_with_loop_values.append([])
-                        batch_had_failure = True
-                    else:
-                        iter_idx, iter_outputs, iter_block_results, iter_last_block, iter_ctx = result
-                        outputs_with_loop_values.append(iter_outputs)
-                        all_block_outputs.extend(iter_block_results)
-                        if iter_last_block is not None:
-                            last_block = iter_last_block
-                        context_snapshots.append((iter_idx, iter_ctx))
-
-                if batch_had_failure and not self.next_loop_on_failure:
-                    # Merge any successful snapshots before stopping so their
-                    # context mutations aren't lost.
-                    workflow_run_context.merge_iteration_results(context_snapshots)
-                    # Persist accumulated outputs before the early return so a
-                    # subsequent Temporal timeout can recover prior-batch data.
-                    await self._persist_partial_loop_output(
-                        workflow_run_id, outputs_with_loop_values, batch_loop_indices[-1]
-                    )
-                    try:
-                        await app.BROWSER_MANAGER.cleanup_loop_iterations(
-                            workflow_run_id=workflow_run_id,
-                            loop_indices=batch_loop_indices,
-                            organization_id=organization_id,
-                        )
-                    except Exception:
-                        LOG.warning("Failed to cleanup loop iteration browsers", exc_info=True)
-                    return LoopBlockExecutedResult(
-                        outputs_with_loop_values=outputs_with_loop_values,
-                        block_outputs=all_block_outputs,
-                        last_block=last_block,
-                    )
-
-                # Merge iteration context snapshots back into the main context
-                workflow_run_context.merge_iteration_results(context_snapshots)
-
-                # Persist accumulated outputs after each batch so progress
-                # survives Temporal activity timeouts mid-loop. Mirrors the
-                # sequential path's per-iteration persistence.
-                await self._persist_partial_loop_output(
-                    workflow_run_id, outputs_with_loop_values, batch_loop_indices[-1]
-                )
-
-                # Clean up iteration browser contexts for this batch
-                try:
-                    await app.BROWSER_MANAGER.cleanup_loop_iterations(
-                        workflow_run_id=workflow_run_id,
-                        loop_indices=batch_loop_indices,
-                        organization_id=organization_id,
-                    )
-                except Exception:
-                    LOG.warning("Failed to cleanup loop iteration browsers after batch", exc_info=True)
-        finally:
-            # Always release concurrency slots back to the org quota.
-            # Release the full granted count — acquire incremented Redis by
-            # this amount, so we must decrement by the same amount even if
-            # the loop had fewer iterations than granted slots.
-            if organization_id and slots_to_release > 0:
-                await app.AGENT_FUNCTION.release_parallel_loop_quota(organization_id, slots_to_release)
-
-        return LoopBlockExecutedResult(
-            outputs_with_loop_values=outputs_with_loop_values,
-            block_outputs=all_block_outputs,
-            last_block=last_block,
-        )
-
     async def execute(
+        self,
+        workflow_run_id: str,
+        workflow_run_block_id: str,
+        organization_id: str | None = None,
+        browser_session_id: str | None = None,
+        **kwargs: dict,
+    ) -> BlockResult:
+        # Save the caller's loop_internal_state so we can restore it after this
+        # loop finishes. Supports nested loops (parent's state is preserved) and
+        # ensures stale per-iteration baselines don't leak into subsequent blocks.
+        outer_context = skyvern_context.current()
+        outer_loop_state = outer_context.loop_internal_state if outer_context else None
+        try:
+            return await self._run_loop(
+                workflow_run_id=workflow_run_id,
+                workflow_run_block_id=workflow_run_block_id,
+                organization_id=organization_id,
+                browser_session_id=browser_session_id,
+                **kwargs,
+            )
+        finally:
+            if outer_context:
+                outer_context.loop_internal_state = outer_loop_state
+
+    async def _run_loop(
         self,
         workflow_run_id: str,
         workflow_run_block_id: str,
@@ -2798,6 +2399,7 @@ class ForLoopBlock(Block):
         await self.record_output_parameter_value(
             workflow_run_context, workflow_run_id, loop_executed_result.outputs_with_loop_values
         )
+
         block_status = BlockStatus.failed
         success = False
 
@@ -5146,6 +4748,11 @@ class TaskV2Block(Block):
         from skyvern.forge.sdk.workflow.models.workflow import WorkflowRunStatus  # noqa: PLC0415
         from skyvern.services import task_v2_service  # noqa: PLC0415
 
+        # Scope downloaded files to this block only.
+        block_context = skyvern_context.current()
+        if block_context:
+            await capture_block_download_baseline(block_context, organization_id or "", workflow_run_id, self.label)
+
         workflow_run_context = self.get_workflow_run_context(workflow_run_id)
 
         # Simple template resolution - no complex dynamic resolution to prevent recursion
@@ -5190,6 +4797,11 @@ class TaskV2Block(Block):
         workflow_run = await app.DATABASE.workflow_runs.get_workflow_run(workflow_run_id, organization_id)
         if not workflow_run:
             raise ValueError(f"WorkflowRun not found {workflow_run_id} when running TaskV2Block")
+        current_context = skyvern_context.current()
+        download_lookup_run_id = (
+            current_context.run_id if current_context and current_context.run_id else workflow_run_id
+        )
+        loop_internal_state = copy.deepcopy(current_context.loop_internal_state) if current_context else None
         try:
             task_v2 = await task_v2_service.initialize_task_v2(
                 organization=organization,
@@ -5214,37 +4826,32 @@ class TaskV2Block(Block):
                     organization_id=organization_id,
                     block_workflow_run_id=task_v2.workflow_run_id,
                 )
+        except Exception as e:
+            LOG.exception("Failed to initialize or queue TaskV2", error=e)
+            output_reason = f"Failed to initialize or queue TaskV2: {str(e)}"
+            await self.record_output_parameter_value(
+                workflow_run_context, workflow_run_id, {"failure_reason": output_reason}
+            )
+            return await self.build_block_result(
+                success=False,
+                failure_reason=output_reason,
+                output_parameter_value=None,
+                status=BlockStatus.failed,
+                workflow_run_block_id=workflow_run_block_id,
+                organization_id=organization_id,
+            )
 
-            task_v2 = await task_v2_service.run_task_v2(
-                organization=organization,
-                task_v2_id=task_v2.observer_cruise_id,
-                request_id=None,
-                max_steps_override=self.max_steps,
-                browser_session_id=browser_session_id,
-            )
-        finally:
-            context: skyvern_context.SkyvernContext | None = skyvern_context.current()
-            current_run_id = context.run_id if context and context.run_id else workflow_run_id
-            root_workflow_run_id = (
-                context.root_workflow_run_id if context and context.root_workflow_run_id else workflow_run_id
-            )
-            # Preserve loop_internal_state so per-iteration download filtering
-            # continues to work for subsequent blocks in the same loop iteration (SKY-7005)
-            loop_state = context.loop_internal_state if context else None
-            skyvern_context.set(
-                skyvern_context.SkyvernContext(
-                    organization_id=organization_id,
-                    organization_name=organization.organization_name,
-                    workflow_id=workflow_run.workflow_id,
-                    workflow_permanent_id=workflow_run.workflow_permanent_id,
-                    workflow_run_id=workflow_run_id,
-                    root_workflow_run_id=root_workflow_run_id,
-                    run_id=current_run_id,
-                    browser_session_id=browser_session_id,
-                    max_screenshot_scrolls=workflow_run.max_screenshot_scrolls,
-                    loop_internal_state=loop_state,
-                )
-            )
+        # run_task_v2 uses scoped() internally, so context is always restored
+        # even if it raises. Its own exception handlers mark the task as
+        # failed/terminated with proper status, so we let exceptions propagate
+        # to the status-mapping logic below.
+        task_v2 = await task_v2_service.run_task_v2(
+            organization=organization,
+            task_v2_id=task_v2.observer_cruise_id,
+            request_id=None,
+            max_steps_override=self.max_steps,
+            browser_session_id=browser_session_id,
+        )
         result_dict = None
         if task_v2:
             result_dict = task_v2.output
@@ -5273,19 +4880,18 @@ class TaskV2Block(Block):
         )
 
         # Attempt to get downloaded files for the current iteration
-        current_context = skyvern_context.current()
         downloaded_files: list[FileInfo] = []
         try:
             async with asyncio.timeout(GET_DOWNLOADED_FILES_TIMEOUT):
                 downloaded_files = await app.STORAGE.get_downloaded_files(
                     organization_id=organization_id or "",
-                    run_id=current_context.run_id if current_context and current_context.run_id else workflow_run_id,
+                    run_id=download_lookup_run_id,
                 )
         except asyncio.TimeoutError:
             LOG.warning("Timeout getting downloaded files", task_v2_id=task_v2.observer_cruise_id)
         downloaded_files = filter_downloaded_files_for_current_iteration(
             downloaded_files,
-            current_context.loop_internal_state if current_context else None,
+            loop_internal_state,
         )
 
         task_v2_output = {
@@ -7368,92 +6974,79 @@ class WorkflowTriggerBlock(Block):
                 browser_session_id=resolved_browser_session_id,
             )
 
-            # Save the parent's skyvern_context because setup_workflow_run and
-            # execute_workflow overwrite it with the child's values. We restore
-            # it after the child finishes so subsequent parent blocks get correct
-            # context (logs, observability, workflow_run_id, etc.).
-            from skyvern.forge.sdk.core import skyvern_context  # noqa: PLC0415
-
+            # Isolate the synchronous child workflow in a placeholder scope so
+            # setup_workflow_run() can replace the current context without
+            # flushing the parent's pending workflow_feature_flags summary.
             parent_context = skyvern_context.current()
-            try:
-                triggered_workflow_run = await app.WORKFLOW_SERVICE.setup_workflow_run(
-                    request_id=None,
-                    workflow_request=workflow_request,
-                    workflow_permanent_id=resolved_workflow_permanent_id,
-                    organization=organization,
-                    parent_workflow_run_id=workflow_run_id,
+            with skyvern_context.scoped(
+                skyvern_context.SkyvernContext(
+                    run_id=parent_context.run_id if parent_context else None,
+                    root_workflow_run_id=parent_context.root_workflow_run_id if parent_context else None,
                 )
-            except Exception as e:
-                error_msg = get_user_facing_exception_message(e)
-                if parent_context:
-                    skyvern_context.set(parent_context)
-                if created_fresh_session and resolved_browser_session_id:
+            ):
+                try:
+                    triggered_workflow_run = await app.WORKFLOW_SERVICE.setup_workflow_run(
+                        request_id=None,
+                        workflow_request=workflow_request,
+                        workflow_permanent_id=resolved_workflow_permanent_id,
+                        organization=organization,
+                        parent_workflow_run_id=workflow_run_id,
+                    )
+                except Exception as e:
+                    error_msg = get_user_facing_exception_message(e)
+                    return await _fail(f"Failed to setup triggered workflow run: {error_msg}")
+
+                triggered_run_id = triggered_workflow_run.workflow_run_id
+
+                LOG.info(
+                    "Triggered workflow run (sync)",
+                    parent_workflow_run_id=workflow_run_id,
+                    triggered_workflow_run_id=triggered_run_id,
+                    triggered_workflow_permanent_id=resolved_workflow_permanent_id,
+                )
+
+                try:
+                    final_run = await app.WORKFLOW_SERVICE.execute_workflow(
+                        workflow_run_id=triggered_run_id,
+                        api_key=None,
+                        organization=organization,
+                        browser_session_id=resolved_browser_session_id,
+                    )
+                    success = final_run.status == WorkflowRunStatus.completed
+                    output_data = {
+                        "workflow_run_id": triggered_run_id,
+                        "workflow_permanent_id": resolved_workflow_permanent_id,
+                        "status": str(final_run.status),
+                        "failure_reason": final_run.failure_reason,
+                    }
+                    # Include the child workflow's output parameters so downstream
+                    # blocks can reference them (e.g. block_3_output.outputs.block_2_output)
                     try:
-                        await app.PERSISTENT_SESSIONS_MANAGER.close_session(
-                            organization_id, resolved_browser_session_id
+                        child_output_params = (
+                            await app.WORKFLOW_SERVICE.get_output_parameter_workflow_run_output_parameter_tuples(
+                                workflow_id=final_run.workflow_id,
+                                workflow_run_id=triggered_run_id,
+                            )
                         )
+                        child_outputs: dict[str, Any] = {}
+                        for output_param, run_output_param in child_output_params:
+                            child_outputs[output_param.key] = run_output_param.value
+                        output_data["outputs"] = child_outputs
                     except Exception:
                         LOG.warning(
-                            "Failed to close child browser session after setup failure",
-                            child_browser_session_id=resolved_browser_session_id,
+                            "Failed to fetch child workflow outputs",
+                            triggered_workflow_run_id=triggered_run_id,
                             exc_info=True,
                         )
-                return await _fail(f"Failed to setup triggered workflow run: {error_msg}")
-
-            triggered_run_id = triggered_workflow_run.workflow_run_id
-
-            LOG.info(
-                "Triggered workflow run (sync)",
-                parent_workflow_run_id=workflow_run_id,
-                triggered_workflow_run_id=triggered_run_id,
-                triggered_workflow_permanent_id=resolved_workflow_permanent_id,
-            )
-
-            try:
-                final_run = await app.WORKFLOW_SERVICE.execute_workflow(
-                    workflow_run_id=triggered_run_id,
-                    api_key=None,
-                    organization=organization,
-                    browser_session_id=resolved_browser_session_id,
-                )
-                success = final_run.status == WorkflowRunStatus.completed
-                output_data = {
-                    "workflow_run_id": triggered_run_id,
-                    "workflow_permanent_id": resolved_workflow_permanent_id,
-                    "status": str(final_run.status),
-                    "failure_reason": final_run.failure_reason,
-                }
-                # Include the child workflow's output parameters so downstream
-                # blocks can reference them (e.g. block_3_output.outputs.block_2_output)
-                try:
-                    child_output_params = (
-                        await app.WORKFLOW_SERVICE.get_output_parameter_workflow_run_output_parameter_tuples(
-                            workflow_id=final_run.workflow_id,
-                            workflow_run_id=triggered_run_id,
-                        )
-                    )
-                    child_outputs: dict[str, Any] = {}
-                    for output_param, run_output_param in child_output_params:
-                        child_outputs[output_param.key] = run_output_param.value
-                    output_data["outputs"] = child_outputs
-                except Exception:
-                    LOG.warning(
-                        "Failed to fetch child workflow outputs",
-                        triggered_workflow_run_id=triggered_run_id,
-                        exc_info=True,
-                    )
-            except Exception as e:
-                error_msg = get_user_facing_exception_message(e)
-                output_data = {
-                    "workflow_run_id": triggered_run_id,
-                    "workflow_permanent_id": resolved_workflow_permanent_id,
-                    "status": "failed",
-                    "failure_reason": f"Triggered workflow execution failed: {error_msg}",
-                }
-                success = False
-            finally:
-                if parent_context:
-                    skyvern_context.set(parent_context)
+                except Exception as e:
+                    error_msg = get_user_facing_exception_message(e)
+                    output_data = {
+                        "workflow_run_id": triggered_run_id,
+                        "workflow_permanent_id": resolved_workflow_permanent_id,
+                        "status": "failed",
+                        "failure_reason": f"Triggered workflow execution failed: {error_msg}",
+                    }
+                    success = False
                 if created_fresh_session and resolved_browser_session_id:
                     try:
                         await app.PERSISTENT_SESSIONS_MANAGER.close_session(

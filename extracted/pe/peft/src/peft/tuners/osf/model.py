@@ -50,10 +50,10 @@ class OSFModel(BaseTuner):
 
     def _prepare_adapter_config(self, peft_config, model_config):
         # If target_modules is unspecified, try mapping; else fall back to all linear layers for custom models
-        if getattr(peft_config, "target_modules", None) is None:
-            model_type = model_config.get("model_type")
-            if model_type in self.target_module_mapping:
-                peft_config.target_modules = set(self.target_module_mapping[model_type])
+        if peft_config.target_modules is None:
+            target_modules = self.target_module_mapping.get(model_config["model_type"])
+            if target_modules is not None:
+                peft_config = super()._prepare_adapter_config(peft_config, model_config)
             else:
                 from peft.utils.constants import INCLUDE_LINEAR_LAYERS_SHORTHAND
 
@@ -117,42 +117,6 @@ class OSFModel(BaseTuner):
             # Only OSF adapter parameters (in osf_svd_params) should be trainable
             if "osf_svd_params" not in n:
                 p.requires_grad = False
-
-    def _cast_adapter_dtype(self, adapter_name: str, autocast_adapter_dtype: bool = True) -> None:
-        """
-        Ensure all OSF adapter components have consistent dtype with the base model.
-
-        Instead of forcing float32, we match the base model's actual dtype for consistency.
-        """
-        if not autocast_adapter_dtype:
-            return
-
-        for module in self.model.modules():
-            if not hasattr(module, "osf_svd_params"):
-                continue
-
-            # Get target dtype from base layer weight
-            base_layer = getattr(module, "base_layer", None)
-            if base_layer is None or not hasattr(base_layer, "weight"):
-                continue
-
-            target_dtype = base_layer.weight.dtype
-
-            # Cast trainable low-rank parameters to match base model dtype
-            if adapter_name in module.osf_svd_params:
-                svd_params = module.osf_svd_params[adapter_name]
-                for param_name, param in svd_params.items():
-                    if param.dtype != target_dtype:
-                        param.data = param.data.to(target_dtype)
-
-            # Cast frozen high-rank buffers to match base model dtype
-            for buffer_dict_name in OSFLayer.other_param_names:
-                if hasattr(module, buffer_dict_name):
-                    buffer_dict = getattr(module, buffer_dict_name)
-                    if adapter_name in buffer_dict:
-                        buffer = buffer_dict[adapter_name]
-                        if buffer.dtype != target_dtype:
-                            buffer_dict[adapter_name] = buffer.to(target_dtype)
 
     # Use BaseTuner's merge and merge_and_unload implementations.
     # Explicitly disallow unmerging at the model level for OSF.

@@ -366,6 +366,13 @@ def _EvaluationRunConfig_from_vertex(
     if getv(from_object, ["promptTemplate"]) is not None:
         setv(to_object, ["prompt_template"], getv(from_object, ["promptTemplate"]))
 
+    if getv(from_object, ["lossAnalysisConfig"]) is not None:
+        setv(
+            to_object,
+            ["loss_analysis_config"],
+            [item for item in getv(from_object, ["lossAnalysisConfig"])],
+        )
+
     return to_object
 
 
@@ -392,6 +399,13 @@ def _EvaluationRunConfig_to_vertex(
 
     if getv(from_object, ["prompt_template"]) is not None:
         setv(to_object, ["promptTemplate"], getv(from_object, ["prompt_template"]))
+
+    if getv(from_object, ["loss_analysis_config"]) is not None:
+        setv(
+            to_object,
+            ["lossAnalysisConfig"],
+            [item for item in getv(from_object, ["loss_analysis_config"])],
+        )
 
     return to_object
 
@@ -2024,6 +2038,9 @@ class Evals(_api_module.BaseModule):
             - dataset_schema: Schema to use for the dataset. If not specified, the
               dataset schema will be inferred from the dataset automatically.
             - dest: Destination path for storing evaluation results.
+            - evaluation_service_qps: The rate limit (queries per second) for
+              calls to the evaluation service. Defaults to 10. Increase this
+              value if your project has a higher EvaluateInstances API quota.
           **kwargs: Extra arguments to pass to evaluation, such as `agent_info`.
 
         Returns:
@@ -2065,6 +2082,7 @@ class Evals(_api_module.BaseModule):
             dataset_schema=config.dataset_schema,
             dest=config.dest,
             location=location,
+            evaluation_service_qps=getattr(config, "evaluation_service_qps", None),
             **kwargs,
         )
 
@@ -2391,13 +2409,14 @@ class Evals(_api_module.BaseModule):
             name = name.split("/")[-1]
         result = self._get_evaluation_run(name=name, config=config)
         if include_evaluation_items:
-            result.evaluation_item_results = (
-                _evals_common._convert_evaluation_run_results(
-                    self._api_client,
-                    result.evaluation_run_results,
-                    result.inference_configs,
-                )
+            eval_result, eval_item_map = _evals_common._convert_evaluation_run_results(
+                self._api_client,
+                result.evaluation_run_results,
+                result.inference_configs,
             )
+            result.evaluation_item_results = eval_result
+            # Bypass pydantic validation (extra='forbid') for this internal field.
+            object.__setattr__(result, "_eval_item_map", eval_item_map)
         return result
 
     @_common.experimental_warning(
@@ -2419,6 +2438,8 @@ class Evals(_api_module.BaseModule):
             dict[str, types.EvaluationRunInferenceConfigOrDict]
         ] = None,
         labels: Optional[dict[str, str]] = None,
+        loss_analysis_metrics: Optional[list[Union[str, types.MetricOrDict]]] = None,
+        loss_analysis_configs: Optional[list[types.LossAnalysisConfigOrDict]] = None,
         config: Optional[types.CreateEvaluationRunConfigOrDict] = None,
     ) -> types.EvaluationRun:
         """Creates an EvaluationRun.
@@ -2448,11 +2469,37 @@ class Evals(_api_module.BaseModule):
               Example:
               {"candidate-1": types.EvaluationRunInferenceConfig(model="gemini-2.5-flash")}
           labels: The labels to apply to the evaluation run.
+          loss_analysis_metrics: This field is experimental and may change in future
+              versions. Optional list of metrics to run loss analysis on. The
+              candidate is auto-inferred from ``inference_configs`` or
+              ``agent_info`` when there is exactly one candidate. Each metric can be
+              a string (e.g., ``"multi_turn_task_success_v1"``), a ``Metric``
+              object, or a ``RubricMetric`` enum
+              (e.g., ``types.RubricMetric.MULTI_TURN_TASK_SUCCESS``). Loss analysis
+              runs after metric calculation completes.
+              Mutually exclusive with ``loss_analysis_configs``.
+              Example::
+
+                  loss_analysis_metrics=[
+                      types.RubricMetric.MULTI_TURN_TASK_SUCCESS,
+                      types.RubricMetric.MULTI_TURN_TOOL_USE_QUALITY,
+                  ]
+          loss_analysis_configs: This field is experimental and may change in future
+              versions. Optional list of ``LossAnalysisConfig`` objects for full
+              control over loss analysis, including explicit candidate and
+              advanced options like ``predefined_taxonomy`` and
+              ``max_top_cluster_count``. Mutually exclusive with
+              ``loss_analysis_metrics``.
           config: The configuration for the evaluation run.
 
         Returns:
             The created evaluation run.
         """
+        if loss_analysis_metrics and loss_analysis_configs:
+            raise ValueError(
+                "At most one of loss_analysis_metrics or loss_analysis_configs"
+                " can be provided."
+            )
         if agent_info and inference_configs:
             raise ValueError(
                 "At most one of agent_info or inference_configs can be provided."
@@ -2494,8 +2541,15 @@ class Evals(_api_module.BaseModule):
         resolved_metrics = _evals_common._resolve_evaluation_run_metrics(
             metrics, self._api_client
         )
+        resolved_loss_configs = _evals_utils._resolve_eval_run_loss_configs(
+            loss_analysis_metrics=loss_analysis_metrics,
+            loss_analysis_configs=loss_analysis_configs,
+            inference_configs=inference_configs,
+        )
         evaluation_config = types.EvaluationRunConfig(
-            output_config=output_config, metrics=resolved_metrics
+            output_config=output_config,
+            metrics=resolved_metrics,
+            loss_analysis_config=resolved_loss_configs,
         )
         resolved_inference_configs = _evals_common._resolve_inference_configs(
             self._api_client, resolved_dataset, inference_configs, parsed_agent_info
@@ -2678,6 +2732,87 @@ class Evals(_api_module.BaseModule):
             user_scenario_generation_config=config,
         )
         return _evals_utils._postprocess_user_scenarios_response(response)
+
+    @_common.experimental_warning(
+        "The Vertex SDK GenAI evals.generate_loss_clusters module is experimental, "
+        "and may change in future versions."
+    )
+    def generate_loss_clusters(
+        self,
+        *,
+        eval_result: types.EvaluationResult,
+        metric: Optional[Union[str, types.MetricOrDict]] = None,
+        candidate: Optional[str] = None,
+        config: Optional[types.LossAnalysisConfigOrDict] = None,
+    ) -> types.GenerateLossClustersResponse:
+        """Generates loss clusters from evaluation results.
+
+        Analyzes "Pass/Fail" signals from rubric-based autoraters and groups
+        them into semantic "Loss Patterns" (e.g., "Hallucination of Action").
+
+        This method calls the GenerateLossClusters LRO and polls until
+        completion, returning the results directly.
+
+        If ``metric`` or ``candidate`` are not provided, they will be
+        auto-inferred from ``eval_result`` when unambiguous (i.e., when the
+        eval result contains exactly one metric or one candidate). For
+        multi-metric or multi-candidate evaluations, provide them explicitly.
+
+        Available candidate names can be found in
+        ``eval_result.metadata.candidate_names``.
+
+        Note: This API is only available in the ``global`` region.
+
+        Args:
+            eval_result: The EvaluationResult object returned from
+                client.evals.evaluate().
+            metric: The metric to analyze. Can be a metric name string
+                (e.g., "multi_turn_task_success_v1"), a Metric object, or a
+                RubricMetric enum (e.g., types.RubricMetric.MULTI_TURN_TASK_SUCCESS).
+                If not provided and config does not specify it, auto-inferred
+                from eval_result.
+            candidate: The candidate to analyze. If not provided and config
+                does not specify it, auto-inferred from eval_result.
+            config: Optional LossAnalysisConfig with additional options
+                (predefined_taxonomy, max_top_cluster_count). Can also
+                specify metric/candidate, but explicit arguments take
+                precedence.
+
+        Returns:
+            A GenerateLossClustersResponse containing the analysis results.
+            Call .show() to visualize, or access .results for individual
+            LossAnalysisResult objects (each with their own .show()).
+        """
+        metric_name = _evals_utils._resolve_metric_name(metric)
+        parsed_config = (
+            types.LossAnalysisConfig.model_validate(config)
+            if isinstance(config, dict)
+            else config
+        )
+        resolved_config = _evals_utils._resolve_loss_analysis_config(
+            eval_result=eval_result,
+            config=parsed_config,
+            metric=metric_name,
+            candidate=candidate,
+        )
+        operation = self._generate_loss_clusters(
+            inline_results=[eval_result],
+            configs=[resolved_config],
+        )
+        completed = _evals_utils._poll_operation(
+            api_client=self._api_client,
+            operation=operation,
+        )
+        if completed.error:
+            raise RuntimeError(f"Loss analysis operation failed: {completed.error}")
+        if completed.response is None:
+            raise RuntimeError(
+                "Loss analysis operation completed but returned no response."
+            )
+        _evals_utils._enrich_loss_response_with_rubric_descriptions(
+            completed.response, eval_result
+        )
+        return completed.response
 
     @_common.experimental_warning(
         "The Vertex SDK GenAI evals.create_evaluation_metric method is experimental, "
@@ -3883,13 +4018,16 @@ class AsyncEvals(_api_module.BaseModule):
             name = name.split("/")[-1]
         result = await self._get_evaluation_run(name=name, config=config)
         if include_evaluation_items:
-            result.evaluation_item_results = (
+            eval_result, eval_item_map = (
                 await _evals_common._convert_evaluation_run_results_async(
                     self._api_client,
                     result.evaluation_run_results,
                     result.inference_configs,
                 )
             )
+            result.evaluation_item_results = eval_result
+            # Bypass pydantic validation (extra='forbid') for this internal field.
+            object.__setattr__(result, "_eval_item_map", eval_item_map)
 
         return result
 
@@ -3912,6 +4050,8 @@ class AsyncEvals(_api_module.BaseModule):
             dict[str, types.EvaluationRunInferenceConfigOrDict]
         ] = None,
         labels: Optional[dict[str, str]] = None,
+        loss_analysis_metrics: Optional[list[Union[str, types.MetricOrDict]]] = None,
+        loss_analysis_configs: Optional[list[types.LossAnalysisConfigOrDict]] = None,
         config: Optional[types.CreateEvaluationRunConfigOrDict] = None,
     ) -> types.EvaluationRun:
         """Creates an EvaluationRun.
@@ -3941,11 +4081,37 @@ class AsyncEvals(_api_module.BaseModule):
               Example:
               {"candidate-1": types.EvaluationRunInferenceConfig(model="gemini-2.5-flash")}
           labels: The labels to apply to the evaluation run.
+          loss_analysis_metrics: This field is experimental and may change in future
+              versions. Optional list of metrics to run loss analysis on. The
+              candidate is auto-inferred from ``inference_configs`` or
+              ``agent_info`` when there is exactly one candidate. Each metric can be
+              a string (e.g., ``"multi_turn_task_success_v1"``), a ``Metric``
+              object, or a ``RubricMetric`` enum
+              (e.g., ``types.RubricMetric.MULTI_TURN_TASK_SUCCESS``). Loss analysis
+              runs after metric calculation completes.
+              Mutually exclusive with ``loss_analysis_configs``.
+              Example::
+
+                  loss_analysis_metrics=[
+                      types.RubricMetric.MULTI_TURN_TASK_SUCCESS,
+                      types.RubricMetric.MULTI_TURN_TOOL_USE_QUALITY,
+                  ]
+          loss_analysis_configs: This field is experimental and may change in future
+              versions. Optional list of ``LossAnalysisConfig`` objects for full
+              control over loss analysis, including explicit candidate and
+              advanced options like ``predefined_taxonomy`` and
+              ``max_top_cluster_count``. Mutually exclusive with
+              ``loss_analysis_metrics``.
           config: The configuration for the evaluation run.
 
         Returns:
             The created evaluation run.
         """
+        if loss_analysis_metrics and loss_analysis_configs:
+            raise ValueError(
+                "At most one of loss_analysis_metrics or loss_analysis_configs"
+                " can be provided."
+            )
         if agent_info and inference_configs:
             raise ValueError(
                 "At most one of agent_info or inference_configs can be provided."
@@ -3987,8 +4153,15 @@ class AsyncEvals(_api_module.BaseModule):
         resolved_metrics = _evals_common._resolve_evaluation_run_metrics(
             metrics, self._api_client
         )
+        resolved_loss_configs = _evals_utils._resolve_eval_run_loss_configs(
+            loss_analysis_metrics=loss_analysis_metrics,
+            loss_analysis_configs=loss_analysis_configs,
+            inference_configs=inference_configs,
+        )
         evaluation_config = types.EvaluationRunConfig(
-            output_config=output_config, metrics=resolved_metrics
+            output_config=output_config,
+            metrics=resolved_metrics,
+            loss_analysis_config=resolved_loss_configs,
         )
         resolved_inference_configs = _evals_common._resolve_inference_configs(
             self._api_client, resolved_dataset, inference_configs, parsed_agent_info
@@ -4178,6 +4351,87 @@ class AsyncEvals(_api_module.BaseModule):
             user_scenario_generation_config=config,
         )
         return _evals_utils._postprocess_user_scenarios_response(response)
+
+    @_common.experimental_warning(
+        "The Vertex SDK GenAI evals.generate_loss_clusters module is experimental, "
+        "and may change in future versions."
+    )
+    async def generate_loss_clusters(
+        self,
+        *,
+        eval_result: types.EvaluationResult,
+        metric: Optional[Union[str, types.MetricOrDict]] = None,
+        candidate: Optional[str] = None,
+        config: Optional[types.LossAnalysisConfigOrDict] = None,
+    ) -> types.GenerateLossClustersResponse:
+        """Generates loss clusters from evaluation results.
+
+        Analyzes "Pass/Fail" signals from rubric-based autoraters and groups
+        them into semantic "Loss Patterns" (e.g., "Hallucination of Action").
+
+        This method calls the GenerateLossClusters LRO and polls until
+        completion, returning the results directly.
+
+        If ``metric`` or ``candidate`` are not provided, they will be
+        auto-inferred from ``eval_result`` when unambiguous (i.e., when the
+        eval result contains exactly one metric or one candidate). For
+        multi-metric or multi-candidate evaluations, provide them explicitly.
+
+        Available candidate names can be found in
+        ``eval_result.metadata.candidate_names``.
+
+        Note: This API is only available in the ``global`` region.
+
+        Args:
+            eval_result: The EvaluationResult object returned from
+                client.evals.evaluate().
+            metric: The metric to analyze. Can be a metric name string
+                (e.g., "multi_turn_task_success_v1"), a Metric object, or a
+                RubricMetric enum (e.g., types.RubricMetric.MULTI_TURN_TASK_SUCCESS).
+                If not provided and config does not specify it, auto-inferred
+                from eval_result.
+            candidate: The candidate to analyze. If not provided and config
+                does not specify it, auto-inferred from eval_result.
+            config: Optional LossAnalysisConfig with additional options
+                (predefined_taxonomy, max_top_cluster_count). Can also
+                specify metric/candidate, but explicit arguments take
+                precedence.
+
+        Returns:
+            A GenerateLossClustersResponse containing the analysis results.
+            Call .show() to visualize, or access .results for individual
+            LossAnalysisResult objects (each with their own .show()).
+        """
+        metric_name = _evals_utils._resolve_metric_name(metric)
+        parsed_config = (
+            types.LossAnalysisConfig.model_validate(config)
+            if isinstance(config, dict)
+            else config
+        )
+        resolved_config = _evals_utils._resolve_loss_analysis_config(
+            eval_result=eval_result,
+            config=parsed_config,
+            metric=metric_name,
+            candidate=candidate,
+        )
+        operation = await self._generate_loss_clusters(
+            inline_results=[eval_result],
+            configs=[resolved_config],
+        )
+        completed = await _evals_utils._poll_operation_async(
+            api_client=self._api_client,
+            operation=operation,
+        )
+        if completed.error:
+            raise RuntimeError(f"Loss analysis operation failed: {completed.error}")
+        if completed.response is None:
+            raise RuntimeError(
+                "Loss analysis operation completed but returned no response."
+            )
+        _evals_utils._enrich_loss_response_with_rubric_descriptions(
+            completed.response, eval_result
+        )
+        return completed.response
 
     @_common.experimental_warning(
         "The Vertex SDK GenAI evals.create_evaluation_metric module is experimental, "

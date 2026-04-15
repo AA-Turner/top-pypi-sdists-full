@@ -109,10 +109,6 @@ class CryptoFuture(QuantConnect.Securities.Security, QuantConnect.Securities.IBa
         ...
 
 
-class BybitFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
-    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
-
-
 class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
     """The crypto future margin model which supports both Coin and USDT futures"""
 
@@ -170,5 +166,80 @@ class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
         :returns: The margin available for the trade.
         """
         ...
+
+    def get_total_collateral_amount(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, primary_collateral: QuantConnect.Securities.Cash) -> float:
+        """
+        Gets the total collateral amount for the given crypto future position.
+        The base implementation returns only the primary collateral amount.
+        Override in subclasses to include supplementary collateral currencies.
+        
+        
+        This codeEntityType is protected.
+        
+        :param portfolio: The algorithm's portfolio
+        :param security: The crypto future security
+        :param primary_collateral: The primary collateral cash (e.g. USDT for non-coin futures, BTC for coin futures)
+        :returns: Total collateral amount in terms of the primary collateral currency.
+        """
+        ...
+
+    def shares_collateral(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, collateral_currency: QuantConnect.Securities.Cash, other_crypto_future: QuantConnect.Securities.Security) -> bool:
+        """
+        Determines whether the given security shares collateral with another crypto future.
+        
+        
+        This codeEntityType is protected.
+        
+        :param portfolio: The algorithm's portfolio
+        :param collateral_currency: The collateral cash for the current security
+        :param other_crypto_future: The other crypto future security to check
+        :returns: True if both securities share the same collateral.
+        """
+        ...
+
+
+class BinanceCryptoFutureMarginModel(QuantConnect.Securities.CryptoFuture.CryptoFutureMarginModel):
+    """
+    Binance-specific crypto future margin model that includes supplementary stable coin
+    currencies as alternative collateral for non-coin (USDⓈ-M) futures.
+    """
+
+    def __init__(self, leverage: float = 25) -> None:
+        """
+        Creates a new instance
+        
+        :param leverage: The leverage to use, default 25x
+        """
+        ...
+
+    def get_total_collateral_amount(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, primary_collateral: QuantConnect.Securities.Cash) -> float:
+        """
+        Gets the total collateral amount for a Binance crypto future, including supplementary
+        collateral assets for EU/EEA accounts in MiCA Credits Trading Mode.
+        For coin futures (e.g. BTCUSD), only the primary collateral (base currency) is used.
+        
+        
+        This codeEntityType is protected.
+        
+        :param portfolio: The algorithm's portfolio
+        :param security: The crypto future security
+        :param primary_collateral: The primary collateral cash (e.g. USDT)
+        :returns: Total collateral amount in terms of the primary collateral currency.
+        """
+        ...
+
+    def shares_collateral(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, collateral_currency: QuantConnect.Securities.Cash, other_crypto_future: QuantConnect.Securities.Security) -> bool:
+        """
+        When BNFCR is present (EU/MiCA mode), all USDⓈ-M futures share the same collateral
+        pool regardless of quote currency (USDT, USDC, etc.).
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+
+class BybitFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
+    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
 
 

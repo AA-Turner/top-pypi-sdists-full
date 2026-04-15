@@ -16,10 +16,12 @@ _LOG = setup_logger(__name__)
 
 task_names = (
     "acp_bench_hard",
-    "acp_bench_hard_with_pddl",
     # Gen variants (acp_bench_hard subtasks)
     "acp_prog_gen", "acp_reach_gen", "acp_app_gen", "acp_just_gen",
     "acp_land_gen", "acp_nexta_gen", "acp_areach_gen", "acp_val_gen",
+    # Gen variants with PDDL
+    "acp_prog_gen_with_pddl", "acp_reach_gen_with_pddl", "acp_app_gen_with_pddl", "acp_just_gen_with_pddl",
+    "acp_land_gen_with_pddl", "acp_nexta_gen_with_pddl", "acp_areach_gen_with_pddl", "acp_val_gen_with_pddl",
 )
 
 class AcpBenchHardExtractor(LMEvalBenchmarkExtractor):
@@ -81,14 +83,21 @@ class AcpBenchHardExtractor(LMEvalBenchmarkExtractor):
             choices = None
             answer_idx = None
 
-            # Format 1: question + choices + answer
-            if "question" in doc and "choices" in doc:
-                question = str(doc.get("question", "")).strip()
-                choices_data = doc.get("choices", {})
+            # Format 1: question + choices + answer (only if choices is non-empty)
+            # We check if choices would be non-empty before committing to this format
+            choices_data = doc.get("choices", {}) if "choices" in doc else None
+            if choices_data is not None:
                 if isinstance(choices_data, dict):
                     choices = choices_data.get("text", [])
                 elif isinstance(choices_data, list):
                     choices = choices_data
+                else:
+                    choices = []
+            else:
+                choices = None
+
+            if "question" in doc and choices:
+                question = str(doc.get("question", "")).strip()
                 answer = doc.get("answer", doc.get("answerKey", ""))
                 if isinstance(answer, str) and len(answer) == 1 and answer.isalpha():
                     answer_idx = ord(answer.upper()) - ord('A')
@@ -108,21 +117,57 @@ class AcpBenchHardExtractor(LMEvalBenchmarkExtractor):
                 answer = doc.get("answer", "A")
                 answer_idx = ord(str(answer).upper()) - ord('A')
 
-            # Format 3: context + question + answer (structured dict for _gen tasks)
-            elif "context" in doc and "question" in doc and "answer" in doc:
+            # Format 3: context + question + answer/output (structured dict for _gen tasks or yes/no)
+            elif "context" in doc and "question" in doc and ("answer" in doc or "output" in doc):
                 context = str(doc.get("context", "")).strip()
                 question = str(doc.get("question", "")).strip()
-                answer_raw = doc.get("answer", "")
+                answer_raw = doc.get("answer", doc.get("output", ""))
+                pddl = doc.get("pddl", "")
 
-                # Create full prompt with context
-                full_prompt = f"Context: {context}\n\nQuestion: {question}"
+                # Create full prompt with context and optional PDDL
+                if pddl:
+                    pddl = str(pddl).strip()
+                    full_prompt = f"PDDL:\n{pddl}\n\nContext: {context}\n\nQuestion: {question}"
+                else:
+                    full_prompt = f"Context: {context}\n\nQuestion: {question}"
 
-                # Structured dict format: {"neg": [...], "pos": [...]}
-                if isinstance(answer_raw, dict) and "neg" in answer_raw and "pos" in answer_raw:
-                    # For structured generation tasks, use the dict as-is
-                    correct_answer = str(answer_raw)
-                    # Create incorrect by swapping pos/neg
-                    incorrect_answer = str({"neg": answer_raw.get("pos", []), "pos": answer_raw.get("neg", [])})
+                # Format 3a: Array/List of answers (for generative tasks like acp_reach_gen)
+                if isinstance(answer_raw, list) and len(answer_raw) > 0:
+                    # Convert list to string representation for pair extraction
+                    correct_answer = str(answer_raw).strip()
+                    if correct_answer:
+                        # Create incorrect answer by negating the answer or using alternatives
+                        if len(answer_raw) > 1:
+                            # If there are multiple answers, use a subset as incorrect
+                            incorrect_answer = str(answer_raw[1:]).strip()
+                        else:
+                            # Single answer - create negation
+                            first_answer = str(answer_raw[0]).strip()
+                            if first_answer.lower() in ["yes", "true"]:
+                                incorrect_answer = "no"
+                            elif first_answer.lower() in ["no", "false"]:
+                                incorrect_answer = "yes"
+                            else:
+                                incorrect_answer = f"not {first_answer}"
+                        metadata = {"label": "acp_bench_hard"}
+                        return self._build_pair(
+                            question=full_prompt,
+                            correct=correct_answer,
+                            incorrect=incorrect_answer,
+                            metadata=metadata,
+                        )
+
+                # Format 3b: Dict format: {"neg": [...], "pos": [...]} or any other dict
+                elif isinstance(answer_raw, dict):
+                    if "neg" in answer_raw and "pos" in answer_raw:
+                        # For structured generation tasks with explicit neg/pos, use them
+                        correct_answer = str(answer_raw)
+                        # Create incorrect by swapping pos/neg
+                        incorrect_answer = str({"neg": answer_raw.get("pos", []), "pos": answer_raw.get("neg", [])})
+                    else:
+                        # For any other dict format, use it as-is and create a negated version
+                        correct_answer = str(answer_raw)
+                        incorrect_answer = "null"  # Negation: expected answer is not the given structure
                     metadata = {"label": "acp_bench_hard"}
                     return self._build_pair(
                         question=full_prompt,
@@ -130,6 +175,33 @@ class AcpBenchHardExtractor(LMEvalBenchmarkExtractor):
                         incorrect=incorrect_answer,
                         metadata=metadata,
                     )
+
+                # Format 3d: String answers (yes/no or free-form)
+                elif isinstance(answer_raw, str):
+                    answer = answer_raw.strip().lower()
+                    if answer in ["yes", "no"]:
+                        correct = answer
+                        incorrect = "yes" if answer == "no" else "no"
+                        metadata = {"label": "acp_bench_hard"}
+                        return self._build_pair(
+                            question=full_prompt,
+                            correct=correct,
+                            incorrect=incorrect,
+                            metadata=metadata,
+                        )
+                    # Free-form string answer
+                    elif answer:
+                        correct_answer = answer_raw.strip()
+                        # Create incorrect by negating or providing placeholder
+                        incorrect_answer = "incorrect answer"
+                        metadata = {"label": "acp_bench_hard"}
+                        return self._build_pair(
+                            question=full_prompt,
+                            correct=correct_answer,
+                            incorrect=incorrect_answer,
+                            metadata=metadata,
+                        )
+
                 return None
 
             # Format 4: query/prompt + answer

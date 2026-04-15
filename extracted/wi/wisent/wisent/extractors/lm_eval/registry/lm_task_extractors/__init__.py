@@ -1,11 +1,86 @@
 """LM-Eval benchmark extractors."""
 
 import os as _os
+import sys as _sys
 _base = _os.path.dirname(__file__)
 for _root, _dirs, _files in _os.walk(_base):
     _dirs[:] = sorted(d for d in _dirs if not d.startswith((".", "_")))
     if _root != _base:
         __path__.append(_root)
+
+from wisent.extractors.lm_eval.lm_task_extractors.specialized.safety.content_safety.model_written_evals import ModelWrittenEvalsExtractor
+
+# Create module alias for model_written_evals extractor
+import types as _types
+_model_written_evals_mod = _types.ModuleType("model_written_evals")
+_model_written_evals_mod.ModelWrittenEvalsExtractor = ModelWrittenEvalsExtractor
+_sys.modules["wisent.extractors.lm_eval.lm_task_extractors.model_written_evals"] = _model_written_evals_mod
+# Also register under the registry path (used by LM_EVAL_EXTRACTOR_BASE_IMPORT)
+_sys.modules["wisent.extractors.lm_eval.registry.lm_task_extractors.model_written_evals"] = _model_written_evals_mod
+
+from wisent.extractors.lm_eval.lm_task_extractors.specialized.safety.ai_risk.advanced import AdvancedExtractor
+
+# Create module alias for advanced extractor
+_advanced_mod = _types.ModuleType("advanced")
+_advanced_mod.AdvancedExtractor = AdvancedExtractor
+_sys.modules["wisent.extractors.lm_eval.lm_task_extractors.advanced"] = _advanced_mod
+# Also register under the registry path (used by LM_EVAL_EXTRACTOR_BASE_IMPORT)
+# This prevents the applied/math/advanced package from shadowing the ai_risk AdvancedExtractor
+_sys.modules["wisent.extractors.lm_eval.registry.lm_task_extractors.advanced"] = _advanced_mod
+
+from wisent.extractors.lm_eval.lm_task_extractors.specialized.language.asian_african.african.afrimgsm import AfrimgsmExtractor
+
+# Create module alias for afrimgsm extractor
+_afrimgsm_mod = _types.ModuleType("afrimgsm")
+_afrimgsm_mod.AfrimgsmExtractor = AfrimgsmExtractor
+_sys.modules["wisent.extractors.lm_eval.lm_task_extractors.afrimgsm"] = _afrimgsm_mod
+# Also register under the registry path
+_sys.modules["wisent.extractors.lm_eval.registry.lm_task_extractors.afrimgsm"] = _afrimgsm_mod
+
+from wisent.extractors.lm_eval.lm_task_extractors.evaluation.reasoning.applied.multi_step.agieval import AgievalExtractor, AgievalMathExtractor, AgievalLogiQAExtractor
+
+# Create module alias for agieval extractor
+_agieval_mod = _types.ModuleType("agieval")
+_agieval_mod.AgievalExtractor = AgievalExtractor
+_agieval_mod.AgievalMathExtractor = AgievalMathExtractor
+_agieval_mod.AgievalLogiQAExtractor = AgievalLogiQAExtractor
+_sys.modules["wisent.extractors.lm_eval.lm_task_extractors.agieval"] = _agieval_mod
+# Also register under the registry path
+_sys.modules["wisent.extractors.lm_eval.registry.lm_task_extractors.agieval"] = _agieval_mod
+
+from wisent.extractors.lm_eval.lm_task_extractors.evaluation.knowledge.analysis.text_classification.twenty_newsgroups import TwentyNewsgroupsExtractor
+
+# Create module alias for twenty_newsgroups extractor
+_twenty_newsgroups_mod = _types.ModuleType("twenty_newsgroups")
+_twenty_newsgroups_mod.TwentyNewsgroupsExtractor = TwentyNewsgroupsExtractor
+_sys.modules["wisent.extractors.lm_eval.lm_task_extractors.twenty_newsgroups"] = _twenty_newsgroups_mod
+# Also register under the registry path
+_sys.modules["wisent.extractors.lm_eval.registry.lm_task_extractors.twenty_newsgroups"] = _twenty_newsgroups_mod
+
+from wisent.extractors.lm_eval.lm_task_extractors.specialized.language.text_and_translation.translation_regional.regional_misc.gaokao import GaokaoExtractor
+
+# Create module alias for gaokao extractor
+_gaokao_mod = _types.ModuleType("gaokao")
+_gaokao_mod.GaokaoExtractor = GaokaoExtractor
+_sys.modules["wisent.extractors.lm_eval.lm_task_extractors.gaokao"] = _gaokao_mod
+# Also register under the registry path
+_sys.modules["wisent.extractors.lm_eval.registry.lm_task_extractors.gaokao"] = _gaokao_mod
+
+# benchmarks: there's a `benchmarks` folder in the walk path that shadows the
+# `benchmarks.py` file inside `evaluation/knowledge/benchmarks/reference_benchmarks/`.
+# Force the file's BenchmarksExtractor to take precedence by aliasing the module.
+from wisent.extractors.lm_eval.registry.lm_task_extractors.evaluation.knowledge.benchmarks.reference_benchmarks.benchmarks import BenchmarksExtractor
+_benchmarks_mod = _types.ModuleType("benchmarks")
+_benchmarks_mod.BenchmarksExtractor = BenchmarksExtractor
+_sys.modules["wisent.extractors.lm_eval.lm_task_extractors.benchmarks"] = _benchmarks_mod
+_sys.modules["wisent.extractors.lm_eval.registry.lm_task_extractors.benchmarks"] = _benchmarks_mod
+
+# translation: same folder/file collision as benchmarks
+from wisent.extractors.lm_eval.registry.lm_task_extractors.specialized.language.text_and_translation.text_processing.text_tasks.translation import TranslationExtractor
+_translation_mod = _types.ModuleType("translation")
+_translation_mod.TranslationExtractor = TranslationExtractor
+_sys.modules["wisent.extractors.lm_eval.lm_task_extractors.translation"] = _translation_mod
+_sys.modules["wisent.extractors.lm_eval.registry.lm_task_extractors.translation"] = _translation_mod
 
 from wisent.extractors.lm_eval.lm_task_extractors.ai2_arc import AI2ARCExtractor
 from wisent.extractors.lm_eval.lm_task_extractors.anli import ANLIExtractor
@@ -68,6 +143,11 @@ from wisent.extractors.lm_eval.lm_task_extractors.xstorycloze import XStoryCloze
 from wisent.extractors.lm_eval.lm_task_extractors.xwinograd import XWinogradExtractor
 
 __all__ = [
+    "AfrimgsmExtractor",
+    "AgievalExtractor",
+    "AgievalMathExtractor",
+    "AgievalLogiQAExtractor",
+    "ModelWrittenEvalsExtractor",
     "AI2ARCExtractor",
     "ANLIExtractor",
     "ArcChallengeExtractor",
@@ -80,6 +160,7 @@ __all__ = [
     "COPAExtractor",
     "CoQAExtractor",
     "DropExtractor",
+    "GaokaoExtractor",
     "GLUEExtractor",
     "GPQAExtractor",
     "GSM8KExtractor",
@@ -120,6 +201,7 @@ __all__ = [
     "TriviaQAExtractor",
     "TruthfulQAMC1Extractor",
     "TruthfulQAMC2Extractor",
+    "TwentyNewsgroupsExtractor",
     "WebQSExtractor",
     "WiCExtractor",
     "WikitextExtractor",

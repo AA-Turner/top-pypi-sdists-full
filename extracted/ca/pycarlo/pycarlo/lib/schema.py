@@ -3282,11 +3282,12 @@ class FigStatus(pycarlo.lib.types.Enum):
     * `failed`None
     * `running`None
     * `success`None
+    * `suspended`None
     * `timeout`None
     """
 
     __schema__ = schema
-    __choices__ = ("cancelled", "failed", "running", "success", "timeout")
+    __choices__ = ("cancelled", "failed", "running", "success", "suspended", "timeout")
 
 
 class FigTriggerType(pycarlo.lib.types.Enum):
@@ -4599,6 +4600,39 @@ class Permission(pycarlo.lib.types.Enum):
     * `MonitorsEdit`None
     * `MonitorsExceptionsAccess`None
     * `MonitorsExceptionsEdit`None
+    * `MonitorsManagementAgentEvaluationAccess`None
+    * `MonitorsManagementAgentEvaluationDraft`None
+    * `MonitorsManagementAgentEvaluationEdit`None
+    * `MonitorsManagementAgentMetricAccess`None
+    * `MonitorsManagementAgentMetricDraft`None
+    * `MonitorsManagementAgentMetricEdit`None
+    * `MonitorsManagementAgentTrajectoryAccess`None
+    * `MonitorsManagementAgentTrajectoryDraft`None
+    * `MonitorsManagementAgentTrajectoryEdit`None
+    * `MonitorsManagementAgentValidationAccess`None
+    * `MonitorsManagementAgentValidationDraft`None
+    * `MonitorsManagementAgentValidationEdit`None
+    * `MonitorsManagementComparisonAccess`None
+    * `MonitorsManagementComparisonDraft`None
+    * `MonitorsManagementComparisonEdit`None
+    * `MonitorsManagementCustomSqlAccess`None
+    * `MonitorsManagementCustomSqlDraft`None
+    * `MonitorsManagementCustomSqlEdit`None
+    * `MonitorsManagementJsonSchemaAccess`None
+    * `MonitorsManagementJsonSchemaDraft`None
+    * `MonitorsManagementJsonSchemaEdit`None
+    * `MonitorsManagementMetricAccess`None
+    * `MonitorsManagementMetricDraft`None
+    * `MonitorsManagementMetricEdit`None
+    * `MonitorsManagementQueryPerformanceAccess`None
+    * `MonitorsManagementQueryPerformanceDraft`None
+    * `MonitorsManagementQueryPerformanceEdit`None
+    * `MonitorsManagementTableAccess`None
+    * `MonitorsManagementTableDraft`None
+    * `MonitorsManagementTableEdit`None
+    * `MonitorsManagementValidationAccess`None
+    * `MonitorsManagementValidationDraft`None
+    * `MonitorsManagementValidationEdit`None
     * `PerformanceAccess`None
     * `SettingsAccess`None
     * `SettingsAgentsAccess`None
@@ -4670,6 +4704,39 @@ class Permission(pycarlo.lib.types.Enum):
         "MonitorsEdit",
         "MonitorsExceptionsAccess",
         "MonitorsExceptionsEdit",
+        "MonitorsManagementAgentEvaluationAccess",
+        "MonitorsManagementAgentEvaluationDraft",
+        "MonitorsManagementAgentEvaluationEdit",
+        "MonitorsManagementAgentMetricAccess",
+        "MonitorsManagementAgentMetricDraft",
+        "MonitorsManagementAgentMetricEdit",
+        "MonitorsManagementAgentTrajectoryAccess",
+        "MonitorsManagementAgentTrajectoryDraft",
+        "MonitorsManagementAgentTrajectoryEdit",
+        "MonitorsManagementAgentValidationAccess",
+        "MonitorsManagementAgentValidationDraft",
+        "MonitorsManagementAgentValidationEdit",
+        "MonitorsManagementComparisonAccess",
+        "MonitorsManagementComparisonDraft",
+        "MonitorsManagementComparisonEdit",
+        "MonitorsManagementCustomSqlAccess",
+        "MonitorsManagementCustomSqlDraft",
+        "MonitorsManagementCustomSqlEdit",
+        "MonitorsManagementJsonSchemaAccess",
+        "MonitorsManagementJsonSchemaDraft",
+        "MonitorsManagementJsonSchemaEdit",
+        "MonitorsManagementMetricAccess",
+        "MonitorsManagementMetricDraft",
+        "MonitorsManagementMetricEdit",
+        "MonitorsManagementQueryPerformanceAccess",
+        "MonitorsManagementQueryPerformanceDraft",
+        "MonitorsManagementQueryPerformanceEdit",
+        "MonitorsManagementTableAccess",
+        "MonitorsManagementTableDraft",
+        "MonitorsManagementTableEdit",
+        "MonitorsManagementValidationAccess",
+        "MonitorsManagementValidationDraft",
+        "MonitorsManagementValidationEdit",
         "PerformanceAccess",
         "SettingsAccess",
         "SettingsAgentsAccess",
@@ -4720,16 +4787,19 @@ class PermissionActionType(pycarlo.lib.types.Enum):
     """Type of action a permission grants.  Values: - Read: Authorizes
     operations that involve viewing/querying (read only--no changes).
     - Write: Authorizes operations that involve some form of
-    modification (create, update, delete, etc.)
+    modification (create, update, delete, etc.) - Propose: Authorizes
+    operations that suggest changes requiring review and approval
+    before taking effect (e.g., drafting monitors).
 
     Enumeration Choices:
 
+    * `Propose`None
     * `Read`None
     * `Write`None
     """
 
     __schema__ = schema
-    __choices__ = ("Read", "Write")
+    __choices__ = ("Propose", "Read", "Write")
 
 
 class PermissionEffect(pycarlo.lib.types.Enum):
@@ -4751,13 +4821,13 @@ class PermissionPolicyDecisionReason(pycarlo.lib.types.Enum):
     as the final/effective policy.  Values: - ExactMatch: Selected
     because it was an exact permission name match. - ActionTypeMatch:
     Selected because the policy pattern matched with a specific action
-    type (<resource>/read or <resource>/write) - WildcardMatch:
-    Selected because the policy pattern matched with wildcard
-    (<resource>/*) - LessSpecific: Not selected because a more
-    specific match was selected. - DenyOverrode: Not selected because
-    this Allow lost to a Deny at equal specificity. - SameEffect: Not
-    selected because multiple policies had the same specificity and
-    effect, and the other was the first match found.
+    type (<resource>/read or <resource>/write or <resource>/propose) -
+    WildcardMatch: Selected because the policy pattern matched with
+    wildcard (<resource>/*) - LessSpecific: Not selected because a
+    more specific match was selected. - DenyOverrode: Not selected
+    because this Allow lost to a Deny at equal specificity. -
+    SameEffect: Not selected because multiple policies had the same
+    specificity and effect, and the other was the first match found.
 
     Enumeration Choices:
 
@@ -5213,6 +5283,339 @@ class ReportTypeEnum(pycarlo.lib.types.Enum):
         "LINEAGE_EDGES_REPORT",
         "MONITORS_REPORT",
         "MONITOR_LOGS_REPORT",
+    )
+
+
+class ResourcePolicyPath(pycarlo.lib.types.Enum):
+    """Resource policy paths for permission resolution. Each path
+    resolves to all type-specific permissions under the resource.
+
+    Enumeration Choices:
+
+    * `AlertsAll`None
+    * `AlertsPropose`None
+    * `AlertsRead`None
+    * `AlertsWrite`None
+    * `AssetsAll`None
+    * `AssetsPropose`None
+    * `AssetsRead`None
+    * `AssetsWrite`None
+    * `DashboardAll`None
+    * `DashboardPropose`None
+    * `DashboardRead`None
+    * `DashboardWrite`None
+    * `DataExportsAll`None
+    * `DataExportsPropose`None
+    * `DataExportsRead`None
+    * `DataExportsWrite`None
+    * `DataProductsAll`None
+    * `DataProductsPropose`None
+    * `DataProductsRead`None
+    * `DataProductsWrite`None
+    * `GraphqlAll`None
+    * `GraphqlPropose`None
+    * `GraphqlRead`None
+    * `GraphqlWrite`None
+    * `LineageAll`None
+    * `LineagePropose`None
+    * `LineageRead`None
+    * `LineageWrite`None
+    * `MonitorsAll`None
+    * `MonitorsDataSamplingAll`None
+    * `MonitorsDataSamplingPropose`None
+    * `MonitorsDataSamplingRead`None
+    * `MonitorsDataSamplingWrite`None
+    * `MonitorsExceptionsAll`None
+    * `MonitorsExceptionsPropose`None
+    * `MonitorsExceptionsRead`None
+    * `MonitorsExceptionsWrite`None
+    * `MonitorsManagementAgentEvaluationAll`None
+    * `MonitorsManagementAgentEvaluationPropose`None
+    * `MonitorsManagementAgentEvaluationRead`None
+    * `MonitorsManagementAgentEvaluationWrite`None
+    * `MonitorsManagementAgentMetricAll`None
+    * `MonitorsManagementAgentMetricPropose`None
+    * `MonitorsManagementAgentMetricRead`None
+    * `MonitorsManagementAgentMetricWrite`None
+    * `MonitorsManagementAgentTrajectoryAll`None
+    * `MonitorsManagementAgentTrajectoryPropose`None
+    * `MonitorsManagementAgentTrajectoryRead`None
+    * `MonitorsManagementAgentTrajectoryWrite`None
+    * `MonitorsManagementAgentValidationAll`None
+    * `MonitorsManagementAgentValidationPropose`None
+    * `MonitorsManagementAgentValidationRead`None
+    * `MonitorsManagementAgentValidationWrite`None
+    * `MonitorsManagementAll`None
+    * `MonitorsManagementComparisonAll`None
+    * `MonitorsManagementComparisonPropose`None
+    * `MonitorsManagementComparisonRead`None
+    * `MonitorsManagementComparisonWrite`None
+    * `MonitorsManagementCustomSqlAll`None
+    * `MonitorsManagementCustomSqlPropose`None
+    * `MonitorsManagementCustomSqlRead`None
+    * `MonitorsManagementCustomSqlWrite`None
+    * `MonitorsManagementJsonSchemaAll`None
+    * `MonitorsManagementJsonSchemaPropose`None
+    * `MonitorsManagementJsonSchemaRead`None
+    * `MonitorsManagementJsonSchemaWrite`None
+    * `MonitorsManagementMetricAll`None
+    * `MonitorsManagementMetricPropose`None
+    * `MonitorsManagementMetricRead`None
+    * `MonitorsManagementMetricWrite`None
+    * `MonitorsManagementPropose`None
+    * `MonitorsManagementQueryPerformanceAll`None
+    * `MonitorsManagementQueryPerformancePropose`None
+    * `MonitorsManagementQueryPerformanceRead`None
+    * `MonitorsManagementQueryPerformanceWrite`None
+    * `MonitorsManagementRead`None
+    * `MonitorsManagementTableAll`None
+    * `MonitorsManagementTablePropose`None
+    * `MonitorsManagementTableRead`None
+    * `MonitorsManagementTableWrite`None
+    * `MonitorsManagementValidationAll`None
+    * `MonitorsManagementValidationPropose`None
+    * `MonitorsManagementValidationRead`None
+    * `MonitorsManagementValidationWrite`None
+    * `MonitorsManagementWrite`None
+    * `MonitorsPropose`None
+    * `MonitorsRead`None
+    * `MonitorsWrite`None
+    * `PerformanceAll`None
+    * `PerformancePropose`None
+    * `PerformanceRead`None
+    * `PerformanceWrite`None
+    * `SettingsAgentsAll`None
+    * `SettingsAgentsPropose`None
+    * `SettingsAgentsRead`None
+    * `SettingsAgentsWrite`None
+    * `SettingsAll`None
+    * `SettingsApiAll`None
+    * `SettingsApiPropose`None
+    * `SettingsApiRead`None
+    * `SettingsApiWrite`None
+    * `SettingsAuthorizationGroupsAll`None
+    * `SettingsAuthorizationGroupsPropose`None
+    * `SettingsAuthorizationGroupsRead`None
+    * `SettingsAuthorizationGroupsWrite`None
+    * `SettingsBillingAll`None
+    * `SettingsBillingPropose`None
+    * `SettingsBillingRead`None
+    * `SettingsBillingWrite`None
+    * `SettingsDomainsAll`None
+    * `SettingsDomainsPropose`None
+    * `SettingsDomainsRead`None
+    * `SettingsDomainsWrite`None
+    * `SettingsIngestionAll`None
+    * `SettingsIngestionPropose`None
+    * `SettingsIngestionRead`None
+    * `SettingsIngestionWrite`None
+    * `SettingsIntegrationsAll`None
+    * `SettingsIntegrationsPropose`None
+    * `SettingsIntegrationsRead`None
+    * `SettingsIntegrationsWrite`None
+    * `SettingsNetworkAll`None
+    * `SettingsNetworkPropose`None
+    * `SettingsNetworkRead`None
+    * `SettingsNetworkWrite`None
+    * `SettingsNotificationsAll`None
+    * `SettingsNotificationsPropose`None
+    * `SettingsNotificationsRead`None
+    * `SettingsNotificationsWrite`None
+    * `SettingsPiiFiltersAll`None
+    * `SettingsPiiFiltersPropose`None
+    * `SettingsPiiFiltersRead`None
+    * `SettingsPiiFiltersWrite`None
+    * `SettingsPropose`None
+    * `SettingsRead`None
+    * `SettingsRolesAll`None
+    * `SettingsRolesPropose`None
+    * `SettingsRolesRead`None
+    * `SettingsRolesWrite`None
+    * `SettingsSecretsAll`None
+    * `SettingsSecretsPropose`None
+    * `SettingsSecretsRead`None
+    * `SettingsSecretsWrite`None
+    * `SettingsSsoAll`None
+    * `SettingsSsoPropose`None
+    * `SettingsSsoRead`None
+    * `SettingsSsoWrite`None
+    * `SettingsUserAll`None
+    * `SettingsUserPropose`None
+    * `SettingsUserRead`None
+    * `SettingsUserWrite`None
+    * `SettingsUsersAll`None
+    * `SettingsUsersPropose`None
+    * `SettingsUsersRead`None
+    * `SettingsUsersWrite`None
+    * `SettingsWrite`None
+    * `UsersAll`None
+    * `UsersPropose`None
+    * `UsersRead`None
+    * `UsersWrite`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "AlertsAll",
+        "AlertsPropose",
+        "AlertsRead",
+        "AlertsWrite",
+        "AssetsAll",
+        "AssetsPropose",
+        "AssetsRead",
+        "AssetsWrite",
+        "DashboardAll",
+        "DashboardPropose",
+        "DashboardRead",
+        "DashboardWrite",
+        "DataExportsAll",
+        "DataExportsPropose",
+        "DataExportsRead",
+        "DataExportsWrite",
+        "DataProductsAll",
+        "DataProductsPropose",
+        "DataProductsRead",
+        "DataProductsWrite",
+        "GraphqlAll",
+        "GraphqlPropose",
+        "GraphqlRead",
+        "GraphqlWrite",
+        "LineageAll",
+        "LineagePropose",
+        "LineageRead",
+        "LineageWrite",
+        "MonitorsAll",
+        "MonitorsDataSamplingAll",
+        "MonitorsDataSamplingPropose",
+        "MonitorsDataSamplingRead",
+        "MonitorsDataSamplingWrite",
+        "MonitorsExceptionsAll",
+        "MonitorsExceptionsPropose",
+        "MonitorsExceptionsRead",
+        "MonitorsExceptionsWrite",
+        "MonitorsManagementAgentEvaluationAll",
+        "MonitorsManagementAgentEvaluationPropose",
+        "MonitorsManagementAgentEvaluationRead",
+        "MonitorsManagementAgentEvaluationWrite",
+        "MonitorsManagementAgentMetricAll",
+        "MonitorsManagementAgentMetricPropose",
+        "MonitorsManagementAgentMetricRead",
+        "MonitorsManagementAgentMetricWrite",
+        "MonitorsManagementAgentTrajectoryAll",
+        "MonitorsManagementAgentTrajectoryPropose",
+        "MonitorsManagementAgentTrajectoryRead",
+        "MonitorsManagementAgentTrajectoryWrite",
+        "MonitorsManagementAgentValidationAll",
+        "MonitorsManagementAgentValidationPropose",
+        "MonitorsManagementAgentValidationRead",
+        "MonitorsManagementAgentValidationWrite",
+        "MonitorsManagementAll",
+        "MonitorsManagementComparisonAll",
+        "MonitorsManagementComparisonPropose",
+        "MonitorsManagementComparisonRead",
+        "MonitorsManagementComparisonWrite",
+        "MonitorsManagementCustomSqlAll",
+        "MonitorsManagementCustomSqlPropose",
+        "MonitorsManagementCustomSqlRead",
+        "MonitorsManagementCustomSqlWrite",
+        "MonitorsManagementJsonSchemaAll",
+        "MonitorsManagementJsonSchemaPropose",
+        "MonitorsManagementJsonSchemaRead",
+        "MonitorsManagementJsonSchemaWrite",
+        "MonitorsManagementMetricAll",
+        "MonitorsManagementMetricPropose",
+        "MonitorsManagementMetricRead",
+        "MonitorsManagementMetricWrite",
+        "MonitorsManagementPropose",
+        "MonitorsManagementQueryPerformanceAll",
+        "MonitorsManagementQueryPerformancePropose",
+        "MonitorsManagementQueryPerformanceRead",
+        "MonitorsManagementQueryPerformanceWrite",
+        "MonitorsManagementRead",
+        "MonitorsManagementTableAll",
+        "MonitorsManagementTablePropose",
+        "MonitorsManagementTableRead",
+        "MonitorsManagementTableWrite",
+        "MonitorsManagementValidationAll",
+        "MonitorsManagementValidationPropose",
+        "MonitorsManagementValidationRead",
+        "MonitorsManagementValidationWrite",
+        "MonitorsManagementWrite",
+        "MonitorsPropose",
+        "MonitorsRead",
+        "MonitorsWrite",
+        "PerformanceAll",
+        "PerformancePropose",
+        "PerformanceRead",
+        "PerformanceWrite",
+        "SettingsAgentsAll",
+        "SettingsAgentsPropose",
+        "SettingsAgentsRead",
+        "SettingsAgentsWrite",
+        "SettingsAll",
+        "SettingsApiAll",
+        "SettingsApiPropose",
+        "SettingsApiRead",
+        "SettingsApiWrite",
+        "SettingsAuthorizationGroupsAll",
+        "SettingsAuthorizationGroupsPropose",
+        "SettingsAuthorizationGroupsRead",
+        "SettingsAuthorizationGroupsWrite",
+        "SettingsBillingAll",
+        "SettingsBillingPropose",
+        "SettingsBillingRead",
+        "SettingsBillingWrite",
+        "SettingsDomainsAll",
+        "SettingsDomainsPropose",
+        "SettingsDomainsRead",
+        "SettingsDomainsWrite",
+        "SettingsIngestionAll",
+        "SettingsIngestionPropose",
+        "SettingsIngestionRead",
+        "SettingsIngestionWrite",
+        "SettingsIntegrationsAll",
+        "SettingsIntegrationsPropose",
+        "SettingsIntegrationsRead",
+        "SettingsIntegrationsWrite",
+        "SettingsNetworkAll",
+        "SettingsNetworkPropose",
+        "SettingsNetworkRead",
+        "SettingsNetworkWrite",
+        "SettingsNotificationsAll",
+        "SettingsNotificationsPropose",
+        "SettingsNotificationsRead",
+        "SettingsNotificationsWrite",
+        "SettingsPiiFiltersAll",
+        "SettingsPiiFiltersPropose",
+        "SettingsPiiFiltersRead",
+        "SettingsPiiFiltersWrite",
+        "SettingsPropose",
+        "SettingsRead",
+        "SettingsRolesAll",
+        "SettingsRolesPropose",
+        "SettingsRolesRead",
+        "SettingsRolesWrite",
+        "SettingsSecretsAll",
+        "SettingsSecretsPropose",
+        "SettingsSecretsRead",
+        "SettingsSecretsWrite",
+        "SettingsSsoAll",
+        "SettingsSsoPropose",
+        "SettingsSsoRead",
+        "SettingsSsoWrite",
+        "SettingsUserAll",
+        "SettingsUserPropose",
+        "SettingsUserRead",
+        "SettingsUserWrite",
+        "SettingsUsersAll",
+        "SettingsUsersPropose",
+        "SettingsUsersRead",
+        "SettingsUsersWrite",
+        "SettingsWrite",
+        "UsersAll",
+        "UsersPropose",
+        "UsersRead",
+        "UsersWrite",
     )
 
 
@@ -12224,6 +12627,7 @@ class TransactionalDbConnectionDetails(sgqlc.types.Input):
         "connection_settings",
         "domain",
         "dataspaces",
+        "dataspace",
         "tenant_id",
         "client_id",
         "client_secret",
@@ -12264,8 +12668,13 @@ class TransactionalDbConnectionDetails(sgqlc.types.Input):
     """Domain for the connection"""
 
     dataspaces = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="dataspaces")
-    """List of data space names to collect for Salesforce Data Cloud
-    connections.
+    """List of data space names to collect metadata from for Salesforce
+    Data Cloud.
+    """
+
+    dataspace = sgqlc.types.Field(String, graphql_name="dataspace")
+    """Single data space name to scope query connections for Salesforce
+    Data Cloud.
     """
 
     tenant_id = sgqlc.types.Field(String, graphql_name="tenantId")
@@ -12315,6 +12724,7 @@ class TransactionalDbUpdateConnectionDetails(sgqlc.types.Input):
         "consumer_secret",
         "domain",
         "dataspaces",
+        "dataspace",
         "tenant_id",
         "client_id",
         "client_secret",
@@ -12352,8 +12762,13 @@ class TransactionalDbUpdateConnectionDetails(sgqlc.types.Input):
     """Domain to use for the connection"""
 
     dataspaces = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="dataspaces")
-    """List of data space names to collect for Salesforce Data Cloud
-    connections.
+    """List of data space names to collect metadata from for Salesforce
+    Data Cloud.
+    """
+
+    dataspace = sgqlc.types.Field(String, graphql_name="dataspace")
+    """Single data space name to scope query connections for Salesforce
+    Data Cloud.
     """
 
     tenant_id = sgqlc.types.Field(String, graphql_name="tenantId")
@@ -26768,80 +27183,25 @@ class FieldValueCorrelation(sgqlc.types.Type):
     anom_rate = sgqlc.types.Field(Float, graphql_name="anomRate")
 
 
-class FigAnomaly(sgqlc.types.Type):
-    """A detected deviation from baseline behavior."""
+class FigAgentSummary(sgqlc.types.Type):
+    """Summary of an agent's fig execution history."""
 
     __schema__ = schema
-    __field_names__ = (
-        "id",
-        "fig_id",
-        "anomaly_type",
-        "description",
-        "severity",
-        "baseline_value",
-        "actual_value",
-        "detected_at",
-    )
-    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
-    """Anomaly identifier"""
+    __field_names__ = ("agent_id", "agent_name", "fig_count", "last_activity", "current_score")
+    agent_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentId")
+    """Agent identifier"""
 
-    fig_id = sgqlc.types.Field(UUID, graphql_name="figId")
-    """Associated fig identifier"""
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Human-readable agent name"""
 
-    anomaly_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="anomalyType")
-    """Type of anomaly detected"""
+    fig_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="figCount")
+    """Total number of fig executions"""
 
-    description = sgqlc.types.Field(String, graphql_name="description")
-    """Human-readable description"""
+    last_activity = sgqlc.types.Field(DateTime, graphql_name="lastActivity")
+    """When the agent last ran a fig"""
 
-    severity = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="severity")
-    """low, medium, or high"""
-
-    baseline_value = sgqlc.types.Field(Float, graphql_name="baselineValue")
-    """Expected baseline value"""
-
-    actual_value = sgqlc.types.Field(Float, graphql_name="actualValue")
-    """Observed actual value"""
-
-    detected_at = sgqlc.types.Field(DateTime, graphql_name="detectedAt")
-    """When the anomaly was detected"""
-
-
-class FigCompareResult(sgqlc.types.Type):
-    """Side-by-side comparison of two fig executions."""
-
-    __schema__ = schema
-    __field_names__ = (
-        "fig_a",
-        "fig_b",
-        "overview_diff",
-        "score_diff",
-        "stage_diff",
-        "pattern_diff",
-        "token_diff",
-    )
-    fig_a = sgqlc.types.Field(sgqlc.types.non_null(GenericScalar), graphql_name="figA")
-    """Summary of fig A"""
-
-    fig_b = sgqlc.types.Field(sgqlc.types.non_null(GenericScalar), graphql_name="figB")
-    """Summary of fig B"""
-
-    overview_diff = sgqlc.types.Field(
-        sgqlc.types.non_null(GenericScalar), graphql_name="overviewDiff"
-    )
-    """Field-by-field diff with deltas"""
-
-    score_diff = sgqlc.types.Field(GenericScalar, graphql_name="scoreDiff")
-    """Quality score diff per dimension"""
-
-    stage_diff = sgqlc.types.Field(GenericScalar, graphql_name="stageDiff")
-    """Execution stage sequence diff"""
-
-    pattern_diff = sgqlc.types.Field(GenericScalar, graphql_name="patternDiff")
-    """Detected pattern diff"""
-
-    token_diff = sgqlc.types.Field(GenericScalar, graphql_name="tokenDiff")
-    """Token usage diff"""
+    current_score = sgqlc.types.Field(Float, graphql_name="currentScore")
+    """Latest process quality score"""
 
 
 class FigCostData(sgqlc.types.Type):
@@ -26864,146 +27224,45 @@ class FigCostData(sgqlc.types.Type):
     """
 
 
-class FigDriftData(sgqlc.types.Type):
-    """Behavioral drift detection results."""
+class FigDimension(sgqlc.types.Type):
+    """A single scoring dimension."""
 
     __schema__ = schema
-    __field_names__ = (
-        "insufficient_data",
-        "count",
-        "needed",
-        "recent",
-        "historical",
-        "drift_pct",
-        "window",
-    )
-    insufficient_data = sgqlc.types.Field(Boolean, graphql_name="insufficientData")
-    """True if not enough data for drift analysis"""
+    __field_names__ = ("name", "weight", "avg_score", "description", "count")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Dimension name (focus, drive, resilience, delivery)"""
 
-    count = sgqlc.types.Field(Int, graphql_name="count")
-    """Number of figs available"""
+    weight = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="weight")
+    """Weight in overall score"""
 
-    needed = sgqlc.types.Field(Int, graphql_name="needed")
-    """Minimum figs needed for analysis"""
+    avg_score = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="avgScore")
+    """Average score across figs"""
 
-    recent = sgqlc.types.Field(GenericScalar, graphql_name="recent")
-    """Recent period metrics: {duration_s, tool_calls, success_rate}"""
-
-    historical = sgqlc.types.Field(GenericScalar, graphql_name="historical")
-    """Historical period metrics"""
-
-    drift_pct = sgqlc.types.Field(GenericScalar, graphql_name="driftPct")
-    """Percentage change per metric between periods"""
-
-    window = sgqlc.types.Field(Int, graphql_name="window")
-    """Window size in days"""
-
-
-class FigFailureCluster(sgqlc.types.Type):
-    """A group of failures sharing a common root cause."""
-
-    __schema__ = schema
-    __field_names__ = ("cluster", "count", "agents", "fig_ids")
-    cluster = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cluster")
-    """Failure cluster identifier"""
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """What this dimension measures"""
 
     count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
-    """Number of failures in cluster"""
-
-    agents = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
-        graphql_name="agents",
-    )
-    """Agents affected"""
-
-    fig_ids = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
-        graphql_name="figIds",
-    )
-    """Fig UUIDs in this cluster"""
+    """Number of figs with this dimension scored"""
 
 
 class FigHealthOutput(sgqlc.types.Type):
-    """Health score for an agent or account."""
+    """Fig Score (= Reasoning Quality) + per-dimension breakdown."""
 
     __schema__ = schema
-    __field_names__ = ("score", "count", "components")
+    __field_names__ = ("score", "count", "components", "dimensions")
     score = sgqlc.types.Field(Float, graphql_name="score")
-    """Health score 0-100"""
+    """Fig Score (0-100), equals avg Reasoning Quality"""
 
     count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
-    """Number of figs in window"""
+    """Number of scored figs in window"""
 
     components = sgqlc.types.Field(GenericScalar, graphql_name="components")
-    """Score components: success_rate, avg_process_score, anomaly_rate"""
+    """Score components: reasoning_quality (0-1)"""
 
-
-class FigHealthTrendPoint(sgqlc.types.Type):
-    """Health score for a single time period."""
-
-    __schema__ = schema
-    __field_names__ = ("period_start", "period_end", "score", "count", "success_rate")
-    period_start = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="periodStart")
-    """Period start ISO timestamp"""
-
-    period_end = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="periodEnd")
-    """Period end ISO timestamp"""
-
-    score = sgqlc.types.Field(Float, graphql_name="score")
-    """Health score for this period"""
-
-    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
-    """Figs in this period"""
-
-    success_rate = sgqlc.types.Field(Float, graphql_name="successRate")
-    """Success rate in this period"""
-
-
-class FigInsight(sgqlc.types.Type):
-    """Human-readable insight synthesized from detected patterns."""
-
-    __schema__ = schema
-    __field_names__ = (
-        "text",
-        "severity",
-        "pattern_name",
-        "agent_id",
-        "success_rate",
-        "baseline_rate",
-        "frequency",
-        "impact",
-        "confidence",
-        "recommendation",
+    dimensions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FigDimension)), graphql_name="dimensions"
     )
-    text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="text")
-    """Insight description"""
-
-    severity = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="severity")
-    """positive, negative, or neutral"""
-
-    pattern_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="patternName")
-    """Source pattern"""
-
-    agent_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentId")
-    """Agent this applies to"""
-
-    success_rate = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="successRate")
-    """Success rate when pattern is present"""
-
-    baseline_rate = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="baselineRate")
-    """Account-wide baseline success rate"""
-
-    frequency = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="frequency")
-    """How often pattern occurs"""
-
-    impact = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="impact")
-    """Delta from baseline success rate"""
-
-    confidence = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="confidence")
-    """Confidence 0-1"""
-
-    recommendation = sgqlc.types.Field(String, graphql_name="recommendation")
-    """Actionable recommendation"""
+    """Per-dimension breakdown (focus, drive, resilience, delivery)"""
 
 
 class FigPracticalMetric(sgqlc.types.Type):
@@ -27075,47 +27334,6 @@ class FigPracticalMetricsData(sgqlc.types.Type):
     """Model usage counts"""
 
 
-class FigProcessQualityData(sgqlc.types.Type):
-    """Aggregate process quality scores."""
-
-    __schema__ = schema
-    __field_names__ = ("count", "overall", "dimensions")
-    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
-    """Number of scored figs"""
-
-    overall = sgqlc.types.Field(Float, graphql_name="overall")
-    """Overall average quality score"""
-
-    dimensions = sgqlc.types.Field(
-        sgqlc.types.non_null(
-            sgqlc.types.list_of(sgqlc.types.non_null("FigProcessQualityDimension"))
-        ),
-        graphql_name="dimensions",
-    )
-    """Per-dimension breakdown"""
-
-
-class FigProcessQualityDimension(sgqlc.types.Type):
-    """A single scoring dimension within process quality."""
-
-    __schema__ = schema
-    __field_names__ = ("name", "weight", "avg_score", "description", "count")
-    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
-    """Dimension name"""
-
-    weight = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="weight")
-    """Weight in overall score"""
-
-    avg_score = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="avgScore")
-    """Average score across figs"""
-
-    description = sgqlc.types.Field(String, graphql_name="description")
-    """What this dimension measures"""
-
-    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
-    """Number of figs with this dimension scored"""
-
-
 class FigRecord(sgqlc.types.Type):
     """A single agent execution record."""
 
@@ -27154,6 +27372,7 @@ class FigRecord(sgqlc.types.Type):
         "total_completion_tokens",
         "tool_types_summary",
         "models_used",
+        "score_dimensions",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
     """Unique fig identifier"""
@@ -27254,23 +27473,8 @@ class FigRecord(sgqlc.types.Type):
     models_used = sgqlc.types.Field(GenericScalar, graphql_name="modelsUsed")
     """LLM models used during execution"""
 
-
-class FigRetryChain(sgqlc.types.Type):
-    """Retry attempts summary for a task."""
-
-    __schema__ = schema
-    __field_names__ = ("task_id", "total_attempts", "final_status", "total_duration_s")
-    task_id = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="taskId")
-    """Task identifier"""
-
-    total_attempts = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalAttempts")
-    """Number of retry attempts"""
-
-    final_status = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="finalStatus")
-    """Status of the final attempt"""
-
-    total_duration_s = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="totalDurationS")
-    """Total duration across all attempts"""
+    score_dimensions = sgqlc.types.Field(GenericScalar, graphql_name="scoreDimensions")
+    """Per-fig process quality dimensions, signals, and explanations"""
 
 
 class FilterPredicate(sgqlc.types.Type):
@@ -28075,7 +28279,9 @@ class IAMPermissionDefinition(sgqlc.types.Type):
     """Type of action this permission grants.  Values: - Read: Authorizes
     operations that involve viewing/querying (read only--no changes).
     - Write: Authorizes operations that involve some form of
-    modification (create, update, delete, etc.)
+    modification (create, update, delete, etc.) - Propose: Authorizes
+    operations that suggest changes requiring review and approval
+    before taking effect (e.g., drafting monitors).
     """
 
     description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
@@ -32154,6 +32360,7 @@ class Mutation(sgqlc.types.Type):
         "link_github_app_installation",
         "register_github_app_installation_request",
         "update_github_installation",
+        "update_pr_agent_config",
         "delete_github_installation",
         "register_gitlab_app",
         "link_gitlab_app",
@@ -37469,6 +37676,39 @@ class Mutation(sgqlc.types.Type):
       to delete
     * `show_impact_analysis` (`Boolean`): If true, show impacted
       models and reports as a PR comment
+    """
+
+    update_pr_agent_config = sgqlc.types.Field(
+        "UpdatePrAgentConfig",
+        graphql_name="updatePrAgentConfig",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_enabled_repos",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="agentEnabledRepos",
+                        default=None,
+                    ),
+                ),
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Update PR Agent configuration for a GitHub
+    installation
+
+    Arguments:
+
+    * `agent_enabled_repos` (`[String!]!`): Repos that PR Agent is
+      allowed to review
+    * `installation_uuid` (`UUID!`): UUID of the installation to
+      configure
     """
 
     delete_github_installation = sgqlc.types.Field(
@@ -54067,18 +54307,37 @@ class PauseTableMonitor(sgqlc.types.Type):
 
 
 class PermissionAccessResult(sgqlc.types.Type):
-    """Result of a data authorization check for a single permission."""
+    """Result of a data authorization check.  Each result identifies what
+    was checked (permission or resourcePath), which data object it
+    applies to, and whether access is granted.
+    """
 
     __schema__ = schema
-    __field_names__ = ("permission", "has_access")
-    permission = sgqlc.types.Field(sgqlc.types.non_null(Permission), graphql_name="permission")
+    __field_names__ = (
+        "permission",
+        "resource_path",
+        "mcon",
+        "monitor_uuid",
+        "domain_uuid",
+        "has_access",
+    )
+    permission = sgqlc.types.Field(Permission, graphql_name="permission")
     """The permission that was checked."""
 
+    resource_path = sgqlc.types.Field(ResourcePolicyPath, graphql_name="resourcePath")
+    """The resource policy path that was checked."""
+
+    mcon = sgqlc.types.Field(String, graphql_name="mcon")
+    """The MCON this result applies to."""
+
+    monitor_uuid = sgqlc.types.Field(String, graphql_name="monitorUuid")
+    """The monitor UUID this result applies to."""
+
+    domain_uuid = sgqlc.types.Field(String, graphql_name="domainUuid")
+    """The domain UUID this result applies to."""
+
     has_access = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasAccess")
-    """True if the current user has this permission on all provided
-    MCONs. False if the permission is denied, or any MCON is outside
-    the user's account or domain restrictions.
-    """
+    """True if the current user is authorized for this combination."""
 
 
 class PermissionPolicyDecisionReasonOutput(sgqlc.types.Type):
@@ -54570,6 +54829,24 @@ class PowerBIWorkSpaceRef(sgqlc.types.Type):
     description = sgqlc.types.Field(String, graphql_name="description")
 
 
+class PrAgentConfig(sgqlc.types.Type):
+    """PR Agent configuration for a GitHub app installation."""
+
+    __schema__ = schema
+    __field_names__ = ("available_repos", "agent_enabled_repos")
+    available_repos = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="availableRepos",
+    )
+    """All repos the GitHub app has access to for this installation"""
+
+    agent_enabled_repos = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="agentEnabledRepos",
+    )
+    """Repos that PR Agent is allowed to review for this installation"""
+
+
 class Predicate(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -54810,17 +55087,12 @@ class Query(sgqlc.types.Type):
         "get_customer_mcp_servers",
         "discover_customer_mcp_server_auth",
         "get_figs",
-        "get_fig_health",
-        "get_fig_health_trend",
-        "get_fig_insights",
-        "get_fig_anomalies",
+        "get_fig",
+        "get_fig_agents",
+        "get_fig_score",
         "get_fig_costs",
-        "get_fig_drift",
-        "get_fig_failure_clusters",
-        "get_fig_retry_chains",
-        "get_fig_process_quality",
         "get_fig_practical_metrics",
-        "compare_figs",
+        "get_fig_best_runs",
         "list_custom_dashboards",
         "get_custom_dashboard",
         "get_custom_dashboard_as_json",
@@ -54962,6 +55234,7 @@ class Query(sgqlc.types.Type):
         "get_azure_devops_installations",
         "get_azure_devops_installation",
         "get_azure_devops_organization",
+        "get_pr_agent_config",
         "get_size_collection_configuration",
         "get_size_collection_query",
         "get_my_mcp_integration_keys",
@@ -55354,6 +55627,7 @@ class Query(sgqlc.types.Type):
         "get_airflow_dag_runs",
         "get_airflow_capabilities",
         "get_tsa_analysis_result",
+        "get_trace_rx_reports",
         "get_agent_memories",
         "get_ai_agent_config",
         "fix_sql_query",
@@ -55481,6 +55755,7 @@ class Query(sgqlc.types.Type):
                 ("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),
                 ("status", sgqlc.types.Arg(String, graphql_name="status", default=None)),
                 ("risk_level", sgqlc.types.Arg(String, graphql_name="riskLevel", default=None)),
+                ("since", sgqlc.types.Arg(String, graphql_name="since", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=50)),
             )
         ),
@@ -55494,64 +55769,38 @@ class Query(sgqlc.types.Type):
       timeout, cancelled)
     * `risk_level` (`String`): Filter by risk level (low, medium,
       high, critical)
+    * `since` (`String`): Filter to figs started after this ISO date
     * `limit` (`Int`): Max results to return (default: `50`)
     """
 
-    get_fig_health = sgqlc.types.Field(
+    get_fig = sgqlc.types.Field(
+        FigRecord,
+        graphql_name="getFig",
+        args=sgqlc.types.ArgDict(
+            (("id", sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="id", default=None)),)
+        ),
+    )
+    """(experimental) Get a single fig execution record by UUID
+
+    Arguments:
+
+    * `id` (`UUID!`): Fig UUID
+    """
+
+    get_fig_agents = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FigAgentSummary)), graphql_name="getFigAgents"
+    )
+    """(experimental) List agents that have fig execution records"""
+
+    get_fig_score = sgqlc.types.Field(
         FigHealthOutput,
-        graphql_name="getFigHealth",
+        graphql_name="getFigScore",
         args=sgqlc.types.ArgDict(
             (("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),)
         ),
     )
-    """(experimental) Health score (0-100) for an agent or account
-
-    Arguments:
-
-    * `agent_id` (`String`): Filter by agent ID
-    """
-
-    get_fig_health_trend = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(FigHealthTrendPoint)),
-        graphql_name="getFigHealthTrend",
-        args=sgqlc.types.ArgDict(
-            (
-                ("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),
-                ("days", sgqlc.types.Arg(Int, graphql_name="days", default=30)),
-            )
-        ),
-    )
-    """(experimental) Health score over time, bucketed into daily periods
-
-    Arguments:
-
-    * `agent_id` (`String`): Filter by agent ID
-    * `days` (`Int`): Number of days to look back (default: `30`)
-    """
-
-    get_fig_insights = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(FigInsight)),
-        graphql_name="getFigInsights",
-        args=sgqlc.types.ArgDict(
-            (("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),)
-        ),
-    )
-    """(experimental) Human-readable insights synthesized from detected
-    patterns
-
-    Arguments:
-
-    * `agent_id` (`String`): Filter by agent ID
-    """
-
-    get_fig_anomalies = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(FigAnomaly)),
-        graphql_name="getFigAnomalies",
-        args=sgqlc.types.ArgDict(
-            (("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),)
-        ),
-    )
-    """(experimental) List detected behavioral anomalies
+    """(experimental) Fig Score (= avg Reasoning Quality) + per-dimension
+    breakdown
 
     Arguments:
 
@@ -55566,54 +55815,6 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) Token cost breakdown by agent
-
-    Arguments:
-
-    * `agent_id` (`String`): Filter by agent ID
-    """
-
-    get_fig_drift = sgqlc.types.Field(FigDriftData, graphql_name="getFigDrift")
-    """(experimental) Behavioral drift detection comparing recent vs
-    historical figs
-    """
-
-    get_fig_failure_clusters = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(FigFailureCluster)),
-        graphql_name="getFigFailureClusters",
-        args=sgqlc.types.ArgDict(
-            (("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),)
-        ),
-    )
-    """(experimental) Failed figs grouped by failure reason
-
-    Arguments:
-
-    * `agent_id` (`String`): Filter by agent ID
-    """
-
-    get_fig_retry_chains = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(FigRetryChain)),
-        graphql_name="getFigRetryChains",
-        args=sgqlc.types.ArgDict(
-            (("task_id", sgqlc.types.Arg(Int, graphql_name="taskId", default=None)),)
-        ),
-    )
-    """(experimental) Retry attempts grouped by task
-
-    Arguments:
-
-    * `task_id` (`Int`): Filter by task ID
-    """
-
-    get_fig_process_quality = sgqlc.types.Field(
-        FigProcessQualityData,
-        graphql_name="getFigProcessQuality",
-        args=sgqlc.types.ArgDict(
-            (("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),)
-        ),
-    )
-    """(experimental) Aggregate process quality scores broken down by
-    dimension
 
     Arguments:
 
@@ -55638,28 +55839,28 @@ class Query(sgqlc.types.Type):
     * `days` (`Int`): Number of days to look back (default: `30`)
     """
 
-    compare_figs = sgqlc.types.Field(
-        FigCompareResult,
-        graphql_name="compareFigs",
+    get_fig_best_runs = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FigRecord)),
+        graphql_name="getFigBestRuns",
         args=sgqlc.types.ArgDict(
             (
                 (
-                    "fig_a",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="figA", default=None),
+                    "agent_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentId", default=None
+                    ),
                 ),
-                (
-                    "fig_b",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="figB", default=None),
-                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=10)),
             )
         ),
     )
-    """(experimental) Side-by-side comparison of two fig executions
+    """(experimental) Top-scoring successful figs for an agent, ordered
+    by score descending
 
     Arguments:
 
-    * `fig_a` (`UUID!`): First fig UUID
-    * `fig_b` (`UUID!`): Second fig UUID
+    * `agent_id` (`String!`): Agent ID to query
+    * `limit` (`Int`): Max results to return (default: `10`)
     """
 
     list_custom_dashboards = sgqlc.types.Field(
@@ -59347,6 +59548,28 @@ class Query(sgqlc.types.Type):
 
     * `installation_uuid` (`UUID!`): Installation UUID to get Azure
       DevOps Organization for
+    """
+
+    get_pr_agent_config = sgqlc.types.Field(
+        PrAgentConfig,
+        graphql_name="getPrAgentConfig",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get PR Agent configuration for a GitHub
+    installation
+
+    Arguments:
+
+    * `installation_uuid` (`UUID!`): UUID of the GitHub installation
     """
 
     get_size_collection_configuration = sgqlc.types.Field(
@@ -69770,30 +69993,45 @@ class Query(sgqlc.types.Type):
                 (
                     "permissions",
                     sgqlc.types.Arg(
-                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Permission))),
+                        sgqlc.types.list_of(sgqlc.types.non_null(Permission)),
                         graphql_name="permissions",
+                        default=None,
+                    ),
+                ),
+                (
+                    "resource_paths",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(ResourcePolicyPath)),
+                        graphql_name="resourcePaths",
+                        default=None,
+                    ),
+                ),
+                (
+                    "domain_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="domainUuids",
                         default=None,
                     ),
                 ),
             )
         ),
     )
-    """(experimental) Check whether the current user has the given
-    permissions on a set of assets or monitors. You must provide
-    either mcons (for table assets) or monitorUuids (for monitors),
-    but not both. Returns one result per requested permission.
-    hasAccess is true only if the user has that permission on every
-    item in the list.
+    """(experimental) Check the current user's access for each
+    combination of permission/policy and data object. Returns one
+    result per pair.
 
     Arguments:
 
-    * `mcons` (`[String!]`): Non-empty list of MCON strings
-      identifying the table assets to check. Cannot be used together
-      with monitorUuids.
-    * `monitor_uuids` (`[String!]`): Non-empty list of monitor UUIDs
-      to check. Cannot be used together with mcons.
-    * `permissions` (`[Permission!]!`): One or more permissions to
-      check.
+    * `mcons` (`[String!]`): Table assets to check, as MCON strings.
+    * `monitor_uuids` (`[String!]`): Monitors to check, by UUID.
+    * `permissions` (`[Permission!]`): Permissions to check. Requires
+      data context (mcons, monitorUuids, or domainUuids).
+    * `resource_paths` (`[ResourcePolicyPath!]`): Resource policy
+      paths to check — each resolves to all type-specific permissions
+      under the resource.
+    * `domain_uuids` (`[String!]`): Domains for domain-scoped
+      permission checks.
     """
 
     search = sgqlc.types.Field(
@@ -74745,6 +74983,31 @@ class Query(sgqlc.types.Type):
 
     * `alert_id` (`UUID!`): UUID of the alert to get TSA analysis
       result for
+    """
+
+    get_trace_rx_reports = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TraceRxReport")),
+        graphql_name="getTraceRxReports",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "resource_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="resourceId", default=None
+                    ),
+                ),
+                ("agent_name", sgqlc.types.Arg(String, graphql_name="agentName", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get TraceRX health reports for a resource
+
+    Arguments:
+
+    * `resource_id` (`UUID!`): UUID of the warehouse resource to get
+      reports for
+    * `agent_name` (`String`): Filter results to a specific agent by
+      name
     """
 
     get_agent_memories = sgqlc.types.Field(
@@ -81885,6 +82148,49 @@ class TracePageInfo(sgqlc.types.Type):
     """Cursor of the last edge"""
 
 
+class TraceRxReport(sgqlc.types.Type):
+    """Per-workflow health report produced by the TraceRX agent."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "agent_name",
+        "workflow",
+        "health",
+        "signal_count",
+        "health_card",
+        "scope",
+        "created_time",
+        "updated_time",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+    """Unique identifier for this report"""
+
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name (e.g. 'ai-agent')"""
+
+    workflow = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="workflow")
+    """Agent workflow name (e.g. 'Chat Agent', 'TTSA')"""
+
+    health = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="health")
+    """Overall health severity: critical, high, medium, or low"""
+
+    signal_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="signalCount")
+    """Number of signals (findings) detected for this workflow"""
+
+    health_card = sgqlc.types.Field(sgqlc.types.non_null(GenericScalar), graphql_name="healthCard")
+    """Full health card data: span_sections, raw_findings, diagnosis"""
+
+    scope = sgqlc.types.Field(sgqlc.types.non_null(GenericScalar), graphql_name="scope")
+    """Detection and baseline time windows for this report run"""
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When this report was created"""
+
+    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
+    """When this report was last updated"""
+
+
 class TraceTimeSeriesBucketType(sgqlc.types.Type):
     """A single time bucket in a time series."""
 
@@ -83014,6 +83320,15 @@ class UpdatePowerBiCredentialsV2Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("result",)
     result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
+
+
+class UpdatePrAgentConfig(sgqlc.types.Type):
+    """Update PR Agent configuration for a GitHub app installation."""
+
+    __schema__ = schema
+    __field_names__ = ("installation",)
+    installation = sgqlc.types.Field(GithubAppInstallation, graphql_name="installation")
+    """Updated installation"""
 
 
 class UpdateRedshiftCredentialsV2Mutation(sgqlc.types.Type):
@@ -84994,9 +85309,7 @@ class AgentTraceTable(sgqlc.types.Type, Node):
     )
     """Format of spans in the table."""
 
-    schedule = sgqlc.types.Field(
-        sgqlc.types.non_null(DataCollectorSchedule), graphql_name="schedule"
-    )
+    schedule = sgqlc.types.Field(DataCollectorSchedule, graphql_name="schedule")
 
     recommendations_generated_at = sgqlc.types.Field(
         DateTime, graphql_name="recommendationsGeneratedAt"

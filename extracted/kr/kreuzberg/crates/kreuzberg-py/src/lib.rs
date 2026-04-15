@@ -105,6 +105,7 @@ fn _internal_bindings(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<types::ExtractedTable>()?;
     m.add_class::<types::PyExtractedKeyword>()?;
     m.add_class::<types::PyProcessingWarning>()?;
+    m.add_class::<types::PyLlmUsage>()?;
     m.add_class::<types::PyPdfAnnotation>()?;
 
     m.add_function(wrap_pyfunction!(core::extract_file_sync, m)?)?;

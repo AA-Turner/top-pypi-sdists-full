@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 from annoy import AnnoyIndex
@@ -46,7 +46,7 @@ class AnnoyBackend(AbstractBackend[AnnoyArgs]):
     def from_vectors(
         cls: type[AnnoyBackend],
         vectors: npt.NDArray,
-        metric: Union[str, Metric],
+        metric: str | Metric,
         trees: int,
         **kwargs: Any,
     ) -> AnnoyBackend:
@@ -85,24 +85,23 @@ class AnnoyBackend(AbstractBackend[AnnoyArgs]):
         return self.length
 
     @classmethod
-    def load(cls: type[AnnoyBackend], base_path: Path) -> AnnoyBackend:
+    def load(cls: type[AnnoyBackend], path: Path) -> AnnoyBackend:
         """Load the vectors from a path."""
-        path = Path(base_path) / "index.bin"
+        index_path = path / "index.bin"
 
-        arguments = AnnoyArgs.load(base_path / "arguments.json")
+        arguments = AnnoyArgs.load(path / "arguments.json")
         metric = cls._map_metric_to_string(arguments.metric)
         index = AnnoyIndex(arguments.dim, metric)  # type: ignore
-        index.load(str(path))
+        index.load(str(index_path))
 
         return cls(index, arguments=arguments)
 
-    def save(self, base_path: Path) -> None:
+    def save(self, path: Path) -> None:
         """Save the vectors to a path."""
-        path = Path(base_path) / "index.bin"
-        self.index.save(str(path))
+        self.index.save(str(path / "index.bin"))
         # Ensure the length is set before saving
         self.arguments.length = len(self)
-        self.arguments.dump(base_path / "arguments.json")
+        self.arguments.dump(path / "arguments.json")
 
     def query(self, vectors: npt.NDArray, k: int) -> QueryResult:
         """Query the backend."""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: peft
-Version: 0.18.1
+Version: 0.19.0
 Summary: Parameter-Efficient Fine-Tuning (PEFT)
 Home-page: https://github.com/huggingface/peft
 Author: The HuggingFace team
@@ -38,18 +38,21 @@ Requires-Dist: hf-doc-builder; extra == "quality"
 Requires-Dist: ruff~=0.12.8; extra == "quality"
 Provides-Extra: docs-specific
 Requires-Dist: black; extra == "docs-specific"
+Requires-Dist: requests; extra == "docs-specific"
 Requires-Dist: hf-doc-builder; extra == "docs-specific"
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
 Requires-Dist: ruff~=0.12.8; extra == "dev"
 Requires-Dist: black; extra == "dev"
+Requires-Dist: requests; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
 Provides-Extra: test
 Requires-Dist: black; extra == "test"
 Requires-Dist: hf-doc-builder; extra == "test"
 Requires-Dist: ruff~=0.12.8; extra == "test"
 Requires-Dist: black; extra == "test"
+Requires-Dist: requests; extra == "test"
 Requires-Dist: hf-doc-builder; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
@@ -58,8 +61,10 @@ Requires-Dist: parameterized; extra == "test"
 Requires-Dist: datasets; extra == "test"
 Requires-Dist: diffusers; extra == "test"
 Requires-Dist: scipy; extra == "test"
+Requires-Dist: scikit-learn; extra == "test"
 Requires-Dist: protobuf; extra == "test"
 Requires-Dist: sentencepiece; extra == "test"
+Requires-Dist: torchvision; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -258,7 +263,7 @@ To use 🤗 PEFT in your publication, please cite it by using the following BibT
 ```bibtex
 @Misc{peft,
   title =        {{PEFT}: State-of-the-art Parameter-Efficient Fine-Tuning methods},
-  author =       {Sourab Mangrulkar and Sylvain Gugger and Lysandre Debut and Younes Belkada and Sayak Paul and Benjamin Bossan},
+  author =       {Sourab Mangrulkar and Sylvain Gugger and Lysandre Debut and Younes Belkada and Sayak Paul and Benjamin Bossan and Marian Tietz},
   howpublished = {\url{https://github.com/huggingface/peft}},
   year =         {2022}
 }

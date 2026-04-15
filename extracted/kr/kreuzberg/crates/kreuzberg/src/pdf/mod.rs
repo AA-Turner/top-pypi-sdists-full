@@ -58,6 +58,8 @@ pub mod layout_runner;
 #[cfg(feature = "pdf")]
 pub mod metadata;
 #[cfg(feature = "pdf-oxide")]
+pub(crate) mod oxide;
+#[cfg(feature = "pdf-oxide")]
 pub(crate) mod oxide_text;
 #[cfg(feature = "pdf")]
 pub mod rendering;

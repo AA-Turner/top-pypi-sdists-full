@@ -78,8 +78,10 @@ from ..interfaces.aws_bedrock import (
     AutomatedReasoningPolicyReference as _AutomatedReasoningPolicyReference_f7d9c76b,
     AutomatedReasoningPolicyVersionReference as _AutomatedReasoningPolicyVersionReference_4af77389,
     BlueprintReference as _BlueprintReference_1946eccf,
+    DataAutomationLibraryReference as _DataAutomationLibraryReference_22605e7a,
     DataAutomationProjectReference as _DataAutomationProjectReference_10ab2136,
     DataSourceReference as _DataSourceReference_93ef8daa,
+    EnforcedGuardrailConfigurationReference as _EnforcedGuardrailConfigurationReference_d59efaa4,
     FlowAliasReference as _FlowAliasReference_f89a6384,
     FlowReference as _FlowReference_f3bb7b24,
     FlowVersionReference as _FlowVersionReference_856e5818,
@@ -91,8 +93,10 @@ from ..interfaces.aws_bedrock import (
     IAutomatedReasoningPolicyRef as _IAutomatedReasoningPolicyRef_9ffd3012,
     IAutomatedReasoningPolicyVersionRef as _IAutomatedReasoningPolicyVersionRef_6aa0f116,
     IBlueprintRef as _IBlueprintRef_062266d7,
+    IDataAutomationLibraryRef as _IDataAutomationLibraryRef_27638785,
     IDataAutomationProjectRef as _IDataAutomationProjectRef_138471b3,
     IDataSourceRef as _IDataSourceRef_f5724155,
+    IEnforcedGuardrailConfigurationRef as _IEnforcedGuardrailConfigurationRef_602edf6a,
     IFlowAliasRef as _IFlowAliasRef_5cc02e64,
     IFlowRef as _IFlowRef_4a25536f,
     IFlowVersionRef as _IFlowVersionRef_b6a0d6ae,
@@ -102,10 +106,12 @@ from ..interfaces.aws_bedrock import (
     IKnowledgeBaseRef as _IKnowledgeBaseRef_39cf0b05,
     IPromptRef as _IPromptRef_d944f83a,
     IPromptVersionRef as _IPromptVersionRef_1640675e,
+    IResourcePolicyRef as _IResourcePolicyRef_dfbf4441,
     IntelligentPromptRouterReference as _IntelligentPromptRouterReference_d322bd0d,
     KnowledgeBaseReference as _KnowledgeBaseReference_c998f6bc,
     PromptReference as _PromptReference_b9d06b01,
     PromptVersionReference as _PromptVersionReference_b166f85b,
+    ResourcePolicyReference as _ResourcePolicyReference_40cc5966,
 )
 
 
@@ -5869,6 +5875,508 @@ class CfnBlueprintProps:
 
     def __repr__(self) -> str:
         return "CfnBlueprintProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IDataAutomationLibraryRef_27638785, _ITaggableV2_4e6798f8)
+class CfnDataAutomationLibrary(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationLibrary",
+):
+    '''Resource Type definition for AWS::Bedrock::DataAutomationLibrary.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationlibrary.html
+    :cloudformationResource: AWS::Bedrock::DataAutomationLibrary
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrock as bedrock
+        
+        cfn_data_automation_library = bedrock.CfnDataAutomationLibrary(self, "MyCfnDataAutomationLibrary",
+            library_name="libraryName",
+        
+            # the properties below are optional
+            encryption_configuration=bedrock.CfnDataAutomationLibrary.EncryptionConfigurationProperty(
+                kms_key_id="kmsKeyId",
+        
+                # the properties below are optional
+                kms_encryption_context={
+                    "kms_encryption_context_key": "kmsEncryptionContext"
+                }
+            ),
+            library_description="libraryDescription",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        library_name: builtins.str,
+        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataAutomationLibrary.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        library_description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Bedrock::DataAutomationLibrary``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param library_name: Name of the DataAutomationLibrary.
+        :param encryption_configuration: KMS Encryption Configuration.
+        :param library_description: Description of the DataAutomationLibrary.
+        :param tags: List of tags.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3ce92a86eaae2ebbe2bbedc4ea78ad14a03dcc5d82b16d971b4b6a6f11c67805)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDataAutomationLibraryProps(
+            library_name=library_name,
+            encryption_configuration=encryption_configuration,
+            library_description=library_description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnDataAutomationLibrary")
+    @builtins.classmethod
+    def is_cfn_data_automation_library(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDataAutomationLibrary.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__adbff5fe0fc4e176b5a91cc9f277a08a7014f01fb3453b3f5bea32b64e4e62c2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataAutomationLibrary", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__75f4fbd77b8101447cdce76159b8070925aca098d2964b0312e591f316077375)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db511671e604e1bbfd523bce63bbcfa3e6448496c2f2850778b3c41ac0f3611e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''Time Stamp.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEntityTypes")
+    def attr_entity_types(self) -> "_IResolvable_da3f097b":
+        '''List of info for each entity type in the DataAutomationLibrary.
+
+        :cloudformationAttribute: EntityTypes
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrEntityTypes"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLibraryArn")
+    def attr_library_arn(self) -> builtins.str:
+        '''ARN generated at the server side when a DataAutomationLibrary is created.
+
+        :cloudformationAttribute: LibraryArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLibraryArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Status of DataAutomationLibrary.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataAutomationLibraryRef")
+    def data_automation_library_ref(self) -> "_DataAutomationLibraryReference_22605e7a":
+        '''A reference to a DataAutomationLibrary resource.'''
+        return typing.cast("_DataAutomationLibraryReference_22605e7a", jsii.get(self, "dataAutomationLibraryRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="libraryName")
+    def library_name(self) -> builtins.str:
+        '''Name of the DataAutomationLibrary.'''
+        return typing.cast(builtins.str, jsii.get(self, "libraryName"))
+
+    @library_name.setter
+    def library_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4d1bc69dff3dbab9eda171b820e1690e6d2f111f825af58ff1502b186fa32fb0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "libraryName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfiguration")
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataAutomationLibrary.EncryptionConfigurationProperty"]]:
+        '''KMS Encryption Configuration.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataAutomationLibrary.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+
+    @encryption_configuration.setter
+    def encryption_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataAutomationLibrary.EncryptionConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__22241b01cb4a00096309ba8fb3b1d81f1b4061a3b27cf0b2f125ef0ccdffd6cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="libraryDescription")
+    def library_description(self) -> typing.Optional[builtins.str]:
+        '''Description of the DataAutomationLibrary.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "libraryDescription"))
+
+    @library_description.setter
+    def library_description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__332cec7fd677523f2481a99278707b2db02f187b9f4cb362ec689420372087be)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "libraryDescription", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''List of tags.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6fd33ae85bf209eaf2e7bc2035cfed7aefe8a3f6cca8cb17a780f7e0b1b42b12)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationLibrary.EncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "kms_key_id": "kmsKeyId",
+            "kms_encryption_context": "kmsEncryptionContext",
+        },
+    )
+    class EncryptionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            kms_key_id: builtins.str,
+            kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''KMS Encryption Configuration.
+
+            :param kms_key_id: KMS Key Identifier.
+            :param kms_encryption_context: KMS Encryption Context.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationlibrary-encryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                encryption_configuration_property = bedrock.CfnDataAutomationLibrary.EncryptionConfigurationProperty(
+                    kms_key_id="kmsKeyId",
+                
+                    # the properties below are optional
+                    kms_encryption_context={
+                        "kms_encryption_context_key": "kmsEncryptionContext"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3456e210d70315cfaaf400f5d3263f110f1cc98da3f68ac2a9bb85793be21b52)
+                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+                check_type(argname="argument kms_encryption_context", value=kms_encryption_context, expected_type=type_hints["kms_encryption_context"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "kms_key_id": kms_key_id,
+            }
+            if kms_encryption_context is not None:
+                self._values["kms_encryption_context"] = kms_encryption_context
+
+        @builtins.property
+        def kms_key_id(self) -> builtins.str:
+            '''KMS Key Identifier.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationlibrary-encryptionconfiguration.html#cfn-bedrock-dataautomationlibrary-encryptionconfiguration-kmskeyid
+            '''
+            result = self._values.get("kms_key_id")
+            assert result is not None, "Required property 'kms_key_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def kms_encryption_context(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+            '''KMS Encryption Context.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationlibrary-encryptionconfiguration.html#cfn-bedrock-dataautomationlibrary-encryptionconfiguration-kmsencryptioncontext
+            '''
+            result = self._values.get("kms_encryption_context")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationLibrary.EntityTypeInfoProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "entity_type": "entityType",
+            "entity_metadata": "entityMetadata",
+        },
+    )
+    class EntityTypeInfoProperty:
+        def __init__(
+            self,
+            *,
+            entity_type: builtins.str,
+            entity_metadata: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Information about an entity type in the DataAutomationLibrary.
+
+            :param entity_type: Entity types supported in DataAutomationLibraries.
+            :param entity_metadata: JSON string representing relevant metadata for the entity type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationlibrary-entitytypeinfo.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                entity_type_info_property = bedrock.CfnDataAutomationLibrary.EntityTypeInfoProperty(
+                    entity_type="entityType",
+                
+                    # the properties below are optional
+                    entity_metadata="entityMetadata"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6396258d557a23ad307920c33587775dc4a25d473e4b1586b5d99c0a55dabcf4)
+                check_type(argname="argument entity_type", value=entity_type, expected_type=type_hints["entity_type"])
+                check_type(argname="argument entity_metadata", value=entity_metadata, expected_type=type_hints["entity_metadata"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "entity_type": entity_type,
+            }
+            if entity_metadata is not None:
+                self._values["entity_metadata"] = entity_metadata
+
+        @builtins.property
+        def entity_type(self) -> builtins.str:
+            '''Entity types supported in DataAutomationLibraries.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationlibrary-entitytypeinfo.html#cfn-bedrock-dataautomationlibrary-entitytypeinfo-entitytype
+            '''
+            result = self._values.get("entity_type")
+            assert result is not None, "Required property 'entity_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def entity_metadata(self) -> typing.Optional[builtins.str]:
+            '''JSON string representing relevant metadata for the entity type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationlibrary-entitytypeinfo.html#cfn-bedrock-dataautomationlibrary-entitytypeinfo-entitymetadata
+            '''
+            result = self._values.get("entity_metadata")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EntityTypeInfoProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationLibraryProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "library_name": "libraryName",
+        "encryption_configuration": "encryptionConfiguration",
+        "library_description": "libraryDescription",
+        "tags": "tags",
+    },
+)
+class CfnDataAutomationLibraryProps:
+    def __init__(
+        self,
+        *,
+        library_name: builtins.str,
+        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataAutomationLibrary.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        library_description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataAutomationLibrary``.
+
+        :param library_name: Name of the DataAutomationLibrary.
+        :param encryption_configuration: KMS Encryption Configuration.
+        :param library_description: Description of the DataAutomationLibrary.
+        :param tags: List of tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationlibrary.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_data_automation_library_props = bedrock.CfnDataAutomationLibraryProps(
+                library_name="libraryName",
+            
+                # the properties below are optional
+                encryption_configuration=bedrock.CfnDataAutomationLibrary.EncryptionConfigurationProperty(
+                    kms_key_id="kmsKeyId",
+            
+                    # the properties below are optional
+                    kms_encryption_context={
+                        "kms_encryption_context_key": "kmsEncryptionContext"
+                    }
+                ),
+                library_description="libraryDescription",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea67492ef5788695765b25befb7d4c346d11a821141ada67c87eaa032b943bd5)
+            check_type(argname="argument library_name", value=library_name, expected_type=type_hints["library_name"])
+            check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+            check_type(argname="argument library_description", value=library_description, expected_type=type_hints["library_description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "library_name": library_name,
+        }
+        if encryption_configuration is not None:
+            self._values["encryption_configuration"] = encryption_configuration
+        if library_description is not None:
+            self._values["library_description"] = library_description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def library_name(self) -> builtins.str:
+        '''Name of the DataAutomationLibrary.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationlibrary.html#cfn-bedrock-dataautomationlibrary-libraryname
+        '''
+        result = self._values.get("library_name")
+        assert result is not None, "Required property 'library_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataAutomationLibrary.EncryptionConfigurationProperty"]]:
+        '''KMS Encryption Configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationlibrary.html#cfn-bedrock-dataautomationlibrary-encryptionconfiguration
+        '''
+        result = self._values.get("encryption_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataAutomationLibrary.EncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def library_description(self) -> typing.Optional[builtins.str]:
+        '''Description of the DataAutomationLibrary.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationlibrary.html#cfn-bedrock-dataautomationlibrary-librarydescription
+        '''
+        result = self._values.get("library_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''List of tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationlibrary.html#cfn-bedrock-dataautomationlibrary-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataAutomationLibraryProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -14464,6 +14972,531 @@ class CfnDataSourceProps:
 
     def __repr__(self) -> str:
         return "CfnDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IEnforcedGuardrailConfigurationRef_602edf6a)
+class CfnEnforcedGuardrailConfiguration(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnEnforcedGuardrailConfiguration",
+):
+    '''Definition of AWS::Bedrock::EnforcedGuardrailConfiguration Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-enforcedguardrailconfiguration.html
+    :cloudformationResource: AWS::Bedrock::EnforcedGuardrailConfiguration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrock as bedrock
+        
+        cfn_enforced_guardrail_configuration = bedrock.CfnEnforcedGuardrailConfiguration(self, "MyCfnEnforcedGuardrailConfiguration",
+            guardrail_identifier="guardrailIdentifier",
+            guardrail_version="guardrailVersion",
+        
+            # the properties below are optional
+            model_enforcement=bedrock.CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty(
+                excluded_models=["excludedModels"],
+                included_models=["includedModels"]
+            ),
+            selective_content_guarding=bedrock.CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty(
+                messages="messages",
+                system="system"
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        guardrail_identifier: builtins.str,
+        guardrail_version: builtins.str,
+        model_enforcement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        selective_content_guarding: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Bedrock::EnforcedGuardrailConfiguration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param guardrail_identifier: Identifier for the guardrail, could be the ID or the ARN.
+        :param guardrail_version: Numerical guardrail version (not DRAFT).
+        :param model_enforcement: Model-specific information for the enforced guardrail configuration. If not present, the configuration is enforced on all models
+        :param selective_content_guarding: Selective content guarding controls for enforced guardrails.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a42ff91435417bfacebd4f53c15499207083bed0bde8f6f0b5d0c737a798f47d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnEnforcedGuardrailConfigurationProps(
+            guardrail_identifier=guardrail_identifier,
+            guardrail_version=guardrail_version,
+            model_enforcement=model_enforcement,
+            selective_content_guarding=selective_content_guarding,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnEnforcedGuardrailConfiguration")
+    @builtins.classmethod
+    def is_cfn_enforced_guardrail_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEnforcedGuardrailConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__660af834c2732bc24fecce5ed38a929f8adf6ad7425667af61b6ebcece791066)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnforcedGuardrailConfiguration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c05ae9185f6ed3e2f1a4d2191b9322d44f4df56311eebf08791f10a84a06721)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__af9a3bccda1cea300c73f6dc9b0c8a7c4e0def3a03cadd6023f0d7298d98e84b)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConfigId")
+    def attr_config_id(self) -> builtins.str:
+        '''Unique ID for the account enforced configuration.
+
+        :cloudformationAttribute: ConfigId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConfigId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''Timestamp when the configuration was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The ARN of the role used to create the configuration.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrGuardrailArn")
+    def attr_guardrail_arn(self) -> builtins.str:
+        '''ARN representation for the guardrail.
+
+        :cloudformationAttribute: GuardrailArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrGuardrailArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrGuardrailId")
+    def attr_guardrail_id(self) -> builtins.str:
+        '''Unique ID for the guardrail.
+
+        :cloudformationAttribute: GuardrailId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrGuardrailId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOwner")
+    def attr_owner(self) -> builtins.str:
+        '''Configuration owner type.
+
+        :cloudformationAttribute: Owner
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOwner"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''Timestamp when the configuration was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedBy")
+    def attr_updated_by(self) -> builtins.str:
+        '''The ARN of the role used to update the configuration.
+
+        :cloudformationAttribute: UpdatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="enforcedGuardrailConfigurationRef")
+    def enforced_guardrail_configuration_ref(
+        self,
+    ) -> "_EnforcedGuardrailConfigurationReference_d59efaa4":
+        '''A reference to a EnforcedGuardrailConfiguration resource.'''
+        return typing.cast("_EnforcedGuardrailConfigurationReference_d59efaa4", jsii.get(self, "enforcedGuardrailConfigurationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailIdentifier")
+    def guardrail_identifier(self) -> builtins.str:
+        '''Identifier for the guardrail, could be the ID or the ARN.'''
+        return typing.cast(builtins.str, jsii.get(self, "guardrailIdentifier"))
+
+    @guardrail_identifier.setter
+    def guardrail_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1d7a43095585500261fed40fc13627075dc6241c47bac711f09c1aed1addfde4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "guardrailIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailVersion")
+    def guardrail_version(self) -> builtins.str:
+        '''Numerical guardrail version (not DRAFT).'''
+        return typing.cast(builtins.str, jsii.get(self, "guardrailVersion"))
+
+    @guardrail_version.setter
+    def guardrail_version(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ceb8f4645d767c6e105b0c1ec745e6279ea2b1cdccfc7ee53f18acd4a404b46)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "guardrailVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="modelEnforcement")
+    def model_enforcement(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty"]]:
+        '''Model-specific information for the enforced guardrail configuration.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty"]], jsii.get(self, "modelEnforcement"))
+
+    @model_enforcement.setter
+    def model_enforcement(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f5ba0dd6a676b4b3d27d620aa7ec7f85b8218bc570c2baa58be965e8b226c80)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "modelEnforcement", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="selectiveContentGuarding")
+    def selective_content_guarding(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty"]]:
+        '''Selective content guarding controls for enforced guardrails.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty"]], jsii.get(self, "selectiveContentGuarding"))
+
+    @selective_content_guarding.setter
+    def selective_content_guarding(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e98c4f498a4d4a8659ef23b03508d975cf5a2d959a8bb68d7ea96d15ae78ee50)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "selectiveContentGuarding", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "excluded_models": "excludedModels",
+            "included_models": "includedModels",
+        },
+    )
+    class ModelEnforcementProperty:
+        def __init__(
+            self,
+            *,
+            excluded_models: typing.Sequence[builtins.str],
+            included_models: typing.Sequence[builtins.str],
+        ) -> None:
+            '''Model-specific information for the enforced guardrail configuration.
+
+            If not present, the configuration is enforced on all models
+
+            :param excluded_models: Models to exclude from enforcement. If a model is in both lists, it is excluded
+            :param included_models: Models to enforce the guardrail on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-enforcedguardrailconfiguration-modelenforcement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                model_enforcement_property = bedrock.CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty(
+                    excluded_models=["excludedModels"],
+                    included_models=["includedModels"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__96097d50ce858da19895b2ad4a91cdcfe85c8aa97a32fb79660a1af10f8759ed)
+                check_type(argname="argument excluded_models", value=excluded_models, expected_type=type_hints["excluded_models"])
+                check_type(argname="argument included_models", value=included_models, expected_type=type_hints["included_models"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "excluded_models": excluded_models,
+                "included_models": included_models,
+            }
+
+        @builtins.property
+        def excluded_models(self) -> typing.List[builtins.str]:
+            '''Models to exclude from enforcement.
+
+            If a model is in both lists, it is excluded
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-enforcedguardrailconfiguration-modelenforcement.html#cfn-bedrock-enforcedguardrailconfiguration-modelenforcement-excludedmodels
+            '''
+            result = self._values.get("excluded_models")
+            assert result is not None, "Required property 'excluded_models' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def included_models(self) -> typing.List[builtins.str]:
+            '''Models to enforce the guardrail on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-enforcedguardrailconfiguration-modelenforcement.html#cfn-bedrock-enforcedguardrailconfiguration-modelenforcement-includedmodels
+            '''
+            result = self._values.get("included_models")
+            assert result is not None, "Required property 'included_models' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ModelEnforcementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty",
+        jsii_struct_bases=[],
+        name_mapping={"messages": "messages", "system": "system"},
+    )
+    class SelectiveContentGuardingProperty:
+        def __init__(
+            self,
+            *,
+            messages: typing.Optional[builtins.str] = None,
+            system: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Selective content guarding controls for enforced guardrails.
+
+            :param messages: Selective guarding mode for user messages.
+            :param system: Selective guarding mode for system prompts.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-enforcedguardrailconfiguration-selectivecontentguarding.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                selective_content_guarding_property = bedrock.CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty(
+                    messages="messages",
+                    system="system"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5f9fe7f919ae17727b8dc31dff2c17d36908d38a8f456e34ed57fe35f29a29dc)
+                check_type(argname="argument messages", value=messages, expected_type=type_hints["messages"])
+                check_type(argname="argument system", value=system, expected_type=type_hints["system"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if messages is not None:
+                self._values["messages"] = messages
+            if system is not None:
+                self._values["system"] = system
+
+        @builtins.property
+        def messages(self) -> typing.Optional[builtins.str]:
+            '''Selective guarding mode for user messages.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-enforcedguardrailconfiguration-selectivecontentguarding.html#cfn-bedrock-enforcedguardrailconfiguration-selectivecontentguarding-messages
+            '''
+            result = self._values.get("messages")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def system(self) -> typing.Optional[builtins.str]:
+            '''Selective guarding mode for system prompts.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-enforcedguardrailconfiguration-selectivecontentguarding.html#cfn-bedrock-enforcedguardrailconfiguration-selectivecontentguarding-system
+            '''
+            result = self._values.get("system")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SelectiveContentGuardingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnEnforcedGuardrailConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "guardrail_identifier": "guardrailIdentifier",
+        "guardrail_version": "guardrailVersion",
+        "model_enforcement": "modelEnforcement",
+        "selective_content_guarding": "selectiveContentGuarding",
+    },
+)
+class CfnEnforcedGuardrailConfigurationProps:
+    def __init__(
+        self,
+        *,
+        guardrail_identifier: builtins.str,
+        guardrail_version: builtins.str,
+        model_enforcement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        selective_content_guarding: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEnforcedGuardrailConfiguration``.
+
+        :param guardrail_identifier: Identifier for the guardrail, could be the ID or the ARN.
+        :param guardrail_version: Numerical guardrail version (not DRAFT).
+        :param model_enforcement: Model-specific information for the enforced guardrail configuration. If not present, the configuration is enforced on all models
+        :param selective_content_guarding: Selective content guarding controls for enforced guardrails.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-enforcedguardrailconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_enforced_guardrail_configuration_props = bedrock.CfnEnforcedGuardrailConfigurationProps(
+                guardrail_identifier="guardrailIdentifier",
+                guardrail_version="guardrailVersion",
+            
+                # the properties below are optional
+                model_enforcement=bedrock.CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty(
+                    excluded_models=["excludedModels"],
+                    included_models=["includedModels"]
+                ),
+                selective_content_guarding=bedrock.CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty(
+                    messages="messages",
+                    system="system"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9305442af2c09280bfb3797d431b1910a59d49e4c3f1375e7b3e11d134cd9b25)
+            check_type(argname="argument guardrail_identifier", value=guardrail_identifier, expected_type=type_hints["guardrail_identifier"])
+            check_type(argname="argument guardrail_version", value=guardrail_version, expected_type=type_hints["guardrail_version"])
+            check_type(argname="argument model_enforcement", value=model_enforcement, expected_type=type_hints["model_enforcement"])
+            check_type(argname="argument selective_content_guarding", value=selective_content_guarding, expected_type=type_hints["selective_content_guarding"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "guardrail_identifier": guardrail_identifier,
+            "guardrail_version": guardrail_version,
+        }
+        if model_enforcement is not None:
+            self._values["model_enforcement"] = model_enforcement
+        if selective_content_guarding is not None:
+            self._values["selective_content_guarding"] = selective_content_guarding
+
+    @builtins.property
+    def guardrail_identifier(self) -> builtins.str:
+        '''Identifier for the guardrail, could be the ID or the ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-enforcedguardrailconfiguration.html#cfn-bedrock-enforcedguardrailconfiguration-guardrailidentifier
+        '''
+        result = self._values.get("guardrail_identifier")
+        assert result is not None, "Required property 'guardrail_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def guardrail_version(self) -> builtins.str:
+        '''Numerical guardrail version (not DRAFT).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-enforcedguardrailconfiguration.html#cfn-bedrock-enforcedguardrailconfiguration-guardrailversion
+        '''
+        result = self._values.get("guardrail_version")
+        assert result is not None, "Required property 'guardrail_version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def model_enforcement(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty"]]:
+        '''Model-specific information for the enforced guardrail configuration.
+
+        If not present, the configuration is enforced on all models
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-enforcedguardrailconfiguration.html#cfn-bedrock-enforcedguardrailconfiguration-modelenforcement
+        '''
+        result = self._values.get("model_enforcement")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty"]], result)
+
+    @builtins.property
+    def selective_content_guarding(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty"]]:
+        '''Selective content guarding controls for enforced guardrails.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-enforcedguardrailconfiguration.html#cfn-bedrock-enforcedguardrailconfiguration-selectivecontentguarding
+        '''
+        result = self._values.get("selective_content_guarding")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEnforcedGuardrailConfigurationProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -38900,6 +39933,211 @@ class CfnPromptVersionProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IResourcePolicyRef_dfbf4441)
+class CfnResourcePolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnResourcePolicy",
+):
+    '''Definition of AWS::Bedrock::ResourcePolicy Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-resourcepolicy.html
+    :cloudformationResource: AWS::Bedrock::ResourcePolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrock as bedrock
+        
+        # policy_document: Any
+        
+        cfn_resource_policy = bedrock.CfnResourcePolicy(self, "MyCfnResourcePolicy",
+            policy_document=policy_document,
+            resource_arn="resourceArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        policy_document: typing.Any,
+        resource_arn: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::Bedrock::ResourcePolicy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param policy_document: The IAM policy document defining access permissions for the guardrail and guardrail profile resources.
+        :param resource_arn: The ARN of the Bedrock Guardrail or Guardrail Profile resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c2b0f5b48d56b69c36d841a6784a9afb993f07624897942e230e8b49957a3d7)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnResourcePolicyProps(
+            policy_document=policy_document, resource_arn=resource_arn
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnResourcePolicy")
+    @builtins.classmethod
+    def is_cfn_resource_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResourcePolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5145886f72806a23b7271c620e1bbeef66dcde1689d0400f65a81c89abe7714d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourcePolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed6241148656a509f434c0a3d63c095630691bb85db3deaf23e132ff43a82d1c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f020aa5d466c902e1a656f89310865a37fa0eef2f1bf8063bbcf549e77de8b56)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "_ResourcePolicyReference_40cc5966":
+        '''A reference to a ResourcePolicy resource.'''
+        return typing.cast("_ResourcePolicyReference_40cc5966", jsii.get(self, "resourcePolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> typing.Any:
+        '''The IAM policy document defining access permissions for the guardrail and guardrail profile resources.'''
+        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ceba89db065b81779d957e2e19775bc8ce839ef832c5061547e56181fc2fcb95)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceArn")
+    def resource_arn(self) -> builtins.str:
+        '''The ARN of the Bedrock Guardrail or Guardrail Profile resource.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceArn"))
+
+    @resource_arn.setter
+    def resource_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c439b02ebe9d7f969e5c7e760a3e8cc2e1cd07d61ff59ca5b5a2a5856e0aed7a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnResourcePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"policy_document": "policyDocument", "resource_arn": "resourceArn"},
+)
+class CfnResourcePolicyProps:
+    def __init__(
+        self,
+        *,
+        policy_document: typing.Any,
+        resource_arn: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnResourcePolicy``.
+
+        :param policy_document: The IAM policy document defining access permissions for the guardrail and guardrail profile resources.
+        :param resource_arn: The ARN of the Bedrock Guardrail or Guardrail Profile resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-resourcepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            # policy_document: Any
+            
+            cfn_resource_policy_props = bedrock.CfnResourcePolicyProps(
+                policy_document=policy_document,
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7bc439643eba3e96cec66b3fb7fe2bade620d9dad3c0c9f73625cf6f74209eea)
+            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_document": policy_document,
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def policy_document(self) -> typing.Any:
+        '''The IAM policy document defining access permissions for the guardrail and guardrail profile resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-resourcepolicy.html#cfn-bedrock-resourcepolicy-policydocument
+        '''
+        result = self._values.get("policy_document")
+        assert result is not None, "Required property 'policy_document' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The ARN of the Bedrock Guardrail or Guardrail Profile resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-resourcepolicy.html#cfn-bedrock-resourcepolicy-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourcePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class FoundationModelIdentifier(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_bedrock.FoundationModelIdentifier",
@@ -40165,10 +41403,14 @@ __all__ = [
     "CfnAutomatedReasoningPolicyVersionProps",
     "CfnBlueprint",
     "CfnBlueprintProps",
+    "CfnDataAutomationLibrary",
+    "CfnDataAutomationLibraryProps",
     "CfnDataAutomationProject",
     "CfnDataAutomationProjectProps",
     "CfnDataSource",
     "CfnDataSourceProps",
+    "CfnEnforcedGuardrailConfiguration",
+    "CfnEnforcedGuardrailConfigurationProps",
     "CfnFlow",
     "CfnFlowAlias",
     "CfnFlowAliasProps",
@@ -40187,6 +41429,8 @@ __all__ = [
     "CfnPromptProps",
     "CfnPromptVersion",
     "CfnPromptVersionProps",
+    "CfnResourcePolicy",
+    "CfnResourcePolicyProps",
     "FoundationModel",
     "FoundationModelIdentifier",
     "IModel",
@@ -41004,6 +42248,86 @@ def _typecheckingstub__bf95f6258abad47e6c2fe49a96a1875d9121287a505f3fdb3fd8135ec
     type: builtins.str,
     kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ce92a86eaae2ebbe2bbedc4ea78ad14a03dcc5d82b16d971b4b6a6f11c67805(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    library_name: builtins.str,
+    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationLibrary.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    library_description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__adbff5fe0fc4e176b5a91cc9f277a08a7014f01fb3453b3f5bea32b64e4e62c2(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75f4fbd77b8101447cdce76159b8070925aca098d2964b0312e591f316077375(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db511671e604e1bbfd523bce63bbcfa3e6448496c2f2850778b3c41ac0f3611e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d1bc69dff3dbab9eda171b820e1690e6d2f111f825af58ff1502b186fa32fb0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22241b01cb4a00096309ba8fb3b1d81f1b4061a3b27cf0b2f125ef0ccdffd6cd(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataAutomationLibrary.EncryptionConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__332cec7fd677523f2481a99278707b2db02f187b9f4cb362ec689420372087be(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6fd33ae85bf209eaf2e7bc2035cfed7aefe8a3f6cca8cb17a780f7e0b1b42b12(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3456e210d70315cfaaf400f5d3263f110f1cc98da3f68ac2a9bb85793be21b52(
+    *,
+    kms_key_id: builtins.str,
+    kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6396258d557a23ad307920c33587775dc4a25d473e4b1586b5d99c0a55dabcf4(
+    *,
+    entity_type: builtins.str,
+    entity_metadata: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea67492ef5788695765b25befb7d4c346d11a821141ada67c87eaa032b943bd5(
+    *,
+    library_name: builtins.str,
+    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationLibrary.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    library_description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -41845,6 +43169,86 @@ def _typecheckingstub__4beca3e3b31c91619a3fa9da2bf185ffd738124b7965f1c90a191b43c
     description: typing.Optional[builtins.str] = None,
     server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_ingestion_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.VectorIngestionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a42ff91435417bfacebd4f53c15499207083bed0bde8f6f0b5d0c737a798f47d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    guardrail_identifier: builtins.str,
+    guardrail_version: builtins.str,
+    model_enforcement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    selective_content_guarding: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__660af834c2732bc24fecce5ed38a929f8adf6ad7425667af61b6ebcece791066(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c05ae9185f6ed3e2f1a4d2191b9322d44f4df56311eebf08791f10a84a06721(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af9a3bccda1cea300c73f6dc9b0c8a7c4e0def3a03cadd6023f0d7298d98e84b(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d7a43095585500261fed40fc13627075dc6241c47bac711f09c1aed1addfde4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ceb8f4645d767c6e105b0c1ec745e6279ea2b1cdccfc7ee53f18acd4a404b46(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f5ba0dd6a676b4b3d27d620aa7ec7f85b8218bc570c2baa58be965e8b226c80(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e98c4f498a4d4a8659ef23b03508d975cf5a2d959a8bb68d7ea96d15ae78ee50(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96097d50ce858da19895b2ad4a91cdcfe85c8aa97a32fb79660a1af10f8759ed(
+    *,
+    excluded_models: typing.Sequence[builtins.str],
+    included_models: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f9fe7f919ae17727b8dc31dff2c17d36908d38a8f456e34ed57fe35f29a29dc(
+    *,
+    messages: typing.Optional[builtins.str] = None,
+    system: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9305442af2c09280bfb3797d431b1910a59d49e4c3f1375e7b3e11d134cd9b25(
+    *,
+    guardrail_identifier: builtins.str,
+    guardrail_version: builtins.str,
+    model_enforcement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    selective_content_guarding: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnforcedGuardrailConfiguration.SelectiveContentGuardingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -44237,6 +45641,54 @@ def _typecheckingstub__96c6f04d4bf0b791d1f12be1ce79f791556638376cf77d3bf64ac4995
     prompt_arn: builtins.str,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4c2b0f5b48d56b69c36d841a6784a9afb993f07624897942e230e8b49957a3d7(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    policy_document: typing.Any,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5145886f72806a23b7271c620e1bbeef66dcde1689d0400f65a81c89abe7714d(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed6241148656a509f434c0a3d63c095630691bb85db3deaf23e132ff43a82d1c(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f020aa5d466c902e1a656f89310865a37fa0eef2f1bf8063bbcf549e77de8b56(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ceba89db065b81779d957e2e19775bc8ce839ef832c5061547e56181fc2fcb95(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c439b02ebe9d7f969e5c7e760a3e8cc2e1cd07d61ff59ca5b5a2a5856e0aed7a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7bc439643eba3e96cec66b3fb7fe2bade620d9dad3c0c9f73625cf6f74209eea(
+    *,
+    policy_document: typing.Any,
+    resource_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

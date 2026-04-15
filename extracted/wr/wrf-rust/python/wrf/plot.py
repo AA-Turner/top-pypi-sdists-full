@@ -94,15 +94,21 @@ _VAR_STYLES: Dict[str, Dict[str, Any]] = {
     "cape":   dict(cmap="YlOrRd", levels=np.arange(0, 4250, 250), extend="max"),
     "effective_cape": dict(cmap="YlOrRd", levels=np.arange(0, 4250, 250), extend="max"),
     "cape3d": dict(cmap="YlOrRd", levels=np.arange(0, 4250, 250), extend="max"),
+    "ecape": dict(cmap="YlOrRd", levels=np.arange(0, 4250, 250), extend="max"),
+    "ncape": dict(cmap="YlOrRd", levels=np.arange(0, 4250, 250), extend="max"),
+    "ecape_cape": dict(cmap="YlOrRd", levels=np.arange(0, 4250, 250), extend="max"),
     "sbcin":  dict(cmap="Blues_r", levels=np.arange(-300, 1, 25), extend="min"),
     "mlcin":  dict(cmap="Blues_r", levels=np.arange(-300, 1, 25), extend="min"),
     "mucin":  dict(cmap="Blues_r", levels=np.arange(-300, 1, 25), extend="min"),
     "cin":    dict(cmap="Blues_r", levels=np.arange(-300, 1, 25), extend="min"),
+    "ecape_cin": dict(cmap="Blues_r", levels=np.arange(-300, 1, 25), extend="min"),
 
     # ---- Sounding levels ----
     "lcl":    dict(cmap="YlGnBu_r", levels=np.arange(0, 4200, 200), extend="max"),
     "lfc":    dict(cmap="YlGnBu_r", levels=np.arange(0, 5500, 500), extend="max"),
     "el":     dict(cmap="YlOrRd", levels=np.arange(0, 16000, 1000), extend="max"),
+    "ecape_lfc": dict(cmap="YlGnBu_r", levels=np.arange(0, 5500, 500), extend="max"),
+    "ecape_el": dict(cmap="YlOrRd", levels=np.arange(0, 16000, 1000), extend="max"),
 
     # ---- Helicity / Shear ----
     "srh1":   dict(cmap="RdPu", levels=np.arange(0, 525, 25), extend="max"),
@@ -118,7 +124,9 @@ _VAR_STYLES: Dict[str, Dict[str, Any]] = {
     "stp_fixed":     dict(cmap="Reds", levels=np.arange(0, 11, 1), extend="max"),
     "stp_effective": dict(cmap="Reds", levels=np.arange(0, 11, 1), extend="max"),
     "scp":           dict(cmap="Reds", levels=np.arange(0, 11, 1), extend="max"),
+    "ecape_scp":     dict(cmap="Reds", levels=np.arange(0, 11, 1), extend="max"),
     "ehi":           dict(cmap="Reds", levels=np.arange(0, 5.5, 0.5), extend="max"),
+    "ecape_ehi":     dict(cmap="Reds", levels=np.arange(0, 5.5, 0.5), extend="max"),
     "ship":          dict(cmap="YlOrRd", levels=np.arange(0, 5.5, 0.5), extend="max"),
     "bri":           dict(cmap="YlOrRd", levels=np.arange(0, 110, 10), extend="max"),
     "critical_angle": dict(cmap="RdYlBu_r", levels=np.arange(0, 200, 10), extend="max"),

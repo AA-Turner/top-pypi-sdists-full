@@ -1140,3 +1140,45 @@ class TestModelFamilyAliasesConfig:
         )
         cfg, _ = load_config(config_file)
         assert cfg.ai.model_family_aliases == {}
+
+
+class TestBypassImmunePaths:
+    """Tests for safety.bypass_immune_paths config wiring."""
+
+    def test_custom_bypass_immune_paths_reaches_safety_config(self, tmp_path: Path) -> None:
+        config_file = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://localhost:1234", "api_key": "test"},
+                "safety": {
+                    "bypass_immune_paths": ["/custom/path", "/another/path"],
+                },
+            },
+        )
+        cfg, _ = load_config(config_file)
+        assert cfg.safety.bypass_immune_paths == ["/custom/path", "/another/path"]
+
+    def test_empty_bypass_immune_paths_disables_feature(self, tmp_path: Path) -> None:
+        config_file = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://localhost:1234", "api_key": "test"},
+                "safety": {
+                    "bypass_immune_paths": [],
+                },
+            },
+        )
+        cfg, _ = load_config(config_file)
+        assert cfg.safety.bypass_immune_paths == []
+
+    def test_omitted_bypass_immune_paths_uses_dataclass_default(self, tmp_path: Path) -> None:
+        config_file = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://localhost:1234", "api_key": "test"},
+            },
+        )
+        cfg, _ = load_config(config_file)
+        assert ".git/hooks" in cfg.safety.bypass_immune_paths
+        assert ".anteroom/config.yaml" in cfg.safety.bypass_immune_paths
+        assert ".ssh/" in cfg.safety.bypass_immune_paths

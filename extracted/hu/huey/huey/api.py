@@ -19,10 +19,12 @@ from huey.consumer import Consumer
 from huey.exceptions import CancelExecution
 from huey.exceptions import ConfigurationError
 from huey.exceptions import HueyException
+from huey.exceptions import RateLimitExceeded
 from huey.exceptions import ResultTimeout
 from huey.exceptions import RetryTask
 from huey.exceptions import TaskException
 from huey.exceptions import TaskLockedException
+from huey.exceptions import TaskTimeout
 from huey.registry import Registry
 from huey.serializer import Serializer
 from huey.storage import BlackHoleStorage
@@ -33,13 +35,11 @@ from huey.storage import PriorityRedisStorage
 from huey.storage import RedisExpireStorage
 from huey.storage import RedisStorage
 from huey.storage import SqliteStorage
+from huey.utils import ChordConfig
 from huey.utils import Error
+from huey.utils import noop_context
 from huey.utils import normalize_expire_time
 from huey.utils import normalize_time
-from huey.utils import reraise_as
-from huey.utils import string_type
-from huey.utils import time_clock
-from huey.utils import to_timestamp
 from huey.utils import utcnow
 
 
@@ -83,24 +83,11 @@ class Huey(object):
             generate_nightly_report()
     """
     storage_class = None
-    _deprecated_params = ('result_store', 'events', 'store_errors',
-                          'global_registry')
 
     def __init__(self, name='huey', results=True, store_none=False, utc=True,
                  immediate=False, serializer=None, compression=False,
-                 use_zlib=False, immediate_use_memory=True, always_eager=None,
-                 storage_class=None, **storage_kwargs):
-        if always_eager is not None:
-            warnings.warn('"always_eager" parameter is deprecated, use '
-                          '"immediate" instead', DeprecationWarning)
-            immediate = always_eager
-
-        invalid = [p for p in self._deprecated_params
-                   if storage_kwargs.pop(p, None) is not None]
-        if invalid:
-            warnings.warn('the following Huey initialization arguments are no '
-                          'longer supported: %s' % ', '.join(invalid),
-                          DeprecationWarning)
+                 use_zlib=False, immediate_use_memory=True, storage_class=None,
+                 **storage_kwargs):
 
         self.name = name
         self.results = results
@@ -129,6 +116,11 @@ class Huey(object):
         self._registry = Registry()
         self._signal = S.Signal()
         self._tasks_in_flight = set()
+        self._timeout_handler = None  # This is consumer-specific.
+
+    def set_timeout_handler(self, handler=None):
+        # Context-manager using appropriate primivites/signals for worker type.
+        self._timeout_handler = handler
 
     def get_task_wrapper_class(self):
         return TaskWrapper
@@ -172,7 +164,7 @@ class Huey(object):
         return Consumer(self, **options)
 
     def task(self, retries=0, retry_delay=0, priority=None, context=False,
-             name=None, expires=None, **kwargs):
+             name=None, expires=None, timeout=None, **kwargs):
         TaskWrapper = self.task_wrapper_class
         def decorator(func):
             return TaskWrapper(
@@ -184,12 +176,13 @@ class Huey(object):
                 default_retry_delay=retry_delay,
                 default_priority=priority,
                 default_expires=expires,
+                default_timeout=timeout,
                 **kwargs)
         return decorator
 
     def periodic_task(self, validate_datetime, retries=0, retry_delay=0,
                       priority=None, context=False, name=None, expires=None,
-                      **kwargs):
+                      timeout=None, **kwargs):
         TaskWrapper = self.task_wrapper_class
         def decorator(func):
             def method_validate(self, timestamp):
@@ -204,6 +197,7 @@ class Huey(object):
                 default_retry_delay=retry_delay,
                 default_priority=priority,
                 default_expires=expires,
+                default_timeout=timeout,
                 validate_datetime=method_validate,
                 task_base=PeriodicTask,
                 **kwargs)
@@ -231,7 +225,7 @@ class Huey(object):
         return decorator
 
     def unregister_pre_execute(self, name):
-        if not isinstance(name, string_type):
+        if not isinstance(name, str):
             # Assume we were given the function itself.
             name = name.__name__
         return self._pre_execute.pop(name, None) is not None
@@ -243,7 +237,7 @@ class Huey(object):
         return decorator
 
     def unregister_post_execute(self, name):
-        if not isinstance(name, string_type):
+        if not isinstance(name, str):
             # Assume we were given the function itself.
             name = name.__name__
         return self._post_execute.pop(name, None) is not None
@@ -255,7 +249,7 @@ class Huey(object):
         return decorator
 
     def unregister_on_startup(self, name):
-        if not isinstance(name, string_type):
+        if not isinstance(name, str):
             # Assume we were given the function itself.
             name = name.__name__
         return self._startup.pop(name, None) is not None
@@ -267,7 +261,7 @@ class Huey(object):
         return decorator
 
     def unregister_on_shutdown(self, name=None):
-        if not isinstance(name, string_type):
+        if not isinstance(name, str):
             # Assume we were given the function itself.
             name = name.__name__
         return self._shutdown.pop(name, None) is not None
@@ -301,6 +295,11 @@ class Huey(object):
         return self._registry.create_task(message)
 
     def enqueue(self, task):
+        if isinstance(task, group):
+            return ResultGroup([self.enqueue(t) for t in task.tasks])
+        elif isinstance(task, chord):
+            return self._enqueue_chord(task)
+
         # Resolve the expiration time when the task is enqueued.
         if task.expires:
             task.resolve_expires(self.utc)
@@ -324,6 +323,52 @@ class Huey(object):
             return ResultGroup(results)
         else:
             return Result(self, task)
+
+    def _enqueue_chord(self, chord_obj):
+        cid = str(uuid.uuid4())
+        size = len(chord_obj.tasks)
+        results = []
+        for i, task in enumerate(chord_obj.tasks):
+            if isinstance(task, group):
+                raise ValueError('cannot use `group` as a chord member - '
+                                 'use .then() to convert to a `chord` first.')
+
+            config = ChordConfig(cid, size, i, chord_obj.callback)
+            results.append(self._enqueue_chord_member(task, config))
+
+        cb_result = Result(self, chord_obj.callback)
+        pipeline = self._build_pipeline_results(chord_obj.callback, cb_result)
+        return ChordResult(results, cb_result, pipeline)
+
+    def _enqueue_chord_member(self, task, config):
+        if isinstance(task, chord):
+            head = task.callback
+        else:
+            head = task
+
+        tail = head
+        while tail.on_complete is not None:
+            tail = tail.on_complete
+        tail.chord_config = config
+
+        if isinstance(task, chord):
+            self._enqueue_chord(task)
+        else:
+            self.enqueue(head)
+
+        return Result(self, tail)
+
+    def _build_pipeline_results(self, callback, callback_result):
+        if not callback.on_complete:
+            return
+
+        pipeline = [callback_result]
+        current = callback.on_complete
+        while current is not None:
+            pipeline.append(Result(self, current))
+            current = current.on_complete
+
+        return ResultGroup(pipeline)
 
     def dequeue(self):
         data = self.storage.dequeue()
@@ -354,6 +399,13 @@ class Huey(object):
     def delete(self, key):
         return self.storage.delete_data(key)
 
+    def _timeout_context(self, task):
+        if task.timeout is None or task.timeout <= 0 or \
+           self._timeout_handler is None:
+            return noop_context()
+
+        return self._timeout_handler(task.timeout)
+
     def _get_timestamp(self):
         return (utcnow() if self.utc else
                 datetime.datetime.now())
@@ -383,18 +435,40 @@ class Huey(object):
                 self._emit(S.SIGNAL_CANCELED, task)
                 return
 
-        start = time_clock()
+        start = time.monotonic()
         exception = None
         retry_eta = None
         task_value = None
 
+        # Set deadline for cooperative timeout.
+        if task.timeout:
+            task._deadline = start + task.timeout
+
         try:
             self._tasks_in_flight.add(task)
             try:
-                task_value = task.execute()
+                with self._timeout_context(task) as check_timeout:
+                    task_value = task.execute()
             finally:
                 self._tasks_in_flight.remove(task)
-                duration = time_clock() - start
+                duration = time.monotonic() - start
+        except TaskTimeout as exc:
+            logger.warning('Task %s timed out after %ss.', task.id,
+                           task.timeout)
+            exception = exc
+            self._emit(S.SIGNAL_TIMEOUT, task)
+        except RateLimitExceeded as exc:
+            delay = task.retry_delay or exc.delay
+            if exc.retry or task.retries:
+                logger.info('Task %s rate-limited on "%s", retrying in %s',
+                            task.id, exc.key, delay)
+                retry_eta = normalize_time(None, delay, self.utc)
+                if exc.retry:
+                    task.retries += 1
+            else:
+                logger.info('Task %s rate-limited on "%s"', task.id, exc.key)
+            exception = exc
+            self._emit(S.SIGNAL_RATE_LIMITED, task)
         except TaskLockedException as exc:
             logger.warning('Task %s not run, %s.', task.id, exc)
             exception = exc
@@ -454,11 +528,36 @@ class Huey(object):
             next_task.extend_data(exception)
             self.enqueue(next_task)
 
+        if task.chord_config is not None:
+            if exception is None:
+                self._check_chord(task, task_value)
+            elif not task.retries:
+                self._check_chord(task, exception)
+
         if exception is not None and task.retries:
             self._emit(S.SIGNAL_RETRYING, task)
             self._requeue_task(task, self._get_timestamp(), retry_eta)
 
         return task_value
+
+    def _check_chord(self, task, value):
+        cc = task.chord_config
+        chord_key = 'chord:%s' % cc.cid
+        result_key = 'chord:%s:%s' % (cc.cid, cc.idx)
+        self.put_result(result_key, value)
+
+        if self.storage.incr(chord_key) == cc.size:
+            self.storage.delete_counter(chord_key)
+
+            # Destructively read raw results w/o raising errors for exceptions.
+            results = []
+            for idx in range(cc.size):
+                result = self.get('chord:%s:%s' % (cc.cid, idx))
+                results.append(result)
+
+            callback = cc.callback
+            callback.extend_data((results,))
+            self.enqueue(callback)
 
     def _requeue_task(self, task, timestamp, retry_eta=None):
         task.retries -= 1
@@ -674,6 +773,9 @@ class Huey(object):
 
         return flushed
 
+    def rate_limit(self, name, limit, per, retry=True):
+        return RateLimit(self, name, limit, per, retry=retry)
+
     def _result_handle(self, task):
         return Result(self, task)
 
@@ -694,10 +796,12 @@ class Task(object):
     default_priority = None
     default_retries = 0
     default_retry_delay = 0
+    default_timeout = None
 
     def __init__(self, args=None, kwargs=None, id=None, eta=None, retries=None,
                  retry_delay=None, priority=None, expires=None,
-                 on_complete=None, on_error=None, expires_resolved=None):
+                 on_complete=None, on_error=None, expires_resolved=None,
+                 timeout=None, chord_config=None):
         self.name = type(self).__name__
         self.args = () if args is None else args
         self.kwargs = {} if kwargs is None else kwargs
@@ -711,6 +815,9 @@ class Task(object):
                 self.default_priority
         self.expires = expires if expires is not None else self.default_expires
         self.expires_resolved = expires_resolved
+        self.timeout = timeout if timeout is not None else self.default_timeout
+        self.chord_config = chord_config
+        self._deadline = None
 
         self.on_complete = on_complete
         self.on_error = on_error
@@ -732,10 +839,14 @@ class Task(object):
             rep += ' p=%s' % self.priority
         if self.retries:
             rep += ' %s retries' % self.retries
+        if self.timeout:
+            rep += ' timeout=%s' % self.timeout
         if self.on_complete:
             rep += ' -> %s' % self.on_complete
         if self.on_error:
             rep += ', on error %s' % self.on_error
+        if self.chord_config:
+            rep += ', chord %s' % self.chord_config.cid
         return rep
 
     def __hash__(self):
@@ -748,6 +859,20 @@ class Task(object):
         if self.expires:
             self.expires_resolved = normalize_expire_time(self.expires, utc)
         return self.expires_resolved
+
+    @property
+    def time_remaining(self):
+        if self._deadline:
+            return max(0, self._deadline - time.monotonic())
+        return float('inf')
+
+    @property
+    def is_timed_out(self):
+        return self._deadline and time.monotonic() >= self._deadline
+
+    def check_timeout(self):
+        if self.is_timed_out:
+            raise TaskTimeout('timeout %ss' % self.timeout)
 
     def extend_data(self, data):
         if data is None or data == ():
@@ -859,7 +984,7 @@ class TaskWrapper(object):
 
     def schedule(self, args=None, kwargs=None, eta=None, delay=None,
                  priority=None, retries=None, retry_delay=None, expires=None,
-                 id=None):
+                 timeout=None, id=None):
         if eta is None and delay is None:
             if isinstance(args, (int, float)):
                 delay = args
@@ -883,7 +1008,8 @@ class TaskWrapper(object):
             retries=retries,
             retry_delay=retry_delay,
             priority=priority,
-            expires=expires)
+            expires=expires,
+            timeout=timeout)
         return self.huey.enqueue(task)
 
     def _apply(self, it):
@@ -911,7 +1037,8 @@ class TaskWrapper(object):
                                retries=kwargs.pop('retries', None),
                                retry_delay=kwargs.pop('retry_delay', None),
                                priority=kwargs.pop('priority', None),
-                               expires=kwargs.pop('expires', None))
+                               expires=kwargs.pop('expires', None),
+                               timeout=kwargs.pop('timeout', None))
 
 
 class TaskLock(object):
@@ -952,6 +1079,96 @@ class TaskLock(object):
     release = clear
 
 
+class RateLimit(object):
+    """
+    Utilize the Storage API counter to implement fixed window rate-limit.
+    """
+    def __init__(self, huey, name, limit, per, retry=True):
+        self._huey = huey
+        self._name = name
+        self._limit = limit
+        self._per = per
+        self._retry = retry
+        self._counter_key = '%s.rl.%s' % (self._huey.name, self._name)
+        self._window_key = '%s.rl.%s.w' % (self._huey.name, self._name)
+
+    def _current_window(self, now):
+        return int(now) // self._per
+
+    def _time_until_reset(self, now):
+        window_end = (self._current_window(now) + 1) * self._per
+        return window_end - now
+
+    def reset(self):
+        self._huey.delete(self._window_key)
+        self._huey.storage.delete_counter(self._counter_key)
+
+    def acquire(self):
+        now = time.time()
+        window = self._current_window(now)
+
+        stored = self._huey.get(self._window_key, peek=True)
+        if stored != window:
+            # Window rollover, reset counter and store the new window. If two
+            # workers concurrently hit this, both delete the counter and put
+            # the same window value.
+            self._huey.storage.delete_counter(self._counter_key)
+            self._huey.put(self._window_key, window)
+
+        count = self._huey.storage.incr(self._counter_key)
+        if count > self._limit:
+            ttr = self._time_until_reset(now)
+            raise RateLimitExceeded(self._name, ttr, retry=self._retry)
+
+    def current_usage(self):
+        return self._huey.storage.incr(self._counter_key, 0)
+
+    def __call__(self, fn):
+        @wraps(fn)
+        def inner(*args, **kwargs):
+            with self:
+                return fn(*args, **kwargs)
+        return inner
+
+    def __enter__(self):
+        self.acquire()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+
+class group(object):
+    def __init__(self, tasks):
+        self.tasks = tasks
+
+    def then(self, task, *args, **kwargs):
+        if not isinstance(task, Task):
+            task = task.s(*args, **kwargs)
+        return chord(self.tasks, task)
+
+    def error(self, *args, **kwargs):
+        # Apply error handler to all tasks.
+        for task in self.tasks:
+            task.error(*args, **kwargs)
+        return self
+
+
+class chord(object):
+    def __init__(self, tasks, callback):
+        if isinstance(callback, TaskWrapper):
+            callback = callback.s()
+        self.tasks = tasks
+        self.callback = callback
+
+    def then(self, task, *args, **kwargs):
+        self.callback.then(task, *args, **kwargs)
+        return self
+
+    def error(self, task, *args, **kwargs):
+        self.callback.error(task, *args, **kwargs)
+        return self
+
+
 class Result(object):
     """
     Wrapper around task result data. When a task is executed, an instance of
@@ -973,7 +1190,7 @@ class Result(object):
         # blocking=True. We'll also specify a 4 second timeout so we don't
         # block forever if the consumer goes down:
         result2 = my_task(2, 3)
-        print result(blocking=True, timeout=4)
+        print(result(blocking=True, timeout=4))
     """
     def __init__(self, huey, task):
         self.huey = huey
@@ -991,6 +1208,9 @@ class Result(object):
     def __call__(self, *args, **kwargs):
         return self.get(*args, **kwargs)
 
+    def is_ready(self):
+        return self._get() is not EmptyData
+
     def _get(self, preserve=False):
         task_id = self.id
         if self._result is EmptyData:
@@ -1006,25 +1226,23 @@ class Result(object):
 
     def get_raw_result(self, blocking=False, timeout=None, backoff=1.15,
                        max_delay=1.0, revoke_on_timeout=False, preserve=False):
-        if not blocking:
+        res = self._get(preserve)
+        if res is not EmptyData:
+            return res
+        elif not blocking:
+            return
+
+        if self.huey.storage.wait_result(self.id, timeout, backoff, max_delay):
             res = self._get(preserve)
             if res is not EmptyData:
-                return res
-        else:
-            start = time_clock()
-            delay = .1
-            while self._result is EmptyData:
-                if timeout and time_clock() - start >= timeout:
-                    if revoke_on_timeout:
-                        self.revoke()
-                    raise ResultTimeout('timed out waiting for result')
-                if delay > max_delay:
-                    delay = max_delay
-                if self._get(preserve) is EmptyData:
-                    time.sleep(delay)
-                    delay *= backoff
+                return self._result
 
-            return self._result
+        if timeout is not None:
+            if revoke_on_timeout:
+                self.revoke()
+            raise ResultTimeout('timed out waiting for result')
+
+        return self._result
 
     def get(self, blocking=False, timeout=None, backoff=1.15, max_delay=1.0,
             revoke_on_timeout=False, preserve=False):
@@ -1066,6 +1284,8 @@ class Result(object):
             retry_delay=self.task.retry_delay,
             priority=priority if priority is not None else self.task.priority,
             expires=expires if expires is not None else self.task.expires,
+            timeout=self.task.timeout,
+            chord_config=self.task.chord_config,
             on_complete=on_complete,
             on_error=on_error)
         return self.huey.enqueue(task)
@@ -1100,6 +1320,20 @@ class ResultGroup(object):
                 delay[r.id] = min((delay[r.id] or 0.1) * backoff, max_delay)
             else:
                 yield r.get()
+
+
+class ChordResult(object):
+    def __init__(self, results, callback_result, pipeline=None):
+        self.results = ResultGroup(results)
+        self.callback = callback_result
+        self.pipeline_results = pipeline
+
+    def get(self, *args, **kwargs):
+        return self.callback.get(*args, **kwargs)
+    __call__ = get
+
+    def reset(self):
+        self.callback.reset()
 
 
 dash_re = re.compile(r'(\d+)-(\d+)')
@@ -1195,12 +1429,9 @@ def crontab(minute='*', hour='*', day='*', month='*', day_of_week='*', strict=Fa
     return validate_date
 
 
-def _unsupported(name, library):
-    class UnsupportedHuey(Huey):
-        def __init__(self, *args, **kwargs):
-            raise ConfigurationError('Cannot initialize "%s", %s module not '
-                                     'installed.' % (name, library))
-    return UnsupportedHuey
+# Convenience helpers.
+crontab.hourly = partial(crontab, minute='0')
+crontab.daily = partial(crontab, minute='0', hour='0')
 
 
 # Convenience wrappers for the various storage implementations.

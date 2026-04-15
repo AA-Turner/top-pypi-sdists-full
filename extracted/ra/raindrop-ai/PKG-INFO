@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.42
+Version: 0.0.43
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -21,44 +21,236 @@ Description-Content-Type: text/markdown
 
 # Raindrop Python SDK
 
-## Installation dependencies
+The official Python SDK for [Raindrop AI](https://raindrop.ai) — track AI events, collect user signals, and instrument LLM applications with OpenTelemetry-based tracing.
 
+## Installation
 
 ```bash
+pip install raindrop-ai
+```
+
+**Requires Python 3.10+**
+
+## Quick Start
+
+```python
+import raindrop.analytics as raindrop
+
+raindrop.init(api_key="your-api-key", tracing_enabled=True)
+
+# Track an AI event
+raindrop.track_ai(
+    user_id="user-123",
+    event="chat-completion",
+    model="gpt-4",
+    input="What is the weather?",
+    output="It's sunny and 72°F.",
+    convo_id="conv-456",
+)
+```
+
+## Interactions
+
+Use `begin()` and `finish()` for multi-step AI workflows:
+
+```python
+interaction = raindrop.begin(
+    user_id="user-123",
+    event="agent-run",
+    input="Search for weather data",
+    convo_id="conv-456",
+)
+
+# Update incrementally
+interaction.set_property("region", "us-east")
+interaction.add_attachments([
+    raindrop.Attachment(type="code", value="print('hello')", language="python")
+])
+
+# Complete the interaction
+interaction.finish(output="Found weather data for NYC")
+```
+
+### Resuming Interactions
+
+Access the current interaction from nested functions:
+
+```python
+@raindrop.tool("sentiment_analyzer")
+def analyze_sentiment(text: str):
+    interaction = raindrop.resume_interaction()
+    interaction.set_property("sentiment", "positive")
+    return {"sentiment": "positive"}
+```
+
+## Decorators
+
+Instrument functions with automatic span creation:
+
+```python
+@raindrop.interaction("my_workflow")
+def run_workflow():
+    ...
+
+@raindrop.task("process_data")
+def process():
+    ...
+
+@raindrop.tool("search")
+def search(query: str):
+    ...
+```
+
+## Spans
+
+### Context Managers
+
+```python
+with raindrop.task_span("process_data"):
+    result = do_processing()
+
+with raindrop.tool_span("web_search"):
+    results = search(query)
+```
+
+### Manual Spans
+
+For async or distributed operations where you need explicit control:
+
+```python
+span = raindrop.start_span(kind="tool", name="async_search")
+span.record_input({"query": "weather"})
+
+# ... later, when the result arrives
+span.record_output({"result": "sunny"})
+span.end()
+```
+
+## Retroactive Tool Logging
+
+Log tool calls after they complete, without wrapping them in spans:
+
+```python
+interaction = raindrop.begin(user_id="user-123", event="agent-run")
+
+interaction.track_tool(
+    name="web_search",
+    input={"query": "weather in NYC"},
+    output={"results": ["Sunny, 72°F"]},
+    duration_ms=150,
+)
+
+interaction.track_tool(
+    name="database_query",
+    input={"query": "SELECT * FROM users"},
+    duration_ms=50,
+    error=ConnectionError("Connection timeout"),
+)
+
+interaction.finish(output="Done")
+```
+
+## Signals
+
+Track user feedback on AI outputs:
+
+```python
+# Basic signal
+raindrop.track_signal(event_id="evt-123", name="thumbs_up")
+
+# Feedback with comment
+raindrop.track_signal(
+    event_id="evt-123",
+    name="user_feedback",
+    signal_type="feedback",
+    comment="This answer was helpful",
+    sentiment="POSITIVE",
+)
+
+# Edit signal
+raindrop.track_signal(
+    event_id="evt-123",
+    name="user_edit",
+    signal_type="edit",
+    after="The corrected response text",
+)
+```
+
+## User Identification
+
+```python
+raindrop.identify("user-123", traits={"plan": "pro", "company": "Acme"})
+```
+
+## PII Redaction
+
+Enable automatic redaction of emails, phone numbers, credit cards, SSNs, and other PII from AI inputs and outputs:
+
+```python
+raindrop.set_redact_pii(True)
+```
+
+## Auto-Instrumentation
+
+By default, Raindrop auto-instruments detected LLM libraries (OpenAI, Anthropic, Bedrock, etc.) via Traceloop. To disable:
+
+```python
+raindrop.init(api_key="your-key", tracing_enabled=True, auto_instrument=False)
+```
+
+Or selectively control which libraries are instrumented:
+
+```python
+from raindrop.analytics import Instruments
+
+raindrop.init(
+    api_key="your-key",
+    tracing_enabled=True,
+    instruments={Instruments.OPENAI},
+)
+```
+
+> **Note:** When auto-instrumentation is enabled, the SDK automatically suppresses
+> noisy warnings from instrumentors for providers you don't use (e.g. "Error
+> initializing MistralAI instrumentor") and from OTel attribute type validation
+> (e.g. provider SDKs using sentinel types like `Omit`). Enable
+> `set_debug_logs(True)` to see these messages for troubleshooting.
+
+## Configuration
+
+| Function | Description |
+|---|---|
+| `init(api_key, tracing_enabled=False, auto_instrument=True)` | Initialize the SDK |
+| `set_debug_logs(True)` | Enable debug logging |
+| `set_redact_pii(True)` | Enable PII redaction |
+| `flush()` | Flush buffered events |
+| `shutdown()` | Graceful shutdown (called automatically on exit) |
+
+## Environment Variables
+
+| Variable | Description |
+|---|---|
+| `TRACELOOP_TRACE_CONTENT` | Enable/disable content capture (default: `"true"`) |
+| `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` | Max span attribute value length |
+
+## Development
+
+```bash
+# Install dependencies
 pip install poetry
-```
-
-```bash
 poetry install
-```
 
-
-## Run tests
-
-### Using pytest (recommended)
-```bash
-# Run all tests
+# Run tests
 poetry run pytest
 
-# Run tests with verbose output
-poetry run pytest -v
+# Run with coverage
+poetry run pytest --cov=raindrop
 
 # Run specific test file
-poetry run pytest tests/test_trace_attributes.py
-
-# Run specific test
-poetry run pytest tests/test_trace_attributes.py::TestTraceAttributes::test_user_id_attribute_direct
-
-# Run tests with coverage
-poetry run pytest --cov=raindrop
+poetry run pytest tests/test_analytics.py -v
 ```
 
-### Using green (legacy)
-```bash
-poetry run green -vv
-```
+## License
 
-
-
-
+MIT
 

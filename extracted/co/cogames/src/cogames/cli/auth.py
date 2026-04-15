@@ -4,6 +4,7 @@ import importlib
 
 import typer
 
+from cogames.cli.player import player_app
 from softmax.auth import DEFAULT_COGAMES_SERVER
 
 auth_app = typer.Typer(
@@ -12,6 +13,7 @@ auth_app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
+auth_app.add_typer(player_app, name="player")
 
 
 def _softmax_cli():
@@ -83,12 +85,11 @@ def status_cmd(
         "--server",
         "-s",
         metavar="URL",
-        help="Tournament API server URL to check against (deprecated; ignored).",
+        help="API server URL for /whoami verification.",
     ),
 ) -> None:
     """Compatibility wrapper for softmax status."""
-    _ = server
-    _softmax_cli().status_cmd(login_server=login_server)
+    _softmax_cli().status_cmd(login_server=login_server, server=server)
 
 
 @auth_app.command(name="get-token")

@@ -54,7 +54,7 @@ def test_to_from_sparse_roundtrip() -> None:
     for key, value in hist["storage"].items():
         if key == "type":
             continue
-        assert np.allclose(dense["storage"][key], value)  # type: ignore[literal-required]
+        assert np.allclose(dense["storage"][key], value)  # type: ignore[literal-required,arg-type]
 
 
 def test_all_valid(valid: Path) -> None:
@@ -66,28 +66,35 @@ def test_all_valid(valid: Path) -> None:
     }
     shists = {k: to_sparse(v) for k, v in hists.items()}
     for h in shists.values():
-        if h["axes"]:
+        # Empty storages (metadata-only) won't get an index since there's no data
+        has_data = len(h["storage"]) > 1  # More than just "type"
+        if h["axes"] and has_data:
             assert "index" in h["storage"]
     dhists = {k: from_sparse(v) for k, v in shists.items()}
     for h in dhists.values():
         assert "index" not in h["storage"]
 
     assert hists.keys() == dhists.keys()
-    for v, dv in zip(hists.values(), dhists.values()):
+    for v, dv in zip(hists.values(), dhists.values(), strict=True):
         assert v.keys() == dv.keys()
         assert v["axes"] == dv["axes"]
         assert v["storage"].keys() == dv["storage"].keys()
-        assert v["storage"]["values"] == pytest.approx(dv["storage"]["values"])
+        # Empty storages won't have values to compare
+        if "values" in v["storage"] and "values" in dv["storage"]:
+            assert v["storage"]["values"] == pytest.approx(dv["storage"]["values"])
         if v["storage"]["type"] == "weighted_mean":
-            v_var = v["storage"]["variances"]
-            dv_var = dv["storage"]["variances"]
-            assert np.all(np.isnan(v_var) == np.isnan(dv_var))
-            assert v_var[~np.isnan(v_var)] == pytest.approx(dv_var[~np.isnan(dv_var)])
-            assert v["storage"]["sum_of_weights"] == pytest.approx(
-                dv["storage"]["sum_of_weights"]
+            v_var = v["storage"].get("variances")
+            dv_var = dv["storage"].get("variances")
+            if v_var is not None and dv_var is not None:
+                assert np.all(np.isnan(v_var) == np.isnan(dv_var))
+                assert v_var[~np.isnan(v_var)] == pytest.approx(
+                    dv_var[~np.isnan(dv_var)]
+                )
+            assert v["storage"].get("sum_of_weights") == pytest.approx(
+                dv["storage"].get("sum_of_weights")
             )
-            assert v["storage"]["sum_of_weights_squared"] == pytest.approx(
-                dv["storage"]["sum_of_weights_squared"]
+            assert v["storage"].get("sum_of_weights_squared") == pytest.approx(
+                dv["storage"].get("sum_of_weights_squared")
             )
 
         else:

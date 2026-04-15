@@ -453,6 +453,16 @@ impl ExtractionConfig {
     }
 
     #[getter]
+    fn html_output(&self) -> Option<HtmlOutputConfig> {
+        self.inner.html_output.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_html_output(&mut self, value: Option<HtmlOutputConfig>) {
+        self.inner.html_output = value.map(Into::into);
+    }
+
+    #[getter]
     fn cache_namespace(&self) -> Option<String> {
         self.inner.cache_namespace.clone()
     }
@@ -1261,6 +1271,7 @@ impl PdfConfig {
                 top_margin_fraction,
                 bottom_margin_fraction,
                 allow_single_column_tables: allow_single_column_tables.unwrap_or(false),
+                backend: kreuzberg::PdfBackend::default(),
             },
         }
     }

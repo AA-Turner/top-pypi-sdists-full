@@ -260,6 +260,9 @@ def restore_dd_trace_context(
     if ddtracer is None or not headers:
         yield
         return
+
+    # Setup the ddtrace span for the worker.run_graph span
+    span = None
     try:
         from ddtrace.propagation.http import (  # type: ignore[unresolved-import]  # noqa: PLC0415
             HTTPPropagator,
@@ -274,13 +277,27 @@ def restore_dd_trace_context(
             span.set_tag("run_id", run_id)
         if thread_id:
             span.set_tag("thread_id", thread_id)
-        try:
-            yield
-        finally:
-            span.finish()
     except Exception:
         logger.debug("Failed to restore ddtrace context", exc_info=True)
-        yield  # Tracing must never interfere with application logic
+        if span is not None:
+            try:
+                span.finish()
+            except Exception:
+                logger.warning("Failed to finish ddtrace context span", exc_info=True)
+                # Tracing setup failures must never interfere with application logic
+        yield
+        return
+
+    # Yield to the caller, ensuring the span is finished even if an exception is raised.
+    try:
+        yield
+    finally:
+        if span is not None:
+            try:
+                span.finish()
+            except Exception:
+                logger.warning("Failed to finish ddtrace context span", exc_info=True)
+                # Tracing failures must never interfere with application logic
 
 
 @asynccontextmanager

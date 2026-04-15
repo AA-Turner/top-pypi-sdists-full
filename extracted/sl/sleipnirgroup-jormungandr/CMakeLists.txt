@@ -22,20 +22,24 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
 
-option(BUILD_BENCHMARKS "Build CasADi and Sleipnir benchmarks" OFF)
-option(BUILD_EXAMPLES "Build examples" OFF)
-option(BUILD_PYTHON "Build Python module" OFF)
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
-option(DISABLE_DIAGNOSTICS "Disable diagnostics support at compile-time" OFF)
+option(SLEIPNIR_BUILD_BENCHMARKS "Build CasADi and Sleipnir benchmarks" OFF)
+option(SLEIPNIR_BUILD_EXAMPLES "Build examples" OFF)
+option(SLEIPNIR_BUILD_PYTHON "Build Python module" OFF)
 option(
-    ENABLE_BOUND_PROJECTION
+    SLEIPNIR_DISABLE_DIAGNOSTICS
+    "Disable diagnostics support at compile-time"
+    OFF
+)
+option(
+    SLEIPNIR_ENABLE_BOUND_PROJECTION
     "Enable projecting the state onto bound inequality constraints inside problem setup"
     OFF
 )
 
 # Options for using a package manager (e.g., vcpkg) for certain dependencies
-option(USE_SYSTEM_EIGEN "Use system eigen" OFF)
-option(USE_SYSTEM_NANOBIND "Use system nanobind" OFF)
+option(SLEIPNIR_USE_SYSTEM_EIGEN "Use system eigen" OFF)
+option(SLEIPNIR_USE_SYSTEM_NANOBIND "Use system nanobind" OFF)
 
 file(GLOB_RECURSE Sleipnir_src src/*.cpp)
 
@@ -59,16 +63,16 @@ if(Threads_FOUND)
     target_link_libraries(Sleipnir PUBLIC Threads::Threads)
 endif()
 
-if(DISABLE_DIAGNOSTICS)
+if(SLEIPNIR_DISABLE_DIAGNOSTICS)
     target_compile_definitions(Sleipnir PUBLIC SLEIPNIR_DISABLE_DIAGNOSTICS)
 endif()
 
-if(ENABLE_BOUND_PROJECTION)
+if(SLEIPNIR_ENABLE_BOUND_PROJECTION)
     target_compile_definitions(Sleipnir PUBLIC SLEIPNIR_ENABLE_BOUND_PROJECTION)
 endif()
 
 # Eigen dependency
-if(NOT USE_SYSTEM_EIGEN)
+if(NOT SLEIPNIR_USE_SYSTEM_EIGEN)
     set(EIGEN_BUILD_CMAKE_PACKAGE TRUE)
     FetchContent_Declare(
         Eigen3
@@ -96,7 +100,7 @@ FetchContent_MakeAvailable(small_vector)
 
 target_link_libraries(Sleipnir PUBLIC small_vector)
 
-if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     # Catch2 dependency
     FetchContent_Declare(
         Catch2
@@ -144,7 +148,7 @@ install(
 )
 
 # Add benchmark executables
-if(BUILD_BENCHMARKS)
+if(SLEIPNIR_BUILD_BENCHMARKS)
     # Perf benchmark
     foreach(benchmark "cart_pole" "flywheel")
         file(
@@ -195,7 +199,7 @@ if(BUILD_BENCHMARKS)
     endif()
 endif()
 
-if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     enable_testing()
     list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
     include(Catch)
@@ -215,7 +219,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
 endif()
 
 # Build examples and example tests
-if(BUILD_EXAMPLES)
+if(SLEIPNIR_BUILD_EXAMPLES)
     include(SubdirList)
     subdir_list(EXAMPLES ${CMAKE_CURRENT_SOURCE_DIR}/examples)
     foreach(example ${EXAMPLES})
@@ -231,7 +235,8 @@ if(BUILD_EXAMPLES)
 
         # Build example test if files exist for it
         if(
-            BUILD_TESTING
+            PROJECT_IS_TOP_LEVEL
+            AND BUILD_TESTING
             AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/examples/${example}/test
         )
             file(GLOB_RECURSE test_sources examples/${example}/test/*.cpp)
@@ -256,7 +261,7 @@ if(BUILD_EXAMPLES)
     endforeach()
 endif()
 
-if(BUILD_PYTHON)
+if(SLEIPNIR_BUILD_PYTHON)
     find_package(
         Python
         REQUIRED
@@ -269,7 +274,7 @@ if(BUILD_PYTHON)
     endif()
 
     # nanobind dependency
-    if(NOT USE_SYSTEM_NANOBIND)
+    if(NOT SLEIPNIR_USE_SYSTEM_NANOBIND)
         FetchContent_Declare(
             nanobind
             GIT_REPOSITORY https://github.com/wjakob/nanobind.git

@@ -23,6 +23,7 @@ from plato.chronos.models import AuditEventInput, BulkRefAuditEventsRequest
 from plato.runtimes.base import RuntimeInfo
 from plato.transports.base import Transport
 from plato.transports.nfs import NFSTransport
+from plato.transports.rsync import RsyncTransport
 from plato.transports.sshfs import SSHFSTransport
 from plato.utils.audit import read_audit_records
 from plato.utils.subprocess import run_local
@@ -233,6 +234,12 @@ class Workspace:
             t = SSHFSTransport(str(self.path), hostname, ssh_key)
             await t.initialize()
             t.mount_path = self.mount_path
+            self.transport = t
+            return nfs_server
+
+        if effective_mode == "rsync":
+            t = RsyncTransport(str(self.path), ssh_key, mount_path=self.mount_path)
+            await t.initialize()
             self.transport = t
             return nfs_server
 

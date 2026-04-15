@@ -1,5 +1,7 @@
 import datetime
+import time
 
+from huey.api import chord
 from huey.signals import *
 from huey.tests.base import BaseTestCase
 
@@ -108,6 +110,49 @@ class TestSignals(BaseTestCase):
             self.assertTrue(self.execute_next() is None)
             self.assertSignals([SIGNAL_EXECUTING, SIGNAL_LOCKED])
 
+    def test_signals_ratelimit(self):
+        @self.huey.task()
+        @self.huey.rate_limit('rl', limit=1, per=60)
+        def task_a():
+            return 1
+
+        r = task_a()
+        self.assertEqual(self.execute_next(), 1)
+        self.assertSignals([
+            SIGNAL_ENQUEUED,
+            SIGNAL_EXECUTING,
+            SIGNAL_COMPLETE])
+
+        r = task_a()
+        self.assertTrue(self.execute_next() is None)
+        self.assertSignals([
+            SIGNAL_ENQUEUED,
+            SIGNAL_EXECUTING,
+            SIGNAL_RATE_LIMITED,
+            SIGNAL_RETRYING,
+            SIGNAL_SCHEDULED])
+
+        @self.huey.task()
+        @self.huey.rate_limit('rl', limit=1, per=60, retry=False)
+        def task_b():
+            return 1
+
+        r = task_b()
+        self.assertTrue(self.execute_next() is None)
+        self.assertSignals([
+            SIGNAL_ENQUEUED,
+            SIGNAL_EXECUTING,
+            SIGNAL_RATE_LIMITED])
+
+        r = task_b(retries=2)
+        self.assertTrue(self.execute_next() is None)
+        self.assertSignals([
+            SIGNAL_ENQUEUED,
+            SIGNAL_EXECUTING,
+            SIGNAL_RATE_LIMITED,
+            SIGNAL_RETRYING,
+            SIGNAL_SCHEDULED])
+
     def test_signal_expired(self):
         @self.huey.task(expires=10)
         def task_a(n):
@@ -124,6 +169,53 @@ class TestSignals(BaseTestCase):
         self.assertSignals([SIGNAL_ENQUEUED])
         self.assertTrue(self.execute_next(), 4)
         self.assertSignals([SIGNAL_EXECUTING, SIGNAL_COMPLETE])
+
+    def test_signal_timeout(self):
+        @self.huey.task(timeout=0.001, context=True)
+        def timeout(task=None):
+            time.sleep(0.01)
+            task.check_timeout()
+
+        r = timeout()
+        self.execute_next()
+        self.assertSignals([SIGNAL_ENQUEUED, SIGNAL_EXECUTING, SIGNAL_TIMEOUT])
+
+    def test_signals_chord(self):
+        @self.huey.task()
+        def prod(n):
+            return n + 1
+        @self.huey.task()
+        def agg(results):
+            return sum(results)
+
+        self.huey.enqueue(chord([prod.s(1), prod.s(2)], agg))
+        self.assertSignals([SIGNAL_ENQUEUED, SIGNAL_ENQUEUED])
+        self.assertEqual([self.execute_next() for _ in range(3)], [2, 3, 5])
+        self.assertSignals([
+            SIGNAL_EXECUTING, SIGNAL_COMPLETE,
+            SIGNAL_EXECUTING, SIGNAL_COMPLETE,
+            SIGNAL_ENQUEUED, SIGNAL_EXECUTING, SIGNAL_COMPLETE])
+
+    def test_signals_chord_error(self):
+        @self.huey.task()
+        def bad():
+            raise TestError('fail')
+
+        @self.huey.task()
+        def combine(results):
+            return results
+
+        self.huey.enqueue(chord([bad.s()], combine.s()))
+
+        self.execute_next()  # bad() fails, exception to chord
+        self.execute_next()  # callback
+
+        self.assertSignals([
+            SIGNAL_ENQUEUED,
+            SIGNAL_EXECUTING, SIGNAL_ERROR,
+            SIGNAL_ENQUEUED,
+            SIGNAL_EXECUTING, SIGNAL_COMPLETE,
+        ])
 
     def test_specific_handler(self):
         extra_state = []

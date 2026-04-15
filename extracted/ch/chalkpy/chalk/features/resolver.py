@@ -19,6 +19,7 @@ import math
 import random
 import re
 import statistics
+import sys
 import types
 import typing
 from dataclasses import dataclass, is_dataclass
@@ -1672,6 +1673,31 @@ def parse_common_module(
     raise ValueError(f"Unsupported module {module_name}")
 
 
+_MAX_DICT_CAPTURE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+def _estimate_deep_size(obj: object, max_size: int) -> int:
+    """Estimate the deep memory size of an object, stopping early if it exceeds max_size."""
+    seen: set[int] = set()
+    total = 0
+    stack = [obj]
+    while stack:
+        current = stack.pop()
+        obj_id = id(current)
+        if obj_id in seen:
+            continue
+        seen.add(obj_id)
+        total += sys.getsizeof(current)
+        if total > max_size:
+            return total
+        if isinstance(current, dict):
+            stack.extend(current.keys())
+            stack.extend(current.values())
+        elif isinstance(current, (list, tuple, set, frozenset)):
+            stack.extend(current)
+    return total
+
+
 def capture_global(
     *,
     module_name: str | None,
@@ -1814,6 +1840,11 @@ def _capture_global(
             pass
 
     if isinstance(global_value, (str, int, float, bool, list, set, tuple, dict)):
+        if (
+            isinstance(global_value, dict)
+            and _estimate_deep_size(global_value, _MAX_DICT_CAPTURE_SIZE_BYTES) > _MAX_DICT_CAPTURE_SIZE_BYTES
+        ):
+            return None
         return FunctionCapturedGlobalVariable(
             name=global_var,
             module=module_name,

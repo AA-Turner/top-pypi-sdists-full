@@ -88,6 +88,7 @@ __all__ = [
     "LayoutDetectionConfig",
     "LinkMetadata",
     "LlmConfig",
+    "LlmUsage",
     "Metadata",
     "MissingDependencyError",
     "NodeContent",
@@ -2153,6 +2154,15 @@ class ProcessingWarning:
     source: str
     message: str
 
+class LlmUsage:
+    model: str
+    source: str
+    input_tokens: int | None
+    output_tokens: int | None
+    total_tokens: int | None
+    estimated_cost: float | None
+    finish_reason: str | None
+
 PdfAnnotationType: TypeAlias = Literal[
     "text",
     "highlight",
@@ -2457,11 +2467,16 @@ class ExtractionResult:
     djot_content: DjotContent | None
     output_format: str | None
     result_format: str | None
+    structured_output: Any | None
+    formatted_content: str | None
     extracted_keywords: list[ExtractedKeyword] | None
     quality_score: float | None
     processing_warnings: list[ProcessingWarning]
     annotations: list[PdfAnnotation] | None
+    children: list[dict[str, Any]] | None
+    uris: list[dict[str, Any]] | None
     code_intelligence: Any | None
+    llm_usage: list[LlmUsage] | None
     def get_page_count(self) -> int: ...
     def get_chunk_count(self) -> int: ...
     def get_detected_language(self) -> str | None: ...

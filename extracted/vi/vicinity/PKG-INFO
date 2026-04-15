@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vicinity
-Version: 0.4.3
+Version: 0.4.4
 Summary: Lightweight Nearest Neighbors with Flexible Backends
 Author-email: Stéphan Tulkens <stephantul@gmail.com>, Thomas van Dongen <thomas123@live.nl>
 License: MIT License
@@ -35,11 +35,10 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: numpy
 Requires-Dist: orjson
@@ -294,3 +293,19 @@ pip install vicinity[voyager]
 ## License
 
 MIT
+
+## Citing
+
+If you use Vicinity in your research, please cite the following:
+
+```bibtex
+@software{minishlab2024vicinity,
+  author       = {Stephan Tulkens and {van Dongen}, Thomas},
+  title        = {Vicinity: Lightweight Nearest Neighbors with Flexible Backends},
+  year         = {2024},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.17265874},
+  url          = {https://github.com/MinishLab/vicinity},
+  license      = {MIT}
+}
+```

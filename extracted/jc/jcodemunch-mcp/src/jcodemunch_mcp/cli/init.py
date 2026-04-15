@@ -3,6 +3,7 @@
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -298,11 +299,111 @@ def _has_policy(path: Path) -> bool:
     return _CLAUDE_MD_MARKER in path.read_text(encoding="utf-8")
 
 
+def _get_active_tools() -> set[str] | None:
+    """Return the set of tool names active under current config.
+
+    Applies tool_profile and disabled_tools filtering.
+    Returns ``None`` when the profile is "full" and nothing is disabled
+    (i.e. no filtering needed).
+    """
+    try:
+        from ..config import get as cfg_get
+        from ..server import _PROFILE_TIERS, _CANONICAL_TOOL_NAMES
+    except Exception:
+        return None
+
+    profile = cfg_get("tool_profile", "full")
+    tier = _PROFILE_TIERS.get(profile)
+    disabled = set(cfg_get("disabled_tools", []))
+
+    if tier is None and not disabled:
+        return None  # full profile, nothing disabled
+
+    active = set(_CANONICAL_TOOL_NAMES) if tier is None else set(tier)
+    active -= disabled
+    return active
+
+
+# Regex matching tool names in backtick contexts:
+#  - `tool_name` (exact)
+#  - `tool_name { ... }` (tool with inline args)
+#  - `tool_name(...)` (tool with call syntax)
+_TOOL_REF_RE = re.compile(r"`([a-z][a-z0-9_]*)[`(\s{]")
+
+
+def _filter_policy_for_tools(policy: str, active_tools: set[str] | None) -> str:
+    """Filter the CLAUDE.md policy to only reference available tools.
+
+    Lines containing backtick-quoted tool names that are NOT in
+    *active_tools* are removed.  Sections left empty after filtering
+    are also removed.  Returns the policy unchanged when *active_tools*
+    is ``None`` (full profile, nothing disabled).
+    """
+    if active_tools is None:
+        return policy
+
+    # Build the set of all known tool names for reference-detection.
+    try:
+        from ..server import _CANONICAL_TOOL_NAMES
+        all_tools = set(_CANONICAL_TOOL_NAMES)
+    except Exception:
+        return policy
+
+    lines = policy.splitlines(keepends=True)
+    kept: list[str] = []
+
+    for line in lines:
+        refs = _TOOL_REF_RE.findall(line)
+        # Only consider refs that are actual tool names
+        tool_refs = [r for r in refs if r in all_tools]
+        if tool_refs and any(t not in active_tools for t in tool_refs):
+            continue  # drop line — references unavailable tool(s)
+        kept.append(line)
+
+    # Remove bold-label headers (e.g. "**Finding code:**") that lost all
+    # their child bullets.  A bold-label is "empty" if the next non-blank
+    # line is another bold-label, a ## heading, or EOF.
+    # We do NOT prune ## headings here — they may legitimately sit above
+    # bold-label sub-sections that survived filtering.
+    result: list[str] = []
+    i = 0
+    while i < len(kept):
+        line = kept[i]
+        stripped = line.strip()
+
+        is_bold_label = (
+            stripped.startswith("**")
+            and stripped.endswith(":**")
+            and not stripped.startswith("## ")
+        )
+
+        if is_bold_label:
+            j = i + 1
+            while j < len(kept) and not kept[j].strip():
+                j += 1
+            if j >= len(kept):
+                break  # trailing empty label — drop
+            next_s = kept[j].strip()
+            next_is_boundary = (
+                (next_s.startswith("**") and next_s.endswith(":**"))
+                or next_s.startswith("## ")
+            )
+            if next_is_boundary:
+                i = j  # skip empty bold-label section
+                continue
+
+        result.append(line)
+        i += 1
+
+    return "".join(result)
+
+
 def install_claude_md(scope: str = "global", *, dry_run: bool = False, backup: bool = True) -> str:
     """Append the Code Exploration Policy to CLAUDE.md.
 
     scope: "global" or "project"
     Returns a status message.
+    Respects ``tool_profile`` and ``disabled_tools`` from config.
     """
     path = _claude_md_path(scope)
     if _has_policy(path):
@@ -314,10 +415,11 @@ def install_claude_md(scope: str = "global", *, dry_run: bool = False, backup: b
     if backup and path.exists():
         shutil.copy2(path, path.with_suffix(".md.bak"))
 
+    policy = _filter_policy_for_tools(_CLAUDE_MD_POLICY, _get_active_tools())
     with open(path, "a", encoding="utf-8") as f:
         if path.exists() and path.stat().st_size > 0:
             f.write("\n\n")
-        f.write(_CLAUDE_MD_POLICY)
+        f.write(policy)
 
     return f"  appended policy to {path}"
 
@@ -346,7 +448,18 @@ def install_cursor_rules(*, dry_run: bool = False, backup: bool = True) -> str:
     if backup and path.exists():
         shutil.copy2(path, path.with_suffix(".mdc.bak"))
 
-    path.write_text(_CURSOR_RULES_CONTENT, encoding="utf-8")
+    active = _get_active_tools()
+    content = _CURSOR_RULES_CONTENT
+    if active is not None:
+        # Rebuild with filtered policy (preserve MDC frontmatter)
+        filtered = _filter_policy_for_tools(_CLAUDE_MD_POLICY, active)
+        content = (
+            "---\n"
+            "description: Use jCodemunch MCP tools for all code navigation instead of built-in search\n"
+            "alwaysApply: true\n"
+            "---\n\n"
+        ) + filtered
+    path.write_text(content, encoding="utf-8")
     return f"  wrote {path}"
 
 
@@ -373,10 +486,11 @@ def install_windsurf_rules(*, dry_run: bool = False, backup: bool = True) -> str
     if backup and path.exists():
         shutil.copy2(path, path.with_suffix(".windsurfrules.bak"))
 
+    policy = _filter_policy_for_tools(_CLAUDE_MD_POLICY, _get_active_tools())
     with open(path, "a", encoding="utf-8") as f:
         if path.exists() and path.stat().st_size > 0:
             f.write("\n\n")
-        f.write(_WINDSURF_RULES_CONTENT)
+        f.write(policy)
 
     return f"  appended policy to {path}"
 

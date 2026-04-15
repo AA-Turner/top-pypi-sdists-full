@@ -167,6 +167,14 @@ def compute_lag_yield(
     # Ensure 'Harvest Year' is treated as integer for accurate comparisons
     df["Harvest Year"] = df["Harvest Year"].astype(int)
 
+    # Pre-allocate all lag columns with NaN so the inner loop writes to
+    # existing columns instead of triggering a frame.insert each time —
+    # avoids pandas PerformanceWarning about a fragmented DataFrame.
+    for idx in range(number_lag_years):
+        col = f"t -{idx + 1} {target_col}"
+        if col not in df.columns:
+            df[col] = np.nan
+
     for region, group in tqdm(df.groupby("Region"), desc="Lag yields", leave=False):
         unique_years = group["Harvest Year"].unique()
 

@@ -381,7 +381,13 @@ async def run_exec_mode(
         if space and space.get("model"):
             config.ai.model = space["model"]
 
-    ai_service = create_ai_service(config.ai)
+    from ..services.token_provider import TokenProviderError
+
+    try:
+        ai_service = create_ai_service(config.ai)
+    except TokenProviderError as exc:
+        print(f"api_key_command error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     # Create conversation for persistence
     # Even with --no-conversation, we create a minimal audit conversation for tool call tracking.

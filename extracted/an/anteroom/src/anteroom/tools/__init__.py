@@ -8,7 +8,7 @@ from typing import Any, Callable, Coroutine
 from ..config import SafetyConfig
 from ..services.rule_enforcer import RuleEnforcer
 from ..services.tool_rate_limit import ToolRateLimiter
-from .safety import SafetyVerdict, check_bash_command, check_write_path
+from .safety import SafetyVerdict, check_bash_command, check_bypass_immune_path, check_write_path
 from .security import check_hard_block
 from .tiers import ToolTier as ToolTier
 from .tiers import get_tool_tier, parse_approval_mode, should_require_approval
@@ -152,6 +152,26 @@ class ToolRegistry:
                 tool_name=tool_name,
                 hard_denied=True,
             )
+
+        # Bypass-immune path check: runs unconditionally before
+        # should_require_approval() so that AUTO mode, allowed_tools, and
+        # session permissions cannot skip it.  Hard-block rules (checked above
+        # via the rule enforcer) still take precedence.
+        #
+        # For write_file/edit_file we return immediately — those tools don't go
+        # through _enrich_with_hard_block(), so there's no harder verdict to
+        # discover.  For bash we defer: store the verdict and continue so that
+        # _enrich_with_hard_block() can upgrade it to hard-blocked if the
+        # command also matches a hard-block pattern.
+        immune_verdict = check_bypass_immune_path(
+            tool_name,
+            arguments,
+            self._working_dir or ".",
+            immune_paths=config.bypass_immune_paths,
+        )
+        if immune_verdict is not None and tool_name != "bash":
+            return immune_verdict
+
         mode = parse_approval_mode(config.approval_mode)
 
         result = should_require_approval(
@@ -179,7 +199,19 @@ class ToolRegistry:
             if tool_name == "bash":
                 verdict = check_bash_command(arguments.get("command", ""), custom_patterns=config.custom_patterns)
                 if verdict.needs_approval:
-                    return self._enrich_with_hard_block(verdict, arguments)
+                    enriched = self._enrich_with_hard_block(verdict, arguments)
+                    # Hard-block always wins over bypass-immune.
+                    if enriched.is_hard_blocked:
+                        return enriched
+                    # No hard-block: if this command also targets an immune path,
+                    # surface the immune verdict so the caller knows to require
+                    # approval even in AUTO mode.
+                    return immune_verdict if immune_verdict is not None else enriched
+                # No destructive pattern — if an immune path was matched, still check for
+                # hard-block patterns (e.g. dd if=/dev/urandom > .git/hooks/pre-commit).
+                if immune_verdict is not None:
+                    return self._enrich_with_hard_block(immune_verdict, arguments)
+                return None
             if tool_name == "write_file":
                 verdict = check_write_path(
                     arguments.get("path", ""), self._working_dir or ".", sensitive_paths=config.sensitive_paths
@@ -189,6 +221,12 @@ class ToolRegistry:
             return None
 
         if result is False:
+            # AUTO mode: bypass-immune still forces approval for bash.
+            # If an immune_verdict is pending, run hard-block enrichment so that
+            # catastrophic commands (e.g. dd if=/dev/urandom > .git/hooks/...)
+            # are flagged is_hard_blocked even when the approval mode is AUTO.
+            if immune_verdict is not None and tool_name == "bash":
+                return self._enrich_with_hard_block(immune_verdict, arguments)
             return None
 
         # Tier-based approval required — return generic verdict for the tool
@@ -199,7 +237,11 @@ class ToolRegistry:
                 tool_name=tool_name,
                 details={"command": arguments.get("command", "")},
             )
-            return self._enrich_with_hard_block(verdict, arguments)
+            enriched = self._enrich_with_hard_block(verdict, arguments)
+            # Hard-block wins; otherwise prefer immune_verdict (carries bypass_immune flag).
+            if enriched.is_hard_blocked:
+                return enriched
+            return immune_verdict if immune_verdict is not None else enriched
 
         if tool_name == "write_file":
             return SafetyVerdict(

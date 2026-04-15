@@ -193,6 +193,153 @@ class TestBrowserDeferral:
 
 
 # ---------------------------------------------------------------------------
+# TokenProviderError handling
+# ---------------------------------------------------------------------------
+
+
+class TestTokenProviderErrorHandling:
+    @pytest.mark.asyncio
+    async def test_validate_ai_connection_token_error_prints_message(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """TokenProviderError in _validate_ai_connection prints actionable message, no stack trace."""
+        from anteroom.__main__ import _validate_ai_connection
+        from anteroom.services.token_provider import TokenProviderError
+
+        config = MagicMock()
+        config.ai.model = "test-model"
+        with patch(
+            "anteroom.services.ai_service.create_ai_service",
+            side_effect=TokenProviderError("api_key_command exited with code 1"),
+        ):
+            await _validate_ai_connection(config)
+
+        captured = capsys.readouterr()
+        assert "api_key_command error" in captured.err
+        assert "api_key_command exited with code 1" in captured.err
+        # Ensure no traceback leaked to stdout
+        assert "Traceback" not in captured.out
+        assert "Traceback" not in captured.err
+
+    @pytest.mark.asyncio
+    async def test_validate_ai_connection_token_error_does_not_raise(self) -> None:
+        """TokenProviderError must not propagate from _validate_ai_connection."""
+        from anteroom.__main__ import _validate_ai_connection
+        from anteroom.services.token_provider import TokenProviderError
+
+        config = MagicMock()
+        with patch(
+            "anteroom.services.ai_service.create_ai_service",
+            side_effect=TokenProviderError("api_key_command timed out after 30s"),
+        ):
+            # Should not raise
+            await _validate_ai_connection(config)
+
+    @pytest.mark.asyncio
+    async def test_test_connection_token_error_exits_1(self) -> None:
+        """TokenProviderError in _test_connection should exit with code 1."""
+        from anteroom.__main__ import _test_connection
+        from anteroom.services.token_provider import TokenProviderError
+
+        config = MagicMock()
+        config.ai.base_url = "http://localhost:1234/v1"
+        config.ai.model = "test-model"
+        config.ai.verify_ssl = True
+        with (
+            patch(
+                "anteroom.services.ai_service.create_ai_service",
+                side_effect=TokenProviderError("api_key_command not found: bad-cmd"),
+            ),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            await _test_connection(config)
+        assert exc_info.value.code == 1
+
+    @pytest.mark.asyncio
+    async def test_test_connection_token_error_shows_message(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """TokenProviderError in _test_connection prints actionable message to stderr."""
+        from anteroom.__main__ import _test_connection
+        from anteroom.services.token_provider import TokenProviderError
+
+        config = MagicMock()
+        config.ai.base_url = "http://localhost:1234/v1"
+        config.ai.model = "test-model"
+        config.ai.verify_ssl = True
+        with (
+            patch(
+                "anteroom.services.ai_service.create_ai_service",
+                side_effect=TokenProviderError("api_key_command not found: bad-cmd"),
+            ),
+            pytest.raises(SystemExit),
+        ):
+            await _test_connection(config)
+        captured = capsys.readouterr()
+        assert "api_key_command error" in captured.err
+        assert "api_key_command not found: bad-cmd" in captured.err
+
+
+class TestLazyAIServiceTokenProviderError:
+    """Test that _LazyAIService._ensure() handles TokenProviderError."""
+
+    def test_lazy_ai_service_exits_on_token_error(self) -> None:
+        from unittest.mock import patch
+
+        from anteroom.cli.repl import _LazyAIService
+        from anteroom.services.token_provider import TokenProviderError
+
+        config = MagicMock()
+        lazy = _LazyAIService(config)
+        with (
+            patch(
+                "anteroom.services.ai_service.create_ai_service",
+                side_effect=TokenProviderError("cmd failed"),
+            ),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            lazy._ensure()
+        assert exc_info.value.code == 1
+
+    def test_lazy_ai_service_prints_message(self, capsys: pytest.CaptureFixture[str]) -> None:
+        from unittest.mock import patch
+
+        from anteroom.cli.repl import _LazyAIService
+        from anteroom.services.token_provider import TokenProviderError
+
+        config = MagicMock()
+        lazy = _LazyAIService(config)
+        with (
+            patch(
+                "anteroom.services.ai_service.create_ai_service",
+                side_effect=TokenProviderError("bad command"),
+            ),
+            pytest.raises(SystemExit),
+        ):
+            lazy._ensure()
+        captured = capsys.readouterr()
+        assert "api_key_command error" in captured.err
+        assert "bad command" in captured.err
+
+
+class TestExecModeTokenProviderError:
+    """Test that exec_mode handles TokenProviderError at startup."""
+
+    def test_exec_mode_source_has_token_provider_handling(self) -> None:
+        """exec_mode.py must catch TokenProviderError around create_ai_service.
+
+        AST-based structural test (same pattern as startup import guards):
+        verifies the real source code has the handler, not a replica.
+        """
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parent.parent.parent / "src" / "anteroom" / "cli" / "exec_mode.py"
+        ).read_text(encoding="utf-8")
+        # Must import and catch TokenProviderError
+        assert "TokenProviderError" in source, "exec_mode.py does not reference TokenProviderError"
+        assert "api_key_command error" in source, (
+            "exec_mode.py does not have the actionable error message for TokenProviderError"
+        )
+
+
+# ---------------------------------------------------------------------------
 # --port CLI flag
 # ---------------------------------------------------------------------------
 

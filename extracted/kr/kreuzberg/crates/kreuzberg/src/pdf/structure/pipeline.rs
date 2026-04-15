@@ -334,6 +334,67 @@ fn build_heading_map(
     Ok((heading_map, struct_tree_needs_classify))
 }
 
+/// Build a heading map from structure-tree-assigned roles on segments.
+///
+/// Instead of clustering font sizes heuristically, this examines the
+/// `assigned_role` field on each segment (populated from the PDF structure tree).
+/// Each unique font size is mapped to the heading level most commonly assigned
+/// to segments at that size. Font sizes with no assigned role are treated as body text.
+#[cfg(feature = "pdf-oxide")]
+fn build_heading_map_from_assigned_roles(all_page_segments: &[Vec<SegmentData>]) -> Vec<(f32, Option<u8>)> {
+    use std::collections::HashMap;
+
+    // Collect (font_size → Vec<Option<u8>>) from all segments
+    let mut size_roles: HashMap<u32, Vec<Option<u8>>> = HashMap::new();
+    for page_segs in all_page_segments {
+        for seg in page_segs {
+            if seg.text.trim().is_empty() {
+                continue;
+            }
+            // Quantize font size to tenths for grouping (avoid floating-point noise)
+            let key = (seg.font_size * 10.0).round() as u32;
+            size_roles.entry(key).or_default().push(seg.assigned_role);
+        }
+    }
+
+    // For each font size group, determine the dominant role.
+    // If the majority of segments have an assigned heading level, use it.
+    // Otherwise, mark it as body text (None).
+    let mut heading_map: Vec<(f32, Option<u8>)> = size_roles
+        .into_iter()
+        .map(|(quantized_size, roles)| {
+            let font_size = quantized_size as f32 / 10.0;
+            let total = roles.len();
+            // Count occurrences of each heading level
+            let mut level_counts: HashMap<u8, usize> = HashMap::new();
+            let mut none_count = 0usize;
+            for role in &roles {
+                match role {
+                    Some(level) => *level_counts.entry(*level).or_default() += 1,
+                    None => none_count += 1,
+                }
+            }
+            // Use the most common heading level if it appears in >=50% of segments
+            let dominant_level = level_counts
+                .into_iter()
+                .max_by_key(|(_, count)| *count)
+                .and_then(|(level, count)| if count * 2 >= total { Some(level) } else { None });
+
+            // If body text (None) is the majority, mark as body
+            if none_count > total / 2 && dominant_level.is_none() {
+                (font_size, None)
+            } else {
+                (font_size, dominant_level)
+            }
+        })
+        .collect();
+
+    // Sort by font size descending (largest first = highest heading level)
+    heading_map.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+    heading_map
+}
+
 /// Per-page input bundle for Stage 3 parallel processing.
 ///
 /// Each page's data is pre-extracted before `into_par_iter` so all threads
@@ -746,7 +807,7 @@ pub fn extract_document_structure(
             }
 
             if has_table_model {
-                if let (Some(images), Some(results)) = (layout_images, layout_results) {
+                if let (Some(images @ [_, ..]), Some(results @ [_, ..])) = (layout_images, layout_results) {
                     #[cfg(not(target_arch = "wasm32"))]
                     let parallel_tables: Vec<Vec<crate::types::Table>> = table_pages
                         .par_iter()
@@ -1302,6 +1363,183 @@ pub fn extract_document_structure(
     }
 
     Ok((doc, has_font_encoding_issues))
+}
+
+/// Build a structured `InternalDocument` from pre-extracted per-page segments.
+///
+/// This is the oxide-backend equivalent of [`extract_document_structure`]. It accepts
+/// segments already extracted via `oxide::hierarchy::extract_all_segments` and runs
+/// the same font-clustering, heading-classification, paragraph-assembly, and
+/// post-processing stages without requiring a pdfium `PdfDocument`.
+///
+/// Image positions can be supplied to insert image placeholders into the document.
+/// Layout hints (from RT-DETR layout detection) are optional; when present they
+/// drive furniture marking, heading overrides, and table region detection — the
+/// same role they play in the pdfium-backed [`extract_document_structure`].
+///
+/// Returns the assembled `InternalDocument`.
+#[cfg(feature = "pdf-oxide")]
+pub(crate) struct SegmentStructureConfig<'a> {
+    pub k_clusters: usize,
+    pub tables: &'a [crate::types::Table],
+    pub strip_repeating_text: bool,
+    pub include_headers: bool,
+    pub include_footers: bool,
+    pub used_structure_tree: bool,
+    pub image_positions: &'a [(usize, usize)],
+    pub layout_hints: Option<&'a [Vec<LayoutHint>]>,
+}
+
+#[cfg(feature = "pdf-oxide")]
+pub(crate) fn extract_document_structure_from_segments(
+    mut all_page_segments: Vec<Vec<SegmentData>>,
+    config: SegmentStructureConfig<'_>,
+) -> Result<crate::types::internal::InternalDocument> {
+    let SegmentStructureConfig {
+        k_clusters,
+        tables,
+        strip_repeating_text,
+        include_headers,
+        include_footers,
+        used_structure_tree,
+        image_positions,
+        layout_hints,
+    } = config;
+    let page_count = all_page_segments.len();
+    tracing::debug!(
+        page_count,
+        used_structure_tree,
+        "oxide structure pipeline: starting from pre-extracted segments"
+    );
+
+    // When segments carry pre-assigned heading roles from the structure tree,
+    // build the heading map directly from those roles instead of clustering.
+    let struct_tree_results: Vec<Option<Vec<PdfParagraph>>> = vec![None; page_count];
+    let heuristic_pages: Vec<usize> = (0..page_count).collect();
+
+    let (heading_map, doc_body_font_size) = if used_structure_tree {
+        // Build heading map from structure-tree-assigned roles.
+        // Each unique (font_size, assigned_role) pair is honoured directly.
+        let heading_map = build_heading_map_from_assigned_roles(&all_page_segments);
+        let doc_body_font_size: Option<f32> = heading_map
+            .iter()
+            .find(|(_, level)| level.is_none())
+            .map(|(size, _)| *size);
+        tracing::debug!(
+            heading_map_len = heading_map.len(),
+            "oxide structure pipeline: heading map from structure tree"
+        );
+        (heading_map, doc_body_font_size)
+    } else {
+        // Stage 2: Global font-size clustering (heuristic path).
+        let (heading_map, _struct_tree_needs_classify) =
+            build_heading_map(&all_page_segments, &struct_tree_results, &heuristic_pages, k_clusters)?;
+        let doc_body_font_size: Option<f32> = heading_map
+            .iter()
+            .find(|(_, level)| level.is_none())
+            .map(|(size, _)| *size);
+        (heading_map, doc_body_font_size)
+    };
+
+    // Build per-page table bbox suppression map.
+    let extracted_table_bboxes_by_page: ahash::AHashMap<usize, Vec<crate::types::BoundingBox>> = {
+        let mut map: ahash::AHashMap<usize, Vec<crate::types::BoundingBox>> = ahash::AHashMap::new();
+        for table in tables {
+            if let Some(ref bb) = table.bounding_box {
+                map.entry(table.page_number.saturating_sub(1)).or_default().push(*bb);
+            }
+        }
+        map
+    };
+
+    // Approximate page heights from segment positions (used for repeating-text detection).
+    let page_heights: Vec<f32> = all_page_segments
+        .iter()
+        .map(|segs| {
+            segs.iter().map(|s| s.y + s.height).fold(0.0_f32, f32::max).max(792.0) // Letter-size fallback
+        })
+        .collect();
+
+    // Stage 3: Per-page structured extraction.
+    // When the structure tree provides heading roles, skip layout-model heading
+    // overrides — they can demote correctly-tagged headings. The tree is authoritative.
+    let effective_layout_hints = if used_structure_tree { None } else { layout_hints };
+    let page_inputs: Vec<PageInput> = (0..page_count)
+        .map(|i| PageInput {
+            page_index: i,
+            struct_paragraphs: None,
+            heuristic_segments: std::mem::take(&mut all_page_segments[i]),
+            page_hints: effective_layout_hints.and_then(|h| h.get(i)).cloned(),
+            table_bboxes: extracted_table_bboxes_by_page.get(&i).cloned().unwrap_or_default(),
+            hint_validations: Vec::new(),
+            needs_classify: false,
+            paragraph_gap_ys: Vec::new(),
+            include_headers,
+            include_footers,
+        })
+        .collect();
+
+    #[cfg(not(target_arch = "wasm32"))]
+    let mut all_page_paragraphs: Vec<Vec<PdfParagraph>> = page_inputs
+        .into_par_iter()
+        .map(|input| process_single_page(input, &heading_map, doc_body_font_size))
+        .collect();
+    #[cfg(target_arch = "wasm32")]
+    let mut all_page_paragraphs: Vec<Vec<PdfParagraph>> = page_inputs
+        .into_iter()
+        .map(|input| process_single_page(input, &heading_map, doc_body_font_size))
+        .collect();
+
+    // Post-processing: refine heading hierarchy, strip repeating text, deduplicate.
+    refine_heading_hierarchy(&mut all_page_paragraphs);
+    demote_unnumbered_subsections(&mut all_page_paragraphs);
+    demote_heading_runs(&mut all_page_paragraphs);
+
+    if strip_repeating_text {
+        mark_cross_page_repeating_text(&mut all_page_paragraphs, &page_heights);
+        mark_cross_page_repeating_short_text(&mut all_page_paragraphs);
+    }
+    mark_arxiv_noise(&mut all_page_paragraphs);
+    for page in &mut all_page_paragraphs {
+        retain_page_furniture_safely(page);
+    }
+    if strip_repeating_text {
+        deduplicate_paragraphs(&mut all_page_paragraphs);
+    }
+
+    let total_paragraphs: usize = all_page_paragraphs.iter().map(|p| p.len()).sum();
+    tracing::debug!(
+        total_paragraphs,
+        heading_map_len = heading_map.len(),
+        "oxide structure pipeline: paragraph extraction complete, assembling document"
+    );
+
+    // Stage 4: Assemble InternalDocument.
+    let mut doc = assemble_internal_document(all_page_paragraphs, tables, image_positions);
+
+    // Stage 5: Element-level text normalization.
+    for elem in &mut doc.elements {
+        if elem.text.is_empty() {
+            continue;
+        }
+        let t1 = repair_contextual_ligatures(&elem.text);
+        let t2 = expand_ligatures_with_space_absorption(&t1);
+        let t3 = normalize_unicode_text(&t2);
+        if let Cow::Owned(normalized) = t3 {
+            elem.text = normalized;
+        } else if let Cow::Owned(normalized) = t2 {
+            elem.text = normalized;
+        } else if let Cow::Owned(normalized) = t1 {
+            elem.text = normalized;
+        }
+    }
+
+    tracing::debug!(
+        elements = doc.elements.len(),
+        "oxide structure pipeline: assembly complete"
+    );
+
+    Ok(doc)
 }
 
 /// Filter out segments that overlap >=50% with any table bounding box.
@@ -1964,6 +2202,7 @@ mod tests {
             is_italic: false,
             is_monospace: false,
             baseline_y: 0.0,
+            assigned_role: None,
         }
     }
 

@@ -8,7 +8,9 @@ import errno
 import json
 import logging
 import os
+import shutil
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -23,6 +25,73 @@ if TYPE_CHECKING:
 
 from . import __version__
 from .config import AppConfig, _get_config_path, load_config
+
+
+def _find_mkdocs_yml() -> Path | None:
+    """Locate mkdocs.yml for local docs serving.
+
+    Resolution order:
+    1. Repo root (editable installs / dev clones) -- walk up from this file
+    2. _bundled/ inside the installed package
+    """
+    here = Path(__file__).resolve().parent  # src/anteroom/
+    for ancestor in (here.parent.parent, here.parent):
+        candidate = ancestor / "mkdocs.yml"
+        if candidate.is_file():
+            return candidate
+
+    bundled = here / "_bundled" / "mkdocs.yml"
+    if bundled.is_file():
+        return bundled
+
+    return None
+
+
+def _run_docs(args: argparse.Namespace) -> None:
+    """Serve the Anteroom documentation site locally via MkDocs."""
+    if shutil.which("mkdocs") is None:
+        print("MkDocs is not installed.", file=sys.stderr)
+        print("Install docs-serving dependencies with:", file=sys.stderr)
+        print("  pip install anteroom[docs-serve]", file=sys.stderr)
+        sys.exit(1)
+
+    mkdocs_yml = _find_mkdocs_yml()
+    if mkdocs_yml is None:
+        print("Cannot find mkdocs.yml.", file=sys.stderr)
+        print("If installed via pip, try: pip install anteroom[docs-serve]", file=sys.stderr)
+        sys.exit(1)
+
+    if getattr(args, "docs_build", False):
+        print(f"Running mkdocs build --strict in {mkdocs_yml.parent} ...")
+        result = subprocess.run(
+            [sys.executable, "-m", "mkdocs", "build", "--strict", "-f", str(mkdocs_yml)],
+            cwd=str(mkdocs_yml.parent),
+        )
+        if result.returncode != 0:
+            print(f"Docs build failed with exit code {result.returncode}.", file=sys.stderr)
+        sys.exit(result.returncode)
+
+    port: int = getattr(args, "docs_port", 8400)
+    host: str = getattr(args, "docs_host", "127.0.0.1")
+
+    if not 1 <= port <= 65535:
+        print(f"Invalid port: {port}. Must be between 1 and 65535.", file=sys.stderr)
+        sys.exit(1)
+
+    addr = f"{host}:{port}"
+    print(f"Serving Anteroom docs at http://{addr}")
+    print("Press Ctrl+C to stop.\n")
+
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "mkdocs", "serve", "-a", addr, "-f", str(mkdocs_yml)],
+            cwd=str(mkdocs_yml.parent),
+            check=True,
+        )
+    except KeyboardInterrupt:
+        pass
+    except subprocess.CalledProcessError as exc:
+        sys.exit(exc.returncode)
 
 
 def _run_init(force: bool = False, team_config: str | None = None) -> None:
@@ -312,9 +381,18 @@ def _run_config_view(team_config_path: Path | None = None, *, with_sources: bool
 
 async def _validate_ai_connection(config: AppConfig) -> None:
     from .services.ai_service import create_ai_service
+    from .services.token_provider import TokenProviderError
 
-    ai_service = create_ai_service(config.ai)
-    valid, message, models = await ai_service.validate_connection()
+    try:
+        ai_service = create_ai_service(config.ai)
+        valid, message, models = await ai_service.validate_connection()
+    except TokenProviderError as e:
+        print(
+            f"AI connection: FAILED — api_key_command error: {e}\n"
+            "  Check api_key_command in your config (~/.anteroom/config.yaml)",
+            file=sys.stderr,
+        )
+        return
     if valid:
         print(f"AI connection: OK ({config.ai.model})")
         if models:
@@ -350,8 +428,14 @@ def _check_knowledge_deps() -> None:
 
 async def _test_connection(config: AppConfig) -> None:
     from .services.ai_service import create_ai_service
+    from .services.token_provider import TokenProviderError
 
-    ai_service = create_ai_service(config.ai)
+    try:
+        ai_service = create_ai_service(config.ai)
+    except TokenProviderError as e:
+        print(f"   FAILED - api_key_command error: {e}", file=sys.stderr)
+        print("   Check api_key_command in your config (~/.anteroom/config.yaml)", file=sys.stderr)
+        sys.exit(1)
 
     print("Config:")
     print(f"  Endpoint: {config.ai.base_url}")
@@ -368,6 +452,10 @@ async def _test_connection(config: AppConfig) -> None:
         else:
             print(f"   FAILED - {message}")
             sys.exit(1)
+    except TokenProviderError as e:
+        print(f"   FAILED - api_key_command error: {e}", file=sys.stderr)
+        print("   Check api_key_command in your config (~/.anteroom/config.yaml)", file=sys.stderr)
+        sys.exit(1)
     except Exception as e:
         print(f"   FAILED - {e}")
         sys.exit(1)
@@ -786,7 +874,7 @@ def _run_web(
                 file=sys.stderr,
             )
         else:
-            print("AI connection: Could not validate (will try on first request)", file=sys.stderr)
+            print(f"AI connection: Could not validate ({err_name}) (will try on first request)", file=sys.stderr)
 
     from .app import create_app
 
@@ -2792,6 +2880,18 @@ def main() -> None:
     unpack_parser.add_argument("dest", help="Destination directory")
     unpack_parser.add_argument("--force", action="store_true", help="Overwrite existing destination")
 
+    # `aroom docs` subcommand
+    docs_parser = subparsers.add_parser("docs", help="Serve documentation locally")
+    docs_parser.add_argument(
+        "--port", type=int, default=8400, dest="docs_port", help="Port for docs server (default: 8400)"
+    )
+    docs_parser.add_argument(
+        "--host", type=str, default="127.0.0.1", dest="docs_host", help="Host to bind to (default: 127.0.0.1)"
+    )
+    docs_parser.add_argument(
+        "--build", action="store_true", dest="docs_build", help="Run mkdocs build --strict and exit"
+    )
+
     # `aroom artifact import` subcommand
     art_import_parser = artifact_subparsers.add_parser("import", help="Import skills/instructions into artifacts")
     art_import_parser.add_argument("--skills", action="store_true", help="Import skills from ~/.anteroom/skills/")
@@ -2832,6 +2932,10 @@ def main() -> None:
         from .unpack import unpack
 
         unpack(args.dest, force=getattr(args, "force", False))
+        return
+
+    if args.command == "docs":
+        _run_docs(args)
         return
 
     if args.command == "init":

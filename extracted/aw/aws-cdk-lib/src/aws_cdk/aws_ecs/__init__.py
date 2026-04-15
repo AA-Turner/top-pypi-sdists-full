@@ -23004,7 +23004,15 @@ class CfnTaskDefinition(
                 host=ecs.CfnTaskDefinition.HostVolumePropertiesProperty(
                     source_path="sourcePath"
                 ),
-                name="name"
+                name="name",
+                s3_files_volume_configuration=ecs.CfnTaskDefinition.S3FilesVolumeConfigurationProperty(
+                    file_system_arn="fileSystemArn",
+        
+                    # the properties below are optional
+                    access_point_arn="accessPointArn",
+                    root_directory="rootDirectory",
+                    transit_encryption_port=123
+                )
             )]
         )
     '''
@@ -27146,6 +27154,109 @@ class CfnTaskDefinition(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnTaskDefinition.S3FilesVolumeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "file_system_arn": "fileSystemArn",
+            "access_point_arn": "accessPointArn",
+            "root_directory": "rootDirectory",
+            "transit_encryption_port": "transitEncryptionPort",
+        },
+    )
+    class S3FilesVolumeConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            file_system_arn: builtins.str,
+            access_point_arn: typing.Optional[builtins.str] = None,
+            root_directory: typing.Optional[builtins.str] = None,
+            transit_encryption_port: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param file_system_arn: 
+            :param access_point_arn: 
+            :param root_directory: 
+            :param transit_encryption_port: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-s3filesvolumeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                s3_files_volume_configuration_property = ecs.CfnTaskDefinition.S3FilesVolumeConfigurationProperty(
+                    file_system_arn="fileSystemArn",
+                
+                    # the properties below are optional
+                    access_point_arn="accessPointArn",
+                    root_directory="rootDirectory",
+                    transit_encryption_port=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f4cdb1fe44e921ee0d10883451a5c08e18d10b3c5cbca48461d1fa0374fd9897)
+                check_type(argname="argument file_system_arn", value=file_system_arn, expected_type=type_hints["file_system_arn"])
+                check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
+                check_type(argname="argument root_directory", value=root_directory, expected_type=type_hints["root_directory"])
+                check_type(argname="argument transit_encryption_port", value=transit_encryption_port, expected_type=type_hints["transit_encryption_port"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "file_system_arn": file_system_arn,
+            }
+            if access_point_arn is not None:
+                self._values["access_point_arn"] = access_point_arn
+            if root_directory is not None:
+                self._values["root_directory"] = root_directory
+            if transit_encryption_port is not None:
+                self._values["transit_encryption_port"] = transit_encryption_port
+
+        @builtins.property
+        def file_system_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-s3filesvolumeconfiguration.html#cfn-ecs-taskdefinition-s3filesvolumeconfiguration-filesystemarn
+            '''
+            result = self._values.get("file_system_arn")
+            assert result is not None, "Required property 'file_system_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def access_point_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-s3filesvolumeconfiguration.html#cfn-ecs-taskdefinition-s3filesvolumeconfiguration-accesspointarn
+            '''
+            result = self._values.get("access_point_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def root_directory(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-s3filesvolumeconfiguration.html#cfn-ecs-taskdefinition-s3filesvolumeconfiguration-rootdirectory
+            '''
+            result = self._values.get("root_directory")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def transit_encryption_port(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-s3filesvolumeconfiguration.html#cfn-ecs-taskdefinition-s3filesvolumeconfiguration-transitencryptionport
+            '''
+            result = self._values.get("transit_encryption_port")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3FilesVolumeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnTaskDefinition.SecretProperty",
         jsii_struct_bases=[],
         name_mapping={"name": "name", "value_from": "valueFrom"},
@@ -27675,6 +27786,7 @@ class CfnTaskDefinition(
             "f_sx_windows_file_server_volume_configuration": "fSxWindowsFileServerVolumeConfiguration",
             "host": "host",
             "name": "name",
+            "s3_files_volume_configuration": "s3FilesVolumeConfiguration",
         },
     )
     class VolumeProperty:
@@ -27687,6 +27799,7 @@ class CfnTaskDefinition(
             f_sx_windows_file_server_volume_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.FSxWindowsFileServerVolumeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             host: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.HostVolumePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             name: typing.Optional[builtins.str] = None,
+            s3_files_volume_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.S3FilesVolumeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The data volume configuration for tasks launched using this task definition.
 
@@ -27698,6 +27811,7 @@ class CfnTaskDefinition(
             :param f_sx_windows_file_server_volume_configuration: This parameter is specified when you use Amazon FSx for Windows File Server file system for task storage.
             :param host: This parameter is specified when you use bind mount host volumes. The contents of the ``host`` parameter determine whether your bind mount host volume persists on the host container instance and where it's stored. If the ``host`` parameter is empty, then the Docker daemon assigns a host path for your data volume. However, the data isn't guaranteed to persist after the containers that are associated with it stop running. Windows containers can mount whole directories on the same drive as ``$env:ProgramData`` . Windows containers can't mount directories on a different drive, and mount point can't be across drives. For example, you can mount ``C:\\my\\path:C:\\my\\path`` and ``D:\\:D:\\`` , but not ``D:\\my\\path:C:\\my\\path`` or ``D:\\:C:\\my\\path`` .
             :param name: The name of the volume. Up to 255 letters (uppercase and lowercase), numbers, underscores, and hyphens are allowed. When using a volume configured at launch, the ``name`` is required and must also be specified as the volume name in the ``ServiceVolumeConfiguration`` or ``TaskVolumeConfiguration`` parameter when creating your service or standalone task. For all other types of volumes, this name is referenced in the ``sourceVolume`` parameter of the ``mountPoints`` object in the container definition. When a volume is using the ``efsVolumeConfiguration`` , the name is required.
+            :param s3_files_volume_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-volume.html
             :exampleMetadata: fixture=_generated
@@ -27746,7 +27860,15 @@ class CfnTaskDefinition(
                     host=ecs.CfnTaskDefinition.HostVolumePropertiesProperty(
                         source_path="sourcePath"
                     ),
-                    name="name"
+                    name="name",
+                    s3_files_volume_configuration=ecs.CfnTaskDefinition.S3FilesVolumeConfigurationProperty(
+                        file_system_arn="fileSystemArn",
+                
+                        # the properties below are optional
+                        access_point_arn="accessPointArn",
+                        root_directory="rootDirectory",
+                        transit_encryption_port=123
+                    )
                 )
             '''
             if __debug__:
@@ -27757,6 +27879,7 @@ class CfnTaskDefinition(
                 check_type(argname="argument f_sx_windows_file_server_volume_configuration", value=f_sx_windows_file_server_volume_configuration, expected_type=type_hints["f_sx_windows_file_server_volume_configuration"])
                 check_type(argname="argument host", value=host, expected_type=type_hints["host"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument s3_files_volume_configuration", value=s3_files_volume_configuration, expected_type=type_hints["s3_files_volume_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if configured_at_launch is not None:
                 self._values["configured_at_launch"] = configured_at_launch
@@ -27770,6 +27893,8 @@ class CfnTaskDefinition(
                 self._values["host"] = host
             if name is not None:
                 self._values["name"] = name
+            if s3_files_volume_configuration is not None:
+                self._values["s3_files_volume_configuration"] = s3_files_volume_configuration
 
         @builtins.property
         def configured_at_launch(
@@ -27853,6 +27978,16 @@ class CfnTaskDefinition(
             '''
             result = self._values.get("name")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_files_volume_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.S3FilesVolumeConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-volume.html#cfn-ecs-taskdefinition-volume-s3filesvolumeconfiguration
+            '''
+            result = self._values.get("s3_files_volume_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.S3FilesVolumeConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -28160,7 +28295,15 @@ class CfnTaskDefinitionProps:
                     host=ecs.CfnTaskDefinition.HostVolumePropertiesProperty(
                         source_path="sourcePath"
                     ),
-                    name="name"
+                    name="name",
+                    s3_files_volume_configuration=ecs.CfnTaskDefinition.S3FilesVolumeConfigurationProperty(
+                        file_system_arn="fileSystemArn",
+            
+                        # the properties below are optional
+                        access_point_arn="accessPointArn",
+                        root_directory="rootDirectory",
+                        transit_encryption_port=123
+                    )
                 )]
             )
         '''
@@ -58119,6 +58262,16 @@ def _typecheckingstub__13b8fed83205e8f8c805885892fec108a4cc1b8e74b0e647c14e5b523
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f4cdb1fe44e921ee0d10883451a5c08e18d10b3c5cbca48461d1fa0374fd9897(
+    *,
+    file_system_arn: builtins.str,
+    access_point_arn: typing.Optional[builtins.str] = None,
+    root_directory: typing.Optional[builtins.str] = None,
+    transit_encryption_port: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e3ca5a3f91fcd5bfb7247a9348affa35a1e4aa755ce41b312515338a898948df(
     *,
     name: builtins.str,
@@ -58177,6 +58330,7 @@ def _typecheckingstub__0b8eeaf561ff6334fbacca7f706104a9a5e10a366526af78d2a6b7173
     f_sx_windows_file_server_volume_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.FSxWindowsFileServerVolumeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     host: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.HostVolumePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
+    s3_files_volume_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.S3FilesVolumeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

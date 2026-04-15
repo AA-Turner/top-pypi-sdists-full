@@ -26,7 +26,7 @@ class BaseArgs:
     @classmethod
     def load(cls: type[ArgType], file: Path) -> ArgType:
         """Load the arguments from a file."""
-        with open(file, "r") as f:
+        with open(file) as f:
             data = json.load(f)
             data["metric"] = Metric.from_string(data["metric"])
             return cls(**data)
@@ -77,7 +77,7 @@ class AbstractBackend(ABC, Generic[ArgType]):
         raise NotImplementedError()
 
     @abstractmethod
-    def save(self, base_path: Path) -> None:
+    def save(self, path: Path) -> None:
         """Save the backend to a file."""
         raise NotImplementedError()
 

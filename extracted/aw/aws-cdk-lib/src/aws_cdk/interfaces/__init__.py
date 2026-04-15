@@ -226,11 +226,13 @@ __all__ = [
     "aws_backupgateway",
     "aws_batch",
     "aws_bcmdataexports",
+    "aws_bcmpricingcalculator",
     "aws_bedrock",
     "aws_bedrockagentcore",
     "aws_bedrockmantle",
     "aws_billing",
     "aws_billingconductor",
+    "aws_braket",
     "aws_budgets",
     "aws_cases",
     "aws_cassandra",
@@ -427,6 +429,7 @@ __all__ = [
     "aws_rum",
     "aws_s3",
     "aws_s3express",
+    "aws_s3files",
     "aws_s3objectlambda",
     "aws_s3outposts",
     "aws_s3tables",
@@ -511,11 +514,13 @@ from . import aws_backup
 from . import aws_backupgateway
 from . import aws_batch
 from . import aws_bcmdataexports
+from . import aws_bcmpricingcalculator
 from . import aws_bedrock
 from . import aws_bedrockagentcore
 from . import aws_bedrockmantle
 from . import aws_billing
 from . import aws_billingconductor
+from . import aws_braket
 from . import aws_budgets
 from . import aws_cases
 from . import aws_cassandra
@@ -712,6 +717,7 @@ from . import aws_rtbfabric
 from . import aws_rum
 from . import aws_s3
 from . import aws_s3express
+from . import aws_s3files
 from . import aws_s3objectlambda
 from . import aws_s3outposts
 from . import aws_s3tables

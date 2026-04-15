@@ -12,9 +12,6 @@ from mergify_cli import utils
 from mergify_cli.dym import DYMGroup
 from mergify_cli.stack import checkout as stack_checkout_mod
 from mergify_cli.stack import edit as stack_edit_mod
-from mergify_cli.stack import (
-    github_action_auto_rebase as stack_github_action_auto_rebase_mod,
-)
 from mergify_cli.stack import list as stack_list_mod
 from mergify_cli.stack import move as stack_move_mod
 from mergify_cli.stack import new as stack_new_mod
@@ -386,6 +383,7 @@ async def push(
 
 @stack.command(help="Checkout the pull requests stack")
 @click.pass_context
+@click.argument("name")
 @click.option(
     "--author",
     help="Set the author of the stack (default: the author of the token)",
@@ -397,7 +395,8 @@ async def push(
 )
 @click.option(
     "--branch",
-    help="Branch used to create stacked PR.",
+    default=None,
+    help="Local branch name to create. Default: same as NAME.",
 )
 @click.option(
     "--branch-prefix",
@@ -423,9 +422,10 @@ async def push(
 async def checkout(
     ctx: click.Context,
     *,
+    name: str,
     author: str | None,
     repository: str | None,
-    branch: str,
+    branch: str | None,
     branch_prefix: str | None,
     dry_run: bool,
     trunk: tuple[str, str],
@@ -453,20 +453,11 @@ async def checkout(
         user=user,
         repo=repo,
         branch_prefix=branch_prefix,
+        name=name,
         branch=branch,
         author=author,
         trunk=trunk,
         dry_run=dry_run,
-    )
-
-
-@stack.command(help="Autorebase a pull requests stack")
-@click.pass_context
-@utils.run_with_asyncio
-async def github_action_auto_rebase(ctx: click.Context) -> None:
-    await stack_github_action_auto_rebase_mod.stack_github_action_auto_rebase(
-        ctx.obj["github_server"],
-        ctx.obj["token"],
     )
 
 

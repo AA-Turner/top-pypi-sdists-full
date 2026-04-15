@@ -21,7 +21,7 @@ pub fn build_session(
     thread_budget: usize,
 ) -> Result<Session, LayoutError> {
     let builder = Session::builder()?
-        .with_optimization_level(GraphOptimizationLevel::Level3)
+        .with_optimization_level(GraphOptimizationLevel::All)
         .map_err(|e| LayoutError::Ort(ort::Error::new(e.message())))?
         .with_intra_threads(thread_budget)
         .map_err(|e| LayoutError::Ort(ort::Error::new(e.message())))?

@@ -34,7 +34,6 @@ pub fn merge_configs(base: &mut ExtractionConfig, override_config: &ExtractionCo
         base.images = override_config.images.clone();
     }
 
-    #[cfg(feature = "pdf")]
     if override_config.pdf_options.is_some() {
         base.pdf_options = override_config.pdf_options.clone();
     }
@@ -51,7 +50,6 @@ pub fn merge_configs(base: &mut ExtractionConfig, override_config: &ExtractionCo
         base.pages = override_config.pages.clone();
     }
 
-    #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
     if override_config.keywords.is_some() {
         base.keywords = override_config.keywords.clone();
     }
@@ -68,7 +66,6 @@ pub fn merge_configs(base: &mut ExtractionConfig, override_config: &ExtractionCo
         base.extraction_timeout_secs = override_config.extraction_timeout_secs;
     }
 
-    #[cfg(feature = "tree-sitter")]
     if override_config.tree_sitter.is_some() {
         base.tree_sitter = override_config.tree_sitter.clone();
     }

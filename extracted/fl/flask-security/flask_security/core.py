@@ -7,7 +7,7 @@ Flask-Security core module
 :copyright: (c) 2012 by Matt Wright.
 :copyright: (c) 2017 by CERN.
 :copyright: (c) 2017 by ETH Zurich, Swiss Data Science Center.
-:copyright: (c) 2019-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2019-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 """
 
@@ -70,6 +70,7 @@ from .recovery_codes import (
     MfRecoveryCodesForm,
     MfRecoveryCodesUtil,
 )
+from .signals import user_failed_authn
 from .tf_plugin import TfPlugin, TwoFactorSelectForm
 from .twofactor import tf_send_security_token
 from .unified_signin import (
@@ -94,6 +95,7 @@ from .utils import _
 from .utils import config_value as cv
 from .utils import (
     FsPermNeed,
+    add_cache_control,
     csrf_cookie_handler,
     default_render_template,
     default_want_json,
@@ -196,10 +198,12 @@ _default_config: dict[str, t.Any] = {
     "POST_LOGOUT_VIEW": "/",
     "LOGIN_ERROR_VIEW": None,  # spa
     "POST_OAUTH_LOGIN_VIEW": None,  # spa
+    "POST_OAUTH_VERIFY_VIEW": None,  # spa
     "CONFIRM_ERROR_VIEW": None,  # spa
     "POST_CONFIRM_VIEW": None,  # spa
     "RESET_VIEW": None,  # spa
     "RESET_ERROR_VIEW": None,  # spa
+    "VERIFY_ERROR_VIEW": None,  # spa
     "POST_RESET_VIEW": None,
     "POST_CHANGE_VIEW": None,
     "POST_VERIFY_VIEW": None,
@@ -274,6 +278,8 @@ _default_config: dict[str, t.Any] = {
     "OAUTH_BUILTIN_PROVIDERS": ["github", "google"],
     "OAUTH_START_URL": "/login/oauthstart",
     "OAUTH_RESPONSE_URL": "/login/oauthresponse",
+    "OAUTH_VERIFY_START_URL": "/login/oauth-verify-start",
+    "OAUTH_VERIFY_RESPONSE_URL": "/login/oauth-verify-response",
     "CONFIRM_EMAIL_WITHIN": "5 days",
     "RESET_PASSWORD_WITHIN": "1 days",
     "LOGIN_WITHOUT_CONFIRMATION": False,
@@ -350,6 +356,7 @@ _default_config: dict[str, t.Any] = {
     "US_EMAIL_SUBJECT": _("Verification Code"),
     "US_SETUP_WITHIN": "30 minutes",
     "US_SIGNIN_REPLACES_LOGIN": False,
+    "CACHE_CONTROL": {"private": True, "no-store": True},
     "CSRF_PROTECT_MECHANISMS": AUTHN_MECHANISMS,
     "CSRF_IGNORE_UNAUTH_ENDPOINTS": False,
     "CSRF_COOKIE_NAME": None,
@@ -445,7 +452,7 @@ _default_messages = {
     ),
     "OAUTH_HANDSHAKE_ERROR": (
         _(
-            "An error occurred while communicating with the Oauth provider:"
+            "An error occurred while communicating with the OAuth provider:"
             " (%(exerror)s - %(exdesc)s). "
             "Please try again."
         ),
@@ -1006,7 +1013,7 @@ class UserMixin(BaseUserMixin):
 
     def get_security_payload(self) -> dict[str, t.Any]:
         """Serialize user object as response payload.
-        Override this to return any/all of the user object in JSON responses.
+        Override this to return any/all the user object in JSON responses.
         Return a dict.
         """
         return {}
@@ -1016,8 +1023,8 @@ class UserMixin(BaseUserMixin):
     ) -> dict[str, t.Any]:
         """Return user info that will be added to redirect query params.
 
-        :param existing: A dict that will be updated.
-        :return: A dict whose keys will be query params and values will be query values.
+        :param existing: Existing dict of params to update.
+        :return: A dict whose keys are query params and values are query values.
 
         The returned dict will always have an 'identity' key/value.
         If the User Model contains 'email', an 'email' key/value will be added.
@@ -1103,6 +1110,111 @@ class UserMixin(BaseUserMixin):
         except Exception:
             return get_message("FAILED_TO_SEND_CODE")[0]
         return None
+
+    def check_tf_required(
+        self, tf_setup_methods: list[tuple[str, str]], tf_fresh: bool
+    ) -> tuple[bool, list[tuple[str, str]]]:
+        """Check if current user requires two-factor authentication.
+
+        :param tf_setup_methods: A tuple of (two_factor method, label) - methods
+            the user has already set up (from all two-factor implementations)
+        :param tf_fresh: if True then user has recently completed
+            two-factor authentication on the requesting device
+        :return: Whether TFA is required for this user and a possibly augmented
+            list of allowable methods
+
+        The default implementation uses global configuration values.
+        An application could for example require two-factor authentication for users
+        with a particular role, or not require two-factor for 'new' users.
+        This is called AFTER the user has successfully authenticated.
+
+        .. versionadded:: 5.8.0
+        """
+        if cv("TWO_FACTOR_REQUIRED") or len(tf_setup_methods) > 0:
+            if cv("TWO_FACTOR_ALWAYS_VALIDATE") or not tf_fresh:
+                return True, tf_setup_methods
+        return False, tf_setup_methods
+
+    def check_tf_required_setup(self) -> bool:
+        """Check if current user requires two-factor authentication.
+        This is called as part of two-factor setup to inform the caller
+
+        N.B. this is only called from tf-setup - not from webauthn and
+        is only used to improve UX - the above method check_tf_required is the
+        definitive answer in the authentication path.
+
+        .. versionadded:: 5.8.0
+        """
+        return cv("TWO_FACTOR_REQUIRED")
+
+    def track_failed_authn(self, auth_type: str, tfa: bool = False) -> None:
+        """Called when a user fails to authenticate.
+
+        The following flask-Security endpoints call this:
+
+            - security.login
+            - security.verify
+            - security.us_signin
+            - security.us_verify
+            - security.us_verify_link
+            - security.wan_signin_response
+            - security.wan_verify_response
+            - security.two_factor_token_validation
+
+        auth_type is what failed:
+
+            - password
+            - passcode (unified signin)
+            - passkey (webauthn)
+
+        tfa - True if it was a second factor that failed
+
+        This is called any time a credential is presented but is not verifiable.
+        It is NOT called on API errors or missing data.
+
+        Use Flask's request proxy to get information such as endpoint. Note that
+        it is possible there isn't a Flask Request if this is called from the cli.
+
+        The default implementation sends the user_failed_authn signal.
+
+        .. versionadded:: 5.8.0
+        """
+        user_failed_authn.send(
+            current_app._get_current_object(),  # type: ignore[attr-defined]
+            _async_wrapper=current_app.ensure_sync,
+            user=self,
+            auth_type=auth_type,
+            tfa=tfa,
+        )
+
+    def is_locked(self, form_error: list[str] | None = None) -> bool:
+        """
+        Return True if the user account is locked.
+
+        It is called from the following endpoints:
+
+            - security.login
+            - security.us_signin
+            - security.forgot_password
+            - security.recover_username
+            - security.wan_signin_response
+            - oauthresponse
+
+        For authentication endpoints it is called AFTER the credentials have been
+        verified, and AFTER the check whether the user is disabled/deactivated
+        but before the check for confirmation required.
+
+        form_error is a list that could be associated with a form - used to convey
+        any error messages.
+
+        .. tip::
+          This does not prevent an already authenticated user from continuing to access
+          the system. Think of it similar to the confirmation sequence.
+          See :meth:`.UserDatastore.deactivate_user`.
+
+        .. versionadded:: 5.8.0
+        """
+        return True
 
 
 class WebAuthnMixin:
@@ -1707,6 +1819,8 @@ class Security:
             self.two_factor_plugins.create_blueprint(app, bp, self)
             if self.oauthglue:
                 self.oauthglue._create_blueprint(app, bp)
+            if cv("CACHE_CONTROL", app=app):
+                bp.after_app_request(add_cache_control)
             app.register_blueprint(bp)
             app.context_processor(_context_processor)
 
@@ -1979,7 +2093,7 @@ class Security:
         Can raise an exception if it is handled as part of
         flask.errorhandler(<exception>)
 
-        With the passed parameters the application could deliver a concise error
+        With the passed parameters, the application could deliver a concise error
         message.
 
         .. versionadded:: 3.3.0
@@ -1994,7 +2108,8 @@ class Security:
         cb: t.Callable[[list[str], dict[str, str] | None], ResponseValue],
     ) -> None:
         """
-        Callback for failed authentication.
+        Callback when a protected endpoint is accessed without the required
+        authentication.
         This is called by :func:`auth_required`, :func:`auth_token_required`
         or :func:`http_auth_required` if authentication fails.
         It is also called from Flask-Login's @login_required decorator.
@@ -2009,7 +2124,8 @@ class Security:
         ``flask.errorhandler(<exception>)``
 
         The default implementation will return a 401 response if the request was JSON,
-        otherwise will redirect to the `login` view.
+        otherwise will redirect to the `login` view. In addition, the
+        :data:`user_unauthenticated` signal is sent.
 
         .. versionadded:: 3.3.0
 

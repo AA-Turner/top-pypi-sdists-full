@@ -37856,6 +37856,8 @@ class Client(OpenApiClient):
             query['AutoRenew'] = request.auto_renew
         if not DaraCore.is_null(request.auto_use_coupon):
             query['AutoUseCoupon'] = request.auto_use_coupon
+        if not DaraCore.is_null(request.business_info):
+            query['BusinessInfo'] = request.business_info
         if not DaraCore.is_null(request.client_token):
             query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.create_ack_edge_param_shrink):
@@ -37982,6 +37984,8 @@ class Client(OpenApiClient):
             query['AutoRenew'] = request.auto_renew
         if not DaraCore.is_null(request.auto_use_coupon):
             query['AutoUseCoupon'] = request.auto_use_coupon
+        if not DaraCore.is_null(request.business_info):
+            query['BusinessInfo'] = request.business_info
         if not DaraCore.is_null(request.client_token):
             query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.create_ack_edge_param_shrink):

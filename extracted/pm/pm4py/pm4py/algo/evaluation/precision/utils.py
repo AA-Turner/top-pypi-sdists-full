@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -99,7 +99,10 @@ def __search(sync_net, ini, fin, stop, cost_function, skip):
             if not (
                 t is None
                 or utils.__is_log_move(t, skip)
-                or (utils.__is_model_move(t, skip) and not t.label[1] is None)
+                or (
+                    utils.__is_model_move(t, skip)
+                    and t.label[1] is not None
+                )
             )
         ]
 

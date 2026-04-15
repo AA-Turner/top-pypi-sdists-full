@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-forms-workflows
-Version: 0.65.0
+Version: 0.69.0
 Summary: Enterprise-grade, database-driven form builder with approval workflows and external data integration
 License: LGPL-3.0-only
 License-File: LICENSE
@@ -21,6 +21,7 @@ Provides-Extra: docs
 Provides-Extra: excel
 Provides-Extra: gmail
 Provides-Extra: ldap
+Provides-Extra: markdown
 Provides-Extra: mssql
 Provides-Extra: mysql
 Provides-Extra: pdf
@@ -39,6 +40,7 @@ Requires-Dist: django-localflavor (>=4.0) ; extra == "picklists" or extra == "al
 Requires-Dist: django-nested-admin (>=4.0)
 Requires-Dist: google-api-python-client (>=2.100) ; extra == "gmail" or extra == "all"
 Requires-Dist: google-auth (>=2.20) ; extra == "gmail" or extra == "all"
+Requires-Dist: markdown (>=3.4) ; extra == "markdown" or extra == "all"
 Requires-Dist: mssql-django (>=1.3) ; extra == "mssql" or extra == "all"
 Requires-Dist: mysqlclient (>=2.2) ; extra == "mysql" or extra == "all"
 Requires-Dist: openpyxl (>=3.1) ; extra == "excel" or extra == "all"

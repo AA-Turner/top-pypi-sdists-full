@@ -1,8 +1,8 @@
 """
-Copyright 2020-2024 by J. Christopher Wagner (jwag). All rights reserved.
+Copyright 2020-2026 by J. Christopher Wagner (jwag). All rights reserved.
 :license: MIT, see LICENSE for more details.
 
-A simple example of utilizing Flask-Security's oauth glue layer.
+A simple example of utilizing Flask-Security's OAuth glue layer.
 
 In addition, this example uses unified signin to allow for passwordless registration.
 So users can log in only via social auth OR an email link.
@@ -14,12 +14,13 @@ unified sign in with email, we hack a Mail handler that flashes the contents of 
 
 This example is designed for a browser based client.
 
-This example uses github as the oauth provider. Before this example will work:
-1) on github register a new oauth application and grab the CLIENT_ID and CLIENT_SECRET.
+This example uses github as the OAuth provider. Before this example will work:
+1) on github register a new OAuth application and grab the CLIENT_ID and CLIENT_SECRET.
    These must be passed in as env variables:
     "GITHUB_CLIENT_ID" and "GITHUB_CLIENT_SECRET".
    See: https://docs.authlib.org/en/latest/client/flask.html# for details.
    (look under profile->settings->developer settings)
+   The redirect_url should be set to https://<your app>/login
 2) Register yourself (with your github email) with this application.
 
 Note: by default this uses an in-memory DB - so everytime you restart you lose all
@@ -90,6 +91,7 @@ def create_app():
     app.config["SECURITY_TOTP_SECRETS"] = {
         "1": "TjQ9Qa31VOrfEzuPy4VHQWPCTmRzCnFzMKLxXYiZu9B"
     }
+    app.config["SECURITY_TOTP_ISSUER"] = "me"
     # app.config["SESSION_COOKIE_SAMESITE"] = "strict"
 
     # As of Flask-SQLAlchemy 2.4.0 it is easy to pass in options directly to the
@@ -100,7 +102,7 @@ def create_app():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
 
-    # Turn on Oauth glue (github only), passwordless registration (with email link)
+    # Turn on OAuth glue (github only), passwordless registration (with email link)
     app.config["SECURITY_REGISTERABLE"] = True
     app.config["SECURITY_OAUTH_ENABLE"] = True
     app.config["SECURITY_UNIFIED_SIGNIN"] = True
@@ -138,6 +140,13 @@ def create_app():
     @auth_required()
     def home():
         return render_template_string("Hello {{ current_user.email }}")
+
+    @app.route("/superfresh")
+    @auth_required(within=1, grace=0)
+    def superfresh():
+        return render_template_string(
+            "Hello {{ current_user.email }} you are super fresh!"
+        )
 
     @app.route("/")
     def root():

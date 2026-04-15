@@ -4,7 +4,7 @@ test_utils
 
 Test utils
 
-:copyright: (c) 2019-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2019-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 """
 
@@ -29,7 +29,6 @@ from flask_security.signals import (
     tf_security_token_sent,
     user_registered,
     us_security_token_sent,
-    username_recovery_email_sent,
 )
 from flask_security.utils import hash_data, hash_password
 
@@ -92,6 +91,8 @@ def verify_token(client_nc, token, status=None):
         "/token",
         headers={"Content-Type": "application/json", "Authentication-Token": token},
     )
+    assert response.cache_control.private
+    assert response.cache_control.no_store
     if status:
         assert response.status_code == status
     else:
@@ -164,6 +165,7 @@ def get_existing_session(client):
         serializer = URLSafeTimedSerializer("secret", serializer=TaggedJSONSerializer())
         val = serializer.loads_unsafe(cookie.value)
         return val[1]
+    return None
 
 
 def reset_fresh(client, within):
@@ -379,12 +381,8 @@ def capture_registrations():
 
 
 @contextmanager
-def capture_reset_password_requests(reset_password_sent_at=None):
-    """Testing utility for capturing password reset requests.
-
-    :param reset_password_sent_at: An optional datetime object to set the
-                                   user's `reset_password_sent_at` to
-    """
+def capture_reset_password_requests():
+    """Testing utility for capturing password reset requests."""
     reset_requests = []
 
     def _on(app, **data):
@@ -398,20 +396,32 @@ def capture_reset_password_requests(reset_password_sent_at=None):
         reset_password_instructions_sent.disconnect(_on)
 
 
-@contextmanager
-def capture_username_recovery_requests():
-    """Testing utility for capturing username recovery requests."""
-    recovery_requests = []
-
-    def _on(app, **data):
-        recovery_requests.append(data)
-
-    username_recovery_email_sent.connect(_on)
-
-    try:
-        yield recovery_requests
-    finally:
-        username_recovery_email_sent.disconnect(_on)
+def check_signals(
+    signals: dict,
+    expected: str | list | dict[str, int] | None = None,
+    ignore: str | list[str] | None = None,
+) -> None:
+    # Check if test received expected # of signals.
+    # Expected can be a string (signal name), list of strings or
+    # dict of signal name to expected count.
+    # Use with the signals fixture
+    if not expected:
+        expected = dict()
+    elif isinstance(expected, str):
+        expected = {expected: 1}
+    elif isinstance(expected, list):
+        expected = {sig: 1 for sig in expected}
+    if not ignore:
+        ignore = ["user_authenticated"]  # this is too common in tests to worry about
+    elif isinstance(ignore, str):
+        ignore = [ignore]
+    for sig in signals:
+        if sig not in ignore:
+            expected_calls = expected.get(sig, 0)
+            actual_calls = len(signals[sig])
+            assert (
+                expected_calls == actual_calls
+            ), f"Expected {expected_calls} calls to {sig} but got {actual_calls}"
 
 
 @contextmanager

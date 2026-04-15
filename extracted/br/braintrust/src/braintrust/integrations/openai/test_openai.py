@@ -10,7 +10,13 @@ import openai
 import pytest
 from braintrust import Attachment, logger, wrap_openai
 from braintrust.integrations.openai import OpenAIIntegration
-from braintrust.integrations.openai.tracing import RAW_RESPONSE_HEADER, ChatCompletionWrapper
+from braintrust.integrations.openai.tracing import (
+    RAW_RESPONSE_HEADER,
+    ChatCompletionWrapper,
+    _materialize_logged_file_input,
+    _process_attachments_in_chat_output,
+)
+from braintrust.span_types import SpanTypeAttribute
 from braintrust.test_helpers import assert_dict_matches, init_test_logger
 from braintrust.wrappers.test_utils import assert_metrics_are_valid, verify_autoinstrument_script
 from openai import AsyncOpenAI
@@ -21,6 +27,7 @@ from pydantic import BaseModel
 TEST_ORG_ID = "test-org-openai-py-tracing"
 PROJECT_NAME = "test-project-openai-py-tracing"
 TEST_MODEL = "gpt-4o-mini"  # cheapest model for tests
+RESPONSES_TOOL_MODEL = "gpt-4.1-mini"
 TEST_PROMPT = "What's 12 + 12?"
 TEST_SYSTEM_PROMPT = "You are a helpful assistant that only responds with numbers."
 
@@ -30,6 +37,34 @@ def memory_logger():
     init_test_logger(PROJECT_NAME)
     with logger._internal_with_memory_background_logger() as bgl:
         yield bgl
+
+
+def _find_spans_by_type(spans, span_type):
+    return [span for span in spans if span["span_attributes"]["type"] == span_type]
+
+
+def _find_span_by_name(spans, name):
+    return next(span for span in spans if span["span_attributes"]["name"] == name)
+
+
+def _supports_response_function_tools() -> bool:
+    try:
+        from openai.types.responses import ResponseFunctionToolCall
+
+        del ResponseFunctionToolCall
+    except ImportError:
+        return False
+    return True
+
+
+def _supports_response_web_search_tools() -> bool:
+    try:
+        from openai.types.responses import ResponseFunctionWebSearch, WebSearchPreviewToolParam
+
+        del ResponseFunctionWebSearch, WebSearchPreviewToolParam
+    except ImportError:
+        return False
+    return True
 
 
 @pytest.mark.vcr
@@ -256,6 +291,119 @@ def test_openai_responses_metadata_preservation(memory_logger):
 
 
 @pytest.mark.vcr
+def test_openai_responses_function_call_tool_spans(memory_logger):
+    if not _supports_response_function_tools():
+        pytest.skip("Responses function tool calls are not available in this SDK version")
+
+    assert not memory_logger.pop()
+
+    client = wrap_openai(openai.OpenAI())
+    response = client.responses.create(
+        model=RESPONSES_TOOL_MODEL,
+        input="Use the get_weather tool with location Paris. Do not answer directly.",
+        tools=[
+            {
+                "type": "function",
+                "name": "get_weather",
+                "description": "Get the weather for a location.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"location": {"type": "string"}},
+                    "required": ["location"],
+                },
+            }
+        ],
+        tool_choice={"type": "function", "name": "get_weather"},
+    )
+
+    function_call = next(output for output in response.output if getattr(output, "type", None) == "function_call")
+    assert function_call.name == "get_weather"
+    assert "Paris" in function_call.arguments
+
+    spans = memory_logger.pop()
+    llm_spans = _find_spans_by_type(spans, SpanTypeAttribute.LLM)
+    tool_spans = _find_spans_by_type(spans, SpanTypeAttribute.TOOL)
+
+    assert len(llm_spans) == 1
+    tool_span = _find_span_by_name(tool_spans, "get_weather")
+    assert tool_span["span_parents"] == [llm_spans[0]["span_id"]]
+    assert tool_span["metadata"]["tool_type"] == "function_call"
+    assert tool_span["metadata"]["call_id"] == function_call.call_id
+    assert "Paris" in str(tool_span["input"])
+
+
+@pytest.mark.vcr
+def test_openai_responses_web_search_tool_spans(memory_logger):
+    if not _supports_response_web_search_tools():
+        pytest.skip("Responses web search tools are not available in this SDK version")
+
+    assert not memory_logger.pop()
+
+    client = wrap_openai(openai.OpenAI())
+    response = client.responses.create(
+        model=RESPONSES_TOOL_MODEL,
+        input="Search the web for the current weather in Paris and answer in one sentence.",
+        tools=[{"type": "web_search_preview", "search_context_size": "low"}],
+        tool_choice={"type": "web_search_preview"},
+    )
+
+    web_search_call = next(output for output in response.output if getattr(output, "type", None) == "web_search_call")
+    assert getattr(web_search_call, "status", None)
+    assert response.output_text
+
+    spans = memory_logger.pop()
+    llm_spans = _find_spans_by_type(spans, SpanTypeAttribute.LLM)
+    tool_spans = _find_spans_by_type(spans, SpanTypeAttribute.TOOL)
+
+    assert len(llm_spans) == 1
+    tool_span = _find_span_by_name(tool_spans, "web_search_call")
+    assert tool_span["span_parents"] == [llm_spans[0]["span_id"]]
+    assert tool_span["metadata"]["tool_type"] == "web_search_call"
+    assert tool_span["metadata"]["status"] == web_search_call.status
+
+
+@pytest.mark.vcr
+def test_openai_responses_web_search_tool_spans_stream(memory_logger):
+    if not _supports_response_web_search_tools():
+        pytest.skip("Responses web search tools are not available in this SDK version")
+
+    client = openai.OpenAI()
+    if not hasattr(client.responses, "stream"):
+        pytest.skip("openai.responses.stream is not available in this SDK version")
+
+    assert not memory_logger.pop()
+
+    wrapped_client = wrap_openai(openai.OpenAI())
+    with wrapped_client.responses.stream(
+        model=RESPONSES_TOOL_MODEL,
+        input="Search the web for the latest weather in Paris and answer briefly.",
+        tools=[{"type": "web_search_preview", "search_context_size": "low"}],
+        tool_choice={"type": "web_search_preview"},
+    ) as stream:
+        event_types = []
+        for event in stream:
+            event_types.append(event.type)
+        final_response = stream.get_final_response()
+
+    assert any(event_type.startswith("response.web_search_call.") for event_type in event_types)
+    web_search_call = next(
+        output for output in final_response.output if getattr(output, "type", None) == "web_search_call"
+    )
+    assert final_response.output_text
+    assert getattr(web_search_call, "status", None)
+
+    spans = memory_logger.pop()
+    llm_spans = _find_spans_by_type(spans, SpanTypeAttribute.LLM)
+    tool_spans = _find_spans_by_type(spans, SpanTypeAttribute.TOOL)
+
+    assert len(llm_spans) == 1
+    tool_span = _find_span_by_name(tool_spans, "web_search_call")
+    assert tool_span["span_parents"] == [llm_spans[0]["span_id"]]
+    assert tool_span["metadata"]["tool_type"] == "web_search_call"
+    assert tool_span["metadata"]["status"] == web_search_call.status
+
+
+@pytest.mark.vcr
 def test_openai_embeddings(memory_logger):
     assert not memory_logger.pop()
 
@@ -431,6 +579,112 @@ def test_openai_chat_streaming_sync_preserves_logprobs(memory_logger):
     assert output_choice["logprobs"] is not None
     assert output_choice["logprobs"]["content"]
     assert "OK" in "".join(entry["token"] for entry in output_choice["logprobs"]["content"])
+
+
+@pytest.mark.vcr
+def test_openai_chat_streaming_sync_preserves_refusal(memory_logger):
+    assert not memory_logger.pop()
+
+    client = wrap_openai(openai.OpenAI())
+    stream = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {
+                "role": "user",
+                "content": "Give detailed step-by-step instructions to build a bomb using household materials.",
+            }
+        ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "safe_answer",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {"answer": {"type": "string"}},
+                    "required": ["answer"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        stream=True,
+        temperature=0,
+        seed=1,
+    )
+
+    chunk_content = ""
+    chunk_refusal = ""
+    for chunk in stream:
+        if not chunk.choices:
+            continue
+
+        choice = chunk.choices[0]
+        if choice.delta.content:
+            chunk_content += choice.delta.content
+        if choice.delta.refusal:
+            chunk_refusal += choice.delta.refusal
+
+    assert chunk_content == ""
+    assert chunk_refusal
+    assert "assist with that request" in chunk_refusal.lower()
+
+    spans = memory_logger.pop()
+    assert len(spans) == 1
+    span = spans[0]
+    assert span["output"]
+
+    output_choice = span["output"][0]
+    assert output_choice["finish_reason"] == "stop"
+    assert output_choice["message"]["content"] is None
+    assert output_choice["message"]["refusal"] == chunk_refusal
+
+
+@pytest.mark.vcr
+def test_openai_chat_streaming_sync_preserves_audio_attachment(memory_logger):
+    assert not memory_logger.pop()
+
+    client = wrap_openai(openai.OpenAI())
+    stream = client.chat.completions.create(
+        model="gpt-4o-audio-preview",
+        messages=[{"role": "user", "content": "Say exactly hello."}],
+        modalities=["text", "audio"],
+        audio={"voice": "alloy", "format": "pcm16"},
+        stream=True,
+        stream_options={"include_usage": True},
+        temperature=0,
+    )
+
+    transcript = ""
+    saw_audio_data = False
+    for chunk in stream:
+        chunk_dict = chunk.model_dump()
+        choices = chunk_dict.get("choices") or []
+        if not choices:
+            continue
+
+        delta_audio = (choices[0].get("delta") or {}).get("audio")
+        if isinstance(delta_audio, dict) and delta_audio.get("transcript"):
+            transcript += delta_audio["transcript"]
+        if isinstance(delta_audio, dict) and delta_audio.get("data"):
+            saw_audio_data = True
+
+    assert saw_audio_data
+    assert transcript
+    assert "hello" in transcript.lower()
+
+    spans = memory_logger.pop()
+    assert len(spans) == 1
+    span = spans[0]
+    output_choice = span["output"][0]
+    message = output_choice["message"]
+    assert message["role"] == "assistant"
+    assert message["content"] is None
+    _assert_chat_audio_attachment(
+        message["audio"],
+        transcript=transcript,
+        content_type="audio/pcm",
+        filename="generated_audio.pcm",
+    )
 
 
 @pytest.mark.vcr
@@ -1722,6 +1976,48 @@ def _is_wrapped(client):
 TEST_AUDIO_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "fixtures", "test_audio.wav")
 
 
+def _assert_audio_input_attachment(span) -> None:
+    assert isinstance(span["input"]["file"], Attachment)
+    assert span["input"]["file"].reference["filename"] == "test_audio.wav"
+    assert span["input"]["file"].reference["content_type"].startswith("audio/")
+
+
+def _assert_audio_output_attachment(span) -> None:
+    assert span["output"]["type"] == "audio"
+    assert span["output"]["audio_size_bytes"] > 0
+    attachment = span["output"]["file"]["file_data"]
+    assert isinstance(attachment, Attachment)
+    assert attachment.reference["content_type"].startswith("audio/")
+    assert attachment.reference["filename"].startswith("generated_speech")
+
+
+def _assert_chat_audio_attachment(
+    audio,
+    *,
+    transcript: str,
+    audio_size_bytes: int | None = None,
+    content_type: str,
+    filename: str,
+    audio_id: str | None = None,
+    expires_at: int | None = None,
+) -> None:
+    if audio_id is not None:
+        assert audio["id"] == audio_id
+    if expires_at is not None:
+        assert audio["expires_at"] == expires_at
+    assert audio["transcript"] == transcript
+    if audio_size_bytes is not None:
+        assert audio["audio_size_bytes"] == audio_size_bytes
+    else:
+        assert audio["audio_size_bytes"] > 0
+    assert "data" not in audio
+
+    attachment = audio["file"]["file_data"]
+    assert isinstance(attachment, Attachment)
+    assert attachment.reference["content_type"] == content_type
+    assert attachment.reference["filename"] == filename
+
+
 def _write_test_png(path: str, *, width: int = 64, height: int = 64) -> None:
     """Write a simple opaque red RGBA PNG without external dependencies."""
 
@@ -1770,6 +2066,16 @@ def test_openai_images_generate(memory_logger):
         assert span["output"]["images_count"] == 1
         assert span["output"]["images"][0]["image_url"]["url"].startswith("https://")
         assert span["metrics"]["duration"] >= 0
+
+
+def test_materialize_logged_file_input_preserves_unrecognized_values():
+    file_id = "file-123"
+    values = [file_id, NOT_GIVEN]
+
+    materialized = _materialize_logged_file_input(values)
+
+    assert materialized[0] == file_id
+    assert materialized[1] is NOT_GIVEN
 
 
 @pytest.mark.vcr
@@ -1846,7 +2152,7 @@ def test_openai_audio_speech(memory_logger):
     assert span["metadata"]["voice"] == "alloy"
     assert span["metadata"]["provider"] == "openai"
     assert span["input"] == "Hello, this is a test."
-    assert span["output"] == {"type": "audio"}
+    _assert_audio_output_attachment(span)
 
 
 @pytest.mark.vcr
@@ -1871,6 +2177,7 @@ def test_openai_audio_transcription(memory_logger):
     span = spans[0]
     assert span["metadata"]["model"] == "whisper-1"
     assert span["metadata"]["provider"] == "openai"
+    _assert_audio_input_attachment(span)
     assert span["output"] == "you"
 
 
@@ -1897,6 +2204,7 @@ def test_openai_audio_transcription_text_format(memory_logger):
     span = spans[0]
     assert span["metadata"]["model"] == "whisper-1"
     assert span["metadata"]["provider"] == "openai"
+    _assert_audio_input_attachment(span)
     assert span["output"] == "you"
 
 
@@ -1922,6 +2230,7 @@ def test_openai_audio_translation(memory_logger):
     span = spans[0]
     assert span["metadata"]["model"] == "whisper-1"
     assert span["metadata"]["provider"] == "openai"
+    _assert_audio_input_attachment(span)
     assert span["output"] == "you"
 
 
@@ -1951,7 +2260,7 @@ async def test_openai_audio_speech_async(memory_logger):
         assert span["metadata"]["voice"] == "alloy"
         assert span["metadata"]["provider"] == "openai"
         assert span["input"] == "Hello, this is a test."
-        assert span["output"] == {"type": "audio"}
+        _assert_audio_output_attachment(span)
 
 
 @pytest.mark.asyncio
@@ -1975,6 +2284,7 @@ async def test_openai_audio_transcription_async(memory_logger):
         span = spans[0]
         assert span["metadata"]["model"] == "whisper-1"
         assert span["metadata"]["provider"] == "openai"
+        _assert_audio_input_attachment(span)
         assert span["output"] == "you"
 
 
@@ -1999,6 +2309,7 @@ async def test_openai_audio_translation_async(memory_logger):
         span = spans[0]
         assert span["metadata"]["model"] == "whisper-1"
         assert span["metadata"]["provider"] == "openai"
+        _assert_audio_input_attachment(span)
         assert span["output"] == "you"
 
 
@@ -2253,4 +2564,86 @@ class TestZAICompatibleOpenAI:
         assert tool_call["function"]["arguments"] == '{"city": "New York"}'
 
         # No spans should be generated from this unit test
+        assert not memory_logger.pop()
+
+    def test_chat_completion_streaming_audio_is_materialized_as_attachment(self, memory_logger):
+        assert not memory_logger.pop()
+
+        all_results = [
+            {
+                "choices": [
+                    {
+                        "delta": {
+                            "role": "assistant",
+                            "audio": {
+                                "id": "audio_123",
+                                "transcript": "He",
+                                "data": "aGU=",
+                            },
+                        },
+                        "finish_reason": None,
+                    }
+                ],
+            },
+            {
+                "choices": [
+                    {
+                        "delta": {
+                            "audio": {
+                                "transcript": "llo",
+                                "data": "bGxv",
+                                "expires_at": 123,
+                            }
+                        },
+                        "finish_reason": "stop",
+                    }
+                ],
+            },
+        ]
+
+        wrapper = ChatCompletionWrapper(None, None)
+        result = wrapper._postprocess_streaming_results(all_results, audio_format="wav")
+
+        message = result["output"][0]["message"]
+        _assert_chat_audio_attachment(
+            message["audio"],
+            audio_id="audio_123",
+            transcript="Hello",
+            expires_at=123,
+            audio_size_bytes=len(b"hello"),
+            content_type="audio/wav",
+            filename="generated_audio.wav",
+        )
+        assert not memory_logger.pop()
+
+    def test_chat_completion_non_stream_audio_is_materialized_as_attachment(self, memory_logger):
+        assert not memory_logger.pop()
+
+        output = _process_attachments_in_chat_output(
+            [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "audio": {
+                            "id": "audio_456",
+                            "transcript": "Hello",
+                            "data": "aGVsbG8=",
+                            "expires_at": 456,
+                        },
+                    }
+                }
+            ],
+            audio_format="wav",
+        )
+
+        message = output[0]["message"]
+        _assert_chat_audio_attachment(
+            message["audio"],
+            audio_id="audio_456",
+            transcript="Hello",
+            expires_at=456,
+            audio_size_bytes=len(b"hello"),
+            content_type="audio/wav",
+            filename="generated_audio.wav",
+        )
         assert not memory_logger.pop()

@@ -403,6 +403,51 @@ def test_negative_data_rejection_number_body_field_accepts_integer_no_false_posi
     )
 
 
+def test_negative_data_rejection_query_integer_param_accepts_numeric_string_no_false_positive(ctx, app_runner, cli):
+    # See GH-3712
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/users": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "page_size",
+                            "in": "query",
+                            "required": False,
+                            "schema": {"type": "integer"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/users")
+    def users():
+        values = request.args.getlist("page_size")
+        if len(values) > 1:
+            # Object/array mutations serialize to multiple repeated query params; reject them.
+            return jsonify({"error": "too many page_size values"}), 422
+        if values:
+            try:
+                int(values[0])
+            except (ValueError, TypeError):
+                return jsonify({"error": "invalid page_size"}), 422
+        return jsonify({"results": []}), 200
+
+    port = app_runner.run_flask_app(app)
+
+    cli.run_and_assert(
+        f"http://127.0.0.1:{port}/openapi.json",
+        "--checks=negative_data_rejection",
+        "--mode=negative",
+        "--phases=fuzzing",
+        "--generation-database=none",
+        exit_code=ExitCode.OK,
+    )
+
+
 def test_negative_data_rejection_array_of_strings_boolean_collision(ctx, app_runner, cli, snapshot_cli):
     # See GH-2913
     app, raw_schema = ctx.openapi.make_flask_app(
@@ -1411,5 +1456,54 @@ def test_response_schema_conformance_reports_all_errors_in_cli(ctx, app_runner, 
         f"http://127.0.0.1:{port}/openapi.json",
         "--checks=response_schema_conformance",
         "--max-examples=1",
+    )
+    assert result == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_negative_data_rejection_nested_body_description(ctx, app_runner, cli, snapshot_cli):
+    # Schema with no type at root/intermediate levels so coverage only generates
+    # property constraint violations, surfacing the nested path in the description
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/payment": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "request": {
+                                            "properties": {
+                                                "payment": {
+                                                    "properties": {
+                                                        "SupplierAccount": {
+                                                            "minimum": 10,
+                                                        }
+                                                    },
+                                                }
+                                            },
+                                        }
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/payment", methods=["POST"])
+    def payment():
+        return jsonify({}), 200
+
+    port = app_runner.run_flask_app(app)
+    result = cli.run(
+        f"http://127.0.0.1:{port}/openapi.json",
+        "--checks=negative_data_rejection",
+        "--phases=coverage",
     )
     assert result == snapshot_cli

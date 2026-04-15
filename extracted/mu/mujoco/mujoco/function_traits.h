@@ -198,6 +198,17 @@ struct mj_parse {
   }
 };
 
+struct mj_encode {
+  static constexpr char name[] = "mj_encode";
+  static constexpr char doc[] = "Encode spec/model to a file using a registered encoder. Returns the number of bytes written on success, -1 on failure.";
+  using type = int (const mjSpec *, const mjModel *, const char *, const char *, const mjVFS *, char *, int);
+  static constexpr auto param_names = std::make_tuple("s", "m", "filename", "content_type", "vfs", "error", "error_sz");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_encode;
+  }
+};
+
 struct mj_compile {
   static constexpr char name[] = "mj_compile";
   static constexpr char doc[] = "Compile spec to model.";
@@ -1642,7 +1653,7 @@ struct mj_objectAcceleration {
 struct mj_geomDistance {
   static constexpr char name[] = "mj_geomDistance";
   static constexpr char doc[] = "Return smallest signed distance between two geoms and optionally segment from geom1 to geom2.";
-  using type = mjtNum (const mjModel *, const mjData *, int, int, mjtNum, mjtNum (*)[6]);
+  using type = mjtNum (const mjModel *, mjData *, int, int, mjtNum, mjtNum (*)[6]);
   static constexpr auto param_names = std::make_tuple("m", "d", "geom1", "geom2", "distmax", "fromto");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4048,6 +4059,39 @@ struct mjp_findDecoder {
   }
 };
 
+struct mjp_registerEncoder {
+  static constexpr char name[] = "mjp_registerEncoder";
+  static constexpr char doc[] = "Globally register an encoder. This function is thread-safe. If an identical mjpEncoder is already registered, this function does nothing. If a non-identical mjpEncoder with the same name is already registered, an mju_error is raised.";
+  using type = void (const mjpEncoder *);
+  static constexpr auto param_names = std::make_tuple("encoder");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjp_registerEncoder;
+  }
+};
+
+struct mjp_defaultEncoder {
+  static constexpr char name[] = "mjp_defaultEncoder";
+  static constexpr char doc[] = "Set default resource encoder definition.";
+  using type = void (mjpEncoder *);
+  static constexpr auto param_names = std::make_tuple("encoder");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjp_defaultEncoder;
+  }
+};
+
+struct mjp_findEncoder {
+  static constexpr char name[] = "mjp_findEncoder";
+  static constexpr char doc[] = "Return the encoder that matches against the content type or filename extension. If no match, return NULL.";
+  using type = const mjpEncoder * (const char *, const char *);
+  static constexpr auto param_names = std::make_tuple("filename", "content_type");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjp_findEncoder;
+  }
+};
+
 struct mju_openResource {
   static constexpr char name[] = "mju_openResource";
   static constexpr char doc[] = "Open a resource; if the name doesn't have a prefix matching a registered resource provider, then the OS filesystem is used.";
@@ -4562,6 +4606,17 @@ struct mjs_setToAdhesion {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjs_setToAdhesion;
+  }
+};
+
+struct mjs_setToDCMotor {
+  static constexpr char name[] = "mjs_setToDCMotor";
+  static constexpr char doc[] = "Set actuator to DC motor; return error if any.";
+  using type = const char * (mjsActuator *, double (*)[2], double, double (*)[3], double (*)[3], double (*)[2], double (*)[3], double (*)[6], double (*)[6], double (*)[5], int);
+  static constexpr auto param_names = std::make_tuple("actuator", "motorconst", "resistance", "nominal", "saturation", "inductance", "cogging", "controller", "thermal", "lugre", "input_mode");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return *reinterpret_cast<type*>(&::mjs_setToDCMotor);
   }
 };
 

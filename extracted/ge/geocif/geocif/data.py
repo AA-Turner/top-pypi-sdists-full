@@ -34,7 +34,7 @@ def ensure_metadata(parser):
         logger.debug("Pooch not configured — skipping metadata download.")
         return
 
-    logger.info("Downloading metadata from %s ...", url)
+    logger.info(f"Downloading metadata from {url} ...")
     metadata_root.mkdir(parents=True, exist_ok=True)
 
     pooch.retrieve(
@@ -44,4 +44,4 @@ def ensure_metadata(parser):
         path=str(metadata_root),
         processor=pooch.Unzip(extract_dir=str(metadata_root)),
     )
-    logger.info("Metadata extracted to %s", metadata_root)
+    logger.info(f"Metadata extracted to {metadata_root}")

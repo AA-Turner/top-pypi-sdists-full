@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -150,9 +150,9 @@ def is_valid_order(po, dfg_graph, efg):
 
         for a in group_1:
             for b in group_2:
-                if not (a, b) in efg:
+                if (a, b) not in efg:
                     all_ef_g1_g2 = False
-                if not (b, a) in efg:
+                if (b, a) not in efg:
                     all_ef_g2_g1 = False
         if all_ef_g1_g2 and all_ef_g2_g1 and (edge_g1_g2 or edge_g2_g1):
             return False

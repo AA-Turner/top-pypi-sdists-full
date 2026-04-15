@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -23,7 +23,8 @@ from graphviz import Digraph
 from enum import Enum
 from pm4py.util import exec_utils
 from pm4py.visualization.ocel.ocpn.variants import wo_decoration, brachmann
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
+from pm4py.objects.ocpn.obj import OCPetriNet
 from pm4py.visualization.common import gview
 from pm4py.visualization.common import save as gsave
 
@@ -34,7 +35,7 @@ class Variants(Enum):
 
 
 def apply(
-    ocpn: Dict[str, Any],
+    ocpn: Union[Dict[str, Any], OCPetriNet],
     variant=Variants.WO_DECORATION,
     parameters: Optional[Dict[Any, Any]] = None,
 ) -> Digraph:

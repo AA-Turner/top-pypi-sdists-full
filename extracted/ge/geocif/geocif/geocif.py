@@ -1417,7 +1417,7 @@ class Geocif:
         )
         
         if self.check_yield_trend:
-            y_pred = self._retrend_predictions(y_pred, df_region)
+            y_pred, y_pred_ci = self._retrend_predictions(y_pred, df_region, y_pred_ci)
 
         if getattr(self, 'countries_pooled', None):
             experiment_id = f"pooled_{self.crop}"
@@ -1466,15 +1466,43 @@ class Geocif:
 
     def _preprocess_test_data(self, X_test: pd.DataFrame, scaler) -> pd.DataFrame:
         """Preprocess test data based on model requirements."""
-        if self.model_name in ["linear", "gam"]:
+        if self.model_name == "linear":
             X_test = X_test.drop(
                 columns=[item for item in self.cat_features if item != "Harvest Year"]
             )
             return scaler.transform(X_test)
-        
+
+        if self.model_name == "gam":
+            # Align to GAMFitter's surviving fit columns (Harvest Year /
+            # Region_ID / Region dropped).  No rescaling — pygam splines
+            # handle raw numeric ranges.
+            fit_cols = getattr(self, "_gam_fit_cols", None)
+            if fit_cols is not None:
+                return X_test.reindex(columns=fit_cols)
+            return X_test.drop(columns=list(GAMFitter._DROP_COLS), errors="ignore")
+
+        if self.model_name == "cubist":
+            # Align to the surviving fit-time columns (zero-variance cols
+            # were dropped in CubistFitter.fit to avoid "attribute X has
+            # only one value Y" errors from Cubist's .names spec).  Also
+            # fill NaNs — Cubist's C wrapper barfs on float-NaN in
+            # string-coerced columns at predict time.
+            fit_cols = getattr(self, "_cubist_fit_cols", None)
+            X = X_test.reindex(columns=fit_cols) if fit_cols is not None else X_test.copy()
+
+            num_medians = getattr(self, "_cubist_num_medians", None)
+            num_cols = X.select_dtypes(include=["number"]).columns
+            obj_cols = X.select_dtypes(exclude=["number"]).columns
+            if len(num_cols):
+                fill = num_medians.reindex(num_cols) if num_medians is not None else X[num_cols].median()
+                X[num_cols] = X[num_cols].fillna(fill).fillna(0)
+            if len(obj_cols):
+                X[obj_cols] = X[obj_cols].astype("object").fillna("__missing__")
+            return X
+
         if self.model_name.startswith("cumulative_"):
             return self._scale_cumulative_features(X_test)
-        
+
         return X_test
 
     def _scale_cumulative_features(self, X_test: pd.DataFrame) -> pd.DataFrame:
@@ -1540,58 +1568,106 @@ class Geocif:
         return y_pred, y_pred_ci, {}
 
     def _predict_tabpfn_with_quantiles(self, X_test: pd.DataFrame) -> Tuple:
-        """TabPFN native quantile regression for prediction intervals."""
+        """TabPFN native quantile regression for prediction intervals.
+
+        Returns the median (q=0.5) as the point estimate so it is always
+        consistent with the [lower_q, upper_q] interval bounds drawn from
+        the same posterior.  Using the mean would allow predicted to fall
+        outside the interval for skewed posteriors.
+        """
         lower_q = self.alpha / 2
         upper_q = 1.0 - self.alpha / 2
 
-        y_pred = self.model.predict(X_test)
         q_preds = self.model.predict(
-            X_test, output_type="quantiles", quantiles=[lower_q, upper_q]
+            X_test, output_type="quantiles", quantiles=[lower_q, 0.5, upper_q]
         )
 
-        # Handle both list-of-arrays and 2D-array returns
+        n_samples = len(X_test)
         q_arr = np.asarray(q_preds)
         self.logger.debug(f"  TabPFN quantile raw type={type(q_preds)}, array shape={q_arr.shape}")
-        if q_arr.ndim == 2 and q_arr.shape[1] >= 2:
-            # Shape (n_samples, n_quantiles)
-            lower = q_arr[:, 0]
-            upper = q_arr[:, -1]
+        if q_arr.ndim == 2 and q_arr.shape == (n_samples, 3):
+            lower, median, upper = q_arr[:, 0], q_arr[:, 1], q_arr[:, 2]
+        elif q_arr.ndim == 2 and q_arr.shape == (3, n_samples):
+            lower, median, upper = q_arr[0], q_arr[1], q_arr[2]
         else:
-            # List of arrays: [lower_array, upper_array]
-            lower = np.asarray(q_preds[0])
-            upper = np.asarray(q_preds[-1])
+            lower = np.asarray(q_preds[0]).reshape(-1)
+            median = np.asarray(q_preds[1]).reshape(-1)
+            upper = np.asarray(q_preds[-1]).reshape(-1)
 
-        # Match expected shape: (n_samples, 2, 1) → flattens to [lower, upper] per sample
+        assert median.shape == (n_samples,), (
+            f"TabPFN median shape {median.shape} != expected ({n_samples},)"
+        )
+
+        # Enforce F^-1 monotonicity — TabPFN's bar-distribution quantile
+        # estimation can produce numerically non-monotone output for skewed
+        # posteriors.  Sorting per-row restores the invariant without
+        # changing any of the returned values.
+        stacked = np.stack([lower, median, upper], axis=1)
+        violations = int(
+            (stacked[:, 0] > stacked[:, 1]).sum()
+            + (stacked[:, 1] > stacked[:, 2]).sum()
+        )
+        if violations:
+            self.logger.warning(
+                f"TabPFN non-monotone quantiles in {violations} sample(s); "
+                "sorting to restore F^-1 monotonicity invariant."
+            )
+            stacked.sort(axis=1)
+        lower, median, upper = stacked[:, 0], stacked[:, 1], stacked[:, 2]
+
+        y_pred = median
         y_pred_ci = np.stack([lower, upper], axis=1)[:, :, np.newaxis]
-        self.logger.debug(f"  TabPFN CI shape={y_pred_ci.shape}, sample[0]: [{lower[0]:.3f}, {upper[0]:.3f}]")
+        self.logger.debug(f"  TabPFN CI shape={y_pred_ci.shape}, sample[0]: [{lower[0]:.3f}, {median[0]:.3f}, {upper[0]:.3f}]")
 
         return y_pred, y_pred_ci, {}
 
     def _predict_tabicl_with_quantiles(self, X_test: pd.DataFrame) -> Tuple:
-        """TabICL native quantile regression for prediction intervals."""
+        """TabICL native quantile regression for prediction intervals.
+
+        Returns the median (q=0.5) as the point estimate so it is always
+        consistent with the [lower_q, upper_q] interval bounds drawn from
+        the same posterior.
+        """
         lower_q = self.alpha / 2
         upper_q = 1.0 - self.alpha / 2
 
-        y_pred = self.model.predict(X_test)
         q_preds = self.model.predict(
-            X_test, output_type="quantiles", alphas=[lower_q, upper_q]
+            X_test, output_type="quantiles", alphas=[lower_q, 0.5, upper_q]
         )
 
-        # Handle both list-of-arrays and 2D-array returns
+        n_samples = len(X_test)
         q_arr = np.asarray(q_preds)
         self.logger.debug(f"  TabICL quantile raw type={type(q_preds)}, array shape={q_arr.shape}")
-        if q_arr.ndim == 2 and q_arr.shape[1] >= 2:
-            # Shape (n_samples, n_quantiles)
-            lower = q_arr[:, 0]
-            upper = q_arr[:, -1]
+        if q_arr.ndim == 2 and q_arr.shape == (n_samples, 3):
+            lower, median, upper = q_arr[:, 0], q_arr[:, 1], q_arr[:, 2]
+        elif q_arr.ndim == 2 and q_arr.shape == (3, n_samples):
+            lower, median, upper = q_arr[0], q_arr[1], q_arr[2]
         else:
-            # List of arrays: [lower_array, upper_array]
-            lower = np.asarray(q_preds[0])
-            upper = np.asarray(q_preds[-1])
+            lower = np.asarray(q_preds[0]).reshape(-1)
+            median = np.asarray(q_preds[1]).reshape(-1)
+            upper = np.asarray(q_preds[-1]).reshape(-1)
 
-        # Match expected shape: (n_samples, 2, 1) → flattens to [lower, upper] per sample
+        assert median.shape == (n_samples,), (
+            f"TabICL median shape {median.shape} != expected ({n_samples},)"
+        )
+
+        # Enforce F^-1 monotonicity — see comment in TabPFN branch.
+        stacked = np.stack([lower, median, upper], axis=1)
+        violations = int(
+            (stacked[:, 0] > stacked[:, 1]).sum()
+            + (stacked[:, 1] > stacked[:, 2]).sum()
+        )
+        if violations:
+            self.logger.warning(
+                f"TabICL non-monotone quantiles in {violations} sample(s); "
+                "sorting to restore F^-1 monotonicity invariant."
+            )
+            stacked.sort(axis=1)
+        lower, median, upper = stacked[:, 0], stacked[:, 1], stacked[:, 2]
+
+        y_pred = median
         y_pred_ci = np.stack([lower, upper], axis=1)[:, :, np.newaxis]
-        self.logger.debug(f"  TabICL CI shape={y_pred_ci.shape}, sample[0]: [{lower[0]:.3f}, {upper[0]:.3f}]")
+        self.logger.debug(f"  TabICL CI shape={y_pred_ci.shape}, sample[0]: [{lower[0]:.3f}, {median[0]:.3f}, {upper[0]:.3f}]")
 
         return y_pred, y_pred_ci, {}
 
@@ -1652,10 +1728,25 @@ class Geocif:
     def _retrend_predictions(
         self,
         y_pred: np.ndarray,
-        df_region: pd.DataFrame
-    ) -> np.ndarray:
-        """Add trend back to detrended predictions."""
+        df_region: pd.DataFrame,
+        y_pred_ci: Optional[np.ndarray] = None,
+    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        """Add trend back to detrended predictions and CI bounds.
+
+        Both the point estimate and (if provided) the lower/upper CI bounds
+        live in detrended space.  Retrending them with the same per-region
+        transform keeps the invariant ``lower ≤ y_pred ≤ upper`` — without
+        this, the point estimate moves to trend-space while the CI stays in
+        anomaly-space, which breaks downstream error-bar plots with
+        ``xerr must not contain negative values``.
+        """
         y_pred_retrended = y_pred.copy()
+        y_pred_ci_retrended = y_pred_ci.copy() if y_pred_ci is not None else None
+
+        def _apply(val_scalar, yei=None, trend_value=None, model_type="gaussian"):
+            if model_type == "gaussian":
+                return yei * (1 + val_scalar / 100.0)
+            return val_scalar + trend_value
 
         for region in df_region["Region"].unique():
             mask_test = df_region["Region"].values == region
@@ -1677,7 +1768,10 @@ class Geocif:
                     yei = gaussian_model["extrap_model"].predict(X)[0]
                     # Detrended values are percent anomalies: Yai = 100*(Yi-Yei)/Yei
                     # Retrend: Yi = Yei * (1 + Yai/100)
-                    y_pred_retrended[ri] = yei * (1 + y_pred[ri] / 100.0)
+                    y_pred_retrended[ri] = _apply(y_pred[ri], yei=yei, model_type="gaussian")
+                    if y_pred_ci_retrended is not None:
+                        y_pred_ci_retrended[ri, 0, 0] = _apply(y_pred_ci[ri, 0, 0], yei=yei, model_type="gaussian")
+                        y_pred_ci_retrended[ri, 1, 0] = _apply(y_pred_ci[ri, 1, 0], yei=yei, model_type="gaussian")
                 else:
                     obj_trend = trend.DetrendedData(
                         df_tmp[f"Detrended {self.target}"],
@@ -1687,11 +1781,14 @@ class Geocif:
                     trend_value = trend.compute_trend(
                         obj_trend, df_region.iloc[ri][["Harvest Year"]]
                     )[0]
-                    y_pred_retrended[ri] += trend_value
+                    y_pred_retrended[ri] = _apply(y_pred[ri], trend_value=trend_value, model_type="other")
+                    if y_pred_ci_retrended is not None:
+                        y_pred_ci_retrended[ri, 0, 0] = _apply(y_pred_ci[ri, 0, 0], trend_value=trend_value, model_type="other")
+                        y_pred_ci_retrended[ri, 1, 0] = _apply(y_pred_ci[ri, 1, 0], trend_value=trend_value, model_type="other")
 
                 df_region.iloc[ri, df_region.columns.get_loc("Detrended Model Type")] = model_type
 
-        return y_pred_retrended
+        return y_pred_retrended, y_pred_ci_retrended
 
     def _build_results_dataframe(
         self,
@@ -1795,18 +1892,33 @@ class Geocif:
 
     def _add_confidence_intervals(self, df: pd.DataFrame, y_pred_ci: Optional[np.ndarray]):
         """Add confidence interval columns if applicable."""
+        # Always materialize CI columns (as NaN when skipped) so the DB
+        # schema is stable across iterations.  Without this, the first
+        # row written can create a table without these columns and a
+        # later iteration with real CI values fails with
+        # "no column named alpha".
+        if self.model_type == "REGRESSION":
+            for col in ("alpha", "lower CI", "upper CI"):
+                if col not in df.columns:
+                    df.loc[:, col] = np.nan
+        else:
+            if "alpha" not in df.columns:
+                df.loc[:, "alpha"] = np.nan
+            if "CI" not in df.columns:
+                df.loc[:, "CI"] = np.nan
+
         if not self.estimate_ci:
             return
-        
+
         if not (self.estimate_ci_for_all or self.forecast_season == self.today_year):
             return
-        
+
         if y_pred_ci is None:
             return
-        
+
         for idx, ci in enumerate(y_pred_ci):
             df.loc[idx, "alpha"] = self.alpha
-            
+
             if self.model_type == "REGRESSION":
                 y_pred_ci_ = [item for sublist in ci for item in sublist]
                 df.loc[idx, "lower CI"] = np.around(y_pred_ci_[0], 3)
@@ -1913,8 +2025,14 @@ class Geocif:
         return dir_output
 
     def _initialize_scaler(self):
-        """Initialize scaler if needed."""
-        if self.model_name in ["linear", "gam"]:
+        """Initialize scaler if needed.
+
+        GAM does not need pre-scaling — pygam's splines are scale-invariant
+        (knots adapt to data range) and ``f()`` factor terms require raw
+        integer levels, not standard-scaled values.  Handling scaling
+        outside the model would break ``f()`` on Harvest Year.
+        """
+        if self.model_name == "linear":
             return StandardScaler()
         return None
 
@@ -1981,6 +2099,21 @@ class Geocif:
             self.feature_names = ["Analogous Year", "Analogous Year Yield"]
             self.last_year_yield_as_feature = False
             self.median_yield_as_feature = False
+            # Lazy-compute the analogous columns if the config didn't
+            # request them up-front.  Required for the analog baseline to
+            # work out of the box — otherwise df_train / df_test would be
+            # missing "Analogous Year Yield" and _extract_region_subset
+            # would KeyError on per-region extraction.
+            if "Analogous Year Yield" not in self.df_train.columns:
+                self.df_train = fe.compute_analogous_yield(
+                    self.df_train, self.all_seasons_with_yield,
+                    self.number_median_years, self.target,
+                )
+                self.df_test = fe.compute_analogous_yield(
+                    self.df_test, self.all_seasons_with_yield,
+                    self.number_median_years, self.target,
+                )
+            self.analogous_year_yield_as_feature = True
 
     def _prepare_region_data(self, region_id: int) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Prepare training and test data for a specific region."""
@@ -2025,7 +2158,13 @@ class Geocif:
             nbr_cols = [c for c in self.df_train.columns if c.startswith("nbr_")]
             common_columns.extend(nbr_cols)
 
-        return common_columns
+        # Several paths can add the same column: `Median {target}` is appended
+        # unconditionally above AND also ends up in self.feature_names when
+        # median_yield_as_feature=True (geocif.py:1308).  Selecting both copies
+        # from df produces a DataFrame with duplicate column names which breaks
+        # downstream `X[num_cols] = X[num_cols].fillna(...)` in feature
+        # selection with "Columns must be same length as key".
+        return list(dict.fromkeys(common_columns))
 
     def _extract_region_subset(
         self, 
@@ -2079,10 +2218,27 @@ class Geocif:
         return X_train
 
     def _fill_missing_values(self):
-        """Fill missing values with median (for models that can't handle NaN)."""
+        """Fill missing values for models that can't handle NaN.
+
+        Median for numerics (undefined on Categorical).  Mode (most common
+        level) for categoricals/objects — same behavior as sklearn
+        ``SimpleImputer(strategy='most_frequent')``.
+        """
         for col in self.X_train.columns:
-            median = self.X_train[col].median()
-            self.X_train[col].fillna(median, inplace=True)
+            s = self.X_train[col]
+            if s.isna().sum() == 0:
+                continue
+            if pd.api.types.is_numeric_dtype(s):
+                fill = s.median()
+            else:
+                mode = s.mode(dropna=True)
+                if not mode.empty:
+                    fill = mode.iloc[0]
+                elif hasattr(s, "cat") and len(s.cat.categories):
+                    fill = s.cat.categories[0]
+                else:
+                    fill = ""
+            self.X_train[col] = s.fillna(fill)
 
     def _select_features(self, region_id: int, dir_output: Path):
         """Apply feature selection for the region."""
@@ -2168,7 +2324,16 @@ class ModelTrainer:
 
         self._train_base_model(df_region, X_train_scaled)
         self._fit_final_model(X_train, X_train_scaled, df_region)
-        self._add_confidence_intervals_if_needed(X_train)
+
+        # Conformal calibrate/conformalize expects the same input space
+        # the inner model was trained on.  For scaled models (``linear``)
+        # that's ``X_train_scaled`` — a numpy array with cat_features
+        # (except Harvest Year) dropped.  Passing raw ``X_train`` would
+        # feed an unscaled, wrong-width DataFrame into LassoCV.predict
+        # during calibration, producing either a dimension error or
+        # silently meaningless prediction intervals.
+        X_for_cal = X_train_scaled if scaler is not None else X_train
+        self._add_confidence_intervals_if_needed(X_for_cal)
     
     def _prepare_training_data(self, df_region: pd.DataFrame) -> pd.DataFrame:
         """Extract and prepare features for training."""
@@ -2354,10 +2519,20 @@ class ObliqueFitter(NGBoostFitter):
 
 
 class YDFFitter(BaseFitter):
-    """Yggdrasil Decision Forests fitter."""
-    
+    """Yggdrasil Decision Forests fitter.
+
+    YDF's learner is configured with ``label=target_col`` at construction
+    time (trainers.py), so the training DataFrame must expose a column
+    with that exact name.  We assign the label column explicitly rather
+    than relying on ``pd.concat([X, y_series])`` — a concat only produces
+    the target name when the Series ``.name`` is already set to it, which
+    silently breaks if anything upstream resets the Series or converts it
+    to an unnamed array.
+    """
+
     def fit(self, X_train: pd.DataFrame, X_train_scaled, df_region: pd.DataFrame):
-        df_train = pd.concat([X_train, self.obj.y_train], axis=1)
+        df_train = X_train.copy()
+        df_train[self.obj.target_column] = np.asarray(self.obj.y_train).ravel()
         self.obj.model = self.obj.model.train(df_train)
 
 
@@ -2391,18 +2566,102 @@ class LinearFitter(BaseFitter):
 
 
 class GAMFitter(BaseFitter):
-    """Generalized Additive Model fitter."""
-    
+    """Generalized Additive Model fitter.
+
+    Builds a cubic B-spline ``s(i, n_splines=k)`` for every numeric feature
+    and does the single model fit via gridsearch over a shared smoothing-
+    parameter range.  pygam's penalized-likelihood optimizer reweights
+    effective degrees of freedom per term around the chosen ``lam``.
+
+    **Harvest Year is dropped from the GAM feature set.**  pygam's ``f()``
+    factor term cannot extrapolate beyond train-time levels (forecasting
+    2026 when train ends in 2023 → domain error), and as ``s()`` it
+    extrapolates fragilely while adding no signal the CIDs don't already
+    carry.  Published yield-GAM work (Lobell, Sakamoto) treats year
+    exclusively via detrending, not as a feature.
+    """
+
+    # Columns that should never enter the GAM — either uninformative
+    # (Region_ID is an arbitrary integer ID), zero-variance per region
+    # (Region is constant in per-region training), or inextrapolable
+    # (Harvest Year would cause domain errors at forecast time).
+    _DROP_COLS = ("Harvest Year", "Region_ID", "Region")
+
     def fit(self, X_train: pd.DataFrame, X_train_scaled, df_region: pd.DataFrame):
-        self.obj.model.fit(X_train_scaled, self.obj.y_train.values)
-        self.obj.best_hyperparams = {}
+        from pygam import LinearGAM, LogisticGAM, s
+
+        # Fit-time layout must match what _preprocess_test_data produces.
+        X_fit = X_train.drop(columns=list(self._DROP_COLS), errors="ignore")
+
+        # Adaptive spline count.  Cap low so we don't overfit small regions
+        # (a country/crop often has < 100 training rows); splines are cubic
+        # (spline_order=3) which is the field-standard choice for yield
+        # response curves.
+        n_splines = max(4, min(10, len(X_fit) // 20))
+
+        terms = None
+        for i, _ in enumerate(X_fit.columns):
+            term = s(i, n_splines=n_splines, spline_order=3)
+            terms = term if terms is None else terms + term
+
+        gam_cls = LogisticGAM if self.obj.model_type == "CLASSIFICATION" else LinearGAM
+        self.obj.model = gam_cls(terms=terms)
+        self.obj._gam_fit_cols = list(X_fit.columns)
+
+        y = np.asarray(self.obj.y_train).ravel()
+        X_arr = X_fit.values
+
+        # Single fit via gridsearch over shared lam range.  pygam samples
+        # each value and returns the model minimizing cross-validated GCV.
+        # Per-term lam tuning would be a cross-product over terms — grows
+        # exponentially with n_terms and rarely helps more than the shared
+        # grid given how penalized GAMs redistribute effective DoF.
+        lam_grid = np.logspace(-3, 3, 11)
+        self.obj.model.gridsearch(X_arr, y, lam=lam_grid, progress=False)
+
+        self.obj.best_hyperparams = {
+            "lam": [float(v) for v in np.asarray(self.obj.model.lam).ravel()],
+            "n_splines": n_splines,
+            "n_terms": len(X_fit.columns),
+        }
 
 
 class CubistFitter(BaseFitter):
-    """Cubist rule-based model fitter."""
-    
+    """Cubist rule-based model fitter.
+
+    Cubist's ``.names`` spec rejects attributes with a single level
+    (`"attribute X has only one value Y"`).  In per-region training
+    every row has the same ``Region`` / ``Region_ID`` (and sometimes
+    ``Country``), so we drop any zero-variance column before fit.
+    The same columns are dropped at predict time by aligning on the
+    surviving feature set.
+
+    Cubist's internal C wrapper also chokes on NaN — ``y.astype(str)``
+    leaves float NaNs as ``nan`` (not ``"nan"``) in some pandas
+    versions, and ``_escapes`` then tries ``.replace`` on a float.
+    We fill numerics with the train median and objects with a sentinel
+    string both at fit and at predict time.
+    """
+
+    _SENTINEL = "__missing__"
+
     def fit(self, X_train: pd.DataFrame, X_train_scaled, df_region: pd.DataFrame):
-        self.obj.model.fit(X_train, self.obj.y_train)
+        zero_var = [c for c in X_train.columns if X_train[c].nunique(dropna=False) <= 1]
+        X_fit = X_train.drop(columns=zero_var) if zero_var else X_train.copy()
+
+        # Train-median for numerics (stored for reuse at predict time),
+        # sentinel string for objects.
+        num_cols = X_fit.select_dtypes(include=["number"]).columns
+        obj_cols = X_fit.select_dtypes(exclude=["number"]).columns
+        num_medians = X_fit[num_cols].median()
+        if len(num_cols):
+            X_fit[num_cols] = X_fit[num_cols].fillna(num_medians)
+        if len(obj_cols):
+            X_fit[obj_cols] = X_fit[obj_cols].astype("object").fillna(self._SENTINEL)
+
+        self.obj._cubist_fit_cols = list(X_fit.columns)
+        self.obj._cubist_num_medians = num_medians
+        self.obj.model.fit(X_fit, self.obj.y_train)
 
 
 class CumulativeFitter(BaseFitter):

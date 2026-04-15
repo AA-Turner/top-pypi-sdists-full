@@ -22,7 +22,7 @@
 # ## Prerequisites
 #
 # - Run from the repo root with your virtual environment activated.
-# - You need a policy checkpoint or script ready to submit.
+# - You need the files required to build a submission bundle.
 #
 
 # %% [markdown]
@@ -43,13 +43,12 @@
 # ```
 
 # %% [markdown]
-# ## Step 2 — Choose a policy to submit
+# ## Step 2 — Build a submission bundle
 #
-# You can submit either:
-# - A **policy class + weights** using `class=...` and `data=...`, or
-# - A **self-contained submission bundle** (directory or `.zip` with `policy_spec.json` and any required runtime files).
-#
-# Examples below use placeholders. Replace them with your actual paths.
+# The canonical workflow is:
+# 1. Build `submission.zip` with `cogames create-bundle`
+# 2. Upload that bundle with `cogames upload`
+# 3. Submit it to a season
 #
 
 # %% [markdown]
@@ -75,50 +74,39 @@
 #   model_000001.pt
 # ```
 #
-# `model_*.pt` is the weights file you can submit with `class=...,data=...`.
+# Use the policy or checkpoint path, plus any extra runtime files or setup your policy needs, when creating the bundle.
+#
+# ```bash
+# cogames create-bundle -p <policy-or-checkpoint> -o submission.zip [-f <extra-path> ...] [--setup-script <setup.py>]
+# ```
+#
+# If your policy needs extra runtime files or setup, include them here. `agent/COGAMES_SUBMISSION.md` has a full repo example.
 #
 
 # %% [markdown]
-# ### Option A — Upload with class + weights
+# ## Step 3 — Upload the bundle
+#
+# Upload the prepared bundle:
 #
 # ```bash
-# cogames upload -p class=my_policy.MyTrainablePolicy,data=./train_dir/<RUN_ID>/model_000001.pt -n my_policy_name --skip-validation
+# cogames upload -p ./submission.zip -n my_policy_name --no-submit
 # ```
 #
 
 # %% [markdown]
-# ### Option B — Build and upload a portable bundle
+# ## Step 4 — Dry run (optional)
 #
-# Use `cogames create-bundle` whenever the raw checkpoint directory is not already self-contained:
-#
-# ```bash
-# cogames create-bundle -p ./train_dir/<RUN_ID> -o submission.zip
-# cogames upload -p ./submission.zip -n my_policy_name --skip-validation
-# ```
-#
-# If you already have a self-contained bundle directory or zip, you can upload it directly with `cogames upload -p`.
-#
-
-# %% [markdown]
-# ## Step 3 — Dry run (optional)
-#
-# Validate the upload package without sending it:
+# Validate the bundle locally without uploading:
 #
 # ```bash
-# cogames upload -p ./submission.zip -n my_policy_name --dry-run --skip-validation
+# cogames upload -p ./submission.zip -n my_policy_name --dry-run
 # ```
 #
 
 # %% [markdown]
-# ## Step 4 — Submit to a season
+# ## Step 5 — Submit to a season
 #
-# By default, `cogames upload` both uploads and submits to a season. You can specify a season explicitly:
-#
-# ```bash
-# cogames upload -p ./submission.zip -n my_policy_name --season beta-teams-small --skip-validation
-# ```
-#
-# Or submit a previously uploaded policy to a season:
+# Submit the uploaded policy to a season:
 #
 # ```bash
 # cogames submit my_policy_name --season beta-teams-small
@@ -134,7 +122,7 @@
 #
 
 # %% [markdown]
-# ## Step 5 — View your submissions
+# ## Step 6 — View your submissions
 #
 # ```bash
 # cogames submissions
@@ -142,7 +130,7 @@
 #
 
 # %% [markdown]
-# ## Step 6 — View the leaderboard
+# ## Step 7 — View the leaderboard
 #
 # ```bash
 # cogames leaderboard --season beta-teams-small
@@ -153,6 +141,7 @@
 # ## Troubleshooting
 #
 # - **Auth errors**: run `cogames login` again.
-# - **Module not found**: use `class=...` with a fully qualified path or include the file in submission.
-# - **Invalid policy path**: ensure `-p` points to an existing bundle or weights file.
+# - **Module not found / 1011 during qualifying**: rebuild `submission.zip` with every runtime file and setup step your policy needs.
+#   `agent/COGAMES_SUBMISSION.md` has a full repo example.
+# - **Invalid policy path**: ensure `-p` points to an existing policy, checkpoint, or bundle.
 # - **Local vs S3 checkpoints**: local training saves files under `./train_dir/`. Cloud training may require downloading or referencing the S3 bundle.

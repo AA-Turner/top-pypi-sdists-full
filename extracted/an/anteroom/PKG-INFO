@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anteroom
-Version: 1.163.0
+Version: 1.164.0
 Summary: Anteroom - your gateway to AI conversation
 License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3
@@ -57,6 +57,11 @@ Provides-Extra: providers
 Requires-Dist: litellm>=1.55.0; extra == "providers"
 Provides-Extra: encryption
 Requires-Dist: sqlcipher3>=0.5.0; extra == "encryption"
+Provides-Extra: docs-serve
+Requires-Dist: mkdocs-material>=9.5; extra == "docs-serve"
+Requires-Dist: mkdocs-minify-plugin>=0.8; extra == "docs-serve"
+Requires-Dist: mkdocs-redirects>=1.2; extra == "docs-serve"
+Requires-Dist: pygments<2.20,>=2.16; extra == "docs-serve"
 Provides-Extra: kitchensink
 Requires-Dist: pytest>=8.3.5; extra == "kitchensink"
 Requires-Dist: pytest-asyncio>=0.26.0; extra == "kitchensink"
@@ -422,6 +427,8 @@ pytest tests/ -v                    # 8400+ tests
 ruff check src/ tests/              # lint
 ruff format src/ tests/             # format
 ```
+
+**Local docs:** `pip install anteroom[docs-serve] && aroom docs` serves the full documentation site at `http://127.0.0.1:8400`.
 
 **Stack:** Python 3.10+ &bull; FastAPI &bull; SQLite &bull; Vanilla JS &bull; Rich &bull; prompt-toolkit &bull; OpenAI SDK &bull; MCP SDK
 

@@ -16,13 +16,13 @@
 
 """Command-line interface to the OpenStack APIs"""
 
+import argparse
 import getpass
 import logging
 import sys
 import traceback
-import typing as ty
+from typing import Any, TextIO
 
-from cliff import _argparse
 from cliff import app
 from cliff import command
 from cliff import commandmanager
@@ -82,7 +82,7 @@ class OpenStackShell(app.App):
     client_manager: clientmanager.ClientManager
 
     log = logging.getLogger(__name__)
-    timing_data: list[ty.Any] = []
+    timing_data: list[Any] = []
     api_version: dict[str, str]
 
     def __init__(
@@ -90,9 +90,9 @@ class OpenStackShell(app.App):
         description: str | None = None,
         version: str | None = None,
         command_manager: commandmanager.CommandManager | None = None,
-        stdin: ty.TextIO | None = None,
-        stdout: ty.TextIO | None = None,
-        stderr: ty.TextIO | None = None,
+        stdin: TextIO | None = None,
+        stdout: TextIO | None = None,
+        stderr: TextIO | None = None,
         interactive_app_factory: type['interactive.InteractiveApp']
         | None = None,
         deferred_help: bool = True,
@@ -204,8 +204,8 @@ class OpenStackShell(app.App):
         self,
         description: str | None,
         version: str | None,
-        argparse_kwargs: dict[str, ty.Any] | None = None,
-    ) -> _argparse.ArgumentParser:
+        argparse_kwargs: dict[str, Any] | None = None,
+    ) -> argparse.ArgumentParser:
         parser = super().build_option_parser(
             description,
             version,
@@ -439,7 +439,7 @@ class OpenStackShell(app.App):
         # https://review.opendev.org/c/openstack/oslo.utils/+/967979
         self.log.debug(
             "options: %s",
-            strutils.mask_password(self.options),  # type: ignore
+            strutils.mask_password(self.options),
         )
 
         # Callout for stuff between superclass init and o-c-c
@@ -478,7 +478,7 @@ class OpenStackShell(app.App):
         # https://review.opendev.org/c/openstack/oslo.utils/+/967979
         self.log.debug(
             "cloud cfg: %s",
-            strutils.mask_password(self.cloud.config),  # type: ignore
+            strutils.mask_password(self.cloud.config),
         )
 
         self._load_plugins()

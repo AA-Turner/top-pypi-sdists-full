@@ -47,7 +47,7 @@ def test_login_view(client):
 
 def test_authenticate(client):
     response = authenticate(client)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     response = authenticate(client, follow_redirects=True)
     assert b"Welcome matt@lp.com" in response.data
 
@@ -55,7 +55,7 @@ def test_authenticate(client):
 @pytest.mark.settings(anonymous_user_disabled=True)
 def test_authenticate_no_anon(client):
     response = authenticate(client)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     response = authenticate(client, follow_redirects=True)
     assert b"Welcome matt@lp.com" in response.data
 
@@ -76,7 +76,7 @@ def test_authenticate_with_next_bp(app, client):
     app.register_blueprint(api, url_prefix="/api")
     data = dict(email="matt@lp.com", password="password")
     response = client.post("/login?next=api.info", data=data, follow_redirects=False)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert "api/info" in response.location
 
 
@@ -152,7 +152,7 @@ def test_authenticate_with_subdomain_next(app, client, get_message):
     app.config["SECURITY_REDIRECT_ALLOW_SUBDOMAINS"] = True
     data = dict(email="matt@lp.com", password="password")
     response = client.post("/login?next=http://sub.lp.com", data=data)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert response.location == "http://sub.lp.com"
 
 
@@ -164,7 +164,7 @@ def test_authenticate_with_root_domain_next(app, client, get_message):
     app.config["SECURITY_REDIRECT_ALLOW_SUBDOMAINS"] = True
     data = dict(email="matt@lp.com", password="password")
     response = client.post("http://auth.lp.com/login?next=http://lp.com", data=data)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert response.location == "http://lp.com"
 
 
@@ -387,9 +387,13 @@ def test_invalid_user(client, get_message):
     assert get_message("USER_DOES_NOT_EXIST") in response.data
 
 
-def test_bad_password(client, get_message):
+def test_bad_password(client, get_message, signals):
     response = authenticate(client, password="bogus")
     assert get_message("INVALID_PASSWORD") in response.data
+    assert signals["user_failed_authn"][0]["request_endpoint"] == "security.login"
+    assert signals["user_failed_authn"][0]["user_email"] == "matt@lp.com"
+    assert signals["user_failed_authn"][0]["auth_type"] == "password"
+    assert not signals["user_failed_authn"][0]["tfa"]
 
 
 def test_inactive_user(client, get_message):
@@ -416,7 +420,7 @@ def test_inactive_forbids(app, client, get_message):
     response = client.get("/profile", follow_redirects=False)
     print(response.data)
     # should be thrown back to login page.
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert response.location == "/login?next=/profile"
 
 
@@ -477,6 +481,41 @@ def test_unset_password(client, get_message):
     assert get_message("INVALID_PASSWORD") in response.data
     response = authenticate(client, "jess@lp.com", "")
     assert get_message("PASSWORD_NOT_PROVIDED") in response.data
+
+
+def _allowed(self, form_error):
+    if self.email == "gal@lp.com":
+        form_error.append("You are not allowed to do that")
+        return False
+    return True
+
+
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_allowed))
+def test_override_user_allowed(app, client, get_message):
+    data = dict(email="jill@lp.com", password="password")
+    response = client.post("/login", json=data)
+    assert response.status_code == 200
+    logout(client)
+
+    data = dict(email="gal@lp.com", password="password")
+    response = client.post("/login", json=data)
+    assert response.status_code == 400
+    assert response.json["response"]["errors"] == ["You are not allowed to do that"]
+    assert response.json["response"]["field_errors"]["email"] == [
+        "You are not allowed to do that"
+    ]
+
+
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_allowed))
+@pytest.mark.settings(return_generic_responses=True)
+def test_override_user_allowed_gr(app, client, get_message):
+    data = dict(email="gal@lp.com", password="password")
+    response = client.post("/login", json=data)
+    assert response.status_code == 400
+    assert response.json["response"]["errors"][0].encode("utf-8") == get_message(
+        "GENERIC_AUTHN_FAILED"
+    )
+    assert "email" not in response.json["response"]["field_errors"]
 
 
 def test_logout(client):
@@ -578,7 +617,7 @@ def test_unauthorized_url_view(app, sqlalchemy_datastore):
     client = app.test_client()
     authenticate(client, "tiya@lp.com")
     response = client.get("/admin")
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     check_location(app, response.location, ".myendpoint")
 
 
@@ -1048,6 +1087,7 @@ def test_login_info(client):
     json_authenticate(client)
     response = client.get("/login", headers={"Content-Type": "application/json"})
     assert response.status_code == 200
+    assert response.cache_control.private
     assert response.json["response"]["user"]["email"] == "matt@lp.com"
     assert "last_update" in response.json["response"]["user"]
 
@@ -1308,3 +1348,16 @@ def test_auth_token_decorator(app, client_nc):
         headers={"Content-Type": "application/json", "Authentication-Token": token},
     )
     assert response.status_code == 200
+
+
+@pytest.mark.settings(cache_control={"no-store": True})
+def test_override_cache_control(app, client_nc):
+    response = json_authenticate(client_nc)
+    assert not response.cache_control.private
+    assert response.cache_control.no_store
+
+
+@pytest.mark.settings(cache_control=None)
+def test_no_cache_control(app, client_nc):
+    response = json_authenticate(client_nc)
+    assert "Cache-Control" not in response.headers

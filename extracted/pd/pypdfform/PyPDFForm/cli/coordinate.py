@@ -6,6 +6,7 @@ This module provides command-line interface commands for working with
 PDF coordinates and dimensions, such as generating a coordinate grid view.
 """
 
+import json
 from typing import Annotated
 
 import typer
@@ -78,3 +79,87 @@ def grid(
     if margin is not None:
         params["margin"] = int(margin) if margin.is_integer() else margin
     PdfWrapper(pdf, **ctx.obj).generate_coordinate_grid(**params).write(output or pdf)
+
+
+@coordinate_cli.command(no_args_is_help=True)
+def inspect(
+    ctx: typer.Context,
+    pdf: Annotated[str, typer.Argument(help="Path to the input PDF file.")],
+    field: Annotated[
+        str, typer.Option("--field", "-f", help="Name of the form field to inspect.")
+    ],
+) -> None:
+    """
+    Inspect the page number, coordinates, and dimensions of a form field's rectangular bounding box.
+    """
+    f = PdfWrapper(pdf, **ctx.obj).widgets[field]
+
+    print(
+        json.dumps(
+            {
+                "page_number": f.page_number,
+                "x": f.x,
+                "y": f.y,
+                "width": f.width,
+                "height": f.height,
+            }
+        )
+    )
+
+
+@coordinate_cli.command(no_args_is_help=True)
+def modify(
+    ctx: typer.Context,
+    pdf: Annotated[str, typer.Argument(help="Path to the input PDF file.")],
+    field: Annotated[
+        str, typer.Option("--field", "-f", help="Name of the form field to modify.")
+    ],
+    output: Annotated[
+        str,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Path to save the output PDF. Defaults to the original path if not specified.",
+        ),
+    ] = None,
+    x: Annotated[
+        float,
+        typer.Option(
+            "--x",
+            help="New x coordinate.",
+        ),
+    ] = None,
+    y: Annotated[
+        float,
+        typer.Option(
+            "--y",
+            help="New y coordinate.",
+        ),
+    ] = None,
+    width: Annotated[
+        float,
+        typer.Option(
+            "--width",
+            help="New width.",
+        ),
+    ] = None,
+    height: Annotated[
+        float,
+        typer.Option(
+            "--height",
+            help="New height.",
+        ),
+    ] = None,
+) -> None:
+    """
+    Modify the coordinates and dimensions of a form field's rectangular bounding box.
+    """
+    obj = PdfWrapper(pdf, **ctx.obj)
+    f = obj.widgets[field]
+
+    f.x = x if x is not None else f.x
+    f.y = y if y is not None else f.y
+    f.width = width if width is not None else f.width
+    f.height = height if height is not None else f.height
+
+    obj.write(output or pdf)

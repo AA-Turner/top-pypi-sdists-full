@@ -288,10 +288,10 @@ class _DeviceStringOnly(metaclass=_DeviceStringOnlyMeta):
 
 def _cuda_init_raise():
     raise RuntimeError(
-        "CUDA must not be initialized in the main process "
-        "on Spaces with Stateless GPU environment.\n"
-        "You can look at this Stacktrace to find out "
-        "which part of your code triggered a CUDA init"
+        "Low-level CUDA init (`torch._C._cuda_init`) reached. "
+        "This means ZeroGPU's PyTorch CUDA emulation mode "
+        "did not intercept a CUDA operation in your code.\n"
+        "Check this stacktrace to locate the trigger."
     )
 
 def _cuda_dummy_exchange_device(device):

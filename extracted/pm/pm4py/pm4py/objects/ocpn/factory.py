@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -13,7 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see this software project's root or 
+along with this program.  If not, see this software project's root or
 visit <https://www.gnu.org/licenses/>.
 
 Website: https://processintelligence.solutions
@@ -22,12 +22,12 @@ Contact: info@processintelligence.solutions
 from collections import Counter
 import uuid
 from pm4py.objects.ocpn.obj import OCMarking, OCPetriNet
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 from pm4py.objects.petri_net.obj import PetriNet
 
 
-def create(ocpn: Dict[str, Any]) -> OCPetriNet:
+def create(ocpn: Union[Dict[str, Any], OCPetriNet]) -> OCPetriNet:
     """
     Creates an Object-centric Petri net object from its dictionary representation
     specified in pm4py.algo.discovery.ocel.ocpn.variants.classic.
@@ -44,6 +44,9 @@ def create(ocpn: Dict[str, Any]) -> OCPetriNet:
     OCPetriNet
         Object-centric Petri net object
     """
+    if isinstance(ocpn, OCPetriNet):
+        return ocpn
+
     activities = ocpn["activities"]
     petri_nets = ocpn["petri_nets"]
     double_arcs_on_activity = ocpn["double_arcs_on_activity"]
@@ -113,4 +116,5 @@ def create(ocpn: Dict[str, Any]) -> OCPetriNet:
         initial_marking=initial_marking,
         final_marking=final_marking,
     )
+    ocpn_obj.set_legacy_dict(ocpn)
     return ocpn_obj

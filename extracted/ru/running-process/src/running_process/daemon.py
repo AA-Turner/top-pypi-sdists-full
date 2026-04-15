@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -126,6 +127,8 @@ def write_sidecar(
     args: list[str] | None = None,
     cwd: str | Path | None = None,
     env: dict[str, str] | None = None,
+    spawned_at_unix_ms: int | None = None,
+    last_seen_unix_ms: int | None = None,
 ) -> Path:
     """Write the daemon sidecar JSON file next to the trampoline link.
 
@@ -141,6 +144,10 @@ def write_sidecar(
         data["cwd"] = str(cwd)
     if env is not None:
         data["env"] = env
+    if spawned_at_unix_ms is not None:
+        data["spawned_at_unix_ms"] = int(spawned_at_unix_ms)
+    if last_seen_unix_ms is not None:
+        data["last_seen_unix_ms"] = int(last_seen_unix_ms)
 
     sidecar_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return sidecar_path
@@ -179,11 +186,17 @@ class DaemonHandle:
         """Return True if the daemon process is still alive."""
         if sys.platform == "win32":
             return self._is_running_win32()
+        child_running = _posix_child_running(self.pid)
+        if child_running is not None:
+            return child_running
         try:
             os.kill(self.pid, 0)
         except OSError:
             return False
-        return True
+        state = _posix_process_state(self.pid)
+        if state is None:
+            state = _posix_ps_process_state(self.pid)
+        return state != "Z"
 
     def _is_running_win32(self) -> bool:
         """Windows-specific liveness check using GetExitCodeProcess."""
@@ -211,6 +224,60 @@ class DaemonHandle:
         else:
             msg += "No log file was configured."
         raise DaemonOutputNotAvailableError(msg)
+
+
+def _posix_process_state(pid: int) -> str | None:
+    """Return the /proc process state marker for *pid* when available."""
+    if sys.platform == "win32":
+        return None
+    stat_path = Path(f"/proc/{pid}/stat")
+    try:
+        stat_text = stat_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    close_paren = stat_text.rfind(")")
+    if close_paren == -1 or close_paren + 2 >= len(stat_text):
+        return None
+    return stat_text[close_paren + 2]
+
+
+def _posix_ps_process_state(pid: int) -> str | None:
+    """Return the leading ``ps`` status marker for *pid* when available."""
+    if sys.platform == "win32":
+        return None
+    try:
+        result = subprocess.run(
+            ["ps", "-o", "stat=", "-p", str(pid)],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    status = result.stdout.strip()
+    if not status:
+        return None
+    return status[0]
+
+
+def _posix_child_running(pid: int) -> bool | None:
+    """Return child liveness via ``waitpid(WNOHANG)`` when *pid* is our child."""
+    if sys.platform == "win32":
+        return None
+    try:
+        waited_pid, _status = os.waitpid(pid, os.WNOHANG)
+    except ChildProcessError:
+        return None
+    except OSError:
+        return None
+    if waited_pid == 0:
+        return True
+    if waited_pid == pid:
+        return False
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -406,13 +473,22 @@ def spawn_daemon(
     parent_pid = os.getpid()
     parent_name = Path(sys.argv[0]).stem if sys.argv else "unknown"
     daemon_env["RUNNING_PROCESS_SPAWNED_BY"] = f"{parent_pid}:{parent_name}"
+    spawned_at_unix_ms = int(time.time() * 1000)
 
     # 3. Prepare runtime directory.
     rd = runtime_dir(name)
 
     # 4. Write sidecar JSON (always with explicit env so the trampoline
     #    env_clear()s and applies only what's in the sidecar).
-    write_sidecar(name, command=program, args=args, cwd=cwd, env=daemon_env)
+    write_sidecar(
+        name,
+        command=program,
+        args=args,
+        cwd=cwd,
+        env=daemon_env,
+        spawned_at_unix_ms=spawned_at_unix_ms,
+        last_seen_unix_ms=spawned_at_unix_ms,
+    )
 
     # 5. Hard-link the trampoline.
     trampoline = hard_link_trampoline(name)

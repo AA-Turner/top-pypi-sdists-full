@@ -64,6 +64,77 @@ class GalicianBenchMultipleChoiceExtractor(LMEvalBenchmarkExtractor):
         log = bind(_LOG, doc_id=doc.get("id", "unknown"))
 
         try:
+            # MGSM schema: question + answer_number (math word problem)
+            if "question" in doc and "answer_number" in doc and "mc1_targets" not in doc:
+                q = str(doc.get("question", "")).strip()
+                ans = str(doc.get("answer_number", "")).strip()
+                if q and ans:
+                    return ContrastivePair(
+                        prompt=q + "\nResposta:",
+                        positive_response=PositiveResponse(model_response=ans),
+                        negative_response=NegativeResponse(model_response=str(int(float(ans)) + 1) if ans.replace(".","",1).isdigit() else "incorrecto"),
+                        label="mgsm_direct_gl",
+                    )
+
+            # truthfulqa-multi format: question + mc1_targets dict
+            if "question" in doc and "mc1_targets" in doc:
+                question = str(doc.get("question", "")).strip()
+                mc1 = doc.get("mc1_targets", {})
+                if question and isinstance(mc1, dict):
+                    choices_list = mc1.get("choices", [])
+                    labels = mc1.get("labels", [])
+                    if choices_list and labels and len(choices_list) == len(labels):
+                        try:
+                            correct_idx = labels.index(1)
+                            correct = str(choices_list[correct_idx]).strip()
+                            other = [c for i, c in enumerate(choices_list) if i != correct_idx]
+                            if other:
+                                return ContrastivePair(
+                                    prompt=question,
+                                    positive_response=PositiveResponse(model_response=correct),
+                                    negative_response=NegativeResponse(model_response=str(other[0]).strip()),
+                                    label="gl_bench_mc",
+                                )
+                        except (ValueError, IndexError):
+                            pass
+
+            # paws_gl format: sentence1 + sentence2 + label (binary paraphrase)
+            if "sentence1" in doc and "sentence2" in doc and "label" in doc:
+                s1 = str(doc.get("sentence1", "")).strip()
+                s2 = str(doc.get("sentence2", "")).strip()
+                try:
+                    label_idx = int(doc.get("label", 0))
+                except (TypeError, ValueError):
+                    return None
+                if not s1 or not s2:
+                    return None
+                prompt = f"{s1}, verdadeiro?"
+                correct = "Si, " + s2 if label_idx == 1 else "Non, " + s2
+                incorrect = "Non, " + s2 if label_idx == 1 else "Si, " + s2
+                return ContrastivePair(
+                    prompt=prompt,
+                    positive_response=PositiveResponse(model_response=correct),
+                    negative_response=NegativeResponse(model_response=incorrect),
+                    label="paws_gl",
+                )
+
+            # parafrases_gl format: Frase + Paráfrase + Avaliación
+            if "Frase" in doc and "Paráfrase" in doc and "Avaliación" in doc:
+                frase = str(doc.get("Frase", "")).strip()
+                parafrase = str(doc.get("Paráfrase", "")).strip()
+                avaliacion = doc.get("Avaliación", -1)
+                if frase and parafrase:
+                    # Avaliación typically: 0-3 score; >=2 = paraphrase
+                    is_paraphrase = float(avaliacion) >= 2.0 if avaliacion is not None else False
+                    correct = "Si" if is_paraphrase else "No"
+                    incorrect = "No" if is_paraphrase else "Si"
+                    return ContrastivePair(
+                        prompt=f"Frase 1: {frase}\nFrase 2: {parafrase}\nSon paráfrases?",
+                        positive_response=PositiveResponse(model_response=correct),
+                        negative_response=NegativeResponse(model_response=incorrect),
+                        label="gl_bench_mc",
+                    )
+
             if "question" in doc and "choices" in doc:
                 question = str(doc.get("question", "")).strip()
                 choices = doc.get("choices", {})

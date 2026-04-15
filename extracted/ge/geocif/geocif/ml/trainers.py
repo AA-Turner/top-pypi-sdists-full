@@ -397,16 +397,14 @@ def auto_train(
             model = LogisticRegression(multi_class='multinomial', solver='lbfgs')
 
         elif model_name.startswith("gam"):
-            from pygam import GAM, LinearGAM, LogisticGAM, s, f, te
-            is_classification = model_type == "CLASSIFICATION"
-            gam_cls = LogisticGAM if is_classification else LinearGAM
-            gam_formulas = {
-                "cumulative_1": s(0) + f(1),
-                "cumulative_2": s(0) + s(1) + te(0, 1) + f(2),
-                "cumulative_3": s(0) + s(1) + s(2) + te(0, 1) + te(0, 2) + te(1, 2) + f(3),
-            }
-            formula = gam_formulas.get(model_name, gam_cls(n_splines=25, spline_order=3))
-            model = gam_cls(n_splines=25, spline_order=3).gridsearch(X_train, y_train.values, lam=np.logspace(-3, 3, 11)) if model_name.startswith("gam") else formula
+            # Placeholder — real term construction and the single gridsearch
+            # fit happen in GAMFitter.fit() where the final fit-time feature
+            # matrix and column order are known.  Constructing with terms here
+            # would lock them to a stale X_train layout, and calling .fit()
+            # here would be redundant with GAMFitter.
+            from pygam import LinearGAM, LogisticGAM
+            gam_cls = LogisticGAM if model_type == "CLASSIFICATION" else LinearGAM
+            model = gam_cls()
         elif model_name == "geospaNN":
             import torch
             import geospaNN

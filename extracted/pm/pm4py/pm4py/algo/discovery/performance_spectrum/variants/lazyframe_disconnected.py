@@ -1,6 +1,6 @@
 '''
-    PM4Py â€“ A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschrÃ¤nkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -19,10 +19,9 @@ visit <https://www.gnu.org/licenses/>.
 Website: https://processintelligence.solutions
 Contact: info@processintelligence.solutions
 '''
-"""Polars LazyFrame implementation of the disconnected performance spectrum variant."""
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 import polars as pl
 
@@ -155,7 +154,7 @@ def apply(
         if collected.height == 0:
             continue
 
-        to_drop_indexes: set[int] = set()
+        to_drop_indexes: Set[int] = set()
 
         for row in collected.iter_rows(named=True):
             activities_seq = [row[key(activity_key, i)] for i in range(length)]

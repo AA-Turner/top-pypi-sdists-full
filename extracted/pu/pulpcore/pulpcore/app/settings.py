@@ -292,6 +292,10 @@ API_APP_TTL = 120  # The heartbeat is called from gunicorn notify (defaulting to
 CONTENT_APP_TTL = 30
 WORKER_TTL = 30
 
+# Worker implementation type
+# Options: "pulpcore" (default, PostgreSQL advisory locks) or "redis" (Redis distributed locks)
+WORKER_TYPE = "pulpcore"
+
 # Seconds for a task to finish on semi graceful worker shutdown (approx)
 # On SIGHUP, SIGTERM the currently running task will be awaited forever.
 # On SIGINT, this value represents the time before the worker will attempt to kill the subprocess.
@@ -417,6 +421,7 @@ KAFKA_SASL_PASSWORD = None
 
 # opentelemetry settings
 OTEL_ENABLED = False
+OTEL_METRICS_DISPATCH_INTERVAL_MINUTES = 5
 OTEL_PULP_API_HISTOGRAM_BUCKETS = []
 
 # VulnerabilityReport settings
@@ -453,6 +458,31 @@ redis_port_validator = Validator("REDIS_PORT", must_exist=True, when=cache_enabl
 cache_validator = redis_url_validator | (redis_host_validator & redis_port_validator)
 cache_validator.messages["combined"] = (
     "CACHE_ENABLED is enabled but it requires to have REDIS configured. Please check "
+    "https://pulpproject.org/pulpcore/docs/admin/reference/settings/?h=settings#redis-settings "
+    "for more information."
+)
+
+worker_type_allowed_values_validator = Validator(
+    "WORKER_TYPE",
+    is_in=["pulpcore", "redis"],
+    messages={"operations": "WORKER_TYPE must be either 'pulpcore' or 'redis', got '{value}'."},
+)
+
+worker_type_redis_validator_condition = Validator("WORKER_TYPE", eq="redis")
+worker_type_redis_url_validator = Validator(
+    "REDIS_URL", must_exist=True, when=worker_type_redis_validator_condition
+)
+worker_type_redis_host_validator = Validator(
+    "REDIS_HOST", must_exist=True, when=worker_type_redis_validator_condition
+)
+worker_type_redis_port_validator = Validator(
+    "REDIS_PORT", must_exist=True, when=worker_type_redis_validator_condition
+)
+worker_type_redis_validator = worker_type_redis_url_validator | (
+    worker_type_redis_host_validator & worker_type_redis_port_validator
+)
+worker_type_redis_validator.messages["combined"] = (
+    "WORKER_TYPE is set to 'redis' but it requires REDIS to be configured. Please check "
     "https://pulpproject.org/pulpcore/docs/admin/reference/settings/?h=settings#redis-settings "
     "for more information."
 )
@@ -530,6 +560,16 @@ otel_pulp_api_histogram_buckets_validator = Validator(
     },
 )
 
+otel_metrics_dispatch_interval_validator = Validator(
+    "OTEL_METRICS_DISPATCH_INTERVAL_MINUTES",
+    is_type_of=(int, float),
+    gt=0,
+    messages={
+        "is_type_of": "{name} must be a number.",
+        "operations": "{name} must be greater than zero.",
+    },
+)
+
 
 def otel_middleware_hook(settings):
     data = {"dynaconf_merge": True}
@@ -551,12 +591,15 @@ settings = DjangoDynaconf(
     validators=[
         api_root_validator,
         cache_validator,
+        worker_type_allowed_values_validator,
+        worker_type_redis_validator,
         sha256_validator,
         storage_validator,
         unknown_algs_validator,
         json_header_auth_validator,
         authentication_json_header_openapi_security_scheme_validator,
         otel_pulp_api_histogram_buckets_validator,
+        otel_metrics_dispatch_interval_validator,
     ],
     post_hooks=(otel_middleware_hook,),
 )
@@ -587,6 +630,9 @@ if settings.API_ROOT_REWRITE_HEADER:
     api_root = "/<path:api_root>/"
 else:
     api_root = settings.API_ROOT
+# protocol://host:port/{API_ROOT}{domain}/api/{version}/
+# All of the below are DEPRECATED, and should be replaced by calling
+# pulpcore.plugin.find_url.find_api_root() (q.v.)
 settings.set("V3_API_ROOT", api_root + "api/v3/")  # Not user configurable
 settings.set("V3_DOMAIN_API_ROOT", api_root + "<slug:pulp_domain>/api/v3/")
 settings.set("V3_API_ROOT_NO_FRONT_SLASH", settings.V3_API_ROOT.lstrip("/"))

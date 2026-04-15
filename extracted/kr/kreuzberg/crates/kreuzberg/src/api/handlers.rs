@@ -680,7 +680,7 @@ pub async fn extract_structured_handler(
     };
 
     // Run structured extraction on the extracted content
-    let structured_output = crate::llm::structured::extract_structured(&result.content, &structured_config)
+    let (structured_output, _usage) = crate::llm::structured::extract_structured(&result.content, &structured_config)
         .await
         .map_err(ApiError::internal)?;
 

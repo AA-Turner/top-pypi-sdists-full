@@ -21,6 +21,7 @@ import torch.nn.functional as F
 from transformers.pytorch_utils import Conv1D
 
 from peft.tuners.tuners_utils import BaseTunerLayer, check_adapters_to_merge
+from peft.utils.other import transpose
 
 from .constants import WAVELET_REDUCTIONS
 from .waverec2d import waverec2d
@@ -237,7 +238,7 @@ class WaveFTLinear(nn.Module, WaveFTLayer):
                     # Note that safe_merge will be slower than the normal merge
                     # because of the copy operation.
                     orig_weights = base_layer.weight.data.clone()
-                    orig_weights += self.get_delta_weight(active_adapter)
+                    orig_weights += transpose(self.get_delta_weight(active_adapter), self.fan_in_fan_out)
 
                     if not torch.isfinite(orig_weights).all():
                         raise ValueError(
@@ -246,7 +247,7 @@ class WaveFTLinear(nn.Module, WaveFTLayer):
 
                     base_layer.weight.data = orig_weights
                 else:
-                    base_layer.weight.data += self.get_delta_weight(active_adapter)
+                    base_layer.weight.data += transpose(self.get_delta_weight(active_adapter), self.fan_in_fan_out)
                 self.merged_adapters.append(active_adapter)
 
     def unmerge(self) -> None:
@@ -259,10 +260,9 @@ class WaveFTLinear(nn.Module, WaveFTLayer):
         while len(self.merged_adapters) > 0:
             active_adapter = self.merged_adapters.pop()
             if active_adapter in self.waveft_spectrum.keys():
-                self.get_base_layer().weight.data -= self.get_delta_weight(active_adapter)
-
-    def get_delta_weight(self, adapter) -> torch.Tensor:
-        return super().get_delta_weight(adapter)
+                self.get_base_layer().weight.data -= transpose(
+                    self.get_delta_weight(active_adapter), self.fan_in_fan_out
+                )
 
     def forward(self, x: torch.Tensor, *args: Any, **kwargs: Any) -> torch.Tensor:
         previous_dtype = x.dtype
@@ -285,6 +285,13 @@ class WaveFTLinear(nn.Module, WaveFTLayer):
 
         result = result.to(previous_dtype)
         return result
+
+    def supports_lora_conversion(self, adapter_name: str = "default") -> bool:
+        if isinstance(self.get_base_layer(), Conv1D):
+            # get_delta_weight does not transpose Conv1D because it is used in forward, therefore, it has the wrong
+            # shape for conversion
+            return False
+        return True
 
     def __repr__(self) -> str:
         rep = super().__repr__()

@@ -134,7 +134,7 @@ pub use core::config::{
 pub use core::server_config::ServerConfig;
 
 #[cfg(feature = "pdf")]
-pub use core::config::{HierarchyConfig, PdfConfig};
+pub use core::config::{HierarchyConfig, PdfBackend, PdfConfig};
 
 #[cfg(feature = "html")]
 pub use core::config::{HtmlOutputConfig, HtmlTheme};

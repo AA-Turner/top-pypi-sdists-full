@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulpcore
-Version: 3.107.1
+Version: 3.108.0
 Summary: Pulp Django Application and Related Modules
 Author-email: Pulp Team <pulp-list@redhat.com>
 License-Expression: GPL-2.0-or-later
@@ -43,15 +43,15 @@ Requires-Dist: jinja2<=3.1.6,>=3.1
 Requires-Dist: json_stream<2.6,>=2.3.2
 Requires-Dist: jq<1.12.0,>=1.6.0
 Requires-Dist: PyOpenSSL<27.0
-Requires-Dist: opentelemetry-api<1.41,>=1.27.0
-Requires-Dist: opentelemetry-sdk<1.41,>=1.27.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.41,>=1.27.0
+Requires-Dist: opentelemetry-api<1.42,>=1.27.0
+Requires-Dist: opentelemetry-sdk<1.42,>=1.27.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.42,>=1.27.0
 Requires-Dist: protobuf<7.0,>=4.21.1
 Requires-Dist: pulp-glue<0.40,>=0.30.0
 Requires-Dist: pygtrie<=2.5.0,>=2.5
 Requires-Dist: psycopg[binary]<3.4,>=3.1.8
 Requires-Dist: pyparsing<3.4,>=3.1.0
-Requires-Dist: python-gnupg<0.6,>=0.5.0
+Requires-Dist: pysequoia==0.1.32
 Requires-Dist: PyYAML<6.1,>=5.1.1
 Requires-Dist: redis<7.2,>=4.3.0
 Requires-Dist: tablib!=3.6,<4.0,>=3.5.0
@@ -71,7 +71,7 @@ Provides-Extra: prometheus
 Requires-Dist: django-prometheus; extra == "prometheus"
 Provides-Extra: kafka
 Requires-Dist: cloudevents==1.11.0; extra == "kafka"
-Requires-Dist: confluent-kafka<2.14.0,>=2.4.0; extra == "kafka"
+Requires-Dist: confluent-kafka<2.15.0,>=2.4.0; extra == "kafka"
 Provides-Extra: diagnostics
 Requires-Dist: pyinstrument~=5.0; extra == "diagnostics"
 Requires-Dist: memray~=1.17; extra == "diagnostics"

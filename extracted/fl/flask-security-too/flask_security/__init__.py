@@ -6,7 +6,7 @@ Flask-Security is a Flask extension that aims to add comprehensive security
 to Flask applications.
 
 :copyright: (c) 2012-2019 by Matt Wright.
-:copyright: (c) 2019-2025 by J. Christopher Wagner.
+:copyright: (c) 2019-2026 by J. Christopher Wagner.
 :license: MIT, see LICENSE for more details.
 """
 
@@ -86,6 +86,7 @@ from .signals import (
     tf_security_token_sent,
     tf_disabled,
     user_authenticated,
+    user_failed_authn,
     user_unauthenticated,
     user_confirmed,
     user_registered,
@@ -144,4 +145,4 @@ from .webauthn import (
 )
 from .webauthn_util import WebauthnUtil
 
-__version__ = "5.7.1"
+__version__ = "5.8.0"

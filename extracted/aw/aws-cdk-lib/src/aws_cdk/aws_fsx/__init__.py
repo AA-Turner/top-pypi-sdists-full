@@ -4614,6 +4614,15 @@ class CfnS3AccessPointAttachment(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrLifecycle")
+    def attr_lifecycle(self) -> builtins.str:
+        '''The lifecycle status of the S3 access point attachment.
+
+        :cloudformationAttribute: Lifecycle
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLifecycle"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrS3AccessPointAlias")
     def attr_s3_access_point_alias(self) -> builtins.str:
         '''The S3 access point's alias.

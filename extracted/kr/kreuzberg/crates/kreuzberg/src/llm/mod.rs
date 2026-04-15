@@ -10,6 +10,8 @@ pub mod prompts;
 #[cfg(feature = "liter-llm")]
 pub mod structured;
 #[cfg(feature = "liter-llm")]
+pub mod usage;
+#[cfg(feature = "liter-llm")]
 pub mod vlm_embeddings;
 #[cfg(feature = "liter-llm")]
 pub mod vlm_ocr;

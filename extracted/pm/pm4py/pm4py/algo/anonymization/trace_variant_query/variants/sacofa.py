@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -150,8 +150,8 @@ def get_prefix_frequencies_from_log(log):
     prefix_frequencies = {}
     for trace in log:
         current_prefix = ""
-        for event in trace._list:
-            current_prefix = current_prefix + event._dict.get('concept:name') + EVENT_DELIMETER
+        for event in trace:
+            current_prefix = current_prefix + event.get("concept:name") + EVENT_DELIMETER
             if current_prefix in prefix_frequencies:
                 prefix_frequencies[current_prefix] += 1
             else:
@@ -229,8 +229,8 @@ def get_traces_from_log(log):
     i = 0
     for trace in log:
         logStringList.append(list())
-        for event in trace._list:
-            logStringList[i].append(event._dict.get('concept:name'))
+        for event in trace:
+            logStringList[i].append(event.get("concept:name"))
         i += 1
     return logStringList
 
@@ -259,7 +259,7 @@ def prune_trace_frequencies(trace_frequencies, P, P_smart, conformSet):
 
 def pref(prefix, events, n):
     prefixes_length_n = []
-    if not TRACE_END in prefix:
+    if TRACE_END not in prefix:
         for event in events:
             if event == TRACE_END:
                 current_prefix = prefix + event

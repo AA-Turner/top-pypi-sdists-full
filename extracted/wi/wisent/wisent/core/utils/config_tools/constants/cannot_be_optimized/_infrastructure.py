@@ -79,7 +79,7 @@ EVALUATOR_NAME_TRUTHFULQA_GEN = "generation"
 EVALUATOR_NAME_LOG_LIKELIHOODS = "log_likelihoods"
 # Extractor manifest base imports
 HF_EXTRACTOR_BASE_IMPORT = "wisent.extractors.hf.hf_task_extractors."
-LM_EVAL_EXTRACTOR_BASE_IMPORT = "wisent.extractors.lm_eval.lm_task_extractors."
+LM_EVAL_EXTRACTOR_BASE_IMPORT = "wisent.extractors.lm_eval.registry.lm_task_extractors."
 # Base class / registry identity names
 BASE_CLASS_NAME = "base"
 CLEAN_STEP_DEFAULT_NAME = "step"
@@ -189,7 +189,7 @@ PRESET_CARD_DESC_COLOR = "#999999"
 PRESET_CARD_TITLE_FONT_WEIGHT = 600
 WISENT_FONT_PRIMARY = "Hubot Sans"
 WISENT_FONT_CDN_URL = (
-    "https://cdn.jsdelivr.net/npm/@github/hubot-sans@1.0.0/HubotSans.min.css"
+    "https://cdn.jsdelivr.net/npm/@fontsource/hubot-sans/index.css"
 )
 WISENT_LOGO_FILENAME = "wisent_logo.png"
 WISENT_LOGO_DISPLAY_WIDTH = 80

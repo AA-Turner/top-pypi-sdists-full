@@ -1,6 +1,6 @@
 '''
-    PM4Py – A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschränkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -80,7 +80,13 @@ def apply_log(log, petri_net, initial_marking, final_marking, parameters=None, v
 
     start_time = time.time()
 
-    antialignments = exec_utils.get_variant(variant).apply(log, petri_net, initial_marking, final_marking, parameters=None)
+    antialignments = exec_utils.get_variant(variant).apply(
+        log,
+        petri_net,
+        initial_marking,
+        final_marking,
+        parameters=parameters,
+    )
 
     total_time = start_time - time.time()
 

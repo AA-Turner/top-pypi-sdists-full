@@ -1,6 +1,6 @@
 __author__ = 'Charles Leifer'
 __license__ = 'MIT'
-__version__ = '2.6.0'
+__version__ = '3.0.0'
 
 from huey.api import BlackHoleHuey
 from huey.api import Huey
@@ -11,6 +11,9 @@ from huey.api import PriorityRedisHuey
 from huey.api import RedisExpireHuey
 from huey.api import RedisHuey
 from huey.api import SqliteHuey
+from huey.api import chord
 from huey.api import crontab
+from huey.api import group
 from huey.exceptions import CancelExecution
 from huey.exceptions import RetryTask
+from huey.utils import Error

@@ -27,6 +27,7 @@ from tests.test_utils import (
     capture_flashes,
     capture_reset_password_requests,
     check_location,
+    check_signals,
     check_xlation,
     get_csrf_token,
     init_app_with_options,
@@ -315,14 +316,14 @@ def test_change_hash_type(app, sqlalchemy_datastore):
     response = client.post(
         "/login", data=dict(email="matt@lp.com", password="password")
     )
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
 
     response = client.get("/logout")
 
     response = client.post(
         "/login", data=dict(email="matt@lp.com", password="password")
     )
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
 
 
 @pytest.mark.settings(hashing_schemes=["hex_md5"], deprecated_hashing_schemes=[])
@@ -355,7 +356,7 @@ def test_verify_hash(in_app_context):
 )
 def test_password_unicode_password_salt(client):
     response = authenticate(client)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     response = authenticate(client, follow_redirects=True)
     assert b"Welcome matt@lp.com" in response.data
 
@@ -611,7 +612,7 @@ def test_xlation(app, client):
     response = client.get("/login")
     assert b'<label for="password">Mot de passe</label>' in response.data
     response = authenticate(client)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     response = authenticate(client, follow_redirects=True)
     assert b"Bienvenue matt@lp.com" in response.data
 
@@ -918,7 +919,7 @@ def test_method_view(app, client):
 
     response = client.get("/myview", follow_redirects=False)
     # should require login
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert "/login" in response.location
 
     authenticate(client)
@@ -969,7 +970,7 @@ def test_authn_freshness(
     time.sleep(0.1)
     with capture_flashes() as flashes:
         response = client.get("/myspecialview", follow_redirects=False)
-        assert response.status_code == 302
+        assert response.status_code in [302, 303]
         assert response.location == "/verify?next=/myspecialview"
     assert flashes[0]["category"] == "error"
     assert flashes[0]["message"].encode("utf-8") == get_message(
@@ -1049,7 +1050,7 @@ def test_default_authn_bp(app, client):
     # This should require additional authn and redirect to verify
     reset_fresh(client, within=timedelta(minutes=1))
     response = client.get("/myview", follow_redirects=False)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert response.location == "/myprefix/verify?next=/myview"
 
 
@@ -1109,7 +1110,7 @@ def test_authn_freshness_nc_no(app, client_nc, get_message):
 
     # This should fail - should be a redirect
     response = client_nc.get("/myview", headers=h, follow_redirects=False)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert response.location == "/verify?next=/myview"
 
 
@@ -1168,7 +1169,7 @@ def test_verify_fresh(app, client, get_message):
     assert b"Fresh Only" in response.data
 
 
-def test_verify_fresh_json(app, client, get_message):
+def test_verify_fresh_json(app, client, get_message, signals):
     # Hit a fresh-required endpoint and walk through verify
     authenticate(client)
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
@@ -1177,6 +1178,8 @@ def test_verify_fresh_json(app, client, get_message):
     response = client.get("/fresh", headers=headers)
     assert response.status_code == 401
     assert response.json["response"]["reauth_required"]
+    assert not response.json["response"]["oauth_enabled"]
+    assert not response.json["response"]["oauth_providers"]
 
     response = client.get("/verify")
     assert b"Reauthenticate" in response.data
@@ -1185,6 +1188,10 @@ def test_verify_fresh_json(app, client, get_message):
         "/verify", json=dict(password="not my password"), headers=headers
     )
     assert response.status_code == 400
+    assert signals["user_failed_authn"][0]["request_endpoint"] == "security.verify"
+    assert signals["user_failed_authn"][0]["user"].email == "matt@lp.com"
+    assert signals["user_failed_authn"][0]["auth_type"] == "password"
+    assert not signals["user_failed_authn"][0]["tfa"]
 
     response = client.post("/verify", json=dict(password="password"), headers=headers)
     assert response.status_code == 200
@@ -1193,10 +1200,11 @@ def test_verify_fresh_json(app, client, get_message):
     response = client.get("/fresh", headers=headers)
     assert response.status_code == 200
     assert response.json["title"] == "Fresh Only"
+    check_signals(signals, "user_failed_authn")
 
 
 @pytest.mark.changeable()
-def test_verify_pwd_json(app, client, get_message):
+def test_verify_pwd_json(app, client, get_message, signals):
     # Make sure verify accepts a normalized and original password.
     authenticate(client)
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
@@ -1225,6 +1233,7 @@ def test_verify_pwd_json(app, client, get_message):
         headers=headers,
     )
     assert response.status_code == 200
+    check_signals(signals, "password_changed")
 
 
 @pytest.mark.settings(verify_url="/auth/")
@@ -1313,11 +1322,11 @@ def test_post_security_with_application_root(app, sqlalchemy_datastore):
     response = client.post(
         "/login", data=dict(email="matt@lp.com", password="password")
     )
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert "/root" in response.location
 
     response = client.get("/logout")
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert "/root" in response.location
 
 
@@ -1336,11 +1345,11 @@ def test_post_security_with_application_root_and_views(app, sqlalchemy_datastore
     response = client.post(
         "/login", data=dict(email="matt@lp.com", password="password")
     )
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert "/post_login" in response.location
 
     response = client.get("/logout")
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert "/post_logout" in response.location
 
 
@@ -1361,7 +1370,7 @@ def test_open_redirect(app, client, get_message):
     for i, o in test_urls:
         data = dict(email="matt@lp.com", password="password", next=i)
         response = client.post("/login", data=data, follow_redirects=False)
-        if response.status_code == 302:
+        if response.status_code in [302, 303]:
             # this means it passed form validation but should have been quoted
             assert check_location(app, response.location, o)
         elif response.status_code == 200:
@@ -1475,7 +1484,7 @@ def test_login_email_whatever(app, client, get_message):
     response = client.post(
         "/login", data=dict(email="matt@lp.com", password="password")
     )
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert "/" in response.location
 
 

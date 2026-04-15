@@ -1,5 +1,4 @@
 from importlib.util import find_spec
-from typing import Union
 
 from vicinity.backends.base import AbstractBackend
 from vicinity.backends.basic import BasicBackend, BasicVectorStore
@@ -8,7 +7,7 @@ from vicinity.datatypes import Backend
 
 class OptionalDependencyError(ImportError):
     def __init__(self, backend: Backend, extra: str) -> None:
-        msg = f"{backend} requires extra '{extra}'.\n" f"Install it with: pip install 'vicinity[{extra}]'\n"
+        msg = f"{backend} requires extra '{extra}'.\nInstall it with: pip install 'vicinity[{extra}]'\n"
         super().__init__(msg)
         self.backend = backend
         self.extra = extra
@@ -20,7 +19,7 @@ def _require(module_name: str, backend: Backend, extra: str) -> None:
         raise OptionalDependencyError(backend, extra)
 
 
-def get_backend_class(backend: Union[Backend, str]) -> type[AbstractBackend]:
+def get_backend_class(backend: Backend | str) -> type[AbstractBackend]:
     """Get the requested backend and ensure its dependencies are installed."""
     backend = Backend(backend)
 

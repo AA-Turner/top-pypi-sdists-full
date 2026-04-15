@@ -71,7 +71,7 @@ def test_registerable_flag(clients, app, get_message, outbox):
 
     # Test user can login after registering
     response = authenticate(clients, email="dude@lp.com", password="battery staple")
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
 
     logout(clients)
 
@@ -99,8 +99,10 @@ def test_registerable_flag(clients, app, get_message, outbox):
 
     assert response.headers["content-type"] == "application/json"
     assert response.json["meta"]["code"] == 200
-    assert len(response.json["response"]) == 2
-    assert all(k in response.json["response"] for k in ["csrf_token", "user"])
+    assert len(response.json["response"]) == 3
+    assert all(
+        k in response.json["response"] for k in ["csrf_token", "user", "tf_required"]
+    )
 
     logout(clients)
 
@@ -155,7 +157,7 @@ def test_form_csrf(app, client):
         ),
         follow_redirects=False,
     )
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert response.location == "/"
 
 
@@ -343,7 +345,7 @@ def test_two_factor(app, client):
 
     # make sure not logged in
     response = client.get("/profile")
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
     assert response.location == "/login?next=/profile"
 
 
@@ -481,14 +483,14 @@ def test_email_normalization(app, client):
     response = authenticate(
         client, email="Imnumber\N{OHM SIGN}@lp.com", password="battery staple"
     )
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
 
     logout(client)
     # Test user can login after registering using original non-canonical email
     response = authenticate(
         client, email="Imnumber\N{OHM SIGN}@LP.com", password="battery staple"
     )
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
 
     logout(client)
     # Test user can login after registering using original non-canonical email
@@ -497,7 +499,7 @@ def test_email_normalization(app, client):
         email="Imnumber\N{GREEK CAPITAL LETTER OMEGA}@LP.com",
         password="battery staple",
     )
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
 
 
 def test_email_normalization_options(app, client, get_message):
@@ -982,7 +984,7 @@ def test_gr_extras(app, client, get_message, outbox):
     assert kv["User"] == "dude"
     confirm_link = kv["ConfirmationLink"]
     response = client.get(confirm_link)
-    assert response.status_code == 302
+    assert response.status_code in [302, 303]
 
     # now confirmed - should not get confirmation link
     response = client.post("/register", json=data)

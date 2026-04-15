@@ -16,6 +16,7 @@ from skyvern.forge import app
 from skyvern.forge.prompts import prompt_engine
 from skyvern.forge.sdk.api.files import validate_download_url
 from skyvern.forge.sdk.api.llm.schema_validator import validate_and_fill_extraction_result
+from skyvern.forge.sdk.cache import extraction_cache
 from skyvern.forge.sdk.core import skyvern_context
 from skyvern.forge.sdk.schemas.totp_codes import OTPType
 from skyvern.schemas.workflows import BlockStatus
@@ -910,6 +911,11 @@ class RealSkyvernPageAi(SkyvernPageAi):
         if context and context.tz_info:
             tz_info = context.tz_info
         prompt = _render_template_with_label(prompt, label=self.current_label)
+        local_datetime_str = datetime.now(tz_info).isoformat()
+
+        # Render the prompt FIRST so the cache key hashes the exact string
+        # that will be sent to the LLM (captures economy-tree swaps and 2/3
+        # truncation inside load_prompt_with_elements).
         extract_information_prompt = load_prompt_with_elements(
             element_tree_builder=self.scraped_page,
             prompt_engine=prompt_engine,
@@ -920,8 +926,62 @@ class RealSkyvernPageAi(SkyvernPageAi):
             current_url=self.scraped_page.url,
             extracted_text=self.scraped_page.extracted_text,
             error_code_mapping_str=(json.dumps(error_code_mapping) if error_code_mapping else None),
-            local_datetime=datetime.now(tz_info).isoformat(),
+            local_datetime=local_datetime_str,
         )
+
+        # Share the extract-information cache with the agent path. Best-effort
+        # per the RFC review — any exception falls through to the full LLM
+        # call below. The `try` is narrowed to just compute_cache_key + lookup
+        # so a downstream log failure can't re-enter the except block and
+        # double-count the call as both a hit/miss and a `lookup_error` in
+        # the Datadog miss-reason metric.
+        workflow_run_id = context.workflow_run_id if context else None
+        cache_key: str | None = None
+        lookup_result: extraction_cache.LookupResult | None = None
+        try:
+            cache_key = extraction_cache.compute_cache_key(
+                rendered_prompt=extract_information_prompt,
+                llm_key=None,
+            )
+            lookup_result = extraction_cache.lookup(workflow_run_id, cache_key)
+        except Exception:
+            LOG.warning(
+                "ai_extract cache lookup failed; falling through to LLM",
+                workflow_run_id=workflow_run_id,
+                cache_key=cache_key,
+                cache_hit=False,
+                cache_scope=extraction_cache.SCOPE_RUN,
+                cache_age_seconds=None,
+                fallback_reason=extraction_cache.FALLBACK_LOOKUP_ERROR,
+                cache_path="script",
+                exc_info=True,
+            )
+            # Preserve cache_key so the downstream store() can still warm the cache
+            # for subsequent identical calls even when lookup() fails transiently.
+
+        if lookup_result is not None and lookup_result.hit:
+            LOG.info(
+                "ai_extract cache hit — skipping LLM call",
+                workflow_run_id=workflow_run_id,
+                cache_key=cache_key,
+                cache_hit=True,
+                cache_scope=lookup_result.scope,
+                cache_age_seconds=lookup_result.age_seconds,
+                fallback_reason=None,
+                cache_path="script",
+            )
+            return lookup_result.value  # type: ignore[return-value]
+        if lookup_result is not None:
+            LOG.info(
+                "ai_extract cache miss",
+                workflow_run_id=workflow_run_id,
+                cache_key=cache_key,
+                cache_hit=False,
+                cache_scope=lookup_result.scope,
+                cache_age_seconds=None,
+                fallback_reason=lookup_result.fallback_reason,
+                cache_path="script",
+            )
         step = None
         if context and context.organization_id and context.task_id and context.step_id:
             step = await app.DATABASE.tasks.get_step(
@@ -943,6 +1003,14 @@ class RealSkyvernPageAi(SkyvernPageAi):
                 extraction_result=result,
                 schema=schema,
             )
+
+        # Cache the post-validation result so cache hits return the same
+        # schema-validated shape as a fresh LLM call.
+        if cache_key is not None and result is not None:
+            try:
+                extraction_cache.store(workflow_run_id, cache_key, result)
+            except Exception:
+                LOG.warning("ai_extract cache store failed; ignoring", exc_info=True)
 
         if context and context.script_mode:
             print(f"\n✨ 📊 Extracted Information:\n{'-' * 50}")

@@ -89,7 +89,7 @@ LM_EXTRACTORS_P_TO_Z: dict[str, str] = {
     "xquad": f"{base_import}xquad:XquadExtractor",
     "zhoblimp": f"{base_import}zhoblimp:ZhoblimpExtractor",
     # NEW: Auto-generated extractors for missing task families
-    "arabic": f"{base_import}arabic:ArabicExtractor",
+    "arabic": f"{base_import}arabic_exams:ArabicExamsExtractor",
     "afrixnli": f"{base_import}afrixnli:AfrixnliExtractor",
     "afrixnli_en_direct_amh": f"{base_import}afrixnli:AfrixnliExtractor",
     "afrixnli_en_direct_eng": f"{base_import}afrixnli:AfrixnliExtractor",
@@ -143,7 +143,6 @@ LM_EXTRACTORS_P_TO_Z: dict[str, str] = {
     "phrases_va": f"{base_import}phrases:PhrasesExtractor",
     "phrases_va-ca": f"{base_import}phrases:PhrasesExtractor",
     "phrases_va-es": f"{base_import}phrases:PhrasesExtractor",
-    "code2text": f"{base_import}code_x_glue:Code2TextExtractor",
     "ethics": f"{base_import}ethics:EthicsExtractor",
     "cabreu": f"{base_import}cabreu:CabreuExtractor",
     "sycophancy": f"{base_import}sycophancy:SycophancyExtractor",
@@ -163,7 +162,6 @@ LM_EXTRACTORS_P_TO_Z: dict[str, str] = {
     "tag": f"{base_import}tag:TagExtractor",
     "basque_glue": f"{base_import}basque_glue:BasqueGlueExtractor",
     "basque-glue": f"{base_import}basque_glue:BasqueGlueExtractor",  # Hyphenated alias
-    "chain": f"{base_import}chain:ChainExtractor",
     "gpt3": f"{base_import}gpt3:Gpt3Extractor",
     "math": f"{base_import}math:MathExtractor",
     "math500": f"{base_import}math:MathExtractor",
@@ -171,13 +169,14 @@ LM_EXTRACTORS_P_TO_Z: dict[str, str] = {
     "polymath_zh_medium": f"{base_import}polymath:PolymathExtractor",
     "polymath_en_high": f"{base_import}polymath:PolymathExtractor",
     "polymath_zh_high": f"{base_import}polymath:PolymathExtractor",
-    "livemathbench_cnmo_en": f"{base_import}livemathbench:LivemathbenchExtractor",
-    "livemathbench_cnmo_zh": f"{base_import}livemathbench:LivemathbenchExtractor",
+    # livemathbench is HF-only; lm_eval references removed
+    # "livemathbench_cnmo_en/zh" handled by HF manifest
     "self": f"{base_import}self:SelfExtractor",
     "twenty_newsgroups": f"{base_import}twenty_newsgroups:TwentyNewsgroupsExtractor",
-    "20_newsgroups": f"{base_import}unitxt:UnitxtExtractor",
+    "20_newsgroups": f"{base_import}twenty_newsgroups:TwentyNewsgroupsExtractor",
     "ag": f"{base_import}ag:AgExtractor",
-    "ag_news": f"{base_import}unitxt:UnitxtExtractor",
+    "ag_news": f"{base_import}ag:AgExtractor",
+    "anagrams": f"{base_import}anagrams1:Anagrams1Extractor",
     "anagrams1": f"{base_import}anagrams1:Anagrams1Extractor",
     "anagrams2": f"{base_import}anagrams2:Anagrams2Extractor",
     "argument": f"{base_import}argument:ArgumentExtractor",
@@ -230,12 +229,16 @@ LM_EXTRACTORS_P_TO_Z: dict[str, str] = {
     "vaxx_stance": f"{base_import}vaxx:VaxxExtractor",
     "xlsum": f"{base_import}xlsum:XlsumExtractor",
     "yahoo_answers_topics": f"{base_import}unitxt:UnitxtExtractor",
-    "humaneval_instruct": f"{base_import}instructhumaneval:InstructhumanevalExtractor",
-    "humaneval_64_instruct": f"{base_import}instructhumaneval:InstructhumanevalExtractor",
-    "apps": f"{base_import}apps:AppsExtractor",
+    "humaneval_instruct": f"{base_import}humaneval:HumanEvalExtractor",
+    "humaneval_64_instruct": f"{base_import}humaneval:HumanEvalExtractor",
+    "instruct_humaneval": f"{base_import}humaneval:HumanEvalExtractor",
+    "instructhumaneval": f"{base_import}humaneval:HumanEvalExtractor",
+    # Note: "apps" is a HuggingFace-only task registered in the HF manifest.
+    # It is NOT an lm-eval task and must not be listed here.
     "recode": f"{base_import}recode:RecodeExtractor",
     "conala": f"{base_import}conala:ConalaExtractor",
     "concode": f"{base_import}concode:ConcodeExtractor",
     "mercury": f"{base_import}mercury:MercuryExtractor",
+    "turkishmmlu": f"{base_import}turkishmmlu_mc:TurkishmmluMultipleChoiceExtractor",
     # Note: WMT14 and WMT16 translation tasks are now in group_task_manifests/
 }

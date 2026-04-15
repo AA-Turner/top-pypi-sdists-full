@@ -132,6 +132,17 @@ def cli_command_add_default_to_resource_policies(ctx, **kwargs):
     policies.add_default_to_resource_policies(ctx, **kwargs)
 
 
+@click.command(name="update-resource-policy")
+@click.option("--org-id", default=None)
+@click.option("--instance-id", default=None)
+@click.option("--clear-default-actions", is_flag=True, default=None)
+@click.option("--default-action", multiple=True, default=None)
+@click.pass_context
+def cli_update_resource_policies(ctx, **kwargs):
+    result = policies.update_resource_policy(ctx, **kwargs)
+    output_entry(ctx, result.to_dict())
+
+
 @click.command(name="fetch-resource-rules")
 @click.option("--org-id", default=None)
 @click.option("--resource-id", default=None)

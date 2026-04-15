@@ -4,7 +4,7 @@ flask_security.unified_signin
 
 Flask-Security Unified Signin module
 
-:copyright: (c) 2019-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2019-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 
 This implements a unified sign in endpoint - allowing
@@ -72,6 +72,7 @@ from .utils import (
     base_render_json,
     check_and_get_token_status,
     config_value as cv,
+    confirm_redirect,
     do_flash,
     get_identity_attributes,
     get_post_login_redirect,
@@ -89,6 +90,7 @@ from .utils import (
     url_for_security,
     view_commit,
 )
+from .tf_plugin import tf_verify_validity_token
 from .twofactor import tf_clean_session
 from .webauthn import has_webauthn
 
@@ -140,6 +142,8 @@ def _us_common_validate(form):
     if not form.user.is_active:
         form.identity.errors.append(get_message("DISABLED_ACCOUNT")[0])
         return False
+    if not form.user.is_locked(form.identity.errors):
+        return False
     return True
 
 
@@ -153,7 +157,7 @@ class _UnifiedPassCodeForm(Form):
     authn_via: str
 
     # PasswordField so it doesn't show, no autocomplete since it might be a password
-    # but it might be a passcode.
+    # (could also be a passcode).
     passcode = PasswordField(
         get_form_field_label("passcode"),
         render_kw={
@@ -212,6 +216,7 @@ class _UnifiedPassCodeForm(Form):
                         ok = True
                         break
             if not ok:
+                self.user.track_failed_authn("passcode")
                 self.passcode.errors.append(get_message("INVALID_PASSWORD_CODE")[0])
                 return False
 
@@ -311,7 +316,7 @@ class UnifiedSigninSetupForm(Form):
     ]
 
     delete_method = SelectMultipleField(
-        get_form_field_xlate(_("Delete active sign in option")),
+        label=get_form_field_xlate(_("Delete active sign in option")),
         option_widget=CheckboxInput(),
         validate_choice=False,
     )
@@ -450,8 +455,9 @@ def us_signin_send_code() -> ResponseValue:
                 form, include_user=False, error_status_code=500 if msg else 200
             )
 
-        # Make sure same response as non-setup method below
-        do_flash(*generic_message("CODE_HAS_BEEN_SENT", "GENERIC_US_SIGNIN"))
+        if not msg:
+            # Make sure same response as non-setup method below
+            do_flash(*generic_message("CODE_HAS_BEEN_SENT", "GENERIC_US_SIGNIN"))
 
         return _security.render_template(
             cv("US_SIGNIN_TEMPLATE"),
@@ -481,13 +487,8 @@ def us_signin_send_code() -> ResponseValue:
         }
         return base_render_json(form, include_user=False, additional=payload)
 
-    if (
-        form.requires_confirmation
-        and cv("REQUIRES_CONFIRMATION_ERROR_VIEW")
-        and not cv("RETURN_GENERIC_RESPONSES")
-    ):
-        do_flash(*get_message("CONFIRMATION_REQUIRED"))
-        return redirect(get_url(cv("REQUIRES_CONFIRMATION_ERROR_VIEW")))
+    if rurl := confirm_redirect(form, "email"):
+        return rurl
 
     return _security.render_template(
         cv("US_SIGNIN_TEMPLATE"),
@@ -572,8 +573,8 @@ def us_signin() -> ResponseValue:
     tf_clean_session()
 
     if form.validate_on_submit():
-        # Check if multi-factor is required. Some (this is configurable) don't
-        # need 2FA since they ARE multi-factor (such as SMS and authenticator).
+        # Check if multifactor is required. Some (this is configurable) don't
+        # need 2FA since they ARE multifactor (such as SMS and authenticator).
         remember_me = form.remember.data if "remember" in form else None
         if form.authn_via in cv("US_MFA_REQUIRED"):
             response = _security.two_factor_plugins.tf_enter(
@@ -588,7 +589,9 @@ def us_signin() -> ResponseValue:
         login_user(form.user, remember=remember_me, authn_via=[form.authn_via])
 
         if _security._want_json(request):
-            return base_render_json(form, include_auth_token=True)
+            return base_render_json(
+                form, include_auth_token=True, additional=dict(tf_required=False)
+            )
 
         return redirect(get_post_login_redirect())
 
@@ -611,13 +614,8 @@ def us_signin() -> ResponseValue:
     # On error - wipe code
     form.passcode.data = None
 
-    if (
-        form.requires_confirmation
-        and cv("REQUIRES_CONFIRMATION_ERROR_VIEW")
-        and not cv("RETURN_GENERIC_RESPONSES")
-    ):
-        do_flash(*get_message("CONFIRMATION_REQUIRED"))
-        return redirect(get_url(cv("REQUIRES_CONFIRMATION_ERROR_VIEW")))
+    if rurl := confirm_redirect(form, "email"):
+        return rurl
 
     return _security.render_template(
         cv("US_SIGNIN_TEMPLATE"),
@@ -660,6 +658,12 @@ def us_verify() -> ResponseValue:
             "available_methods": cv("US_ENABLED_METHODS"),
             "code_methods": code_methods,
             "has_webauthn_verify_credential": webauthn_available,
+            "oauth_enabled": cv("OAUTH_ENABLE"),
+            "oauth_providers": (
+                _security.oauthglue.provider_names  # type: ignore[union-attr]
+                if cv("OAUTH_ENABLE")
+                else []
+            ),
         }
         return base_render_json(form, additional=payload)
 
@@ -711,6 +715,8 @@ def us_verify_link() -> ResponseValue:
         window=cv("US_TOKEN_VALIDITY"),
     ):
         m, c = generic_message("INVALID_CODE", "GENERIC_AUTHN_FAILED")
+        user.track_failed_authn("passcode")
+
         if cv("REDIRECT_BEHAVIOR") == "spa":
             return redirect(
                 get_url(
@@ -721,30 +727,31 @@ def us_verify_link() -> ResponseValue:
         do_flash(m, c)
         return redirect(url_for_security("us_signin"))
 
-    tf_setup_methods = []
-    if cv("TWO_FACTOR"):
+    # copied from tf_enter...
+    if _security.support_mfa:
         tf_setup_methods = _security.two_factor_plugins.get_setup_tf_methods(user)
-    if (
-        cv("TWO_FACTOR")
-        and "email" in cv("US_MFA_REQUIRED")
-        and (cv("TWO_FACTOR_REQUIRED") or len(tf_setup_methods) > 0)
-    ):
-        # tf_login doesn't know anything about "spa" etc. In general two-factor
-        # isn't quite ready for SPA. So we return an error via a redirect rather
-        # than mess up SPA applications. To be clear - this simply doesn't
-        # work - using a magic link w/ 2FA - need to use code.
-        if cv("REDIRECT_BEHAVIOR") == "spa":
-            return redirect(
-                get_url(
-                    cv("LOGIN_ERROR_VIEW"),
-                    qparams=user.get_redirect_qparams({"tf_required": 1}),
-                )
-            )
-        response = _security.two_factor_plugins.tf_enter(
-            user, False, "email", next_loc=propagate_next(request.url, None)
+        tf_fresh = tf_verify_validity_token(user.fs_uniquifier)
+        tf_required, tf_available_methods = user.check_tf_required(
+            tf_setup_methods, tf_fresh
         )
-        if response:
-            return response
+        if tf_required and "email" in cv("US_MFA_REQUIRED"):
+            # tf_login doesn't know anything about "spa" etc. In general two-factor
+            # isn't quite ready for SPA. So we return an error via a redirect rather
+            # than mess up SPA applications. To be clear - this simply doesn't
+            # work - using a magic link w/ 2FA - need to use code/password as primary
+            # authentication.
+            if cv("REDIRECT_BEHAVIOR") == "spa":
+                return redirect(
+                    get_url(
+                        cv("LOGIN_ERROR_VIEW"),
+                        qparams=user.get_redirect_qparams({"tf_required": 1}),
+                    )
+                )
+            response = _security.two_factor_plugins.tf_enter(
+                user, False, "email", next_loc=propagate_next(request.url, None)
+            )
+            if response:
+                return response
 
     login_user(user, authn_via=["email"])
     after_this_request(view_commit)
@@ -890,8 +897,10 @@ def us_setup() -> ResponseValue:
 
                 # Add all the values used in qrcode to json response
                 json_response["authr_key"] = authr_setup_values["key"]
+                json_response["authr_b32key"] = authr_setup_values["b32key"]
                 json_response["authr_username"] = authr_setup_values["username"]
                 json_response["authr_issuer"] = authr_setup_values["issuer"]
+                json_response["authr_uri"] = authr_setup_values["uri"]
 
                 qrcode_values = dict(
                     authr_qrcode=authr_setup_values["image"],
@@ -953,7 +962,7 @@ def us_setup() -> ResponseValue:
 def us_setup_validate(token: str) -> ResponseValue:
     """
     Validate new setup.
-    The token is the state variable which is signed and timed
+    The token is the state variable that is signed and timed
     and contains all the state that once confirmed will be stored in the user record.
     """
     form = t.cast(

@@ -38,7 +38,7 @@ def upload_to_hf(parser):
 
     db_path = dir_output / "ml" / "db" / db_name
     if not db_path.exists():
-        logger.error("Database not found: %s", db_path)
+        logger.error(f"Database not found: {db_path}")
         return
 
     api = HfApi()
@@ -47,11 +47,11 @@ def upload_to_hf(parser):
     try:
         api.create_repo(repo_id, repo_type="dataset", private=True, exist_ok=True)
     except Exception as e:
-        logger.warning("Could not create/verify HF repo: %s", e)
+        logger.warning(f"Could not create/verify HF repo: {e}")
 
     # ── Upload DB ───────────────────────────────────────────────────────
     hf_db_path = f"db/{db_name}"
-    logger.info("Uploading DB to HF: %s -> %s/%s", db_path, repo_id, hf_db_path)
+    logger.info(f"Uploading DB to HF: {db_path} -> {repo_id}/{hf_db_path}")
     try:
         api.upload_file(
             path_or_fileobj=str(db_path),
@@ -60,13 +60,13 @@ def upload_to_hf(parser):
             repo_type="dataset",
         )
     except Exception as e:
-        logger.error("Failed to upload DB: %s", e)
+        logger.error(f"Failed to upload DB: {e}")
         return
 
     # ── Upload agmet PNGs ───────────────────────────────────────────────
     agmet_dir = dir_output / "agmet"
     if agmet_dir.exists() and any(agmet_dir.rglob("*.png")):
-        logger.info("Uploading agmet PNGs from %s", agmet_dir)
+        logger.info(f"Uploading agmet PNGs from {agmet_dir}")
         try:
             api.upload_folder(
                 folder_path=str(agmet_dir),
@@ -76,14 +76,14 @@ def upload_to_hf(parser):
                 allow_patterns="**/*.png",
             )
         except Exception as e:
-            logger.warning("Failed to upload agmet PNGs: %s", e)
+            logger.warning(f"Failed to upload agmet PNGs: {e}")
     else:
-        logger.info("No agmet PNGs found at %s — skipping", agmet_dir)
+        logger.info(f"No agmet PNGs found at {agmet_dir} — skipping")
 
     # ── Upload GeoJSON shapefiles ───────────────────────────────────────
     geojson_dir = dir_output / "shapefiles"
     if geojson_dir.exists() and any(geojson_dir.glob("*.geojson")):
-        logger.info("Uploading GeoJSON files from %s", geojson_dir)
+        logger.info(f"Uploading GeoJSON files from {geojson_dir}")
         try:
             api.upload_folder(
                 folder_path=str(geojson_dir),
@@ -93,7 +93,7 @@ def upload_to_hf(parser):
                 allow_patterns="*.geojson",
             )
         except Exception as e:
-            logger.warning("Failed to upload GeoJSON files: %s", e)
+            logger.warning(f"Failed to upload GeoJSON files: {e}")
 
     # ── Update manifest.json ────────────────────────────────────────────
     manifest = _download_manifest(api, repo_id)
@@ -105,7 +105,7 @@ def upload_to_hf(parser):
     manifest["databases"].sort(key=lambda e: e.get("generated_at", ""))
 
     _upload_manifest(api, repo_id, manifest)
-    logger.info("HuggingFace sync complete: %s", repo_id)
+    logger.info(f"HuggingFace sync complete: {repo_id}")
 
 
 def _download_manifest(api, repo_id):
@@ -156,6 +156,6 @@ def _upload_manifest(api, repo_id, manifest):
             repo_type="dataset",
         )
     except Exception as e:
-        logger.error("Failed to upload manifest.json: %s", e)
+        logger.error(f"Failed to upload manifest.json: {e}")
     finally:
         Path(tmp_path).unlink(missing_ok=True)

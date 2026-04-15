@@ -19,6 +19,10 @@ def get_cache_path(task_name: str, cache_type: str, **kwargs) -> Path:
         model_name = kwargs.get("model_name", "unknown").replace("/", "_")
         layer = kwargs.get("layer", 0)
         path = CACHE_DIR / f"{task_name}_{model_name}_layer{layer}{comp_suffix}_activations.pt"
+    elif cache_type == "viz":
+        model_name = kwargs.get("model_name", "unknown").replace("/", "_")
+        layer = kwargs.get("layer", 0)
+        path = CACHE_DIR / f"{task_name}_{model_name}_layer{layer}_viz.json"
     else:
         path = CACHE_DIR / f"{task_name}_{cache_type}.json"
 
@@ -109,3 +113,44 @@ def get_cached_layers(task_name: str, model_name: str) -> list:
                 pass
 
     return sorted(layers)
+
+
+def load_viz_cache(task_name: str, model_name: str, layer: int) -> dict | None:
+    """Load cached visualizations from local cache or HF."""
+    cache_path = get_cache_path(task_name, "viz", model_name=model_name, layer=layer)
+    if cache_path.exists():
+        with open(cache_path, "r") as f:
+            return json.load(f)
+    try:
+        from wisent.core.reading.modules.utilities.data.sources.hf.hf_config import viz_cache_hf_path
+        from wisent.core.reading.modules.utilities.data.sources.hf.hf_loaders import _hf_hub_download
+        hf_path = viz_cache_hf_path(model_name, task_name, layer)
+        local = _hf_hub_download(hf_path)
+        with open(local, "r") as f:
+            data = json.load(f)
+        with open(cache_path, "w") as f:
+            json.dump(data, f)
+        return data
+    except Exception:
+        return None
+
+
+def save_viz_cache(
+    task_name: str, model_name: str, layer: int, visualizations: dict,
+) -> None:
+    """Save visualizations to local cache and HF."""
+    cache_path = get_cache_path(task_name, "viz", model_name=model_name, layer=layer)
+    with open(cache_path, "w") as f:
+        json.dump(visualizations, f)
+    try:
+        from wisent.core.reading.modules.utilities.data.sources.hf.hf_config import (
+            viz_cache_hf_path, HF_REPO_ID, HF_REPO_TYPE,
+        )
+        from wisent.core.reading.modules.utilities.data.sources.hf.hf_writers import _get_api
+        hf_path = viz_cache_hf_path(model_name, task_name, layer)
+        _get_api().upload_file(
+            path_or_fileobj=str(cache_path), path_in_repo=hf_path,
+            repo_id=HF_REPO_ID, repo_type=HF_REPO_TYPE,
+        )
+    except Exception:
+        pass

@@ -1,6 +1,6 @@
 '''
-    PM4Py â€“ A Process Mining Library for Python
-Copyright (C) 2024 Process Intelligence Solutions UG (haftungsbeschrÃ¤nkt)
+PM4Py – A Process Mining Library for Python
+Copyright (C) 2026 Process Intelligence Solutions GmbH
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -481,8 +481,8 @@ def read_ocel2_json(
     from pm4py.objects.ocel.importer.jsonocel import importer as jsonocel_importer
 
     variant = jsonocel_importer.Variants.OCEL20_STANDARD
-    #if get_rustxes_backend_name() is not None:
-    #    variant = jsonocel_importer.Variants.OCEL20_RUSTXES
+    if get_rustxes_backend_name() is not None:
+        variant = jsonocel_importer.Variants.OCEL20_RUSTXES
 
     return jsonocel_importer.apply(
         file_path, variant=variant, parameters={"encoding": encoding}
@@ -537,8 +537,8 @@ def read_ocel2_xml(
     from pm4py.objects.ocel.importer.xmlocel import importer as xml_importer
 
     variant = xml_importer.Variants.OCEL20
-    #if get_rustxes_backend_name() is not None:
-    #    variant = xml_importer.Variants.OCEL20_RUSTXES
+    if get_rustxes_backend_name() is not None:
+        variant = xml_importer.Variants.OCEL20_RUSTXES
 
     return xml_importer.apply(
         file_path, variant=variant, parameters={"encoding": encoding}

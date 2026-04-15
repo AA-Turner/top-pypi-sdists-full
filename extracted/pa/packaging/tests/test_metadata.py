@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-import email.message
+import email
 import inspect
 import pathlib
 import textwrap
+import typing
 
 import pytest
 
 from packaging import metadata, requirements, specifiers, utils, version
-from packaging.metadata import ExceptionGroup, RawMetadata
+from packaging.errors import ExceptionGroup
+
+if typing.TYPE_CHECKING:
+    from packaging.metadata import RawMetadata
 
 
 class TestRawMetadata:
@@ -259,13 +263,13 @@ class TestRawMetadata:
 class TestExceptionGroup:
     def test_attributes(self) -> None:
         individual_exception = Exception("not important")
-        exc = metadata.ExceptionGroup("message", [individual_exception])
+        exc = ExceptionGroup("message", [individual_exception])
         assert exc.message == "message"
         assert list(exc.exceptions) == [individual_exception]
 
     def test_repr(self) -> None:
         individual_exception = RuntimeError("not important")
-        exc = metadata.ExceptionGroup("message", [individual_exception])
+        exc = ExceptionGroup("message", [individual_exception])
         assert individual_exception.__class__.__name__ in repr(exc)
 
 
@@ -533,6 +537,15 @@ class TestMetadata:
         )
 
         with pytest.raises(metadata.InvalidMetadata):
+            meta.description_content_type  # noqa: B018
+
+    def test_invalid_charset_error_message(self) -> None:
+        meta = metadata.Metadata.from_raw(
+            {"description_content_type": "text/plain; charset=iso-8859-1"},
+            validate=False,
+        )
+
+        with pytest.raises(metadata.InvalidMetadata, match="iso-8859-1"):
             meta.description_content_type  # noqa: B018
 
     def test_keywords(self) -> None:

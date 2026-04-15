@@ -174,7 +174,7 @@ impl DocOrientationDetector {
                     message: format!("Failed to create doc_ori session builder: {e}"),
                     source: None,
                 })?
-                .with_optimization_level(GraphOptimizationLevel::Level3)
+                .with_optimization_level(GraphOptimizationLevel::All)
                 .map_err(|e| KreuzbergError::Ocr {
                     message: format!("Failed to set doc_ori optimization level: {e}"),
                     source: None,

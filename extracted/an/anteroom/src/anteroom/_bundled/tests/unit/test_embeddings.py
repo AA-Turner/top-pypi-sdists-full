@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -357,6 +358,49 @@ class TestCreateEmbeddingService:
             embeddings=EmbeddingsConfig(enabled=True, provider="bogus"),
         )
         assert create_embedding_service(config) is None
+
+    def test_token_provider_error_returns_none(self) -> None:
+        """TokenProviderError during get_token() should return None, not raise."""
+        from anteroom.config import AIConfig, AppConfig, EmbeddingsConfig
+        from anteroom.services.token_provider import TokenProviderError
+
+        config = AppConfig(
+            ai=AIConfig(base_url="https://api.test", api_key=""),
+            embeddings=EmbeddingsConfig(
+                enabled=True,
+                provider="api",
+                api_key_command="false",
+            ),
+        )
+        with patch(
+            "anteroom.services.embeddings.TokenProvider.get_token",
+            side_effect=TokenProviderError("api_key_command exited with code 1"),
+        ):
+            service = create_embedding_service(config)
+        assert service is None
+
+    def test_token_provider_error_logs_warning(self, caplog: Any) -> None:
+        """TokenProviderError should emit a warning-level log."""
+        import logging
+
+        from anteroom.config import AIConfig, AppConfig, EmbeddingsConfig
+        from anteroom.services.token_provider import TokenProviderError
+
+        config = AppConfig(
+            ai=AIConfig(base_url="https://api.test", api_key=""),
+            embeddings=EmbeddingsConfig(
+                enabled=True,
+                provider="api",
+                api_key_command="false",
+            ),
+        )
+        with caplog.at_level(logging.WARNING, logger="anteroom.services.embeddings"):
+            with patch(
+                "anteroom.services.embeddings.TokenProvider.get_token",
+                side_effect=TokenProviderError("api_key_command not found: no-such-cmd"),
+            ):
+                create_embedding_service(config)
+        assert any("api_key_command failed" in r.message for r in caplog.records)
 
 
 class TestLocalEmbeddingService:

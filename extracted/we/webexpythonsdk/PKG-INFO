@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: webexpythonsdk
-Version: 2.0.5
+Version: 2.0.6
 Summary: Work with the Webex APIs in native Python!
 License: MIT
+License-File: LICENSE
 Keywords: cisco,webex,api,sdk,python
 Author: Chris Lunsford
 Author-email: cm@lunsford.io
@@ -19,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Communications
 Classifier: Topic :: Communications :: Chat

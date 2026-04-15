@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from anteroom.config import TrustedProxyConfig
 from anteroom.routers.databases import (
     _AUTH_MAX_ATTEMPTS,
     _auth_attempts,
@@ -149,3 +150,83 @@ class TestAuthenticateDatabase:
                 client.post("/api/databases/mydb/auth", json={"passphrase": "wrong"})
             resp = client.post("/api/databases/mydb/auth", json={"passphrase": "wrong"})
         assert resp.status_code == 429
+
+
+class TestAuthenticateDatabaseTrustedProxy:
+    """Verify that database auth rate limiting keys on the resolved client IP.
+
+    When a trusted proxy is configured, repeated failed auth attempts from the
+    same real client (same XFF IP) must be tracked together, regardless of the
+    proxy socket peer.
+    """
+
+    def setup_method(self) -> None:
+        _auth_attempts.clear()
+
+    def _make_app_with_trusted_proxy(self) -> tuple[FastAPI, MagicMock]:
+        app, mock_mgr = _make_app()
+        trusted_cfg = TrustedProxyConfig(enabled=True, trusted_cidrs=["10.0.0.0/8"])
+        cfg = MagicMock()
+        cfg.trusted_proxy = trusted_cfg
+        app.state.config = cfg
+        return app, mock_mgr
+
+    def test_rate_limit_keyed_on_xff_real_client_not_proxy(self) -> None:
+        """Auth rate limit applies to resolved real client IP, not the proxy socket IP.
+
+        TestClient is configured with a socket peer in the trusted CIDR (10.0.0.1)
+        so XFF resolution activates and the real client IP is used as the rate-limit key.
+        """
+        app, mock_mgr = self._make_app_with_trusted_proxy()
+        mock_mgr.get_passphrase_hash.return_value = "hashed"
+
+        with patch("anteroom.services.db_auth.verify_passphrase", return_value=False):
+            # Socket peer is in trusted CIDR, so XFF is resolved
+            client = TestClient(app, client=("10.0.0.1", 50000))
+            headers = {"X-Forwarded-For": "203.0.113.55"}
+            for _ in range(_AUTH_MAX_ATTEMPTS):
+                client.post(
+                    "/api/databases/mydb/auth",
+                    json={"passphrase": "wrong"},
+                    headers=headers,
+                )
+            # Next request from same real client should be rate-limited
+            resp = client.post(
+                "/api/databases/mydb/auth",
+                json={"passphrase": "wrong"},
+                headers=headers,
+            )
+        assert resp.status_code == 429
+
+    def test_different_real_clients_independent_rate_limits(self) -> None:
+        """Two different real clients behind the same proxy have separate rate-limit buckets."""
+        app, mock_mgr = self._make_app_with_trusted_proxy()
+        mock_mgr.get_passphrase_hash.return_value = "hashed"
+
+        with patch("anteroom.services.db_auth.verify_passphrase", return_value=False):
+            # Socket peer is in trusted CIDR, so XFF is resolved per-request
+            client = TestClient(app, client=("10.0.0.1", 50000))
+
+            # Exhaust client A's bucket
+            headers_a = {"X-Forwarded-For": "203.0.113.10"}
+            for _ in range(_AUTH_MAX_ATTEMPTS):
+                client.post(
+                    "/api/databases/mydb/auth",
+                    json={"passphrase": "wrong"},
+                    headers=headers_a,
+                )
+            resp_a = client.post(
+                "/api/databases/mydb/auth",
+                json={"passphrase": "wrong"},
+                headers=headers_a,
+            )
+            assert resp_a.status_code == 429
+
+            # Client B has an independent bucket and should return 401 (not 429)
+            headers_b = {"X-Forwarded-For": "203.0.113.20"}
+            resp_b = client.post(
+                "/api/databases/mydb/auth",
+                json={"passphrase": "wrong"},
+                headers=headers_b,
+            )
+            assert resp_b.status_code == 401

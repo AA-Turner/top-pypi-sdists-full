@@ -1017,7 +1017,9 @@ async def _run_adk_user_simulation(
             events.append(
                 {
                     "author": "user",
-                    "content": invocation.user_content.model_dump(mode="json"),
+                    "content": invocation.user_content.model_dump(
+                        mode="json", exclude_none=True
+                    ),
                     "event_time": datetime.datetime.fromtimestamp(
                         invocation.creation_timestamp, tz=datetime.timezone.utc
                     ),
@@ -1033,7 +1035,7 @@ async def _run_adk_user_simulation(
                         {
                             "author": ie.author,
                             "content": (
-                                ie.content.model_dump(mode="json")
+                                ie.content.model_dump(mode="json", exclude_none=True)
                                 if ie.content
                                 else None
                             ),
@@ -1047,7 +1049,9 @@ async def _run_adk_user_simulation(
                     events.append(
                         {
                             "author": "tool_call",
-                            "content": tool_call.model_dump(mode="json"),
+                            "content": tool_call.model_dump(
+                                mode="json", exclude_none=True
+                            ),
                             "event_time": datetime.datetime.fromtimestamp(
                                 invocation.creation_timestamp, tz=datetime.timezone.utc
                             ),
@@ -1058,7 +1062,9 @@ async def _run_adk_user_simulation(
             events.append(
                 {
                     "author": "agent",
-                    "content": invocation.final_response.model_dump(mode="json"),
+                    "content": invocation.final_response.model_dump(
+                        mode="json", exclude_none=True
+                    ),
                     "event_time": datetime.datetime.fromtimestamp(
                         invocation.creation_timestamp, tz=datetime.timezone.utc
                     ),
@@ -1532,6 +1538,7 @@ def _execute_evaluation(  # type: ignore[no-untyped-def]
     dataset_schema: Optional[Literal["GEMINI", "FLATTEN", "OPENAI"]] = None,
     dest: Optional[str] = None,
     location: Optional[str] = None,
+    evaluation_service_qps: Optional[float] = None,
     **kwargs,
 ) -> types.EvaluationResult:
     """Evaluates a dataset using the provided metrics.
@@ -1544,6 +1551,9 @@ def _execute_evaluation(  # type: ignore[no-untyped-def]
         dest: The destination to save the evaluation results.
         location: The location to use for the evaluation. If not specified, the
           location configured in the client will be used.
+        evaluation_service_qps: The rate limit (queries per second) for calls
+          to the evaluation service. Defaults to 10. Increase this value if
+          your project has a higher EvaluateInstances API quota.
         **kwargs: Extra arguments to pass to evaluation, such as `agent_info`.
 
     Returns:
@@ -1619,7 +1629,8 @@ def _execute_evaluation(  # type: ignore[no-untyped-def]
     logger.info("Running Metric Computation...")
     t1 = time.perf_counter()
     evaluation_result = _evals_metric_handlers.compute_metrics_and_aggregate(
-        evaluation_run_config
+        evaluation_run_config,
+        evaluation_service_qps=evaluation_service_qps,
     )
     t2 = time.perf_counter()
     logger.info("Evaluation took: %f seconds", t2 - t1)
@@ -2061,7 +2072,7 @@ async def _execute_local_agent_run_with_retry_async(
                     new_message=new_message_content,
                 ):
                     if event:
-                        event = event.model_dump()
+                        event = event.model_dump(exclude_none=True)
                     if event and CONTENT in event and PARTS in event[CONTENT]:
                         events.append(event)
                 return events
@@ -2385,14 +2396,48 @@ def _get_eval_result_from_eval_items(
     return eval_result
 
 
+def _build_eval_item_map(
+    eval_items: list[types.EvaluationItem],
+) -> dict[str, dict[str, Any]]:
+    """Builds a mapping from EvaluationItem resource name to serialized data.
+
+    This is used by the loss analysis visualization to enrich examples with
+    scenario and rubric data from the original evaluation items.
+
+    Args:
+        eval_items: The list of EvaluationItem objects.
+
+    Returns:
+        A dict mapping evaluation item resource name to the serialized
+        evaluation_response dict (which the JS visualization reads as
+        ``evaluation_result``).
+    """
+    item_map: dict[str, dict[str, Any]] = {}
+    for item in eval_items:
+        if item.name and item.evaluation_response:
+            try:
+                item_map[item.name] = item.evaluation_response.model_dump(
+                    mode="json", exclude_none=True
+                )
+            except Exception:
+                pass
+    return item_map
+
+
 def _convert_evaluation_run_results(
     api_client: BaseApiClient,
     evaluation_run_results: types.EvaluationRunResults,
     inference_configs: Optional[dict[str, types.EvaluationRunInferenceConfig]] = None,
-) -> Optional[types.EvaluationResult]:
-    """Retrieves an EvaluationItem from the EvaluationRunResults."""
+) -> tuple[Optional[types.EvaluationResult], dict[str, dict[str, Any]]]:
+    """Retrieves an EvaluationResult and item map from EvaluationRunResults.
+
+    Returns:
+        A tuple of (EvaluationResult, eval_item_map). The eval_item_map maps
+        evaluation item resource names to their serialized evaluation response
+        data, used for enriching loss analysis visualization.
+    """
     if not evaluation_run_results or not evaluation_run_results.evaluation_set:
-        return None
+        return None, {}
 
     evals_module = evals.Evals(api_client_=api_client)
     eval_set = evals_module.get_evaluation_set(
@@ -2405,19 +2450,21 @@ def _convert_evaluation_run_results(
             evals_module.get_evaluation_item(name=item_name)
             for item_name in eval_set.evaluation_items
         ]
-    return _get_eval_result_from_eval_items(
+    eval_result = _get_eval_result_from_eval_items(
         evaluation_run_results, eval_items, inference_configs
     )
+    eval_item_map = _build_eval_item_map(eval_items)
+    return eval_result, eval_item_map
 
 
 async def _convert_evaluation_run_results_async(
     api_client: BaseApiClient,
     evaluation_run_results: types.EvaluationRunResults,
     inference_configs: Optional[dict[str, types.EvaluationRunInferenceConfig]] = None,
-) -> Optional[types.EvaluationResult]:
-    """Retrieves an EvaluationItem from the EvaluationRunResults."""
+) -> tuple[Optional[types.EvaluationResult], dict[str, dict[str, Any]]]:
+    """Retrieves an EvaluationResult and item map from EvaluationRunResults."""
     if not evaluation_run_results or not evaluation_run_results.evaluation_set:
-        return None
+        return None, {}
 
     evals_module = evals.AsyncEvals(api_client_=api_client)
     eval_set = await evals_module.get_evaluation_set(
@@ -2431,9 +2478,11 @@ async def _convert_evaluation_run_results_async(
             for eval_item in eval_set.evaluation_items
         ]
         eval_items = await asyncio.gather(*tasks)
-    return _get_eval_result_from_eval_items(
+    eval_result = _get_eval_result_from_eval_items(
         evaluation_run_results, eval_items, inference_configs
     )
+    eval_item_map = _build_eval_item_map(eval_items)
+    return eval_result, eval_item_map
 
 
 def _object_to_dict(obj: Any) -> Union[dict[str, Any], Any]:

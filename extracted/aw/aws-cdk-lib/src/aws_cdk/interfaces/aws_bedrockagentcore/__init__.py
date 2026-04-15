@@ -35,6 +35,55 @@ from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.ApiKeyCredentialProviderReference",
+    jsii_struct_bases=[],
+    name_mapping={"credential_provider_arn": "credentialProviderArn"},
+)
+class ApiKeyCredentialProviderReference:
+    def __init__(self, *, credential_provider_arn: builtins.str) -> None:
+        '''A reference to a ApiKeyCredentialProvider resource.
+
+        :param credential_provider_arn: The CredentialProviderArn of the ApiKeyCredentialProvider resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            api_key_credential_provider_reference = interfaces_bedrockagentcore.ApiKeyCredentialProviderReference(
+                credential_provider_arn="credentialProviderArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e873aa1b64ab8f28ce684bcc8bfaba0338ec1191734cc547837d88e0151cced8)
+            check_type(argname="argument credential_provider_arn", value=credential_provider_arn, expected_type=type_hints["credential_provider_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "credential_provider_arn": credential_provider_arn,
+        }
+
+    @builtins.property
+    def credential_provider_arn(self) -> builtins.str:
+        '''The CredentialProviderArn of the ApiKeyCredentialProvider resource.'''
+        result = self._values.get("credential_provider_arn")
+        assert result is not None, "Required property 'credential_provider_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApiKeyCredentialProviderReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.BrowserCustomReference",
     jsii_struct_bases=[],
     name_mapping={"browser_arn": "browserArn", "browser_id": "browserId"},
@@ -405,6 +454,53 @@ class GatewayTargetReference:
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IApiKeyCredentialProviderRef"
+)
+class IApiKeyCredentialProviderRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApiKeyCredentialProvider.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKeyCredentialProviderRef")
+    def api_key_credential_provider_ref(self) -> "ApiKeyCredentialProviderReference":
+        '''(experimental) A reference to a ApiKeyCredentialProvider resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApiKeyCredentialProviderRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApiKeyCredentialProvider.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IApiKeyCredentialProviderRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKeyCredentialProviderRef")
+    def api_key_credential_provider_ref(self) -> "ApiKeyCredentialProviderReference":
+        '''(experimental) A reference to a ApiKeyCredentialProvider resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ApiKeyCredentialProviderReference", jsii.get(self, "apiKeyCredentialProviderRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApiKeyCredentialProviderRef).__jsii_proxy_class__ = lambda : _IApiKeyCredentialProviderRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IBrowserCustomRef"
 )
 class IBrowserCustomRef(
@@ -725,6 +821,53 @@ class _IMemoryRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IMemoryRef).__jsii_proxy_class__ = lambda : _IMemoryRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IOAuth2CredentialProviderRef"
+)
+class IOAuth2CredentialProviderRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a OAuth2CredentialProvider.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="oAuth2CredentialProviderRef")
+    def o_auth2_credential_provider_ref(self) -> "OAuth2CredentialProviderReference":
+        '''(experimental) A reference to a OAuth2CredentialProvider resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOAuth2CredentialProviderRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a OAuth2CredentialProvider.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IOAuth2CredentialProviderRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="oAuth2CredentialProviderRef")
+    def o_auth2_credential_provider_ref(self) -> "OAuth2CredentialProviderReference":
+        '''(experimental) A reference to a OAuth2CredentialProvider resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OAuth2CredentialProviderReference", jsii.get(self, "oAuth2CredentialProviderRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOAuth2CredentialProviderRef).__jsii_proxy_class__ = lambda : _IOAuth2CredentialProviderRefProxy
 
 
 @jsii.interface(
@@ -1050,6 +1193,55 @@ class MemoryReference:
 
     def __repr__(self) -> str:
         return "MemoryReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.OAuth2CredentialProviderReference",
+    jsii_struct_bases=[],
+    name_mapping={"credential_provider_arn": "credentialProviderArn"},
+)
+class OAuth2CredentialProviderReference:
+    def __init__(self, *, credential_provider_arn: builtins.str) -> None:
+        '''A reference to a OAuth2CredentialProvider resource.
+
+        :param credential_provider_arn: The CredentialProviderArn of the OAuth2CredentialProvider resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            o_auth2_credential_provider_reference = interfaces_bedrockagentcore.OAuth2CredentialProviderReference(
+                credential_provider_arn="credentialProviderArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ddfc2727711afa180a6f8dbaebaa229038e153a1480c6063e16c925fecad5b7c)
+            check_type(argname="argument credential_provider_arn", value=credential_provider_arn, expected_type=type_hints["credential_provider_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "credential_provider_arn": credential_provider_arn,
+        }
+
+    @builtins.property
+    def credential_provider_arn(self) -> builtins.str:
+        '''The CredentialProviderArn of the OAuth2CredentialProvider resource.'''
+        result = self._values.get("credential_provider_arn")
+        assert result is not None, "Required property 'credential_provider_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OAuth2CredentialProviderReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1387,12 +1579,14 @@ class WorkloadIdentityReference:
 
 
 __all__ = [
+    "ApiKeyCredentialProviderReference",
     "BrowserCustomReference",
     "BrowserProfileReference",
     "CodeInterpreterCustomReference",
     "EvaluatorReference",
     "GatewayReference",
     "GatewayTargetReference",
+    "IApiKeyCredentialProviderRef",
     "IBrowserCustomRef",
     "IBrowserProfileRef",
     "ICodeInterpreterCustomRef",
@@ -1400,6 +1594,7 @@ __all__ = [
     "IGatewayRef",
     "IGatewayTargetRef",
     "IMemoryRef",
+    "IOAuth2CredentialProviderRef",
     "IOnlineEvaluationConfigRef",
     "IPolicyEngineRef",
     "IPolicyRef",
@@ -1407,6 +1602,7 @@ __all__ = [
     "IRuntimeRef",
     "IWorkloadIdentityRef",
     "MemoryReference",
+    "OAuth2CredentialProviderReference",
     "OnlineEvaluationConfigReference",
     "PolicyEngineReference",
     "PolicyReference",
@@ -1416,6 +1612,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__e873aa1b64ab8f28ce684bcc8bfaba0338ec1191734cc547837d88e0151cced8(
+    *,
+    credential_provider_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__30d539b77517d652d5c6fba79e5a649664ea046fd158b0c2a9c0c103e93f28a2(
     *,
@@ -1471,6 +1674,13 @@ def _typecheckingstub__f87b5beb1d0be1ca0ef1075ebb74f73e86e27b1cb381596715a5727c0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ddfc2727711afa180a6f8dbaebaa229038e153a1480c6063e16c925fecad5b7c(
+    *,
+    credential_provider_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__41b12f526905c57ce10965672acf38889fef11dffed975afd9fe0777ca5d18e9(
     *,
     online_evaluation_config_arn: builtins.str,
@@ -1515,5 +1725,5 @@ def _typecheckingstub__f4c87d0628ada636c999bb25ecf8067b788ff440bac34ff64b11d374d
     """Type checking stubs"""
     pass
 
-for cls in [IBrowserCustomRef, IBrowserProfileRef, ICodeInterpreterCustomRef, IEvaluatorRef, IGatewayRef, IGatewayTargetRef, IMemoryRef, IOnlineEvaluationConfigRef, IPolicyEngineRef, IPolicyRef, IRuntimeEndpointRef, IRuntimeRef, IWorkloadIdentityRef]:
+for cls in [IApiKeyCredentialProviderRef, IBrowserCustomRef, IBrowserProfileRef, ICodeInterpreterCustomRef, IEvaluatorRef, IGatewayRef, IGatewayTargetRef, IMemoryRef, IOAuth2CredentialProviderRef, IOnlineEvaluationConfigRef, IPolicyEngineRef, IPolicyRef, IRuntimeEndpointRef, IRuntimeRef, IWorkloadIdentityRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

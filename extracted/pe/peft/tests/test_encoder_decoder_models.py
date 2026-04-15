@@ -19,23 +19,29 @@ from transformers import AutoModelForSeq2SeqLM, AutoModelForTokenClassification
 
 from peft import (
     AdaLoraConfig,
+    AdamssConfig,
     BOFTConfig,
-    BoneConfig,
     C3AConfig,
     DeloraConfig,
     FourierFTConfig,
+    GraloraConfig,
     HRAConfig,
     IA3Config,
+    LilyConfig,
     LoraConfig,
     MissConfig,
     OFTConfig,
     OSFConfig,
+    PeanutConfig,
     PrefixTuningConfig,
     PromptEncoderConfig,
     PromptTuningConfig,
+    PsoftConfig,
+    PveraConfig,
     RoadConfig,
     ShiraConfig,
     TaskType,
+    TinyLoraConfig,
     VBLoRAConfig,
     VeraConfig,
     WaveFTConfig,
@@ -46,9 +52,10 @@ from .testing_common import PeftCommonTester
 from .testing_utils import set_init_weights_false
 
 
+# Note: models from peft-internal-testing are just the safetensors versions of hf-internal-testing
 PEFT_ENCODER_DECODER_MODELS_TO_TEST = [
-    "ybelkada/tiny-random-T5ForConditionalGeneration-calibrated",
-    "hf-internal-testing/tiny-random-BartForConditionalGeneration",
+    "peft-internal-testing/tiny-random-T5ForConditionalGeneration-calibrated",
+    "peft-internal-testing/tiny-random-BartForConditionalGeneration",
 ]
 
 # TODO Missing from this list are LoKr, LoHa, LN Tuning, add them
@@ -65,14 +72,6 @@ ALL_CONFIGS = [
         BOFTConfig,
         {
             "target_modules": None,
-            "task_type": "SEQ_2_SEQ_LM",
-        },
-    ),
-    (
-        BoneConfig,
-        {
-            "target_modules": None,
-            "r": 2,
             "task_type": "SEQ_2_SEQ_LM",
         },
     ),
@@ -101,6 +100,13 @@ ALL_CONFIGS = [
         },
     ),
     (
+        GraloraConfig,
+        {
+            "target_modules": None,
+            "task_type": "SEQ_2_SEQ_LM",
+        },
+    ),
+    (
         HRAConfig,
         {
             "target_modules": None,
@@ -112,6 +118,16 @@ ALL_CONFIGS = [
         {
             "target_modules": None,
             "feedforward_modules": None,
+            "task_type": "SEQ_2_SEQ_LM",
+        },
+    ),
+    (
+        LilyConfig,
+        {
+            "target_modules": None,
+            "r": 8,
+            "stride_A": 1,
+            "num_B": 2,
             "task_type": "SEQ_2_SEQ_LM",
         },
     ),
@@ -150,6 +166,14 @@ ALL_CONFIGS = [
         {
             "num_virtual_tokens": 10,
             "task_type": "SEQ_2_SEQ_LM",
+        },
+    ),
+    (
+        PrefixTuningConfig,
+        {
+            "num_virtual_tokens": 10,
+            "task_type": "SEQ_2_SEQ_LM",
+            "init_weights": "zero",
         },
     ),
     (
@@ -208,6 +232,32 @@ ALL_CONFIGS = [
         },
     ),
     (
+        TinyLoraConfig,
+        {
+            "target_modules": None,
+            "task_type": "SEQ_2_SEQ_LM",
+        },
+    ),
+    (
+        PveraConfig,
+        {
+            "r": 8,
+            "pvera_dropout": 0.05,
+            "task_type": "SEQ_2_SEQ_LM",
+        },
+    ),
+    (
+        PeanutConfig,
+        {
+            "r": 4,
+            "depth": 1,
+            "scaling": 1.0,
+            "act_fn": "relu",
+            "target_modules": None,
+            "task_type": "SEQ_2_SEQ_LM",
+        },
+    ),
+    (
         C3AConfig,
         {
             "task_type": "SEQ_2_SEQ_LM",
@@ -229,6 +279,22 @@ ALL_CONFIGS = [
             "task_type": "SEQ_2_SEQ_LM",
         },
     ),
+    (
+        PsoftConfig,
+        {
+            "task_type": "SEQ_2_SEQ_LM",
+            "r": 4,
+            "psoft_alpha": 4,
+        },
+    ),
+    (
+        AdamssConfig,
+        {
+            "target_modules": None,
+            "r": 8,
+            "task_type": "SEQ_2_SEQ_LM",
+        },
+    ),
 ]
 
 
@@ -241,10 +307,6 @@ def _skip_osf_disable_adapter_test(config_cls):
 
 class TestEncoderDecoderModels(PeftCommonTester):
     transformers_class = AutoModelForSeq2SeqLM
-
-    def skipTest(self, reason=""):
-        # for backwards compatibility with unittest style test classes
-        pytest.skip(reason)
 
     def prepare_inputs_for_testing(self):
         input_ids = torch.tensor([[1, 1, 1], [1, 2, 1]]).to(self.torch_device)
@@ -277,21 +339,25 @@ class TestEncoderDecoderModels(PeftCommonTester):
     @pytest.mark.parametrize("model_id", PEFT_ENCODER_DECODER_MODELS_TO_TEST)
     @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
     def test_save_pretrained(self, model_id, config_cls, config_kwargs):
+        config_kwargs = set_init_weights_false(config_cls, config_kwargs)
         self._test_save_pretrained(model_id, config_cls, config_kwargs)
 
     @pytest.mark.parametrize("model_id", PEFT_ENCODER_DECODER_MODELS_TO_TEST)
     @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
     def test_save_pretrained_pickle(self, model_id, config_cls, config_kwargs):
+        config_kwargs = set_init_weights_false(config_cls, config_kwargs)
         self._test_save_pretrained(model_id, config_cls, config_kwargs, safe_serialization=False)
 
     @pytest.mark.parametrize("model_id", PEFT_ENCODER_DECODER_MODELS_TO_TEST)
     @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
     def test_save_pretrained_selected_adapters(self, model_id, config_cls, config_kwargs):
+        config_kwargs = set_init_weights_false(config_cls, config_kwargs)
         self._test_save_pretrained_selected_adapters(model_id, config_cls, config_kwargs)
 
     @pytest.mark.parametrize("model_id", PEFT_ENCODER_DECODER_MODELS_TO_TEST)
     @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
     def test_save_pretrained_selected_adapters_pickle(self, model_id, config_cls, config_kwargs):
+        config_kwargs = set_init_weights_false(config_cls, config_kwargs)
         self._test_save_pretrained_selected_adapters(model_id, config_cls, config_kwargs, safe_serialization=False)
 
     def test_load_model_low_cpu_mem_usage(self):
@@ -335,11 +401,6 @@ class TestEncoderDecoderModels(PeftCommonTester):
     @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
     def test_generate_half_prec(self, model_id, config_cls, config_kwargs):
         self._test_generate_half_prec(model_id, config_cls, config_kwargs)
-
-    @pytest.mark.parametrize("model_id", PEFT_ENCODER_DECODER_MODELS_TO_TEST)
-    @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
-    def test_prefix_tuning_half_prec_conversion(self, model_id, config_cls, config_kwargs):
-        self._test_prefix_tuning_half_prec_conversion(model_id, config_cls, config_kwargs)
 
     @pytest.mark.parametrize("model_id", PEFT_ENCODER_DECODER_MODELS_TO_TEST)
     @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
@@ -410,7 +471,7 @@ class TestEncoderDecoderModels(PeftCommonTester):
 
     def test_active_adapters_prompt_learning(self):
         model = AutoModelForSeq2SeqLM.from_pretrained(
-            "hf-internal-testing/tiny-random-BartForConditionalGeneration"
+            "peft-internal-testing/tiny-random-BartForConditionalGeneration"
         ).to(self.torch_device)
         # any prompt learning method would work here
         config = PromptEncoderConfig(task_type=TaskType.SEQ_2_SEQ_LM, num_virtual_tokens=10)
@@ -418,7 +479,7 @@ class TestEncoderDecoderModels(PeftCommonTester):
         assert model.active_adapters == ["default"]
 
     def test_save_shared_tensors(self):
-        model_id = "hf-internal-testing/tiny-random-RobertaModel"
+        model_id = "peft-internal-testing/tiny-random-RobertaModel"
         peft_config = LoraConfig(
             task_type=TaskType.TOKEN_CLS,
             inference_mode=False,
