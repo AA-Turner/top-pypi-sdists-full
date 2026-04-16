@@ -1,4 +1,5 @@
 from sqlglot import exp
+from sqlglot.dialects.dialect import DialectType
 from sqlglot.expressions import Expression
 
 from collate_sqllineage.core.models import AnalyzerContext, Location, Path
@@ -23,7 +24,7 @@ class CopyExtractor(LineageHolderExtractor):
 
     SUPPORTED_STMT_TYPES = ["copy_statement"]
 
-    def __init__(self, dialect: str):
+    def __init__(self, dialect: DialectType):
         super().__init__(dialect)
 
     @staticmethod
@@ -86,6 +87,10 @@ class CopyExtractor(LineageHolderExtractor):
             files = (
                 statement.args.get("files", []) if hasattr(statement, "args") else []
             )
+
+            # COPY INTO table(col1, col2) ... parses target as Schema(this=Table, expressions=[cols])
+            if isinstance(target, exp.Schema) and isinstance(target.this, exp.Table):
+                target = target.this
 
             if isinstance(target, exp.Table) and self._is_location(target):
                 # Unload: COPY INTO @location FROM table

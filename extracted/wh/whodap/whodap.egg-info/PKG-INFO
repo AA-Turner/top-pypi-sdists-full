@@ -1,30 +1,28 @@
 Metadata-Version: 2.4
 Name: whodap
-Version: 0.1.14
+Version: 0.1.15
 Summary: Simple RDAP Utility for Python
 Home-page: https://github.com/pogzyb/whodap
 Author: Joseph Obarzanek
 Author-email: pogzyb@umich.edu
+License: MIT
 Project-URL: Bug Tracker, https://github.com/pogzyb/whodap/issues
 Keywords: security,whois,rdap,research
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development
 Classifier: Topic :: Security
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.6, <4
+Requires-Python: >=3.10, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: httpx>=0.20.0
-Requires-Dist: async_generator>=1.10; python_version < "3.7.0"
+Requires-Dist: httpx>=0.28.1
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -32,6 +30,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
+Dynamic: license
 Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python
@@ -42,7 +41,8 @@ Dynamic: summary
 [![PyPI version](https://badge.fury.io/py/whodap.svg)](https://badge.fury.io/py/whodap)
 ![example workflow](https://github.com/pogzyb/whodap/actions/workflows/run-build-and-test.yml/badge.svg)
 [![codecov](https://codecov.io/gh/pogzyb/whodap/branch/main/graph/badge.svg?token=NCfdf6ftb9)](https://codecov.io/gh/pogzyb/whodap)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Code style: black](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://docs.astral.sh/ruff/)
+[![Spectra Assure Community Badge](https://secure.software/pypi/badge/whodap)](https://secure.software/pypi/packages/whodap)
 
 `whodap` | Simple RDAP Utility for Python
 
@@ -59,7 +59,7 @@ from pprint import pprint
 import whodap
 
 # Looking up a domain name
-response = whodap.lookup_domain(domain='bitcoin', tld='org') 
+response = whodap.lookup_domain(domain='bitcoin', tld='org')
 # Equivalent asyncio call
 loop = asyncio.get_event_loop()
 response = loop.run_until_complete(whodap.aio_lookup_domain(domain='bitcoin', tld='org'))
@@ -155,12 +155,12 @@ import whodap
 dns_client = whodap.DNSClient.new_client()
 for domain, tld in [('google', 'com'), ('google', 'buzz')]:
     response = dns_client.lookup(domain, tld)
-    
+
 # Equivalent asyncio call
 dns_client = await whodap.DNSClient.new_aio_client()
 for domain, tld in [('google', 'com'), ('google', 'buzz')]:
     response = await dns_client.aio_lookup(domain, tld)
-    
+
 # Use the DNSClient contextmanagers: `new_client_context` or `new_aio_client_context`
 with whodap.DNSClient.new_client_context() as dns_client:
     for domain, tld in [('google', 'com'), ('google', 'buzz')]:
@@ -230,7 +230,7 @@ try:
     # Unfortunately, there are instances in which the RDAP protocol is not
     # properly implemented by the registrar. By default, the `to_whois_dict`
     # will still attempt to parse the into the WHOIS dictionary. However,
-    # there is no guarantee that the information will be correct or non-null. 
+    # there is no guarantee that the information will be correct or non-null.
     # If your applications rely on accurate information, the `strict=True`
     # parameter will raise an `RDAPConformanceException` when encountering
     # invalid or incorrectly formatted RDAP responses.
@@ -241,8 +241,8 @@ except RDAPConformanceException:
 ```
 
 #### Contributions
-- Interested in contributing? 
-- Have any questions or comments? 
+- Interested in contributing?
+- Have any questions or comments?
 - Anything that you'd like to see?
 - Anything that doesn't look right?
 
@@ -260,4 +260,4 @@ Please post a question or comment.
 
 #### RDAP Resources:
 - [rdap.org](https://rdap.org/)
-- [RFC 9082](https://datatracker.ietf.org/doc/html/rfc9082) 
+- [RFC 9082](https://datatracker.ietf.org/doc/html/rfc9082)

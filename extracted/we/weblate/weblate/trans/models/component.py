@@ -8,12 +8,14 @@ import os
 import re
 import time
 from collections import defaultdict
+from contextlib import suppress
 from glob import glob
 from itertools import chain
-from typing import TYPE_CHECKING, Any, TypedDict, cast
+from typing import TYPE_CHECKING, Any, ClassVar, TypedDict, cast
 from urllib.parse import quote as urlquote
 from urllib.parse import urlparse
 
+import regex
 import sentry_sdk
 from celery import current_task
 from celery.result import AsyncResult
@@ -25,9 +27,10 @@ from django.core.exceptions import (
     ValidationError,
 )
 from django.core.validators import MaxValueValidator
-from django.db import IntegrityError, connection, models, transaction
-from django.db.models import Count, F, Q
-from django.db.models.signals import m2m_changed
+from django.db import IntegrityError, models, transaction
+from django.db.models import Count, F, Q, Value
+from django.db.models.functions import MD5
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.utils.functional import cached_property
 from django.utils.html import format_html, format_html_join
@@ -82,6 +85,7 @@ from weblate.trans.util import (
     count_words,
     is_repo_link,
     path_separator,
+    sanitize_backend_error_message,
 )
 from weblate.trans.validators import (
     validate_autoaccept,
@@ -91,9 +95,12 @@ from weblate.trans.validators import (
     validate_language_code,
 )
 from weblate.utils import messages
-from weblate.utils.celery import get_task_progress
+from weblate.utils.celery import (
+    delete_task_metadata,
+    get_task_progress,
+    store_task_metadata,
+)
 from weblate.utils.colors import ColorChoices
-from weblate.utils.db import using_postgresql
 from weblate.utils.decorators import disable_for_loaddata
 from weblate.utils.errors import report_error
 from weblate.utils.fields import EmailField
@@ -106,6 +113,12 @@ from weblate.utils.licenses import (
 )
 from weblate.utils.lock import WeblateLock
 from weblate.utils.random import get_random_identifier
+from weblate.utils.regex import (
+    compile_regex,
+    regex_findall,
+    regex_match,
+    regex_sub,
+)
 from weblate.utils.render import (
     render_template,
     validate_render_addon,
@@ -128,8 +141,14 @@ from weblate.utils.validators import (
     validate_repo_url,
     validate_slug,
 )
-from weblate.vcs.base import RepositoryError, RepositorySymlinkError
-from weblate.vcs.git import GitMergeRequestBase, LocalRepository
+from weblate.vcs.base import (
+    RepositoryError,
+    RepositorySymlinkError,
+    is_ssh_host_key_mismatch_error,
+    is_ssh_host_key_verification_error,
+    should_auto_add_ssh_host_key,
+)
+from weblate.vcs.git import GitMergeRequestBase, GitRepository, LocalRepository
 from weblate.vcs.models import VCS_REGISTRY
 from weblate.vcs.ssh import add_host_key, extract_url_host_port
 
@@ -139,13 +158,14 @@ if TYPE_CHECKING:
 
     from django_stubs_ext import StrOrPromise
 
-    from weblate.addons.models import Addon
+    from weblate.addons.models import Addon, AddonCache
     from weblate.auth.models import AuthenticatedHttpRequest, User
     from weblate.checks.base import BaseCheck
     from weblate.formats.base import TranslationFormat
     from weblate.lang.models import Plural
     from weblate.trans.models import Project
     from weblate.trans.models.unit import UnitAttributesDict
+    from weblate.trans.removal import RemovalBatch
     from weblate.vcs.base import Repository
 
 NEW_LANG_CHOICES = (
@@ -286,13 +306,7 @@ class ComponentQuerySet(models.QuerySet):
         else:
             linked_component = "linked_component"
         if alerts:
-            result = result.prefetch_related(
-                models.Prefetch(
-                    "alert_set",
-                    queryset=Alert.objects.filter(dismissed=False),
-                    to_attr="all_active_alerts",
-                ),
-            )
+            result = result.prefetch_related("alert_set")
 
         return result.prefetch_related(
             "project",
@@ -375,13 +389,53 @@ class ComponentQuerySet(models.QuerySet):
         )
 
 
+class ComponentLink(models.Model):
+    component = models.ForeignKey(
+        "trans.Component",
+        on_delete=models.CASCADE,
+    )
+    project = models.ForeignKey(
+        "trans.Project",
+        on_delete=models.CASCADE,
+    )
+    category = models.ForeignKey(
+        "trans.Category",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        app_label = "trans"
+        db_table = "trans_component_links"
+        unique_together = (("component", "project"),)
+
+    def __str__(self) -> str:
+        if self.category:
+            return f"{self.component} -> {self.category}"
+        return f"{self.component} -> {self.project}"
+
+
 class OldComponentSettings(TypedDict):
     check_flags: str
+    vcs: str
+    push: str
+    push_branch: str
+    repo: str
 
 
-class Component(
+class Component(  # noqa: PLR0904
     models.Model, PathMixin, CacheKeyMixin, ComponentCategoryMixin, LockMixin
 ):
+    LINKED_REPOSITORY_SETTINGS: ClassVar[tuple[str, ...]] = (
+        "push_on_commit",
+        "commit_pending_age",
+        "auto_lock_error",
+    )
+    LINKED_REPOSITORY_SETTING_MESSAGE = gettext_lazy(
+        "Option is not available for linked repositories. Setting from linked component will be used."
+    )
+
     name = models.CharField(
         verbose_name=gettext_lazy("Component name"),
         max_length=COMPONENT_NAME_LENGTH,
@@ -819,6 +873,7 @@ class Component(
         verbose_name=gettext_lazy("Share in projects"),
         blank=True,
         related_name="shared_components",
+        through="ComponentLink",
         help_text=gettext_lazy(
             "Choose additional projects where this component will be listed."
         ),
@@ -906,16 +961,15 @@ class Component(
         self.stats = ComponentStats(self)
         self.needs_cleanup = False
         self.alerts_trigger: dict[str, list[dict]] = {}
-        self.updated_sources: dict[int, Unit] = {}
-        self.old_component_settings: OldComponentSettings = {
-            "check_flags": self.check_flags
-        }
+        self.updated_sources: set[int] = set()
+        self.old_component_settings = self.get_old_component_settings()
         self._sources: dict[int, Unit] = {}
         self._sources_prefetched = False
         self.logs: list[str] = []
         self.translations_count: int | None = None
         self.translations_progress = 0
         self.acting_user: User | None = None
+        self.removal_batch: RemovalBatch | None = None
         self.batch_checks = False
         self.batched_checks: set[str] = set()
         self.needs_variants_update = False
@@ -931,7 +985,11 @@ class Component(
 
         It updates the back-end repository and regenerates translation data.
         """
-        from weblate.trans.tasks import component_after_save
+        from weblate.trans.tasks import component_after_save  # noqa: PLC0415
+
+        seed_source_component_id = getattr(self, "seed_source_component_id", None)
+        copy_seed_addons = getattr(self, "copy_seed_addons", False)
+        seed_author = getattr(self, "seed_author", None)
 
         self.drop_file_format_cache()
         self.set_default_branch()
@@ -1017,8 +1075,22 @@ class Component(
         self.intermediate = cleanup_path(self.intermediate)
         self.new_base = cleanup_path(self.new_base)
 
+        cleanup_configs = (
+            self.get_conflicting_repository_setup_configs() if self.id else set()
+        )
+        cleanup_conflicting_repository_setup = (
+            self.has_conflicting_repository_setup_changed() if self.id else False
+        )
+
         # Save/Create object
         super().save(*args, **kwargs)
+
+        if cleanup_conflicting_repository_setup:
+            transaction.on_commit(
+                lambda: self.cleanup_conflicting_repository_setup_alerts(
+                    cleanup_configs
+                )
+            )
 
         if create:
             self.install_autoaddon()
@@ -1037,9 +1109,13 @@ class Component(
                 changed_enforced_checks=changed_enforced_checks,
                 skip_push=kwargs.get("force_insert", False),
                 create=create,
+                seed_source_component_id=seed_source_component_id,
+                copy_seed_addons=copy_seed_addons,
+                seed_author=seed_author,
             )
         else:
-            component_after_save.delay_on_commit(
+            self.queue_background_task(
+                component_after_save,
                 self.pk,
                 changed_git=changed_git,
                 changed_setup=changed_setup,
@@ -1048,12 +1124,17 @@ class Component(
                 changed_enforced_checks=changed_enforced_checks,
                 skip_push=kwargs.get("force_insert", False),
                 create=create,
+                seed_source_component_id=seed_source_component_id,
+                copy_seed_addons=copy_seed_addons,
+                seed_author=seed_author,
             )
 
         if self.old_component_settings["check_flags"] != self.check_flags:
             transaction.on_commit(
                 lambda: self.schedule_update_checks(update_state=True)
             )
+
+        self.old_component_settings = self.get_old_component_settings()
 
         # Invalidate source language cache just to be sure, as it is relatively
         # cheap to update
@@ -1063,6 +1144,47 @@ class Component(
 
         if update_tm:
             import_memory.delay_on_commit(self.project.id, self.pk)
+
+    def get_old_component_settings(self) -> OldComponentSettings:
+        """
+        Capture settings needed for change detection without loading deferred fields.
+
+        Some callers fetch Component objects using only a subset of fields. Reading
+        the attributes directly here would trigger additional queries while the
+        instance is being initialized or refreshed, so this intentionally prefers
+        values already present in __dict__ and falls back to previously captured
+        settings.
+        """
+        current = getattr(self, "old_component_settings", {})
+        return {
+            "check_flags": self.get_old_component_setting("check_flags", current),
+            "vcs": self.get_old_component_setting("vcs", current),
+            "push": self.get_old_component_setting("push", current),
+            "push_branch": self.get_old_component_setting("push_branch", current),
+            "repo": self.get_old_component_setting("repo", current),
+        }
+
+    def get_old_component_setting(
+        self, name: str, current: OldComponentSettings | dict[str, str]
+    ) -> str:
+        """Read a tracked setting without forcing deferred field evaluation."""
+        return self.__dict__.get(name, current.get(name, ""))
+
+    def refresh_from_db(self, *args, **kwargs) -> None:
+        super().refresh_from_db(*args, **kwargs)
+        self.old_component_settings = self.get_old_component_settings()
+
+    def prepare_seed_from_component(
+        self,
+        source_component_id: int,
+        *,
+        copy_addons: bool,
+        seed_author: str | None,
+    ) -> None:
+        """Store transient seed settings for processing in after_save."""
+        self.seed_source_component_id = source_component_id
+        self.copy_seed_addons = copy_addons
+        self.seed_author = seed_author
 
     @cached_property
     def cached_links(self) -> models.QuerySet[Project]:
@@ -1097,7 +1219,7 @@ class Component(
 
     def install_autoaddon(self) -> None:
         """Installs automatically enabled addons from file format."""
-        from weblate.addons.models import ADDONS, Addon
+        from weblate.addons.models import ADDONS  # noqa: PLC0415
 
         for name, configuration in chain(
             self.file_format_cls.autoaddon.items(), settings.DEFAULT_ADDONS.items()
@@ -1106,17 +1228,6 @@ class Component(
                 addon = ADDONS[name]
             except KeyError:
                 self.log_warning("could not enable addon %s, not found", name)
-                continue
-
-            if (
-                addon.project_scope
-                and Addon.objects.filter(
-                    component__project=self.project, name=name
-                ).exists()
-            ):
-                self.log_warning(
-                    "could not enable addon %s, already installed on project", name
-                )
                 continue
 
             component = self
@@ -1185,10 +1296,24 @@ class Component(
         )
 
     @cached_property
+    def checks_lock(self):
+        return WeblateLock(
+            lock_path=self.project.full_path,
+            scope="component-checks",
+            key=self.pk,
+            slug=self.slug,
+            cache_template="{scope}-lock-{key}",
+            file_template="{slug}-checks.lock",
+            timeout=5,
+            origin=self.full_slug,
+        )
+
+    @cached_property
     def update_key(self) -> str:
         return f"component-update-{self.pk}"
 
     def delete_background_task(self) -> None:
+        delete_task_metadata(self.background_task_id)
         cache.delete(self.update_key)
 
     def store_background_task(self, task=None) -> None:
@@ -1197,6 +1322,12 @@ class Component(
                 return
             task = current_task.request
         cache.set(self.update_key, task.id, 6 * 3600)
+        store_task_metadata(task.id, component_id=self.pk)
+
+    def queue_background_task(self, task, /, *args, **kwargs) -> None:
+        transaction.on_commit(
+            lambda: self.store_background_task(task.delay(*args, **kwargs))
+        )
 
     @cached_property
     def background_task_id(self):
@@ -1266,6 +1397,7 @@ class Component(
             result = self.translation_set.get(language_id=self.source_language_id)
         except ObjectDoesNotExist:
             return None
+        result.sync_readonly_check_flag()
         self.__dict__["source_translation"] = result
         return result
 
@@ -1288,21 +1420,35 @@ class Component(
         except ObjectDoesNotExist:
             try:
                 with transaction.atomic():
-                    return self.translation_set.create(
+                    translation = self.translation_set.model(
+                        component=self,
                         language=language,
-                        check_flags="read-only",
                         filename=self.template,
                         plural=self.get_source_plural(),
                         language_code=language.code,
                     )
+                    translation.sync_readonly_check_flag(save=False)
+                    return self.translation_set.create(
+                        language=language,
+                        check_flags=translation.check_flags,
+                        filename=self.template,
+                        plural=translation.plural,
+                        language_code=language.code,
+                    )
             except IntegrityError:
                 try:
-                    return self.translation_set.get(language_id=self.source_language_id)
+                    result = self.translation_set.get(
+                        language_id=self.source_language_id
+                    )
                 except self.translation_set.model.DoesNotExist:
                     pass
+                else:
+                    result.sync_readonly_check_flag()
+                    return result
                 raise
         else:
             result.language = language
+            result.sync_readonly_check_flag()
             return result
 
     def preload_sources(self, sources=None) -> None:
@@ -1336,15 +1482,16 @@ class Component(
             check_new=False,
             save=save,
         )
-        self.updated_sources[source.id] = source
+        self.updated_sources.add(source.id)
         return change
 
-    def bulk_create_sources(self, attributes_list: list[UnitAttributesDict]) -> None:
+    def bulk_create_sources(
+        self,
+        attributes_list: list[UnitAttributesDict],
+        *,
+        create_unit_change_action: ActionEvents = ActionEvents.NEW_UNIT_REPO,
+    ) -> None:
         """Ensure that all sources are stored in the database."""
-        # Can not bulk create with getting primary key, resort to one by one creation
-        if not connection.features.can_return_rows_from_bulk_insert:
-            return
-
         # Make sure we load all the sources
         if not self._sources_prefetched:
             self.preload_sources()
@@ -1392,7 +1539,12 @@ class Component(
             self._sources[unit.id_hash] = unit
 
             # Postprocess and create change
-            changes.append(self._process_new_source(unit, save=False))
+            change = self._process_new_source(unit, save=False)
+            if create_unit_change_action == ActionEvents.NEW_UNIT_UPLOAD:
+                change.action = ActionEvents.NEW_SOURCE_UPLOAD
+            elif create_unit_change_action == ActionEvents.NEW_UNIT_REPO:
+                change.action = ActionEvents.NEW_SOURCE_REPO
+            changes.append(change)
 
         # Update source unit in the database
         Unit.objects.bulk_update(units, fields=["source_unit"])
@@ -1426,6 +1578,7 @@ class Component(
                 source = Unit(
                     translation=self.source_translation, id_hash=id_hash, **create
                 )
+                source.fill_new_unit_cache()
                 source.save(force_insert=True, only_save=True)
                 self._process_new_source(source)
             else:
@@ -1459,8 +1612,8 @@ class Component(
             else:
                 raw.append(char)
         append(None)
-        regex = "".join(result)
-        return re.compile(f"^{regex}$")
+        expression = "".join(result)
+        return re.compile(f"^{expression}$")
 
     def get_url_path(self):
         parent = self.category or self.project
@@ -1473,6 +1626,27 @@ class Component(
     def get_share_url(self):
         """Return absolute shareable URL."""
         return self.project.get_share_url()
+
+    @property
+    def effective_repo_component(self) -> Component:
+        linked = self.linked_component
+        if linked is not None:
+            if linked.project_id == self.project_id:
+                linked.project = self.project
+            return linked
+        return self
+
+    @property
+    def effective_push_on_commit(self) -> bool:
+        return self.effective_repo_component.push_on_commit
+
+    @property
+    def effective_commit_pending_age(self) -> int:
+        return self.effective_repo_component.commit_pending_age
+
+    @property
+    def effective_auto_lock_error(self) -> bool:
+        return self.effective_repo_component.auto_lock_error
 
     @perform_on_link
     def _get_path(self):
@@ -1503,7 +1677,7 @@ class Component(
         try:
             return VCS_REGISTRY[self.vcs]
         except KeyError as error:
-            msg = f"Component using VCS {self.vcs}, but it not configured"
+            msg = f"Component using VCS {self.vcs}, but it is not configured"
             raise ImproperlyConfigured(msg) from error
 
     @cached_property
@@ -1689,10 +1863,23 @@ class Component(
 
     def error_text(self, error: RepositoryError) -> str:
         """Return text message for a RepositoryError."""
-        message = error.get_message()
-        if not settings.HIDE_REPO_CREDENTIALS:
-            return message
-        return cleanup_repo_url(self.repo, message)
+        return sanitize_backend_error_message(
+            error.get_message(),
+            repo_urls=(self.repo, self.push),
+            extra_paths=(self.full_path,),
+        )
+
+    @staticmethod
+    def get_ssh_host_key_error_message() -> str:
+        return gettext(
+            "Could not verify the SSH host key. Please add it on the SSH page in the admin interface."
+        )
+
+    @staticmethod
+    def get_ssh_host_key_mismatch_error_message() -> str:
+        return gettext(
+            "The SSH host key for the repository has changed. Verify the new fingerprint and replace the stored host key on the SSH page in the admin interface."
+        )
 
     def add_ssh_host_key(self) -> None:
         """
@@ -1714,19 +1901,16 @@ class Component(
             add(self.push)
 
     def handle_update_error(self, error_text: str, retry: bool) -> None:
-        if "Host key verification failed" in error_text:
+        if is_ssh_host_key_mismatch_error(error_text):
+            raise ValidationError(
+                {"repo": self.get_ssh_host_key_mismatch_error_message()}
+            )
+        if is_ssh_host_key_verification_error(error_text):
             if retry:
                 # Add ssh key and retry
                 self.add_ssh_host_key()
                 return
-            raise ValidationError(
-                {
-                    "repo": gettext(
-                        "Could not verify SSH host key, please add "
-                        "them in SSH page in the admin interface."
-                    )
-                }
-            )
+            raise ValidationError({"repo": self.get_ssh_host_key_error_message()})
         if "terminal prompts disabled" in error_text:
             raise ValidationError(
                 {
@@ -1809,7 +1993,7 @@ class Component(
                 ) or (
                     self.template
                     and self.file_format_cls.get_new_file_content(
-                        get_encoding_param(self.file_format_params)
+                        get_encoding_param(self.file_format, self.file_format_params)
                     )
                     is None
                 ):
@@ -1818,7 +2002,9 @@ class Component(
                     self.full_path,
                     {
                         self.template: self.file_format_cls.get_new_file_content(
-                            get_encoding_param(self.file_format_params)
+                            get_encoding_param(
+                                self.file_format, self.file_format_params
+                            )
                         )
                     }
                     if self.template
@@ -1936,7 +2122,7 @@ class Component(
         * Configured push
         * Whether there is something to push
         """
-        if not self.push_on_commit:
+        if not self.effective_push_on_commit:
             self.log_info("skipped push: push on commit disabled")
             return
         if not self.can_push():
@@ -1952,11 +2138,11 @@ class Component(
         if settings.CELERY_TASK_ALWAYS_EAGER:
             self.do_push(None, force_commit=False, do_update=do_update)
         else:
-            from weblate.trans.tasks import perform_push
+            from weblate.trans.tasks import perform_push  # noqa: PLC0415
 
             self.log_info("scheduling push")
-            perform_push.delay_on_commit(
-                self.pk, None, force_commit=False, do_update=do_update
+            self.queue_background_task(
+                perform_push, self.pk, None, force_commit=False, do_update=do_update
             )
 
     @perform_on_link
@@ -1979,7 +2165,7 @@ class Component(
                     user=request.user if request else self.acting_user,
                 )
                 if retry:
-                    if "Host key verification failed" in error_text:
+                    if should_auto_add_ssh_host_key(error_text):
                         # Try adding SSH key and retry
                         self.add_ssh_host_key()
                         return self.push_repo(request, retry=False)
@@ -2057,9 +2243,16 @@ class Component(
             if not self.pushes_to_different_location and self.repo_needs_merge():
                 return False
 
+        # Prefetch addons for linked children to avoid N+1 queries
+        linked_children_list = list(self.linked_children)
+        if linked_children_list:
+            from weblate.addons.models import Addon  # noqa: PLC0415
+
+            Addon.objects.prefetch_for_components(linked_children_list)
+
         # Send pre push signal
         vcs_pre_push.send(sender=self.__class__, component=self)
-        for component in self.linked_children:
+        for component in linked_children_list:
             vcs_pre_push.send(sender=component.__class__, component=component)
 
         # Do actual push
@@ -2073,7 +2266,7 @@ class Component(
         )
 
         vcs_post_push.send(sender=self.__class__, component=self)
-        for component in self.linked_children:
+        for component in linked_children_list:
             vcs_post_push.send(sender=component.__class__, component=component)
 
         return True
@@ -2086,10 +2279,13 @@ class Component(
         keep_changes: bool = False,
     ) -> bool:
         """Reset repo to match remote."""
-        from weblate.trans.tasks import perform_commit
+        from weblate.trans.tasks import perform_commit  # noqa: PLC0415
 
         user = request.user if request else self.acting_user
         with self.repository.lock:
+            repo_unit_filter = Q(translation__component=self) | Q(
+                translation__component__linked_component=self
+            )
             try:
                 previous_head = self.repository.last_revision
             except RepositoryError:
@@ -2103,10 +2299,11 @@ class Component(
             else:
                 # Explicitly remove all pending changes
                 PendingUnitChange.objects.filter(
-                    unit__translation__component=self
+                    Q(unit__translation__component=self)
+                    | Q(unit__translation__component__linked_component=self)
                 ).delete()
             # Remove disk state as we are going to change that
-            Unit.objects.filter(translation__component=self).clear_disk_state()
+            Unit.objects.filter(repo_unit_filter).clear_disk_state()
 
             # Do actual reset
             try:
@@ -2136,6 +2333,11 @@ class Component(
             self.delete_alert("RepositoryOutdated")
             self.delete_alert("PushFailure")
 
+            if keep_changes and not self.restore_pending_translation_files(
+                request=request, user=user
+            ):
+                return False
+
             if not keep_changes:
                 self.trigger_post_update(
                     previous_head=previous_head,
@@ -2148,7 +2350,8 @@ class Component(
 
         if keep_changes:
             # Trigger commit and scan in the background
-            perform_commit.delay_on_commit(
+            self.queue_background_task(
+                perform_commit,
                 self.pk,
                 "reset-sync",
                 user_id=request.user.id if request else None,
@@ -2156,6 +2359,194 @@ class Component(
                 previous_head=previous_head,
             )
         return True
+
+    def restore_pending_translation_files(
+        self,
+        *,
+        request: AuthenticatedHttpRequest | None = None,
+        user: User | None = None,
+    ) -> bool:
+        """Recreate missing translation files before reapplying pending changes."""
+        missing_translations: list[Translation] = []
+        failures: list[tuple[Translation, str]] = []
+        checked_components: dict[int, tuple[bool, str | None]] = {}
+
+        translations = Translation.objects.filter(
+            pk__in=PendingUnitChange.objects.for_component(
+                self,
+                apply_filters=False,
+                include_linked=True,
+            )
+            .values_list("unit__translation_id", flat=True)
+            .distinct()
+        ).select_related("component", "language")
+
+        for translation in translations:
+            translation = self.reuse_component_for_translation(translation)
+            if not translation.filename:
+                continue
+
+            try:
+                fullname = translation.get_filename()
+            except ValidationError as error:
+                failures.append((translation, "; ".join(error.messages)))
+                continue
+
+            if fullname is None or os.path.exists(fullname):
+                continue
+
+            component = translation.component
+            if component.pk not in checked_components:
+                component.drop_template_store_cache()
+                try:
+                    checked_components[component.pk] = (
+                        component.can_restore_missing_translation_file(),
+                        component.new_lang_error_message,
+                    )
+                except ValidationError as error:
+                    checked_components[component.pk] = (
+                        False,
+                        "; ".join(error.messages),
+                    )
+
+            can_restore, error_message = checked_components[component.pk]
+            if not can_restore:
+                failures.append((translation, cast("str", error_message)))
+                continue
+
+            missing_translations.append(translation)
+
+        if failures:
+            for translation, reason in failures:
+                translation.component.log_warning(
+                    "reset/reapply can not restore missing translation file %s: %s",
+                    translation.filename,
+                    reason,
+                )
+
+            if request is not None:
+                filenames = ", ".join(
+                    sorted({translation.filename for translation, _reason in failures})
+                )
+                messages.error(
+                    request,
+                    ngettext(
+                        "Reset the repository, but could not reapply pending translations because %(files)s is missing. Pending changes were kept. To recover, add the file upstream and rescan, or configure the component so Weblate can create the translation file.",
+                        "Reset the repository, but could not reapply pending translations because these files are missing: %(files)s. Pending changes were kept. To recover, add the files upstream and rescan, or configure the component so Weblate can create the translation files.",
+                        len(failures),
+                    )
+                    % {"files": filenames},
+                )
+            return False
+
+        if not missing_translations:
+            return True
+
+        current_translation: Translation | None = None
+        restored_components: dict[int, Component] = {}
+        try:
+            with transaction.atomic():
+                for translation in missing_translations:
+                    current_translation = translation
+                    translation.component.restore_missing_translation_file(
+                        translation,
+                        user=user,
+                        skip_push=True,
+                        signals=False,
+                    )
+                    restored_components[translation.component.pk] = (
+                        translation.component
+                    )
+        except Exception as error:
+            return self.handle_restore_pending_translation_failure(
+                request=request,
+                missing_translations=missing_translations,
+                current_translation=current_translation,
+                error=error,
+            )
+
+        for component in restored_components.values():
+            component.send_post_commit_signal(store_hash=False)
+
+        return True
+
+    def handle_restore_pending_translation_failure(
+        self,
+        *,
+        request: AuthenticatedHttpRequest | None,
+        missing_translations: list[Translation],
+        current_translation: Translation | None,
+        error: Exception,
+    ) -> bool:
+        failed_component = (
+            current_translation.component if current_translation is not None else self
+        )
+        error_message = failed_component.get_parse_error_message(error)
+        report_error(
+            "Could not recreate missing translation file during reset",
+            project=failed_component.project,
+        )
+        if current_translation is not None:
+            failed_component.log_error(
+                "reset/reapply failed to recreate %s: %s",
+                current_translation.filename,
+                error_message,
+            )
+        else:
+            failed_component.log_error(
+                "reset/reapply failed before recreating missing translation files: %s",
+                error_message,
+            )
+        try:
+            with self.repository.lock:
+                self.repository.reset()
+                self.repository.cleanup_files()
+        except RepositoryError:
+            report_error(
+                "Could not roll back partial translation file restore during reset",
+                project=self.project,
+                skip_sentry=not settings.DEBUG,
+            )
+            self.log_error(
+                "reset/reapply failed to roll back partial missing translation restore"
+            )
+        if request is not None:
+            if current_translation is not None:
+                messages.error(
+                    request,
+                    gettext(
+                        "Reset the repository, but could not recreate %(file)s while reapplying pending translations. Pending changes were kept."
+                    )
+                    % {"file": current_translation.filename},
+                )
+            else:
+                filenames = ", ".join(
+                    sorted(
+                        {
+                            translation.filename
+                            for translation in missing_translations
+                            if translation.filename
+                        }
+                    )
+                )
+                if filenames:
+                    messages.error(
+                        request,
+                        ngettext(
+                            "Reset the repository, but could not recreate %(files)s while reapplying pending translations. Pending changes were kept.",
+                            "Reset the repository, but could not recreate these files while reapplying pending translations: %(files)s. Pending changes were kept.",
+                            len(missing_translations),
+                        )
+                        % {"files": filenames},
+                    )
+                else:
+                    messages.error(
+                        request,
+                        gettext(
+                            "Reset the repository, but could not recreate pending translations. Pending changes were kept."
+                        ),
+                    )
+        return False
 
     @perform_on_link
     def do_cleanup(self, request: AuthenticatedHttpRequest | None = None) -> bool:
@@ -2192,7 +2583,7 @@ class Component(
         do_commit: bool = True,
         store_disk_state: bool = True,
     ) -> None:
-        from weblate.trans.tasks import perform_commit
+        from weblate.trans.tasks import perform_commit  # noqa: PLC0415
 
         for unit in Unit.objects.filter(
             Q(translation__component=self)
@@ -2209,8 +2600,11 @@ class Component(
         )
 
         if do_commit:
-            perform_commit.delay_on_commit(
-                self.pk, "file-sync", user_id=request.user.id if request else None
+            self.queue_background_task(
+                perform_commit,
+                self.pk,
+                "file-sync",
+                user_id=request.user.id if request else None,
             )
 
     @perform_on_link
@@ -2248,21 +2642,26 @@ class Component(
             for linked in self.linked_children
         ]
 
+    def reuse_component_for_translation(
+        self, translation: Translation, *, reuse_source: bool = False
+    ) -> Translation:
+        if translation.component_id == self.id:
+            translation.component = self
+        if translation.component.linked_component_id == self.id:
+            translation.component.linked_component = self
+        if (
+            reuse_source
+            and translation.pk == translation.component.source_translation.pk
+        ):
+            translation = translation.component.source_translation
+        return translation
+
     @perform_on_link
     def commit_pending(  # noqa: C901
         self, reason: str, user: User | None, skip_push: bool = False
     ) -> bool:
         """Check whether there is any translation to be committed."""
-        from weblate.auth.models import User
-
-        def reuse_self(translation: Translation) -> Translation:
-            if translation.component_id == self.id:
-                translation.component = self
-            if translation.component.linked_component_id == self.id:
-                translation.component.linked_component = self
-            if translation.pk == translation.component.source_translation.pk:
-                translation = translation.component.source_translation
-            return translation
+        from weblate.auth.models import User  # noqa: PLC0415
 
         if user is None:
             user = User.objects.get_or_create_bot(
@@ -2304,7 +2703,9 @@ class Component(
         with self.repository.lock:
             for translation in translations:
                 self.repository.lock.reacquire()
-                translation = reuse_self(translation)
+                translation = self.reuse_component_for_translation(
+                    translation, reuse_source=True
+                )
                 component = translation.component
                 if component.pk in skipped:
                     # We already failed at this component
@@ -2390,7 +2791,7 @@ class Component(
                 store_hash=store_hash,
             )
 
-        with self.start_sentry_span("commit_files"):
+        with self.start_sentry_span("commit_files"), self.repository.lock:
             if message is None:
                 if template is None:
                     msg = "Missing template when message is not specified"
@@ -2429,8 +2830,12 @@ class Component(
         if not error_message:
             error_message = getattr(error, "message", "")
         if not error_message:
-            error_message = str(error).replace(self.full_path, "")
-        return error_message
+            error_message = str(error)
+        return sanitize_backend_error_message(
+            error_message,
+            repo_urls=(self.repo, self.push),
+            extra_paths=(self.full_path,),
+        )
 
     def handle_parse_error(
         self, error, translation=None, filename=None, reraise: bool = True
@@ -2584,15 +2989,29 @@ class Component(
                 user=user,
             )
 
-    def get_mask_matches(self) -> list[str]:
+    def get_mask_matches(self, *, raise_on_timeout: bool = False) -> list[str]:
         """Return files matching current mask."""
         prefix = path_separator(os.path.join(self.full_path, ""))
         matches = set()
+        language_re = compile_regex(self.language_regex)
+        timeout_reported = False
 
         for filename in glob(os.path.join(self.full_path, self.filemask)):
             path = path_separator(filename).replace(prefix, "")
             code = self.get_lang_code(path)
-            if re.match(self.language_regex, code) and code != "source":
+            try:
+                language_match = regex_match(language_re, code)
+            except TimeoutError:
+                if raise_on_timeout:
+                    raise
+                if not timeout_reported:
+                    report_error(
+                        "Component language regex timed out", project=self.project
+                    )
+                    self.log_warning("language regex timed out for %s [%s]", code, path)
+                    timeout_reported = True
+                continue
+            if language_match and code != "source":
                 matches.add(path)
             else:
                 self.log_info("skipping language %s [%s]", code, path)
@@ -2624,26 +3043,21 @@ class Component(
             return [self.template, *sorted(matches)]
         return sorted(matches)
 
-    def update_source_checks(self) -> None:
-        self.log_info("running source checks for %d strings", len(self.updated_sources))
-        for unit in self.updated_sources.values():
-            unit.is_batch_update = True
-            unit.run_checks()
-        self.updated_sources = {}
+    @cached_property
+    def all_active_alerts(self) -> list[Alert]:
+        return [alert for alert in self.alert_set.all() if not alert.dismissed]
 
     @cached_property
-    def all_active_alerts(self):
-        result = self.alert_set.filter(dismissed=False)
-        list(result)
-        return result
-
-    @cached_property
-    def all_alerts(self):
+    def all_alerts(self) -> dict[str, Alert]:
         return {alert.name: alert for alert in self.alert_set.all()}
+
+    def clear_prefetched_alerts(self) -> None:
+        with suppress(AttributeError, KeyError):
+            self._prefetched_objects_cache.pop("alert_set")
 
     @property
     def lock_alerts(self):
-        if not self.auto_lock_error:
+        if not self.effective_auto_lock_error:
             return []
         return [
             alert for alert in self.all_active_alerts if alert.name in LOCKING_ALERTS
@@ -2659,9 +3073,14 @@ class Component(
         if alert in self.all_alerts:
             self.all_alerts[alert].delete()
             del self.all_alerts[alert]
+            if "all_active_alerts" in self.__dict__:
+                self.__dict__["all_active_alerts"] = [
+                    item for item in self.all_alerts.values() if not item.dismissed
+                ]
+            self.clear_prefetched_alerts()
             if (
                 self.locked
-                and self.auto_lock_error
+                and self.effective_auto_lock_error
                 and alert in LOCKING_ALERTS
                 and not self.alert_set.filter(name__in=LOCKING_ALERTS).exists()
                 and getattr(
@@ -2690,13 +3109,19 @@ class Component(
             self.all_alerts[alert] = obj
 
         # Automatically lock on error
-        if created and self.auto_lock_error and alert in LOCKING_ALERTS:
+        if created and self.effective_auto_lock_error and alert in LOCKING_ALERTS:
             self.do_lock(user=None, lock=True, auto=True)
 
         # Update details with exception of component removal
         if not created and not noupdate:
             obj.details = details
             obj.save()
+
+        if "all_active_alerts" in self.__dict__:
+            self.__dict__["all_active_alerts"] = [
+                item for item in self.all_alerts.values() if not item.dismissed
+            ]
+        self.clear_prefetched_alerts()
 
         if ALERTS[alert].link_wide:
             for component in self.linked_children:
@@ -2737,10 +3162,11 @@ class Component(
                 change=change,
             )
 
-        from weblate.trans.tasks import perform_load
+        from weblate.trans.tasks import perform_load  # noqa: PLC0415
 
         self.log_info("scheduling update in background")
-        perform_load.delay_on_commit(
+        self.queue_background_task(
+            perform_load,
             pk=self.pk,
             force=force,
             force_scan=force_scan,
@@ -2770,9 +3196,9 @@ class Component(
         """
         # In case the lock cannot be acquired, an error will be raised.
         with (
-            self.lock,
-            self.repository.lock,
             self.start_sentry_span("create_translations"),
+            self.repository.lock,
+            self.lock,
         ):
             return self._create_translations(
                 force=force,
@@ -2797,7 +3223,6 @@ class Component(
 
     def refresh_lock(self) -> None:
         """Refresh the lock to avoid expiry in long operations."""
-        self.lock.reacquire()
         if self.linked_component and self.linked_component.lock.is_locked:
             self.linked_component.lock.reacquire()
         if self.repository.lock.is_locked:
@@ -2817,7 +3242,7 @@ class Component(
         change: int | None = None,
     ) -> bool:
         """Load translations from VCS."""
-        from weblate.trans.tasks import update_enforced_checks
+        from weblate.trans.tasks import update_enforced_checks  # noqa: PLC0415
 
         self.store_background_task()
 
@@ -2838,7 +3263,7 @@ class Component(
         self.drop_template_store_cache()
         self.unload_sources()
         self.needs_cleanup = False
-        self.updated_sources = {}
+        self.updated_sources = set()
         self.alerts_trigger = {}
         self.start_batched_checks()
         was_change = False
@@ -2976,17 +3401,13 @@ class Component(
                     report_error("Failed linked component update", project=self.project)
                 continue
 
-        # Run source checks on updated source strings
-        if self.updated_sources:
-            self.update_source_checks()
-
         # Update flags
         if was_change:
             self.invalidate_cache()
 
         # Schedule background cleanup if needed
         if self.needs_cleanup and not self.template:
-            from weblate.trans.tasks import cleanup_component
+            from weblate.trans.tasks import cleanup_component  # noqa: PLC0415
 
             cleanup_component.delay_on_commit(self.id)
 
@@ -3015,17 +3436,34 @@ class Component(
         self.batched_checks = set()
 
     def run_batched_checks(self) -> None:
-        # Batch checks
-        if self.batched_checks:
-            from weblate.checks.tasks import batch_update_checks
+        source_unit_ids = list(self.updated_sources)
+        batched_checks = list(self.batched_checks)
+        batch_mode = self.batch_checks
 
-            batched_checks = list(self.batched_checks)
-            if settings.CELERY_TASK_ALWAYS_EAGER:
-                batch_update_checks(self.id, batched_checks, component=self)
-            else:
-                batch_update_checks.delay_on_commit(self.id, batched_checks)
+        self.updated_sources = set()
         self.batch_checks = False
         self.batched_checks = set()
+
+        if not source_unit_ids and not batched_checks:
+            return
+
+        from weblate.checks.tasks import finalize_component_checks  # noqa: PLC0415
+
+        if settings.CELERY_TASK_ALWAYS_EAGER:
+            finalize_component_checks(
+                self.id,
+                source_unit_ids,
+                batched_checks,
+                batch_mode=batch_mode,
+                component=self,
+            )
+        else:
+            finalize_component_checks.delay_on_commit(
+                self.id,
+                source_unit_ids,
+                batched_checks,
+                batch_mode=batch_mode,
+            )
 
     def _invalidate_trigger(self) -> None:
         self._invalidate_scheduled = False
@@ -3046,7 +3484,7 @@ class Component(
 
     @cached_property
     def glossary_sources(self):
-        from weblate.glossary.models import get_glossary_sources
+        from weblate.glossary.models import get_glossary_sources  # noqa: PLC0415
 
         result = cache.get(self.glossary_sources_key)
         if result is None:
@@ -3121,15 +3559,10 @@ class Component(
             self.branch = self.repository_class.get_remote_branch(self.repo)
 
     def clean_category(self) -> None:
-        if self.category:
-            if self.category.project != self.project:
-                raise ValidationError(
-                    {"category": gettext("Category does not belong to this project.")}
-                )
-            if self.pk and self.links.exists():
-                raise ValidationError(
-                    gettext("Categorized component can not be shared.")
-                )
+        if self.category and self.category.project != self.project:
+            raise ValidationError(
+                {"category": gettext("Category does not belong to this project.")}
+            )
 
     def clean_repo_link(self) -> None:
         """Validate repository link."""
@@ -3167,12 +3600,7 @@ class Component(
             for setting in ("push", "branch", "push_branch"):
                 if getattr(self, setting):
                     raise ValidationError(
-                        {
-                            setting: gettext(
-                                "Option is not available for linked repositories. "
-                                "Setting from linked component will be used."
-                            )
-                        }
+                        {setting: self.LINKED_REPOSITORY_SETTING_MESSAGE}
                     )
         # Make sure we are not using stale link even if link is not present
         self.linked_component = Component.objects.get_linked(self.repo)
@@ -3406,10 +3834,19 @@ class Component(
         # Validate VCS repo
         try:
             self.set_default_branch()
+            self.clean_branches()
 
             self.sync_git_repo(validate=True, skip_push=True)
         except RepositoryError as error:
             text = self.error_text(error)
+            if is_ssh_host_key_mismatch_error(text):
+                raise ValidationError(
+                    {"repo": self.get_ssh_host_key_mismatch_error_message()}
+                ) from error
+            if is_ssh_host_key_verification_error(text):
+                raise ValidationError(
+                    {"repo": self.get_ssh_host_key_error_message()}
+                ) from error
             if "terminal prompts disabled" in text:
                 raise ValidationError(
                     {
@@ -3435,6 +3872,23 @@ class Component(
                 )
                 raise ValidationError({"push_branch": msg})
 
+    def clean_branches(self) -> None:
+        """Validate VCS branch names."""
+        if not issubclass(self.repository_class, GitRepository):
+            return
+
+        for field, message in (
+            ("branch", gettext("Invalid repository branch: %s")),
+            ("push_branch", gettext("Invalid push branch: %s")),
+        ):
+            branch = getattr(self, field)
+            if not branch:
+                continue
+            try:
+                self.repository_class.validate_branch_name(branch)
+            except RepositoryError as error:
+                raise ValidationError({field: message % error.get_message()}) from error
+
     def clean_file_format_params(self) -> None:
         for param in [
             p for p in FILE_FORMATS_PARAMS if p.name in self.file_format_params
@@ -3452,6 +3906,11 @@ class Component(
         - validation fetches repository
         - it tries to find translation files and checks that they are valid
         """
+        self.clean_model_settings()
+        self._clean_repository_settings()
+
+    def clean_model_settings(self) -> None:
+        """Validate component settings that do not require repository access."""
         self.drop_file_format_cache()
         if self.new_lang == "url" and not self.project.instructions:
             msg = gettext(
@@ -3460,6 +3919,54 @@ class Component(
             )
             raise ValidationError({"new_lang": msg})
 
+        # Skip validation if we don't have valid project
+        if self.project_id is None or not self.file_format:
+            return
+
+        if self.id:
+            old = Component.objects.get(pk=self.id)
+            self.check_rename(old, validate=True)
+            if old.source_language != self.source_language:
+                # Might be implemented in future, but needs to handle:
+                # - properly toggle read-only flag for source translation
+                # - remap screenshots to different units
+                # - remap source string comments
+                # - possibly adjust other metadata
+                raise ValidationError(
+                    {
+                        "source_language": gettext(
+                            "Source language can not be changed, "
+                            "please recreate the component instead."
+                        )
+                    }
+                )
+
+        self.clean_unique_together()
+        self.clean_category()
+
+        # File format parameters
+        self.clean_file_format_params()
+
+        # Suggestions
+        if self.suggestion_autoaccept and not self.suggestion_voting:
+            msg = gettext(
+                "Accepting suggestions automatically only works with voting turned on."
+            )
+            raise ValidationError(
+                {"suggestion_autoaccept": msg, "suggestion_voting": msg}
+            )
+
+        if self.key_filter and not self.has_template():
+            raise ValidationError(
+                {
+                    "key_filter": gettext(
+                        "To use the key filter, the file format must be monolingual."
+                    )
+                }
+            )
+
+    def _clean_repository_settings(self) -> None:
+        """Validate component settings that require repository access."""
         # Skip validation if we don't have valid project
         if self.project_id is None or not self.file_format:
             return
@@ -3478,30 +3985,14 @@ class Component(
                 or (old.filemask != self.filemask)
                 or (old.language_regex != self.language_regex)
             )
-            if old.source_language != self.source_language:
-                # Might be implemented in future, but needs to handle:
-                # - properly toggle read-only flag for source translation
-                # - remap screenshots to different units
-                # - remap source string comments
-                # - possibly adjust other metadata
-                raise ValidationError(
-                    {
-                        "source_language": gettext(
-                            "Source language can not be changed, "
-                            "please recreate the component instead."
-                        )
-                    }
-                )
-
-        self.clean_unique_together()
 
         # Check repo if config was changes
         if changed_git or was_renamed:
             self.drop_repository_cache()
         if changed_git:
             self.clean_repo()
-
-        self.clean_category()
+        else:
+            self.clean_branches()
 
         # Template validation
         self.clean_template()
@@ -3509,18 +4000,27 @@ class Component(
         # New language options
         self.clean_new_lang()
 
-        # File format parameters
-        self.clean_file_format_params()
-
         # Get file matches
         try:
-            matches = self.get_mask_matches()
-        except re.error as error:
+            matches = self.get_mask_matches(raise_on_timeout=True)
+        except regex.error as error:
             # This will fail the field validation, but full_clean() does call clean() even with that
             raise ValidationError(
                 gettext(
                     "Can not validate file matches due to invalid regular expression."
                 )
+            ) from error
+        except TimeoutError as error:
+            report_error(
+                "Component language regex validation timed out",
+                project=self.project,
+            )
+            raise ValidationError(
+                {
+                    "language_regex": gettext(
+                        "The regular expression is too complex and took too long to evaluate."
+                    )
+                }
             ) from error
 
         # Verify language codes
@@ -3529,50 +4029,26 @@ class Component(
         # Try parsing files
         self.clean_files(matches)
 
-        # Suggestions
-        if (
-            hasattr(self, "suggestion_autoaccept")
-            and self.suggestion_autoaccept
-            and not self.suggestion_voting
-        ):
-            msg = gettext(
-                "Accepting suggestions automatically only works with voting turned on."
-            )
-            raise ValidationError(
-                {"suggestion_autoaccept": msg, "suggestion_voting": msg}
-            )
-
-        if self.key_filter and not self.has_template():
-            raise ValidationError(
-                gettext("To use the key filter, the file format must be monolingual.")
-            )
-
     def get_template_filename(self) -> str | None:
         """Create absolute filename for template."""
-        if not self.template:
-            return None
-        filename = os.path.join(self.full_path, self.template)
-        # Throws an exception in case of error
-        self.check_file_is_valid(filename)
-        return filename
+        return self.get_validated_component_filename(self.template)
 
     def get_intermediate_filename(self) -> str | None:
         """Create absolute filename for intermediate."""
-        if not self.intermediate:
-            return None
-        filename = os.path.join(self.full_path, self.intermediate)
-        # Throws an exception in case of error
-        self.check_file_is_valid(filename)
-        return filename
+        return self.get_validated_component_filename(self.intermediate)
 
     def get_new_base_filename(self) -> str | None:
         """Create absolute filename for base file for new translations."""
-        if not self.new_base:
+        return self.get_validated_component_filename(self.new_base)
+
+    def get_validated_component_filename(self, filename: str | None) -> str | None:
+        """Create a validated absolute filename for a component-managed file."""
+        if not filename:
             return None
-        filename = os.path.join(self.full_path, self.new_base)
+        fullname = os.path.join(self.full_path, filename)
         # Throws an exception in case of error
-        self.check_file_is_valid(filename)
-        return filename
+        self.check_file_is_valid(fullname)
+        return fullname
 
     def create_template_if_missing(self) -> None:
         """Create blank template in case intermediate language is enabled."""
@@ -3621,13 +4097,22 @@ class Component(
         changed_enforced_checks: bool,
         skip_push: bool,
         create: bool,
+        seed_source_component_id: int | None = None,
+        copy_seed_addons: bool = False,
+        seed_author: str | None = None,
     ) -> None:
+        from weblate.trans.component_copy import (  # noqa: PLC0415
+            clone_component_addons,
+            seed_component_from_source,
+        )
+
         self.store_background_task()
         self.translations_progress = 0
         self.translations_count = 0
         self.progress_step(0)
+        has_seed_source = create and seed_source_component_id is not None
         # Configure git repo if there were changes
-        if changed_git:
+        if changed_git and (not create or not self.is_repo_link):
             # Bring VCS repo in sync with current model
             self.sync_git_repo(skip_push=skip_push, skip_commit=create)
 
@@ -3637,7 +4122,9 @@ class Component(
         # Rescan for possibly new translations if there were changes, needs to
         # be done after actual creating the object above
         was_change = False
-        if changed_setup:
+        if has_seed_source:
+            was_change = False
+        elif changed_setup:
             was_change = self.create_translations(
                 force=True, changed_template=changed_template
             )
@@ -3647,6 +4134,32 @@ class Component(
         # Update variants (create_translation does this on change)
         if changed_variant and not was_change:
             self.update_variants()
+
+        if has_seed_source:
+            source_component = Component.objects.filter(
+                pk=seed_source_component_id
+            ).first()
+            seeded = False
+            if source_component is None:
+                self.log_warning(
+                    "source component %s is no longer available, falling back to discovery",
+                    seed_source_component_id,
+                )
+            else:
+                seeded = seed_component_from_source(
+                    self,
+                    source_component,
+                    author_name=seed_author or "Weblate <noreply@weblate.org>",
+                    skip_push=skip_push,
+                )
+            if not seeded:
+                was_change = self.create_seed_fallback_translations(
+                    changed_setup=changed_setup,
+                    changed_git=changed_git,
+                    changed_template=changed_template,
+                )
+            if copy_seed_addons and source_component is not None:
+                clone_component_addons(self, source_component)
 
         # Update changed enforced checks
         if changed_enforced_checks:
@@ -3661,6 +4174,7 @@ class Component(
 
         # Update alerts after stats update
         self.update_alerts()
+
         if self.linked_component:
             self.linked_component.update_alerts()
 
@@ -3674,12 +4188,24 @@ class Component(
             # Run automatically installed addons. They are run upon installation,
             # but there are no translations created at that point. This complements
             # installation in install_autoaddon.
-            for addon in self.addons_cache["__all__"]:
+            for addon in self.addons_cache.addons:
                 # Skip addons installed elsewhere (repo/project wide)
                 if addon.component_id != self.id:
                     continue
                 self.log_debug("triggering add-on: %s", addon.name)
                 addon.addon.post_configure_run()
+
+    def create_seed_fallback_translations(
+        self, *, changed_setup: bool, changed_git: bool, changed_template: bool
+    ) -> bool:
+        """Run normal translation discovery when seeded creation has no snapshot."""
+        if changed_setup:
+            return self.create_translations(
+                force=True, changed_template=changed_template
+            )
+        if changed_git:
+            return self.create_translations()
+        return False
 
     def update_variants(self, updated_units=None) -> None:
         component_units = Unit.objects.filter(translation__component=self, variant=None)
@@ -3697,20 +4223,32 @@ class Component(
 
         # Handle regex based variants
         if self.variant_regex:
-            variant_re = re.compile(self.variant_regex)
+            variant_re = compile_regex(self.variant_regex)
             units = process_units.filter(context__regex=self.variant_regex)
             variant_updates: dict[str, tuple[Variant, list[int]]] = {}
+            timeout_reported = False
             for unit in units.iterator():
-                if variant_re.findall(unit.context):
-                    key = variant_re.sub("", unit.context)
-                    if key in variant_updates:
-                        variant = variant_updates[key][0]
-                    else:
-                        variant = Variant.objects.get_or_create(
-                            key=key, component=self, variant_regex=self.variant_regex
-                        )[0]
-                        variant_updates[key] = (variant, [])
-                    variant_updates[key][1].append(unit.pk)
+                try:
+                    if not regex_findall(variant_re, unit.context):
+                        continue
+                    key = regex_sub(variant_re, "", unit.context)
+                except TimeoutError:
+                    if not timeout_reported:
+                        report_error(
+                            "Component variant regex timed out",
+                            project=self.project,
+                        )
+                        self.log_warning("variant regex timed out for %s", unit.context)
+                        timeout_reported = True
+                    break
+                if key not in variant_updates:
+                    variant = Variant.objects.filter(
+                        key__md5=MD5(Value(key))
+                    ).get_or_create(
+                        key=key, component=self, variant_regex=self.variant_regex
+                    )[0]
+                    variant_updates[key] = (variant, [])
+                variant_updates[key][1].append(unit.pk)
 
             if variant_updates:
                 for variant, unit_ids in variant_updates.values():
@@ -3771,9 +4309,7 @@ class Component(
         queryset = PendingUnitChange.objects.for_component(
             self, apply_filters=apply_filters
         )
-        if using_postgresql():
-            return queryset.distinct("unit_id").count()
-        return queryset.values("unit_id").distinct().count()
+        return queryset.distinct("unit_id").count()
 
     @property
     def count_repo_missing(self):
@@ -3781,7 +4317,7 @@ class Component(
             return self.repository.count_missing()
         except RepositoryError as error:
             report_error(
-                "Could check merge needed",
+                "Could not check if merge is needed",
                 project=self.project,
                 skip_sentry=not settings.DEBUG,
             )
@@ -3793,11 +4329,11 @@ class Component(
             return self.repository.count_outgoing()
         except RepositoryError as error:
             error_text = self.error_text(error)
-            if retry and "Host key verification failed" in error_text:
+            if retry and should_auto_add_ssh_host_key(error_text):
                 self.add_ssh_host_key()
                 return self._get_count_repo_outgoing(retry=False)
             report_error(
-                "Could check push needed",
+                "Could not check if push is needed",
                 project=self.project,
                 skip_sentry=not settings.DEBUG,
             )
@@ -3810,12 +4346,11 @@ class Component(
 
     @property
     def count_push_branch_outgoing(self):
-        if self.push_branch:
-            try:
-                return self.repository.count_outgoing(self.push_branch)
-            except RepositoryError:
-                # We silently ignore this error as push branch might not be existing if not needed
-                pass
+        try:
+            return len(self.repository.get_push_revisions(self.push_branch))
+        except RepositoryError:
+            # We silently ignore this error as push branch might not be existing if not needed
+            pass
         return self.count_repo_outgoing
 
     def needs_commit(self):
@@ -3828,7 +4363,20 @@ class Component(
 
     def repo_needs_push(self, retry: bool = True):
         """Check for something to push to remote repository."""
-        return self.count_push_branch_outgoing > 0
+        try:
+            return self.repository.needs_push(self.push_branch)
+        except RepositoryError as error:
+            error_text = self.error_text(error)
+            if retry and should_auto_add_ssh_host_key(error_text):
+                self.add_ssh_host_key()
+                return self.repo_needs_push(retry=False)
+            report_error(
+                "Could not check if push is needed",
+                project=self.project,
+                skip_sentry=not settings.DEBUG,
+            )
+            self.add_alert("PushFailure", error=error_text)
+            return False
 
     @property
     def file_format_name(self) -> StrOrPromise:
@@ -3885,6 +4433,7 @@ class Component(
             language_code=self.source_language.code,
             source_language=self.source_language.code,
             file_format_params=self.file_format_params,
+            repo_temp_dir=self.repository.get_repo_temp_dir(),
         )
 
     @cached_property
@@ -3909,6 +4458,7 @@ class Component(
                 source_language=self.source_language.code,
                 is_template=True,
                 file_format_params=self.file_format_params,
+                repo_temp_dir=self.repository.get_repo_temp_dir(),
             )
 
     @cached_property
@@ -3983,6 +4533,13 @@ class Component(
             return False
         return self.is_valid_base_for_new(fast=fast)
 
+    def can_restore_missing_translation_file(self) -> bool:
+        """Check whether reset/reapply can recreate a missing language file."""
+        # Reset/reapply is already authorized by ``vcs.reset``. Missing-file recovery
+        # is part of that maintenance operation, so it must not depend on the
+        # regular add-language policy or user-specific overrides.
+        return self.can_add_new_language(None)
+
     def format_new_language_code(self, language):
         # Language code used for file
         code = self.file_format_cls.get_language_code(
@@ -4040,7 +4597,13 @@ class Component(
             return None
 
         # Check if language code is valid
-        if re.match(self.language_regex, code) is None:
+        try:
+            language_match = regex_match(self.language_regex, code)
+        except TimeoutError:
+            report_error("Component language filter timed out", project=self.project)
+            fail_message(gettext("The language filter timed out."))
+            return None
+        if language_match is None:
             fail_message(
                 gettext("The given language is filtered by the language filter.")
             )
@@ -4054,6 +4617,12 @@ class Component(
         with self.repository.lock:
             if create_translations:
                 self.commit_pending("add language", None)
+
+            try:
+                self.check_file_is_valid(fullname)
+            except ValidationError:
+                fail_message(gettext("Could not add new translation file."))
+                return None
 
             # Create or get translation object
             translation, created = self.translation_set.get_or_create(
@@ -4099,7 +4668,11 @@ class Component(
         if create_translations:
             # Forced scanning is needed in case adding file does not trigger commit,
             # for example when adding appstore metadata which only creates directory.
-            self.create_translations(request=request, force_scan=True)
+            self.create_translations(
+                request=request,
+                force_scan=True,
+                langs=[translation.language_code],
+            )
             if show_messages:
                 messages.info(
                     request,
@@ -4110,6 +4683,63 @@ class Component(
         self.delete_alert("NoMaskMatches")
 
         return translation
+
+    def restore_missing_translation_file(
+        self,
+        translation: Translation,
+        *,
+        user: User | None = None,
+        skip_push: bool = False,
+        signals: bool = True,
+        send_post_add_signal: bool = True,
+    ) -> None:
+        """Restore a missing translation file using the new-language template."""
+        fullname = translation.get_filename()
+        if fullname is None:
+            msg = "Attempt to restore translation without a filename."
+            raise ValueError(msg)
+        with self.repository.lock:
+            self._restore_missing_translation_file(
+                translation=translation,
+                fullname=fullname,
+                user=user,
+                skip_push=skip_push,
+                signals=signals,
+                send_post_add_signal=send_post_add_signal,
+            )
+
+    def _restore_missing_translation_file(
+        self,
+        *,
+        translation: Translation,
+        fullname: str,
+        user: User | None,
+        skip_push: bool,
+        signals: bool,
+        send_post_add_signal: bool,
+    ) -> None:
+        if os.path.exists(fullname):
+            return
+
+        self.file_format_cls.add_language(
+            fullname,
+            translation.language,
+            self.get_new_base_filename(),
+            file_format_params=self.file_format_params,
+        )
+        if send_post_add_signal:
+            translation_post_add.send(sender=self.__class__, translation=translation)
+        translation.git_commit(
+            user,
+            user.get_author_name() if user else "Weblate <noreply@weblate.org>",
+            skip_push=skip_push,
+            signals=signals,
+            template=self.add_message,
+            store_hash=False,
+        )
+
+        # Delete no matches alert as we have just recreated the file
+        self.delete_alert("NoMaskMatches")
 
     def do_lock(self, user: User | None, lock: bool = True, auto: bool = False) -> None:
         """Lock or unlock component."""
@@ -4125,7 +4755,7 @@ class Component(
     def get_lock_change(
         self, *, user: User | None, lock: bool = True, auto: bool = False
     ) -> Change:
-        from weblate.trans.tasks import perform_commit
+        from weblate.trans.tasks import perform_commit  # noqa: PLC0415
 
         change = Change(
             component=self,
@@ -4134,8 +4764,8 @@ class Component(
             details={"auto": auto},
         )
         if lock and not auto:
-            perform_commit.delay_on_commit(
-                self.pk, "lock", user_id=user.id if user else None
+            self.queue_background_task(
+                perform_commit, self.pk, "lock", user_id=user.id if user else None
             )
         return change
 
@@ -4169,30 +4799,28 @@ class Component(
 
     @cached_property
     def guidelines(self):
-        from weblate.trans.guide import GUIDELINES
+        from weblate.trans.guide import GUIDELINES  # noqa: PLC0415
 
         return [guide(self) for guide in GUIDELINES]
 
     @cached_property
-    def addons_cache(self):
-        from weblate.addons.models import Addon
+    def addons_cache(self) -> AddonCache:
+        from weblate.addons.models import Addon  # noqa: PLC0415
 
-        result = defaultdict(list)
-        result["__lookup__"] = {}
-        for addon in Addon.objects.filter_for_execution(self):
-            for installed in addon.event_set.all():
-                result[installed.event].append(addon)
-            result["__all__"].append(addon)
-            result["__names__"].append(addon.name)
-            result["__lookup__"][addon.name] = addon
-        return result
+        # Use prefetch_for_components to populate the cache
+        Addon.objects.prefetch_for_components([self])
+        # Return the cache that was populated
+        return self.__dict__["addons_cache"]
 
     def get_addon(self, name: str) -> Addon | None:
-        return self.addons_cache["__lookup__"].get(name)
+        return self.addons_cache.lookup.get(name)
 
     def schedule_sync_terminology(self) -> None:
         """Trigger terminology sync in the background."""
-        from weblate.glossary.tasks import sync_glossary_languages, sync_terminology
+        from weblate.glossary.tasks import (  # noqa: PLC0415
+            sync_glossary_languages,
+            sync_terminology,
+        )
 
         if settings.CELERY_TASK_ALWAYS_EAGER:
             # Execute directly to avoid locking issues
@@ -4206,7 +4834,10 @@ class Component(
             transaction.on_commit(self._schedule_sync_terminology)
 
     def _schedule_sync_terminology(self) -> None:
-        from weblate.glossary.tasks import sync_glossary_languages, sync_terminology
+        from weblate.glossary.tasks import (  # noqa: PLC0415
+            sync_glossary_languages,
+            sync_terminology,
+        )
 
         if self.is_glossary:
             sync_terminology.delay_on_commit(self.pk)
@@ -4266,6 +4897,83 @@ class Component(
         except IndexError:
             return None
 
+    def get_conflicting_setup_components(self) -> ComponentQuerySet:
+        if self.is_repo_link or not self.push or not self.push_branch:
+            return Component.objects.none()
+
+        if self.vcs not in VCS_REGISTRY.merge_request_based:
+            return Component.objects.none()
+
+        return Component.objects.filter(
+            push=self.push,
+            push_branch=self.push_branch,
+            vcs__in=VCS_REGISTRY.merge_request_based,
+            linked_component__isnull=True,
+        ).exclude(pk=self.pk)
+
+    def get_conflicting_repository_setup_config(
+        self, old_settings: OldComponentSettings | None = None
+    ) -> tuple[str, str] | None:
+        if old_settings is None:
+            push = self.push
+            push_branch = self.push_branch
+            repo = self.repo
+            vcs = self.vcs
+        else:
+            push = old_settings["push"]
+            push_branch = old_settings["push_branch"]
+            repo = old_settings["repo"]
+            vcs = old_settings["vcs"]
+
+        if (
+            vcs not in VCS_REGISTRY.merge_request_based
+            or not push
+            or not push_branch
+            or is_repo_link(repo)
+        ):
+            return None
+        return (push, push_branch)
+
+    def get_conflicting_repository_setup_configs(
+        self,
+    ) -> set[tuple[str, str]]:
+        return {
+            config
+            for config in (
+                self.get_conflicting_repository_setup_config(
+                    old_settings=self.old_component_settings
+                ),
+                self.get_conflicting_repository_setup_config(),
+            )
+            if config is not None
+        }
+
+    def has_conflicting_repository_setup_changed(self) -> bool:
+        return (
+            self.get_conflicting_repository_setup_config(
+                old_settings=self.old_component_settings
+            )
+            != self.get_conflicting_repository_setup_config()
+        )
+
+    def cleanup_conflicting_repository_setup_alerts(
+        self, cleanup_configs: set[tuple[str, str]] | None = None
+    ) -> None:
+        if cleanup_configs is None:
+            cleanup_configs = self.get_conflicting_repository_setup_configs()
+
+        for push, push_branch in cleanup_configs:
+            matching = Component.objects.filter(
+                push=push,
+                push_branch=push_branch,
+                vcs__in=VCS_REGISTRY.merge_request_based,
+                linked_component__isnull=True,
+            ).exclude(pk=self.pk)
+            if matching.count() == 1:
+                Alert.objects.filter(
+                    name="ConflictingRepositorySetup", component__in=matching
+                ).delete()
+
     @cached_property
     def enable_review(self):
         return self.project.enable_review
@@ -4275,7 +4983,7 @@ class Component(
         return f"component-update-checks-{self.pk}"
 
     def schedule_update_checks(self, update_state: bool = False) -> None:
-        from weblate.trans.tasks import update_checks
+        from weblate.trans.tasks import update_checks  # noqa: PLC0415
 
         update_token = get_random_identifier()
         cache.set(self.update_checks_key, update_token)
@@ -4291,9 +4999,9 @@ class Component(
         return sentry_sdk.start_span(op=op, name=self.full_slug)
 
     @cached_property
-    def key_filter_re(self) -> re.Pattern:
+    def key_filter_re(self) -> regex.Pattern:
         """Provide the cached version of key_filter."""
-        return re.compile(self.key_filter)
+        return compile_regex(self.key_filter)
 
     def repository_status(self) -> str:
         try:
@@ -4337,12 +5045,12 @@ class Component(
         return filename
 
 
-@receiver(m2m_changed, sender=Component.links.through)
+@receiver(post_save, sender=ComponentLink)
+@receiver(post_delete, sender=ComponentLink)
 @disable_for_loaddata
-def change_component_link(sender, instance, action, pk_set, **kwargs) -> None:
-    from weblate.trans.models import Project
+def change_component_link(sender, instance, **kwargs) -> None:
+    from weblate.trans.models import Project  # noqa: PLC0415
 
-    if action not in {"post_add", "post_remove", "post_clear"}:
-        return
-    for project in Project.objects.filter(pk__in=pk_set):
+    with suppress(Project.DoesNotExist):
+        project = Project.objects.get(pk=instance.project_id)
         project.invalidate_glossary_cache()

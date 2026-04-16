@@ -36,7 +36,7 @@ def sync(
     body: UpdateAnnotationRequest,
     x_api_key: str | None = None,
 ) -> AnnotationResponse:
-    """Update an annotation. Author only."""
+    """Update an annotation. Author only (admin can update any)."""
 
     request_args = _build_request_args(
         annotation_public_id=annotation_public_id,
@@ -55,7 +55,7 @@ async def asyncio(
     body: UpdateAnnotationRequest,
     x_api_key: str | None = None,
 ) -> AnnotationResponse:
-    """Update an annotation. Author only."""
+    """Update an annotation. Author only (admin can update any)."""
 
     request_args = _build_request_args(
         annotation_public_id=annotation_public_id,

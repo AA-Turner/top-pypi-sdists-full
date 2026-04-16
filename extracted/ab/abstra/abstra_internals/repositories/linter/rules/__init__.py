@@ -74,6 +74,7 @@ run_after_py_change: List[LinterRule] = [
     _missing_entrypoint,
     _file_outside_project,
     _imports_analyzer,
+    *_new_version,
 ]
 
 run_after_requirements_change: List[LinterRule] = [
@@ -102,7 +103,6 @@ run_after_package_install: List[LinterRule] = [
     _imports_analyzer,
     _conflicting_name,
     _missing_abstra,
-    *_new_version,
 ]
 
 run_after_html_change: List[LinterRule] = [

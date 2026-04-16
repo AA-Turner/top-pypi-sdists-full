@@ -6,7 +6,7 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.utils.translation import gettext
@@ -26,6 +26,7 @@ from weblate.trans.models import (
     Project,
     Translation,
 )
+from weblate.trans.util import sanitize_backend_error_message
 from weblate.utils import messages
 from weblate.utils.data import data_dir
 from weblate.utils.errors import report_error
@@ -89,15 +90,17 @@ def download_multi(
             if translation.component_id in components:
                 continue
             components.add(translation.component_id)
-            for filename in (
-                translation.component.template,
-                translation.component.new_base,
-                translation.component.intermediate,
+            for getter in (
+                translation.component.get_template_filename,
+                translation.component.get_new_base_filename,
+                translation.component.get_intermediate_filename,
             ):
-                if filename:
-                    fullname = os.path.join(translation.component.full_path, filename)
-                    if os.path.exists(fullname):
-                        filenames.add(fullname)
+                try:
+                    fullname = getter()
+                except ValidationError:
+                    continue
+                if fullname and os.path.exists(fullname):
+                    filenames.add(fullname)
 
     return zip_download(data_dir("vcs"), sorted(filenames), name, extra=extra)
 
@@ -253,15 +256,33 @@ def upload(request: AuthenticatedHttpRequest, path):
             ),
         )
     except FileParseError as error:
-        messages.error(request, str(error))
+        messages.error(
+            request,
+            sanitize_backend_error_message(
+                str(error),
+                repo_urls=(obj.component.repo, obj.component.push),
+                extra_paths=(obj.component.full_path,),
+            ),
+        )
     except FailedCommitError as error:
-        messages.error(request, str(error))
+        messages.error(
+            request,
+            sanitize_backend_error_message(
+                str(error),
+                repo_urls=(obj.component.repo, obj.component.push),
+                extra_paths=(obj.component.full_path,),
+            ),
+        )
         report_error("Upload error", project=obj.component.project)
     except Exception as error:
         messages.error(
             request,
             gettext("File upload has failed: %s")
-            % str(error).replace(obj.component.full_path, ""),
+            % sanitize_backend_error_message(
+                str(error),
+                repo_urls=(obj.component.repo, obj.component.push),
+                extra_paths=(obj.component.full_path,),
+            ),
         )
         report_error("Upload error", project=obj.component.project)
 

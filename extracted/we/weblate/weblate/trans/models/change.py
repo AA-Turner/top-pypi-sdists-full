@@ -12,7 +12,7 @@ from uuid import uuid5
 import sentry_sdk
 from django.conf import settings
 from django.core.cache import cache
-from django.db import connection, models, transaction
+from django.db import models, transaction
 from django.db.models import Count, Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -55,13 +55,15 @@ PREFETCH_FIELDS = (
     "user",
     "author",
     "translation",
+    "language",
     "component",
     "category",
     "project",
     "component__source_language",
+    "component__secondary_language",
+    "project__secondary_language",
     "unit",
     "unit__source_unit",
-    "translation__language",
     "translation__plural",
 )
 
@@ -201,6 +203,8 @@ class ChangeQuerySet(models.QuerySet["Change"]):
                 item.component.project = item.project
             if item.translation and skip != "translation":
                 item.translation.component = item.component
+                if item.language_id is not None:
+                    item.translation.language = item.language
             if item.unit and skip != "unit":
                 item.unit.translation = item.translation
         return results
@@ -254,23 +258,17 @@ class ChangeQuerySet(models.QuerySet["Change"]):
 
         Add processing to bulk creation.
         """
-        from weblate.accounts.notifications import dispatch_changes_notifications
+        from weblate.accounts.notifications import (  # noqa: PLC0415
+            dispatch_changes_notifications,
+        )
 
-        if connection.features.can_return_rows_from_bulk_insert:
-            changes = super().bulk_create(*args, **kwargs)
+        changes = super().bulk_create(*args, **kwargs)
 
-            # Dispatch notifications
-            dispatch_changes_notifications(changes)
+        # Dispatch notifications
+        dispatch_changes_notifications(changes)
 
-            # Executes post save to ensure messages are sent to fedora messaging
-            change_bulk_create.send(Change, instances=changes)
-        else:
-            # bulk_create doesn't set the .pk of instance with MySQL
-            # Save each instance individually in order to set it
-            changes = []
-            for change in args[0]:
-                change.save()
-                changes.append(change)
+        # Executes post save to ensure messages are sent to fedora messaging
+        change_bulk_create.send(Change, instances=changes)
 
         # Store last content change in cache for improved performance
         translations = set()
@@ -707,6 +705,8 @@ class Change(models.Model, UserDisplayMixin):
         return self.action in {
             ActionEvents.SOURCE_CHANGE,
             ActionEvents.NEW_SOURCE,
+            ActionEvents.NEW_SOURCE_UPLOAD,
+            ActionEvents.NEW_SOURCE_REPO,
         }
 
     def show_diff(self) -> bool:
@@ -725,7 +725,9 @@ class Change(models.Model, UserDisplayMixin):
         return self.action in ACTIONS_SHOW_CONTENT or self.action in ACTIONS_REVERTABLE
 
     def get_details_display(self) -> StrOrPromise:
-        from weblate.trans.change_display import ChangeDetailsRenderFactory
+        from weblate.trans.change_display import (  # noqa: PLC0415
+            ChangeDetailsRenderFactory,
+        )
 
         strategy = ChangeDetailsRenderFactory.get_strategy(self)
         return strategy.render_details(self)
@@ -771,7 +773,8 @@ class Change(models.Model, UserDisplayMixin):
             self.screenshot.translation = cast("Translation", self.translation)
         if self.translation:
             self.translation.component = cast("Component", self.component)
-            self.translation.language = cast("Language", self.language)
+            if self.language_id is not None:
+                self.translation.language = cast("Language", self.language)
         if self.component:
             self.component.project = cast("Project", self.project)
             self.component.category = cast("Category", self.category)
@@ -780,6 +783,8 @@ class Change(models.Model, UserDisplayMixin):
 @receiver(post_save, sender=Change)
 @disable_for_loaddata
 def change_notify(sender, instance: Change, created: bool = False, **kwargs) -> None:
-    from weblate.accounts.notifications import dispatch_changes_notifications
+    from weblate.accounts.notifications import (  # noqa: PLC0415
+        dispatch_changes_notifications,
+    )
 
     dispatch_changes_notifications([instance])

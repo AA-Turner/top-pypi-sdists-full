@@ -26,6 +26,7 @@ import numpy as np
 from qwix._src import aux_data
 from qwix._src import averaging
 from qwix._src import flax_util
+from qwix._src import interception
 from qwix._src import qconfig
 from qwix._src.core import qarray
 from qwix._src.providers import odml_ops
@@ -63,7 +64,14 @@ class OdmlQatProvider(qconfig.QuantizationProvider):
         outputs, e.g. (0, 1).
       strict: Whether to raise an error if an unknown op is discovered.
     """
-    super().__init__(rules)
+    # For ODML interception, we always disable JIT. This is because ODML relies
+    # on execution at the Python level to:
+    # 1. Patch low-level structural primitives (e.g., Primitive.bind) to
+    #    propagate metadata.
+    # 2. Support bytecode patching and recursive PjitFunction interception.
+    #    JAX's C++ dispatch bypasses the patched Python `__code__` when JIT
+    #    is enabled, preventing us from catching inner function calls.
+    super().__init__(rules, disable_jit=True)
     self._fixed_range_for_inputs = fixed_range_for_inputs
     self._fixed_range_for_outputs = fixed_range_for_outputs
     self._strict = strict
@@ -110,6 +118,32 @@ class OdmlQatProvider(qconfig.QuantizationProvider):
     aux_data.set(ret if unbox else ret.unbox(), 'weight_name', name)
     return ret
 
+  def get_interceptors(
+      self,
+  ) -> Sequence[Callable[[], interception.Interceptor]]:
+    """Returns a list of interceptor factories.
+
+    The interceptors are returned in the following order:
+    1. Structural interceptor: Handles low-level primitives (e.g.
+       `PrimitiveBindOp`) to propagate metadata.
+    2. Numerical interceptor: Handles high-level ops (e.g. `dot_general`) to
+       quantize them.
+    """
+
+    # Functional layer: handle primitives to propagate metadata.
+    return [
+        lambda: interception.Interceptor(
+            mapping={
+                interception.PRIMITIVE_BIND_KEY: odml_ops.PrimitiveBindOp()
+            },
+            id=hash((id(self), 0)),
+        ),
+        lambda: interception.Interceptor(
+            mapping=self.get_intercept_map(),
+            id=hash((id(self), 1)),
+        ),
+    ]
+
   def get_intercept_map(self):
     """Used for interception."""
     intercept_map = super().get_intercept_map()
@@ -149,6 +183,7 @@ class OdmlQatProvider(qconfig.QuantizationProvider):
 
   def process_model_output(self, method_name: str, model_output: Any) -> Any:
     """Quantize the output of the model."""
+    self._initial_run_complete = True
     if method_name == '__call__':
       method_name = 'final'  # backwards compatibility.
     # Quantize the model output if needed.
@@ -281,11 +316,10 @@ class OdmlConversionProvider(OdmlQatProvider):
     intercept_map['jax.lax.dot_general'] = functools.partial(
         self._flatten_dot_general,
         _dot_general=intercept_map['jax.lax.dot_general'],
-        _reshape=intercept_map['jax.lax.reshape'],
     )
     return intercept_map
 
-  def _flatten_dot_general(self, *args, _dot_general, _reshape, **kwargs):
+  def _flatten_dot_general(self, *args, _dot_general, **kwargs):
     """Flatten N-D weights to 2-D to support channelwise quantization."""
     # This special handling is needed because tflite doesn't support multiple
     # quantization_dimensions.
@@ -296,9 +330,9 @@ class OdmlConversionProvider(OdmlQatProvider):
     ):
       args = list(args)
       dout = args[1].shape[1:]
-      args[1] = _reshape(args[1], (args[1].shape[0], np.prod(dout)))
+      args[1] = jax.lax.reshape(args[1], (args[1].shape[0], np.prod(dout)))
       out = _dot_general(*args, **kwargs)
-      return _reshape(out, out.shape[:-1] + dout)
+      return jax.lax.reshape(out, out.shape[:-1] + dout)
     return _dot_general(*args, **kwargs)
 
   def _fake_quant(

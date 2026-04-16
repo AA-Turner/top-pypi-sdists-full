@@ -32,7 +32,11 @@ from requests.exceptions import HTTPError, Timeout
 from weblate.accounts.forms import AdminUserSearchForm, ContactForm
 from weblate.accounts.views import UserList, get_initial_contact
 from weblate.auth.decorators import management_access
-from weblate.auth.forms import AdminInviteUserForm, SitewideTeamForm
+from weblate.auth.forms import (
+    AdminBulkInviteForm,
+    AdminInviteUserForm,
+    SitewideTeamForm,
+)
 from weblate.auth.models import (
     Group,
     Invitation,
@@ -376,7 +380,14 @@ def performance(request: AuthenticatedHttpRequest) -> HttpResponse:
     """Show performance tuning tips."""
     if request.method == "POST":
         return handle_dismiss(request)
-    checks = run_checks(include_deployment_checks=True)
+    checks = sorted(
+        (
+            check
+            for check in run_checks(include_deployment_checks=True)
+            if not check.is_silenced()
+        ),
+        key=lambda check: (check.id, check.msg),
+    )
 
     try:
         disk_usage_bytes = disk_usage(settings.DATA_DIR)
@@ -389,9 +400,9 @@ def performance(request: AuthenticatedHttpRequest) -> HttpResponse:
         disk_usage_percent = round(disk_usage_bytes.used * 100 / disk_usage_bytes.total)
 
     context = {
-        "checks": [check for check in checks if not check.is_silenced()],
+        "checks": checks,
         "errors": ConfigurationError.objects.filter(ignored=False),
-        "queues": get_queue_stats().items(),
+        "queues": sorted(get_queue_stats().items()),
         "menu_items": MENU,
         "menu_page": "performance",
         "web_encoding": get_encoding_list(),
@@ -442,7 +453,12 @@ def ssh(request: AuthenticatedHttpRequest) -> HttpResponse:
     if action == "add-host":
         form = SSHAddForm(request.POST)
         if form.is_valid():
-            add_host_key(request, form.cleaned_data["host"], form.cleaned_data["port"])
+            add_host_key(
+                request,
+                form.cleaned_data["host"],
+                form.cleaned_data["port"],
+                accept_fingerprint=form.cleaned_data["fingerprint"],
+            )
 
     context = {
         "public_ssh_keys": keys,
@@ -485,26 +501,48 @@ class AdminUserList(UserList):
     def get_base_queryset(self) -> QuerySet[User]:
         return User.objects.all()
 
+    @staticmethod
+    def get_invite_form(data=None) -> AdminInviteUserForm:
+        return AdminInviteUserForm(data, auto_id="id_admin_invite_%s")
+
+    @staticmethod
+    def get_bulk_invite_form(data=None) -> AdminBulkInviteForm:
+        return AdminBulkInviteForm(data, auto_id="id_admin_bulk_invite_%s")
+
     def post(self, request: AuthenticatedHttpRequest, **kwargs) -> HttpResponse:
-        if "email" in request.POST:
-            invite_form = AdminInviteUserForm(request.POST)
+        if "emails" in request.POST:
+            bulk_invite_form = self.get_bulk_invite_form(request.POST)
+            if bulk_invite_form.is_valid():
+                bulk_invite_form.save(request)
+                return redirect("manage-users")
+            show_form_errors(request, bulk_invite_form)
+        elif "email" in request.POST:
+            invite_form = self.get_invite_form(request.POST)
             if invite_form.is_valid():
                 invite_form.save(request)
                 return redirect("manage-users")
+            show_form_errors(request, invite_form)
         return super().get(request, **kwargs)
 
     def get_context_data(self, **kwargs) -> dict[str, Any]:
         result = super().get_context_data(**kwargs)
 
-        if self.request.method == "POST":
-            invite_form = AdminInviteUserForm(self.request.POST)
+        if self.request.method == "POST" and "email" in self.request.POST:
+            invite_form = self.get_invite_form(self.request.POST)
             invite_form.is_valid()
         else:
-            invite_form = AdminInviteUserForm()
+            invite_form = self.get_invite_form()
+
+        if self.request.method == "POST" and "emails" in self.request.POST:
+            bulk_invite_form = self.get_bulk_invite_form(self.request.POST)
+            bulk_invite_form.is_valid()
+        else:
+            bulk_invite_form = self.get_bulk_invite_form()
 
         result["menu_items"] = MENU
         result["menu_page"] = "users"
         result["invite_form"] = invite_form
+        result["bulk_invite_form"] = bulk_invite_form
         result["search_form"] = self.form
         result["invitations"] = Invitation.objects.all().select_related("user")
         return result
@@ -580,7 +618,7 @@ def appearance(request: AuthenticatedHttpRequest) -> HttpResponse:
 
 @management_access
 def billing(request: AuthenticatedHttpRequest) -> HttpResponse:
-    from weblate.billing.models import Billing
+    from weblate.billing.models import Billing  # noqa: PLC0415
 
     trial = []
     pending = []

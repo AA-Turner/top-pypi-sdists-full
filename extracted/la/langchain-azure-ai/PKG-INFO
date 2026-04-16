@@ -1,54 +1,35 @@
 Metadata-Version: 2.4
 Name: langchain-azure-ai
-Version: 1.2.1
+Version: 1.2.2
 Summary: An integration package to support Azure AI Foundry capabilities in LangChain/LangGraph ecosystem.
-License: MIT License
-         
-         Copyright (c) 2023 LangChain, Inc.
-         
-         Permission is hereby granted, free of charge, to any person obtaining a copy
-         of this software and associated documentation files (the "Software"), to deal
-         in the Software without restriction, including without limitation the rights
-         to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-         copies of the Software, and to permit persons to whom the Software is
-         furnished to do so, subject to the following conditions:
-         
-         The above copyright notice and this permission notice shall be included in all
-         copies or substantial portions of the Software.
-         
-         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-         LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-         SOFTWARE.
+License-Expression: MIT
 License-File: LICENSE
 Requires-Python: >=3.10.0,<4.0
-Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Provides-Extra: contentunderstanding
 Provides-Extra: opentelemetry
 Provides-Extra: tools
 Provides-Extra: v1
 Requires-Dist: aiohttp (>=3.10,<4.0)
 Requires-Dist: azure-ai-agents (==1.2.0b5) ; extra == "v1"
 Requires-Dist: azure-ai-contentsafety (>=1.0.0,<2.0.0)
+Requires-Dist: azure-ai-contentunderstanding (>=1.0.0,<2.0.0)
 Requires-Dist: azure-ai-documentintelligence (>=1.0.2,<2.0.0) ; extra == "tools"
-Requires-Dist: azure-ai-inference[opentelemetry] (>=1.0.0b9,<2.0) ; extra == "v1"
+Requires-Dist: azure-ai-inference (>=1.0.0b9,<2.0) ; extra == "v1"
 Requires-Dist: azure-ai-projects (>=2.0.0,<3.0)
 Requires-Dist: azure-ai-textanalytics (>=5.3.0,<6.0.0) ; extra == "tools"
 Requires-Dist: azure-ai-vision-imageanalysis (>=1.0.0,<2.0.0) ; extra == "tools"
 Requires-Dist: azure-core (>=1.32,<2.0)
-Requires-Dist: azure-cosmos (>=4.14.0b1,<5.0)
 Requires-Dist: azure-identity (>=1.15,<2.0)
 Requires-Dist: azure-mgmt-logic (>=10.0.0,<11.0.0) ; extra == "tools"
 Requires-Dist: azure-monitor-opentelemetry (>=1.6,<2.0) ; extra == "opentelemetry"
 Requires-Dist: azure-search-documents (>=11.4,<12.0)
+Requires-Dist: filetype (>=1.2,<2) ; extra == "contentunderstanding"
 Requires-Dist: langchain (>=1.2.12,<2.0.0)
 Requires-Dist: langchain-openai (>=1.0.0,<2.0.0)
 Requires-Dist: langgraph (>=1.1.1,<3.0)
@@ -60,6 +41,7 @@ Requires-Dist: opentelemetry-instrumentation-threading (>=0.58b0) ; extra == "op
 Requires-Dist: opentelemetry-semantic-conventions (>=0.58b0) ; extra == "opentelemetry"
 Requires-Dist: opentelemetry-semantic-conventions-ai (>=0.4.2,<0.5.0) ; extra == "opentelemetry"
 Requires-Dist: six (>=1.17.0,<2.0.0)
+Requires-Dist: wrapt (>=1.14.0) ; extra == "opentelemetry"
 Project-URL: Repository, https://github.com/langchain-ai/langchain-azure
 Project-URL: Release Notes, https://github.com/langchain-ai/langchain-azure/releases
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-azure/tree/main/libs/azure-ai
@@ -86,6 +68,23 @@ For using tracing capabilities with OpenTelemetry, you need to add the extras `o
 ```bash
 pip install -U langchain-azure-ai[opentelemetry]
 ```
+
+## Auto tracing to Azure Application Insights
+
+For a minimal end-to-end example that auto-injects the Azure tracer into
+LangGraph callback managers and exports spans to Application Insights, see
+[`samples/enable_auto_tracing_appinsights.py`](../../samples/enable_auto_tracing_appinsights.py).
+
+The sample shows how to:
+
+* set `APPLICATION_INSIGHTS_CONNECTION_STRING`
+* configure an Azure OpenAI chat model for a LangGraph app
+* call `enable_auto_tracing(..., auto_configure_azure_monitor=True)` for a
+  local script or notebook
+
+If you are running inside a hosted Azure AI Foundry agent, keep
+`auto_configure_azure_monitor=False` because the host already configures the
+`TracerProvider`.
 
 If you are transitioning from Microsoft Foundry classic and you need access to deprecated classes, use `[v1]` extra.
 
@@ -203,6 +202,15 @@ You're not a genius and you don't love programming!
 
 
 ## Changelog
+
+- **1.2.2**:
+
+  - We introduced `context_extractor` support across content safety middleware classes, so you can control how content is extracted from agent state before safety checks run. [#419](https://github.com/langchain-ai/langchain-azure/pull/419)
+  - We introduced `context_extractor` support for `AzureGroundednessMiddleware` and added a notebook example for easier adoption. [#410](https://github.com/langchain-ai/langchain-azure/pull/410)
+  - We changed the default implementation of `init_chat_model("azure_ai:<your-model>")` to use the OpenAI Responses API path for improved compatibility with modern LangChain chat model initialization. [#409](https://github.com/langchain-ai/langchain-azure/pull/409)
+  - We fixed an `AttributeError` in `AzureAIOpenTelemetryTracer.on_chain_start` when chain inputs were not dictionaries. [#317](https://github.com/langchain-ai/langchain-azure/pull/317)
+  - We upgraded the `requests` dependency for this package to include upstream security and maintenance updates. [#417](https://github.com/langchain-ai/langchain-azure/pull/417)
+  - We patched multiple high-severity dependency vulnerabilities (including `PyJWT`, `orjson`, and `tornado`) to improve package security posture. [#412](https://github.com/langchain-ai/langchain-azure/pull/412)
 
 - **1.2.1**:
 

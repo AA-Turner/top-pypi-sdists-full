@@ -61,6 +61,7 @@ if TYPE_CHECKING:
 LOCK_ERROR = re.compile(r"Unable to create '([^']*\.git/[^']*\.lock)': File exists")
 # Assume lock is stale after one hour
 LOCK_STALE_SECONDS = 3600
+TEMPORARY_BRANCHES = frozenset({"weblate-merge-tmp", "weblate-squash-tmp"})
 
 
 class GitCredentials(TypedDict):
@@ -79,6 +80,22 @@ class GitCredentials(TypedDict):
 
 class GitRepository(Repository):
     """Repository implementation for Git."""
+
+    metadata_dir_name: ClassVar[str] = ".git"
+
+    RESERVED_BRANCH_NAMES: ClassVar[frozenset[str]] = frozenset(
+        {
+            "HEAD",
+            "FETCH_HEAD",
+            "ORIG_HEAD",
+            "MERGE_HEAD",
+            "CHERRY_PICK_HEAD",
+            "REBASE_HEAD",
+            "REVERT_HEAD",
+            "BISECT_HEAD",
+            "AUTO_MERGE",
+        }
+    )
 
     _cmd: ClassVar[str] = "git"
     _cmd_last_revision: ClassVar[list[str]] = [
@@ -105,7 +122,8 @@ class GitRepository(Repository):
     push_label: ClassVar[StrOrPromise] = gettext_lazy(
         "This will push changes to the upstream Git repository."
     )
-    req_version: ClassVar[str | None] = "2.28"
+    req_version: ClassVar[str | None] = "2.46"
+    # TODO: switch to main with Git 3.0
     default_branch: ClassVar[str] = "master"
     ref_to_remote: ClassVar[str] = "..{0}"
     ref_from_remote: ClassVar[str] = "{0}.."
@@ -135,6 +153,31 @@ class GitRepository(Repository):
             except OSError:
                 pass
         return False
+
+    @classmethod
+    def validate_branch_name(cls, branch: str) -> str:
+        if (
+            not branch
+            or branch.startswith(("-", "refs/"))
+            or branch in cls.RESERVED_BRANCH_NAMES
+        ):
+            raise RepositoryError(0, f"{branch!r} is not a valid branch name")
+
+        try:
+            cls._popen(
+                ["check-ref-format", f"refs/heads/{branch}"],
+                merge_err=False,
+            )
+        except RepositoryError as error:
+            if error.retcode == 129:
+                raise RepositoryError(
+                    0, f"{branch!r} is not a valid branch name"
+                ) from error
+            message = error.args[0].removeprefix("fatal: ").strip()
+            raise RepositoryError(
+                0, message or f"{branch!r} is not a valid branch name"
+            ) from error
+        return branch
 
     @classmethod
     def get_remote_branch(cls, repo: str):
@@ -201,6 +244,32 @@ class GitRepository(Repository):
         """Check VCS configuration."""
         self.config_update(("push", "default", "current"))
 
+    def recover_lock_session(self) -> None:
+        super().recover_lock_session()
+        if not self.is_valid():
+            return
+        current_branch = self.get_current_branch()
+        if current_branch not in TEMPORARY_BRANCHES:
+            return
+        self.execute(["reset", "--hard"])
+        self.checkout_with_temp_cleanup(self.branch)
+        with suppress(RepositoryError):
+            self.execute(["branch", "-D", current_branch])
+        self.clean_revision_cache()
+
+    def get_current_branch(self) -> str:
+        return self.execute(
+            ["branch", "--show-current"], needs_lock=False, merge_err=False
+        ).strip()
+
+    def checkout_with_temp_cleanup(self, branch: str) -> None:
+        current_branch = self.get_current_branch()
+        self.execute(["checkout", branch])
+        if current_branch in TEMPORARY_BRANCHES and current_branch != branch:
+            with suppress(RepositoryError):
+                self.execute(["branch", "-D", current_branch])
+            self.clean_revision_cache()
+
     @staticmethod
     def get_depth() -> Iterator[str]:
         if settings.VCS_CLONE_DEPTH:
@@ -212,7 +281,7 @@ class GitRepository(Repository):
         if repo.startswith("https://"):
             parsed = urlparse(repo)
             if parsed.password:
-                # proactive HTTP authentication, needs Git 2.46
+                # proactive HTTP authentication
                 yield "-c"
                 yield "http.proactiveAuth=auto"
 
@@ -224,6 +293,7 @@ class GitRepository(Repository):
     @classmethod
     def _clone(cls, source: str, target: str, branch: str) -> None:
         """Clone repository."""
+        branch = cls.validate_branch_name(branch)
         cls._popen(
             [
                 *cls._get_auth_args(source),
@@ -269,7 +339,10 @@ class GitRepository(Repository):
 
     def has_rev(self, rev) -> bool:
         try:
-            self.execute(["rev-parse", "--verify", rev], needs_lock=False)
+            self.execute(
+                ["rev-parse", "--verify", "--end-of-options", rev],
+                needs_lock=False,
+            )
         except RepositoryError:
             return False
         return True
@@ -278,6 +351,7 @@ class GitRepository(Repository):
         self, abort: bool = False, message: str | None = None, no_ff: bool = False
     ) -> None:
         """Merge remote branch or reverts the merge."""
+        current_branch = self.validate_branch_name(self.branch)
         tmp = "weblate-merge-tmp"
         if abort:
             # Abort merge if there is one to abort
@@ -286,7 +360,7 @@ class GitRepository(Repository):
             if self.needs_commit():
                 self.execute(["reset", "--hard"])
             # Checkout original branch (we might be on tmp)
-            self.execute(["checkout", self.branch])
+            self.execute(["checkout", current_branch])
         else:
             self.delete_branch(tmp)
             # We don't do simple git merge origin/branch as that leads
@@ -307,10 +381,10 @@ class GitRepository(Repository):
             if no_ff:
                 cmd.append("--no-ff")
             cmd.extend(self.get_gpg_sign_args())
-            cmd.append(self.branch)
+            cmd.append(current_branch)
             self.execute(cmd)
             # Checkout branch with Weblate changes
-            self.execute(["checkout", self.branch])
+            self.execute(["checkout", current_branch])
             # Merge temporary branch (this is fast forward so does not create
             # merge commit)
             self.execute(["merge", tmp])
@@ -438,10 +512,16 @@ class GitRepository(Repository):
 
         return True
 
-    def remove(self, files: list[str], message: str, author: str | None = None) -> None:
+    def remove(
+        self,
+        files: list[str],
+        message: str,
+        author: str | None = None,
+        extra_commit_files: list[str] | None = None,
+    ) -> None:
         """Remove files and creates new revision."""
         self.execute(["rm", "--force", "--", *files])
-        self.commit(message, author)
+        self.commit(message, author, files=files + (extra_commit_files or []))
 
     def get_remote_configure(
         self, pull_url: str, push_url: str, branch: str, fast: bool = True
@@ -452,6 +532,7 @@ class GitRepository(Repository):
         self, pull_url: str, push_url: str, branch: str, fast: bool = True
     ) -> None:
         """Configure remote repository."""
+        branch = self.validate_branch_name(branch)
         escaped_branch = dumps(branch, ensure_ascii=False)
         self.config_update(
             # Pull url
@@ -484,9 +565,8 @@ class GitRepository(Repository):
         )
         self.branch = branch
 
-    def list_branches(self, *args):
-        cmd = ["branch", "--list"]
-        cmd.extend(args)
+    def list_branches(self, *args: str) -> list[str]:
+        cmd = ["branch", "--list", *args]
         # (we get additional * there indicating current branch)
         return [
             x.lstrip("*").strip()
@@ -499,6 +579,7 @@ class GitRepository(Repository):
 
     def configure_branch(self, branch) -> None:
         """Configure repository branch."""
+        branch = self.validate_branch_name(branch)
         # Add branch
         if not self.has_branch(branch):
             self.execute(["checkout", "-b", branch, f"origin/{branch}"])
@@ -507,7 +588,7 @@ class GitRepository(Repository):
             self.config_update((f'branch "{branch}"', "remote", "origin"))
 
         # Checkout
-        self.execute(["checkout", branch])
+        self.checkout_with_temp_cleanup(branch)
         self.branch = branch
 
     def describe(self) -> str:
@@ -530,9 +611,9 @@ class GitRepository(Repository):
             )
             for protocol in ("file", "git", "http", "https", "ssh")
         ]
-        # Default committer
         updates.extend(
             (
+                # Default committer
                 ("user", "email", settings.DEFAULT_COMMITER_EMAIL),
                 ("user", "name", settings.DEFAULT_COMMITER_NAME),
             )
@@ -580,6 +661,9 @@ class GitRepository(Repository):
 
     def remove_stale_branches(self) -> None:
         """Remove stale branches and tags from the repository."""
+        # Prune remote branches, this can fail if repository is unreachable
+        with suppress(RepositoryError):
+            self.execute([*self.get_auth_args(), "remote", "prune", "origin"])
         # Remove possible stale branches
         for branch in self.list_branches():
             if branch != self.branch:
@@ -594,6 +678,7 @@ class GitRepository(Repository):
 
     def list_remote_branches(self) -> list[str]:
         """Return a list of remote branch names by querying the remote repository using 'git ls-remote --heads origin'."""
+        self.validate_pull_url()
         branches = self.execute(
             [*self.get_auth_args(), "ls-remote", "--heads", "origin"],
             needs_lock=False,
@@ -606,18 +691,25 @@ class GitRepository(Repository):
 
     def update_remote(self) -> None:
         """Update remote repository."""
-        auth_args = self.get_auth_args()
-        self.execute([*auth_args, "remote", "prune", "origin"])
+        branch = self.validate_branch_name(self.branch)
         # Update existing branch only, not changing depth
-        self.execute([*auth_args, "fetch", "origin", self.branch])
+        self.validate_pull_url()
+        self.execute([*self.get_auth_args(), "fetch", "origin", branch])
         self.clean_revision_cache()
 
     def push(self, branch: str) -> None:
         """Push given branch to remote repository."""
-        refspec = f"{self.branch}:{branch}" if branch else self.branch
+        current_branch = self.validate_branch_name(self.branch)
+        refspec = (
+            f"{current_branch}:{self.validate_branch_name(branch)}"
+            if branch
+            else current_branch
+        )
+        self.validate_push_url()
         self.execute([*self._cmd_push, "origin", refspec])
 
     def unshallow(self) -> None:
+        self.validate_pull_url()
         self.execute([*self.get_auth_args(), "fetch", "--unshallow"])
 
     def parse_changed_files(self, lines: list[str]) -> Iterator[str]:
@@ -671,9 +763,12 @@ class GitWithGerritRepository(GitRepository):
         return ""
 
     def push(self, branch) -> None:
+        self.validate_push_url()
         if self.needs_push():
             try:
-                self.execute(["review", "--yes", self.branch])
+                self.execute(
+                    ["review", "--yes", self.validate_branch_name(self.branch)]
+                )
             except RepositoryError as error:
                 if "(no new changes)" in str(error):
                     return
@@ -795,6 +890,7 @@ class SubversionRepository(GitRepository):
 
     def update_remote(self) -> None:
         """Update remote repository."""
+        self.validate_pull_url()
         if self._fetch_revision:
             self.execute(["svn", "fetch", self._fetch_revision])
             self._fetch_revision = None
@@ -835,6 +931,7 @@ class SubversionRepository(GitRepository):
         if abort:
             self.execute(["rebase", "--abort"])
         else:
+            self.validate_pull_url()
             self.execute(["svn", "rebase"])
         self.clean_revision_cache()
 
@@ -853,22 +950,26 @@ class SubversionRepository(GitRepository):
 
         trunk if local branch is master, local branch otherwise.
         """
-        if branch is None:
-            branch = self.branch
-        if branch == self.default_branch:
+        branch_name = (
+            self.validate_branch_name(self.branch)
+            if not branch
+            else self.validate_branch_name(branch)
+        )
+        if branch_name == self.default_branch:
             fetch = self.get_config("svn-remote.svn.fetch")
             if "origin/trunk" in fetch:
                 return "origin/trunk"
             if "origin/git-svn" in fetch:
                 return "origin/git-svn"
-        return f"origin/{branch}"
+        return f"origin/{branch_name}"
 
     def list_remote_branches(self) -> list[str]:
         return []
 
     def push(self, branch: str) -> None:
         """Push given branch to remote repository."""
-        self.execute(["svn", "dcommit", self.branch])
+        self.validate_pull_url()
+        self.execute(["svn", "dcommit", self.validate_branch_name(self.branch)])
 
 
 class GitForcePushRepository(GitRepository):
@@ -894,9 +995,13 @@ class GitMergeRequestBase(GitForcePushRepository):
             return f"weblate-{self.component.project.slug}-{self.component.slug}"
         return f"weblate-{self.branch}"
 
-    def count_outgoing(self, branch: str | None = None) -> int:
+    def get_tracked_outgoing_revisions(self) -> list[str]:
+        """List revisions missing from the tracked upstream branch."""
+        return super().get_outgoing_revisions()
+
+    def get_outgoing_revisions(self, branch: str | None = None) -> list[str]:
         """
-        Count outgoing commits.
+        List outgoing commits.
 
         For merge request workflows, we need to check against both the origin
         remote (to see if commits are already merged) and the fork remote (to see
@@ -907,14 +1012,14 @@ class GitMergeRequestBase(GitForcePushRepository):
         # Check if fork is used for this branch (default and matching branches use fork)
         if not self.should_use_fork(branch):
             # Fork not used: check specified branch directly on origin
-            return super().count_outgoing(branch)
+            return super().get_outgoing_revisions(branch)
 
         # Fork workflow: check if commits have been merged to origin's pull branch
         # Omit branch parameter to check the repository's default pull branch
-        origin_outgoing = super().count_outgoing()
-        if origin_outgoing == 0:
+        origin_outgoing = super().get_outgoing_revisions()
+        if not origin_outgoing:
             # All commits are in origin, nothing to push
-            return 0
+            return []
 
         # Check if commits are in the fork (already pushed)
         # The fork branch name is determined by get_fork_branch_name()
@@ -924,31 +1029,30 @@ class GitMergeRequestBase(GitForcePushRepository):
         fork_branch = f"{fork_remote}/{fork_branch_name}"
 
         try:
-            fork_outgoing = len(
+            fork_outgoing = set(
                 self.log_revisions(self.ref_from_remote.format(fork_branch))
             )
-            # If fork has all commits, don't need to push
-            if fork_outgoing == 0:
-                return 0
         except RepositoryError:
             # Fork branch doesn't exist yet or is not accessible,
             # indicating commits haven't been pushed to fork
-            pass
+            return origin_outgoing
 
-        # Commits are not in origin or fork, need to push
-        return origin_outgoing
+        # Commits still need to be pushed only when they are missing from both
+        # the target branch and the fork branch.
+        return [revision for revision in origin_outgoing if revision in fork_outgoing]
 
     def merge(
         self, abort: bool = False, message: str | None = None, no_ff: bool = False
     ) -> None:
         """Merge remote branch or reverts the merge."""
+        current_branch = self.validate_branch_name(self.branch)
         # This reverts merge behavior of pure git backend
         # as we're expecting there will be an additional merge
         # commit created from the merge request.
         if abort:
             self.execute(["merge", "--abort"])
             # Needed for compatibility with original merge code
-            self.execute(["checkout", self.branch])
+            self.execute(["checkout", current_branch])
         else:
             cmd = ["merge"]
             if no_ff:
@@ -962,7 +1066,10 @@ class GitMergeRequestBase(GitForcePushRepository):
         self, repo: str | None = None
     ) -> tuple[str | None, str | None, str | None, str, str, str]:
         if repo is None:
-            repo = self.component.push or self.component.repo
+            component = self.component
+            if component is None:
+                raise RepositoryError(0, "Repository operation requires component.")
+            repo = component.push or component.repo
         parsed = urlparse(repo)
         host = parsed.hostname
         scheme: str | None = parsed.scheme
@@ -971,7 +1078,7 @@ class GitMergeRequestBase(GitForcePushRepository):
         if not host:
             if ":" in repo:
                 # Assume SSH URL
-                host, path = repo.split(":")
+                host, path = repo.split(":", 1)
                 host = host.split("@")[-1]
                 scheme = None
             else:
@@ -1123,11 +1230,15 @@ class GitMergeRequestBase(GitForcePushRepository):
         return not branch or branch == self.branch
 
     def get_remote_branch_name(self, branch: str | None = None) -> str:
+        current_branch = self.validate_branch_name(self.branch)
+        branch_name = (
+            current_branch if not branch else self.validate_branch_name(branch)
+        )
         remote = "origin"
-        if branch is not None and self.should_use_fork(branch):
+        if branch and self.should_use_fork(branch_name):
             credentials = self.get_credentials()
             remote = credentials["username"]
-        return f"{remote}/{self.branch if branch is None else branch}"
+        return f"{remote}/{branch_name}"
 
     def fork(self, credentials: GitCredentials) -> None:
         """Create fork of original repository if one doesn't exist yet."""
@@ -1142,6 +1253,10 @@ class GitMergeRequestBase(GitForcePushRepository):
         Pushes changes to *-weblate branch on fork and creates pull request against
         original repository.
         """
+        current_branch = self.validate_branch_name(self.branch)
+        self.validate_pull_url()
+        if self.component is not None and self.component.push:
+            self.validate_push_url()
         credentials = self.get_credentials()
         if not self.should_use_fork(branch):
             fork_remote = "origin"
@@ -1151,8 +1266,8 @@ class GitMergeRequestBase(GitForcePushRepository):
             fork_remote = credentials["username"]
             self.fork(credentials)
             fork_branch = self.get_fork_branch_name()
-            self.push_to_fork(credentials, self.branch, fork_branch)
-        self.create_pull_request(credentials, self.branch, fork_remote, fork_branch)
+            self.push_to_fork(credentials, current_branch, fork_branch)
+        self.create_pull_request(credentials, current_branch, fork_remote, fork_branch)
 
     def authenticate_url(self, url: str, credentials: GitCredentials) -> str:
         """Inject credentials into URL."""
@@ -1198,8 +1313,11 @@ class GitMergeRequestBase(GitForcePushRepository):
         raise NotImplementedError
 
     def get_merge_message(self):
+        component = self.component
+        if component is None:
+            raise RepositoryError(0, "Repository operation requires component.")
         lines = render_template(
-            self.component.pull_message.strip(), component=self.component
+            component.pull_message.strip(), component=component
         ).splitlines()
         return lines[0], "\n".join(lines[1:]).strip()
 
@@ -1429,7 +1547,10 @@ class AzureDevOpsRepository(GitMergeRequestBase):
         self, repo: str | None = None
     ) -> tuple[str | None, str | None, str | None, str, str, str]:
         if repo is None:
-            repo = self.component.repo
+            component = self.component
+            if component is None:
+                raise RepositoryError(0, "Repository operation requires component.")
+            repo = component.repo
 
         scheme_regex = r"^[a-z]+:\/\/.*"  # matches for example ssh://* and https://*
 
@@ -1872,7 +1993,8 @@ class LocalRepository(GitRepository):
         return
 
     def get_remote_branch_name(self, branch: str | None = None) -> str:
-        return self.branch if branch is None else branch
+        branch_name = branch or self.branch
+        return self.validate_branch_name(branch_name)
 
     def update_remote(self) -> None:
         return
@@ -1921,6 +2043,10 @@ class LocalRepository(GitRepository):
             os.makedirs(target)
         cls.create_blank_repository(target)
 
+    def clone_from(self, source: str) -> None:
+        """Create the local repository without validating an upstream URL."""
+        self._clone("local:", self.path, self.branch)
+
     @cached_property
     def last_remote_revision(self) -> str:
         return self.last_revision
@@ -1943,9 +2069,11 @@ class LocalRepository(GitRepository):
 
     @classmethod
     def from_zip(cls, target: str, zipfile: BinaryIO) -> Self:
-        with cls.build_local_repo(target, "ZIP file uploaded into Weblate") as repo:
-            # Extract zip file content, ignoring some files
-            zipobj = ZipFile(zipfile)
+        # Extract zip file content, ignoring some files
+        with (
+            cls.build_local_repo(target, "ZIP file uploaded into Weblate") as repo,
+            ZipFile(zipfile) as zipobj,
+        ):
             names = [name for name in zipobj.namelist() if not is_excluded(name)]
             zipobj.extractall(path=target, members=names)
             return repo
@@ -1998,12 +2126,21 @@ class GitLabRepository(GitMergeRequestBase):
         return headers
 
     def get_target_project_id(self, credentials: GitCredentials):
-        response_data, _response, error = self.request(
+        response_data, response, error = self.request(
             "get", credentials, credentials["url"]
         )
         if "id" not in response_data:
-            report_error("Could not get project", message=True)
-            raise RepositoryError(0, f"Could not get project: {error}")
+            detail = error or response.reason or gettext("Unknown error")
+            report_error(
+                "Could not get GitLab project",
+                message=True,
+                extra_log=f"{response.status_code}: {detail}",
+            )
+            raise RepositoryError(
+                0,
+                gettext("Could not get GitLab project (%(status)s): %(error)s")
+                % {"status": response.status_code, "error": detail},
+            )
         return response_data["id"]
 
     def configure_fork_features(
@@ -2409,7 +2546,7 @@ class BitbucketCloudRepository(GitMergeRequestBase):
 
     def get_default_reviewers_uuids(self, credentials: GitCredentials) -> list[str]:
         """Get a list of uuids of default reviewers for a repository."""
-        list_reviewers_url = f"{credentials['url']}/default-reviewers"
+        list_reviewers_url = f"{credentials['url']}/effective-default-reviewers"
         try:
             reviewers = self.build_full_paginated_result(
                 credentials, list_reviewers_url, "Reviewers listing error: "
@@ -2417,7 +2554,12 @@ class BitbucketCloudRepository(GitMergeRequestBase):
         except RepositoryError:
             return []
 
-        return [reviewer["uuid"] for reviewer in reviewers]
+        result = []
+        for reviewer in reviewers:
+            reviewer_uuid: str | None = reviewer.get("user", {}).get("uuid")
+            if reviewer_uuid and reviewer_uuid not in result:
+                result.append(reviewer_uuid)
+        return result
 
     def build_full_paginated_result(
         self,

@@ -10,11 +10,11 @@ import pytest
 class TestAgentTelemetryEvents:
     """Test telemetry events emitted by ComputerAgent."""
 
-    @patch("agent.agent.record_event")
-    @patch("agent.agent.is_telemetry_enabled", return_value=True)
+    @patch("cua_agent.agent.record_event")
+    @patch("cua_agent.agent.is_telemetry_enabled", return_value=True)
     def test_agent_init_event(self, mock_telemetry_enabled, mock_record_event):
         """Test that agent_init event is emitted with correct args_provided."""
-        from agent.agent import ComputerAgent
+        from cua_agent.agent import ComputerAgent
 
         # Create agent with various args
         agent = ComputerAgent(
@@ -38,11 +38,11 @@ class TestAgentTelemetryEvents:
         assert "max_retries" in event_data["args_provided"]
         assert "trajectory_dir" in event_data["args_provided"]
 
-    @patch("agent.agent.record_event")
-    @patch("agent.agent.is_telemetry_enabled", return_value=True)
+    @patch("cua_agent.agent.record_event")
+    @patch("cua_agent.agent.is_telemetry_enabled", return_value=True)
     def test_agent_init_minimal_args(self, mock_telemetry_enabled, mock_record_event):
         """Test agent_init with minimal args (defaults)."""
-        from agent.agent import ComputerAgent
+        from cua_agent.agent import ComputerAgent
 
         agent = ComputerAgent(model="anthropic/claude-sonnet-4-5-20250929")
 
@@ -59,11 +59,11 @@ class TestAgentTelemetryEvents:
         assert "trajectory_dir" not in event_data["args_provided"]
         assert "max_retries" not in event_data["args_provided"]  # default is 3
 
-    @patch("agent.agent.record_event")
-    @patch("agent.agent.is_telemetry_enabled", return_value=False)
+    @patch("cua_agent.agent.record_event")
+    @patch("cua_agent.agent.is_telemetry_enabled", return_value=False)
     def test_no_events_when_telemetry_disabled(self, mock_telemetry_enabled, mock_record_event):
         """Test that no events are emitted when telemetry is disabled."""
-        from agent.agent import ComputerAgent
+        from cua_agent.agent import ComputerAgent
 
         agent = ComputerAgent(
             model="anthropic/claude-sonnet-4-5-20250929",
@@ -82,11 +82,11 @@ class TestActionTelemetryEvents:
     """Test telemetry events for computer actions."""
 
     @pytest.mark.asyncio
-    @patch("agent.agent.record_event")
-    @patch("agent.agent.is_telemetry_enabled", return_value=True)
+    @patch("cua_agent.agent.record_event")
+    @patch("cua_agent.agent.is_telemetry_enabled", return_value=True)
     async def test_computer_action_executed_event(self, mock_telemetry_enabled, mock_record_event):
         """Test that computer_action_executed is emitted for computer calls."""
-        from agent.agent import ComputerAgent
+        from cua_agent.agent import ComputerAgent
 
         agent = ComputerAgent(model="anthropic/claude-sonnet-4-5-20250929")
         agent.telemetry_enabled = True

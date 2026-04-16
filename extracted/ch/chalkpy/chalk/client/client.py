@@ -279,6 +279,11 @@ class ChalkClient:
             during the execution of your query will be tagged with this correlation id.
         now
             The time at which to evaluate the query. If not specified, the current time will be used.
+            If provided, this should be a timezone-aware datetime (e.g.
+            `datetime(2025, 1, 1, tzinfo=timezone.utc)`). Naive datetimes are converted
+            to UTC using the system's local timezone, which can cause unexpected boundary
+            behavior in windowed aggregations when the local timezone is not UTC.
+
             This parameter is complex in the context of online_query since the online store
             only stores the most recent value of an entity's features. If `now` is in the past,
             it is extremely likely that `None` will be returned for cache-only features.
@@ -482,6 +487,8 @@ class ChalkClient:
         now
             The time at which to evaluate the query. If not specified, the current time will be used.
             The length of this list must be the same as the length of the values in `input`.
+            Each datetime should be timezone-aware (e.g. `datetime(2025, 1, 1, tzinfo=timezone.utc)`).
+            Naive datetimes are converted to UTC using the system's local timezone.
 
         Other Parameters
         ----------------
@@ -677,6 +684,11 @@ class ChalkClient:
             A list of the expected query error.
         now
             The time at which to evaluate the query. If not specified, the current time will be used.
+            If provided, this should be a timezone-aware datetime (e.g.
+            `datetime(2025, 1, 1, tzinfo=timezone.utc)`). Naive datetimes are converted
+            to UTC using the system's local timezone, which can cause unexpected boundary
+            behavior in windowed aggregations when the local timezone is not UTC.
+
             This parameter is complex in the context of `online_query` since the online store
             only stores the most recent value of an entity's features. If `now` is in the past,
             it is extremely likely that `None` will be returned for cache-only features.

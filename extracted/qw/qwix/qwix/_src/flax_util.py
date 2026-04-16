@@ -229,7 +229,7 @@ def find_param(x: Any, ptq_array_type=None) -> str | None:
     array_types = jax.Array | ptq_array_type if ptq_array_type else jax.Array
     assert module.scope is not None
     for name, value in module.scope._collection('params').items():  # pylint: disable=protected-access
-      value = nn.unbox(value)
+      value = unbox(value)
       if isinstance(value, array_types):
         candidates[name] = value
   elif isinstance(module, nnx.Module):
@@ -272,17 +272,31 @@ def find_param(x: Any, ptq_array_type=None) -> str | None:
 
 
 def unbox(maybe_boxed: Any) -> Any:
-  """Similar to nn.unbox but also works for nnx.Variable/VariableState/VariableMetadata."""
+  """Returns the raw array without applying hooks or sharding constraints.
+
+  Similar to nn.unbox but also works for
+  nnx.Variable/VariableState/VariableMetadata.
+  This function is designed to be passive, making it safe for parameter
+  identification in environments with Manual mesh axes.
+
+  Args:
+    maybe_boxed: The value to unbox, which can be a jax.Array,
+      nn.meta.AxisMetadata, nnx.Variable, or other types containing these.
+  """
 
   def fn(x):
-    if isinstance(x, nnx.Variable):
-      return x.value
-    elif isinstance(x, nnx.VariableState):
-      return x.value
+    # Recursion is necessary for nested metadata, such as the NNX Bridge where
+    # NNXMeta (an AxisMetadata subclass) wraps an nnx.Variable.
+    # Without recursion, unboxing would stop at the Variable layer,
+    # failing to reach the raw jax.Array.
+    if isinstance(x, nnx.Variable | nnx.VariableState):
+      return unbox(x.get_raw_value())
     elif isinstance(x, nnx.VariableMetadata):
-      return x.raw_value
+      return unbox(x.raw_value)
     elif isinstance(x, nn.meta.AxisMetadata):
-      return x.unbox()
+      if isinstance(x, nn.Partitioned):
+        return unbox(x.unbox(apply_constraint=False))
+      return unbox(x.unbox())
     else:
       return x
 
@@ -294,13 +308,13 @@ def unbox(maybe_boxed: Any) -> Any:
 
 
 def update_sharding(
-    spec: Sequence[Any],
+    spec: Sequence[Any] | jax.sharding.PartitionSpec,
     *,
     shape: Sequence[int] | None = None,
     split: Collection[int] | None = None,
     merge: Collection[int] | None = None,
     transpose: Sequence[int | None] | None = None,
-) -> tuple[Any, ...]:
+) -> tuple[Any, ...] | jax.sharding.PartitionSpec:
   """Derives the partition spec from an existing spec.
 
   Args:
@@ -316,6 +330,8 @@ def update_sharding(
     The updated partition spec.
   """
   assert bool(split) + bool(merge) + bool(transpose) <= 1
+  is_pspec = isinstance(spec, jax.sharding.PartitionSpec)
+
   if split:
     spec = [(a, None) if i in split else (a,) for i, a in enumerate(spec)]
     spec = sum(spec, ())  # flatten the list of tuples.
@@ -329,6 +345,9 @@ def update_sharding(
     assert len(shape) == len(spec), f'{shape=} {spec=}'
     # For scales: remove sharding for dimensions of size 1.
     spec = tuple(None if d == 1 else a for a, d in zip(spec, shape))
+
+  if is_pspec:
+    return jax.sharding.PartitionSpec(*spec)
 
   return spec
 
@@ -366,7 +385,7 @@ def update_boxed(
     shape = boxed.unbox().shape
     for possible_field in ('names', 'mesh_axes', 'axes_types'):
       axes = getattr(boxed, possible_field, None)
-      if isinstance(axes, (list, tuple)):
+      if isinstance(axes, (list, tuple, jax.sharding.PartitionSpec)):
         axes = update_sharding(
             axes, shape=shape, split=split, merge=merge, transpose=transpose
         )
@@ -375,12 +394,19 @@ def update_boxed(
     if value is not None:
       boxed = boxed.replace(value)
     shape = boxed.value.shape
-    axes = boxed.get_metadata().get('sharding_names', None)
-    if isinstance(axes, (list, tuple)):
+    metadata = boxed.get_metadata()
+    # Check for out_sharding first (Flax >= 0.12.4), then sharding_names
+    if 'out_sharding' in metadata:
+      sharding_key = 'out_sharding'
+    else:
+      sharding_key = 'sharding_names'
+    axes = metadata.get(sharding_key, None)
+
+    if isinstance(axes, (list, tuple, jax.sharding.PartitionSpec)):
       axes = update_sharding(
           axes, shape=shape, split=split, merge=merge, transpose=transpose
       )
-      boxed.set_metadata(sharding_names=axes)
+      boxed.set_metadata(sharding_key, axes)
   elif isinstance(boxed, jax.Array):  # not boxed.
     if value is not None:
       boxed = value

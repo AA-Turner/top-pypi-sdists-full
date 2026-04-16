@@ -93,6 +93,10 @@ from arize._generated.api_client.models.llm_message import LLMMessage
 from arize._generated.api_client.models.llm_provider import LlmProvider
 from arize._generated.api_client.models.message_role import MessageRole
 from arize._generated.api_client.models.optimization_direction import OptimizationDirection
+from arize._generated.api_client.models.organization import Organization
+from arize._generated.api_client.models.organizations_create_request import OrganizationsCreateRequest
+from arize._generated.api_client.models.organizations_list200_response import OrganizationsList200Response
+from arize._generated.api_client.models.organizations_update_request import OrganizationsUpdateRequest
 from arize._generated.api_client.models.pagination_metadata import PaginationMetadata
 from arize._generated.api_client.models.permission import Permission
 from arize._generated.api_client.models.problem import Problem
@@ -135,6 +139,7 @@ from arize._generated.api_client.models.spaces_update_request import SpacesUpdat
 from arize._generated.api_client.models.span import Span
 from arize._generated.api_client.models.span_context import SpanContext
 from arize._generated.api_client.models.span_event import SpanEvent
+from arize._generated.api_client.models.spans_delete_request import SpansDeleteRequest
 from arize._generated.api_client.models.spans_list200_response import SpansList200Response
 from arize._generated.api_client.models.spans_list_request import SpansListRequest
 from arize._generated.api_client.models.task import Task

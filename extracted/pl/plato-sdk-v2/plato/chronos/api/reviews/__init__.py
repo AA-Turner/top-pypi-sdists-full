@@ -9,6 +9,7 @@ from . import (
     get_review_widget_schema_api_reviews_schema_widgets_get,
     list_reviews_api_reviews_get,
     update_review_api_reviews__review_public_id__put,
+    update_review_node,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "update_review_api_reviews__review_public_id__put",
     "delete_review_api_reviews__review_public_id__delete",
     "copy_annotations_to_review_api_reviews__review_public_id__copy_from__source_review_public_id__post",
+    "update_review_node",
 ]

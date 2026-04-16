@@ -124,3 +124,39 @@ def copy_run(
         raise
     except Exception as e:
         raise CLIPipeException(FeedbackManager.error_creating_copy_job(error=e))
+
+
+@copy.command(name="resume", short_help="Resume a paused copy pipe")
+@click.argument("pipe_name_or_id")
+@click.pass_context
+def copy_resume(ctx: click.Context, pipe_name_or_id: str) -> None:
+    """Resume a paused copy pipe."""
+
+    click.echo(FeedbackManager.info_copy_pipe_resuming(pipe=pipe_name_or_id))
+    client: TinyB = ctx.ensure_object(dict)["client"]
+
+    try:
+        client.pipe_resume_copy(pipe_name_or_id)
+        click.echo(FeedbackManager.success_copy_pipe_resumed(pipe=pipe_name_or_id))
+    except AuthNoTokenException:
+        raise
+    except Exception as e:
+        raise CLIPipeException(FeedbackManager.error_resuming_copy_pipe(error=e))
+
+
+@copy.command(name="pause", short_help="Pause a running copy pipe")
+@click.argument("pipe_name_or_id")
+@click.pass_context
+def copy_pause(ctx: click.Context, pipe_name_or_id: str) -> None:
+    """Pause a running copy pipe."""
+
+    click.echo(FeedbackManager.info_copy_pipe_pausing(pipe=pipe_name_or_id))
+    client: TinyB = ctx.ensure_object(dict)["client"]
+
+    try:
+        client.pipe_pause_copy(pipe_name_or_id)
+        click.echo(FeedbackManager.success_copy_pipe_paused(pipe=pipe_name_or_id))
+    except AuthNoTokenException:
+        raise
+    except Exception as e:
+        raise CLIPipeException(FeedbackManager.error_pausing_copy_pipe(error=e))

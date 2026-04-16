@@ -2,6 +2,7 @@ import copy
 import dataclasses
 import json
 import os
+from datetime import datetime
 from typing import Any, Optional, Union
 
 import pyarrow as pa
@@ -456,4 +457,156 @@ def check_stream_parsing(
         pytest.fail(fail_msg, pytrace=False)
 
 
-__all__ = ["assert_frame_equal", "check_expression", "check_stream_parsing", "StreamMessage"]
+def _feature_instance_to_dict(instance: Any) -> dict:
+    """Recursively convert a feature instance to a full-FQN dict for PyArrow struct arrays."""
+    result = {}
+    for fqn, value in instance.items():
+        if isinstance(value, list) and value and hasattr(value[0], "__chalk_namespace__"):
+            result[fqn] = [_feature_instance_to_dict(v) for v in value]
+        elif hasattr(value, "__chalk_namespace__"):
+            result[fqn] = _feature_instance_to_dict(value)
+        else:
+            result[fqn] = value
+    return result
+
+
+def check_static_dataframe(
+    resolver: Any,
+    assertions: list,
+    now: Optional[datetime] = None,
+    show_table: bool = False,
+    float_rel_tolerance: float = 1e-6,
+    float_abs_tolerance: float = 1e-12,
+) -> None:
+    """Check that a ``@online(static=True)`` DataFrame resolver produces the expected values.
+
+    The resolver's return type annotation determines which features are outputs.
+    Each assertion instance should contain both input field values and expected
+    output field values. The function builds an input-only ``chalkdf.DataFrame``,
+    runs the resolver's underlying function against it, then compares each output
+    column against the expected values supplied in the assertions.
+
+    Parameters
+    ----------
+    resolver
+        A resolver decorated with ``@online(static=True)`` that accepts a ``DataFrame``
+        input and returns a ``DataFrame``.
+    assertions
+        A list of feature instances containing input values and expected output values.
+        Output features are inferred from the resolver's return type annotation.
+    now
+        If provided, a ``"__chalk__.now"`` column is added to the input DataFrame.
+        Required when the resolver's input type annotation includes ``Now``.
+    show_table
+        If ``True``, always display a comparison table. If ``False`` (default),
+        only display the table when there are mismatches.
+    float_rel_tolerance
+        Relative tolerance for float comparisons. Default is 1e-6.
+    float_abs_tolerance
+        Absolute tolerance for float comparisons. Default is 1e-12.
+
+    Raises
+    ------
+    AssertionError
+        If any computed output values don't match the expected values.
+    MissingDependencyException
+        If ``chalkdf`` is not installed.
+
+    Notes
+    -----
+    Row order in the resolver output is assumed to match the input order. Most
+    static resolvers preserve row order via a final left join back to the input
+    skeleton, but if yours does not, results may be compared against the wrong
+    expected values.
+
+    Examples
+    --------
+    >>> check_static_dataframe(
+    ...     compute_features,
+    ...     assertions=[
+    ...         Transaction(id="t1", amount=100.0, is_large=True),
+    ...         Transaction(id="t2", amount=50.0,  is_large=False),
+    ...     ],
+    ... )
+    """
+    try:
+        from chalkdf import DataFrame as ChalkDF  # pyright: ignore[reportMissingImports]
+    except ImportError:
+        raise MissingDependencyException(
+            "chalkdf is needed to run `check_static_dataframe`. Please install it via `uv pip install chalkdf`."
+        )
+
+    resolver_input_fqns: set = set()
+    for inp in resolver.inputs:
+        if hasattr(inp, "__columns__"):  # subscripted DataFrame[...] type
+            resolver_input_fqns.update(f.fqn for f in inp.__columns__)
+        elif hasattr(inp, "fqn"):  # plain Feature
+            resolver_input_fqns.add(inp.fqn)
+
+    output_fqns = {f.fqn for f in resolver.flattened_output} - resolver_input_fqns
+
+    columnar = features_to_columnar(assertions, strip_namespace=False)
+    input_columnar = {k: v for k, v in columnar.items() if k not in output_fqns}
+    expected_columnar = {k: v for k, v in columnar.items() if k in output_fqns}
+
+    arrow_columns: dict = {}
+    for col_name, values in input_columnar.items():
+        if values and isinstance(values[0], list):
+            converted = [
+                [_feature_instance_to_dict(item) if hasattr(item, "__chalk_namespace__") else item for item in row]
+                for row in values
+            ]
+            arrow_columns[col_name] = pa.array(converted)
+        else:
+            arrow_columns[col_name] = pa.array(values)
+
+    if now is not None:
+        arrow_columns["__chalk__.now"] = pa.array([now] * len(assertions), type=pa.timestamp("us"))
+
+    chalkdf_input = ChalkDF.from_arrow(pa.table(arrow_columns))
+    result_arrow = resolver.fn(chalkdf_input).run().to_arrow()
+
+    all_mismatches: list = []
+    computed_by_fqn: dict = {}
+
+    for output_fqn, expected_values in expected_columnar.items():
+        try:
+            computed_values = result_arrow.column(output_fqn).to_pylist()
+        except KeyError:
+            raise ValueError(
+                f"Output feature '{output_fqn}' not found in resolver result. Available columns: {result_arrow.schema.names}"
+            )
+        computed_by_fqn[output_fqn] = computed_values
+        for i, (expected, computed) in enumerate(zip(expected_values, computed_values)):
+            if not _values_match(expected, computed, float_rel_tolerance, float_abs_tolerance):
+                all_mismatches.append((output_fqn, i, expected, computed))
+
+    if show_table or all_mismatches:
+        console = Console()
+        tbl = Table(title="Static DataFrame Resolver Check", title_justify="left")
+        tbl.add_column("Feature", overflow="fold")
+        tbl.add_column("Row")
+        tbl.add_column("Expected", max_width=30)
+        tbl.add_column("Computed", max_width=30)
+        tbl.add_column("Status", max_width=10)
+
+        for output_fqn, expected_values in expected_columnar.items():
+            computed_values = computed_by_fqn.get(output_fqn, [])
+            for i, (expected, computed) in enumerate(zip(expected_values, computed_values)):
+                is_match = _values_match(expected, computed, float_rel_tolerance, float_abs_tolerance)
+                status = Color.render("Match", Color.G) if is_match else Color.render("Mismatch", Color.R)
+                tbl.add_row(output_fqn, str(i), str(expected), str(computed), status)
+
+        print()
+        console.print(tbl)
+
+    if all_mismatches:
+        fail_msg = (
+            f"Static DataFrame resolver check failed: "
+            f"{len(all_mismatches)} mismatch(es) across "
+            f"{len(expected_columnar)} output feature(s)"
+        )
+        pytest.fail(fail_msg, pytrace=False)
+
+
+__all__ = ["assert_frame_equal", "check_expression", "check_static_dataframe", "check_stream_parsing", "StreamMessage"]

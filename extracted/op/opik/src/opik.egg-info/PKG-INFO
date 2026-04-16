@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opik
-Version: 1.11.5
+Version: 1.11.8
 Summary: Comet tool for logging and evaluating LLM traces
 Home-page: https://www.comet.com
 Author: Comet ML Inc.
@@ -38,6 +38,9 @@ Requires-Dist: tqdm
 Requires-Dist: uuid6
 Requires-Dist: jinja2
 Requires-Dist: watchfiles<2.0.0,>=1.0.0
+Requires-Dist: tree-sitter<1.0,>=0.23; platform_machine != "aarch64" or sys_platform != "linux"
+Requires-Dist: tree-sitter-javascript<1.0,>=0.23; platform_machine != "aarch64" or sys_platform != "linux"
+Requires-Dist: tree-sitter-typescript<1.0,>=0.23; platform_machine != "aarch64" or sys_platform != "linux"
 Provides-Extra: proxy
 Requires-Dist: fastapi>=0.100.0; extra == "proxy"
 Requires-Dist: uvicorn>=0.23.0; extra == "proxy"

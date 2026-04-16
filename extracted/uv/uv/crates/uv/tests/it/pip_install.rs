@@ -251,6 +251,81 @@ fn invalid_pyproject_toml_option_unknown_field() -> Result<()> {
 }
 
 #[test]
+fn pyproject_required_version_preempts_settings_discovery_warning() -> Result<()> {
+    let context =
+        uv_test::test_context!("3.12").with_filter((uv_version::version(), "[UV_VERSION]"));
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [tool.uv]
+        required-version = ">=9999"
+        unknown = "field"
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("iniconfig"), @r#"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Required uv version `>=9999` does not match the running version `[UV_VERSION]`
+    "#
+    );
+
+    Ok(())
+}
+
+#[test]
+fn uv_toml_required_version_preempts_parse_error() -> Result<()> {
+    let context =
+        uv_test::test_context!("3.12").with_filter((uv_version::version(), "[UV_VERSION]"));
+    let uv_toml = context.temp_dir.child("uv.toml");
+    uv_toml.write_str(indoc! {r#"
+        required-version = ">=9999"
+        unknown = "field"
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("iniconfig"), @r#"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Required uv version `>=9999` does not match the running version `[UV_VERSION]`
+    "#
+    );
+
+    Ok(())
+}
+
+#[test]
+fn uv_toml_required_version_preempts_pyproject_only_field() -> Result<()> {
+    let context =
+        uv_test::test_context!("3.12").with_filter((uv_version::version(), "[UV_VERSION]"));
+    let uv_toml = context.temp_dir.child("uv.toml");
+    uv_toml.write_str(indoc! {r#"
+        required-version = ">=9999"
+
+        [sources]
+        iniconfig = { git = "https://example.com/iniconfig" }
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("iniconfig"), @r#"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Required uv version `>=9999` does not match the running version `[UV_VERSION]`
+    "#
+    );
+
+    Ok(())
+}
+
+#[test]
 fn invalid_toml_filename() -> Result<()> {
     let context = uv_test::test_context!("3.12");
     let test_toml = context.temp_dir.child("test.toml");
@@ -3157,7 +3232,8 @@ fn only_binary_editable_setup_py() {
 /// don't propagate the `--prerelease` flag to the source distribution build regardless.
 #[test]
 fn no_prerelease_hint_source_builds() -> Result<()> {
-    let context = uv_test::test_context!("3.12").with_exclude_newer("2018-10-08");
+    // Use an explicit UTC timestamp so the snapshot is stable across host time zones.
+    let context = uv_test::test_context!("3.12").with_exclude_newer("2018-10-09T00:00:00Z");
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(indoc! {r#"
@@ -3183,6 +3259,8 @@ fn no_prerelease_hint_source_builds() -> Result<()> {
       ├─▶ Failed to resolve requirements from `setup.py` build
       ├─▶ No solution found when resolving: `setuptools>=40.8.0`
       ╰─▶ Because only setuptools<=40.4.3 is available and you require setuptools>=40.8.0, we can conclude that your requirements are unsatisfiable.
+
+          hint: `setuptools` was filtered by `exclude-newer` to only include packages uploaded before 2018-10-09T00:00:00Z. The latest version satisfying the requirement is v69.2.0, published at 2024-03-13T11:20:54.103Z. Consider using `exclude-newer-package` to override the cutoff for this package.
     "
     );
 

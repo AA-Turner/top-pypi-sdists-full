@@ -136,6 +136,26 @@ def test_create_clone(dialect: str):
     )
 
 
+@pytest.mark.parametrize("dialect", ["bigquery"])
+def test_create_clone_cross_dataset_digit_starting_identifier(dialect: str):
+    """
+    Clone across different datasets where the source table starts with a digit.
+    BigQuery accepts unquoted digit-starting identifiers at runtime.
+    Language manual:
+        https://cloud.google.com/bigquery/docs/table-clones-create
+    See https://github.com/open-metadata/OpenMetadata/issues/23338
+    Note clone is not a keyword in sqlparse, we'll skip testing for it.
+    """
+    assert_table_lineage_equal(
+        "CREATE OR REPLACE TABLE b__reference.region_country_capital2"
+        " CLONE b__reference_df.1st_layer___region_country_capital2;",
+        {"b__reference_df.1st_layer___region_country_capital2"},
+        {"b__reference.region_country_capital2"},
+        dialect=dialect,
+        test_sqlparse=False,
+    )
+
+
 @pytest.mark.parametrize("dialect", ["snowflake"])
 def test_alter_table_swap_partition(dialect: str):
     """

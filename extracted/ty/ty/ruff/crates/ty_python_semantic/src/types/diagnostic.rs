@@ -35,10 +35,10 @@ use ruff_db::{
     diagnostic::{Annotation, Diagnostic, Span, SubDiagnostic, SubDiagnosticSeverity},
     parsed::parsed_module,
 };
-use ruff_diagnostics::{Edit, Fix};
+use ruff_diagnostics::{Edit, Fix, IsolationLevel};
 use ruff_python_ast::name::Name;
 use ruff_python_ast::token::parentheses_iterator;
-use ruff_python_ast::{self as ast, AnyNodeRef, PythonVersion, StringFlags};
+use ruff_python_ast::{self as ast, AnyNodeRef, HasNodeIndex, PythonVersion, StringFlags};
 use ruff_text_size::{Ranged, TextRange};
 use rustc_hash::FxHashSet;
 use std::fmt::{self, Formatter};
@@ -98,6 +98,7 @@ pub(crate) fn register_lints(registry: &mut LintRegistryBuilder) {
     registry.register_lint(&INVALID_PARAMETER_DEFAULT);
     registry.register_lint(&INVALID_PROTOCOL);
     registry.register_lint(&INVALID_NAMED_TUPLE);
+    registry.register_lint(&INVALID_NAMED_TUPLE_OVERRIDE);
     registry.register_lint(&INVALID_RAISE);
     registry.register_lint(&INVALID_SUPER_ARGUMENT);
     registry.register_lint(&INVALID_TYPE_ARGUMENTS);
@@ -732,6 +733,40 @@ declare_lint! {
         summary: "detects invalid `NamedTuple` class definitions",
         status: LintStatus::stable("0.0.1-alpha.19"),
         default_level: Level::Error,
+    }
+}
+
+declare_lint! {
+    /// ## What it does
+    /// Checks for subclass members that override inherited `NamedTuple` fields.
+    ///
+    /// ## Why is this bad?
+    /// Reusing an inherited `NamedTuple` field name in a subclass creates a
+    /// class where tuple indexing and `repr()` still reflect the original
+    /// field, while attribute access follows the subclass member.
+    ///
+    /// ## Default level
+    /// This rule is a warning by default because these overrides do not make
+    /// the class invalid at runtime.
+    ///
+    /// ## Examples
+    /// ```python
+    /// from typing import NamedTuple
+    ///
+    /// class User(NamedTuple):
+    ///     name: str
+    ///
+    /// class Admin(User):
+    ///     name = "shadowed"  # error: [invalid-named-tuple-override]
+    ///
+    /// admin = Admin("Alice")
+    /// admin.name  # "shadowed"
+    /// admin[0]  # "Alice"
+    /// ```
+    pub(crate) static INVALID_NAMED_TUPLE_OVERRIDE = {
+        summary: "detects subclass members that override inherited `NamedTuple` fields",
+        status: LintStatus::stable("0.0.31"),
+        default_level: Level::Warn,
     }
 }
 
@@ -3536,13 +3571,13 @@ fn report_invalid_assignment_with_message<'db, 'ctx: 'db, T: Ranged>(
     match target_ty {
         Type::ClassLiteral(class) => {
             diag.info(format_args!(
-                "Implicit shadowing of class `{}`, add an annotation to make it explicit if this is intentional",
+                "Implicit shadowing of class `{}`. Add an annotation to make it explicit if this is intentional",
                 class.name(context.db()),
             ));
         }
         Type::FunctionLiteral(function) => {
             diag.info(format_args!(
-                "Implicit shadowing of function `{}`, add an annotation to make it explicit if this is intentional",
+                "Implicit shadowing of function `{}`. Add an annotation to make it explicit if this is intentional",
                 function.name(context.db()),
             ));
         }
@@ -5127,7 +5162,10 @@ pub(crate) fn report_invalid_key_on_typed_dict<'db>(
                 });
 
                 let existing_keys = items.keys().map(Name::as_str);
-                if let Some(suggestion) = did_you_mean(existing_keys, key) {
+
+                if !matches!(full_object_ty, Some(Type::Union(_) | Type::Intersection(_)))
+                    && let Some(suggestion) = did_you_mean(existing_keys, key)
+                {
                     if let AnyNodeRef::ExprStringLiteral(literal) = key_node {
                         let quoted_suggestion = format!(
                             "{quote}{suggestion}{quote}",
@@ -5832,6 +5870,14 @@ pub(super) fn report_overridden_final_method<'db>(
                     .contains(overload.node(db, context.file(), context.module()))
             });
 
+        let isolate = IsolationLevel::Group(
+            class_node
+                .node_index()
+                .load()
+                .as_u32()
+                .expect("`parsed_module` should have assigned a node index"),
+        );
+
         match function.overloads_and_implementation(db) {
             ([first_overload, rest @ ..], None) => {
                 diagnostic.help(format_args!("Remove all overloads for `{member}`"));
@@ -5840,6 +5886,7 @@ pub(super) fn report_overridden_final_method<'db>(
                         overload_deletion(first_overload),
                         rest.iter().map(overload_deletion),
                     )
+                    .isolate(isolate)
                 }));
             }
             ([first_overload, rest @ ..], Some(implementation)) => {
@@ -5851,13 +5898,14 @@ pub(super) fn report_overridden_final_method<'db>(
                         overload_deletion(first_overload),
                         rest.iter().chain([&implementation]).map(overload_deletion),
                     )
+                    .isolate(isolate)
                 }));
             }
             ([], Some(implementation)) => {
                 diagnostic.help(format_args!("Remove the override of `{member}`"));
-                diagnostic.set_optional_fix(
-                    should_fix.then(|| Fix::unsafe_edit(overload_deletion(&implementation))),
-                );
+                diagnostic.set_optional_fix(should_fix.then(|| {
+                    Fix::unsafe_edit(overload_deletion(&implementation)).isolate(isolate)
+                }));
             }
             ([], None) => {
                 // Should be impossible to get here: how would we even infer a function as a function

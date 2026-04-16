@@ -1,5 +1,6 @@
 from typing import List
 
+from sqlglot.dialects.dialect import DialectType
 from sqlglot.expressions import Expression
 
 from collate_sqllineage.core.models import AnalyzerContext, SubQuery
@@ -17,7 +18,7 @@ class LineageHolderExtractor:
 
     SUPPORTED_STMT_TYPES: List[str] = []
 
-    def __init__(self, dialect: str):
+    def __init__(self, dialect: DialectType):
         self.dialect = dialect
 
     def can_extract(self, statement_type: str) -> bool:

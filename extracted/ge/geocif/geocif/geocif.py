@@ -154,6 +154,15 @@ class Geocif:
         self.detrend_method = self.parser.get("ML", "detrend_method") if self.parser.has_option("ML", "detrend_method") else "gaussian"
         self.run_latest_time_period = self.parser.getboolean("ML", "run_latest_time_period")
         self.run_every_time_period = self.parser.get("ML", "run_every_time_period")
+        # When True, force every hindcast forecast_season to use the same
+        # stage set as today_year — operationally faithful hindcasts where
+        # each year's prediction is what the model would have said at the
+        # same calendar date in that year.  yield_outlook turns this on;
+        # geocif_runner/experiments leave it False to preserve existing
+        # full-season hindcast behavior.
+        self.align_hindcast_stage = self.parser.getboolean(
+            "ML", "align_hindcast_stage", fallback=False
+        )
         self.cat_features: list = ast.literal_eval(self.parser.get("ML", "cat_features"))
         self.use_spatial_neighbors = (
             self.parser.getboolean("ML", "use_spatial_neighbors")
@@ -375,16 +384,31 @@ class Geocif:
         self._create_simulation_stages()
 
     def _setup_reverse_stages(self):
-        """Setup stages for reverse methods."""
-        if self.forecast_season == self.today_year:
-            mask = self.df_inputs["Harvest Year"] == self.forecast_season
+        """Setup stages for reverse methods.
+
+        When ``align_hindcast_stage`` is True (yield_outlook's default),
+        every hindcast forecast_season uses the same stage set as today's
+        partial-season window — making stored predictions time-aligned
+        across years instead of each year picking its own full-season
+        latest stage.
+        """
+        use_today_stages = (
+            self.align_hindcast_stage or self.forecast_season == self.today_year
+        )
+        if use_today_stages:
+            mask = self.df_inputs["Harvest Year"] == self.today_year
             self.all_stages = self.df_inputs[mask]["Stage_ID"].unique()
         else:
             self.all_stages = self.df_inputs["Stage_ID"].unique()
 
     def _filter_current_month_stages(self):
-        """Filter out current month stages for real-time forecasting."""
-        if self.forecast_season == self.today_year:
+        """Filter out current month stages for real-time forecasting.
+
+        Applied whenever we're aligning to today's window — either because
+        this IS today's forecast_season or because ``align_hindcast_stage``
+        is forcing every hindcast year onto today's stage list.
+        """
+        if self.align_hindcast_stage or self.forecast_season == self.today_year:
             current_month = ar.utcnow().month
             self.all_stages = [
                 elem for elem in self.all_stages

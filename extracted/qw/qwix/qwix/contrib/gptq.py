@@ -23,16 +23,14 @@ Please check the test for an example usage.
 """
 
 import dataclasses
-from typing import Any, Callable
+from typing import Any
 
-import flax
 import jax
-from jax import numpy as jnp
-from qwix._src import averaging
-from qwix._src import flax_util
 from qwix._src import qconfig
-from qwix._src.providers import ptq
+from qwix.contrib import calibration
 from qwix.contrib import gptq_core
+
+_STATS_SUFFIX = '_gptq'
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -40,54 +38,24 @@ class GptqRule(qconfig.QuantizationRule):
   """Use this rule to enable GPTQ."""
 
 
-class GptqCalibrationProvider(qconfig.QuantizationProvider):
-  """Calibration for GPTQ.
+class GptqCalibrationProvider(calibration.SinglePassCalibrationProvider):
+  """Calibration provider for GPTQ.
 
-  This provider is used to collect gptq_quant_stats, which will be used by the
-  quantize_params function below. It does not perform the actual quantization of
-  the model parameters, nor use any quantized ops.
+  This provider collects Hessian `quant_stats` information by using
+  `SinglePassCalibrationProvider` to intercept compatible operations. These
+  statistics are used by `quantize_params` to compute GPTQ updates. This
+  provider does not perform actual quantization or use quantized operations.
   """
 
-  def dot_general(
-      self,
-      lhs: jax.Array,
-      rhs: jax.Array,
-      dimension_numbers: jax.lax.DotDimensionNumbers,
-      *args,
-      **kwargs,
-  ) -> jax.Array:
-    res = jax.lax.dot_general(lhs, rhs, dimension_numbers, *args, **kwargs)
-    rule, _ = self._get_current_rule_and_op_id('dot_general')
-    if not isinstance(rule, GptqRule):
-      return res
+  def get_rule_type(self) -> type[qconfig.QuantizationRule]:
+    return GptqRule
 
-    (lhs_ca, rhs_ca), (lhs_ba, rhs_ba) = dimension_numbers
-    if lhs_ba or rhs_ba or len(lhs_ca) != 1 or len(rhs_ca) != 1:
-      raise NotImplementedError(f'Unsupported: {dimension_numbers}')
-
-    weight_name = flax_util.find_param(rhs)
-    assert weight_name is not None
-
-    # Reorder lhs to (ca, rest).
-    lhs = jnp.moveaxis(lhs, lhs_ca[0], 0)
-    lhs = lhs.reshape(lhs.shape[0], -1)
+  def compute_stats(self, lhs: jax.Array) -> dict[str, Any]:
     hessian = gptq_core.compute_hessian(lhs)
+    return {'hessian': hessian}
 
-    # Collect the hessian.
-    hessian = {'hessian': hessian}
-    aggregator = averaging.SimpleMovingAverage()
-    quant_stat = flax_util.get_or_create_variable(
-        'quant_stats', weight_name + '_gptq', lambda: aggregator.init(hessian)
-    )
-    if flax_util.should_update_quant_stats():
-      quant_stat.value = aggregator.update(quant_stat.value, hessian)
-
-    return res
-
-  def get_intercept_map(self) -> dict[str, Callable[..., Any]]:
-    return super().get_intercept_map() | {
-        'jax.lax.dot_general': self.dot_general
-    }
+  def get_stats_suffix(self) -> str:
+    return _STATS_SUFFIX
 
 
 def quantize_params(
@@ -114,52 +82,27 @@ def quantize_params(
   Returns:
     The quantized params consumable by PtqProvider.
   """
-  quantized_params = {}
-  not_quantized_params = {}
-  for path, w in flax.traverse_util.flatten_dict(params).items():
-    abs_w = ptq.get_value_from_path(abstract_quantized_params, path)
-    gptq_stats_path = (*path[:-1], path[-1] + '_gptq')
-    gptq_stats = ptq.get_value_from_path(gptq_quant_stats, gptq_stats_path)
-
-    if not isinstance(abs_w, ptq.WithAux) or gptq_stats is None:
-      # Not quantized by GPTQ.
-      not_quantized_params[path] = w
-      continue
-
-    # HACK: get the contracting axis by assuming that all non-contracting axes
-    # are in channelwise_axes.
-    contracting_axis = set(range(w.ndim)) - set(abs_w.how.channelwise_axes)
-    assert len(contracting_axis) == 1
-    contracting_axis = list(contracting_axis)[0]
-
-    # Normalize the weight to (ra, ca) format.
-    w, restore_shape = gptq_core.normalize_weight(w, contracting_axis)
-    how = dataclasses.replace(abs_w.how, channelwise_axes=[0])
-    if contracting_axis in how.tiled_axes:
-      how = dataclasses.replace(
-          how, tiled_axes={1: how.tiled_axes[contracting_axis]}
-      )
-
-    # Get the hessian, which should be (ca, ca).
-    calibration = averaging.SimpleMovingAverage().get_calibration(gptq_stats)
-    hessian = calibration['hessian']
-    assert hessian.shape[0] == w.shape[1] and hessian.shape[1] == w.shape[1]
-
-    # Quantize the weight with GPTQ.
+  def _quantize(ctx: calibration.CalibratedQuantContext) -> Any:
+    hessian = ctx.calibration_stats['hessian']
+    assert (
+        hessian.shape[0] == ctx.weight.shape[1]
+        and hessian.shape[1] == ctx.weight.shape[1]
+    )
     w = gptq_core.quantize_weight(
-        w, hessian, how, blocksize=gptq_block_size, percdamp=gptq_damping_factor
+        ctx.weight,
+        hessian,
+        ctx.how,
+        blocksize=gptq_block_size,
+        percdamp=gptq_damping_factor,
     )[0]
-    w = restore_shape(w)
-    quantized_params[path] = abs_w.replace(array=w)
+    w = ctx.restore_shape(w)
+    return ctx.abs_w.replace(array=w)
 
-  # Quantize the non-GPTQ params with PTQ.
-  not_quantized_params = flax.traverse_util.unflatten_dict(not_quantized_params)
-  ptq_quantized_params = ptq.quantize_params(
-      not_quantized_params,
+  return calibration.quantize_params_with_calibration(
+      params,
       abstract_quantized_params,
+      gptq_quant_stats,
+      _STATS_SUFFIX,
+      _quantize,
       allow_extra_params=allow_extra_params,
   )
-  ptq_quantized_params = flax.traverse_util.flatten_dict(ptq_quantized_params)
-  quantized_params.update(ptq_quantized_params)
-
-  return flax.traverse_util.unflatten_dict(quantized_params)

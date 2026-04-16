@@ -115,12 +115,15 @@ def _thread_values_fallback(thread_id: UUID) -> _RunResultFallback:
                 if row["status"] == "error":
                     return json_dumpb({"__error__": json_loads(thread["error"])})
                 if row["status"] == "interrupted":
-                    # Get an interrupt for the thread. There is the case where there are multiple interrupts for the same run and we may not show the same
-                    # interrupt, but we'll always show one. Long term we should show all of them.
+                    # Surface every stored interrupt rather than only one per thread.
                     try:
                         interrupt_map = json_loads(thread["interrupts"])
-                        interrupt = [next(iter(interrupt_map.values()))[0]]
-                        return json_dumpb({"__interrupt__": interrupt})
+                        interrupts: list[Any] = []
+                        for interrupt_list in interrupt_map.values():
+                            if isinstance(interrupt_list, list):
+                                interrupts.extend(interrupt_list)
+                        if interrupts:
+                            return json_dumpb({"__interrupt__": interrupts})
                     except Exception:
                         # No interrupt, but status is interrupted from a before/after block. Default back to values.
                         pass
@@ -148,6 +151,22 @@ def _merge_feedback(body: bytes, feedback: bytes | None) -> bytes:
     return orjson.dumps(result)
 
 
+def _merge_interrupts(chunks: list[bytes]) -> bytes:
+    interrupts: list[Any] = []
+    for chunk in chunks:
+        try:
+            payload = orjson.loads(chunk)
+        except orjson.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        interrupt_list = payload.get("__interrupt__")
+        if isinstance(interrupt_list, list):
+            interrupts.extend(interrupt_list)
+
+    return orjson.dumps({"__interrupt__": interrupts})
+
+
 def _run_result_body(
     *,
     run_id: UUID,
@@ -163,6 +182,9 @@ def _run_result_body(
     async def consume() -> None:
         vchunk: bytes | None = None
         fchunk: bytes | None = None
+        interrupt_chunks: list[bytes] = []
+        saw_error = False
+
         try:
             async for mode, chunk, _ in Runs.Stream.join(
                 run_id,
@@ -175,14 +197,25 @@ def _run_result_body(
                     mode == b"updates" and b"__interrupt__" in chunk
                 ):
                     vchunk = chunk
+                    if b"__interrupt__" in chunk:
+                        interrupt_chunks.append(chunk)
                 elif mode == b"error":
                     vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
+                    saw_error = True
                 elif mode == b"feedback":
                     fchunk = chunk
+
+            # Preserve terminal error precedence over interrupt chunks.
+            if not saw_error:
+                if len(interrupt_chunks) > 1:
+                    vchunk = _merge_interrupts(interrupt_chunks)
+                elif interrupt_chunks:
+                    vchunk = interrupt_chunks[-1]
+                elif vchunk is None and fallback is not None:
+                    vchunk = await fallback()
+
             if vchunk is not None:
                 last_chunk.set(_merge_feedback(vchunk, fchunk))
-            elif fallback is not None:
-                last_chunk.set(_merge_feedback(await fallback(), fchunk))
             elif fchunk is not None:
                 last_chunk.set(orjson.dumps({"__feedback__": orjson.loads(fchunk)}))
             else:

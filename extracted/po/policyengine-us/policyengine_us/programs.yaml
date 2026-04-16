@@ -621,9 +621,10 @@ programs:
         name: Florida OSS
         full_name: Florida Optional State Supplementation
       - state: GA
-        status: in_progress
+        status: complete
         name: Georgia SSP
         full_name: Georgia State Supplementary Payment
+        variable: ga_ssp
       - state: HI
         status: in_progress
         name: Hawaii OSS

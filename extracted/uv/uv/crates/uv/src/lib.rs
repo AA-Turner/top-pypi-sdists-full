@@ -36,7 +36,7 @@ use uv_cli::{
 use uv_client::BaseClientBuilder;
 use uv_configuration::min_stack_size;
 use uv_flags::EnvironmentFlags;
-use uv_fs::{CWD, Simplified};
+use uv_fs::{CWD, Simplified, normalize_path};
 #[cfg(feature = "self-update")]
 use uv_pep440::release_specifiers_to_ranges;
 use uv_pep508::VersionOrUrl;
@@ -114,12 +114,15 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
         &cli.top_level.global_args.preview_features,
     );
 
+    // Make the early preview flags globally available.
+    uv_preview::set(early_preview)?;
+
     // Determine the project directory.
     //
     // If `--project` points to a `pyproject.toml` file, resolve to its parent directory,
     // since downstream code (e.g., `FilesystemOptions::find`) expects a directory.
-    let project_dir = if let Some(project) = &cli.top_level.global_args.project {
-        let path = uv_fs::normalize_path_buf(std::path::absolute(project)?);
+    let project_dir: Cow<'_, Path> = if let Some(project) = &cli.top_level.global_args.project {
+        let path = normalize_path(std::path::absolute(project)?);
         if let Some(name) = path.file_name()
             && name == "pyproject.toml"
             && path.is_file()
@@ -127,7 +130,7 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
         {
             Cow::Owned(parent.to_path_buf())
         } else {
-            Cow::Owned(path)
+            path
         }
     } else if let Some(run_command) = &parsed_run_command
         && early_preview.is_enabled(PreviewFeature::TargetWorkspaceDiscovery)
@@ -236,23 +239,26 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 "The `--config-file` argument expects to receive a `uv.toml` file, not a `pyproject.toml`. If you're trying to run a command from another project, use the `--project` argument instead."
             );
         }
-        Some(FilesystemOptions::from_file(config_file)?)
+        Some(FilesystemOptions::from_file(config_file).map_err(map_settings_error)?)
     } else if deprecated_isolated || cli.top_level.no_config {
         None
     } else if matches!(&*cli.command, Commands::Tool(_) | Commands::Self_(_)) {
         // For commands that operate at the user-level, ignore local configuration.
-        FilesystemOptions::user()?.combine(FilesystemOptions::system()?)
+        FilesystemOptions::user()
+            .map_err(map_settings_error)?
+            .combine(FilesystemOptions::system().map_err(map_settings_error)?)
     } else if let Ok(workspace) =
         Workspace::discover(&project_dir, &DiscoveryOptions::default(), &workspace_cache).await
     {
-        let project = FilesystemOptions::find(workspace.install_path())?;
-        let system = FilesystemOptions::system()?;
-        let user = FilesystemOptions::user()?;
+        let project =
+            FilesystemOptions::find(workspace.install_path()).map_err(map_settings_error)?;
+        let system = FilesystemOptions::system().map_err(map_settings_error)?;
+        let user = FilesystemOptions::user().map_err(map_settings_error)?;
         project.combine(user).combine(system)
     } else {
-        let project = FilesystemOptions::find(&project_dir)?;
-        let system = FilesystemOptions::system()?;
-        let user = FilesystemOptions::user()?;
+        let project = FilesystemOptions::find(&project_dir).map_err(map_settings_error)?;
+        let system = FilesystemOptions::system().map_err(map_settings_error)?;
+        let user = FilesystemOptions::user().map_err(map_settings_error)?;
         project.combine(user).combine(system)
     };
 
@@ -302,6 +308,10 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 ..
             })
             | ProjectCommand::Export(uv_cli::ExportArgs {
+                script: Some(script),
+                ..
+            })
+            | ProjectCommand::Audit(uv_cli::AuditArgs {
                 script: Some(script),
                 ..
             }) => match Pep723Script::read(script).await {
@@ -420,45 +430,15 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
     // Resolve the cache settings.
     let cache_settings = CacheSettings::resolve(*cli.top_level.cache_args, filesystem.as_ref());
 
-    // Set the global preview configuration.
-    uv_preview::init(globals.preview)?;
+    // Set and finalize the global preview configuration.
+    uv_preview::set(globals.preview)?;
+    uv_preview::finalize()?;
 
     // Enforce the required version.
     if let Some(required_version) = globals.required_version.as_ref() {
         let package_version = uv_pep440::Version::from_str(uv_version::version())?;
         if !required_version.contains(&package_version) {
-            #[cfg(feature = "self-update")]
-            let hint = {
-                // If the required version range includes a lower bound that's higher than
-                // the current version, suggest `uv self update`.
-                let ranges = release_specifiers_to_ranges(required_version.specifiers().clone());
-
-                if let Some(singleton) = ranges.as_singleton() {
-                    // E.g., `==1.0.0`
-                    format!(
-                        ". Update `uv` by running `{}`.",
-                        format!("uv self update {singleton}").green()
-                    )
-                } else if ranges
-                    .bounding_range()
-                    .iter()
-                    .any(|(lowest, _highest)| match lowest {
-                        Bound::Included(version) => **version > package_version,
-                        Bound::Excluded(version) => **version > package_version,
-                        Bound::Unbounded => false,
-                    })
-                {
-                    // E.g., `>=1.0.0`
-                    format!(". Update `uv` by running `{}`.", "uv self update".cyan())
-                } else {
-                    String::new()
-                }
-            };
-            #[cfg(not(feature = "self-update"))]
-            let hint = "";
-            return Err(anyhow::anyhow!(
-                "Required uv version `{required_version}` does not match the running version `{package_version}`{hint}",
-            ));
+            return Err(required_version_error(required_version, &package_version));
         }
     }
 
@@ -1965,7 +1945,7 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                     args.python,
                     args.install_mirrors,
                     args.settings,
-                    client_builder.subcommand(vec!["workspace metadata".to_owned()]),
+                    client_builder.subcommand(vec!["workspace".to_owned(), "metadata".to_owned()]),
                     globals.python_preference,
                     globals.python_downloads,
                     globals.concurrency,
@@ -2021,6 +2001,53 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
         .await
         .expect("tokio threadpool exited unexpectedly"),
     }
+}
+
+fn map_settings_error(err: uv_settings::Error) -> anyhow::Error {
+    match err {
+        uv_settings::Error::RequiredVersion {
+            required_version,
+            package_version,
+        } => required_version_error(&required_version, &package_version),
+        err => err.into(),
+    }
+}
+
+fn required_version_error(
+    required_version: &uv_configuration::RequiredVersion,
+    package_version: &uv_pep440::Version,
+) -> anyhow::Error {
+    #[cfg(feature = "self-update")]
+    let hint = {
+        // If the required version range includes a lower bound that's higher than the current
+        // version, suggest `uv self update`.
+        let ranges = release_specifiers_to_ranges(required_version.specifiers().clone());
+
+        if let Some(singleton) = ranges.as_singleton() {
+            format!(
+                ". Update `uv` by running `{}`.",
+                format!("uv self update {singleton}").green()
+            )
+        } else if ranges
+            .bounding_range()
+            .iter()
+            .any(|(lowest, _highest)| match lowest {
+                Bound::Included(version) => **version > *package_version,
+                Bound::Excluded(version) => **version > *package_version,
+                Bound::Unbounded => false,
+            })
+        {
+            format!(". Update `uv` by running `{}`.", "uv self update".cyan())
+        } else {
+            String::new()
+        }
+    };
+    #[cfg(not(feature = "self-update"))]
+    let hint = "";
+
+    anyhow!(
+        "Required uv version `{required_version}` does not match the running version `{package_version}`{hint}",
+    )
 }
 
 /// Run a [`ProjectCommand`].

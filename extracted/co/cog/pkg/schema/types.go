@@ -88,7 +88,8 @@ type Repetition int
 const (
 	Required Repetition = iota
 	Optional
-	Repeated // list[X]
+	Repeated         // list[X]
+	OptionalRepeated // list[X] | None
 )
 
 // FieldType combines a primitive type with its cardinality.
@@ -99,7 +100,7 @@ type FieldType struct {
 
 // JSONType returns the JSON Schema fragment for this field type.
 func (ft FieldType) JSONType() map[string]any {
-	if ft.Repetition == Repeated {
+	if ft.Repetition == Repeated || ft.Repetition == OptionalRepeated {
 		return map[string]any{
 			"type":  "array",
 			"items": ft.Primitive.JSONType(),
@@ -270,6 +271,10 @@ func (ctx *ImportContext) IsBasePredictor(name string) bool {
 func ResolveFieldType(ann TypeAnnotation, ctx *ImportContext) (FieldType, error) {
 	switch ann.Kind {
 	case TypeAnnotSimple:
+		// Bare dict / Dict → opaque JSON object (TypeAny)
+		if ann.Name == "dict" || ann.Name == "Dict" {
+			return FieldType{Primitive: TypeAny, Repetition: Required}, nil
+		}
 		prim, ok := PrimitiveFromName(ann.Name)
 		if !ok {
 			return FieldType{}, errUnsupportedType(ann.Name)
@@ -278,6 +283,14 @@ func ResolveFieldType(ann TypeAnnotation, ctx *ImportContext) (FieldType, error)
 
 	case TypeAnnotGeneric:
 		outer := ann.Name
+		// dict[K, V] / Dict[K, V] → opaque JSON object (TypeAny).
+		// Type parameters are intentionally discarded because FieldType is flat
+		// (PrimitiveType + Repetition only). The output path uses the recursive
+		// SchemaType model which can represent typed dicts (e.g. dict[str, int])
+		// precisely; for inputs, all dicts are treated as opaque JSON objects.
+		if outer == "dict" || outer == "Dict" {
+			return FieldType{Primitive: TypeAny, Repetition: Required}, nil
+		}
 		if outer == "Optional" {
 			if len(ann.Args) != 1 {
 				return FieldType{}, errUnsupportedType(fmt.Sprintf("Optional expects exactly 1 type argument, got %d", len(ann.Args)))
@@ -286,7 +299,11 @@ func ResolveFieldType(ann TypeAnnotation, ctx *ImportContext) (FieldType, error)
 			if err != nil {
 				return FieldType{}, err
 			}
-			return FieldType{Primitive: inner.Primitive, Repetition: Optional}, nil
+			rep := Optional
+			if inner.Repetition == Repeated {
+				rep = OptionalRepeated
+			}
+			return FieldType{Primitive: inner.Primitive, Repetition: rep}, nil
 		}
 		if outer == "Union" {
 			// typing.Union[X, Y] → treat as union type
@@ -313,7 +330,11 @@ func ResolveFieldType(ann TypeAnnotation, ctx *ImportContext) (FieldType, error)
 			if err != nil {
 				return FieldType{}, err
 			}
-			return FieldType{Primitive: ft.Primitive, Repetition: Optional}, nil
+			rep := Optional
+			if ft.Repetition == Repeated {
+				rep = OptionalRepeated
+			}
+			return FieldType{Primitive: ft.Primitive, Repetition: rep}, nil
 		}
 		return FieldType{}, errUnsupportedType("union types other than X | None are not supported")
 	}

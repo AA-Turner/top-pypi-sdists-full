@@ -21063,9 +21063,11 @@ class CreateOrUpdateComparisonRule(sgqlc.types.Type):
 
 
 class CreateOrUpdateCustomIntegration(sgqlc.types.Type):
-    """Create a custom integration warehouse with per-capability
-    connections. Each capability can collect via a new connection,
-    reuse a previously configured connection, or be left unconfigured.
+    """Create or update a custom integration warehouse with per-
+    capability connections. Each capability can collect via a new
+    connection, reuse a previously configured connection, or be left
+    unconfigured. Pass warehouseUuid to update an existing
+    integration.
     """
 
     __schema__ = schema
@@ -21073,7 +21075,7 @@ class CreateOrUpdateCustomIntegration(sgqlc.types.Type):
     result = sgqlc.types.Field(
         sgqlc.types.non_null("CreateOrUpdateCustomIntegrationResult"), graphql_name="result"
     )
-    """The created integration warehouse and connections."""
+    """The created or updated integration warehouse and connections."""
 
 
 class CreateOrUpdateCustomIntegrationResult(sgqlc.types.Type):
@@ -33246,15 +33248,14 @@ class Mutation(sgqlc.types.Type):
                     "monitors",
                     sgqlc.types.Arg(CapabilityConfigInput, graphql_name="monitors", default=None),
                 ),
-                (
-                    "name",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="name", default=None
-                    ),
-                ),
+                ("name", sgqlc.types.Arg(String, graphql_name="name", default=None)),
                 (
                     "query_logs",
                     sgqlc.types.Arg(CapabilityConfigInput, graphql_name="queryLogs", default=None),
+                ),
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="warehouseUuid", default=None),
                 ),
             )
         ),
@@ -33271,9 +33272,13 @@ class Mutation(sgqlc.types.Type):
       configuration. Null to skip.
     * `monitors` (`CapabilityConfigInput`): Monitors capability
       configuration. Null to skip.
-    * `name` (`String!`): Display name for the integration.
+    * `name` (`String`): Display name for the integration. Required
+      when creating a new integration; optional on update.
     * `query_logs` (`CapabilityConfigInput`): Query logs capability
       configuration. Null to skip.
+    * `warehouse_uuid` (`UUID`): UUID of an existing custom-
+      integration warehouse to update. When omitted, a new warehouse
+      is created.
     """
 
     test_custom_connector = sgqlc.types.Field(
@@ -54832,7 +54837,10 @@ class PrAgentConfig(sgqlc.types.Type):
     """PR Agent configuration for a GitHub app installation."""
 
     __schema__ = schema
-    __field_names__ = ("available_repos", "agent_enabled_repos")
+    __field_names__ = ("is_enabled", "available_repos", "agent_enabled_repos")
+    is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
+    """Whether PR Agent is enabled for this account"""
+
     available_repos = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="availableRepos",
@@ -83325,9 +83333,8 @@ class UpdatePrAgentConfig(sgqlc.types.Type):
     """Update PR Agent configuration for a GitHub app installation."""
 
     __schema__ = schema
-    __field_names__ = ("installation",)
-    installation = sgqlc.types.Field(GithubAppInstallation, graphql_name="installation")
-    """Updated installation"""
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
 
 
 class UpdateRedshiftCredentialsV2Mutation(sgqlc.types.Type):

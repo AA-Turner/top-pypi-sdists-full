@@ -329,7 +329,7 @@ fn build_webhook_sender(
 async fn create_prediction_with_id(
     service: Arc<PredictionService>,
     prediction_id: String,
-    input: serde_json::Value,
+    mut input: serde_json::Value,
     context: std::collections::HashMap<String, String>,
     webhook: Option<String>,
     webhook_events_filter: Vec<WebhookEventType>,
@@ -337,12 +337,20 @@ async fn create_prediction_with_id(
     trace_context: TraceContext,
     is_training: bool,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    // Validate input against the appropriate schema
-    let validation_result = if is_training {
-        service.validate_train_input(&input).await
+    // Strip unknown fields and validate in one pass. Unknown inputs are
+    // silently dropped to match Replicate's historical API behavior.
+    let (stripped, validation_result) = if is_training {
+        service.strip_and_validate_train_input(&mut input).await
     } else {
-        service.validate_input(&input).await
+        service.strip_and_validate_input(&mut input).await
     };
+    if !stripped.is_empty() {
+        tracing::warn!(
+            prediction_id = %prediction_id,
+            fields = ?stripped,
+            "Stripped unknown input fields"
+        );
+    }
     if let Err(errors) = validation_result {
         let detail: Vec<serde_json::Value> = errors
             .into_iter()
@@ -447,11 +455,13 @@ async fn create_prediction_with_id(
         }
     };
 
-    let predict_time = prediction
+    // Extract predict_time and user metrics from the Prediction mutex.
+    // User metrics are read here so they are available for all response paths
+    // (success, failure, and cancellation), not just the success path.
+    let (predict_time, user_metrics) = prediction
         .try_lock()
-        .map(|p| p.elapsed())
-        .unwrap_or(std::time::Duration::ZERO)
-        .as_secs_f64();
+        .map(|p| (p.elapsed().as_secs_f64(), p.metrics().clone()))
+        .unwrap_or_default();
 
     // Disarm guard - prediction completed normally (connection still alive)
     sync_guard.disarm();
@@ -480,16 +490,19 @@ async fn create_prediction_with_id(
                 })),
             )
         }
-        Err(PredictionError::InvalidInput(msg)) => (
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Json(serde_json::json!({
-                "id": prediction_id,
-                "error": msg,
-                "logs": "",
-                "status": "failed",
-                "metrics": { "predict_time": predict_time }
-            })),
-        ),
+        Err(PredictionError::InvalidInput(msg)) => {
+            let metrics = build_metrics(&user_metrics);
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(serde_json::json!({
+                    "id": prediction_id,
+                    "error": msg,
+                    "logs": "",
+                    "status": "failed",
+                    "metrics": metrics
+                })),
+            )
+        }
         Err(PredictionError::NotReady) => {
             let msg = PredictionError::NotReady.to_string();
             (
@@ -502,26 +515,32 @@ async fn create_prediction_with_id(
                 })),
             )
         }
-        Err(PredictionError::Failed(msg)) => (
-            // 200 for parity with Python - prediction failure is data, not HTTP error
-            StatusCode::OK,
-            Json(serde_json::json!({
-                "id": prediction_id,
-                "error": msg,
-                "logs": "",
-                "status": "failed",
-                "metrics": { "predict_time": predict_time }
-            })),
-        ),
-        Err(PredictionError::Cancelled) => (
-            StatusCode::OK,
-            Json(serde_json::json!({
-                "id": prediction_id,
-                "logs": "",
-                "status": "canceled",
-                "metrics": { "predict_time": predict_time }
-            })),
-        ),
+        Err(PredictionError::Failed(msg)) => {
+            let metrics = build_metrics(&user_metrics);
+            (
+                // 200 for parity with Python - prediction failure is data, not HTTP error
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "id": prediction_id,
+                    "error": msg,
+                    "logs": "",
+                    "status": "failed",
+                    "metrics": metrics
+                })),
+            )
+        }
+        Err(PredictionError::Cancelled) => {
+            let metrics = build_metrics(&user_metrics);
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "id": prediction_id,
+                    "logs": "",
+                    "status": "canceled",
+                    "metrics": metrics
+                })),
+            )
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ty
-Version: 0.0.30
+Version: 0.0.31
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -55,7 +55,7 @@ An extremely fast Python type checker and language server, written in Rust.
 ty is backed by [Astral](https://astral.sh), the creators of
 [uv](https://github.com/astral-sh/uv) and [Ruff](https://github.com/astral-sh/ruff).
 
-ty is currently in [beta](https://github.com/astral-sh/ty/blob/0.0.30/README.md#version-policy).
+ty is currently in [beta](https://github.com/astral-sh/ty/blob/0.0.31/README.md#version-policy).
 
 ## Highlights
 
@@ -101,7 +101,7 @@ at this time. Please [open pull requests](https://github.com/astral-sh/ruff/pull
 to anything in the `ruff` submodule (which includes all of the Rust source code).
 
 See the
-[contributing guide](https://github.com/astral-sh/ty/blob/0.0.30/CONTRIBUTING.md) for more details.
+[contributing guide](https://github.com/astral-sh/ty/blob/0.0.31/CONTRIBUTING.md) for more details.
 
 ## Version policy
 
@@ -131,7 +131,7 @@ Just "ty", please.
 
 ## License
 
-ty is licensed under the MIT license ([LICENSE](https://github.com/astral-sh/ty/blob/0.0.30/LICENSE) or
+ty is licensed under the MIT license ([LICENSE](https://github.com/astral-sh/ty/blob/0.0.31/LICENSE) or
 <https://opensource.org/licenses/MIT>).
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in ty

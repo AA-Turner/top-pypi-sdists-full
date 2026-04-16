@@ -58,7 +58,7 @@ NAME = "netius"
 identification of both the clients and the services this
 value may be prefixed or suffixed """
 
-VERSION = "1.52.2"
+VERSION = "1.53.6"
 """ The version value that identifies the version of the
 current infra-structure, all of the services and clients
 may share this value """
@@ -178,6 +178,11 @@ SSL_SILENT_REASONS = (
     "WRONG_VERSION_NUMBER",
     "RECORD_LAYER_FAILURE",
     "NO_SHARED_CIPHER",
+    "UNKNOWN_PROTOCOL",
+    "HTTP_REQUEST",
+    "VERSION_TOO_LOW",
+    "BAD_KEY_SHARE",
+    "SSLV3_ALERT_BAD_CERTIFICATE",
     "SSLV3_ALERT_CERTIFICATE_UNKNOWN",
 )
 """ The list containing the SSL reasons that should be silenced
@@ -334,6 +339,11 @@ class AbstractBase(observer.Observable):
     """ The compatibility version of the abstract main loop,
     should be used to provide compatibility with protocol and
     transports used by the new API """
+
+    _DIAG_INSTANCE = None
+    """ Reference to the instance currently holding the diagnostics
+    server for the process, ensures only one diag server binds per
+    process even when multiple base instances coexist """
 
     def __init__(self, name=None, handlers=None, *args, **kwargs):
         observer.Observable.__init__(self, *args, **kwargs)
@@ -1509,6 +1519,18 @@ class AbstractBase(observer.Observable):
         if not self.diag:
             return
 
+        # verifies if there's already a diagnostics application running
+        # in the current process (class-level check) and if that's the
+        # case returns immediately to avoid duplicate port binding
+        if AbstractBase._DIAG_INSTANCE:
+            return
+
+        # in case there's already a diagnostics application running
+        # stops it before creating a new one to avoid socket binding
+        # conflicts (address already in use)
+        if self.diag_app:
+            self.unload_diag()
+
         # runs the import operations for the diag module, note that
         # this must be performed locally no avoid any unwanted behavior
         # or collision with a runtime process (would pose issues)
@@ -1531,6 +1553,10 @@ class AbstractBase(observer.Observable):
         # used for serving the diagnostics app
         self.diag_app = diag.DiagApp(self)
 
+        # sets the class-level reference to the current diagnostics
+        # instance to prevent duplicate diag servers in the same process
+        AbstractBase._DIAG_INSTANCE = self
+
         # calls the on diag method so that the current instance is
         # able to act on the newly created application
         self.on_diag()
@@ -1540,6 +1566,26 @@ class AbstractBase(observer.Observable):
         self.diag_app.serve(
             server=server, host=host, port=port, diag=False, threaded=True, conf=False
         )
+
+    def unload_diag(self):
+        # verifies if there's a valid diagnostics application
+        # currently running and if not returns immediately
+        if not self.diag_app:
+            return
+
+        # stops the diagnostics application by refraining its
+        # underlying server, this will release the bound socket
+        # allowing a new diagnostics app to bind to the same port
+        try:
+            self.diag_app.refrain()
+        except Exception as exception:
+            self.warning("Problem unloading diagnostics application: %s", exception)
+        self.diag_app = None
+
+        # clears the class-level reference if this instance was the
+        # one holding the diagnostics server for the process
+        if AbstractBase._DIAG_INSTANCE == self:
+            AbstractBase._DIAG_INSTANCE = None
 
     def load_middleware(self, suffix="Middleware"):
         # iterates over the complete set of string that define the middleware
@@ -1863,6 +1909,10 @@ class AbstractBase(observer.Observable):
         return self.poll.unsub_error(socket)
 
     def cleanup(self, destroy=True):
+        # stops the diagnostics application if it's currently running
+        # releasing the bound socket and associated resources
+        self.unload_diag()
+
         # runs the unload operation for the current base container this should
         # unset/unload some of the components for this base infra-structure
         self.unload()

@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple, Union
 
 import networkx as nx
 from sqlglot import exp
+from sqlglot.dialects.dialect import DialectType
 from sqlglot.expressions import Expression
 
 from collate_sqllineage.core.models import (
@@ -41,7 +42,7 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
         "merge_statement",
     ]
 
-    def __init__(self, dialect: str):
+    def __init__(self, dialect: DialectType):
         super().__init__(dialect)
         self.columns: List[Column] = []
         self.tables: List[Union[DataFunction, Location, Path, SubQuery, Table]] = []

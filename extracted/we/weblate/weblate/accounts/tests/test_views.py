@@ -15,11 +15,23 @@ from django.core.signing import TimestampSigner
 from django.test.utils import modify_settings, override_settings
 from django.urls import reverse
 from jsonschema import validate
+from requests.exceptions import HTTPError
+from social_core.exceptions import (
+    AuthCanceled,
+    AuthFailed,
+    AuthForbidden,
+    AuthMissingParameter,
+    AuthStateMissing,
+    AuthTokenError,
+    InvalidEmail,
+)
 from weblate_schemas import load_schema
 
 from weblate.accounts.models import Profile, Subscription
 from weblate.accounts.notifications import NotificationFrequency, NotificationScope
+from weblate.accounts.views import log_handled_auth_failure
 from weblate.auth.models import User
+from weblate.billing.models import Plan
 from weblate.lang.models import Language
 from weblate.trans.tests.test_models import RepoTestCase
 from weblate.trans.tests.test_views import FixtureTestCase
@@ -54,8 +66,49 @@ class ViewTest(RepoTestCase):
         user.save()
         return user
 
+    @staticmethod
+    def get_backend(name: str = "github") -> mock.Mock:
+        backend = mock.Mock()
+        backend.name = name
+        return backend
+
+    def assert_social_complete_result(
+        self,
+        error: Exception,
+        *,
+        expected_text: str,
+        backend: str = "github",
+        session_updates: dict[str, object] | None = None,
+        reportable: bool,
+    ) -> None:
+        session = self.client.session
+        if session_updates is not None:
+            for key, value in session_updates.items():
+                session[key] = value
+            session.save()
+
+        with (
+            mock.patch("weblate.accounts.views.complete", side_effect=error),
+            mock.patch("weblate.accounts.views.report_error") as mocked_report_error,
+            mock.patch(
+                "weblate.accounts.views.log_handled_auth_failure"
+            ) as mocked_handled_error,
+        ):
+            response = self.client.get(
+                reverse("social:complete", args=(backend,)), follow=True
+            )
+
+        self.assertRedirects(response, reverse("login"))
+        self.assertContains(response, expected_text)
+        if reportable:
+            mocked_report_error.assert_called_once()
+            mocked_handled_error.assert_not_called()
+        else:
+            mocked_report_error.assert_not_called()
+            mocked_handled_error.assert_called_once()
+
     @override_settings(
-        REGISTRATION_CAPTCHA=False, ADMINS=(("Weblate test", "noreply@weblate.org"),)
+        REGISTRATION_CAPTCHA=False, ADMINS=("Weblate test <noreply@weblate.org>",)
     )
     def test_contact(self) -> None:
         """Test for contact form."""
@@ -70,7 +123,7 @@ class ViewTest(RepoTestCase):
         # Verify message
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].subject, "[Weblate] Message from dark side")
-        self.assertEqual(mail.outbox[0].to, ["noreply@weblate.org"])
+        self.assertEqual(mail.outbox[0].to, list(settings.ADMINS))
 
     @override_settings(
         REGISTRATION_CAPTCHA=False, ADMINS_CONTACT=["noreply@example.com"]
@@ -133,8 +186,6 @@ class ViewTest(RepoTestCase):
     @override_settings(OFFER_HOSTING=True)
     def test_libre(self) -> None:
         """Test for hosting form with enabled hosting."""
-        from weblate.billing.models import Plan
-
         self.get_user()
         self.client.login(username="testuser", password="testpassword")
 
@@ -159,8 +210,6 @@ class ViewTest(RepoTestCase):
     @modify_settings(INSTALLED_APPS={"append": "weblate.billing"})
     def test_trial(self) -> None:
         """Test for trial form with disabled hosting."""
-        from weblate.billing.models import Plan
-
         Plan.objects.create(price=1, slug="640k")
         user = self.get_user()
         self.client.login(username="testuser", password="testpassword")
@@ -260,6 +309,37 @@ class ViewTest(RepoTestCase):
         response = self.client.post(reverse("logout"))
         self.assertContains(response, "Thank you for using Weblate")
 
+    def test_login_next_redirect(self) -> None:
+        user = self.get_user()
+
+        response = self.client.post(
+            reverse("login"),
+            {
+                "username": user.username,
+                "password": "testpassword",
+                "next": f"{reverse('profile')}#account",
+            },
+        )
+
+        self.assertRedirects(response, f"{reverse('profile')}#account")
+
+    def test_login_rejects_unsafe_next(self) -> None:
+        user = self.get_user()
+
+        for next_url in ("https://evil.example/", "////evil.example"):
+            with self.subTest(next_url=next_url):
+                self.client.logout()
+                response = self.client.post(
+                    reverse("login"),
+                    {
+                        "username": user.username,
+                        "password": "testpassword",
+                        "next": next_url,
+                    },
+                )
+
+                self.assertRedirects(response, reverse("home"))
+
     @social_core_override_settings(
         AUTHENTICATION_BACKENDS=(
             "social_core.backends.github.GithubOAuth2",
@@ -287,6 +367,147 @@ class ViewTest(RepoTestCase):
         )
         self.assertContains(
             response, "This username/password combination was not found."
+        )
+
+    @social_core_override_settings(
+        AUTHENTICATION_BACKENDS=(
+            "django.contrib.auth.backends.ModelBackend",
+            "weblate.accounts.auth.WeblateUserBackend",
+        ),
+        REGISTRATION_OPEN=False,
+        PASSWORD_RESET_URL="https://id.example.net/password-reset",
+    )
+    def test_login_password_reset_url(self) -> None:
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, 'href="https://id.example.net/password-reset"')
+
+    @social_core_override_settings(
+        AUTHENTICATION_BACKENDS=(
+            "django.contrib.auth.backends.ModelBackend",
+            "weblate.accounts.auth.WeblateUserBackend",
+        ),
+        REGISTRATION_OPEN=False,
+        PASSWORD_RESET_URL=None,
+    )
+    def test_login_without_configured_password_reset_url(self) -> None:
+        response = self.client.get(reverse("login"))
+        self.assertNotContains(response, reverse("password_reset"))
+
+    @social_core_override_settings(
+        AUTHENTICATION_BACKENDS=(
+            "social_core.backends.email.EmailAuth",
+            "weblate.accounts.auth.WeblateUserBackend",
+        ),
+        REGISTRATION_OPEN=False,
+        PASSWORD_RESET_URL=None,
+    )
+    def test_login_uses_internal_password_reset_url(self) -> None:
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, f'href="{reverse("password_reset")}"')
+
+    def test_social_complete_logs_missing_provider_email(self) -> None:
+        self.assert_social_complete_result(
+            AuthMissingParameter(self.get_backend(), "email"),
+            expected_text=(
+                "Got no e-mail address from third party authentication service."
+            ),
+            reportable=False,
+        )
+
+    def test_social_complete_logs_disabled_registration(self) -> None:
+        self.assert_social_complete_result(
+            AuthMissingParameter(self.get_backend(), "disabled"),
+            expected_text="New registrations are turned off.",
+            reportable=False,
+        )
+
+    def test_social_complete_logs_invalid_email_for_reset(self) -> None:
+        self.assert_social_complete_result(
+            InvalidEmail(self.get_backend("email")),
+            expected_text=(
+                "Try resetting your password again to verify your identity, "
+                "the confirmation link probably expired."
+            ),
+            backend="email",
+            session_updates={"password_reset": True},
+            reportable=False,
+        )
+
+    def test_social_complete_logs_missing_state(self) -> None:
+        self.assert_social_complete_result(
+            AuthStateMissing(self.get_backend()),
+            expected_text="Could not authenticate due to invalid session state.",
+            reportable=False,
+        )
+
+    def test_social_complete_logs_expired_provider_code(self) -> None:
+        self.assert_social_complete_result(
+            AuthFailed(
+                self.get_backend(),
+                "The code passed is incorrect or expired.",
+            ),
+            expected_text=(
+                "Could not authenticate, probably due to an expired token "
+                "or connection error."
+            ),
+            reportable=False,
+        )
+
+    def test_social_complete_reports_token_error(self) -> None:
+        self.assert_social_complete_result(
+            AuthTokenError(self.get_backend(), "Invalid key/secret, perhaps expired"),
+            expected_text=(
+                "Authentication failed: Token error: Invalid key/secret, "
+                "perhaps expired"
+            ),
+            reportable=True,
+        )
+
+    def test_social_complete_reports_auth_forbidden(self) -> None:
+        self.assert_social_complete_result(
+            AuthForbidden(self.get_backend()),
+            expected_text="The server does not allow authentication.",
+            reportable=True,
+        )
+
+    def test_social_complete_reports_provider_http_error(self) -> None:
+        self.assert_social_complete_result(
+            HTTPError(
+                "401 Client Error: Unauthorized for url: https://api.github.com/user"
+            ),
+            expected_text="The authentication provider could not be reached.",
+            reportable=True,
+        )
+
+    def test_social_complete_logs_auth_canceled(self) -> None:
+        self.assert_social_complete_result(
+            AuthCanceled(self.get_backend(), "access_denied"),
+            expected_text="Authentication cancelled.",
+            reportable=False,
+        )
+
+    def test_log_handled_auth_failure_uses_string_reason(self) -> None:
+        request = self.client.get(reverse("login")).wsgi_request
+        request.session["password_reset"] = True
+
+        with mock.patch(
+            "weblate.accounts.views.log_handled_exception"
+        ) as mocked_log_handled_exception:
+            log_handled_auth_failure(
+                request,
+                "github",
+                AuthFailed(
+                    self.get_backend(),
+                    "The code passed is incorrect or expired.",
+                ),
+            )
+
+        mocked_log_handled_exception.assert_called_once_with(
+            "Handled auth failure",
+            extra_log=(
+                "backend=github, action=reset, path=/accounts/login/, "
+                "reason=The code passed is incorrect or expired."
+            ),
         )
 
     @override_settings(RATELIMIT_ATTEMPTS=20, AUTH_LOCK_ATTEMPTS=5)
@@ -507,6 +728,39 @@ class ProfileTest(FixtureTestCase):
         response = self.client.get(reverse("profile"), {"notify_project": "a"})
         self.assertNotContains(response, "Project: Test")
         self.assertNotContains(response, "Component: Test/Test")
+
+    def test_subscription_additional_form_defaults_to_active_scope(self) -> None:
+        initial_response = self.client.get(
+            f"{reverse('profile')}?notify_project={self.project.pk}"
+        )
+        existing_indexes = [
+            int(form.prefix.split("__", 1)[1])
+            for form in initial_response.context["all_forms"]
+            if form.prefix and form.prefix.startswith("notifications__")
+        ]
+        extra_index = max(existing_indexes) + 5
+
+        response = self.client.post(
+            f"{reverse('profile')}?notify_project={self.project.pk}",
+            {
+                "username": "",
+                f"notifications__{extra_index}-scope": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+
+        form = next(
+            (
+                item
+                for item in response.context["all_forms"]
+                if item.prefix == f"notifications__{extra_index}"
+            ),
+            None,
+        )
+        if form is None:
+            self.fail(f"Expected extra notification form notifications__{extra_index}")
+        self.assertEqual(form.initial["scope"], NotificationScope.SCOPE_PROJECT)
+        self.assertEqual(form.initial["project"], self.project)
 
     def test_watch(self) -> None:
         self.assertEqual(self.user.profile.watched.count(), 0)

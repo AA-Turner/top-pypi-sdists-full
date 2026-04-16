@@ -47,6 +47,35 @@ class TargetHandler(ConditionalSegmentBaseHandler):
 
     FROM_KEYWORD = "FROM"
 
+    # COPY option keywords signal that FROM's target has already been consumed;
+    # subsequent literals belong to options (PATTERN, ON_ERROR, ...), not lineage.
+    COPY_OPTION_KEYWORDS = frozenset(
+        {
+            "FILE_FORMAT",
+            "PATTERN",
+            "ON_ERROR",
+            "FORCE",
+            "VALIDATION_MODE",
+            "SIZE_LIMIT",
+            "PURGE",
+            "RETURN_FAILED_ONLY",
+            "MATCH_BY_COLUMN_NAME",
+            "ENFORCE_LENGTH",
+            "TRUNCATECOLUMNS",
+            "LOAD_UNCERTAIN_FILES",
+            "INCLUDE_METADATA",
+            "OVERWRITE",
+            "SINGLE",
+            "MAX_FILE_SIZE",
+            "HEADER",
+            "COPY_OPTIONS",
+            "CREDENTIALS",
+            "STORAGE_INTEGRATION",
+            "ENCRYPTION",
+            "FORMAT_OPTIONS",
+        }
+    )
+
     def _init_tokens(self, segment: BaseSegment) -> None:
         """
         Check if the segment is a 'LIKE' or 'FROM' keyword
@@ -57,6 +86,10 @@ class TargetHandler(ConditionalSegmentBaseHandler):
 
         if segment.raw_upper == self.FROM_KEYWORD:
             self.prev_token_from = True
+
+        if segment.raw_upper in self.COPY_OPTION_KEYWORDS:
+            self.prev_token_from = False
+            self.prev_token_read = False
 
     def _reset_tokens(self) -> None:
         """

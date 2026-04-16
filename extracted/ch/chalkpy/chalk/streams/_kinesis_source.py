@@ -199,6 +199,9 @@ class KinesisSource(StreamSource, BaseModel, frozen=True):
         assert self.stream_name is not None
         return self.stream_name
 
+    def supports_message_headers(self) -> bool:
+        return False
+
     def _recreate_integration_variables(self) -> dict[str, str]:
         return {
             k: v

@@ -325,7 +325,9 @@ class LogsController(BaseController):
             chunks = log_file.get_chunks(reverse=is_tail)
             for chunk in chunks:
                 with open(
-                    os.path.join(tmp_dir, chunk.chunk_name), errors="ignore"
+                    os.path.join(tmp_dir, chunk.chunk_name),
+                    encoding="utf-8",
+                    errors="replace",
                 ) as source:
                     if tail > 0:
                         # Tail is enabled, so read log lines in reverse.
@@ -352,7 +354,7 @@ class LogsController(BaseController):
                 os.makedirs(real_dir)
 
             chunks_written = 0
-            with open(real_path, "w") as dest:
+            with open(real_path, "w", encoding="utf-8") as dest:
                 for chunk in chunks:
                     downloaded_chunk_path = os.path.join(tmp_dir, chunk.chunk_name)
                     if not os.path.exists(downloaded_chunk_path):
@@ -360,7 +362,9 @@ class LogsController(BaseController):
                             "Download failed for file: %s", chunk.chunk_name,
                         )
                         continue
-                    with open(downloaded_chunk_path, errors="ignore") as source:
+                    with open(
+                        downloaded_chunk_path, encoding="utf-8", errors="replace"
+                    ) as source:
                         for line in source:
                             dest.write(line)
                         dest.write("\n")
@@ -463,9 +467,11 @@ class LogsController(BaseController):
                         use_bearer_token=True,
                     ),
                 )
-                result: LogDownloadResult = self.api_client.get_log_files_api_v2_logs_get_log_files_post(
-                    log_download_request=request, _request_timeout=timeout
-                ).result
+                result: LogDownloadResult = (
+                    self.api_client.get_log_files_api_v2_logs_get_log_files_post(
+                        log_download_request=request, _request_timeout=timeout
+                    ).result
+                )
                 bearer_token = result.bearer_token
                 all_log_chunks.extend(result.log_chunks)
                 if status:
@@ -602,7 +608,7 @@ class LogsController(BaseController):
         error_count = 0
         seen = set()
         with _FileDescriptorCache(DEFAULT_UNPACK_MAX_FILE_DESCRIPTORS) as fds, open(
-            log_path
+            log_path, encoding="utf-8", errors="replace"
         ) as f:
             for line in f.readlines():
                 try:
@@ -673,5 +679,5 @@ class _FileDescriptorCache:
             # Pop and close file descriptor closest to the "front"
             _, f = self.cache.popitem(last=False)
             f.close()
-        self.cache[filename] = open(filename, mode)  # noqa: SIM115
+        self.cache[filename] = open(filename, mode, encoding="utf-8")  # noqa: SIM115
         return self.cache[filename]

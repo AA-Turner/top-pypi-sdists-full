@@ -41,7 +41,7 @@ async def _download_log_from_s3_url(
     async with aiohttp.ClientSession() as session:
         headers = {"Authorization": f"Bearer {bearer_token}"} if bearer_token else {}
         async with session.get(url, headers=headers) as response:
-            return await response.text()
+            return await response.text(encoding="utf-8", errors="replace")
 
 
 def _download_log_from_s3_url_sync(
@@ -51,7 +51,7 @@ def _download_log_from_s3_url_sync(
     headers = {"Authorization": f"Bearer {bearer_token}"} if bearer_token else {}
     response = requests.get(url, headers=headers)
     response.raise_for_status()
-    return response.text
+    return response.content.decode("utf-8", errors="replace")
 
 
 def _remove_ansi_escape_sequences(s: str) -> str:

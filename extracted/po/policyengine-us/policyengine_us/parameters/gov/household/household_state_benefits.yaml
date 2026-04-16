@@ -4,6 +4,8 @@ values:
     # Delaware benefits
     - de_ssp
     - de_child_care_subsidies
+    # Georgia benefits
+    - ga_ssp
     # Massachusetts benefits
     - ma_state_supplement
     # Colorado benefits
@@ -33,6 +35,8 @@ values:
     # Delaware benefits
     - de_ssp
     - de_child_care_subsidies
+    # Georgia benefits
+    - ga_ssp
     # Massachusetts benefits
     - ma_state_supplement
     # Colorado benefits

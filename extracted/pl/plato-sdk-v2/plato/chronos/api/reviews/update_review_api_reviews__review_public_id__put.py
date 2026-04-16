@@ -36,7 +36,7 @@ def sync(
     body: UpdateReviewRequest,
     x_api_key: str | None = None,
 ) -> ReviewResponse:
-    """Update a review. Author only."""
+    """Update a review. Author only (admin can update any)."""
 
     request_args = _build_request_args(
         review_public_id=review_public_id,
@@ -55,7 +55,7 @@ async def asyncio(
     body: UpdateReviewRequest,
     x_api_key: str | None = None,
 ) -> ReviewResponse:
-    """Update a review. Author only."""
+    """Update a review. Author only (admin can update any)."""
 
     request_args = _build_request_args(
         review_public_id=review_public_id,

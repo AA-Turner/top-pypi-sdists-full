@@ -897,7 +897,7 @@ class ExperimentsApi:
     @validate_call
     def experiments_list(
         self,
-        dataset_id: Annotated[Optional[StrictStr], Field(description="Filter experiments to a particular dataset ID")] = None,
+        dataset_id: Annotated[Optional[StrictStr], Field(description="Filter to a specific dataset (base64 global ID)")] = None,
         name: Annotated[Optional[Annotated[str, Field(strict=True, max_length=255)]], Field(description="Case-insensitive substring filter on the resource name. Returns only resources whose name contains the given string. For example, `name=prod` matches \"production\", \"my-prod-dataset\", etc. If omitted, no name filtering is applied and all resources are returned. ")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum items to return")] = None,
         cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned from a previous response (`pagination.next_cursor`). Treat it as an unreadable token; do not attempt to parse or construct it. ")] = None,
@@ -918,7 +918,7 @@ class ExperimentsApi:
 
         List all experiments a user has access to.  To filter experiments by the dataset they were run on, provide the `dataset_id` query parameter.  <Note>This endpoint is in beta, read more [here](https://arize.com/docs/ax/rest-reference#api-version-stages).</Note> 
 
-        :param dataset_id: Filter experiments to a particular dataset ID
+        :param dataset_id: Filter to a specific dataset (base64 global ID)
         :type dataset_id: str
         :param name: Case-insensitive substring filter on the resource name. Returns only resources whose name contains the given string. For example, `name=prod` matches \"production\", \"my-prod-dataset\", etc. If omitted, no name filtering is applied and all resources are returned. 
         :type name: str
@@ -981,7 +981,7 @@ class ExperimentsApi:
     @validate_call
     def experiments_list_with_http_info(
         self,
-        dataset_id: Annotated[Optional[StrictStr], Field(description="Filter experiments to a particular dataset ID")] = None,
+        dataset_id: Annotated[Optional[StrictStr], Field(description="Filter to a specific dataset (base64 global ID)")] = None,
         name: Annotated[Optional[Annotated[str, Field(strict=True, max_length=255)]], Field(description="Case-insensitive substring filter on the resource name. Returns only resources whose name contains the given string. For example, `name=prod` matches \"production\", \"my-prod-dataset\", etc. If omitted, no name filtering is applied and all resources are returned. ")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum items to return")] = None,
         cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned from a previous response (`pagination.next_cursor`). Treat it as an unreadable token; do not attempt to parse or construct it. ")] = None,
@@ -1002,7 +1002,7 @@ class ExperimentsApi:
 
         List all experiments a user has access to.  To filter experiments by the dataset they were run on, provide the `dataset_id` query parameter.  <Note>This endpoint is in beta, read more [here](https://arize.com/docs/ax/rest-reference#api-version-stages).</Note> 
 
-        :param dataset_id: Filter experiments to a particular dataset ID
+        :param dataset_id: Filter to a specific dataset (base64 global ID)
         :type dataset_id: str
         :param name: Case-insensitive substring filter on the resource name. Returns only resources whose name contains the given string. For example, `name=prod` matches \"production\", \"my-prod-dataset\", etc. If omitted, no name filtering is applied and all resources are returned. 
         :type name: str
@@ -1065,7 +1065,7 @@ class ExperimentsApi:
     @validate_call
     def experiments_list_without_preload_content(
         self,
-        dataset_id: Annotated[Optional[StrictStr], Field(description="Filter experiments to a particular dataset ID")] = None,
+        dataset_id: Annotated[Optional[StrictStr], Field(description="Filter to a specific dataset (base64 global ID)")] = None,
         name: Annotated[Optional[Annotated[str, Field(strict=True, max_length=255)]], Field(description="Case-insensitive substring filter on the resource name. Returns only resources whose name contains the given string. For example, `name=prod` matches \"production\", \"my-prod-dataset\", etc. If omitted, no name filtering is applied and all resources are returned. ")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum items to return")] = None,
         cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned from a previous response (`pagination.next_cursor`). Treat it as an unreadable token; do not attempt to parse or construct it. ")] = None,
@@ -1086,7 +1086,7 @@ class ExperimentsApi:
 
         List all experiments a user has access to.  To filter experiments by the dataset they were run on, provide the `dataset_id` query parameter.  <Note>This endpoint is in beta, read more [here](https://arize.com/docs/ax/rest-reference#api-version-stages).</Note> 
 
-        :param dataset_id: Filter experiments to a particular dataset ID
+        :param dataset_id: Filter to a specific dataset (base64 global ID)
         :type dataset_id: str
         :param name: Case-insensitive substring filter on the resource name. Returns only resources whose name contains the given string. For example, `name=prod` matches \"production\", \"my-prod-dataset\", etc. If omitted, no name filtering is applied and all resources are returned. 
         :type name: str

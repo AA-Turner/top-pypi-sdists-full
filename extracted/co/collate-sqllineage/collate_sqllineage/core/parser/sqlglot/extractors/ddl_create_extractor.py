@@ -1,5 +1,6 @@
 import networkx as nx
 from sqlglot import exp
+from sqlglot.dialects.dialect import DialectType
 from sqlglot.expressions import Expression
 
 from collate_sqllineage.core.models import AnalyzerContext, Column
@@ -23,7 +24,7 @@ class DdlCreateExtractor(LineageHolderExtractor):
 
     SUPPORTED_STMT_TYPES = ["create_statement"]
 
-    def __init__(self, dialect: str):
+    def __init__(self, dialect: DialectType):
         super().__init__(dialect)
 
     def extract(

@@ -4,10 +4,13 @@
 
 import json
 import os
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from io import StringIO
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from typing import cast
 from unittest import TestCase
+from unittest.mock import Mock, patch
 
 import responses
 from django.conf import settings
@@ -19,17 +22,121 @@ from django.test.utils import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from weblate.auth.models import Group
+from weblate.auth.models import Group, Invitation
 from weblate.trans.models import Announcement
 from weblate.trans.tests.test_views import ViewTestCase
 from weblate.trans.tests.utils import get_test_file
 from weblate.utils.apps import check_data_writable
+from weblate.utils.backup import BackupError
 from weblate.utils.data import data_path
 from weblate.utils.unittest import tempdir_setting
 from weblate.wladmin.forms import ThemeColorField, ThemeColorWidget
 from weblate.wladmin.models import BackupService, ConfigurationError, SupportStatus
+from weblate.wladmin.tasks import backup_service
 
 TEST_BACKENDS = ("weblate.accounts.auth.WeblateUserBackend",)
+
+
+class BackupFailureService:
+    def __init__(self) -> None:
+        self.repository = "/backup"
+        self.passphrase = "secret"
+        self.backuplog_set = Mock()
+        self.ensure_init = Mock(return_value=True)
+        self.prune = Mock()
+        self.cleanup = Mock()
+
+    def backup(self) -> None:
+        BackupService.backup(cast("BackupService", self))
+
+
+class BackupTaskTest(TestCase):
+    def test_backup_service_stops_after_init_failure(self) -> None:
+        service = Mock()
+        service.ensure_init.return_value = False
+
+        with patch(
+            "weblate.wladmin.tasks.BackupService.objects.get", return_value=service
+        ):
+            backup_service(1)
+
+        service.ensure_init.assert_called_once_with()
+        service.backup.assert_not_called()
+        service.prune.assert_not_called()
+        service.cleanup.assert_not_called()
+
+    def test_backup_service_runs_maintenance_after_backup_failure(self) -> None:
+        service = BackupFailureService()
+
+        with (
+            patch(
+                "weblate.wladmin.tasks.BackupService.objects.get",
+                return_value=service,
+            ),
+            patch(
+                "weblate.wladmin.models.backup",
+                side_effect=BackupError("borg create failed"),
+            ),
+            patch(
+                "weblate.wladmin.tasks.timezone.now",
+                return_value=datetime(2026, 3, 26, tzinfo=UTC),
+            ),
+        ):
+            backup_service(1)
+
+        service.ensure_init.assert_called_once_with()
+        service.backuplog_set.create.assert_called_once_with(
+            event="error", log="borg create failed"
+        )
+        service.prune.assert_called_once_with()
+        service.cleanup.assert_called_once_with()
+
+    def test_backup_service_runs_maintenance_after_success(self) -> None:
+        service = Mock()
+        service.ensure_init.return_value = True
+
+        with (
+            patch(
+                "weblate.wladmin.tasks.BackupService.objects.get",
+                return_value=service,
+            ),
+            patch(
+                "weblate.wladmin.tasks.timezone.now",
+                return_value=datetime(2026, 3, 26, tzinfo=UTC),
+            ),
+        ):
+            backup_service(1)
+
+        service.ensure_init.assert_called_once_with()
+        service.backup.assert_called_once_with()
+        service.prune.assert_called_once_with()
+        service.cleanup.assert_called_once_with()
+
+
+class BackupServiceStatusTest(TestCase):
+    def test_current_error_points_to_latest_unresolved_failure(self) -> None:
+        error = SimpleNamespace(event="error", log="borg create failed")
+        service = BackupService(repository="/backup")
+        service.__dict__["last_logs"] = [
+            SimpleNamespace(event="cleanup", log="cleanup complete"),
+            SimpleNamespace(event="prune", log="prune complete"),
+            error,
+        ]
+
+        self.assertTrue(service.has_errors)
+        self.assertIs(service.current_error, error)
+
+    def test_current_error_clears_after_successful_backup(self) -> None:
+        old_error = SimpleNamespace(event="error", log="old failure")
+        service = BackupService(repository="/backup")
+        service.__dict__["last_logs"] = [
+            SimpleNamespace(event="prune", log="prune complete"),
+            SimpleNamespace(event="backup", log="backup complete"),
+            old_error,
+        ]
+
+        self.assertFalse(service.has_errors)
+        self.assertIsNone(service.current_error)
 
 
 class AdminTest(ViewTestCase):
@@ -115,17 +222,41 @@ class AdminTest(ViewTestCase):
             )
             self.assertFalse(hostsfile.exists())
 
-            # Add the key
+            # Do not add not matching key
             response = self.client.post(
-                reverse("manage-ssh"), {"action": "add-host", "host": "github.com"}
+                reverse("manage-ssh"),
+                {
+                    "action": "add-host",
+                    "host": "example.com",
+                    "fingerprint": "p2QAMXNIC1TJYWeIOttrVc98/R1BUFWu3/LiyKgUfQM",
+                },
             )
-            self.assertContains(response, "Added host key for github.com")
+            self.assertContains(response, "Skipped host key for example.com")
+            self.assertFalse(hostsfile.exists())
+
+            # Add the matching key
+            response = self.client.post(
+                reverse("manage-ssh"),
+                {
+                    "action": "add-host",
+                    "host": "example.com",
+                    "fingerprint": "nThbg6kXUpJWGl7E1IGOCspRomTxdCARLviKw6E5SY8",
+                },
+            )
+            self.assertContains(response, "Added host key for example.com")
+            self.assertTrue(hostsfile.exists())
+
+            # Add all the keys
+            response = self.client.post(
+                reverse("manage-ssh"), {"action": "add-host", "host": "example.com"}
+            )
+            self.assertContains(response, "Added host key for example.com")
             self.assertTrue(hostsfile.exists())
         finally:
             os.environ["PATH"] = oldpath
 
         # Check the file contains it
-        self.assertIn("github.com", hostsfile.read_text())
+        self.assertIn("example.com", hostsfile.read_text())
 
     @tempdir_setting("BACKUP_DIR")
     def test_backup(self) -> None:
@@ -145,6 +276,34 @@ class AdminTest(ViewTestCase):
     def test_performance(self) -> None:
         response = self.client.get(reverse("manage-performance"))
         self.assertContains(response, "weblate.E005")
+
+    def test_performance_ordering(self) -> None:
+        with (
+            patch(
+                "weblate.wladmin.views.run_checks",
+                return_value=[
+                    Critical(msg="Zulu", id="weblate.E200"),
+                    Critical(msg="Alpha", id="weblate.E100"),
+                    Critical(msg="Bravo", id="weblate.E100"),
+                ],
+            ),
+            patch(
+                "weblate.wladmin.views.get_queue_stats",
+                return_value={"zqueue": 1, "aqueue": 2},
+            ),
+        ):
+            response = self.client.get(reverse("manage-performance"))
+
+        checks = [check.id for check in response.context["checks"]]
+        self.assertEqual(checks, ["weblate.E100", "weblate.E100", "weblate.E200"])
+        self.assertEqual(
+            [check.msg for check in response.context["checks"]],
+            ["Alpha", "Bravo", "Zulu"],
+        )
+        self.assertEqual(
+            list(response.context["queues"]),
+            [("aqueue", 2), ("zqueue", 1)],
+        )
 
     def test_error(self) -> None:
         ConfigurationError.objects.create(name="Test error", message="FOOOOOOOOOOOOOO")
@@ -236,6 +395,26 @@ class AdminTest(ViewTestCase):
         )
         self.assertContains(response, "User invitation e-mail was sent")
         self.assertEqual(len(mail.outbox), 1)
+
+    def test_bulk_invite_user(self) -> None:
+        response = self.client.post(
+            reverse("manage-users"),
+            {
+                "emails": "noreply@example.com second@example.com invalid second@example.com",
+                "group": Group.objects.get(name="Users").pk,
+                "is_superuser": "on",
+            },
+            follow=True,
+        )
+        self.assertContains(response, "2 invitation e-mails were sent.")
+        self.assertContains(response, "Skipped 2 addresses")
+        self.assertContains(response, "invalid: Enter a valid e-mail address.")
+        self.assertContains(
+            response, "second@example.com: duplicate address in the submission"
+        )
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(Invitation.objects.count(), 2)
+        self.assertEqual(Invitation.objects.filter(is_superuser=True).count(), 2)
 
     def test_check_user(self) -> None:
         response = self.client.get(

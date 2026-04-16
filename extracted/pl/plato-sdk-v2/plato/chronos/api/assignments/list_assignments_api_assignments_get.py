@@ -11,7 +11,6 @@ from plato.chronos.models import AssignmentListResponse
 
 
 def _build_request_args(
-    session_id: str | None = None,
     status: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
@@ -19,8 +18,6 @@ def _build_request_args(
     url = "/api/assignments"
 
     params: dict[str, Any] = {}
-    if session_id is not None:
-        params["session_id"] = session_id
     if status is not None:
         params["status"] = status
 
@@ -38,14 +35,12 @@ def _build_request_args(
 
 def sync(
     client: httpx.Client,
-    session_id: str | None = None,
     status: str | None = None,
     x_api_key: str | None = None,
 ) -> AssignmentListResponse:
     """List assignments for your org."""
 
     request_args = _build_request_args(
-        session_id=session_id,
         status=status,
         x_api_key=x_api_key,
     )
@@ -57,14 +52,12 @@ def sync(
 
 async def asyncio(
     client: httpx.AsyncClient,
-    session_id: str | None = None,
     status: str | None = None,
     x_api_key: str | None = None,
 ) -> AssignmentListResponse:
     """List assignments for your org."""
 
     request_args = _build_request_args(
-        session_id=session_id,
         status=status,
         x_api_key=x_api_key,
     )

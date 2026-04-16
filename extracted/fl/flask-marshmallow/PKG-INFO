@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: flask-marshmallow
-Version: 1.4.0
+Version: 1.5.0
 Summary: Flask + marshmallow for beautiful APIs
 Maintainer-email: Steven Loria <oss@stevenloria.com>, Stephen Rosen <sirosen0@gmail.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
+License-Expression: MIT
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
@@ -18,23 +18,12 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 License-File: LICENSE
 Requires-Dist: Flask>=2.2
-Requires-Dist: marshmallow>=3.0.0
-Requires-Dist: flask-marshmallow[tests] ; extra == "dev"
-Requires-Dist: tox ; extra == "dev"
-Requires-Dist: pre-commit>=4.5,<5.0 ; extra == "dev"
-Requires-Dist: marshmallow-sqlalchemy>=0.19.0 ; extra == "docs"
-Requires-Dist: Sphinx==9.1.0 ; extra == "docs"
-Requires-Dist: sphinx-issues==5.0.1 ; extra == "docs"
+Requires-Dist: marshmallow>=4.0.0
 Requires-Dist: flask-sqlalchemy>=3.0.0 ; extra == "sqlalchemy"
-Requires-Dist: marshmallow-sqlalchemy>=0.29.0 ; extra == "sqlalchemy"
-Requires-Dist: flask-marshmallow[sqlalchemy] ; extra == "tests"
-Requires-Dist: pytest ; extra == "tests"
+Requires-Dist: marshmallow-sqlalchemy>=1.4.0 ; extra == "sqlalchemy"
 Project-URL: Funding, https://opencollective.com/marshmallow
 Project-URL: Issues, https://github.com/marshmallow-code/flask-marshmallow/issues
-Provides-Extra: dev
-Provides-Extra: docs
 Provides-Extra: sqlalchemy
-Provides-Extra: tests
 
 *****************
 Flask-Marshmallow

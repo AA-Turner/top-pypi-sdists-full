@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-techdocs-core
-Version: 1.6.1
+Version: 1.6.2
 Summary: The core MkDocs plugin used by Backstage's TechDocs as a wrapper around multiple MkDocs plugins and Python Markdown extensions
 Author-email: TechDocs Core <protean@spotify.com>
 License-Expression: Apache-2.0
@@ -10,24 +10,25 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mkdocs>=1.6
 Requires-Dist: Markdown<3.11,>=3.2
-Requires-Dist: mkdocs-material==9.7.1
+Requires-Dist: mkdocs-material==9.7.6
 Requires-Dist: markdown-graphviz-inline==1.1.3
 Requires-Dist: mkdocs-monorepo-plugin==1.1.2
 Requires-Dist: plantuml-markdown==3.11.1
 Requires-Dist: mdx_truly_sane_lists==1.3
-Requires-Dist: pymdown-extensions==10.19.1
-Requires-Dist: pygments==2.19.2
-Requires-Dist: mkdocs-redirects==1.2.2
+Requires-Dist: pymdown-extensions==10.21.2
+Requires-Dist: pygments==2.20.0
+Requires-Dist: mkdocs-redirects==1.2.3
+Requires-Dist: click<=8.3.2
 Dynamic: license-file
 
 # mkdocs-techdocs-core

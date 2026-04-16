@@ -13,6 +13,7 @@ from plato.chronos.models import AnnotationListResponse
 def _build_request_args(
     session_id: str | None = None,
     review_id: str | None = None,
+    assignment_id: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
@@ -23,6 +24,8 @@ def _build_request_args(
         params["session_id"] = session_id
     if review_id is not None:
         params["review_id"] = review_id
+    if assignment_id is not None:
+        params["assignment_id"] = assignment_id
 
     headers: dict[str, str] = {}
     if x_api_key is not None:
@@ -40,13 +43,15 @@ def sync(
     client: httpx.Client,
     session_id: str | None = None,
     review_id: str | None = None,
+    assignment_id: str | None = None,
     x_api_key: str | None = None,
 ) -> AnnotationListResponse:
-    """List annotations, filtered by session and/or review."""
+    """List annotations, filtered by session, review, and/or assignment."""
 
     request_args = _build_request_args(
         session_id=session_id,
         review_id=review_id,
+        assignment_id=assignment_id,
         x_api_key=x_api_key,
     )
 
@@ -59,13 +64,15 @@ async def asyncio(
     client: httpx.AsyncClient,
     session_id: str | None = None,
     review_id: str | None = None,
+    assignment_id: str | None = None,
     x_api_key: str | None = None,
 ) -> AnnotationListResponse:
-    """List annotations, filtered by session and/or review."""
+    """List annotations, filtered by session, review, and/or assignment."""
 
     request_args = _build_request_args(
         session_id=session_id,
         review_id=review_id,
+        assignment_id=assignment_id,
         x_api_key=x_api_key,
     )
 

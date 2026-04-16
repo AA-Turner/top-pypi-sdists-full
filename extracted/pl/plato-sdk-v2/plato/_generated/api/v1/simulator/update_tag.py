@@ -39,7 +39,7 @@ def sync(
     x_api_key: str | None = None,
 ) -> UpdateTagResponse:
     """Update a simulator tag to point to a specific artifact.
-    Requires either internal service authentication or admin organization API key."""
+    Requires admin principal or SIM_DATA_REVIEWER on the target simulator."""
 
     request_args = _build_request_args(
         body=body,
@@ -59,7 +59,7 @@ async def asyncio(
     x_api_key: str | None = None,
 ) -> UpdateTagResponse:
     """Update a simulator tag to point to a specific artifact.
-    Requires either internal service authentication or admin organization API key."""
+    Requires admin principal or SIM_DATA_REVIEWER on the target simulator."""
 
     request_args = _build_request_args(
         body=body,

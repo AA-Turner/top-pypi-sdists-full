@@ -742,6 +742,8 @@ FROM
         {"idp_cashflow_dev.mri.discounted_cashflows_licat"},  # target_tables
         dialect=dialect,
         test_sqlparse=False,
+        # 75K+ char SQL exceeds the default 10s timeout; 300s accommodates SqlFluff parsing
+        timeout_seconds=300,
     )
 
     common_expected_column_lineage = [

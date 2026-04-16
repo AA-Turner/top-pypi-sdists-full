@@ -8,10 +8,10 @@ from django.urls import reverse
 from weblate.accounts.models import Profile
 from weblate.lang.models import Language
 from weblate.trans.models import Announcement, ComponentList, Project
-from weblate.trans.tests.test_views import ViewTestCase
+from weblate.trans.tests.test_views import FixtureTestCase
 
 
-class DashboardTest(ViewTestCase):
+class DashboardTest(FixtureTestCase):
     """Test for home/index view."""
 
     def setUp(self) -> None:
@@ -113,6 +113,20 @@ class DashboardTest(ViewTestCase):
         self.user.profile.watched.add(self.project)
         response = self.client.get(reverse("home"))
         self.assertEqual(len(response.context["usersubscriptions"]), 1)
+
+    def test_watched_translations_are_sorted_by_language(self) -> None:
+        self.user.profile.languages.add(Language.objects.get(code="de"))
+        self.user.profile.watched.add(self.project)
+
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(
+            [
+                translation.language.code
+                for translation in response.context["usersubscriptions"]
+            ],
+            ["cs", "de"],
+        )
 
     def test_user_nolang(self) -> None:
         self.user.profile.languages.clear()

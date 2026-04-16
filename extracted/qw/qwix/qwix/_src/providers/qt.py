@@ -115,7 +115,8 @@ class QtProvider(qconfig.QuantizationProvider):
           _dot_general=_dot_general,
           out_sharding=out_sharding,
       )
-    if not isinstance(einsum_str, str) or len(operands) != 2:
+    if len(operands) != 2:
+      # TODO(jiwonshin): Support N-ary einsum if there is a need in the future.
       raise ValueError(f'Unsupported einsum format: {einsum_str=} {operands=}')
 
     def custom_dot_general(
@@ -160,6 +161,7 @@ class QtProvider(qconfig.QuantizationProvider):
       batch_group_count: int = 1,
       precision: jax.lax.PrecisionLike = None,
       preferred_element_type: jax.typing.DTypeLike | None = None,
+      out_sharding=None,
   ) -> jax.Array:
     """QT conv_general_dilated."""
     rule, op_id = self._get_current_rule_and_op_id('conv_general_dilated')
@@ -176,6 +178,7 @@ class QtProvider(qconfig.QuantizationProvider):
           batch_group_count=batch_group_count,
           precision=precision,
           preferred_element_type=preferred_element_type,
+          out_sharding=out_sharding,
       )
     if rule.tile_size:
       raise ValueError('subchannel is not supported for conv_general_dilated.')
@@ -191,6 +194,7 @@ class QtProvider(qconfig.QuantizationProvider):
         dimension_numbers,
         feature_group_count,
         batch_group_count,
+        out_sharding,
     )
 
   def ragged_dot(
@@ -282,13 +286,15 @@ class QtProvider(qconfig.QuantizationProvider):
         rhs_calibration_method=rule.weight_calibration_method,
         lhs_collect_quant_stat=lhs_collect_quant_stat,
         rhs_collect_quant_stat=None,
+        lhs_disable_channelwise_axes=rule.disable_channelwise_axes,
+        rhs_disable_channelwise_axes=rule.disable_channelwise_axes,
         # bwd configs.
         dlhs_grad_qtype=rule.bwd_qtype,
-        dlhs_grad_calibration_method=rule.bwd_calibration_method,
         drhs_grad_qtype=rule.bwd_qtype,
+        dlhs_grad_calibration_method=rule.bwd_calibration_method,
         drhs_grad_calibration_method=rule.bwd_calibration_method,
-        # misc.
-        disable_channelwise_axes=rule.disable_channelwise_axes,
+        dlhs_grad_disable_channelwise_axes=rule.disable_channelwise_axes,
+        drhs_grad_disable_channelwise_axes=rule.disable_channelwise_axes,
     )
 
   def _create_dot_general_qt_config(
@@ -355,6 +361,9 @@ class QtProvider(qconfig.QuantizationProvider):
             channelwise_noise_axes=rule.channelwise_noise_axes,
         )
 
+    fwd_quantized = rule.weight_qtype is not None or rule.act_qtype is not None
+    bwd_quantized = rule.bwd_qtype is not None
+
     qt_config = dot_general_qt.DotGeneralQtConfig(
         # fwd configs.
         lhs_qtype=lhs_qtype,
@@ -364,18 +373,21 @@ class QtProvider(qconfig.QuantizationProvider):
         rhs_calibration_method=rhs_calibration_method,
         lhs_collect_quant_stat=lhs_collect_quant_stat,
         rhs_collect_quant_stat=rhs_collect_quant_stat,
+        lhs_disable_channelwise_axes=rule.disable_channelwise_axes,
+        rhs_disable_channelwise_axes=rule.disable_channelwise_axes,
         # dlhs configs.
         dlhs_grad_qtype=rule.bwd_qtype,
         dlhs_grad_calibration_method=rule.bwd_calibration_method,
         dlhs_tile_size=dlhs_tile_size,
         dlhs_stochastic_rounding_noise_fn=bwd_stochastic_rounding_noise_fn,
+        dlhs_grad_disable_channelwise_axes=rule.disable_channelwise_axes,
         # drhs configs.
+        use_original_residuals=fwd_quantized and not bwd_quantized,
         drhs_grad_qtype=rule.bwd_qtype,
-        drhs_tile_size=drhs_tile_size,
         drhs_grad_calibration_method=rule.bwd_calibration_method,
+        drhs_tile_size=drhs_tile_size,
         drhs_stochastic_rounding_noise_fn=bwd_stochastic_rounding_noise_fn,
-        # misc.
-        disable_channelwise_axes=rule.disable_channelwise_axes,
+        drhs_grad_disable_channelwise_axes=rule.disable_channelwise_axes,
     )
 
     if rule.additional_qt_config:

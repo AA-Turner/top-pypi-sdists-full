@@ -251,6 +251,9 @@ class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True)
         assert self.topic is not None
         return self.topic
 
+    def supports_message_headers(self) -> bool:
+        return True
+
     def _recreate_integration_variables(self) -> dict[str, str]:
         return {
             k: v

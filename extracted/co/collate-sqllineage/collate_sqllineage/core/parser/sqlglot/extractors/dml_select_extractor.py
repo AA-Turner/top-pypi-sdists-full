@@ -1,6 +1,7 @@
 from typing import List, Tuple, Union
 
 from sqlglot import exp
+from sqlglot.dialects.dialect import DialectType
 from sqlglot.expressions import Expression
 
 from collate_sqllineage.core.models import (
@@ -25,7 +26,7 @@ from collate_sqllineage.core.parser.sqlglot.models import (
     SqlGlotTable,
 )
 from collate_sqllineage.exceptions import SQLLineageException
-from collate_sqllineage.utils.constant import EdgeType
+from collate_sqllineage.utils.constant import EdgeTag, EdgeType
 
 
 class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
@@ -35,7 +36,7 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
 
     SUPPORTED_STMT_TYPES = ["select_statement", "set_expression"]
 
-    def __init__(self, dialect: str):
+    def __init__(self, dialect: DialectType):
         super().__init__(dialect)
         self.columns: List[Column] = []
         self.tables: List[Union[DataFunction, Location, Path, SubQuery, Table]] = []
@@ -55,7 +56,9 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
         :param statement: a sqlglot Expression
         :param context: 'AnalyzerContext'
         :param is_sub_query: determine if the statement is a subquery
-        :return 'SqlGlotSubQueryLineageHolder' object
+        :param link_columns: whether to link column lineage in this call
+        :param preserve_state: preserve shared column/table state across set expression branches
+        :return: 'SqlGlotSubQueryLineageHolder' object
         """
         saved_columns = self.columns
         saved_tables = self.tables
@@ -72,6 +75,9 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
 
         try:
             holder = self._init_holder(context)
+            # Capture write target before any holder merges, so column linking
+            # uses the correct target regardless of accumulated subquery writes.
+            initial_write = list(holder.write)[0] if holder.write else None
             subqueries = [SqlGlotSubQuery.of(statement, None)] if is_sub_query else []
 
             # Extract target table from SELECT INTO clause (Postgres, Redshift, T-SQL)
@@ -80,6 +86,7 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
                 if into_exp and into_exp.this:
                     target_table = SqlGlotTable.of(into_exp.this)
                     holder.add_write(target_table)
+                    initial_write = target_table
 
             if isinstance(statement, exp.Table):
                 self._extract_tables_from_expression(statement, holder, subqueries)
@@ -114,7 +121,7 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
                     # Handle special functions that perform DML operations
                     self._extract_dml_functions(select_exp, holder)
 
-            if holder.write:
+            if initial_write is not None:
                 self.should_link_columns = True
 
             from_exp = statement.args.get("from_")
@@ -185,7 +192,7 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
             # Link column lineage only when this extractor owns the write target.
             if link_columns and self.should_link_columns and self.columns:
                 self._create_column_edges(holder)
-                self._link_column_lineage(holder)
+                self._link_column_lineage(holder, initial_write)
 
             return holder
         finally:
@@ -267,11 +274,28 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
                         src_col.parent, src_col, type=EdgeType.HAS_COLUMN
                     )
 
-    def _link_column_lineage(self, holder: SqlGlotSubQueryLineageHolder) -> None:
+    def _link_column_lineage(
+        self, holder: SqlGlotSubQueryLineageHolder, write_target=None
+    ) -> None:
         """
         Link columns to tables for column lineage.
+        :param holder: SqlGlotSubQueryLineageHolder containing the graph
+        :param write_target: canonical write target captured before holder merges;
+            if None, falls back to holder.write (legacy path).
         """
         self.union_barriers.append((len(self.columns), len(self.tables)))
+
+        # Use the captured initial write to avoid non-determinism from accumulated
+        # subquery write nodes that get merged into holder via holder |= sq_holder.
+        if write_target is not None:
+            tgt_tbl = write_target
+        else:
+            if not holder.write:
+                return
+            writes = {write for write in holder.write if isinstance(write, Table)}
+            if len(writes) > 1:
+                raise SQLLineageException
+            tgt_tbl = list(writes)[0] if writes else list(holder.write)[0]
 
         for i, (col_barrier, tbl_barrier) in enumerate(self.union_barriers):
             prev_col_barrier, prev_tbl_barrier = (
@@ -280,24 +304,25 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
             col_grp = self.columns[prev_col_barrier:col_barrier]
             tbl_grp = self.tables[prev_tbl_barrier:tbl_barrier]
 
-            if not holder.write:
-                continue
-
-            writes = {write for write in holder.write if isinstance(write, Table)}
-            if len(writes) > 1:
-                raise SQLLineageException
-
-            # Prefer Table over SubQuery to avoid self-referential edges when CREATE VIEW uses CTEs
-            tgt_tbl = list(writes)[0] if writes else list(holder.write)[0]
-
             alias_mapping = self.get_alias_mapping_from_table_group(tbl_grp, holder)
-            use_target_columns = len(holder.target_columns) == len(col_grp)
+            # Look up HAS_COLUMN edges from the specific tgt_tbl to avoid non-determinism
+            # from holder.target_columns which uses list(self.write)[0] (set iteration order).
+            tgt_col_with_idx = sorted(
+                [
+                    (col, attr.get(EdgeTag.INDEX, 0))
+                    for _, col, attr in holder.graph.out_edges(tgt_tbl, data=True)
+                    if attr.get("type") == EdgeType.HAS_COLUMN
+                ],
+                key=lambda x: x[1],
+            )
+            tgt_target_columns = [x[0] for x in tgt_col_with_idx]
+            use_target_columns = len(tgt_target_columns) == len(col_grp)
 
             for idx, tgt_col in enumerate(col_grp):
                 tgt_col.parent = tgt_tbl
 
                 final_tgt_col = (
-                    holder.target_columns[idx] if use_target_columns else tgt_col
+                    tgt_target_columns[idx] if use_target_columns else tgt_col
                 )
 
                 if final_tgt_col.parent is None:

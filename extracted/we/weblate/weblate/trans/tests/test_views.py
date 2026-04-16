@@ -93,7 +93,7 @@ class RegistrationTestMixin(TestCase):
         )
 
 
-class ViewTestCase(RepoTestCase):
+class ComponentTestCase(RepoTestCase):
     @classmethod
     def setUpTestData(cls) -> None:
         clear_users_cache()
@@ -107,18 +107,14 @@ class ViewTestCase(RepoTestCase):
         self.user = create_test_user()
         group = Group.objects.get(name="Users")
         self.user.groups.add(group)
-        # Create another user
-        self.anotheruser = create_another_user()
-        self.user.groups.add(group)
         # Create project to have some test base
         self.component = self.create_component()
         self.project = self.component.project
+        if not self.project.defined_groups.exists():
+            setup_project_groups(self, self.project)
         self.translation = self.get_translation()
         # Invalidate caches
         cache.clear()
-        # Login
-        self.client.login(username="testuser", password="testpassword")
-        # Prepopulate kwargs
 
     @property
     def kw_project(self):
@@ -163,6 +159,11 @@ class ViewTestCase(RepoTestCase):
         # Project privileges
         self.project.add_user(self.user, "Administration")
 
+    def set_up_authenticated_view(self) -> None:
+        self.anotheruser = create_another_user()
+        self.user.groups.add(Group.objects.get(name="Users"))
+        self.client.login(username="testuser", password="testpassword")
+
     def get_request(self, user=None):
         """Get fake request object."""
         request = self.factory.get("/")
@@ -197,29 +198,6 @@ class ViewTestCase(RepoTestCase):
         unit = self.get_unit(source, language, translation=translation)
         unit.translate(user or self.user, target, state)
         return unit
-
-    def edit_unit(
-        self,
-        source: str,
-        target: str,
-        language: str = "cs",
-        follow: bool = False,
-        translation: Translation | None = None,
-        **kwargs,
-    ):
-        """Do edit single unit using web interface."""
-        unit = self.get_unit(source, language, translation=translation)
-        params = {
-            "checksum": unit.checksum,
-            "contentsum": hash_to_checksum(unit.content_hash),
-            "translationsum": hash_to_checksum(unit.get_target_hash()),
-            "target_0": target,
-            "review": "20",
-        }
-        params.update(kwargs)
-        return self.client.post(
-            unit.translation.get_translate_url(), params, follow=follow
-        )
 
     def assert_redirects_offset(self, response, exp_path, exp_offset) -> None:
         """Assert that offset in response matches expected one."""
@@ -287,7 +265,7 @@ class ViewTestCase(RepoTestCase):
             None,
             file_format_params=translation.component.file_format_params,
         )
-        messages = set()
+        messages: set[int] = set()
         translated = 0
 
         for unit in store.content_units:
@@ -302,11 +280,40 @@ class ViewTestCase(RepoTestCase):
             f"Did not found expected number of translations ({translated} != {expected_translated}).",
         )
 
+    def edit_unit(
+        self,
+        source: str,
+        target: str,
+        language: str = "cs",
+        follow: bool = False,
+        translation: Translation | None = None,
+        **kwargs,
+    ):
+        """Do edit single unit using web interface."""
+        unit = self.get_unit(source, language, translation=translation)
+        params = {
+            "checksum": unit.checksum,
+            "contentsum": hash_to_checksum(unit.content_hash),
+            "translationsum": hash_to_checksum(unit.get_target_hash()),
+            "target_0": target,
+            "review": "20",
+        }
+        params.update(kwargs)
+        return self.client.post(
+            unit.translation.get_translate_url(), params, follow=follow
+        )
+
     def log_as_jane(self) -> None:
         self.client.login(username="jane", password="testpassword")
 
 
-class FixtureTestCase(ViewTestCase):
+class ViewTestCase(ComponentTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.set_up_authenticated_view()
+
+
+class FixtureComponentTestCase(ComponentTestCase):
     @classmethod
     def setUpTestData(cls) -> None:
         """Manually load fixture."""
@@ -333,7 +340,7 @@ class FixtureTestCase(ViewTestCase):
         return
 
     # pylint: disable=arguments-differ
-    def create_project(self):
+    def create_project(self, name: str = "Test", slug: str = "test", **kwargs):
         project = Project.objects.all()[0]
         setup_project_groups(self, project)
         return project
@@ -342,6 +349,12 @@ class FixtureTestCase(ViewTestCase):
         component = self.create_project().component_set.all()[0]
         component.create_path()
         return component
+
+
+class FixtureTestCase(FixtureComponentTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.set_up_authenticated_view()
 
 
 class TranslationManipulationTest(ViewTestCase):
@@ -413,20 +426,21 @@ class ProjectLanguageAdditionTest(ViewTestCase):
                 project=self.project,
             )
         self.url = reverse("new-language", kwargs={"path": self.project.get_url_path()})
+        self.obj = self.project
 
     def create_component(self):
         return self.create_po_new_base()
 
     def test_no_eligible_components(self) -> None:
-        self.project.component_set.update(new_lang="none")
+        self.obj.component_set.update(new_lang="none")
         response = self.client.get(self.url, follow=True)
-        self.assertRedirects(response, self.project.get_absolute_url())
+        self.assertRedirects(response, self.obj.get_absolute_url())
         self.assertContains(
             response, "Language addition is not supported by any of the components."
         )
 
         response = self.client.get(self.url, {"lang": "af"}, follow=True)
-        self.assertRedirects(response, self.project.get_absolute_url())
+        self.assertRedirects(response, self.obj.get_absolute_url())
         self.assertContains(
             response, "Language addition is not supported by any of the components."
         )
@@ -485,7 +499,7 @@ class ProjectLanguageAdditionTest(ViewTestCase):
             )
         )
         response = self.client.post(self.url, {"lang": "af"}, follow=True)
-        self.assertRedirects(response, self.project.get_absolute_url())
+        self.assertRedirects(response, self.obj.get_absolute_url())
 
         messages = [m.message for m in response.context["messages"]]
         self.assertCountEqual(
@@ -525,7 +539,7 @@ class ProjectLanguageAdditionTest(ViewTestCase):
         self.user.save()
 
         response = self.client.post(self.url, {"lang": "af"}, follow=True)
-        self.assertRedirects(response, self.project.get_absolute_url())
+        self.assertRedirects(response, self.obj.get_absolute_url())
 
         messages = [m.message for m in response.context["messages"]]
         self.assertCountEqual(
@@ -536,7 +550,7 @@ class ProjectLanguageAdditionTest(ViewTestCase):
         )
 
         response = self.client.post(self.url, {"lang": "pa"}, follow=True)
-        self.assertRedirects(response, self.project.get_absolute_url())
+        self.assertRedirects(response, self.obj.get_absolute_url())
         messages = [m.message for m in response.context["messages"]]
         self.assertCountEqual(
             messages,
@@ -557,7 +571,7 @@ class ProjectLanguageAdditionTest(ViewTestCase):
             )
         )
         response = self.client.post(self.url, {"lang": "af"}, follow=True)
-        self.assertRedirects(response, self.project.get_absolute_url())
+        self.assertRedirects(response, self.obj.get_absolute_url())
 
         messages = [m.message for m in response.context["messages"]]
         self.assertCountEqual(
@@ -571,6 +585,47 @@ class ProjectLanguageAdditionTest(ViewTestCase):
             self.assertTrue(
                 component.translation_set.filter(language_code="af").exists()
             )
+
+
+class CategoryLanguageAdditionTest(ProjectLanguageAdditionTest):
+    def setUp(self) -> None:
+        super().setUp()
+        self.category = self.create_category(self.project)
+
+        for component in self.components.values():
+            component.category = self.category
+            component.save(update_fields=["category"])
+
+        self.url = reverse(
+            "new-language", kwargs={"path": self.category.get_url_path()}
+        )
+        self.obj = self.category
+
+    def test_category_add_no_extra_components(self):
+        """Test that adding a language to a category does not add it to components not in the category."""
+        # Create a component in the same project but outside the category
+        outside_component = self.create_po_new_base(
+            new_lang="add",
+            name="test-outside",
+            project=self.project,
+        )
+        self.assertIsNone(outside_component.category)
+
+        self.user.is_superuser = True
+        self.user.save()
+
+        response = self.client.post(self.url, {"lang": "af"}, follow=True)
+        self.assertRedirects(response, self.obj.get_absolute_url())
+
+        for component in self.components.values():
+            self.assertTrue(
+                component.translation_set.filter(language_code="af").exists()
+            )
+
+        # Language should NOT have been added to the component outside the category
+        self.assertFalse(
+            outside_component.translation_set.filter(language_code="af").exists()
+        )
 
 
 class BasicViewTest(ViewTestCase):
@@ -595,6 +650,49 @@ class BasicViewTest(ViewTestCase):
         response = self.client.get(self.component.get_absolute_url())
         self.assertContains(response, "Spanish")
         self.assertContains(response, '<input type="hidden" name="lang" value="es" />')
+
+    @override_settings(BASIC_LANGUAGES=set())
+    def test_view_component_ghost_for_project_translation_language(self) -> None:
+        language = Language.objects.get(code="fr")
+        other = self.create_po_new_base(
+            project=self.project,
+            name="Other component",
+            new_lang="add",
+        )
+        other.add_new_language(language, None, show_messages=False)
+
+        self.user.profile.languages.add(language)
+        response = self.client.get(self.component.get_absolute_url())
+
+        self.assertContains(response, "French")
+        self.assertContains(response, '<input type="hidden" name="lang" value="fr" />')
+
+    @override_settings(BASIC_LANGUAGES=set())
+    def test_view_component_ghost_for_project_source_language(self) -> None:
+        language = Language.objects.get(code="fr")
+        self.create_po_new_base(
+            project=self.project,
+            name="French source component",
+            source_language=language,
+            new_lang="add",
+        )
+
+        self.user.profile.languages.add(language)
+        response = self.client.get(self.component.get_absolute_url())
+
+        self.assertContains(response, "French")
+        self.assertContains(response, '<input type="hidden" name="lang" value="fr" />')
+
+    @override_settings(BASIC_LANGUAGES=set())
+    def test_view_component_ghost_ignores_unrelated_language(self) -> None:
+        language = Language.objects.auto_get_or_create("zz_ZZ")
+        self.user.profile.languages.add(language)
+
+        response = self.client.get(self.component.get_absolute_url())
+
+        self.assertNotContains(
+            response, '<input type="hidden" name="lang" value="zz_ZZ" />'
+        )
 
     def test_view_component_guide(self) -> None:
         response = self.client.get(reverse("guide", kwargs=self.kw_component))

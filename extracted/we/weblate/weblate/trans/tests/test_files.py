@@ -6,7 +6,12 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
 from io import BytesIO
+from pathlib import Path
+from unittest.mock import patch
+from zipfile import ZipFile
 
 from django.contrib.messages import ERROR
 from django.test import SimpleTestCase
@@ -16,10 +21,12 @@ from openpyxl import load_workbook
 from weblate.formats.helpers import NamedBytesIO
 from weblate.lang.models import Language
 from weblate.trans.actions import ActionEvents
+from weblate.trans.exceptions import FailedCommitError
 from weblate.trans.forms import SimpleUploadForm
-from weblate.trans.models import ComponentList
+from weblate.trans.models import Change, ComponentList, PendingUnitChange, Translation
 from weblate.trans.tests.test_views import ViewTestCase
 from weblate.trans.tests.utils import get_test_file
+from weblate.utils.data import data_dir
 from weblate.utils.state import STATE_READONLY
 
 TEST_PO = get_test_file("cs.po")
@@ -85,6 +92,15 @@ class ImportTest(ImportBaseTest):
 
     def test_import_normal(self) -> None:
         """Test importing normally."""
+        translation = self.get_translation()
+
+        initial_change_count = Change.objects.filter(
+            action=ActionEvents.UPLOAD, translation=translation
+        ).count()
+        initial_pending_count = PendingUnitChange.objects.filter(
+            unit__translation=translation
+        ).count()
+
         response = self.do_import()
         self.assertRedirects(response, self.translation_url)
 
@@ -94,9 +110,21 @@ class ImportTest(ImportBaseTest):
         self.assertEqual(translation.stats.fuzzy, 0)
         self.assertEqual(translation.stats.all, 4)
 
+        self.assertGreater(
+            Change.objects.filter(
+                action=ActionEvents.UPLOAD, translation=translation
+            ).count(),
+            initial_change_count,
+        )
+        self.assertGreater(
+            PendingUnitChange.objects.filter(unit__translation=translation).count(),
+            initial_pending_count,
+        )
+
         # Verify unit
         unit = self.get_unit()
         self.assertEqual(unit.target, TRANSLATION_PO)
+        self.assertTrue(PendingUnitChange.objects.filter(unit=unit).exists())
 
     def test_import_author(self) -> None:
         """Test importing normally."""
@@ -114,6 +142,26 @@ class ImportTest(ImportBaseTest):
         # Verify unit
         unit = self.get_unit()
         self.assertEqual(unit.target, TRANSLATION_PO)
+
+    def test_import_commit_error_is_sanitized(self) -> None:
+        with patch.object(
+            Translation,
+            "handle_upload",
+            side_effect=FailedCommitError(
+                "Commit failed via "
+                "ssh://git@internal.example.net/private/repo.git "
+                f"in {self.component.full_path}/secret"
+            ),
+        ):
+            response = self.do_import(follow=True)
+
+        self.assertRedirects(response, self.translation_url)
+        messages = [message.message for message in response.context["messages"]]
+        self.assertIn("Commit failed", messages[0])
+        self.assertNotIn("internal.example.net", messages[0])
+        self.assertNotIn("ssh://", messages[0])
+        self.assertNotIn(self.component.full_path, messages[0])
+        self.assertIn(".../secret", messages[0])
 
     def test_import_overwrite(self) -> None:
         """Test importing with overwriting."""
@@ -831,6 +879,35 @@ class DownloadMultiTest(ViewTestCase):
         )
         content = self.assert_zip(response, "test-test-cs.xlsx")
         load_workbook(BytesIO(content))
+
+    def test_component_skips_symlinked_template(self) -> None:
+        self.component.template = "template.pot"
+        self.component.save(update_fields=["template"])
+
+        template_path = os.path.join(self.component.full_path, self.component.template)
+        Path(template_path).write_bytes(Path(TEST_POT).read_bytes())
+
+        with tempfile.NamedTemporaryFile(delete=False) as handle:
+            handle.write(b"outside repository")
+        self.addCleanup(os.unlink, handle.name)
+
+        os.unlink(template_path)
+        os.symlink(handle.name, template_path)
+
+        response = self.client.get(reverse("download", kwargs=self.kw_component))
+        self.assertEqual(response.status_code, 200)
+
+        with ZipFile(BytesIO(response.content), "r") as zipfile:
+            zip_names = set(zipfile.namelist())
+
+        root = data_dir("vcs")
+        translation_filename = self.get_translation().get_filename()
+        self.assertIsNotNone(translation_filename)
+        translation_rel = os.path.relpath(translation_filename, root)
+        template_rel = os.path.relpath(template_path, root)
+
+        self.assertIn(translation_rel, zip_names)
+        self.assertNotIn(template_rel, zip_names)
 
 
 EXPECTED_CSV = """location,source,target,id,fuzzy,context,translator_comments,developer_comments\r

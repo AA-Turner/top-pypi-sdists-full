@@ -28,12 +28,12 @@ def validate_external_url(cls, v):
 class Resource(TypesBaseModel):
     pk: str
     video_url: Optional[HttpUrl] = None  # for Video and IGTV
-    thumbnail_url: HttpUrl
+    thumbnail_url: Optional[HttpUrl] = None
     media_type: int
 
 
 class BioLink(TypesBaseModel):
-    link_id: str
+    link_id: Optional[str] = None
     url: str
     lynx_url: Optional[str] = None
     link_type: Optional[str] = None
@@ -141,6 +141,12 @@ class UserShort(TypesBaseModel):
     is_private: Optional[bool] = None
     # is_verified: bool  # not found in hashtag_medias_v1
     # stories: List = [] # not found in fbsearch_suggested_profiles
+
+
+class Viewer(UserShort):
+    has_liked: bool = False
+    reply_text: str = ""
+    is_spam_viewer: bool = False
 
 
 class Usertag(TypesBaseModel):
@@ -448,7 +454,7 @@ class Media(TypesBaseModel):
     video_duration: Optional[float] = 0.0  # for Video and IGTV
     title: Optional[str] = ""
     resources: List[Resource] = []
-    clips_metadata: Optional[ClipsMetadata | dict] = None
+    clips_metadata: Optional[Union[ClipsMetadata, dict]] = None
 
 
 class MediaXma(TypesBaseModel):
@@ -919,7 +925,7 @@ class DirectThread(TypesBaseModel):
     input_mode: int
     business_thread_folder: int
     read_state: int
-    is_close_friend_thread: bool
+    is_close_friend_thread: bool = False
     assigned_admin_id: int
     shh_mode_enabled: bool
     last_seen_at: Dict[str, LastSeenInfo] = {}

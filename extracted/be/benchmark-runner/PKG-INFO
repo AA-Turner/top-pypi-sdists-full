@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: benchmark-runner
-Version: 1.0.966
+Version: 1.0.968
 Summary: Benchmark Runner Tool
 Home-page: https://github.com/redhat-performance/benchmark-runner
 Author: Red Hat
@@ -19,7 +19,7 @@ Requires-Dist: attrs==21.4.0
 Requires-Dist: azure==4.0.0
 Requires-Dist: boto3==1.33.13
 Requires-Dist: botocore==1.33.13
-Requires-Dist: cryptography==46.0.6
+Requires-Dist: cryptography==46.0.7
 Requires-Dist: elasticsearch==7.16.1
 Requires-Dist: elasticsearch-dsl==7.4.0
 Requires-Dist: google-auth==2.30.0

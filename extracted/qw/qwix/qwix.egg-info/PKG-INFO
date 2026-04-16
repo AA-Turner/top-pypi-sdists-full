@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qwix
-Version: 0.1.5
+Version: 0.1.6
 Summary: Qwix is a Jax quantization library.
 Author-email: Qwix Developers <qwix-dev@google.com>
 License-Expression: Apache-2.0
@@ -19,6 +19,18 @@ License-File: LICENSE
 Requires-Dist: jax
 Requires-Dist: jaxlib
 Requires-Dist: flax>=0.12.0
+Requires-Dist: numpy
+Requires-Dist: opt_einsum
+Requires-Dist: absl-py
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: myst-nb; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-book-theme; extra == "docs"
+Requires-Dist: sphinx-tabs; extra == "docs"
+Requires-Dist: jax; extra == "docs"
+Requires-Dist: flax; extra == "docs"
 Dynamic: license-file
 
 # Qwix: a quantization library for Jax.
@@ -190,3 +202,21 @@ the differences.
     to integrate with a whole model implicitly.
 *   Applying static-range quantization is easier in Qwix as it has more in-depth
     support with Flax.
+
+## Contributing
+
+Please refer to [CONTRIBUTING.md](CONTRIBUTING.md) for more information.
+
+## Citing Qwix
+
+To cite Qwix please use the citation:
+
+<!-- disableFinding(SNIPPET_INVALID_LANGUAGE) -->
+```bibtex
+@software{Qwix,
+  title = {Qwix: A Quantization Library for Jax},
+  author={Dangyi Liu, Jiwon Shin, et al.},
+  year = {2024},
+  howpublished = {\url{https://github.com/google/qwix}},
+}
+```

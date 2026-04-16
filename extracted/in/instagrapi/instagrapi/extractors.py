@@ -33,6 +33,7 @@ from .types import (
     User,
     UserShort,
     Usertag,
+    Viewer,
 )
 from .utils import InstagramIdCodec, json_value
 
@@ -172,10 +173,17 @@ def extract_resource_v1(data):
         data["video_url"] = sorted(
             data["video_versions"], key=lambda o: o["height"] * o["width"]
         )[-1]["url"]
-    data["thumbnail_url"] = sorted(
-        data["image_versions2"]["candidates"],
-        key=lambda o: o["height"] * o["width"],
-    )[-1]["url"]
+    candidates = data.get("image_versions2", {}).get("candidates", [])
+    data["thumbnail_url"] = (
+        sorted(
+            candidates,
+            key=lambda o: o["height"] * o["width"],
+        )[
+            -1
+        ]["url"]
+        if candidates
+        else None
+    )
     return Resource(**data)
 
 
@@ -197,9 +205,17 @@ def extract_user_short(data):
     return UserShort(**data)
 
 
+def extract_viewer(data):
+    """Extract Viewer info"""
+    user = data.pop("user")
+    user["pk"] = user.get("id", user.get("pk", None))
+    assert user["pk"], f'User without pk "{user}"'
+    return Viewer(**user, **data)
+
+
 def extract_broadcast_channel(data):
-    """ Extract broadcast channel infos """
-    channels = data["pinned_channels_info"]["pinned_channels_list"]
+    """Extract broadcast channel infos"""
+    channels = data.get("pinned_channels_info", {}).get("pinned_channels_list", [])
     return [Broadcast(**channel) for channel in channels]
 
 
@@ -232,6 +248,10 @@ def extract_location(data):
     """Extract location info"""
     if not data:
         return None
+    if "place" in data and isinstance(data["place"], dict):
+        place_location = data["place"].get("location")
+        if place_location:
+            data = place_location
     data["pk"] = data.get("id", data.get("pk", data.get("location_id", None)))
     data["external_id"] = data.get("external_id", data.get("facebook_places_id"))
     data["external_id_source"] = data.get(
@@ -290,10 +310,11 @@ def extract_direct_thread(data):
     else:
         data["inviter"] = None
     data["left_users"] = data.get("left_users", [])
+    data.setdefault("is_close_friend_thread", False)
     data["last_activity_at"] = datetime.datetime.fromtimestamp(
         data["last_activity_at"] // 1_000_000
     )
-    
+
     # Convert last_seen_at timestamps
     last_seen_at = data.get("last_seen_at", {})
     for user_id, seen_info in last_seen_at.items():
@@ -316,7 +337,7 @@ def extract_direct_thread(data):
                 disappearing_state["created_at"] = datetime.datetime.fromtimestamp(
                     int(disappearing_state["created_at"]) // 1_000_000
                 )
-    
+
     return DirectThread(**data)
 
 
@@ -328,6 +349,61 @@ def extract_direct_short_thread(data):
 
 def extract_direct_response(data):
     return DirectResponse(**data)
+
+
+def _convert_direct_visual_media_timestamps(visual_media):
+    if not visual_media:
+        return
+
+    if "media" in visual_media and visual_media["media"]:
+        media = visual_media["media"]
+        if (
+            "expiring_media_action_summary" in media
+            and media["expiring_media_action_summary"]
+        ):
+            media["expiring_media_action_summary"]["timestamp"] = (
+                datetime.datetime.fromtimestamp(
+                    int(media["expiring_media_action_summary"]["timestamp"])
+                    // 1_000_000
+                )
+            )
+
+        if "image_versions2" in media and media["image_versions2"]:
+            candidates = media["image_versions2"].get("candidates", [])
+            for candidate in candidates:
+                if (
+                    "url_expiration_timestamp_us" in candidate
+                    and candidate["url_expiration_timestamp_us"]
+                ):
+                    candidate["url_expiration_timestamp_us"] = (
+                        datetime.datetime.fromtimestamp(
+                            int(candidate["url_expiration_timestamp_us"]) // 1_000_000
+                        )
+                    )
+
+        if "video_versions" in media and media["video_versions"]:
+            for video_version in media["video_versions"]:
+                if (
+                    "url_expiration_timestamp_us" in video_version
+                    and video_version["url_expiration_timestamp_us"]
+                ):
+                    video_version["url_expiration_timestamp_us"] = (
+                        datetime.datetime.fromtimestamp(
+                            int(video_version["url_expiration_timestamp_us"])
+                            // 1_000_000
+                        )
+                    )
+
+    if (
+        "expiring_media_action_summary" in visual_media
+        and visual_media["expiring_media_action_summary"]
+    ):
+        visual_media["expiring_media_action_summary"]["timestamp"] = (
+            datetime.datetime.fromtimestamp(
+                int(visual_media["expiring_media_action_summary"]["timestamp"])
+                // 1_000_000
+            )
+        )
 
 
 def extract_reply_message(data):
@@ -345,6 +421,9 @@ def extract_reply_message(data):
             # Instagram ¯\_(ツ)_/¯
             clip = clip.get("clip")
         data["clip"] = extract_media_v1(clip)
+    visual_media = data.get("visual_media", {})
+    if visual_media:
+        _convert_direct_visual_media_timestamps(visual_media)
 
     data["timestamp"] = datetime.datetime.fromtimestamp(data["timestamp"] // 1_000_000)
     data["user_id"] = str(data["user_id"])
@@ -400,35 +479,8 @@ def extract_direct_message(data):
 
     # Convert visual media timestamps
     visual_media = data.get("visual_media", {})
-    if visual_media and "media" in visual_media:
-        media = visual_media["media"]
-        if "expiring_media_action_summary" in media and media["expiring_media_action_summary"]:
-            media["expiring_media_action_summary"]["timestamp"] = datetime.datetime.fromtimestamp(
-                int(media["expiring_media_action_summary"]["timestamp"]) // 1_000_000
-            )
-        
-        # Convert image candidates URL expiration timestamps
-        if "image_versions2" in media and media["image_versions2"]:
-            candidates = media["image_versions2"].get("candidates", [])
-            for candidate in candidates:
-                if "url_expiration_timestamp_us" in candidate and candidate["url_expiration_timestamp_us"]:
-                    candidate["url_expiration_timestamp_us"] = datetime.datetime.fromtimestamp(
-                        int(candidate["url_expiration_timestamp_us"]) // 1_000_000
-                    )
-        
-        # Convert video versions URL expiration timestamps
-        if "video_versions" in media and media["video_versions"]:
-            for video_version in media["video_versions"]:
-                if "url_expiration_timestamp_us" in video_version and video_version["url_expiration_timestamp_us"]:
-                    video_version["url_expiration_timestamp_us"] = datetime.datetime.fromtimestamp(
-                        int(video_version["url_expiration_timestamp_us"]) // 1_000_000
-                    )
-    
-    # Convert top-level visual media expiring action summary timestamp
-    if visual_media and "expiring_media_action_summary" in visual_media and visual_media["expiring_media_action_summary"]:
-        visual_media["expiring_media_action_summary"]["timestamp"] = datetime.datetime.fromtimestamp(
-            int(visual_media["expiring_media_action_summary"]["timestamp"]) // 1_000_000
-        )
+    if visual_media:
+        _convert_direct_visual_media_timestamps(visual_media)
 
     return DirectMessage(**data)
 
@@ -503,6 +555,11 @@ def extract_story_v1(data):
         feed_medias.append(StoryMedia(**feed_media))
     story["medias"] = feed_medias
     story["links"] = []
+    for sticker in story.get("story_link_stickers", []):
+        story_link = sticker.get("story_link") or {}
+        story_link_url = story_link.get("url")
+        if story_link_url:
+            story["links"].append(StoryLink(**{"webUri": story_link_url}))
     for cta in story.get("story_cta", []):
         for link in cta.get("links", []):
             story["links"].append(StoryLink(**link))

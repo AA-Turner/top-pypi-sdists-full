@@ -5482,6 +5482,9 @@ class PoliciesV1Api:
         sort: Annotated[Optional[PolicySort], Field(description="Override the field used for sorting the returned list.")] = None,
         order: Annotated[Optional[SortOrder], Field(description="Override the sort order used.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter policies by name (case-insensitive partial match).")] = None,
+        owner_group_id: Annotated[Optional[StrictStr], Field(description="Filter policies by owner group ID.")] = None,
+        compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status. Returns policies with at least one assignment matching this status.")] = None,
+        model_id: Annotated[Optional[StrictStr], Field(description="Filter by assigned application/model ID.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -5507,6 +5510,12 @@ class PoliciesV1Api:
         :type order: SortOrder
         :param name: Filter policies by name (case-insensitive partial match).
         :type name: str
+        :param owner_group_id: Filter policies by owner group ID.
+        :type owner_group_id: str
+        :param compliance_status: Filter by compliance status. Returns policies with at least one assignment matching this status.
+        :type compliance_status: ComplianceStatus
+        :param model_id: Filter by assigned application/model ID.
+        :type model_id: str
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -5537,6 +5546,9 @@ class PoliciesV1Api:
             sort=sort,
             order=order,
             name=name,
+            owner_group_id=owner_group_id,
+            compliance_status=compliance_status,
+            model_id=model_id,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -5567,6 +5579,9 @@ class PoliciesV1Api:
         sort: Annotated[Optional[PolicySort], Field(description="Override the field used for sorting the returned list.")] = None,
         order: Annotated[Optional[SortOrder], Field(description="Override the sort order used.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter policies by name (case-insensitive partial match).")] = None,
+        owner_group_id: Annotated[Optional[StrictStr], Field(description="Filter policies by owner group ID.")] = None,
+        compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status. Returns policies with at least one assignment matching this status.")] = None,
+        model_id: Annotated[Optional[StrictStr], Field(description="Filter by assigned application/model ID.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -5592,6 +5607,12 @@ class PoliciesV1Api:
         :type order: SortOrder
         :param name: Filter policies by name (case-insensitive partial match).
         :type name: str
+        :param owner_group_id: Filter policies by owner group ID.
+        :type owner_group_id: str
+        :param compliance_status: Filter by compliance status. Returns policies with at least one assignment matching this status.
+        :type compliance_status: ComplianceStatus
+        :param model_id: Filter by assigned application/model ID.
+        :type model_id: str
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -5622,6 +5643,9 @@ class PoliciesV1Api:
             sort=sort,
             order=order,
             name=name,
+            owner_group_id=owner_group_id,
+            compliance_status=compliance_status,
+            model_id=model_id,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -5652,6 +5676,9 @@ class PoliciesV1Api:
         sort: Annotated[Optional[PolicySort], Field(description="Override the field used for sorting the returned list.")] = None,
         order: Annotated[Optional[SortOrder], Field(description="Override the sort order used.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter policies by name (case-insensitive partial match).")] = None,
+        owner_group_id: Annotated[Optional[StrictStr], Field(description="Filter policies by owner group ID.")] = None,
+        compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status. Returns policies with at least one assignment matching this status.")] = None,
+        model_id: Annotated[Optional[StrictStr], Field(description="Filter by assigned application/model ID.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -5677,6 +5704,12 @@ class PoliciesV1Api:
         :type order: SortOrder
         :param name: Filter policies by name (case-insensitive partial match).
         :type name: str
+        :param owner_group_id: Filter policies by owner group ID.
+        :type owner_group_id: str
+        :param compliance_status: Filter by compliance status. Returns policies with at least one assignment matching this status.
+        :type compliance_status: ComplianceStatus
+        :param model_id: Filter by assigned application/model ID.
+        :type model_id: str
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -5707,6 +5740,9 @@ class PoliciesV1Api:
             sort=sort,
             order=order,
             name=name,
+            owner_group_id=owner_group_id,
+            compliance_status=compliance_status,
+            model_id=model_id,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -5732,6 +5768,9 @@ class PoliciesV1Api:
         sort,
         order,
         name,
+        owner_group_id,
+        compliance_status,
+        model_id,
         page,
         page_size,
         _request_auth,
@@ -5767,6 +5806,18 @@ class PoliciesV1Api:
         if name is not None:
             
             _query_params.append(('name', name))
+            
+        if owner_group_id is not None:
+            
+            _query_params.append(('owner_group_id', owner_group_id))
+            
+        if compliance_status is not None:
+            
+            _query_params.append(('compliance_status', compliance_status.value))
+            
+        if model_id is not None:
+            
+            _query_params.append(('model_id', model_id))
             
         if page is not None:
             

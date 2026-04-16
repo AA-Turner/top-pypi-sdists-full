@@ -6,7 +6,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "cua-computer-server"
-version = "0.3.32"
+version = "0.3.34"
 description = "Server component for the Computer-Use Interface (CUI) framework powering Cua"
 authors = [
     { name = "TryCua", email = "gh@trycua.com" },
@@ -32,7 +32,7 @@ dependencies = [
     "python-xlib>=0.33; sys_platform == 'linux'",
     "pywin32>=310; sys_platform == 'win32'",
     "python-certifi-win32; sys_platform == 'win32'",
-    "cua-core>=0.1.18",
+    "cua-core>=0.3.0,<0.4.0",
     "grpcio==1.78.0",
     "protobuf==6.31.1",
 ]

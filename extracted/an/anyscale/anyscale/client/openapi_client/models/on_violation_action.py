@@ -28,11 +28,10 @@ class OnViolationAction(object):
     """
     allowed enum values
     """
-    REJECT = "reject"
     FALLTHROUGH = "fallthrough"
     FORCE_UPDATE = "force_update"
 
-    allowable_values = [REJECT, FALLTHROUGH, FORCE_UPDATE]  # noqa: E501
+    allowable_values = [FALLTHROUGH, FORCE_UPDATE]  # noqa: E501
 
     """
     Attributes:

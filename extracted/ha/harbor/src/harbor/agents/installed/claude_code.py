@@ -6,9 +6,9 @@ from typing import Any
 
 from harbor.agents.installed.base import (
     BaseInstalledAgent,
-    with_prompt_template,
     CliFlag,
     EnvVar,
+    with_prompt_template,
 )
 from harbor.environments.base import BaseEnvironment
 from harbor.models.agent.context import AgentContext
@@ -28,6 +28,7 @@ from harbor.models.trial.paths import EnvironmentPaths
 
 class ClaudeCode(BaseInstalledAgent):
     SUPPORTS_ATIF: bool = True
+    memory_dir: str | None
 
     CLI_FLAGS = [
         CliFlag(
@@ -81,6 +82,16 @@ class ClaudeCode(BaseInstalledAgent):
     @staticmethod
     def name() -> str:
         return AgentName.CLAUDE_CODE.value
+
+    def __init__(
+        self,
+        logs_dir: Path,
+        memory_dir: str | None = None,
+        *args,
+        **kwargs,
+    ):
+        self.memory_dir = memory_dir
+        super().__init__(logs_dir, *args, **kwargs)
 
     def get_version_command(self) -> str | None:
         return 'export PATH="$HOME/.local/bin:$PATH"; claude --version'
@@ -166,7 +177,7 @@ class ClaudeCode(BaseInstalledAgent):
         if len(all_session_dirs) == 1:
             return all_session_dirs[0]
 
-        print(
+        self.logger.debug(
             "Multiple Claude Code session directories found; "
             "could not identify the correct one"
         )
@@ -463,7 +474,7 @@ class ClaudeCode(BaseInstalledAgent):
         session_files = list(session_dir.glob("*.jsonl"))
 
         if not session_files:
-            print(f"No Claude Code session files found in {session_dir}")
+            self.logger.debug(f"No Claude Code session files found in {session_dir}")
             return None
 
         raw_events: list[dict[str, Any]] = []
@@ -476,7 +487,9 @@ class ClaudeCode(BaseInstalledAgent):
                     try:
                         raw_events.append(json.loads(stripped))
                     except json.JSONDecodeError as exc:
-                        print(f"Skipping malformed JSONL line in {session_file}: {exc}")
+                        self.logger.debug(
+                            f"Skipping malformed JSONL line in {session_file}: {exc}"
+                        )
 
         if not raw_events:
             return None
@@ -763,7 +776,7 @@ class ClaudeCode(BaseInstalledAgent):
             try:
                 step = self._convert_event_to_step(norm_event, idx)
             except ValueError as exc:
-                print(f"Skipping event during step conversion: {exc}")
+                self.logger.debug(f"Skipping event during step conversion: {exc}")
                 continue
 
             if step.source == "agent" and not step.model_name and default_model_name:
@@ -772,7 +785,7 @@ class ClaudeCode(BaseInstalledAgent):
             steps.append(step)
 
         if not steps:
-            print("No valid steps produced from Claude Code session")
+            self.logger.debug("No valid steps produced from Claude Code session")
             return None
 
         prompt_values = [
@@ -851,16 +864,18 @@ class ClaudeCode(BaseInstalledAgent):
     def populate_context_post_run(self, context: AgentContext) -> None:
         session_dir = self._get_session_dir()
         if not session_dir:
-            print("No Claude Code session directory found")
+            self.logger.debug("No Claude Code session directory found")
             return
 
         try:
             trajectory = self._convert_events_to_trajectory(session_dir)
         except Exception as exc:
-            print(f"Failed to convert Claude Code events to trajectory: {exc}")
+            self.logger.debug(
+                f"Failed to convert Claude Code events to trajectory: {exc}"
+            )
             return
         if not trajectory:
-            print("Failed to convert Claude Code session to trajectory")
+            self.logger.debug("Failed to convert Claude Code session to trajectory")
             return
 
         trajectory_path = self.logs_dir / "trajectory.json"
@@ -869,9 +884,11 @@ class ClaudeCode(BaseInstalledAgent):
                 json.dump(
                     trajectory.to_json_dict(), handle, indent=2, ensure_ascii=False
                 )
-            print(f"Wrote Claude Code trajectory to {trajectory_path}")
+            self.logger.debug(f"Wrote Claude Code trajectory to {trajectory_path}")
         except OSError as exc:
-            print(f"Failed to write trajectory file {trajectory_path}: {exc}")
+            self.logger.debug(
+                f"Failed to write trajectory file {trajectory_path}: {exc}"
+            )
 
         if trajectory.final_metrics:
             metrics = trajectory.final_metrics
@@ -892,6 +909,21 @@ class ClaudeCode(BaseInstalledAgent):
         return (
             f"(cp -r {shlex.quote(self.skills_dir)}/* "
             "$CLAUDE_CONFIG_DIR/skills/ 2>/dev/null || true)"
+        )
+
+    def _build_register_memory_command(self) -> str | None:
+        """Return a shell command that copies memory files into Claude's config.
+
+        Copies the contents of ``self.memory_dir`` into
+        ``$CLAUDE_CONFIG_DIR/projects/-app/memory/`` so that Claude Code
+        picks them up as pre-seeded auto-memory at session start.
+        """
+        if not self.memory_dir:
+            return None
+        return (
+            f"(mkdir -p $CLAUDE_CONFIG_DIR/projects/-app/memory && "
+            f"cp -r {shlex.quote(self.memory_dir)}/* "
+            "$CLAUDE_CONFIG_DIR/projects/-app/memory/ 2>/dev/null || true)"
         )
 
     def _build_register_mcp_servers_command(self) -> str | None:
@@ -1043,6 +1075,10 @@ class ClaudeCode(BaseInstalledAgent):
         skills_command = self._build_register_skills_command()
         if skills_command:
             setup_command += f" && {skills_command}"
+
+        memory_command = self._build_register_memory_command()
+        if memory_command:
+            setup_command += f" && {memory_command}"
 
         mcp_command = self._build_register_mcp_servers_command()
         if mcp_command:

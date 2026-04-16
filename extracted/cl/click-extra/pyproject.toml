@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "click-extra"
-version = "7.11.0"
+version = "7.12.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -113,6 +113,7 @@ pytest11.click-extra = "click_extra.pytest"
 # Source: https://pygments.org/docs/plugins/#defining-plugins-through-entrypoints
 "pygments.filters".ansi-filter = "click_extra.pygments:AnsiFilter"
 "pygments.formatters".ansi-html-formatter = "click_extra.pygments:AnsiHtmlFormatter"
+"pygments.lexers".ansi-color = "click_extra.pygments:AnsiColorLexer"
 "pygments.lexers".ansi-bash-session = "click_extra.pygments:AnsiBashSessionLexer"
 "pygments.lexers".ansi-dylan-console = "click_extra.pygments:AnsiDylanConsoleLexer"
 "pygments.lexers".ansi-elixir-console = "click_extra.pygments:AnsiElixirConsoleLexer"
@@ -147,8 +148,6 @@ jsonc = [
 pygments = [
   # Pygments 2.14.0 is the first version with lexers.algebra.GAPConsoleLexer that is referenced in our code.
   "pygments>=2.14",
-  # pygments-ansi-color 0.3.0 is the first version to set the default theme of ANSI colors.
-  "pygments-ansi-color>=0.3",
 ]
 pytest = [
   # pytest 9.0.0 is the first supporting native TOML configuration files.
@@ -159,8 +158,6 @@ sphinx = [
   "docutils>=0.20",
   # Pygments 2.14.0 is the first version with lexers.algebra.GAPConsoleLexer that is referenced in our code.
   "pygments>=2.14",
-  # pygments-ansi-color 0.3.0 is the first version to set the default theme of ANSI colors.
-  "pygments-ansi-color>=0.3",
   # Sphinx 8.0.0 is the first version to drop Python 3.9, like us.
   "sphinx>=8",
 ]
@@ -184,7 +181,7 @@ click-extra-demo = "click_extra.__main__:main"
 
 [project.urls]
 "Homepage" = "https://github.com/kdeldycke/click-extra"
-"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.11.0"
+"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.12.0"
 "Changelog" = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
 "Issues" = "https://github.com/kdeldycke/click-extra/issues"
 "Repository" = "https://github.com/kdeldycke/click-extra"
@@ -221,8 +218,6 @@ docs = [
   "furo>=2025.9.25",
   # myst-parser 5.0 stabilized MyST extensions and improved Sphinx directive support.
   "myst-parser>=5",
-  # pygments-ansi-color is required by docs/docs_update.py to generate the lexer table.
-  "pygments-ansi-color>=0.3",
   # Sphinx 8.0.0 is the first version to drop Python 3.9, like us.
   "sphinx>=8",
   # sphinx-autodoc-typehints 2.4.0 is the first version that is aligned to our Python >= 3.10 requirement.
@@ -257,7 +252,6 @@ dependency-groups.docs = { requires-python = ">= 3.14" }
 exclude-newer = "1 week"
 # Package is at root level, not in "./src/".
 build-backend.module-root = ""
-exclude-newer-package = {pytest = "0 day"}
 
 [tool.ruff]
 preview = true
@@ -355,7 +349,7 @@ run.source = [ "click_extra" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "7.11.0"
+current_version = "7.12.0"
 allow_dirty = true
 ignore_missing_files = true
 # Parse versions with an optional .devN suffix (PEP 440).
@@ -461,8 +455,7 @@ exclude = [
 [tool.repomatic]
 dependency-graph.all-extras = true
 dependency-graph.all-groups = false
-exclude = [ "workflows/debug.yaml" ]
-include = [ "skills" ]
+exclude = [ "skills", "workflows/debug.yaml" ]
 # Custom axes for upstream dependency testing (full matrix only).
 test-matrix.variations.click-version = [ "released", "stable", "main" ]
 test-matrix.variations.cloup-version = [ "released", "master" ]

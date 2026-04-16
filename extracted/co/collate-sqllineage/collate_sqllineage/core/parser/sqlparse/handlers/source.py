@@ -154,6 +154,10 @@ class SourceHandler(SourceHandlerMixin, NextTokenBaseHandler):
         elif isinstance(token, Function):
             # functions like unnest or generator can output a sequence of values as source
             self._data_function_handler(token)
+        elif isinstance(token, Operation) and token.value.strip().startswith("@"):
+            # Snowflake stage subpath, e.g. @db.schema.stage/CDL/.../file.csv
+            # sqlparse tokenises the "/" segments as an Operation expression.
+            self.tables.append(Location(token.value.strip()))
         else:
             raise SQLLineageException(
                 "An Identifier is expected, got %s[value: %s] instead."

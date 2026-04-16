@@ -517,6 +517,15 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         orig_db = parser.get("DEFAULT", "db")
         outlook_db = ar.utcnow().to("America/New_York").format("[outlook_]MM[_]DD[_]YYYY[.db]")
         parser.set("DEFAULT", "db", outlook_db)
+        # Force every hindcast forecast_season to use today's partial-season
+        # stage window so stored predictions are time-aligned across years.
+        # Without this, 2020's prediction would use full-season CIDs while
+        # 2026's uses only Mar-today — making the outlook index a
+        # comparison between incomparable models.
+        orig_align = parser.get("ML", "align_hindcast_stage", fallback="False")
+        if not parser.has_section("ML"):
+            parser.add_section("ML")
+        parser.set("ML", "align_hindcast_stage", "True")
         pool_countries_flag = parser.getboolean("ML", "pool_countries", fallback=False)
         if pool_countries_flag:
             inputs = gc.gather_pooled_inputs(parser)
@@ -537,6 +546,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             ("Outlook index window", f"{n_years} years"),
             ("Seasons", f"{outlook_seasons[0]}-{outlook_seasons[-1]}"),
             ("Aggregation", aggregation),
+            ("Stage alignment", "time-aligned to today"),
             ("Pooled", str(pool_countries_flag)),
             ("DB", parser.get("DEFAULT", "db")),
             ("Total combinations", str(len(inputs))),
@@ -553,6 +563,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             parser.set(country, "forecast_seasons", orig)
         parser.set("DEFAULT", "experiment_name", experiment_name)
         parser.set("DEFAULT", "db", orig_db)
+        parser.set("ML", "align_hindcast_stage", orig_align)
 
     # ---- Step 2: Load shapefiles ----
     dg, dict_config = _load_shapefiles(parser)

@@ -125,9 +125,6 @@ def test_complex_subquery():
                 TestColumnQualifierTuple("*", "my_view"),
             ),
         ],
-        # SqlGlot: Wildcard expansion not working with nested subqueries
-        # TODO: Fix SqlGlot to properly expand wildcards through multiple subquery levels
-        test_sqlglot=False,
     )
 
 
@@ -168,7 +165,4 @@ def test_partial_wildcard():
                 TestColumnQualifierTuple("*", "new_view"),
             ),
         ],
-        # SqlGlot: Bug with partial wildcard (a.*) in JOIN queries - returns empty lineage
-        # TODO: Fix SqlGlot to handle qualified wildcards (table.* or alias.*) in JOIN contexts
-        test_sqlglot=False,
     )

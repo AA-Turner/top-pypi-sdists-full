@@ -1,4 +1,9 @@
+import sys
 from typing import Any, TypeAlias
+
+HAS_PEP_649 = sys.version_info >= (3, 14)
+"""PEP 649 (deferred evaluation of annotations) is enabled by default in Python 3.14+.
+Annotations are no longer eagerly stored in cls.__dict__['__annotations__']."""
 
 MachineType: TypeAlias = str
 """The type of machine to use.

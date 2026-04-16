@@ -1,37 +1,25 @@
 Metadata-Version: 2.4
 Name: disposable-email-domains
-Version: 0.0.169
+Version: 0.0.170
 Summary: A set of disposable email domains
-Home-page: https://github.com/disposable-email-domains/disposable-email-domains
-Author: Dustin Ingram
-Author-email: github@dustingram.com
-License: MIT
-Keywords: disposable email domains blocklist
+Author-email: Dustin Ingram <github@dustingram.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/disposable-email-domains/disposable-email-domains
+Keywords: disposable,email,domains,blocklist
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Provides-Extra: dev
 Requires-Dist: check-manifest; extra == "dev"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: summary
 
 # Disposable Email Domains
 

@@ -1,45 +1,42 @@
 Metadata-Version: 2.4
 Name: cassandra-driver
-Version: 3.29.3
-Summary:  DataStax Driver for Apache Cassandra
-Home-page: http://github.com/datastax/python-driver
+Version: 3.30.0
+Summary: Apache Cassandra Python Driver
 Author: DataStax
-Project-URL: Documentation, https://docs.datastax.com/en/developer/python-driver/latest/
-Project-URL: Source, https://github.com/datastax/python-driver/
-Project-URL: Issues, https://datastax-oss.atlassian.net/browse/PYTHON
+License-Expression: Apache-2.0
+Project-URL: homepage, https://github.com/apache/cassandra-python-driver/
+Project-URL: documentation, https://docs.datastax.com/en/developer/python-driver/latest/
+Project-URL: source, https://github.com/apache/cassandra-python-driver/
+Project-URL: issues, https://issues.apache.org/jira/issues/?jql=project%20%3D%20CASSPYTHON%20ORDER%20BY%20key%20DESC
+Project-URL: changelog, https://github.com/apache/cassandra-python-driver/blob/trunk/CHANGELOG.rst
 Keywords: cassandra,cql,orm,dse,graph
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: geomet>=1.1
+Requires-Dist: Deprecated>=1.3.1
 Provides-Extra: graph
 Requires-Dist: gremlinpython==3.4.6; extra == "graph"
 Provides-Extra: cle
 Requires-Dist: cryptography>=42.0; extra == "cle"
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: PyYAML; extra == "test"
+Requires-Dist: pytz; extra == "test"
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
 
 
 .. |license| image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg
@@ -52,13 +49,13 @@ Dynamic: summary
 
 |license| |version| |pyversion| |travis|
 
-DataStax Driver for Apache Cassandra
-====================================
+Apache Cassandra Python Driver
+==============================
 
 A modern, `feature-rich <https://github.com/datastax/python-driver#features>`_ and highly-tunable Python client library for Apache Cassandra (2.1+) and
 DataStax Enterprise (4.7+) using exclusively Cassandra's binary protocol and Cassandra Query Language v3.
 
-The driver supports Python 3.9 through 3.13.
+The driver supports Python 3.10 through 3.14.
 
 **Note:** DataStax products do not support big-endian systems.
 
@@ -106,27 +103,24 @@ community) is now maintained as an integral part of this package. Refer to
 
 Contributing
 ------------
-See `CONTRIBUTING.md <https://github.com/datastax/python-driver/blob/master/CONTRIBUTING.rst>`_.
-
-Error Handling
---------------
-While originally written for the Java driver, users may reference the `Cassandra error handling done right blog <https://www.datastax.com/blog/cassandra-error-handling-done-right>`_ for resolving error handling scenarios with Apache Cassandra.
+See `CONTRIBUTING.rst <https://github.com/datastax/python-driver/blob/master/CONTRIBUTING.rst>`_.
 
 Reporting Problems
 ------------------
 Please report any bugs and make any feature requests on the
-`JIRA <https://datastax-oss.atlassian.net/browse/PYTHON>`_ issue tracker.
+`CASSPYTHON project <https://issues.apache.org/jira/issues/?jql=project%20%3D%20CASSPYTHON%20ORDER%20BY%20key%20DESC>`_
+of the ASF JIRA.
 
 If you would like to contribute, please feel free to open a pull request.
 
 Getting Help
 ------------
-Your best options for getting help with the driver is the
-`mailing list <https://groups.google.com/a/lists.datastax.com/forum/#!forum/python-driver-user>`_.
+You can talk about the driver, ask questions and get help in the #cassandra-drivers channel on 
+`ASF Slack <https://the-asf.slack.com/>`_.
 
 License
 -------
-Copyright DataStax, Inc.
+Copyright 2013 The Apache Software Foundation
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

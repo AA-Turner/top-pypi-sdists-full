@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyroute2
-Version: 0.9.5
+Version: 0.9.6
 Summary: Python Netlink library
 Author-email: Peter Saveliev <peter@svinota.eu>
 License-Expression: GPL-2.0-or-later OR Apache-2.0
@@ -157,7 +157,7 @@ More examples:
     ipr.addr('add', index=veth['index'], address='10.0.0.1', prefixlen=24)
 
     # release Netlink socket
-    ip.close()
+    ipr.close()
 
 AsyncIPRoute -- asynchronous RTNL API
 -------------------------------------
@@ -290,7 +290,7 @@ Using source, requires make and nox
 Requirements
 ------------
 
-Python >= 3.9
+Python >= 3.10
 
 Links
 -----

@@ -7,7 +7,7 @@ mod tui;
 mod utils;
 
 use clap::{ArgAction, Parser, Subcommand};
-use config::Config;
+use config::{Config, merge_csv_options};
 use error::{Error, Result};
 use output::OutputFormat;
 
@@ -283,6 +283,9 @@ enum Commands {
     Mkdir {
         /// Directory URI to create
         uri: String,
+        /// Initial directory description
+        #[arg(long)]
+        description: Option<String>,
     },
     /// Remove resource
     #[command(alias = "del", alias = "delete")]
@@ -735,7 +738,7 @@ async fn main() {
             node_limit,
             level_limit,
         } => handle_tree(uri, abs_limit, all, node_limit, level_limit, ctx).await,
-        Commands::Mkdir { uri } => handle_mkdir(uri, ctx).await,
+        Commands::Mkdir { uri, description } => handle_mkdir(uri, description, ctx).await,
         Commands::Rm { uri, recursive } => handle_rm(uri, recursive, ctx).await,
         Commands::Mv { from_uri, to_uri } => handle_mv(from_uri, to_uri, ctx).await,
         Commands::Stat { uri } => handle_stat(uri, ctx).await,
@@ -784,8 +787,7 @@ async fn main() {
             append,
             wait,
             timeout,
-        } => handle_write(uri, content, from_file, append, wait, timeout, ctx)
-            .await,
+        } => handle_write(uri, content, from_file, append, wait, timeout, ctx).await,
         Commands::Reindex {
             uri,
             regenerate,
@@ -812,7 +814,18 @@ async fn main() {
             ignore_case,
             node_limit,
             level_limit,
-        } => handle_grep(uri, exclude_uri, pattern, ignore_case, node_limit, level_limit, ctx).await,
+        } => {
+            handle_grep(
+                uri,
+                exclude_uri,
+                pattern,
+                ignore_case,
+                node_limit,
+                level_limit,
+                ctx,
+            )
+            .await
+        }
 
         Commands::Glob {
             pattern,
@@ -886,6 +899,11 @@ async fn handle_add_resource(
     let strict = strict_mode;
     let directly_upload_media = !no_directly_upload_media;
 
+    let effective_ignore_dirs =
+        merge_csv_options(ctx.config.upload.ignore_dirs.clone(), ignore_dirs);
+    let effective_include = merge_csv_options(ctx.config.upload.include.clone(), include);
+    let effective_exclude = merge_csv_options(ctx.config.upload.exclude.clone(), exclude);
+
     let effective_timeout = if wait {
         timeout.unwrap_or(60.0).max(ctx.config.timeout)
     } else {
@@ -909,9 +927,9 @@ async fn handle_add_resource(
         wait,
         timeout,
         strict,
-        ignore_dirs,
-        include,
-        exclude,
+        effective_ignore_dirs,
+        effective_include,
+        effective_exclude,
         directly_upload_media,
         watch_interval,
         ctx.output_format,
@@ -1237,7 +1255,11 @@ async fn handle_write(
         (Some(value), None) => value,
         (None, Some(path)) => std::fs::read_to_string(path)
             .map_err(|e| Error::Client(format!("Failed to read --from-file: {}", e)))?,
-        _ => return Err(Error::Client("Specify exactly one of --content or --from-file".into())),
+        _ => {
+            return Err(Error::Client(
+                "Specify exactly one of --content or --from-file".into(),
+            ));
+        }
     };
     commands::content::write(
         &client,
@@ -1411,9 +1433,16 @@ async fn handle_tree(
     .await
 }
 
-async fn handle_mkdir(uri: String, ctx: CliContext) -> Result<()> {
+async fn handle_mkdir(uri: String, description: Option<String>, ctx: CliContext) -> Result<()> {
     let client = ctx.get_client();
-    commands::filesystem::mkdir(&client, &uri, ctx.output_format, ctx.compact).await
+    commands::filesystem::mkdir(
+        &client,
+        &uri,
+        description.as_deref(),
+        ctx.output_format,
+        ctx.compact,
+    )
+    .await
 }
 
 async fn handle_rm(uri: String, recursive: bool, ctx: CliContext) -> Result<()> {
@@ -1454,7 +1483,11 @@ async fn handle_grep(
         std::process::exit(1);
     }
 
-    let mut params = vec![format!("--uri={}", uri), format!("-n {}", node_limit), format!("-L {}", level_limit)];
+    let mut params = vec![
+        format!("--uri={}", uri),
+        format!("-n {}", node_limit),
+        format!("-L {}", level_limit),
+    ];
     if let Some(excluded) = &exclude_uri {
         params.push(format!("-x {}", excluded));
     }
@@ -1548,6 +1581,7 @@ mod tests {
             timeout: 60.0,
             output: "table".to_string(),
             echo_command: true,
+            upload: Default::default(),
         };
 
         let ctx = CliContext::from_config(

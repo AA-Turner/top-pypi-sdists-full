@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_scout
-Version: 0.4.25
+Version: 0.4.26
 Summary: Transcript Analysis for AI Agents
 Project-URL: Source Code, https://github.com/meridianlabs-ai/inspect_scout
 Project-URL: Issue Tracker, https://github.com/meridianlabs-ai/inspect_scout/issues
@@ -26,7 +26,7 @@ Requires-Dist: mmh3>=5.0.0
 Requires-Dist: pandas<3.0.0,>=2.0.0
 Requires-Dist: psutil>=6.0.0
 Requires-Dist: pyarrow>=10.0.1
-Requires-Dist: pydantic>=2.11.4
+Requires-Dist: pydantic>=2.13.0
 Requires-Dist: python-dotenv>=0.16.0
 Requires-Dist: rich!=14.0.0,>=13.3.3
 Requires-Dist: ruamel-yaml>=0.18.0
@@ -69,6 +69,8 @@ Requires-Dist: jupyter; extra == 'doc'
 Requires-Dist: markdown; extra == 'doc'
 Requires-Dist: panflute; extra == 'doc'
 Requires-Dist: pyyaml; extra == 'doc'
+Requires-Dist: quarto-cli>=1.7; extra == 'doc'
+Requires-Dist: rich; extra == 'doc'
 Requires-Dist: types-markdown; extra == 'doc'
 Description-Content-Type: text/markdown
 

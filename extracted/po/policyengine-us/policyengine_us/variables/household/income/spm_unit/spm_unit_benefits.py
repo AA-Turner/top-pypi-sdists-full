@@ -12,6 +12,7 @@ class spm_unit_benefits(Variable):
         BENEFITS = [
             "social_security",
             "ssi",
+            "ga_ssp",
             "al_ssp",
             "ak_ssp",
             "de_ssp",  # Delaware benefits

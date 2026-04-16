@@ -126,21 +126,21 @@ class Location:
         """
         self._str = None
         self._hash = None
-        # Strip leading @ for internal representation
         raw = name.lstrip("@")
-        if "." not in raw:
-            self.schema = schema
-            self.raw_name = escape_identifier_name(raw)
-        else:
-            schema_name, loc_name = raw.rsplit(".", 1)
-            if len(schema_name.split(".")) > 2:
+        stage_qualifier, _ = self._split_path(raw)
+        schema_name, stage_name = self._split_schema(stage_qualifier)
+        if schema_name:
+            if self._count_unquoted_dots(schema_name) > 1:
                 raise SQLLineageException("Invalid format for location name: %s.", name)
             self.schema = Schema(schema_name)
-            self.raw_name = escape_identifier_name(loc_name)
+            self.raw_name = escape_identifier_name(stage_name)
             if schema:
                 warnings.warn(
                     "Name is in schema.location format, schema param is ignored"
                 )
+        else:
+            self.schema = schema
+            self.raw_name = escape_identifier_name(stage_qualifier)
         self.alias = kwargs.pop("alias", self.raw_name)
 
     def __str__(self):
@@ -158,6 +158,60 @@ class Location:
         if self._hash is None:
             self._hash = hash(str(self))
         return self._hash
+
+    @staticmethod
+    def _split_path(raw: str):
+        """Return (stage_qualifier, subpath) splitting on the first unquoted '/'.
+
+        A '/' inside a double-quoted identifier (e.g. "STG/NAME") is part of the
+        identifier and must not be treated as the subpath separator.
+        Returns (raw, None) when no unquoted '/' is found.
+
+        :param raw: stage reference with leading '@' already stripped
+        """
+        in_quotes = False
+        for i, ch in enumerate(raw):
+            if ch == '"':
+                in_quotes = not in_quotes
+            elif ch == "/" and not in_quotes:
+                return raw[:i], raw[i + 1 :]
+        return raw, None
+
+    @staticmethod
+    def _split_schema(qualifier: str):
+        """Return (schema_name, stage_name) splitting on the last unquoted '.'.
+
+        A '.' inside a double-quoted identifier (e.g. "STG.NAME") is part of the
+        identifier and must not be treated as the schema separator.
+        Returns ('', qualifier) when no unquoted '.' is found.
+
+        :param qualifier: stage qualifier without subpath
+        """
+        in_quotes = False
+        last_dot = -1
+        for i, ch in enumerate(qualifier):
+            if ch == '"':
+                in_quotes = not in_quotes
+            elif ch == "." and not in_quotes:
+                last_dot = i
+        if last_dot == -1:
+            return "", qualifier
+        return qualifier[:last_dot], qualifier[last_dot + 1 :]
+
+    @staticmethod
+    def _count_unquoted_dots(s: str) -> int:
+        """Count '.' characters not inside double-quoted segments.
+
+        :param s: string to inspect
+        """
+        in_quotes = False
+        count = 0
+        for ch in s:
+            if ch == '"':
+                in_quotes = not in_quotes
+            elif ch == "." and not in_quotes:
+                count += 1
+        return count
 
 
 class DataFunction:

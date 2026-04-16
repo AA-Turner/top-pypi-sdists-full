@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Literal, TypedDict
 
 from django.conf import settings
 from django.utils import timezone
@@ -15,6 +15,7 @@ from weblate.addons.base import BaseAddon
 from weblate.addons.events import AddonEvent
 from weblate.addons.forms import AutoAddonForm
 from weblate.trans.actions import ACTIONS_CONTENT, ActionEvents
+from weblate.trans.filter import FILTERS
 from weblate.trans.models import Component
 from weblate.trans.tasks import auto_translate, auto_translate_component
 
@@ -27,7 +28,34 @@ if TYPE_CHECKING:
 SKIP_ACTIONS = {ActionEvents.AUTO, ActionEvents.ENFORCED_CHECK}
 
 
-class AutoTranslateAddon(BaseAddon):
+DEFAULT_AUTO_SOURCE: Literal["mt", "others"] = "others"
+DEFAULT_AUTO_TRANSLATE_MODE = "suggest"
+DEFAULT_AUTO_TRANSLATE_QUERY = "state:<translated"
+DEFAULT_AUTO_TRANSLATE_THRESHOLD = 80
+
+
+class AutoTranslateAddonStoredConfiguration(TypedDict, total=False):
+    auto_source: Literal["mt", "others"]
+    component: int | Literal[""] | None
+    engines: list[str]
+    filter_type: str
+    mode: str
+    q: str
+    threshold: int
+
+
+class AutoTranslateAddonConfiguration(TypedDict):
+    auto_source: Literal["mt", "others"]
+    component: int | None
+    engines: list[str]
+    mode: str
+    q: str
+    threshold: int
+
+
+class AutoTranslateAddon(
+    BaseAddon[AutoTranslateAddonStoredConfiguration, AutoTranslateAddonConfiguration]
+):
     events: ClassVar[set[AddonEvent]] = {
         AddonEvent.EVENT_COMPONENT_UPDATE,
         AddonEvent.EVENT_DAILY,
@@ -48,6 +76,46 @@ class AutoTranslateAddon(BaseAddon):
     ) -> None:
         self.trigger_autotranslate(component=component)
 
+    def get_settings_form_data(
+        self,
+    ) -> AutoTranslateAddonStoredConfiguration | AutoTranslateAddonConfiguration:
+        return self.get_configuration()
+
+    def normalize_configuration(
+        self, configuration: AutoTranslateAddonStoredConfiguration
+    ) -> AutoTranslateAddonConfiguration:
+        auto_source = configuration.get("auto_source", DEFAULT_AUTO_SOURCE)
+        if auto_source == "others":
+            raw_component = configuration.get("component")
+            source_component_id = raw_component or None
+        else:
+            source_component_id = None
+
+        raw_query = configuration.get("q")
+        if raw_query is None:
+            raw_filter_type = configuration.get("filter_type")
+            if raw_filter_type is None:
+                query = DEFAULT_AUTO_TRANSLATE_QUERY
+            else:
+                query = FILTERS.get_filter_query(raw_filter_type)
+        else:
+            query = raw_query
+
+        threshold = (
+            configuration.get("threshold", DEFAULT_AUTO_TRANSLATE_THRESHOLD)
+            if auto_source == "mt"
+            else DEFAULT_AUTO_TRANSLATE_THRESHOLD
+        )
+
+        return {
+            "auto_source": auto_source,
+            "component": source_component_id,
+            "engines": configuration.get("engines", []),
+            "mode": configuration.get("mode", DEFAULT_AUTO_TRANSLATE_MODE),
+            "q": query,
+            "threshold": threshold,
+        }
+
     def trigger_autotranslate(
         self,
         *,
@@ -56,7 +124,8 @@ class AutoTranslateAddon(BaseAddon):
         translation_id: int | None = None,
         unit_ids: list[int] | None = None,
     ) -> None:
-        conf = self.instance.configuration
+        conf = self.get_configuration()
+        source_component_id = conf["component"]
         if component is None:
             auto_translate.delay_on_commit(
                 mode=conf["mode"],
@@ -64,7 +133,7 @@ class AutoTranslateAddon(BaseAddon):
                 auto_source=conf["auto_source"],
                 engines=conf["engines"],
                 threshold=conf["threshold"],
-                component=conf["component"],
+                source_component_id=source_component_id,
                 user_id=user_id,
                 unit_ids=unit_ids,
                 translation_id=translation_id,
@@ -77,11 +146,15 @@ class AutoTranslateAddon(BaseAddon):
                 auto_source=conf["auto_source"],
                 engines=conf["engines"],
                 threshold=conf["threshold"],
-                component=conf["component"],
+                source_component_id=source_component_id,
             )
 
-    def daily(self, component: Component, activity_log_id: int | None = None) -> None:
-        # Translate every component less frequenctly to reduce load.
+    def daily_component(
+        self,
+        component: Component,
+        activity_log_id: int | None = None,
+    ) -> None:
+        # Translate every component less frequently to reduce load.
         # The translation is anyway triggered on update, so it should
         # not matter that much that we run this less often.
         if settings.BACKGROUND_TASKS == "never":
@@ -158,7 +231,18 @@ class AutoTranslateAddon(BaseAddon):
             )
 
     def show_setting_field(self, field: BoundField) -> bool:
-        auto_source = self.instance.configuration["auto_source"]
+        form = getattr(field, "form", None)
+        form_data = getattr(form, "data", None)
+        raw_auto_source = (
+            form_data.get("auto_source", DEFAULT_AUTO_SOURCE)
+            if form_data is not None
+            else DEFAULT_AUTO_SOURCE
+        )
+        auto_source = (
+            raw_auto_source
+            if raw_auto_source in {"mt", "others"}
+            else DEFAULT_AUTO_SOURCE
+        )
         # Do not show UI hidden fields
         if (auto_source == "mt" and field.name == "component") or (
             auto_source == "others" and field.name in {"engines", "threshold"}
@@ -169,5 +253,8 @@ class AutoTranslateAddon(BaseAddon):
     def get_setting_value(self, field: BoundField) -> StrOrPromise:
         if field.name == "component" and not hasattr(field.field, "choices"):
             # Manually handle char field
-            return str(Component.objects.get(pk=field.value()))
+            try:
+                return str(Component.objects.get(pk=field.value()))
+            except (Component.DoesNotExist, TypeError, ValueError):
+                return str(field.value())
         return super().get_setting_value(field)

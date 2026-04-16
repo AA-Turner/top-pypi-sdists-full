@@ -32,7 +32,7 @@ def sync(
     review_public_id: str,
     x_api_key: str | None = None,
 ) -> None:
-    """Delete a review and its annotations. Author only."""
+    """Delete a review and its annotations. Author only (admin can delete any)."""
 
     request_args = _build_request_args(
         review_public_id=review_public_id,
@@ -49,7 +49,7 @@ async def asyncio(
     review_public_id: str,
     x_api_key: str | None = None,
 ) -> None:
-    """Delete a review and its annotations. Author only."""
+    """Delete a review and its annotations. Author only (admin can delete any)."""
 
     request_args = _build_request_args(
         review_public_id=review_public_id,

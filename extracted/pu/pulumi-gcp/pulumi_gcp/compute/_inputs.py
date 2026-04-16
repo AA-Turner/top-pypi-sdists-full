@@ -439,6 +439,8 @@ __all__ = [
     'InstanceGroupManagerStatusStatefulPerInstanceConfigArgsDict',
     'InstanceGroupManagerStatusVersionTargetArgs',
     'InstanceGroupManagerStatusVersionTargetArgsDict',
+    'InstanceGroupManagerTargetSizePolicyArgs',
+    'InstanceGroupManagerTargetSizePolicyArgsDict',
     'InstanceGroupManagerUpdatePolicyArgs',
     'InstanceGroupManagerUpdatePolicyArgsDict',
     'InstanceGroupManagerVersionArgs',
@@ -893,6 +895,8 @@ __all__ = [
     'RegionInstanceGroupManagerStatusStatefulPerInstanceConfigArgsDict',
     'RegionInstanceGroupManagerStatusVersionTargetArgs',
     'RegionInstanceGroupManagerStatusVersionTargetArgsDict',
+    'RegionInstanceGroupManagerTargetSizePolicyArgs',
+    'RegionInstanceGroupManagerTargetSizePolicyArgsDict',
     'RegionInstanceGroupManagerUpdatePolicyArgs',
     'RegionInstanceGroupManagerUpdatePolicyArgsDict',
     'RegionInstanceGroupManagerVersionArgs',
@@ -23018,6 +23022,34 @@ class InstanceGroupManagerStatusVersionTargetArgs:
         pulumi.set(self, "is_reached", value)
 
 
+class InstanceGroupManagerTargetSizePolicyArgsDict(TypedDict):
+    mode: pulumi.Input[_builtins.str]
+    """
+    The mode of target size policy based on which the MIG creates its VMs individually or all at once. Values: "BULK", "INDIVIDUAL".
+    """
+
+@pulumi.input_type
+class InstanceGroupManagerTargetSizePolicyArgs:
+    def __init__(__self__, *,
+                 mode: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] mode: The mode of target size policy based on which the MIG creates its VMs individually or all at once. Values: "BULK", "INDIVIDUAL".
+        """
+        pulumi.set(__self__, "mode", mode)
+
+    @_builtins.property
+    @pulumi.getter
+    def mode(self) -> pulumi.Input[_builtins.str]:
+        """
+        The mode of target size policy based on which the MIG creates its VMs individually or all at once. Values: "BULK", "INDIVIDUAL".
+        """
+        return pulumi.get(self, "mode")
+
+    @mode.setter
+    def mode(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "mode", value)
+
+
 class InstanceGroupManagerUpdatePolicyArgsDict(TypedDict):
     minimal_action: pulumi.Input[_builtins.str]
     """
@@ -44443,6 +44475,34 @@ class RegionInstanceGroupManagerStatusVersionTargetArgs:
     @is_reached.setter
     def is_reached(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "is_reached", value)
+
+
+class RegionInstanceGroupManagerTargetSizePolicyArgsDict(TypedDict):
+    mode: pulumi.Input[_builtins.str]
+    """
+    The mode of target size policy based on which the MIG creates its VMs individually or all at once. Values: "BULK", "INDIVIDUAL".
+    """
+
+@pulumi.input_type
+class RegionInstanceGroupManagerTargetSizePolicyArgs:
+    def __init__(__self__, *,
+                 mode: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] mode: The mode of target size policy based on which the MIG creates its VMs individually or all at once. Values: "BULK", "INDIVIDUAL".
+        """
+        pulumi.set(__self__, "mode", mode)
+
+    @_builtins.property
+    @pulumi.getter
+    def mode(self) -> pulumi.Input[_builtins.str]:
+        """
+        The mode of target size policy based on which the MIG creates its VMs individually or all at once. Values: "BULK", "INDIVIDUAL".
+        """
+        return pulumi.get(self, "mode")
+
+    @mode.setter
+    def mode(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "mode", value)
 
 
 class RegionInstanceGroupManagerUpdatePolicyArgsDict(TypedDict):

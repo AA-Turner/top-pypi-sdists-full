@@ -8,7 +8,6 @@ from requests.exceptions import RequestException
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 from roboflow.config import API_URL, DEFAULT_BATCH_NAME, DEFAULT_JOB_NAME
-from roboflow.util import image_utils
 
 
 class RoboflowError(Exception):
@@ -294,6 +293,8 @@ def upload_image(
 
     # If image is not a hosted image
     if not hosted_image:
+        from roboflow.util import image_utils
+
         image_name = os.path.basename(image_path)
         imgjpeg = image_utils.file2jpeg(image_path)
 
@@ -404,7 +405,9 @@ def save_annotation(
     if response.status_code not in (200, 409):
         raise _save_annotation_error(response)
     if response.status_code == 409:
-        if "already annotated" in responsejson.get("error", {}).get("message"):
+        err_obj = responsejson.get("error", {})
+        err_message = err_obj.get("message", "") if isinstance(err_obj, dict) else str(err_obj)
+        if "already annotated" in err_message:
             return {"warn": "already annotated"}
         else:
             raise _save_annotation_error(response)
@@ -472,9 +475,9 @@ def _save_annotation_error(response):
 
     if responsejson.get("error"):
         err_msg = responsejson["error"]
-        if err_msg.get("message"):
-            err_msg = err_msg["message"]
-        return AnnotationSaveError(err_msg, status_code=response.status_code)
+        if isinstance(err_msg, dict):
+            err_msg = err_msg.get("message", str(err_msg))
+        return AnnotationSaveError(str(err_msg), status_code=response.status_code)
 
     return AnnotationSaveError(str(responsejson), status_code=response.status_code)
 

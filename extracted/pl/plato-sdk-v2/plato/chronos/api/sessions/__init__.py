@@ -2,10 +2,12 @@
 
 from . import (
     archive_session,
+    backfill_session_costs,
     clear_agent_notes,
     close_session,
     complete_session,
     create_session,
+    get_analytics_timeseries,
     get_audit_event_counts,
     get_session,
     get_session_artifact_download,
@@ -44,8 +46,10 @@ __all__ = [
     "list_tags",
     "list_session_creators",
     "get_usage_stats",
+    "get_analytics_timeseries",
     "get_session_cost_summary",
     "get_session",
+    "backfill_session_costs",
     "get_session_status",
     "update_session_status",
     "archive_session",

@@ -32,7 +32,7 @@ def sync(
     annotation_public_id: str,
     x_api_key: str | None = None,
 ) -> None:
-    """Delete an annotation and descendants. Author only."""
+    """Delete an annotation and descendants. Author only (admin can delete any)."""
 
     request_args = _build_request_args(
         annotation_public_id=annotation_public_id,
@@ -49,7 +49,7 @@ async def asyncio(
     annotation_public_id: str,
     x_api_key: str | None = None,
 ) -> None:
-    """Delete an annotation and descendants. Author only."""
+    """Delete an annotation and descendants. Author only (admin can delete any)."""
 
     request_args = _build_request_args(
         annotation_public_id=annotation_public_id,

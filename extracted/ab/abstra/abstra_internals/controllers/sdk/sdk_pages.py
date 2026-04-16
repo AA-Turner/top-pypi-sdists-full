@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 
 import jwt as pyjwt
 
+from abstra_internals.controllers.sdk._multipart import parse_multipart
 from abstra_internals.environment import CLOUD_API_PROD_SHARED_TOKEN, IS_DEVELOPMENT
 from abstra_internals.interface.sdk import user_exceptions
 from abstra_internals.repositories.users import UsersRepository
@@ -68,7 +69,7 @@ class PageSDKController:
         request = self.client.get_request()
 
         if request.method == "POST":
-            self._handle_function_call(request.body)
+            self._handle_function_call(request.body, request.headers)
         else:
             self._handle_render()
 
@@ -116,19 +117,34 @@ class PageSDKController:
 
         self.client.set_response(200, full_html, {"Content-Type": "text/html"})
 
-    def _handle_function_call(self, body: str) -> None:
-        try:
-            data = json.loads(body)
-        except (json.JSONDecodeError, TypeError):
-            self.client.set_response(
-                400,
-                json.dumps({"error": "Invalid JSON body"}),
-                {"Content-Type": "application/json"},
-            )
-            return
+    def _handle_function_call(self, body: str, headers: Dict[str, str]) -> None:
+        content_type = CaseInsensitiveDict(headers).get("Content-Type") or ""
 
-        function_name = data.get("function")
-        params = data.get("params", {})
+        if "multipart/form-data" in content_type.lower():
+            try:
+                function_name, params = self._parse_multipart_call(body, headers)
+            except (ValueError, KeyError):
+                # ValueError covers binascii.Error (bad base64) and multipart
+                # parse failures; KeyError covers a missing boundary option.
+                self.client.set_response(
+                    400,
+                    json.dumps({"error": "Invalid multipart body"}),
+                    {"Content-Type": "application/json"},
+                )
+                return
+        else:
+            try:
+                data = json.loads(body)
+            except (json.JSONDecodeError, TypeError):
+                self.client.set_response(
+                    400,
+                    json.dumps({"error": "Invalid JSON body"}),
+                    {"Content-Type": "application/json"},
+                )
+                return
+
+            function_name = data.get("function")
+            params = data.get("params", {})
 
         if function_name == RENDER_FUNCTION_NAME:
             self.client.set_response(
@@ -138,7 +154,11 @@ class PageSDKController:
             )
             return
 
-        func = self._registered_functions.get(function_name)
+        func = (
+            self._registered_functions.get(function_name)
+            if isinstance(function_name, str)
+            else None
+        )
         if not func:
             self.client.set_response(
                 404,
@@ -156,6 +176,54 @@ class PageSDKController:
             self._handle_generator_call(func, filtered_params)
         else:
             self._handle_regular_call(func, filtered_params)
+
+    def _parse_multipart_call(
+        self, body: str, headers: Dict[str, str]
+    ) -> tuple[Optional[str], Dict]:
+        """Decode a multipart/form-data call into (function_name, params).
+
+        File fields arrive as ``{"filename", "content_type", "content": bytes}``;
+        non-file fields are JSON-decoded so structure (lists, dicts, numbers,
+        booleans) survives the round-trip. Multiple parts sharing a name are
+        collapsed into a list.
+        """
+        parts = parse_multipart(body, CaseInsensitiveDict(headers))
+
+        function_name: Optional[str] = None
+        params: Dict = {}
+        for part in parts:
+            name = part.get("name")
+            if not isinstance(name, str):
+                continue
+            if "filename" in part:
+                raw_filename = str(part["filename"])
+                value = {
+                    "filename": os.path.basename(raw_filename.replace("\\", "/")),
+                    "content_type": part["content_type"],
+                    "content": part["content"],
+                }
+            else:
+                raw_value = part.get("value")
+                try:
+                    value = json.loads(raw_value) if raw_value is not None else None
+                except (json.JSONDecodeError, TypeError):
+                    value = raw_value
+
+            if name == "__function__":
+                if isinstance(value, str):
+                    function_name = value
+                continue
+
+            if name in params:
+                existing = params[name]
+                if isinstance(existing, list):
+                    existing.append(value)
+                else:
+                    params[name] = [existing, value]
+            else:
+                params[name] = value
+
+        return function_name, params
 
     def _handle_regular_call(self, func: Callable, params: dict) -> None:
         try:
@@ -209,15 +277,38 @@ class PageSDKController:
         js_params_obj = ", ".join(f"{p['name']}: {p['name']}" for p in params)
         return [
             "  const __endpoint = document.querySelector('base')?.getAttribute('href') || window.location.pathname;",
-            "  const __headers = { 'Content-Type': 'application/json' };",
+            "  const __headers = {};",
             "  const __token = document.querySelector('meta[name=\"abstra-auth-token\"]')?.getAttribute('content');",
             "  if (__token) __headers['Authorization'] = 'Bearer ' + __token;",
             "  const __pageExecId = document.querySelector('meta[name=\"abstra-execution-id\"]')?.getAttribute('content');",
             "  if (__pageExecId) __headers['X-Page-Execution-Id'] = __pageExecId;",
+            f"  const __params = {{ {js_params_obj} }};",
+            "  const __isBlob = (v) => v instanceof Blob;",
+            "  const __isBlobList = (v) => (Array.isArray(v) || (typeof FileList !== 'undefined' && v instanceof FileList)) && Array.from(v).every(__isBlob);",
+            "  const __hasFile = Object.values(__params).some(v => __isBlob(v) || __isBlobList(v));",
+            "  let __body;",
+            "  if (__hasFile) {",
+            "    const __fd = new FormData();",
+            f'    __fd.append("__function__", "{name}");',
+            "    for (const [__k, __v] of Object.entries(__params)) {",
+            "      if (__isBlob(__v)) {",
+            "        __fd.append(__k, __v, __v.name || __k);",
+            "      } else if (__isBlobList(__v)) {",
+            "        for (const __f of __v) __fd.append(__k, __f, __f.name || __k);",
+            "      } else if (__v !== undefined) {",
+            "        __fd.append(__k, JSON.stringify(__v));",
+            "      }",
+            "    }",
+            "    __body = __fd;",
+            "    // Intentionally omit Content-Type — browser sets it with boundary",
+            "  } else {",
+            "    __headers['Content-Type'] = 'application/json';",
+            f'    __body = JSON.stringify({{ function: "{name}", params: __params }});',
+            "  }",
             "  const response = await fetch(__endpoint, {",
             '    method: "POST",',
             "    headers: __headers,",
-            f'    body: JSON.stringify({{ function: "{name}", params: {{ {js_params_obj} }} }})',
+            "    body: __body",
             "  });",
             "  if (!response.ok) {",
             "    const text = await response.text();",

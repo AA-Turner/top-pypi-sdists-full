@@ -29,6 +29,7 @@ def create_llm(provider: str = None, model: str = None) -> Any:
 
     Supported Providers:
         - openai: Requires OPENAI_API_KEY
+        - openai_responses: Requires OPENAI_API_KEY
         - anthropic: Requires ANTHROPIC_API_KEY
         - google: Requires GOOGLE_API_KEY
         - aws: Uses AWS default credential chain (SSO, environment variables, or IAM roles)
@@ -48,7 +49,7 @@ def create_llm(provider: str = None, model: str = None) -> Any:
         llm = create_llm("aws")
     """
     if provider is None:
-        provider = os.getenv("LLM_PROVIDER", "openai").lower()
+        provider = os.getenv("LLM_PROVIDER", "openai_responses").lower()
     else:
         provider = provider.lower()
 
@@ -59,10 +60,15 @@ def create_llm(provider: str = None, model: str = None) -> Any:
             "api_key_env": "OPENAI_API_KEY",
             "default_model": "gpt-4.1",
         },
+        "openai_responses": {
+            "service": "pipecat.services.openai.responses.llm.OpenAIResponsesLLMService",
+            "api_key_env": "OPENAI_API_KEY",
+            "default_model": "gpt-4.1",
+        },
         "anthropic": {
             "service": "pipecat.services.anthropic.llm.AnthropicLLMService",
             "api_key_env": "ANTHROPIC_API_KEY",
-            "default_model": "claude-sonnet-4-5-20250929",
+            "default_model": "claude-sonnet-4-6",
         },
         "google": {
             "service": "pipecat.services.google.llm.GoogleLLMService",
@@ -72,7 +78,7 @@ def create_llm(provider: str = None, model: str = None) -> Any:
         "aws": {
             "service": "pipecat.services.aws.llm.AWSBedrockLLMService",
             "api_key_env": None,  # AWS uses default credential chain
-            "default_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+            "default_model": "us.anthropic.claude-sonnet-4-6",
             "region": "us-west-2",
         },
     }
@@ -98,14 +104,17 @@ def create_llm(provider: str = None, model: str = None) -> Any:
     # Use provided model or default
     selected_model = model or config["default_model"]
 
-    # Build kwargs
-    kwargs = {"api_key": api_key, "model": selected_model}
+    # Build settings
+    settings_kwargs = {"model": selected_model}
+    if provider == "aws":
+        settings_kwargs["temperature"] = 0.8
+    settings = service_class.Settings(**settings_kwargs)
 
-    # Add AWS-specific parameters
+    # Build constructor kwargs
+    kwargs = {"settings": settings}
+    if api_key is not None:
+        kwargs["api_key"] = api_key
     if provider == "aws":
         kwargs["aws_region"] = os.getenv("AWS_REGION", config["region"])
-        kwargs["params"] = service_class.InputParams(temperature=0.8)
-        # Remove the generic api_key since AWS uses default credential chain
-        del kwargs["api_key"]
 
     return service_class(**kwargs)

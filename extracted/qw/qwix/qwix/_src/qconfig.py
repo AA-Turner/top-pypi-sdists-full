@@ -19,6 +19,7 @@ import re
 from typing import Any
 
 from absl import logging
+from flax import linen as nn
 from flax import nnx
 import jax
 from jax.experimental import pallas as pl
@@ -103,14 +104,20 @@ class QuantizationProvider:
   injected into the model by using interception.py.
   """
 
-  def __init__(self, rules: Sequence[QuantizationRule]):
+  def __init__(
+      self, rules: Sequence[QuantizationRule], *, disable_jit: bool = False
+  ):
     """Initialize the provider.
 
     Args:
       rules: The quantization rules in the order of precedence.
+      disable_jit: Whether to disable JIT when wrapping methods.
     """
+    self._rule_matches = [0] * len(rules)
     self._rules = [self._init_rule(rule) for rule in rules]
     self._logged_ops = set()
+    self._initial_run_complete = False
+    self.disable_jit = disable_jit
 
   def _init_rule(self, rule: QuantizationRule) -> QuantizationRule:
     """Validate and set default values for the rule."""
@@ -131,13 +138,32 @@ class QuantizationProvider:
         )
     }
     if interception.has_attribute('jax.experimental.pallas.pallas_call'):
-      # Disable interception for ops in pallas_call.
+      # 1. Disable interceptions during the pallas_call factory setup.
+      # 2. Wrap the returned callable so that interceptions remain disabled
+      #    during deferred execution.
       intercept_map['jax.experimental.pallas.pallas_call'] = (
           lambda *args, **kwargs: interception.disable_interceptions(
-              pl.pallas_call(*args, **kwargs)
+              interception.disable_interceptions(pl.pallas_call)(
+                  *args, **kwargs
+              )
           )
       )
     return intercept_map
+
+  def get_interceptors(
+      self,
+  ) -> Sequence[Callable[[], interception.Interceptor]]:
+    """Returns a list of interceptor factories.
+
+    The default implementation returns a single interceptor that handles
+    all ops. Subclasses can override this method to return multiple
+    interceptors if needed (e.g. ODML providers).
+    """
+    return [
+        lambda: interception.Interceptor(
+            mapping=self.get_intercept_map(), id=id(self)
+        )
+    ]
 
   def process_model_inputs(
       self, model: Any, model_args: Sequence[Any], model_kwargs: dict[str, Any]
@@ -152,6 +178,7 @@ class QuantizationProvider:
   def process_model_output(self, method_name: str, model_output: Any) -> Any:
     """Process the model output before it is returned."""
     del method_name
+    self._initial_run_complete = True
     return model_output
 
   def _get_current_rule_and_op_id(
@@ -184,22 +211,47 @@ class QuantizationProvider:
         rule_idx = idx
         break
     rule = self._rules[rule_idx] if rule_idx is not None else None
+    if rule_idx is not None:
+      self._rule_matches[rule_idx] += 1
     if only_rule:
       return rule, None
 
     # Always generate op_id regardless of whether a rule is found.
     module = flax_util.get_current_module()
-    count = aux_data.get(module, op_name + '_count', 0)
+    tracking_key = module.scope if isinstance(module, nn.Module) else module
+    count = aux_data.get(tracking_key, op_name + '_count', 0)
     if repeated_call:
       count -= 1
     else:
-      aux_data.set(module, op_name + '_count', count + 1)
+      aux_data.set(tracking_key, op_name + '_count', count + 1)
     op_id = op_name + str(count)
 
     if (module_path, op_id) not in self._logged_ops:
       # Avoid logging the same message multiple times.
       self._logged_ops.add((module_path, op_id))
-      logging.info(
+      logging.debug(
           '[QWIX] module=%r op=%s rule=%s', module_path, op_id, rule_idx
       )
     return rule, op_id
+
+  def get_unused_rules(self) -> Sequence[QuantizationRule]:
+    """Returns the quantization rules that did not match any operations.
+
+    This should be called after model quantization (e.g., `quantize_model`) to
+    verify that all rules were applied as expected. A rule is considered unused
+    if its `module_path` regex did not match any module's path, or if its
+    `op_names` did not match any intercepted operation within a matching module.
+
+    Returns:
+      A sequence of unused quantization rules.
+    """
+    if not self._initial_run_complete:
+      raise ValueError(
+          'Quantization is not completed yet. Please call `quantize_model`'
+          ' before calling `get_unused_rules`.'
+      )
+    return [
+        self._rules[i]
+        for i, rule_matches in enumerate(self._rule_matches)
+        if rule_matches == 0
+    ]

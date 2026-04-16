@@ -61,7 +61,8 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     "get_changed_symbols", "plan_refactoring",
     # Architecture
     "get_dependency_cycles", "get_coupling_metrics", "get_layer_violations",
-    "get_extraction_candidates", "get_cross_repo_map",
+    "get_extraction_candidates", "get_cross_repo_map", "get_tectonic_map", "get_signal_chains",
+    "render_diagram", "get_project_intel",
     # Quality & Metrics
     "get_symbol_complexity", "get_churn_rate", "get_hotspots",
     "get_repo_health", "get_symbol_importance", "find_dead_code",
@@ -107,7 +108,8 @@ _TOOL_TIER_STANDARD: frozenset[str] = _TOOL_TIER_CORE | frozenset({
     "get_untested_symbols", "get_repo_health",
     # Architecture
     "get_dependency_cycles", "get_coupling_metrics", "get_layer_violations",
-    "get_cross_repo_map",
+    "get_cross_repo_map", "get_tectonic_map", "get_signal_chains",
+    "render_diagram", "get_project_intel",
     # Utilities
     "invalidate_cache",
 })
@@ -1848,6 +1850,146 @@ def _build_tools_list() -> list[Tool]:
                 },
             },
         ),
+        Tool(
+            name="get_tectonic_map",
+            description=(
+                "Discover the logical module topology of a codebase by fusing three coupling signals: "
+                "structural (import edges), behavioral (shared symbol references), and temporal "
+                "(git co-churn). Returns tectonic plates (auto-detected file clusters), each with "
+                "an anchor file, cohesion score, inter-plate coupling, and drifters (files whose "
+                "directory doesn't match their logical module). Detects nexus plates (god-module risk: "
+                "coupled to ≥4 other plates). No k parameter — plate count emerges from the topology. "
+                "Use to find hidden module boundaries, misplaced files, and architectural drift."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repository identifier (owner/repo or just repo name)",
+                    },
+                    "days": {
+                        "type": "integer",
+                        "description": "Git co-churn look-back window in days (default 90)",
+                        "default": 90,
+                    },
+                    "min_plate_size": {
+                        "type": "integer",
+                        "description": "Minimum files per plate to include; smaller groups go to isolated_files (default 2)",
+                        "default": 2,
+                    },
+                },
+                "required": ["repo"],
+            },
+        ),
+        Tool(
+            name="get_signal_chains",
+            description=(
+                "Discover how external signals (HTTP requests, CLI commands, scheduled tasks, events) "
+                "propagate through the codebase via the call graph. Each signal chain traces a path "
+                "from a gateway (entry point) through its callees to leaf symbols. "
+                "Two modes: (1) Discovery — omit symbol to map all chains with orphan detection; "
+                "(2) Lookup — pass a symbol name/ID to find which user-facing chains it participates in "
+                "(e.g. 'validate_email sits on POST /api/users and cli:import-users'). "
+                "Detects gateways from route decorators (Flask/FastAPI/Spring/NestJS/ASP.NET), "
+                "CLI commands (@click, @app.command), task queues (@celery, @dramatiq), event handlers, "
+                "and standard entry points (main.py, __main__.py). "
+                "Use before refactoring to understand which user-facing behaviors depend on a symbol."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repository identifier (owner/repo or just repo name)",
+                    },
+                    "symbol": {
+                        "type": "string",
+                        "description": "Symbol name or ID for lookup mode. When provided, returns only chains containing that symbol. Omit for discovery mode (all chains).",
+                    },
+                    "kind": {
+                        "type": "string",
+                        "description": "Filter gateways by kind: http, cli, event, task, main, test.",
+                        "enum": ["http", "cli", "event", "task", "main", "test"],
+                    },
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "BFS depth limit per chain (1–8, default 5).",
+                        "default": 5,
+                    },
+                    "include_tests": {
+                        "type": "boolean",
+                        "description": "Include test_* functions as gateways (default false).",
+                        "default": False,
+                    },
+                },
+                "required": ["repo"],
+            },
+        ),
+        Tool(
+            name="render_diagram",
+            description=(
+                "Render any graph-producing tool's output as rich, annotated Mermaid markup. "
+                "Pass the raw output dict from get_call_hierarchy, get_signal_chains, "
+                "get_tectonic_map, get_dependency_cycles, get_impact_preview, "
+                "get_blast_radius, or get_dependency_graph. Auto-detects the source tool "
+                "and picks the optimal diagram type: flowchart TD (call hierarchy, blast radius), "
+                "flowchart BT (impact preview), flowchart LR (tectonic plates, dependency graph, "
+                "cycles), or sequenceDiagram (signal chains). Encodes metadata as visual signals: "
+                "edge colors for resolution confidence, node shapes for symbol kind, subgraph "
+                "grouping by file/plate/depth, risk heat coloring. Themes: 'flow' (blue/purple "
+                "depth gradient), 'risk' (red/yellow/green heat), 'minimal' (monochrome). "
+                "Smart pruning keeps output under max_nodes."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "source": {
+                        "type": "object",
+                        "description": "Raw output dict from any supported graph-producing tool.",
+                    },
+                    "theme": {
+                        "type": "string",
+                        "enum": ["flow", "risk", "minimal"],
+                        "description": "Visual theme: 'flow' (architecture), 'risk' (impact), 'minimal' (docs). Default: flow.",
+                        "default": "flow",
+                    },
+                    "max_nodes": {
+                        "type": "integer",
+                        "description": "Maximum nodes before smart pruning (default 80, range 10–200).",
+                        "default": 80,
+                    },
+                },
+                "required": ["source"],
+            },
+        ),
+        Tool(
+            name="get_project_intel",
+            description=(
+                "Auto-discover and parse non-code knowledge files (Dockerfiles, CI configs, "
+                "docker-compose, K8s manifests, .env templates, Makefiles, package.json scripts) "
+                "and cross-reference them to indexed code symbols. Returns structured intelligence "
+                "grouped by category: infra, ci, config, deps, api, data. "
+                "For categories already in the index (OpenAPI, Terraform, GraphQL, Protobuf, dbt), "
+                "pulls from the index directly. Requires a local index (index_folder)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repository identifier (owner/repo or display name).",
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "Category to return: all, infra, ci, config, deps, api, data.",
+                        "default": "all",
+                        "enum": ["all", "infra", "ci", "config", "deps", "api", "data"],
+                    },
+                },
+                "required": ["repo"],
+            },
+        ),
     ]
     # --- Profile filtering ---------------------------------------------------
     profile = config_module.get("tool_profile", "full")
@@ -2820,6 +2962,50 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     storage_path=storage_path,
                 )
             )
+        elif name == "get_tectonic_map":
+            from .tools.get_tectonic_map import get_tectonic_map
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_tectonic_map,
+                    repo=arguments["repo"],
+                    days=arguments.get("days", 90),
+                    min_plate_size=arguments.get("min_plate_size", 2),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "get_signal_chains":
+            from .tools.get_signal_chains import get_signal_chains
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_signal_chains,
+                    repo=arguments["repo"],
+                    symbol=arguments.get("symbol"),
+                    kind=arguments.get("kind"),
+                    max_depth=arguments.get("max_depth", 5),
+                    include_tests=arguments.get("include_tests", False),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "render_diagram":
+            from .tools.render_diagram import render_diagram
+            result = await asyncio.to_thread(
+                functools.partial(
+                    render_diagram,
+                    source=arguments["source"],
+                    theme=arguments.get("theme", "flow"),
+                    max_nodes=arguments.get("max_nodes", 80),
+                )
+            )
+        elif name == "get_project_intel":
+            from .tools.get_project_intel import get_project_intel
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_project_intel,
+                    repo=arguments["repo"],
+                    category=arguments.get("category", "all"),
+                    storage_path=storage_path,
+                )
+            )
         else:
             result = {"error": f"Unknown tool: {name}"}
 
@@ -3441,7 +3627,9 @@ def _generate_claude_md_snippet(missing_only: bool = False) -> str:
                               "plan_refactoring"]),
         ("Architecture", ["get_dependency_cycles", "get_coupling_metrics",
                           "get_layer_violations", "get_extraction_candidates",
-                          "get_cross_repo_map"]),
+                          "get_cross_repo_map", "get_tectonic_map",
+                          "get_signal_chains", "render_diagram",
+                          "get_project_intel"]),
         ("Quality & Metrics", ["get_symbol_complexity", "get_churn_rate", "get_hotspots",
                                 "get_repo_health", "get_symbol_importance",
                                 "find_dead_code", "get_dead_code_v2",

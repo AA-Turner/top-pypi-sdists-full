@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalkpy
-Version: 2.118.1
+Version: 2.118.3
 Summary: Python SDK for Chalk
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -18,7 +18,7 @@ Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.14,>=3.10
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: attrs>=21.3.0
 Requires-Dist: cattrs<25,>=22.1.0
@@ -75,7 +75,7 @@ Requires-Dist: polars[timezone]!=1.0,!=1.1,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=
 Provides-Extra: openai
 Requires-Dist: openai<1.53,>=1.3.2; extra == "openai"
 Requires-Dist: httpx<0.28.0; extra == "openai"
-Requires-Dist: tiktoken<0.9,>=0.5.1; extra == "openai"
+Requires-Dist: tiktoken<0.13,>=0.12.0; extra == "openai"
 Provides-Extra: cohere
 Requires-Dist: cohere==5.11.4; extra == "cohere"
 Provides-Extra: vertexai
@@ -327,7 +327,7 @@ Requires-Dist: sqlalchemy-bigquery<1.12,>=1.5.0; extra == "all"
 Requires-Dist: sqlalchemy-spanner<1.12.0; extra == "all"
 Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "all"
 Requires-Dist: sqlglot<21.2.0,>=19.0.0; extra == "all"
-Requires-Dist: tiktoken<0.9,>=0.5.1; extra == "all"
+Requires-Dist: tiktoken<0.13,>=0.12.0; extra == "all"
 Requires-Dist: trino[sqlalchemy]; extra == "all"
 Provides-Extra: polars
 Requires-Dist: adlfs; extra == "polars"

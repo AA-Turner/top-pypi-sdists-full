@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ics
-Version: 0.7.2
+Version: 0.7.3
 Summary: Python icalendar (rfc5545) parser
 Home-page: http://github.com/C4ptainCrunch/ics.py
 Author: Nikita Marchant
@@ -21,6 +21,21 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Typing :: Typed
 License-File: LICENSE.rst
+Requires-Dist: python-dateutil
+Requires-Dist: arrow>=0.11
+Requires-Dist: six>1.5
+Requires-Dist: tatsu<5.16.0,>4.2
+Requires-Dist: attrs>=19.1.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 Ics.py : iCalendar for Humans
 =============================

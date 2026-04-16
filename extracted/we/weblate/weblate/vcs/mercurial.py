@@ -32,6 +32,8 @@ VERSION_RE = re.compile(r".*\(version ([^)]*)\).*")
 class HgRepository(Repository):
     """Repository implementation for Mercurial."""
 
+    metadata_dir_name: ClassVar[str] = ".hg"
+
     _cmd: ClassVar[str] = "rhg" if which("rhg") is not None else "hg"
     _cmd_last_revision: ClassVar[list[str]] = [
         "log",
@@ -330,10 +332,16 @@ class HgRepository(Repository):
 
         return True
 
-    def remove(self, files: list[str], message: str, author: str | None = None) -> None:
+    def remove(
+        self,
+        files: list[str],
+        message: str,
+        author: str | None = None,
+        extra_commit_files: list[str] | None = None,
+    ) -> None:
         """Remove files and creates new revision."""
         self.execute(["remove", "--force", "--", *files])
-        self.commit(message, author)
+        self.commit(message, author, files=files + (extra_commit_files or []))
 
     def configure_remote(
         self, pull_url: str, push_url: str, branch: str, fast: bool = True
@@ -386,6 +394,7 @@ class HgRepository(Repository):
 
     def push(self, branch) -> None:
         """Push given branch to remote repository."""
+        self.validate_push_url()
         try:
             self.execute(["push", f"--branch={self.branch}"])
         except RepositoryError as error:
@@ -411,6 +420,7 @@ class HgRepository(Repository):
 
     def update_remote(self) -> None:
         """Update remote repository."""
+        self.validate_pull_url()
         self.execute(["pull", f"--branch={self.branch}"])
         self.clean_revision_cache()
 

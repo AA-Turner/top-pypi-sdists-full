@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: copilotkit
-Version: 0.1.86
+Version: 0.1.87
 Summary: CopilotKit python SDK
-Home-page: https://copilotkit.ai
 License: MIT
 Keywords: copilot,copilotkit,langgraph,langchain,ai,langsmith,langserve
 Author: Markus Ecker
@@ -22,6 +21,7 @@ Requires-Dist: langchain (>=0.3.0)
 Requires-Dist: langgraph (>=0.3.25,<2)
 Requires-Dist: partialjson (>=0.0.8,<0.0.9)
 Requires-Dist: toml (>=0.10.2,<0.11.0)
+Project-URL: Homepage, https://copilotkit.ai
 Project-URL: Repository, https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python
 Description-Content-Type: text/markdown
 

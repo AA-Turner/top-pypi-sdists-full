@@ -134,6 +134,9 @@ class WeblateAccountsConf(AppConf):
     SOCIAL_AUTH_SAML_IMAGE = "saml.svg"
     SOCIAL_AUTH_SAML_TITLE = "SAML"
 
+    # URL for password reset page when using external identity provider
+    PASSWORD_RESET_URL = None
+
     MAXIMAL_PASSWORD_LENGTH = 72
 
     # Login required URLs
@@ -313,6 +316,10 @@ ACCOUNT_ACTIVITY = {
     "team-add": gettext_lazy("User was added to the {team} team by {username}."),
     # Translators: Audit log entry
     "team-remove": gettext_lazy("User was removed from the {team} team by {username}."),
+    # Translators: Audit log entry
+    "token-created": gettext_lazy("Project token for {project} was created."),
+    # Translators: Audit log entry
+    "token-removed": gettext_lazy("Project token for {project} was removed."),
     # Translators: Audit log entry
     "recovery-generate": gettext_lazy(
         "Two-factor authentication recovery codes were generated"
@@ -507,7 +514,9 @@ class AuditLog(models.Model):
         )
 
     def get_params(self) -> dict[str, Any]:
-        from weblate.accounts.templatetags.authnames import get_auth_name
+        from weblate.accounts.templatetags.authnames import (  # noqa: PLC0415
+            get_auth_name,
+        )
 
         result: dict[str, Any] = {
             "site_title": settings.SITE_TITLE,
@@ -537,6 +546,10 @@ class AuditLog(models.Model):
         return format_html(str(message), **self.get_params())
 
     def get_extra_message(self) -> str | None:
+        if self.activity in {"token-created", "token-removed"} and self.params.get(
+            "username"
+        ):
+            return gettext("Triggered by {username}.").format(**self.params)
         if self.activity in EXTRA_MESSAGES:
             return EXTRA_MESSAGES[self.activity].format(**self.params)
         return None
@@ -553,7 +566,7 @@ class AuditLog(models.Model):
 
     def check_rate_limit(self, request: AuthenticatedHttpRequest) -> bool:
         """Check whether the activity should be rate limited."""
-        from weblate.accounts.utils import lock_user
+        from weblate.accounts.utils import lock_user  # noqa: PLC0415
 
         if (
             self.activity == "failed-auth"
@@ -1050,7 +1063,7 @@ class Profile(models.Model):
             | GhostCategoryLanguageStats
             | GhostTranslation,
         ) -> str:
-            from weblate.trans.models import Unit
+            from weblate.trans.models import Unit  # noqa: PLC0415
 
             language: Language
             is_source = False
@@ -1191,7 +1204,7 @@ class Profile(models.Model):
 
     @cached_property
     def second_factor_types(self) -> set[Literal["totp", "webauthn", "recovery"]]:
-        from weblate.accounts.utils import get_key_type
+        from weblate.accounts.utils import get_key_type  # noqa: PLC0415
 
         return {get_key_type(device) for device in self.second_factors}
 
@@ -1203,7 +1216,7 @@ class Profile(models.Model):
         )
 
     def log_2fa(self, request: AuthenticatedHttpRequest, device: Device) -> None:
-        from weblate.accounts.utils import get_key_name, get_key_type
+        from weblate.accounts.utils import get_key_name, get_key_type  # noqa: PLC0415
 
         # Audit log entry
         AuditLog.objects.create(

@@ -393,7 +393,9 @@ class FileSystemService:
         """
         results: List[Tuple[str, int, str]] = []
         for file_path in root_dir.glob(glob):
-            if file_path.is_file() and not FileSystemService.is_ignored(file_path):
+            if file_path.is_file() and (
+                not use_ignore or not FileSystemService.is_ignored(file_path)
+            ):
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:
                         for line_number, line in enumerate(f, start=1):

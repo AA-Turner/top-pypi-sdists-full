@@ -80,6 +80,14 @@ class JsSyntaxTest(BaseTest):
         self.assertTrue(any("bad.js" in label for label in issue_labels))
         self.assertFalse(any("good.js" in label for label in issue_labels))
 
+    def test_multiple_errors_single_issue(self):
+        (self.root / "bad.js").write_text("function foo( { var x = ; }")
+        rule = JsSyntax()
+        issues = rule.find_issues()
+        self.assertEqual(len(issues), 1)
+        self.assertIn("bad.js", issues[0].label)
+        self.assertGreater(issues[0].label.count("syntax error"), 1)
+
     def test_unreadable_file_is_skipped(self):
         (self.root / "bad.js").write_text("var x = 1;")
         # Make the file unreadable

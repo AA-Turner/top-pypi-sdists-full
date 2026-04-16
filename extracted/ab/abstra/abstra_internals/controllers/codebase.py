@@ -123,6 +123,9 @@ class CodebaseController:
             "__pycache__",
             ".pyrefly_buffer.py",
             "pyrefly.toml",
+            ".ruff_cache",
+            ".vscode",
+            "ruff.toml",
         }
 
         return [

@@ -2,10 +2,17 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import os
+import pathlib
+import tempfile
+from unittest.mock import patch
+
 from django.test.utils import override_settings
 
 from weblate.trans.discovery import ComponentDiscovery
+from weblate.trans.tasks import create_component
 from weblate.trans.tests.test_models import RepoTestCase
+from weblate.utils.files import remove_tree
 
 
 class ComponentDiscoveryTest(RepoTestCase):
@@ -44,6 +51,18 @@ class ComponentDiscoveryTest(RepoTestCase):
             ),
         )
 
+    def test_match_timeout(self) -> None:
+        with patch(
+            "weblate.trans.discovery.regex_match",
+            side_effect=TimeoutError,
+        ):
+            self.assertEqual(self.discovery.matches, [])
+        self.assertEqual(len(self.discovery.errors), 1)
+        self.assertEqual(
+            self.discovery.errors[0][1],
+            "The regular expression used to match discovered files is too complex and took too long to evaluate.",
+        )
+
     def test_matched_components(self) -> None:
         self.maxDiff = None
         self.assertEqual(
@@ -51,11 +70,11 @@ class ComponentDiscoveryTest(RepoTestCase):
             {
                 "po/*.po": {
                     "files": {"po/cs.po", "po/de.po", "po/it.po"},
-                    "files_langs": {
+                    "files_langs": (
                         ("po/cs.po", "cs"),
                         ("po/de.po", "de"),
                         ("po/it.po", "it"),
-                    },
+                    ),
                     "languages": {"cs", "de", "it"},
                     "mask": "po/*.po",
                     "name": "Po",
@@ -70,11 +89,11 @@ class ComponentDiscoveryTest(RepoTestCase):
                         "po-brokenlink/de.po",
                         "po-brokenlink/it.po",
                     },
-                    "files_langs": {
+                    "files_langs": (
                         ("po-brokenlink/cs.po", "cs"),
                         ("po-brokenlink/de.po", "de"),
                         ("po-brokenlink/it.po", "it"),
-                    },
+                    ),
                     "languages": {"cs", "de", "it"},
                     "mask": "po-brokenlink/*.po",
                     "name": "Po-Brokenlink",
@@ -85,11 +104,11 @@ class ComponentDiscoveryTest(RepoTestCase):
                 },
                 "po-link/*.po": {
                     "files": {"po-link/cs.po", "po-link/de.po", "po-link/it.po"},
-                    "files_langs": {
+                    "files_langs": (
                         ("po-link/cs.po", "cs"),
                         ("po-link/de.po", "de"),
                         ("po-link/it.po", "it"),
-                    },
+                    ),
                     "languages": {"cs", "de", "it"},
                     "mask": "po-link/*.po",
                     "name": "Po-Link",
@@ -105,12 +124,12 @@ class ComponentDiscoveryTest(RepoTestCase):
                         "po-mono/it.po",
                         "po-mono/en.po",
                     },
-                    "files_langs": {
+                    "files_langs": (
                         ("po-mono/cs.po", "cs"),
                         ("po-mono/de.po", "de"),
-                        ("po-mono/it.po", "it"),
                         ("po-mono/en.po", "en"),
-                    },
+                        ("po-mono/it.po", "it"),
+                    ),
                     "languages": {"cs", "de", "it", "en"},
                     "mask": "po-mono/*.po",
                     "name": "Po-Mono",
@@ -121,10 +140,10 @@ class ComponentDiscoveryTest(RepoTestCase):
                 },
                 "second-po/*.po": {
                     "files": {"second-po/cs.po", "second-po/de.po"},
-                    "files_langs": {
+                    "files_langs": (
                         ("second-po/cs.po", "cs"),
                         ("second-po/de.po", "de"),
-                    },
+                    ),
                     "languages": {"cs", "de"},
                     "mask": "second-po/*.po",
                     "name": "Second-Po",
@@ -203,6 +222,39 @@ class ComponentDiscoveryTest(RepoTestCase):
         self.assertEqual(len(deleted), 0)
         self.assertEqual(len(skipped), 1)
 
+    def test_create_component_tolerates_missing_copy_from_addons_source(self) -> None:
+        source_component = self._create_component(
+            "po",
+            "po/*.po",
+            name="copy-source",
+            slug="copy-source",
+            project=self.component.project,
+        )
+        source_component.addon_set.create(name="weblate.gettext.linguas")
+        copy_from = source_component.pk
+        source_component.delete()
+
+        result = create_component(
+            copy_from=copy_from,
+            copy_addons=True,
+            in_task=True,
+            name="copy-target",
+            slug="copy-target",
+            project=self.component.project.pk,
+            vcs=self.component.vcs,
+            repo=self.component.get_repo_link_url(),
+            file_format=self.component.file_format,
+            filemask=self.component.filemask,
+            new_base=self.component.new_base,
+            new_lang=self.component.new_lang,
+            language_regex=self.component.language_regex,
+            source_language=self.component.source_language.pk,
+        )
+
+        component = self.component.project.component_set.get(pk=result["component"])
+        self.assertEqual(component.slug, "copy-target")
+        self.assertFalse(component.addon_set.exists())
+
     def test_duplicates(self) -> None:
         # Create all components with desired name po
         discovery = ComponentDiscovery(
@@ -234,6 +286,72 @@ class ComponentDiscoveryTest(RepoTestCase):
         self.assertEqual(len(matched), 0)
         self.assertEqual(len(deleted), 0)
         self.assertEqual(len(skipped), 0)
+
+    def test_skip_reason_rejects_symlinked_auxiliary_file(self) -> None:
+        with tempfile.NamedTemporaryFile(delete=False) as handle:
+            handle.write(b"outside repository")
+        self.addCleanup(os.unlink, handle.name)
+
+        linked_name = "discovery-base.pot"
+        linked_path = os.path.join(self.component.full_path, linked_name)
+        os.symlink(handle.name, linked_path)
+
+        reason = self.discovery.get_skip_reason(
+            {
+                "mask": "discovered/*.po",
+                "base_file": linked_name,
+                "new_base": "",
+                "intermediate": "",
+            }
+        )
+
+        self.assertEqual(reason, "discovery-base.pot (base_file) does not exist.")
+
+    def test_matches_ignore_prefix_collision_symlink_targets(self) -> None:
+        repo_path = os.path.realpath(self.component.full_path)
+        outside_path = f"{repo_path}_outside"
+        os.makedirs(outside_path)
+        self.addCleanup(remove_tree, outside_path, True)
+
+        pathlib.Path(os.path.join(outside_path, "cs.po")).write_text(
+            'msgid "prefix-collision"\nmsgstr ""\n', encoding="utf-8"
+        )
+
+        os.symlink(
+            outside_path, os.path.join(self.component.full_path, "prefix-collision")
+        )
+
+        self.assertNotIn("prefix-collision/cs.po", self.discovery.matched_files)
+
+    def test_matches_prune_prefix_collision_symlink_directories(self) -> None:
+        repo_path = os.path.realpath(self.component.full_path)
+        outside_path = f"{repo_path}_outside"
+        os.makedirs(outside_path)
+        self.addCleanup(remove_tree, outside_path, True)
+
+        os.symlink(
+            outside_path, os.path.join(self.component.full_path, "prefix-collision")
+        )
+
+        walk_calls: list[str] = []
+
+        def fake_walk(path: str, *, followlinks: bool):
+            self.assertEqual(path, self.discovery.path)
+            self.assertTrue(followlinks)
+
+            dirnames = ["prefix-collision"]
+            walk_calls.append(path)
+            yield path, dirnames, []
+
+            if "prefix-collision" in dirnames:
+                nested = os.path.join(path, "prefix-collision")
+                walk_calls.append(nested)
+                yield nested, [], ["cs.po"]
+
+        with patch("weblate.trans.discovery.os.walk", side_effect=fake_walk):
+            self.assertEqual(self.discovery.matches, [])
+
+        self.assertEqual(walk_calls, [self.discovery.path])
 
     def test_named_group(self) -> None:
         discovery = ComponentDiscovery(

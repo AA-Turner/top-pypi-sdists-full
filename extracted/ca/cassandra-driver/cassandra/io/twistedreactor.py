@@ -1,10 +1,12 @@
-# Copyright DataStax, Inc.
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +18,7 @@ Module that implements an event loop based on twisted
 ( https://twistedmatrix.com ).
 """
 import atexit
+from deprecated import deprecated
 import logging
 import time
 from functools import partial
@@ -178,7 +181,7 @@ class _SSLCreator(object):
             connection.set_tlsext_host_name(self.ssl_options['server_hostname'].encode('ascii'))
         return connection
 
-
+@deprecated(version="3.30.0", reason="The Twisted event loop is deprecated and will be removed in 3.31.0.  See CASSPYTHON-12.")
 class TwistedConnection(Connection):
     """
     An implementation of :class:`.Connection` that utilizes the

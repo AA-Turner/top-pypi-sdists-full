@@ -33,7 +33,7 @@ from weblate.auth.models import Invitation, User, get_anonymous
 from weblate.trans.defines import FULLNAME_LENGTH
 from weblate.utils import messages
 from weblate.utils.ratelimit import reset_rate_limit
-from weblate.utils.requests import http_request
+from weblate.utils.requests import fetch_url
 from weblate.utils.validators import (
     CRUD_RE,
     USERNAME_MATCHER,
@@ -55,7 +55,7 @@ class EmailAlreadyAssociated(AuthAlreadyAssociated):
 
 def get_github_emails(access_token):
     """Get real e-mail from GitHub."""
-    response = http_request(
+    response = fetch_url(
         "get",
         "https://api.github.com/user/emails",
         headers={"Authorization": f"token {access_token}"},
@@ -425,7 +425,9 @@ def handle_invite(
 ) -> None:
     # Accept triggering invitation
     if invitation_pk:
-        Invitation.objects.get(pk=invitation_pk).accept(strategy.request, user)
+        invitation = Invitation.objects.filter(pk=invitation_pk).first()
+        if invitation is not None:
+            invitation.accept(strategy.request, user)
     # Merge possibly pending invitations for this e-mail address
     Invitation.objects.filter(email=user.email).update(user=user, email="")
 

@@ -284,6 +284,7 @@ class MainController:
         start_line: int | None,
         end_line: int | None,
         max_lines: int,
+        encoding: str = "utf-8",
     ) -> dict[str, Any] | None:
         """
         Private helper method to read file lines with pagination support.
@@ -296,6 +297,7 @@ class MainController:
             start_line (Optional[int]): 1-indexed line number to start reading from.
             end_line (Optional[int]): 1-indexed line number to stop reading at (inclusive).
             max_lines (int): Maximum number of lines to return in a single call.
+            encoding (str): File encoding. Defaults to "utf-8".
 
         Returns:
             dict | None: Dictionary containing file content and metadata, or None if file cannot be read.
@@ -305,13 +307,18 @@ class MainController:
 
         # First pass: count total lines without loading into memory
         try:
-            with file_path.open("r", encoding="utf-8") as f:
+            with file_path.open("r", encoding=encoding) as f:
                 total_lines = sum(1 for _ in f)
+        except UnicodeDecodeError:
+            return {
+                "error": f"Failed to decode file with encoding '{encoding}'. Try passing encoding: 'latin-1' as a parameter."
+            }
+        except LookupError:
+            return {
+                "error": f"Unknown encoding '{encoding}'. Common encodings: 'utf-8', 'latin-1', 'ascii', 'utf-16'."
+            }
         except OSError as e:
             AbstraLogger.error(f"Failed to read file {file_path}: {e}")
-            return None
-        except UnicodeDecodeError as e:
-            AbstraLogger.error(f"Failed to decode file {file_path}: {e}")
             return None
 
         # Determine actual range to read
@@ -339,17 +346,22 @@ class MainController:
         from itertools import islice
 
         try:
-            with file_path.open("r", encoding="utf-8") as f:
+            with file_path.open("r", encoding=encoding) as f:
                 # Skip lines before start (0-indexed), then take the range we need
                 start_idx = actual_start - 1
                 num_lines = actual_end - actual_start + 1
                 content_lines = list(islice(f, start_idx, start_idx + num_lines))
                 content = "".join(content_lines)
+        except UnicodeDecodeError:
+            return {
+                "error": f"Failed to decode file with encoding '{encoding}'. Try passing encoding: 'latin-1' as a parameter."
+            }
+        except LookupError:
+            return {
+                "error": f"Unknown encoding '{encoding}'. Common encodings: 'utf-8', 'latin-1', 'ascii', 'utf-16'."
+            }
         except OSError as e:
             AbstraLogger.error(f"Failed to read file {file_path}: {e}")
-            return None
-        except UnicodeDecodeError as e:
-            AbstraLogger.error(f"Failed to decode file {file_path}: {e}")
             return None
 
         return {
@@ -700,6 +712,7 @@ class MainController:
         start_line: int | None = None,
         end_line: int | None = None,
         max_lines: int = MAX_LINES,
+        encoding: str = "utf-8",
     ):
         """
         Read text content of a code or text file with line-range pagination.
@@ -719,6 +732,7 @@ class MainController:
                 If None, reads until max_lines is reached. Defaults to None.
             max_lines (int): Maximum number of lines to return in a single call.
                 Hard maximum of 1000. Defaults to 500.
+            encoding (str): File encoding. Defaults to "utf-8".
 
         Returns:
             dict | None: Dictionary containing file content and metadata if the file exists:
@@ -761,9 +775,9 @@ class MainController:
             ```
 
         Note:
-            - Files are read with UTF-8 encoding
             - Path should be relative to the project root directory
-            - Returns None for directories, non-existent files, or unreadable files
+            - Returns None for directories or non-existent files
+            - Returns an error dict for encoding failures
             - Line numbers are 1-indexed (first line is 1, not 0)
             - If start_line > total lines, returns empty content with metadata
             - Automatic truncation at max_lines prevents context overflow
@@ -786,7 +800,7 @@ class MainController:
             return None
 
         return self._read_file_lines_with_pagination(
-            file_path, start_line, end_line, max_lines
+            file_path, start_line, end_line, max_lines, encoding
         )
 
     def read_document(
@@ -797,6 +811,7 @@ class MainController:
         sheet_name: str | None = None,
         start_page: int | None = None,
         end_page: int | None = None,
+        encoding: str = "utf-8",
     ):
         """
         Read a document file (spreadsheets, PDFs, images, CSVs, or other non-code files).
@@ -822,6 +837,7 @@ class MainController:
                 If None, starts from page 1. Defaults to None.
             end_page (Optional[int]): 1-indexed end page for PDFs.
                 Hard limit: 3 pages per call.
+            encoding (str): File encoding. Defaults to "utf-8".
 
         Returns:
             dict | None: File content and metadata, or None if file not found.
@@ -848,7 +864,7 @@ class MainController:
             return self._read_pdf_file(file_path, start_page, end_page)
         else:
             return self._read_file_lines_with_pagination(
-                file_path, start_line, end_line, HARD_MAX_LINES
+                file_path, start_line, end_line, HARD_MAX_LINES, encoding
             )
 
     def check_file_exists(self, file_path: str):
@@ -991,8 +1007,7 @@ class MainController:
         List files and directories within the project workspace.
 
         This method provides different listing modes to browse the project filesystem,
-        supporting various file types and Python module discovery. It respects
-        ignore patterns defined in .gitignore file.
+        supporting various file types and Python module discovery.
 
         Args:
             path (str, optional): Relative path from project root to list contents.
@@ -1045,7 +1060,7 @@ class MainController:
             ```
 
         Note:
-            - Respects .gitignore patterns when use_ignore=True
+            - Does not filter by .gitignore
             - Image mode supports: .png, .jpg, .jpeg, .gif, .svg, .webp, .jfif, .pjp, .pjpeg
             - Module mode uses Python's pkgutil.iter_modules for discovery
             - Paths are always relative to the project root directory
@@ -1081,7 +1096,7 @@ class MainController:
                     type="file" if file.is_file() else "dir",
                 )
                 for file in FileSystemService.list_files(
-                    parent_path, allowed_suffixes=allowed_suffixes, use_ignore=True
+                    parent_path, allowed_suffixes=allowed_suffixes, use_ignore=False
                 )
             ]
 
@@ -1136,7 +1151,7 @@ class MainController:
             Searching for a query in files matching a pattern...
         """
         return FileSystemService.search_in_files(
-            Settings.root_path, query, glob, use_ignore=True
+            Settings.root_path, query, glob, use_ignore=False
         )
 
     def search_file_with_context(
@@ -1357,7 +1372,6 @@ class MainController:
 
         Note:
             - Only lists *immediate* children, not recursive.
-            - Respects .gitignore rules.
             - Directories are listed before files, both sorted alphabetically.
 
         Copywritings:
@@ -1368,9 +1382,7 @@ class MainController:
         dir_path = Settings.root_path / path
         if not dir_path.is_dir():
             return None
-        entries = list_directory_entries(
-            dir_path, is_ignored_fn=FileSystemService.is_ignored
-        )
+        entries = list_directory_entries(dir_path, is_ignored_fn=None)
         return {"path": path, "entries": entries}
 
     def find_files_by_pattern(self, pattern: str, max_results: int = 200):
@@ -1410,7 +1422,6 @@ class MainController:
 
         Note:
             - Only returns files, never directories.
-            - Respects .gitignore rules.
             - Results are capped by max_results to protect context window.
 
         Copywritings:
@@ -1421,7 +1432,7 @@ class MainController:
         return find_files_by_glob(
             Settings.root_path,
             pattern,
-            is_ignored_fn=FileSystemService.is_ignored,
+            is_ignored_fn=None,
             max_results=max_results,
         )
 
@@ -1476,7 +1487,6 @@ class MainController:
             ```
 
         Note:
-            - Respects .gitignore rules.
             - Binary files are silently skipped.
             - Use search_file_with_context once you know the file, as it
               provides richer context (surrounding lines).
@@ -1492,7 +1502,7 @@ class MainController:
             file_pattern=file_pattern,
             case_sensitive=case_sensitive,
             max_results=max_results,
-            is_ignored_fn=FileSystemService.is_ignored,
+            is_ignored_fn=None,
         )
 
     def update_workspace(self, changes: dict[str, Any]):

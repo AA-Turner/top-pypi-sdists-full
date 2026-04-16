@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bluesky
-Version: 1.14.6
+Version: 1.15.0
 Summary: Experiment specification & orchestration.
 Author: danielballan
 License: BSD 3-Clause License
@@ -36,11 +36,11 @@ License: BSD 3-Clause License
 Project-URL: GitHub, https://github.com/bluesky/bluesky
 Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE_README
@@ -56,6 +56,7 @@ Requires-Dist: tqdm>=4.44
 Requires-Dist: typing-extensions>=4.10.0
 Provides-Extra: dev
 Requires-Dist: attrs; extra == "dev"
+Requires-Dist: bluesky-tiled-plugins; extra == "dev"
 Requires-Dist: cloudpickle; extra == "dev"
 Requires-Dist: copier; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
@@ -69,11 +70,13 @@ Requires-Dist: jinja2; extra == "dev"
 Requires-Dist: lmfit; extra == "dev"
 Requires-Dist: matplotlib>=3.5.0; extra == "dev"
 Requires-Dist: mongoquery; extra == "dev"
+Requires-Dist: mongomock; extra == "dev"
 Requires-Dist: multiprocess; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: myst-parser; extra == "dev"
 Requires-Dist: networkx; extra == "dev"
 Requires-Dist: numpydoc; extra == "dev"
+Requires-Dist: opentelemetry-sdk; extra == "dev"
 Requires-Dist: ophyd; extra == "dev"
 Requires-Dist: orjson; extra == "dev"
 Requires-Dist: packaging; extra == "dev"
@@ -82,8 +85,7 @@ Requires-Dist: pickleshare; extra == "dev"
 Requires-Dist: pipdeptree; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pydata-sphinx-theme>=0.12; extra == "dev"
-Requires-Dist: pyepics<=3.5.2; python_version < "3.9" and extra == "dev"
-Requires-Dist: pyepics; python_version >= "3.9" and extra == "dev"
+Requires-Dist: pyepics; extra == "dev"
 Requires-Dist: pyqt5; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"

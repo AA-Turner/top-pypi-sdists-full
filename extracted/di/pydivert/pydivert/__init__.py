@@ -24,6 +24,7 @@
 
 """
 .. include:: ../README.md
+.. include:: ../docs/FILTER_LANGUAGE.md
 .. include:: ../SECURITY.md
 """
 
@@ -32,7 +33,7 @@ from .packet import Packet
 from .windivert import WinDivert
 
 __author__ = "fabio"
-__version__ = "3.1.0"
+__version__ = "3.1.1"
 
 __all__ = [
     "WinDivert",

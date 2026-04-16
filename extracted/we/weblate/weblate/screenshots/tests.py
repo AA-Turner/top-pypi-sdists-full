@@ -28,12 +28,11 @@ from weblate.trans.models import Change, Project
 from weblate.trans.tests.test_models import RepoTestCase
 from weblate.trans.tests.test_views import FixtureTestCase
 from weblate.trans.tests.utils import create_test_user, get_test_file
-from weblate.utils.db import TransactionsTestMixin
 
 TEST_SCREENSHOT = get_test_file("screenshot.png")
 
 
-class ViewTest(TransactionsTestMixin, FixtureTestCase):
+class ViewTest(FixtureTestCase):
     def test_list_empty(self) -> None:
         response = self.client.get(reverse("screenshots", kwargs=self.kw_component))
         self.assertContains(response, "Screenshots")
@@ -75,6 +74,12 @@ class ViewTest(TransactionsTestMixin, FixtureTestCase):
         response = self.do_upload(image="")
         self.assertContains(response, "Could not upload screenshot")
 
+    @override_settings(ALLOWED_ASSET_SIZE=1)
+    def test_upload_too_big(self) -> None:
+        self.make_manager()
+        response = self.do_upload()
+        self.assertContains(response, "Uploaded file is too big.")
+
     def test_upload_source(self) -> None:
         self.make_manager()
         source = self.component.source_translation.unit_set.all()[0]
@@ -112,6 +117,24 @@ class ViewTest(TransactionsTestMixin, FixtureTestCase):
         )
         self.assertContains(response, "Picture")
         self.assertEqual(Screenshot.objects.all()[0].name, "Picture")
+
+    @override_settings(ALLOWED_ASSET_SIZE=1)
+    def test_edit_metadata_with_existing_oversized_image(self) -> None:
+        self.make_manager()
+        with open(TEST_SCREENSHOT, "rb") as handle:
+            screenshot = Screenshot.objects.create(
+                name="Obrazek",
+                translation=self.component.source_translation,
+                user=self.user,
+            )
+            screenshot.image.save("screenshot.png", File(handle))
+
+        response = self.client.post(
+            screenshot.get_absolute_url(), {"name": "Picture"}, follow=True
+        )
+        self.assertContains(response, "Picture")
+        screenshot.refresh_from_db()
+        self.assertEqual(screenshot.name, "Picture")
 
     def test_view(self) -> None:
         self.make_manager()
@@ -411,6 +434,7 @@ class ViewTest(TransactionsTestMixin, FixtureTestCase):
         self.assertContains(response, "Unsupported image type")
 
     @responses.activate
+    @override_settings(ALLOWED_ASSET_SIZE=1)
     def test_invalid_image_url_size(self) -> None:
         self.make_manager()
         # Mock a too big image
@@ -448,7 +472,58 @@ class ViewTest(TransactionsTestMixin, FixtureTestCase):
         response = self.do_upload(
             image="", image_url="https://example.com/not-allowed-image.png"
         )
-        self.assertContains(response, "Image URL domain is not allowed.")
+        self.assertContains(response, "URL domain is not allowed.")
+
+    @responses.activate
+    @override_settings(ALLOWED_ASSET_DOMAINS=[".allowed.com"])
+    def test_disallowed_image_url_redirect_domain(self) -> None:
+        """Reject redirects leaving the allowed asset domains."""
+        self.make_manager()
+        responses.add(
+            responses.GET,
+            "https://images.allowed.com/redirect-image.png",
+            status=302,
+            headers={"Location": "https://proof.example.com/final-image.png"},
+        )
+        responses.add(
+            responses.GET,
+            "https://proof.example.com/final-image.png",
+            content_type="image/png",
+            body=Path(TEST_SCREENSHOT).read_bytes(),
+        )
+
+        response = self.do_upload(
+            image="", image_url="https://images.allowed.com/redirect-image.png"
+        )
+
+        self.assertContains(response, "URL domain is not allowed.")
+        self.assertEqual(Screenshot.objects.count(), 0)
+
+    @responses.activate
+    @override_settings(ALLOWED_ASSET_DOMAINS=[".allowed.com"])
+    def test_allowed_image_url_redirect_domain(self) -> None:
+        """Allow redirects that stay within the allowed asset domains."""
+        self.make_manager()
+        responses.add(
+            responses.GET,
+            "https://images.allowed.com/redirect-image.png",
+            status=302,
+            headers={"Location": "https://cdn.allowed.com/final-image.png"},
+        )
+        responses.add(
+            responses.GET,
+            "https://cdn.allowed.com/final-image.png",
+            content_type="image/png",
+            body=Path(TEST_SCREENSHOT).read_bytes(),
+        )
+
+        response = self.do_upload(
+            image="", image_url="https://images.allowed.com/redirect-image.png"
+        )
+
+        screenshot = Screenshot.objects.get()
+        self.assertContains(response, screenshot.name)
+        self.assertEqual(screenshot.image.size, Path(TEST_SCREENSHOT).stat().st_size)
 
 
 class ScreenshotVCSTest(APITestCase, RepoTestCase):
@@ -517,6 +592,38 @@ class ScreenshotVCSTest(APITestCase, RepoTestCase):
         )[0].image.size
         self.assertNotEqual(existing_ss_size, updated_ss_size)
 
+    @override_settings(ALLOWED_ASSET_SIZE=1)
+    def test_update_screenshots_from_repo_too_big(self) -> None:
+        repository = self.component.repository
+        last_revision = repository.last_revision
+        existing_ss_size = Screenshot.objects.filter(
+            translation__component=self.component,
+            repository_filename="test-update.png",
+        )[0].image.size
+
+        copyfile(TEST_SCREENSHOT, os.path.join(repository.path, "test-update.png"))
+        with repository.lock:
+            repository.set_committer("Second Bar", "second@example.net")
+            repository.commit(
+                "Test commit",
+                "Foo Bar <foo@bar.com>",
+                timezone.now(),
+                ["test-update.png"],
+            )
+            self.component.trigger_post_update(
+                previous_head=last_revision,
+                skip_push=True,
+                user=None,
+            )
+
+        self.assertEqual(
+            Screenshot.objects.filter(
+                translation__component=self.component,
+                repository_filename="test-update.png",
+            )[0].image.size,
+            existing_ss_size,
+        )
+
     def test_add_screenshots_from_repo(self) -> None:
         repository = self.component.repository
         last_revision = repository.last_revision
@@ -541,4 +648,29 @@ class ScreenshotVCSTest(APITestCase, RepoTestCase):
                 repository_filename="test.png",
             ).count(),
             1,
+        )
+
+    @override_settings(ALLOWED_ASSET_SIZE=1)
+    def test_add_screenshots_from_repo_too_big(self) -> None:
+        repository = self.component.repository
+        last_revision = repository.last_revision
+
+        copyfile(TEST_SCREENSHOT, os.path.join(repository.path, "test.png"))
+        with repository.lock:
+            repository.set_committer("Second Bar", "second@example.net")
+            repository.commit(
+                "Test commit", "Foo Bar <foo@bar.com>", timezone.now(), ["test.png"]
+            )
+            self.component.trigger_post_update(
+                previous_head=last_revision,
+                skip_push=True,
+                user=None,
+            )
+
+        self.assertEqual(
+            Screenshot.objects.filter(
+                translation__component=self.component,
+                repository_filename="test.png",
+            ).count(),
+            0,
         )

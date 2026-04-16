@@ -333,7 +333,7 @@ class UserQuerySet(models.QuerySet["User"]):
         fallback: User | None,
         request: AuthenticatedHttpRequest,
     ) -> User | None:
-        from weblate.accounts.models import AuditLog
+        from weblate.accounts.models import AuditLog  # noqa: PLC0415
 
         if author_email and (fallback is None or not fallback.has_email(author_email)):
             author, created = User.objects.get_or_create(
@@ -526,7 +526,7 @@ class User(AbstractBaseUser):
         return self.full_name
 
     def save(self, *args, **kwargs) -> None:
-        from weblate.accounts.models import AuditLog
+        from weblate.accounts.models import AuditLog  # noqa: PLC0415
 
         original = None
         if self.pk:
@@ -829,6 +829,8 @@ class User(AbstractBaseUser):
                         clist.components.all() for clist in group.componentlists.all()
                     )
                 }
+                # Even if componentlist_values is empty, having a componentlist assignment
+                # means we need to stop processing here.
                 if group.componentlists.exists():
                     for component, project in componentlist_values:
                         components[component].append((permissions, languages))
@@ -878,7 +880,7 @@ class User(AbstractBaseUser):
 
     @property
     def component_permissions(self) -> SimplePermissionCacheType:
-        """List all project permissions."""
+        """List all component permissions."""
         return self._permissions["components"]
 
     @cached_property
@@ -931,7 +933,7 @@ class User(AbstractBaseUser):
         *,
         user: User | None = None,
     ) -> None:
-        from weblate.accounts.models import AuditLog
+        from weblate.accounts.models import AuditLog  # noqa: PLC0415
 
         self.groups.add(team)
 
@@ -954,7 +956,7 @@ class User(AbstractBaseUser):
     def remove_team(
         self, request: AuthenticatedHttpRequest | None, team: Group
     ) -> None:
-        from weblate.accounts.models import AuditLog
+        from weblate.accounts.models import AuditLog  # noqa: PLC0415
 
         self.groups.remove(team)
         AuditLog.objects.create(
@@ -1250,7 +1252,9 @@ class Invitation(models.Model):
         return reverse("invitation", kwargs={"pk": self.uuid})
 
     def send_email(self) -> None:
-        from weblate.accounts.notifications import send_notification_email
+        from weblate.accounts.notifications import (  # noqa: PLC0415
+            send_notification_email,
+        )
 
         email: str
         if self.email:
@@ -1270,7 +1274,7 @@ class Invitation(models.Model):
         )
 
     def accept(self, request: AuthenticatedHttpRequest, user: User) -> None:
-        from weblate.accounts.models import AuditLog
+        from weblate.accounts.models import AuditLog  # noqa: PLC0415
 
         if self.user and self.user != user:
             msg = "User mismatch on accept!"

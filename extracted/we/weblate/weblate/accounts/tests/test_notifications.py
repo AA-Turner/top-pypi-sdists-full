@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from types import SimpleNamespace
 
 from django.conf import settings
 from django.core import mail
@@ -18,6 +19,7 @@ from weblate.accounts.notifications import (
     MergeFailureNotification,
     NotificationFrequency,
     NotificationScope,
+    get_email_headers,
 )
 from weblate.accounts.tasks import (
     notify_changes,
@@ -29,11 +31,76 @@ from weblate.accounts.tasks import (
 from weblate.auth.models import User
 from weblate.lang.models import Language
 from weblate.trans.actions import ActionEvents
-from weblate.trans.models import Announcement, Comment, Suggestion
-from weblate.trans.tests.test_views import RegistrationTestMixin, ViewTestCase
+from weblate.trans.models import Announcement, Change, Comment, Suggestion
+from weblate.trans.tests.test_views import (
+    FixtureComponentTestCase,
+    RegistrationTestMixin,
+    ViewTestCase,
+)
+from weblate.utils.version import USER_AGENT
+from weblate.utils.version_display import VERSION_DISPLAY_HIDE, VERSION_DISPLAY_SOFT
 
 TEMPLATES_RAISE = deepcopy(settings.TEMPLATES)
 TEMPLATES_RAISE[0]["OPTIONS"]["string_if_invalid"] = "TEMPLATE_BUG[%s]"
+
+
+class LazyTranslation:
+    def __init__(self) -> None:
+        self.component = None
+        self.prefetched_language = None
+
+    @property
+    def language(self):
+        msg = "fill_in_prefetched should inject change.language"
+        raise AssertionError(msg)
+
+    @language.setter
+    def language(self, value) -> None:
+        self.prefetched_language = value
+
+
+class LazyLanguageChange:
+    unit = None
+    screenshot = None
+    language_id = 1
+
+    def __init__(self) -> None:
+        self.translation = LazyTranslation()
+        self.component = SimpleNamespace(project=None, category=None)
+        self.project = object()
+        self.category = object()
+        self.language = SimpleNamespace()
+
+
+class ChangePrefetchTest(SimpleTestCase):
+    def test_fill_in_prefetched_injects_change_language(self) -> None:
+        change = LazyLanguageChange()
+
+        Change.fill_in_prefetched(change)
+
+        self.assertIs(change.translation.prefetched_language, change.language)
+        self.assertIs(change.translation.component, change.component)
+        self.assertIs(change.component.project, change.project)
+        self.assertIs(change.component.category, change.category)
+
+    def test_preload_list_injects_change_language(self) -> None:
+        change = LazyLanguageChange()
+
+        Change.objects.preload_list([change])
+
+        self.assertIs(change.translation.prefetched_language, change.language)
+        self.assertIs(change.translation.component, change.component)
+        self.assertIs(change.component.project, change.project)
+
+
+class NotificationHeadersTest(SimpleTestCase):
+    @override_settings(VERSION_DISPLAY=VERSION_DISPLAY_SOFT, HIDE_VERSION=False)
+    def test_soft_mode_keeps_x_mailer_version(self) -> None:
+        self.assertEqual(get_email_headers("test")["X-Mailer"], USER_AGENT)
+
+    @override_settings(VERSION_DISPLAY=VERSION_DISPLAY_HIDE, HIDE_VERSION=True)
+    def test_hide_mode_hides_x_mailer_version(self) -> None:
+        self.assertEqual(get_email_headers("test")["X-Mailer"], "Weblate")
 
 
 @override_settings(
@@ -531,7 +598,7 @@ class NotificationTest(ViewTestCase, RegistrationTestMixin):
         )
 
 
-class SubscriptionTest(ViewTestCase):
+class SubscriptionTest(FixtureComponentTestCase):
     notification = MergeFailureNotification
 
     def get_users(self, frequency):

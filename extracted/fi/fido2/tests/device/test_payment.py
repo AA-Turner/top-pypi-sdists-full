@@ -1,18 +1,17 @@
 import pytest
-
 from fido2.client import Fido2Client
+from fido2.ctap2.credman import CredentialManagement
 from fido2.ctap2.extensions import (
     PaymentCredentialInstrument,
     PaymentCurrencyAmount,
     ThirdPartyPaymentExtension,
 )
+from fido2.ctap2.pin import ClientPin
 from fido2.payment import (
     CollectedClientAdditionalPaymentData,
     PaymentClientDataCollector,
 )
 from fido2.server import Fido2Server
-from fido2.ctap2.credman import CredentialManagement
-from fido2.ctap2.pin import ClientPin
 
 from . import TEST_PIN, CliInteraction
 
@@ -65,7 +64,7 @@ def test_payment_extension(device, printer, ctap2, pin_protocol):
     rps = cm.enumerate_rps()
     rp_id_hash = rps[0][4]
     creds = cm.enumerate_creds(rp_id_hash)
-    assert creds[0][CredentialManagement.RESULT.THIRD_PARTY_PAYMENT] == True
+    assert creds[0][CredentialManagement.RESULT.THIRD_PARTY_PAYMENT] is True
 
     # Prepare parameters for getAssertion
     request_options, state = server.authenticate_begin(
@@ -102,6 +101,7 @@ def test_payment_extension(device, printer, ctap2, pin_protocol):
     result = result.get_response(0)
 
     # Verify that the key includes the payment extension
+    assert result.response.authenticator_data.extensions
     assert result.response.authenticator_data.extensions["thirdPartyPayment"] is True
 
     # Verify that the client has added the payment data

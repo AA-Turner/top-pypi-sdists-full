@@ -1,6 +1,9 @@
 """Test suite for user-role assignment API functions."""
 
+from unittest.mock import patch
+
 from ddt import data, ddt, unpack
+from django.contrib.auth import get_user_model
 
 from openedx_authz.api.data import ContentLibraryData, RoleAssignmentData, RoleData, UserData
 from openedx_authz.api.users import (
@@ -11,9 +14,11 @@ from openedx_authz.api.users import (
     get_user_role_assignments,
     get_user_role_assignments_for_role_in_scope,
     get_user_role_assignments_in_scope,
+    get_visible_user_role_assignments_filtered_by_current_user,
     is_user_allowed,
     unassign_all_roles_from_user,
     unassign_role_from_user,
+    validate_users,
 )
 from openedx_authz.constants import permissions, roles
 from openedx_authz.constants.roles import LIBRARY_ADMIN_PERMISSIONS, LIBRARY_AUTHOR_PERMISSIONS
@@ -514,3 +519,100 @@ class TestUserPermissions(UserAssignmentsSetupMixin):
             scope_external_key=scope_name,
         )
         self.assertEqual(result, expected_result)
+
+
+@ddt
+class TestValidateUsersAPI(UserAssignmentsSetupMixin):
+    """Test suite for validate_users API function - focused on business logic."""
+
+    def test_validate_users_empty_list(self):
+        """Test validate_users with empty input list."""
+        valid_users, invalid_users = validate_users([])
+
+        self.assertEqual(valid_users, [])
+        self.assertEqual(invalid_users, [])
+
+    def test_validate_users_inactive_user_edge_case(self):
+        """Test that inactive users are correctly identified as invalid."""
+        User = get_user_model()
+
+        # Create an inactive user for this test
+        inactive_user = User.objects.create_user(
+            username="inactive_api_test", email="inactive_api@example.com", is_active=False
+        )
+
+        valid_users, invalid_users = validate_users([inactive_user.username])
+
+        # Cleanup
+        inactive_user.delete()
+
+        self.assertEqual(valid_users, [])
+        self.assertEqual(invalid_users, [inactive_user.username])
+
+    @patch("openedx_authz.api.users.get_user_by_username_or_email")
+    def test_validate_users_unexpected_exception_propagation(self, mock_get_user):
+        """Test that unexpected exceptions from get_user_by_username_or_email are re-raised."""
+        # Simulate an unexpected database error
+        mock_get_user.side_effect = Exception("Database connection lost")
+
+        with self.assertRaises(Exception) as cm:
+            validate_users(["any_user"])
+
+        self.assertEqual(str(cm.exception), "Database connection lost")
+        mock_get_user.assert_called_once_with("any_user")
+
+    @patch("openedx_authz.api.users.get_user_by_username_or_email")
+    def test_validate_users_user_does_not_exist_handling(self, mock_get_user):
+        """Test handling of User.DoesNotExist exception."""
+        User = get_user_model()
+        mock_get_user.side_effect = User.DoesNotExist("User not found")
+
+        valid_users, invalid_users = validate_users(["nonexistent_user"])
+
+        self.assertEqual(valid_users, [])
+        self.assertEqual(invalid_users, ["nonexistent_user"])
+
+
+class TestGetVisibleUserRoleAssignmentsFilteredByCurrentUserActiveFilter(UserAssignmentsSetupMixin):
+    """Test that get_visible_user_role_assignments_filtered_by_current_user excludes inactive users."""
+
+    def test_active_user_assignments_are_returned(self):
+        """Test that assignments for an active user are returned."""
+        User = get_user_model()
+        User.objects.create_user(username="alice", email="alice@example.com", is_active=True)
+
+        assignments = get_visible_user_role_assignments_filtered_by_current_user(
+            user_external_key="alice",
+        )
+
+        usernames = {a.subject.username for a in assignments}
+        self.assertIn("alice", usernames)
+
+    def test_inactive_user_assignments_are_excluded(self):
+        """Test that assignments for an inactive user are filtered out."""
+        User = get_user_model()
+        User.objects.create_user(username="alice", email="alice@example.com", is_active=False)
+
+        assignments = get_visible_user_role_assignments_filtered_by_current_user(
+            user_external_key="alice",
+        )
+
+        self.assertEqual(assignments, [])
+
+    def test_mixed_active_inactive_subjects_in_assignments(self):
+        """Test that only active users' assignments are returned when multiple subjects exist."""
+        User = get_user_model()
+        # eve has roles in lib:Org2:physics_401, lib:Org2:chemistry_501, lib:Org2:biology_601
+        # grace has a role in lib:Org1:math_advanced
+        User.objects.create_user(username="eve", email="eve@example.com", is_active=True)
+        User.objects.create_user(username="grace", email="grace@example.com", is_active=False)
+
+        eve_assignments = get_visible_user_role_assignments_filtered_by_current_user(
+            user_external_key="eve",
+        )
+        grace_assignments = get_visible_user_role_assignments_filtered_by_current_user(
+            user_external_key="grace",
+        )
+
+        self.assertGreater(len(eve_assignments), 0)
+        self.assertEqual(grace_assignments, [])

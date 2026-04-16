@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-agents-hosting-core
-Version: 0.8.0
+Version: 0.9.0
 Summary: Core library for Microsoft Agents
 Author: Microsoft Corporation
 License-Expression: MIT
@@ -15,11 +15,13 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: microsoft-agents-activity==0.8.0
+Requires-Dist: microsoft-agents-activity==0.9.0
 Requires-Dist: pyjwt>=2.10.1
 Requires-Dist: isodate>=0.6.1
 Requires-Dist: azure-core>=1.30.0
 Requires-Dist: python-dotenv>=1.1.1
+Requires-Dist: opentelemetry-api>=1.27.0
+Requires-Dist: opentelemetry-sdk>=1.27.0
 Dynamic: license-file
 Dynamic: requires-dist
 
@@ -40,6 +42,15 @@ This library is part of the **Microsoft 365 Agents SDK for Python** - a comprehe
     <th style="width:20%">Version</th>
     <th style="width:20%">Date</th>
     <th style="width:60%">Release Notes</th>
+  </tr>
+  <tr>
+    <td>0.9.0</td>
+    <td>2026-04-15</td>
+    <td>
+      <a href="https://github.com/microsoft/Agents-for-python/blob/main/changelog.md#microsoft-365-agents-sdk-for-python---release-notes-v090">
+        0.9.0 Release Notes
+      </a>
+    </td>
   </tr>
   <tr>
     <td>0.8.0</td>

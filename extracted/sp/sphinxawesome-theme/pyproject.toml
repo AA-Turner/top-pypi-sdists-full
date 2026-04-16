@@ -1,6 +1,6 @@
 [project]
 name = "sphinxawesome-theme"
-version = "6.0.0"
+version = "6.0.2"
 description = "An awesome theme for the Sphinx documentation generator"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -37,26 +37,22 @@ sphinxawesome_theme = "sphinxawesome_theme"
 [dependency-groups]
 dev = [
   "coverage[toml]",
-  "pyright",
   "pytest",
   "pytest-cov",
   "ruff",
+  "ty>=0.0.26",
   "types-beautifulsoup4",
   "types-docutils",
   "types-pygments",
 ]
 docs = [
-  "myst-nb",
+  "myst-nb>=1.4.0",
   "python-dotenv",
   "sphinx-autoapi",
   "sphinx-autobuild",
   "sphinx-design",
   "sphinx-docsearch",
   "sphinx-sitemap",
-]
-netlify = [
-  "nox",
-  "uv",
 ]
 
 [build-system]
@@ -73,9 +69,42 @@ packages = ["sphinxawesome_theme"]
 [tool.hatch.build.targets.sdist]
 packages = ["src/sphinxawesome_theme"]
 
-[tool.pyright]
-include = ["src", "noxfile.py"]
-reportUnnecessaryTypeIgnoreComment = "warning"
+[tool.hatch.envs.default]
+installer = "uv"
+
+[tool.hatch.envs.docs]
+dependency-groups = ["docs"]
+
+[tool.hatch.envs.docs.scripts]
+build = "sphinx-build -b dirhtml -aWTE docs docs/public"
+live = "sphinx-autobuild -q -b dirhtml -A mode='development' -aTE docs docs/public --ignore docs/jupyter_execute --ignore docs/public"
+links = "sphinx-build -b linkcheck -aWTE docs docs/public/_links"
+
+[tool.hatch.envs.lint]
+dependency-groups = ["docs", "dev"]
+
+[tool.hatch.envs.lint.scripts]
+lint = "ruff check ."
+typecheck = "ty check"
+all = ["lint", "typecheck"]
+
+[tool.hatch.envs.test]
+dependency-groups = ["docs", "dev"]
+
+[tool.hatch.envs.test.scripts]
+run = "pytest --cov"
+
+[[tool.hatch.envs.test.matrix]]
+python = ["3.10", "3.14"]
+
+[tool.hatch.envs.hatch-static-analysis]
+config-path = "none"
+
+[tool.ty.rules]
+unused-ignore-comment = "warn"
+
+[tool.ty.src]
+include = ["src", "tests"]
 
 [tool.ruff.lint]
 # TODO: Check if all of these even make sense

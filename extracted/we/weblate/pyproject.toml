@@ -32,7 +32,7 @@ lint = [
   {include-group = "pylint"}
 ]
 pre-commit = [
-  "prek==0.3.3"
+  "prek==0.3.9"
 ]
 pylint = [
   "pylint==4.0.5"
@@ -41,43 +41,42 @@ schemas = [
   "weblate-schemas==2025.6"
 ]
 scripts = [
-  "django-debug-toolbar==6.2.0",
-  "PyICU==2.16.1",
+  "django-debug-toolbar==6.3.0",
+  "PyICU==2.16.2",
   "reuse==6.2.0",
   "scour==0.38.2",
   "tinyunicodeblock==1.3"
 ]
 test = [
-  "coverage==7.13.4",
-  "pytest-cov==7.0.0",
+  "coverage==7.13.5",
+  "pytest-cov==7.1.0",
   "pytest-django==4.12.0",
-  "pytest-github-actions-annotate-failures==0.3.0",
+  "pytest-github-actions-annotate-failures==0.4.0",
   "pytest-profiling==1.8.1",
   "pytest-xdist==3.8.0",
-  "pytest==9.0.2",
+  "pytest==9.0.3",
   "responses==0.26.0",
-  "respx==0.22.0",
-  "selenium==4.41.0",
+  "respx==0.23.1",
+  "selenium==4.43.0",
   "standardwebhooks==1.0.1"
 ]
 types = [
-  "boto3-stubs==1.42.57",
-  "celery-types==0.24.0",
-  "django-stubs-ext==5.2.9",
-  "django-stubs[compatible-mypy]==5.2.9",
-  "djangorestframework-stubs==3.16.8",
-  "mypy==1.19.1",
-  "PyGObject-stubs==2.16.0",
-  "types-dateparser==1.3.0.20260211",
-  "types-docutils==0.22.3.20260223",
-  "types-jsonschema==4.26.0.20260202",
+  "boto3-stubs==1.42.89",
+  "celery-types==0.26.0",
+  "django-stubs-ext==6.0.2",
+  "django-stubs[compatible-mypy]==6.0.2",
+  "djangorestframework-stubs==3.16.9",
+  "mypy==1.20.1",
+  "PyGObject-stubs==2.17.0",
+  "types-dateparser==1.4.0.20260408",
+  "types-docutils==0.22.3.20260408",
+  "types-jsonschema==4.26.0.20260408",
   "types-lxml==2026.2.16",
-  "types-openpyxl==3.1.5.20250919",
-  "types-Pillow==10.2.0.20240822",
-  "types-python-dateutil==2.9.0.20260124",
-  "types-regex==2026.2.19.20260221",
-  "types-requests==2.32.4.20260107",
-  "types-setuptools==82.0.0.20260210"
+  "types-openpyxl==3.1.5.20260408",
+  "types-python-dateutil==2.9.0.20260408",
+  "types-regex==2026.4.4.20260408",
+  "types-requests==2.33.0.20260408",
+  "types-setuptools==82.0.0.20260408"
 ]
 
 [project]
@@ -103,25 +102,23 @@ classifiers = [
   "Topic :: Software Development :: Localization"
 ]
 dependencies = [
-  "aeidon>=1.15,<1.16",
-  "ahocorasick-rs>=0.22.0,<1.1.0",
-  "altcha>=0.2.0,<1.1",
+  "ahocorasick-rs>=1.0.1,<1.1.0",
+  "altcha>=2.0,<2.1",
   "borgbackup>=1.4.0,<1.5",
   "celery[redis]>=5.5.3,<5.7",
   "certifi>=2026.2.25",
   "charset-normalizer>=3.4.0,<4.0",
   "confusable-homoglyphs>=3.3.1,<3.4",
-  "crispy-bootstrap3==2024.1",
-  "crispy-bootstrap5==2025.6",
+  "crispy-bootstrap5==2026.3",
   "cryptography>=45.0.1",
   "cssselect>=1.3.0,<1.5",
   "cyrtranslit>=1.2.0,<1.3.0",
   "Cython>=3.1.0,<3.3",
-  "dateparser>=1.2.0,<1.4.0",
+  "dateparser>=1.2.0,<1.5.0",
   "diff-match-patch==20241021",
   "disposable-email-domains>=0.0.125",
   "django-appconf>=1.1.0,<1.3",
-  "django-celery-beat>=2.8.0,<2.10",
+  "django-celery-beat>=2.9.0,<2.10",
   "django-compressor>=4.5.1,<5",
   "django-cors-headers>=4.7.0,<4.10",
   "django-crispy-forms>=2.4,<2.7",
@@ -129,31 +126,28 @@ dependencies = [
   "django-otp-webauthn>=0.6.0,<0.9",
   "django-otp>=1.7.0,<2.0",
   "django-redis>=6.0.0,<6.1",
-  "Django[argon2]>=5.2,<6.0",
+  "Django[argon2]>=6.0,<6.1",
   "djangorestframework-csv>=3.0.2,<3.1",
-  "djangorestframework>=3.16.0,<3.17",
+  "djangorestframework>=3.16.0,<3.18",
   "docutils>=0.21.2,<0.23",
   "drf-spectacular[sidecar]>=0.28.0,<0.30",
   "drf-standardized-errors[openapi]>=0.14.1,<0.16",
   "fedora-messaging>=3.9.0,<4.0",
   "filelock<4,>=3.18.0",
-  "fluent.syntax>=0.19.0,<0.20",
   "GitPython>=3.1.43,<3.2",
   "hiredis>=3.1.0,<3.4",
   "html2text>=2025.4.15,<2025.4.16",
-  "iniparse==0.5",
   "jsonschema>=4.24.0,<5",
   "lxml>=5.4.0,<6.1",
   "mistletoe>=1.4.0,<1.6",
   "nh3>=0.2.20,<0.4",
   "openpyxl>=3.1.5,<3.2",
   "packaging>=25,<27",
-  "phply>=1.2.6,<1.3",
   "Pillow>=11.0.0,<13",
   "pyaskalono>=0.2.0,<0.3.0",
   "pycairo>=1.20.0",
   "Pygments>=2.19.0,<3.0",
-  "PyGObject>=3.54.5,<3.55.0",
+  "PyGObject>=3.56.0,<3.57.0",
   "pyicumessageformat>=1.0.0,<1.1",
   "pyparsing>=3.2.0,<3.4",
   "python-dateutil>=2.9.0.post0",
@@ -161,20 +155,20 @@ dependencies = [
   "rapidfuzz>=3.12.1,<3.15",
   "redis>=5.2.0,<8.0.0",
   "regex>=2024.11.6,<2027",
-  "requests>=2.32.2,<2.33",
+  "requests>=2.33,<3.0",
   "ruamel.yaml>=0.18.0,<0.20.0",
   "sentry-sdk>=2.28.0,<3.0",
   "siphashc>=2.5,<3.0",
   "social-auth-app-django>=5.5.1,<6.0.0",
   "social-auth-core>=4.7.0,<5.0.0",
   "tesserocr>=2.8.0,<2.11.0",
-  "translate-toolkit[toml]>=3.19.2,<3.20",
+  "translate-toolkit[chardet,fluent,ini,markdown,toml,php,rc,subtitles,yaml]>=3.19.5,<3.20",
   "translation-finder>=2.22,<3.0",
   "unidecode>=1.4.0,<1.5",
   "urllib3[brotli,zstd]>=2.6.3,<3.0",
   "user-agents>=2.2.0,<2.3",
   "weblate-fonts==2026.1",
-  "weblate-language-data>=2026.3",
+  "weblate-language-data>=2026.7",
   "weblate-schemas==2025.6"
 ]
 description = "A web-based continuous localization system with tight version control integration"
@@ -190,7 +184,7 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 name = "weblate"
 requires-python = ">=3.12"
-version = "5.16.2"
+version = "5.17"
 
 [project.optional-dependencies]
 alibaba = [
@@ -198,7 +192,7 @@ alibaba = [
   "aliyun-python-sdk-core>=2.16.0,<3.0.0"
 ]
 all = [
-  "weblate[alibaba,amazon,gerrit,gelf,google,ldap,mercurial,openai,postgres,zxcvbn]"
+  "weblate[alibaba,amazon,gerrit,gelf,google,ldap,mercurial,openai,postgres,sphinx,zxcvbn]"
 ]
 amazon = [
   "boto3>=1.38.0,<2.0"
@@ -210,7 +204,7 @@ gerrit = [
   "git-review>=2.4.0,<2.6.0"
 ]
 google = [
-  "google-cloud-storage>=3.4.0,<3.10",
+  "google-cloud-storage>=3.4.0,<3.11",
   "google-cloud-translate>=3.21.0,<4.0"
 ]
 ldap = [
@@ -218,9 +212,6 @@ ldap = [
 ]
 mercurial = [
   "mercurial>=6.8.0,<7.3"
-]
-mysql = [
-  "mysqlclient>=2.1.1,<3"
 ]
 openai = [
   "openai>=2.0,<3.0"
@@ -232,19 +223,19 @@ saml = [
   "python3-saml>=1.16.0"
 ]
 saml2idp = [
-  "djangosaml2idp==0.7.2"
+  "djangosaml2idp2==0.9.1"
 ]
-wlhosted = [
-  "wlhosted"
+sphinx = [
+  "Sphinx"
 ]
 wllegal = [
-  "wllegal>=2026.2"
+  "wllegal>=2026.3"
 ]
 wsgi = [
-  "granian==2.7.2"
+  "granian==2.7.3"
 ]
 zxcvbn = [
-  "django-zxcvbn-password-validator>=1.4.5,<1.6"
+  "django-zxcvbn-password-validator>=1.5.3,<1.7"
 ]
 
 [project.readme]
@@ -280,6 +271,7 @@ ignore = [
   ".weblate",
   ".well-known/*",
   ".yamllint.yml",
+  "AGENTS.md",
   "ci/*",
   "ci/migrate-scripts/*",
   "client/*",
@@ -435,7 +427,6 @@ disable = [
   "attribute-defined-outside-init",  # TODO
   "broad-exception-caught",  # TODO
   "c-extension-no-member",
-  "consider-using-with",  # TODO
   "cyclic-import",
   "duplicate-code",  # TODO
   "fixme",
@@ -499,6 +490,8 @@ filterwarnings = [
   "error",
   # Warning in the third-party module (drf_spectacular)
   "ignore:'_UnionGenericAlias':DeprecationWarning:drf_spectacular.plumbing",
+  # Occasional gobject internal warnings
+  "ignore::gi.PyGIDeprecationWarning",
   # Warning in the third-party module (python3-saml)
   "ignore:datetime.datetime.utcnow:DeprecationWarning:onelogin.saml2.utils",
   # Warning in the third-party module (openid)
@@ -507,10 +500,10 @@ filterwarnings = [
   "ignore:Implicitly cleaning up <TemporaryDirectory.*/xdist-:ResourceWarning",
   # Happens via dateparser
   "ignore:Parsing dates involving a day of month without a year specified:Warning",
+  # Warning in the third-party module (xmlschema on Python 3.14)
+  "ignore:pathlib.PurePath.as_uri:DeprecationWarning:xmlschema.resources",
   # There is no way to address this in a backwards compatible way
   "ignore:Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata:Warning",
-  # There is no way to address this in a backwards compatible way
-  "ignore:The FORMS_URLFIELD_ASSUME_HTTPS transitional setting:django.utils.deprecation.RemovedInDjango60Warning",
   # Warning in the third-party module (borg)
   "ignore:Version._version:DeprecationWarning:borg",
   # Triggered when Selenium can not be started
@@ -571,16 +564,12 @@ ignore = [
   "E501",  # WONTFIX: we accept long strings (rest is formatted by black)
   "FBT",  # TODO: Boolean in function definition
   "FIX002",  # CONFIG: we use TODO
-  "PLC0415",  # TODO: `import` should be at the top-level of a file
   "PLR2004",  # TODO: Magic value used in comparison, consider replacing 201 with a constant variable
   "PLR6301",  # TODO: Method could be a function, class method, or static method
   "PLW2901",  # TODO: overwriting variables inside loop
   "PT",  # CONFIG: Not using pytest
   "PTH",  # TODO: Not using pathlib
   "RUF001",  # WONTFIX: String contains ambiguous unicode character, we are using Unicode
-  "S404",  # CONFIG: `subprocess` module is possibly insecure
-  "S603",  # CONFIG: `subprocess` call: check for execution of untrusted input
-  "S607",  # CONFIG: executing system installed tools
   "TD002",  # CONFIG: no detailed TODO documentation is required
   "TD003",  # CONFIG: no detailed TODO documentation is required
   "TRY003",  # WONTFIX: Avoid specifying long messages outside the exception class
@@ -605,7 +594,7 @@ max-complexity = 16  # TODO: should be lower
 
 [tool.ruff.lint.per-file-ignores]
 "ci/migrate-scripts/*.py" = ["INP001", "S101"]
-"docs/_ext/djangodocs.py" = ["INP001"]
+"docs/_ext/*.py" = ["INP001"]
 "docs/conf.py" = ["ERA001", "INP001"]
 "scripts/*" = ["T201", "T203"]
 "weblate/*/migrations/*.py" = ["RUF012"]
@@ -633,6 +622,19 @@ max-statements = 100
 [tool.setuptools]
 include-package-data = true
 zip-safe = false
+
+[tool.setuptools.package-data]
+weblate = [
+  "addons/extractors/sphinx/docutils.conf",
+  "locale/**/*.mo",
+  "locale/**/*.po",
+  "locale/**/*.pot",
+  "static/**/*",
+  "templates/**/*"
+]
+"weblate.fonts" = ["static/**/*"]
+"weblate.legal" = ["templates/**/*"]
+"weblate.wladmin" = ["templates/**/*"]
 
 [tool.setuptools.packages.find]
 include = ["weblate*"]

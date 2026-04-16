@@ -64,6 +64,9 @@ from anyscale.client.openapi_client.models.decoratedapplicationtemplate_list_res
 from anyscale.client.openapi_client.models.decoratedschedule_list_response import (
     DecoratedscheduleListResponse,
 )
+from anyscale.client.openapi_client.models.job_run_summary import (
+    JobRunSummary as APIJobRun,
+)
 from anyscale.client.openapi_client.models.production_job import ProductionJob
 from anyscale.client.openapi_client.models.resource_tag_record import ResourceTagRecord
 from anyscale.client.openapi_client.models.session_ssh_key import SessionSshKey
@@ -72,7 +75,6 @@ from anyscale.sdk.anyscale_client.models import (
     Cluster,
     ClusterCompute,
     ClusterEnvironment,
-    Job as APIJobRun,
     ProductionServiceV2VersionModel,
 )
 from anyscale.sdk.anyscale_client.models.cluster_environment_build import (
@@ -91,6 +93,8 @@ RUNTIME_ENV_PACKAGE_FORMAT = "pkg_{content_hash}.zip"
 
 # All workspace cluster names should start with this prefix.
 WORKSPACE_CLUSTER_NAME_PREFIX = "workspace-cluster-"
+
+DEFAULT_MAX_RUNS_PER_JOB = 100
 
 
 class AnyscaleClientInterface(ABC):
@@ -560,10 +564,31 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_job_runs(self, job_id: str) -> List[APIJobRun]:
-        """Returns all job runs for a given job id.
+    def get_job_runs(
+        self,
+        job_id: str,
+        max_runs_per_job: Optional[int] = DEFAULT_MAX_RUNS_PER_JOB,
+        run_name: Optional[str] = None,
+    ) -> List[APIJobRun]:
+        """Returns job runs for a given job id.
 
-        Returned in ascending order by creation time.
+        max_runs_per_job limits the number of runs returned.
+        If not provided, the server applies its default.
+        run_name filters runs by exact name match.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def batch_get_job_runs(
+        self,
+        ha_job_ids: List[str],
+        max_runs_per_job: Optional[int] = DEFAULT_MAX_RUNS_PER_JOB,
+        run_name: Optional[str] = None,
+    ) -> Dict[str, List[APIJobRun]]:
+        """Returns job runs for multiple job ids, grouped by ha_job_id.
+
+        Ordered by creation time descending. max_runs_per_job defaults to 10
+        on the server if not provided.
         """
         raise NotImplementedError
 
@@ -600,6 +625,7 @@ class AnyscaleClientInterface(ABC):
         *,
         name: Optional[str] = None,
         project_id: Optional[str] = None,
+        cloud_id: Optional[str] = None,
         creator_id: Optional[str] = None,
         state_filter: Optional[List[str]] = None,
         archive_status: Optional[str] = None,

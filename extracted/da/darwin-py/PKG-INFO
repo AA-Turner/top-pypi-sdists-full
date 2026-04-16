@@ -1,17 +1,18 @@
 Metadata-Version: 2.4
 Name: darwin-py
-Version: 3.4.5
+Version: 3.5.0
 Summary: Library and command line interface for darwin.v7labs.com
 License: MIT
 License-File: LICENSE
 Author: V7
 Author-email: info@v7labs.com
-Requires-Python: >=3.10,<3.13
+Requires-Python: >=3.10,<3.14
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: dev
 Provides-Extra: medical
 Provides-Extra: ml
@@ -21,7 +22,7 @@ Provides-Extra: storage-aws
 Provides-Extra: storage-azure
 Provides-Extra: storage-gcp
 Provides-Extra: test
-Requires-Dist: albumentations (>=1.4.21,<2.0.0) ; (python_version >= "3.10" and python_version < "3.13") and (extra == "ml")
+Requires-Dist: albumentations (>=1.4.21,<2.0.0) ; extra == "ml"
 Requires-Dist: argcomplete (>=3.6.2,<4.0.0)
 Requires-Dist: azure-identity (>=1.19.0,<2.0.0) ; extra == "storage-azure" or extra == "storage-all"
 Requires-Dist: azure-storage-blob (>=12.23.0,<13.0.0) ; extra == "storage-azure" or extra == "storage-all"
@@ -30,6 +31,8 @@ Requires-Dist: boto3 (>=1.42.3,<2.0.0) ; extra == "storage-aws" or extra == "sto
 Requires-Dist: connected-components-3d (>=3.10.3,<4.0.0) ; extra == "medical"
 Requires-Dist: debugpy (>=1.8.1,<2.0.0) ; extra == "dev"
 Requires-Dist: deprecation (>=2.1.0,<3.0.0)
+Requires-Dist: flake8 (>=7,<8) ; extra == "dev"
+Requires-Dist: flake8-pyproject (>=1,<2) ; extra == "dev" or extra == "test"
 Requires-Dist: google-cloud-storage (>=2.18.0,<3.0.0) ; extra == "storage-gcp" or extra == "storage-all"
 Requires-Dist: humanize (>=4.4.0,<5.0.0)
 Requires-Dist: isort (>=5.11.4,<6.0.0) ; extra == "dev"
@@ -39,29 +42,29 @@ Requires-Dist: mpire (>=2.7.0,<3.0.0)
 Requires-Dist: mypy (>=1.5,<2.0) ; (python_version >= "3.10") and (extra == "dev")
 Requires-Dist: natsort (>=8.4.0,<9.0.0)
 Requires-Dist: nibabel (>=5.0.0,<6.0.0) ; (python_version >= "3.10") and (extra == "medical")
-Requires-Dist: numpy (>=1.24.4,<2.0.0)
+Requires-Dist: numpy (>=1.26.4,<3)
 Requires-Dist: opencv-python-headless (==4.11.0.86) ; extra == "ocv"
 Requires-Dist: orjson (>=3.8.5,<4.0.0)
 Requires-Dist: pillow (>=12.1.1,<13.0.0)
 Requires-Dist: pydantic (>=2.0.0,<3.0.0)
 Requires-Dist: pytest (>=7.2.1,<8.0.0) ; extra == "dev" or extra == "test"
 Requires-Dist: pytest-rerunfailures (>=12.0,<13.0) ; extra == "dev"
-Requires-Dist: python-dotenv (>=1.0.0,<2.0.0) ; (python_version >= "3.10" and python_version < "3.13") and (extra == "dev" or extra == "test")
+Requires-Dist: python-dotenv (>=1.0.0,<2.0.0) ; extra == "dev" or extra == "test"
 Requires-Dist: pyyaml (>=6.0.1,<7.0.0)
 Requires-Dist: requests (>=2.28.1,<3.0.0)
 Requires-Dist: responses (>=0.25.0,<0.26.0) ; extra == "dev" or extra == "test"
 Requires-Dist: rich (>=13.0.1,<14.0.0)
 Requires-Dist: ruff (>=0.4.7,<0.10.0) ; extra == "dev"
-Requires-Dist: scikit-learn (>=1.5.0,<2.0.0) ; (python_version >= "3.10" and python_version < "3.13") and (extra == "ml")
-Requires-Dist: scipy (>=1.13.1,<2.0.0) ; (python_version >= "3.10" and python_version < "3.13") and (extra == "medical" or extra == "ml")
+Requires-Dist: scikit-learn (>=1.5.0,<2.0.0) ; extra == "ml"
+Requires-Dist: scipy (>=1.14.0,<2.0.0) ; extra == "medical" or extra == "ml"
 Requires-Dist: tenacity (>=8.5.0,<9.0.0)
 Requires-Dist: toml (>=0.10.2,<0.11.0)
-Requires-Dist: torch (>=2.5.1,<3.0.0) ; extra == "ml"
-Requires-Dist: torchvision (>=0.20.1,<0.21.0) ; extra == "ml"
+Requires-Dist: torch (>=2.8.0,<3.0.0) ; extra == "ml"
+Requires-Dist: torchvision (>=0.23.0,<0.24.0) ; extra == "ml"
 Requires-Dist: tqdm (>=4.64.1,<5.0.0)
 Requires-Dist: types-pyyaml (>=6.0.12.9,<7.0.0.0)
 Requires-Dist: types-requests (>=2.28.11.8,<3.0.0.0)
-Requires-Dist: upolygon (==0.1.11)
+Requires-Dist: upolygon (>=0.2.2,<0.3.0)
 Requires-Dist: validate-pyproject (>=0.15,<0.24) ; extra == "dev"
 Project-URL: Documentation, https://darwin-py-sdk.v7labs.com/index.html
 Project-URL: Homepage, https://docs.v7labs.com/reference/getting-started-2

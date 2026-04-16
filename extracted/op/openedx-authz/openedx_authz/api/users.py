@@ -9,12 +9,16 @@ with the role management system, which uses namespaced subjects
 (e.g., 'user^john_doe').
 """
 
+from django.contrib.auth import get_user_model
+from django.db.models import Q
+
 from openedx_authz.api.data import (
     ActionData,
     PermissionData,
     RoleAssignmentData,
     RoleData,
     ScopeData,
+    SuperAdminAssignmentData,
     UserAssignments,
     UserAssignmentsFilter,
     UserData,
@@ -35,6 +39,10 @@ from openedx_authz.api.roles import (
     unassign_subject_from_all_roles,
 )
 from openedx_authz.api.utils import filter_user_assignments, get_user_assignment_map
+from openedx_authz.utils import get_user_by_username_or_email
+
+User = get_user_model()
+
 
 __all__ = [
     "assign_role_to_user_in_scope",
@@ -47,10 +55,13 @@ __all__ = [
     "get_user_role_assignments_filtered",
     "get_all_user_role_assignments_in_scope",
     "get_visible_role_assignments_for_user",
+    "get_visible_user_role_assignments_filtered_by_current_user",
     "is_user_allowed",
     "get_scopes_for_user_and_permission",
     "get_users_for_role_in_scope",
     "unassign_all_roles_from_user",
+    "validate_users",
+    "get_superadmin_assignments",
 ]
 
 
@@ -168,6 +179,53 @@ def get_user_role_assignments_for_role_in_scope(
     )
 
 
+def get_visible_user_role_assignments_filtered_by_current_user(
+    user_external_key: str,
+    orgs: list[str] = None,
+    roles: list[str] = None,
+    allowed_for_user_external_key: str = None,
+) -> list[RoleAssignmentData]:
+    """
+    Get role assignments for a specific user, filtered by orgs and/or roles,
+    and only include assignments that the specified user has permission to view.
+
+    Args:
+        user_external_key: The user to get assignments for (e.g., 'john_doe').
+        orgs: Optional list of orgs to filter by (e.g., ['edX', 'MITx']).
+        roles: Optional list of roles to filter by (e.g., ['library_admin']).
+        allowed_for_user_external_key: The username to check permissions against (e.g., 'john_doe').
+
+    Returns:
+        list[RoleAssignmentData]: A list of role assignments for the user, filtered by orgs/roles and permissions.
+    """
+    user_role_assignments = get_user_role_assignments(user_external_key=user_external_key)
+    # Filter assignments based on the user's permissions
+    user_role_assignments = _filter_allowed_assignments(
+        user_external_key=allowed_for_user_external_key,
+        assignments=user_role_assignments,
+    )
+
+    # Only include assignments whose subject corresponds to an active user,
+    # consistent with get_superadmin_assignments which filters by is_active=True.
+    active_usernames = set(
+        User.objects.filter(
+            username__in=[a.subject.username for a in user_role_assignments],
+            is_active=True,
+        ).values_list("username", flat=True)
+    )
+    user_role_assignments = [a for a in user_role_assignments if a.subject.username in active_usernames]
+
+    if orgs:
+        # Filter by orgs
+        user_role_assignments = [a for a in user_role_assignments if getattr(a.scope, "org", None) in orgs]
+    if roles:
+        # Filter by roles
+        user_role_assignments = [
+            a for a in user_role_assignments if any(role.external_key in roles for role in a.roles)
+        ]
+    return user_role_assignments
+
+
 def get_user_role_assignments_filtered(
     *,
     user_external_key: str | None = None,
@@ -210,11 +268,14 @@ def get_all_user_role_assignments_in_scope(
 
 
 def _filter_allowed_assignments(
-    user_external_key: str, assignments: list[RoleAssignmentData]
+    assignments: list[RoleAssignmentData], user_external_key: str = None
 ) -> list[RoleAssignmentData]:
     """
     Filter the given role assignments to only include those that the user has permission to view.
     """
+    if not user_external_key:
+        # If no user is specified, return all assignments
+        return assignments
     allowed_assignments: list[RoleAssignmentData] = []
     for assignment in assignments:
         permission = None
@@ -339,3 +400,57 @@ def unassign_all_roles_from_user(user_external_key: str) -> bool:
         bool: True if any roles were removed, False otherwise.
     """
     return unassign_subject_from_all_roles(UserData(external_key=user_external_key))
+
+
+def validate_users(user_identifiers: list[str]) -> tuple[list[str], list[str]]:
+    """Validate a list of user identifiers.
+
+    Args:
+        user_identifiers (list[str]): List of usernames or emails to validate
+
+    Returns:
+        tuple: (valid_users, invalid_users) lists
+    """
+    valid_users = []
+    invalid_users = []
+
+    for user_identifier in user_identifiers:
+        try:
+            user = get_user_by_username_or_email(user_identifier)
+            if user.is_active:
+                valid_users.append(user_identifier)
+            else:
+                invalid_users.append(user_identifier)
+        except User.DoesNotExist:
+            invalid_users.append(user_identifier)
+
+    return valid_users, invalid_users
+
+
+def get_superadmin_assignments(user_external_keys: list[str] | None = None) -> list[SuperAdminAssignmentData]:
+    """Returns all superadmins as SuperAdminAssignmentData.
+
+    A superadmin is a User with a Django staff or superuser role.
+    Superadmins automatically are allowed to do any action.
+
+    Args:
+        user_external_keys (list[str] or None): To filter by usernames
+
+    Returns:
+        list[SuperAdminAssignmentData]: The superadmin data
+    """
+    superadmin_filter = Q(is_active=True) & (Q(is_staff=True) | Q(is_superuser=True))
+    if user_external_keys is not None:
+        superadmin_filter &= Q(username__in=user_external_keys)
+    requested_users = User.objects.filter(superadmin_filter)
+
+    superadmin_assignments: list[SuperAdminAssignmentData] = []
+    for requested_user in requested_users:
+        superadmin_assignments.append(
+            SuperAdminAssignmentData(
+                user=requested_user,
+                is_staff=requested_user.is_staff,
+                is_superuser=requested_user.is_superuser,
+            )
+        )
+    return superadmin_assignments

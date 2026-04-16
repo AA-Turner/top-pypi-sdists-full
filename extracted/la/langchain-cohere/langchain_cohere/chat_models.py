@@ -131,7 +131,7 @@ def _get_curr_chat_turn_messages(messages: List[BaseMessage]) -> List[BaseMessag
 def _messages_to_cohere_tool_results_curr_chat_turn(
     messages: List[BaseMessage],
 ) -> List[Dict[str, Any]]:
-    """Get tool_results from messages."""
+    """Get `tool_results` from messages."""
     tool_results = []
     curr_chat_turn_messages = _get_curr_chat_turn_messages(messages)
     for message in curr_chat_turn_messages:
@@ -198,14 +198,14 @@ def _get_message_cohere_format(
         None,
     ],
 ]:
-    """Get the formatted message as required in cohere's api.
+    """Get the formatted message as required in Cohere's API.
 
     Args:
-        message: The BaseMessage.
-        tool_results: The tool results if any
+        message: The `BaseMessage`.
+        tool_results: The tool results, if any
 
     Returns:
-        The formatted message as required in cohere's api.
+        The formatted message as required in Cohere's API.
     """
 
     if isinstance(message, AIMessage):
@@ -396,12 +396,12 @@ def get_role_v2(message: BaseMessage) -> str:
 def _get_message_cohere_format_v2(
     message: BaseMessage, tool_results: Optional[List[MutableMapping]] = None
 ) -> ChatMessageV2:
-    """Get the formatted message as required in cohere's api (V2).
+    """Get the formatted message as required in Cohere's API (V2).
     Args:
-        message: The BaseMessage.
+        message: The `BaseMessage`.
         tool_results: The tool results if any
     Returns:
-        The formatted message as required in cohere's api.
+        The formatted message as required in Cohere's API.
     """
     if isinstance(message, AIMessage):
         if message.tool_calls:
@@ -574,31 +574,30 @@ def get_cohere_chat_request_v2(
 
 
 class ChatCohere(BaseChatModel, BaseCohere):
-    """
-    Implements the BaseChatModel (and BaseLanguageModel) interface with Cohere's large
-    language models.
+    """Implements the `BaseChatModel` (and `BaseLanguageModel`) interface with Cohere's
+    large language models.
 
     Find out more about us at https://cohere.com and https://huggingface.co/CohereForAI
 
     This implementation uses the Chat API - see https://docs.cohere.com/reference/chat
 
     To use this you'll need to a Cohere API key - either pass it to cohere_api_key
-    parameter or set the COHERE_API_KEY environment variable.
+    parameter or set the `COHERE_API_KEY` environment variable.
 
     API keys are available on https://cohere.com - it's free to sign up and trial API
     keys work with this implementation.
 
     Basic Example:
-        .. code-block:: python
+        ```python
+        from langchain_cohere import ChatCohere
+        from langchain_core.messages import HumanMessage
 
-            from langchain_cohere import ChatCohere
-            from langchain_core.messages import HumanMessage
+        llm = ChatCohere(cohere_api_key="{API KEY}")
 
-            llm = ChatCohere(cohere_api_key="{API KEY}")
+        message = [HumanMessage(content="Hello, can you introduce yourself?")]
 
-            message = [HumanMessage(content="Hello, can you introduce yourself?")]
-
-            print(llm.invoke(message).content)
+        print(llm.invoke(message).content)
+        ```
     """
 
     preamble: Optional[str] = None
@@ -629,31 +628,35 @@ class ChatCohere(BaseChatModel, BaseCohere):
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, Union[Dict, BaseModel]]:
         """Model wrapper that returns outputs formatted to match the given schema.
+
         Given schema can be a Pydantic class or a dict.
 
         Args:
-            schema: The output schema as a dict or a Pydantic class. If a Pydantic class
-                then the model output will be an object of that class. If a dict then
-                the model output will be a dict.
+            schema: The output schema as a `dict` or a Pydantic class. If a Pydantic
+                class then the model output will be an object of that class. If a `dict`
+                then the model output will be a `dict`.
             method: The method for steering model generation, one of:
-                - "function_calling" or "tool_calling":
+
+                - `'function_calling'` or `'tool_calling'`:
                     Uses Cohere's tool-calling (formerly called function calling)
                     API: https://docs.cohere.com/v2/docs/tool-use
-                - "json_schema":
+                - `'json_schema'`:
                     Uses Cohere's Structured Output API: https://docs.cohere.com/docs/structured-outputs
+
                     Allows the user to pass a json schema (or pydantic)
                         to the model for structured output.
+
                     This is the default method.
-                    Supported for "command-r", "command-r-plus", and later
-                    models.
-                - "json_mode":
+
+                    Supported for `'command-a-03-2025'` and later models.
+                - `'json_mode'`:
                     Uses Cohere's Structured Output API: https://docs.cohere.com/docs/structured-outputs
-                    Supported for "command-r", "command-r-plus", and later
-                    models.
+
+                    Supported for `'command-a-03-2025'` and later models.
 
         Returns:
-            A Runnable that takes any ChatModel input and returns either a dict or
-            Pydantic class as output.
+            A `Runnable` that takes any `ChatModel` input and returns either a `dict` or
+                Pydantic class as output.
         """
         if (not schema) and (method != "json_mode"):
             raise ValueError(
@@ -825,13 +828,57 @@ class ChatCohere(BaseChatModel, BaseCohere):
         stream = self.client.v2.chat_stream(**request)
         curr_tool_call: Dict[str, Any] = copy.deepcopy(LC_TOOL_CALL_TEMPLATE)
         tool_calls = []
+        has_thinking = False
         for data in stream:
             if data.type == "content-delta":
-                delta = data.delta.message.content.text
-                chunk = ChatGenerationChunk(message=AIMessageChunk(content=delta))
-                if run_manager:
-                    run_manager.on_llm_new_token(delta, chunk=chunk)
-                yield chunk
+                content_block = data.delta.message.content
+                text_delta = content_block.text if content_block else None
+                thinking_delta = content_block.thinking if content_block else None
+
+                if thinking_delta is not None:
+                    has_thinking = True
+                    delta = thinking_delta
+                    chunk = ChatGenerationChunk(
+                        message=AIMessageChunk(
+                            content=[
+                                {
+                                    "type": "reasoning",
+                                    "index": 0,
+                                    "summary": [
+                                        {
+                                            "text": thinking_delta,
+                                            "index": 0,
+                                        }
+                                    ],
+                                }
+                            ]
+                        )
+                    )
+                    if run_manager:
+                        run_manager.on_llm_new_token(delta, chunk=chunk)
+                    yield chunk
+                elif text_delta is not None:
+                    delta = text_delta
+                    if has_thinking:
+                        chunk = ChatGenerationChunk(
+                            message=AIMessageChunk(
+                                content=[
+                                    {
+                                        "type": "text",
+                                        "index": 1,
+                                        "text": text_delta,
+                                    }
+                                ]
+                            )
+                        )
+                    else:
+                        chunk = ChatGenerationChunk(
+                            message=AIMessageChunk(content=delta)
+                        )
+                    if run_manager:
+                        run_manager.on_llm_new_token(delta, chunk=chunk)
+                    yield chunk
+
             elif data.type in {
                 "tool-call-start",
                 "tool-call-delta",
@@ -929,15 +976,58 @@ class ChatCohere(BaseChatModel, BaseCohere):
         )
         stream = self.async_client.v2.chat_stream(**request)
         curr_tool_call: Dict[str, Any] = copy.deepcopy(LC_TOOL_CALL_TEMPLATE)
-        tool_plan_deltas = []
-        tool_calls = []
+        tool_plan_deltas: List[str] = []
+        tool_calls: List[Dict[str, Any]] = []
+        has_thinking = False
         async for data in stream:
             if data.type == "content-delta":
-                delta = data.delta.message.content.text
-                chunk = ChatGenerationChunk(message=AIMessageChunk(content=delta))
-                if run_manager:
-                    await run_manager.on_llm_new_token(delta, chunk=chunk)
-                yield chunk
+                content_block = data.delta.message.content
+                text_delta = content_block.text if content_block else None
+                thinking_delta = content_block.thinking if content_block else None
+
+                if thinking_delta is not None:
+                    has_thinking = True
+                    delta = thinking_delta
+                    chunk = ChatGenerationChunk(
+                        message=AIMessageChunk(
+                            content=[
+                                {
+                                    "type": "reasoning",
+                                    "index": 0,
+                                    "summary": [
+                                        {
+                                            "text": thinking_delta,
+                                            "index": 0,
+                                        }
+                                    ],
+                                }
+                            ]
+                        )
+                    )
+                    if run_manager:
+                        await run_manager.on_llm_new_token(delta, chunk=chunk)
+                    yield chunk
+                elif text_delta is not None:
+                    delta = text_delta
+                    if has_thinking:
+                        chunk = ChatGenerationChunk(
+                            message=AIMessageChunk(
+                                content=[
+                                    {
+                                        "type": "text",
+                                        "index": 1,
+                                        "text": text_delta,
+                                    }
+                                ]
+                            )
+                        )
+                    else:
+                        chunk = ChatGenerationChunk(
+                            message=AIMessageChunk(content=delta)
+                        )
+                    if run_manager:
+                        await run_manager.on_llm_new_token(delta, chunk=chunk)
+                    yield chunk
             elif data.type in {
                 "tool-call-start",
                 "tool-call-delta",
@@ -1045,6 +1135,55 @@ class ChatCohere(BaseChatModel, BaseCohere):
                     generation_info=generation_info,
                 )
 
+    def _extract_content_and_thinking(
+        self,
+        response: ChatResponse,
+        generation_info: Dict[str, Any],
+    ) -> Union[str, List[Union[str, Dict[str, Any]]]]:
+        """Extract text content and thinking content from response.
+
+        When thinking content is present, returns a list of content blocks
+        matching the OpenAI reasoning format:
+            [
+                {"type": "reasoning", "id": "...", "summary": [...]},
+                {"type": "text", "text": "..."}
+            ]
+        When no thinking is present, returns just the text content as a string.
+        """
+        text_content = ""
+        thinking_content = ""
+
+        if response.message.content:
+            for content_item in response.message.content:
+                if content_item.type == "text":
+                    text_content = getattr(content_item, "text", "")
+                elif content_item.type == "thinking":
+                    thinking_content = content_item.thinking
+
+        if thinking_content:
+            content_blocks: List[Union[str, Dict[str, Any]]] = []
+            content_blocks.append(
+                {
+                    "type": "reasoning",
+                    "id": generation_info.get("id", ""),
+                    "summary": [
+                        {
+                            "text": thinking_content,
+                        }
+                    ],
+                }
+            )
+            if text_content:
+                content_blocks.append(
+                    {
+                        "type": "text",
+                        "text": text_content,
+                    }
+                )
+            return content_blocks
+
+        return text_content
+
     def _get_generation_info(self, response: NonStreamedChatResponse) -> Dict[str, Any]:
         """Get the generation info from cohere API response."""
         generation_info: Dict[str, Any] = {
@@ -1071,7 +1210,7 @@ class ChatCohere(BaseChatModel, BaseCohere):
     def _get_generation_info_v2(
         self, response: ChatResponse, documents: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
-        """Get the generation info from cohere API response (V2)."""
+        """Get the generation info from Cohere API response (V2)."""
         generation_info: Dict[str, Any] = {
             "id": response.id,
             "finish_reason": response.finish_reason,
@@ -1087,11 +1226,6 @@ class ChatCohere(BaseChatModel, BaseCohere):
                 generation_info["tool_calls"] = _format_cohere_tool_calls_v2(
                     response.message.tool_calls
                 )
-            if response.message.content:
-                if response.message.content[0].type == "text":
-                    generation_info["content"] = response.message.content[0].text
-                elif response.message.content[0].type == "thinking":
-                    generation_info["content"] = response.message.content[0].thinking
             if response.message.citations:
                 generation_info["citations"] = response.message.citations
 
@@ -1107,7 +1241,7 @@ class ChatCohere(BaseChatModel, BaseCohere):
         documents: Optional[List[Dict[str, Any]]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        """Get the stream info from cohere API response (V2)."""
+        """Get the stream info from Cohere API response (V2)."""
         input_tokens = final_delta.usage.billed_units.input_tokens
         output_tokens = final_delta.usage.billed_units.output_tokens
         total_tokens = input_tokens + output_tokens
@@ -1147,7 +1281,9 @@ class ChatCohere(BaseChatModel, BaseCohere):
             response, request.get("documents")
         )
         if "tool_calls" in generation_info:
-            content = response.message.tool_plan if response.message.tool_plan else ""
+            content: Union[str, List[Union[str, Dict[str, Any]]]] = (
+                response.message.tool_plan if response.message.tool_plan else ""
+            )
             tool_calls = [
                 lc_tool_call
                 for tool_call in response.message.tool_calls
@@ -1156,9 +1292,7 @@ class ChatCohere(BaseChatModel, BaseCohere):
                 )
             ]
         else:
-            content = (
-                response.message.content[0].text if response.message.content else ""
-            )
+            content = self._extract_content_and_thinking(response, generation_info)
             tool_calls = []
         usage_metadata = _get_usage_metadata_v2(response)
         message = AIMessage(
@@ -1196,7 +1330,9 @@ class ChatCohere(BaseChatModel, BaseCohere):
             response, request.get("documents")
         )
         if "tool_calls" in generation_info:
-            content = response.message.tool_plan if response.message.tool_plan else ""
+            content: Union[str, List[Union[str, Dict[str, Any]]]] = (
+                response.message.tool_plan if response.message.tool_plan else ""
+            )
             tool_calls = [
                 lc_tool_call
                 for tool_call in response.message.tool_calls
@@ -1205,9 +1341,7 @@ class ChatCohere(BaseChatModel, BaseCohere):
                 )
             ]
         else:
-            content = (
-                response.message.content[0].text if response.message.content else ""
-            )
+            content = self._extract_content_and_thinking(response, generation_info)
             tool_calls = []
         usage_metadata = _get_usage_metadata_v2(response)
         message = AIMessage(
@@ -1239,9 +1373,7 @@ class ChatCohere(BaseChatModel, BaseCohere):
 def _format_cohere_tool_calls(
     tool_calls: Optional[List[ToolCall]] = None,
 ) -> List[Dict]:
-    """
-    Formats a Cohere API response into the tool call format used elsewhere in Langchain.
-    """
+    """Formats a Cohere API response into tool call format."""
     if not tool_calls:
         return []
 
@@ -1263,10 +1395,7 @@ def _format_cohere_tool_calls(
 def _format_cohere_tool_calls_v2(
     tool_calls: Optional[List[ToolCallV2]] = None,
 ) -> List[Dict[str, Any]]:
-    """
-    Formats a V2 Cohere API response into the tool
-    call format used elsewhere in Langchain.
-    """
+    """Formats a V2 Cohere API response into tool call format."""
     if not tool_calls:
         return []
 
@@ -1289,7 +1418,7 @@ def _format_cohere_tool_calls_v2(
 
 
 def _convert_cohere_tool_call_to_langchain(tool_call: ToolCall) -> LC_ToolCall:
-    """Convert a Cohere tool call into langchain_core.messages.ToolCall"""
+    """Convert a Cohere tool call into `langchain_core.messages.ToolCall`"""
     _id = uuid.uuid4().hex[:]
     return LC_ToolCall(name=tool_call.name, args=tool_call.parameters, id=_id)
 
@@ -1297,7 +1426,7 @@ def _convert_cohere_tool_call_to_langchain(tool_call: ToolCall) -> LC_ToolCall:
 def _convert_cohere_v2_tool_call_to_langchain(
     tool_call: ToolCallV2,
 ) -> Optional[LC_ToolCall]:
-    """Convert a Cohere V2 tool call into langchain_core.messages.ToolCall"""
+    """Convert a Cohere V2 tool call into `langchain_core.messages.ToolCall`"""
     _id = tool_call.id or uuid.uuid4().hex[:]
     if not tool_call.function or not tool_call.function.name:
         return None

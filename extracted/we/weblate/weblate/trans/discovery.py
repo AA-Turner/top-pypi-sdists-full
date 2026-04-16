@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import os
-import re
 from itertools import chain
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, NotRequired, Required, TypedDict, cast
 
 from django.core.exceptions import ValidationError
 from django.utils.functional import cached_property
@@ -15,51 +15,73 @@ from django.utils.translation import gettext
 
 from weblate.formats.models import FILE_FORMATS
 from weblate.logger import LOGGER
+from weblate.trans.component_copy import (
+    get_inherited_component_fields,
+)
 from weblate.trans.defines import COMPONENT_NAME_LENGTH
 from weblate.trans.models import Component
 from weblate.trans.tasks import create_component
 from weblate.trans.util import path_separator
+from weblate.utils.errors import report_error
+from weblate.utils.files import is_path_within_resolved_directory
+from weblate.utils.regex import compile_regex, regex_match
 from weblate.utils.render import render_template
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from weblate.formats.base import TranslationFormat
 
-# Attributes to copy from main component
-COPY_ATTRIBUTES = (
-    "project",
-    "vcs",
-    "license",
-    "agreement",
-    "source_language",
-    "report_source_bugs",
-    "allow_translation_propagation",
-    "enable_suggestions",
-    "suggestion_voting",
-    "suggestion_autoaccept",
-    "check_flags",
-    "new_lang",
-    "language_code_style",
-    "commit_message",
-    "add_message",
-    "delete_message",
-    "merge_message",
-    "addon_message",
-    "pull_message",
-    "push_on_commit",
-    "commit_pending_age",
-    "edit_template",
-    "manage_units",
-    "variant_regex",
-    "category_id",
-    "key_filter",
-    "secondary_language",
-)
+COPY_ATTRIBUTES = get_inherited_component_fields("project", "category_id")
+
+
+class DiscoveryErrorMatch(TypedDict):
+    name: str
+    slug: str
+    base_file: str
+    mask: str
+    files_langs: tuple[tuple[str, str], ...]
+
+
+class DiscoveryKwargs(TypedDict):
+    match: Required[str]
+    name_template: Required[str]
+    language_regex: NotRequired[str]
+    base_file_template: NotRequired[str]
+    new_base_template: NotRequired[str]
+    intermediate_template: NotRequired[str]
+    file_format: Required[str]
+    copy_addons: NotRequired[bool]
+
+
+class MutableDiscoveryMatch(TypedDict):
+    files: set[str]
+    languages: set[str]
+    files_langs: set[tuple[str, str]]
+    base_file: str
+    new_base: str
+    intermediate: str
+    mask: str
+    name: str
+    slug: str
+
+
+class DiscoveryMatch(TypedDict):
+    files: set[str]
+    languages: set[str]
+    files_langs: tuple[tuple[str, str], ...]
+    base_file: str
+    new_base: str
+    intermediate: str
+    mask: str
+    name: str
+    slug: str
 
 
 class ComponentDiscovery:
     def __init__(
         self,
-        component,
+        component: Component,
         *,
         match: str,
         name_template: str,
@@ -68,10 +90,12 @@ class ComponentDiscovery:
         base_file_template: str = "",
         new_base_template: str = "",
         intermediate_template: str = "",
-        path=None,
-        copy_addons=True,
+        path: str | None = None,
+        copy_addons: bool = True,
     ) -> None:
         self.component = component
+        self.match = match
+        self.errors: list[tuple[DiscoveryErrorMatch, str]] = []
         if path is None:
             self.path = self.component.full_path
         else:
@@ -82,63 +106,124 @@ class ComponentDiscovery:
         self.new_base_template = new_base_template
         self.intermediate_template = intermediate_template
         self.language_re = language_regex
-        self.language_match = re.compile(language_regex)
+        self.language_match = compile_regex(language_regex)
         self.file_format = file_format
         self.copy_addons = copy_addons
+
+    def add_error(self, reason: str, *, mask: str = "") -> None:
+        match: DiscoveryErrorMatch = {
+            "name": gettext("Discovery configuration"),
+            "slug": "",
+            "base_file": "",
+            "mask": mask,
+            "files_langs": (),
+        }
+        error = (match, reason)
+        if error not in self.errors:
+            self.errors.append(error)
 
     @cached_property
     def file_format_cls(self) -> type[TranslationFormat]:
         return FILE_FORMATS[self.file_format]
 
     @staticmethod
-    def extract_kwargs(params):
+    def extract_kwargs(params: Mapping[str, object]) -> DiscoveryKwargs:
         """Extract kwargs for discovery from wider dict."""
-        attrs = (
-            "match",
-            "name_template",
-            "language_regex",
-            "base_file_template",
-            "new_base_template",
-            "intermediate_template",
-            "file_format",
-            "copy_addons",
-        )
-        return {k: v for k, v in params.items() if k in attrs}
+        kwargs: DiscoveryKwargs = {
+            "match": cast("str", params["match"]),
+            "name_template": cast("str", params["name_template"]),
+            "file_format": cast("str", params["file_format"]),
+        }
+        if "language_regex" in params:
+            kwargs["language_regex"] = cast("str", params["language_regex"])
+        if "base_file_template" in params:
+            kwargs["base_file_template"] = cast("str", params["base_file_template"])
+        if "new_base_template" in params:
+            kwargs["new_base_template"] = cast("str", params["new_base_template"])
+        if "intermediate_template" in params:
+            kwargs["intermediate_template"] = cast(
+                "str", params["intermediate_template"]
+            )
+        if "copy_addons" in params:
+            kwargs["copy_addons"] = cast("bool", params["copy_addons"])
+        return kwargs
 
-    def compile_match(self, match):
+    def compile_match(self, match: str):
         parts = match.split("(?P=language)")
         offset = 1
         while len(parts) > 1:
             parts[0:2] = [f"{parts[0]}(?P<_language_{offset}>(?P=language)){parts[1]}"]
             offset += 1
-        return re.compile(f"^{parts[0]}$")
+        return compile_regex(f"^{parts[0]}$")
 
     @cached_property
     def matches(self):
         """Return matched files together with match groups and mask."""
         result = []
-        base = os.path.realpath(self.path)
+        base = Path(self.path).resolve()
+        timeout_detected = False
         for root, dirnames, filenames in os.walk(self.path, followlinks=True):
+            dirnames[:] = [
+                dirname
+                for dirname in dirnames
+                if is_path_within_resolved_directory(os.path.join(root, dirname), base)
+            ]
             for filename in chain(filenames, dirnames):
                 fullname = os.path.join(root, filename)
 
                 # Skip files outside our root
-                if not os.path.realpath(fullname).startswith(base):
+                if not is_path_within_resolved_directory(fullname, base):
                     continue
 
                 # Calculate relative path
                 path = path_separator(os.path.relpath(fullname, self.path))
 
                 # Check match against our regexp
-                matches = self.path_match.match(path)
+                try:
+                    matches = regex_match(self.path_match, path)
+                except TimeoutError:
+                    report_error(
+                        "Component discovery path regex timed out",
+                        project=self.component.project if self.component else None,
+                    )
+                    self.add_error(
+                        gettext(
+                            "The regular expression used to match discovered files is too complex and took too long to evaluate."
+                        ),
+                        mask=self.match,
+                    )
+                    LOGGER.warning(
+                        "Regex matching timed out for discovery path: %s", path
+                    )
+                    timeout_detected = True
+                    break
                 if not matches:
                     continue
 
                 # Check language regexp
                 language_part = matches.group("language")
-                if language_part is None or not self.language_match.match(
-                    language_part
-                ):
+                try:
+                    language_matches = language_part is not None and regex_match(
+                        self.language_match, language_part
+                    )
+                except TimeoutError:
+                    report_error(
+                        "Component discovery language regex timed out",
+                        project=self.component.project if self.component else None,
+                    )
+                    self.add_error(
+                        gettext(
+                            "The language filter regular expression is too complex and took too long to evaluate."
+                        ),
+                        mask=self.language_re,
+                    )
+                    LOGGER.warning(
+                        "Regex matching timed out for discovery language: %s",
+                        language_part,
+                    )
+                    timeout_detected = True
+                    break
+                if not language_matches:
                     continue
 
                 # Calculate file mask for match
@@ -158,6 +243,8 @@ class ComponentDiscovery:
                 mask = "*".join(reversed(maskparts))
 
                 result.append((path, matches.groupdict(), mask))
+            if timeout_detected:
+                break
 
         return result
 
@@ -167,9 +254,9 @@ class ComponentDiscovery:
         return [x[0] for x in self.matches]
 
     @cached_property
-    def matched_components(self):
+    def matched_components(self) -> dict[str, DiscoveryMatch]:
         """Return list of matched components."""
-        result = {}
+        result: dict[str, MutableDiscoveryMatch] = {}
         for path, groups, mask in self.matches:
             if mask not in result:
                 name = render_template(self.name_template, **groups)
@@ -190,7 +277,13 @@ class ComponentDiscovery:
                 result[mask]["files"].add(path)
                 result[mask]["languages"].add(groups["language"])
                 result[mask]["files_langs"].add((path, groups["language"]))
-        return result
+        return {
+            mask: {
+                **match,
+                "files_langs": tuple(sorted(match["files_langs"])),
+            }
+            for mask, match in result.items()
+        }
 
     def log(self, *args) -> None:
         if self.component:
@@ -225,9 +318,9 @@ class ComponentDiscovery:
         for key in COPY_ATTRIBUTES:
             if key not in kwargs and main is not None:
                 kwargs[key] = getattr(main, key)
-        # Copy file format parameters if the format is same
-        if main is not None and self.file_format == main.file_format:
-            kwargs["file_format_params"] = main.file_format_params
+        if main is not None and self.file_format != main.file_format:
+            kwargs.pop("enforced_checks", None)
+            kwargs.pop("file_format_params", None)
 
         # Disable template editing if not supported by format
         if not self.file_format_cls.can_edit_base:
@@ -295,6 +388,8 @@ class ComponentDiscovery:
         # Can't pass objects, pass only IDs
         kwargs["project"] = kwargs["project"].pk
         kwargs["source_language"] = kwargs["source_language"].pk
+        if "secondary_language" in kwargs and kwargs["secondary_language"] is not None:
+            kwargs["secondary_language"] = kwargs["secondary_language"].pk
         if background:
             create_component.delay(**kwargs, in_task=True)
             return None
@@ -330,8 +425,11 @@ class ComponentDiscovery:
             name = match[param]
             if not name:
                 continue
-            fullname = os.path.join(self.component.full_path, name)
-            if not os.path.exists(fullname):
+            try:
+                fullname = self.component.get_validated_component_filename(name)
+            except ValidationError:
+                fullname = None
+            if not fullname or not os.path.exists(fullname):
                 return gettext("{filename} ({parameter}) does not exist.").format(
                     filename=name,
                     parameter=param,

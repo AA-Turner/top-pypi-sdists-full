@@ -43,7 +43,7 @@ from weblate.utils.state import STATE_TRANSLATED
 from weblate.utils.validators import validate_plural_formula
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
     from django_stubs_ext import StrOrPromise
 
@@ -385,7 +385,7 @@ class LanguageQuerySet(models.QuerySet["Language"]):
 
     def have_translation(self):
         """Return list of languages which have at least one translation."""
-        from weblate.trans.models import Translation
+        from weblate.trans.models import Translation  # noqa: PLC0415
 
         return self.filter(Exists(Translation.objects.filter(language=OuterRef("pk"))))
 
@@ -471,13 +471,53 @@ class LanguageQuerySet(models.QuerySet["Language"]):
     def prefetch(self) -> Self:
         return self.prefetch_related("plural_set")
 
-    def filter_for_add(self, project: Project) -> Self:
+    def get_addable_codes(self) -> list[str]:
         codes = BASIC_LANGUAGES
         if settings.BASIC_LANGUAGES is not None:
             codes = settings.BASIC_LANGUAGES
+        return list(codes)
+
+    def get_allowed_add_language_ids(
+        self, project: Project, language_ids: Iterable[int]
+    ) -> set[int]:
+        from weblate.trans.models import Component, Translation  # noqa: PLC0415
+
+        candidate_language_ids = set(language_ids)
+        if not candidate_language_ids:
+            return set()
+
+        allowed_language_ids = set(
+            self.filter(
+                id__in=candidate_language_ids,
+                code__in=self.get_addable_codes(),
+            ).values_list("id", flat=True)
+        )
+        remaining_language_ids = candidate_language_ids - allowed_language_ids
+        if not remaining_language_ids:
+            return allowed_language_ids
+
+        allowed_language_ids.update(
+            Component.objects.filter(
+                project=project,
+                source_language_id__in=remaining_language_ids,
+            )
+            .values_list("source_language_id", flat=True)
+            .distinct()
+        )
+        allowed_language_ids.update(
+            Translation.objects.filter(
+                component__project=project,
+                language_id__in=remaining_language_ids,
+            )
+            .values_list("language_id", flat=True)
+            .distinct()
+        )
+        return allowed_language_ids
+
+    def filter_for_add(self, project: Project) -> Self:
         return self.filter(
             # Include basic languages
-            Q(code__in=codes)
+            Q(code__in=self.get_addable_codes())
             # Include source languages in a project
             | Q(component__project=project)
             # Include translations in a project
@@ -512,8 +552,8 @@ class LanguageManager(models.Manager.from_queryset(LanguageQuerySet)):
 
         It is based on languages defined in the languages-data repo.
         """
-        from weblate_language_data.languages import LANGUAGES
-        from weblate_language_data.population import POPULATION
+        from weblate_language_data.languages import LANGUAGES  # noqa: PLC0415
+        from weblate_language_data.population import POPULATION  # noqa: PLC0415
 
         if logger is None:
             logger = dummy_logger
@@ -659,8 +699,11 @@ class LanguageManager(models.Manager.from_queryset(LanguageQuerySet)):
 
         # Migrate content from aliased language to alias target
         weblate_data_lang_codes = {lang[0] for lang in LANGUAGES}
-        for code, language in languages.items():
+        alias_migrated = False
+        removed_languages: list[str] = []
+        for code, language in tuple(languages.items()):
             if (code in ALIASES) and (code not in weblate_data_lang_codes):
+                alias_migrated = True
                 alias_target = Language.objects.get(code=ALIASES[code])
                 self.move_language(language, alias_target, logger)
 
@@ -668,12 +711,22 @@ class LanguageManager(models.Manager.from_queryset(LanguageQuerySet)):
                 if language.has_no_children():
                     logger(f"Removing {language}")
                     language.delete()
+                    removed_languages.append(code)
                 else:
                     logger(
                         f"Skipping removal of {language} due to existing child objects"
                     )
 
-        self._fixup_plural_types(logger)
+        for code in removed_languages:
+            languages.pop(code, None)
+            plurals.pop(code, None)
+
+        # Alias migration can create target plurals that were not part of the
+        # initial cache snapshot, so use a live scan in that case.
+        if alias_migrated:
+            self._fixup_plural_types(logger)
+        else:
+            self._fixup_plural_types(logger, plurals)
 
     def move_language(
         self,
@@ -731,23 +784,44 @@ class LanguageManager(models.Manager.from_queryset(LanguageQuerySet)):
         source.memory_source_set.update(source_language=target)
         source.memory_target_set.update(target_language=target)
 
-    def _fixup_plural_types(self, logger) -> None:
+    def _fixup_plural_types(
+        self,
+        logger: Callable[[str], None],
+        plurals: dict[str, dict[int, list[Plural]]] | None = None,
+    ) -> None:
         """Fix plural types as they were changed in Weblate codebase."""
-        if not Plural.objects.filter(type=data.PLURAL_ONE_FEW_MANY).exists():
-            for plural in Plural.objects.filter(
+        candidates: Iterable[Plural]
+        if plurals is None:
+            if Plural.objects.filter(type=data.PLURAL_ONE_FEW_MANY).exists():
+                return
+            candidates = Plural.objects.filter(
                 type=data.PLURAL_ONE_FEW_OTHER
-            ).select_related("language"):
-                language = plural.language
-                newtype = get_plural_type(language.base_code, plural.formula)
-                if newtype == data.PLURAL_UNKNOWN:
-                    msg = f"Invalid plural type of {plural.formula}"
-                    raise ValueError(msg)
-                if newtype != plural.type:
-                    plural.type = newtype
-                    plural.save(update_fields=["type"])
-                    logger(
-                        f"Updated type of {plural.formula} for language {language.code}"
-                    )
+            ).select_related("language")
+        else:
+            known_plurals = tuple(
+                plural
+                for language_plurals in plurals.values()
+                for source_plurals in language_plurals.values()
+                for plural in source_plurals
+            )
+            if any(plural.type == data.PLURAL_ONE_FEW_MANY for plural in known_plurals):
+                return
+            candidates = (
+                plural
+                for plural in known_plurals
+                if plural.type == data.PLURAL_ONE_FEW_OTHER
+            )
+
+        for plural in candidates:
+            language = plural.language
+            newtype = get_plural_type(language.base_code, plural.formula)
+            if newtype == data.PLURAL_UNKNOWN:
+                msg = f"Invalid plural type of {plural.formula}"
+                raise ValueError(msg)
+            if newtype != plural.type:
+                plural.type = newtype
+                plural.save(update_fields=["type"])
+                logger(f"Updated type of {plural.formula} for language {language.code}")
 
 
 def setup_lang(sender, **kwargs) -> None:
@@ -794,7 +868,7 @@ class Language(models.Model, CacheKeyMixin):
         return self.format_full_name(self.get_localized_name())
 
     def __init__(self, *args, **kwargs) -> None:
-        from weblate.utils.stats import LanguageStats
+        from weblate.utils.stats import LanguageStats  # noqa: PLC0415
 
         super().__init__(*args, **kwargs)
         self.stats = LanguageStats(self)

@@ -30,11 +30,11 @@ const clusterNameToSettings = {
   },
   'py-7-node': {
     url: 'https://cap-bench-py-7-node-5f471cdb8a725e0bbb076cc9fb32b76d.staging.langgraph.app',
-    rampEndMultiplier: 1.8,
+    rampEndMultiplier: 5,
   },
   'py-20-node': {
     url: 'https://cap-bench-py-20-node-0970dd3e458059e488db99d48c69ca69.staging.langgraph.app',
-    rampEndMultiplier: 2.4,
+    rampEndMultiplier: 10,
   },
   // Distributed runtime multi-node scaling benchmarks
   'dr-1-node': {
@@ -47,11 +47,11 @@ const clusterNameToSettings = {
   },
   'dr-7-node': {
     url: 'https://cap-bench-dr-7-node-fbf64b46fc9b57239764478187abe534.staging.langgraph.app',
-    rampEndMultiplier: 1.8,
+    rampEndMultiplier: 5,
   },
   'dr-20-node': {
     url: 'https://cap-bench-dr-20-node-7cea036a01a25a9caec0be0b873f9b0a.staging.langgraph.app',
-    rampEndMultiplier: 2.4,
+    rampEndMultiplier: 10,
   },
 };
 

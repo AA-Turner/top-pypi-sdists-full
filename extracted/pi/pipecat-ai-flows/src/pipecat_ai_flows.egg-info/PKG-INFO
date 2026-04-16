@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipecat-ai-flows
-Version: 0.0.24
+Version: 1.0.0
 Summary: Conversation Flow management for Pipecat AI applications
 License: BSD 2-Clause License
 Project-URL: Source, https://github.com/pipecat-ai/pipecat-flows
@@ -12,12 +12,12 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Communications :: Conferencing
 Classifier: Topic :: Multimedia :: Sound/Audio
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pipecat-ai>=0.0.105
-Requires-Dist: loguru~=0.7.2
-Requires-Dist: docstring_parser~=0.16
+Requires-Dist: pipecat-ai<2,>=1.0.0
+Requires-Dist: loguru~=0.7.3
+Requires-Dist: docstring_parser<1,>=0.16
 Dynamic: license-file
 
 <h1><div align="center">
@@ -35,7 +35,7 @@ The framework consists of:
 
 ## Dependencies
 
-- Python 3.10 or higher
+- Python 3.11 or higher
 - [Pipecat](https://github.com/pipecat-ai/pipecat?tab=readme-ov-file#-getting-started)
 
 ## Installation

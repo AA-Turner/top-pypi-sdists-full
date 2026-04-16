@@ -4,12 +4,12 @@
 
 from __future__ import annotations
 
-import os
 from datetime import timedelta
 from pathlib import Path
 
 from celery.schedules import crontab
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, F, Q
 from django.http import HttpRequest
@@ -18,16 +18,28 @@ from django.utils.timezone import now
 from lxml import html
 
 from weblate.addons.events import AddonEvent
-from weblate.addons.models import Addon, AddonActivityLog, handle_addon_event
+from weblate.addons.models import (
+    Addon,
+    AddonActivityLog,
+    handle_addon_event,
+    handle_daily_addon_event,
+)
 from weblate.lang.models import Language
 from weblate.trans.exceptions import FileParseError
 from weblate.trans.models import Change, Component, Project
 from weblate.utils.celery import app
 from weblate.utils.hash import calculate_checksum
 from weblate.utils.lock import WeblateLockTimeoutError
-from weblate.utils.requests import http_request
+from weblate.utils.requests import open_asset_url
+from weblate.utils.validators import validate_filename
 
 IGNORED_TAGS = {"script", "style"}
+
+
+def read_component_file(component: Component, filename: str) -> str:
+    validate_filename(filename)
+    resolved = component.repository.resolve_symlinks(filename)
+    return Path(component.full_path, resolved).read_text(encoding="utf-8")
 
 
 @app.task(trail=False)
@@ -47,13 +59,11 @@ def cdn_parse_html(addon_id: int, component_id: int) -> None:
         filename = filename.strip()
         try:
             if filename.startswith(("http://", "https://")):
-                with http_request("get", filename) as handle:
+                with open_asset_url("get", filename) as handle:
                     content = handle.text
             else:
-                content = Path(os.path.join(component.full_path, filename)).read_text(
-                    encoding="utf-8"
-                )
-        except OSError as error:
+                content = read_component_file(component, filename)
+        except (OSError, ValidationError, ValueError) as error:
             errors.append({"filename": filename, "error": str(error)})
             continue
 
@@ -98,20 +108,35 @@ def cdn_parse_html(addon_id: int, component_id: int) -> None:
 def language_consistency(
     addon_id: int,
     language_ids: list[int],
-    project_id: int,
+    project_id: int | None = None,
+    category_id: int | None = None,
     activity_log_id: int | None = None,
 ) -> None:
+    from weblate.trans.models import Category  # noqa: PLC0415
+
+    if project_id is not None and category_id is not None:
+        msg = "language_consistency cannot receive both project_id and category_id"
+        raise ValueError(msg)
+
     try:
         addon = Addon.objects.get(pk=addon_id)
     except Addon.DoesNotExist:
         return
-    project = Project.objects.get(pk=project_id)
     languages = Language.objects.filter(id__in=language_ids)
     fake_request = HttpRequest()
     fake_request.user = addon.addon.user
 
     # Filter components with missing translation
-    components = project.component_set.annotate(
+    if category_id is not None:
+        category = Category.objects.get(pk=category_id)
+        base_components = category.all_components
+    elif project_id is not None:
+        project = Project.objects.get(pk=project_id)
+        base_components = project.component_set.all()
+    else:
+        msg = "language_consistency requires either project_id or category_id"
+        raise ValueError(msg)
+    components = base_components.annotate(
         translation_count=Count(
             "translation", filter=Q(translation__language__in=languages)
         )
@@ -121,8 +146,9 @@ def language_consistency(
 
     try:
         for component in components.iterator():
-            # Avoid two language consistency add-ons working at same on a single component
-            with component.lock:
+            # Keep the standard lock ordering: repository first, then component.
+            # This avoids inverting the order used by create_translations().
+            with component.repository.lock, component.lock:
                 missing = languages.exclude(
                     Q(translation__component=component) | Q(component=component)
                 )
@@ -133,7 +159,7 @@ def language_consistency(
                     component.refresh_lock()
                     new_lang = component.add_new_language(
                         language,
-                        fake_request,
+                        fake_request,  # type: ignore[arg-type]
                         send_signal=False,
                         create_translations=False,
                     )
@@ -162,21 +188,13 @@ def language_consistency(
 
 @app.task(trail=False)
 def daily_addons(modulo: bool = True) -> None:
-    def daily_callback(
-        addon: Addon, component: Component, *, activity_log_id: int | None = None
-    ) -> None:
-        addon.addon.daily(component, activity_log_id=activity_log_id)
-
     today = timezone.now()
-    addons = Addon.objects.filter(event__event=AddonEvent.EVENT_DAILY)
+    addons = Addon.objects.filter(event__event=AddonEvent.EVENT_DAILY).select_related(
+        "component", "category", "project"
+    )
     if modulo:
         addons = addons.annotate(hourmod=F("id") % 24).filter(hourmod=today.hour)
-    handle_addon_event(
-        AddonEvent.EVENT_DAILY,
-        daily_callback,
-        addon_queryset=addons,
-        auto_scope=True,
-    )
+    handle_daily_addon_event(addons)
 
 
 def update_addon_activity_log(
@@ -205,7 +223,7 @@ def cleanup_addon_activity_log() -> None:
     retry_backoff=60,
 )
 @transaction.atomic
-def postconfigure_addon(addon_id: int, addon=None) -> None:
+def postconfigure_addon(addon_id: int, addon: Addon | None = None) -> None:
     if addon is None:
         addon = Addon.objects.get(pk=addon_id)
     addon.addon.post_configure_run()
@@ -229,9 +247,9 @@ def addon_change(change_ids: list[int], **kwargs) -> None:
     This task retrieves add-ons that are subscribed to change events and
     applies the change event to each relevant add-on.
     """
-    addons = Addon.objects.filter(event__event=AddonEvent.EVENT_CHANGE).select_related(
-        "component", "project"
-    )
+    addons = Addon.objects.filter(
+        event__event=AddonEvent.EVENT_CHANGE
+    ).prefetch_related("component", "category", "project")
 
     for change in Change.objects.filter(pk__in=change_ids).prefetch_for_render():
         change.fill_in_prefetched()
@@ -241,6 +259,15 @@ def addon_change(change_ids: list[int], **kwargs) -> None:
             for addon in addons
             if (not addon.component or addon.component == change.component)
             and (not addon.project or addon.project == change.project)
+            and (
+                not addon.category
+                or (
+                    change.component is not None
+                    # to ensure that addons configured on ancestor categories
+                    # are also considered
+                    and change.component.pk in addon.category.all_component_ids
+                )
+            )
             and addon.addon.check_change_action(change)
         ]
         if change_addons:

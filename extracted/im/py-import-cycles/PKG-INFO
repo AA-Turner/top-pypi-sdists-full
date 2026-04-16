@@ -1,17 +1,19 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: py_import_cycles
-Version: 0.5.2
+Version: 0.6.2
 Summary: Detect import cycles in Python projects
-Home-page: https://github.com/si-23/py-import-cycles
-Author: Simon Jess
-Author-email: simon86betz@yahoo.de
+Project-URL: Homepage, https://github.com/si-23/py-import-cycles
+Author-email: Simon Jess <simon86betz@yahoo.de>
 License: MIT
+License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.12
+Requires-Dist: graphviz
+Requires-Dist: networkx
 Description-Content-Type: text/markdown
-License-File: LICENSE
 
 py-import-cycles
 ================
@@ -27,7 +29,7 @@ It:
 
 It is conceived for having an indication whether Python packages may have structural weak points.
 
-`py-import-cycles` does not take any Python module finder or loader mechanisms into account. 
+`py-import-cycles` does not take any Python module finder or loader mechanisms into account.
 
 Installation
 ------------

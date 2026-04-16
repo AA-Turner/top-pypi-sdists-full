@@ -35,6 +35,7 @@ from typing import Callable, Iterator
 
 from smartcard import System
 from smartcard.CardConnection import CardConnection
+from smartcard.CardConnectionDecorator import CardConnectionDecorator
 from smartcard.pcsc.PCSCExceptions import ListReadersException
 
 from .ctap import STATUS, CtapDevice, CtapError
@@ -57,7 +58,7 @@ class CtapPcscDevice(CtapDevice):
     This class is intended for use with NFC readers.
     """
 
-    def __init__(self, connection: CardConnection, name: str):
+    def __init__(self, connection: CardConnection | CardConnectionDecorator, name: str):
         self._name = name
         self._capabilities = CAPABILITY(0)
         self.use_ext_apdu = False
@@ -235,8 +236,10 @@ class CtapPcscDevice(CtapDevice):
         else:
             raise CtapError(CtapError.ERR.INVALID_COMMAND)
 
-    def close(self) -> None:
+    def close(self, release: bool = False) -> None:
         self._conn.disconnect()
+        if release and hasattr(self._conn, "release"):
+            self._conn.release()
 
     @classmethod
     def list_devices(cls, name: str = "") -> Iterator[CtapPcscDevice]:

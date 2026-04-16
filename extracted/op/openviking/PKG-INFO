@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.3.5
+Version: 0.3.8
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License: AGPL-3.0
@@ -124,6 +124,7 @@ Requires-Dist: ddgs>=9.0.0; extra == "bot"
 Requires-Dist: tavily-python>=0.5.0; extra == "bot"
 Requires-Dist: gradio>=6.6.0; extra == "bot"
 Requires-Dist: py-machineid>=1.0.0; extra == "bot"
+Requires-Dist: mcp>=1.0.0; extra == "bot"
 Provides-Extra: bot-langfuse
 Requires-Dist: langfuse>=3.0.0; extra == "bot-langfuse"
 Provides-Extra: bot-telegram
@@ -420,7 +421,7 @@ Create a configuration file `~/.openviking/ov.conf`, remove the comments before 
       "api_key"  : "<your-api-key>",   // Model service API Key
       "provider" : "<provider-type>",  // Provider type: "volcengine" or "openai" (currently supported)
       "dimension": 1024,               // Vector dimension
-      "model"    : "<model-name>"      // Embedding model name (e.g., doubao-embedding-vision-250615 or text-embedding-3-large)
+      "model"    : "<model-name>"      // Embedding model name (e.g., doubao-embedding-vision-251215 or text-embedding-3-large)
     },
     "max_concurrent": 10               // Max concurrent embedding requests (default: 10)
   },
@@ -458,7 +459,7 @@ Create a configuration file `~/.openviking/ov.conf`, remove the comments before 
       "api_key"  : "your-volcengine-api-key",
       "provider" : "volcengine",
       "dimension": 1024,
-      "model"    : "doubao-embedding-vision-250615"
+      "model"    : "doubao-embedding-vision-251215"
     },
     "max_concurrent": 10
   },

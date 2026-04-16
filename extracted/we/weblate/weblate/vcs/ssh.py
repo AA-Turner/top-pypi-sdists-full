@@ -6,9 +6,10 @@ from __future__ import annotations
 import hashlib
 import os
 import stat
-import subprocess
+import subprocess  # noqa: S404
 from base64 import b64decode, b64encode
 from contextlib import suppress
+from time import time
 from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 from urllib.parse import urlparse
 
@@ -18,10 +19,10 @@ from django.core.management.utils import find_command
 from django.utils.functional import cached_property
 from django.utils.translation import gettext, pgettext_lazy
 
-from weblate.trans.util import get_clean_env
 from weblate.utils import messages
+from weblate.utils.commands import get_clean_env
 from weblate.utils.data import data_path
-from weblate.utils.files import cleanup_error_message
+from weblate.utils.files import cleanup_error_message, remove_tree
 from weblate.utils.hash import calculate_checksum
 from weblate.utils.validators import DomainOrIPValidator
 
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
 # SSH key files
 KNOWN_HOSTS = "known_hosts"
 CONFIG = "config"
+STALE_WRAPPER_SECONDS = 30 * 24 * 3600
 
 
 class KeyInfo(TypedDict):
@@ -76,6 +78,21 @@ KEYS: dict[KeyType, KeyInfo] = {
 def ssh_file(filename: str) -> Path:
     """Generate full path to SSH configuration file."""
     return data_path("ssh") / filename
+
+
+def ensure_ssh_dir() -> Path:
+    """Ensure persistent SSH directory exists."""
+    path = data_path("ssh")
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def ssh_wrapper_path(*parts: str) -> Path:
+    """Generate full path to cached SSH wrapper files."""
+    path = data_path("cache") / "ssh"
+    for part in parts:
+        path /= part
+    return path
 
 
 def is_key_line(key: str) -> bool:
@@ -174,13 +191,14 @@ def generate_ssh_key(
     request: AuthenticatedHttpRequest | None, key_type: KeyType = "rsa"
 ) -> None:
     """Generate SSH key."""
+    ensure_ssh_dir()
     key_info = KEYS[key_type]
     keyfile = ssh_file(key_info["private"])
     pubkeyfile = ssh_file(key_info["public"])
     try:
         # Actually generate the key
-        subprocess.run(
-            [
+        subprocess.run(  # noqa: S603
+            [  # noqa: S607
                 "ssh-keygen",
                 "-q",
                 *key_info["keygen"],
@@ -248,7 +266,11 @@ def add_host_key_error(
 
 
 def add_host_key(
-    request: AuthenticatedHttpRequest | None, host: str, port: int | None = None
+    request: AuthenticatedHttpRequest | None,
+    host: str,
+    port: int | None = None,
+    *,
+    accept_fingerprint: str | None = None,
 ) -> None:
     """Add host key for a host."""
     if not host:
@@ -259,7 +281,7 @@ def add_host_key(
             cmdline.extend(["-p", str(port)])
         cmdline.append(host)
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603
                 cmdline,
                 env=get_clean_env(),
                 check=True,
@@ -267,23 +289,55 @@ def add_host_key(
                 capture_output=True,
             )
             keys = set()
+            was_key = False
             for key in result.stdout.splitlines():
                 key = key.strip()
                 if not is_key_line(key):
                     continue
-                keys.add(key)
+                was_key = True
                 host, keytype, fingerprint = parse_hosts_line(key)
-                messages.warning(
-                    request,
-                    gettext(
-                        "Added host key for %(host)s with fingerprint "
-                        "%(fingerprint)s (%(keytype)s), "
-                        "please verify that it is correct."
+                if accept_fingerprint:
+                    if fingerprint == accept_fingerprint:
+                        messages.success(
+                            request,
+                            gettext(
+                                "Added host key for %(host)s with fingerprint %(fingerprint)s (%(keytype)s)."
+                            )
+                            % {
+                                "host": host,
+                                "fingerprint": fingerprint,
+                                "keytype": keytype,
+                            },
+                        )
+                        keys.add(key)
+                    else:
+                        messages.warning(
+                            request,
+                            gettext(
+                                "Skipped host key for %(host)s with fingerprint %(fingerprint)s (%(keytype)s)."
+                            )
+                            % {
+                                "host": host,
+                                "fingerprint": fingerprint,
+                                "keytype": keytype,
+                            },
+                        )
+                else:
+                    messages.warning(
+                        request,
+                        gettext(
+                            "Added host key for %(host)s with fingerprint %(fingerprint)s (%(keytype)s), please verify that it is correct."
+                        )
+                        % {
+                            "host": host,
+                            "fingerprint": fingerprint,
+                            "keytype": keytype,
+                        },
                     )
-                    % {"host": host, "fingerprint": fingerprint, "keytype": keytype},
-                )
+                    keys.add(key)
             if keys:
                 known_hosts_file = ssh_file(KNOWN_HOSTS)
+                ensure_ssh_dir()
                 # Remove existing key entries
                 if known_hosts_file.exists():
                     with known_hosts_file.open() as handle:
@@ -294,7 +348,7 @@ def add_host_key(
                         for key in keys:
                             handle.write(key)
                             handle.write("\n")
-            else:
+            elif not was_key:
                 add_host_key_error(request, result.stderr or result.stdout)
         except subprocess.CalledProcessError as exc:
             add_host_key_error(request, exc.stderr or exc.stdout)
@@ -341,6 +395,68 @@ def cleanup_host_keys(
         handle.writelines(keys)
 
 
+def remove_wrapper_path(path: Path) -> None:
+    """Remove generated SSH wrapper path."""
+    if path.is_dir() and not path.is_symlink():
+        remove_tree(path, ignore_errors=True)
+    else:
+        with suppress(OSError):
+            path.unlink()
+
+
+def get_wrapper_access_time(path: Path) -> float | None:
+    """Return latest access time for a generated wrapper path."""
+    candidates = [path]
+    if path.is_dir():
+        children = list(path.iterdir())
+        if children:
+            candidates = children
+
+    access_time: float | None = None
+    for candidate in candidates:
+        with suppress(OSError):
+            candidate_atime = candidate.stat().st_atime
+            if access_time is None or candidate_atime > access_time:
+                access_time = candidate_atime
+    return access_time
+
+
+def cleanup_legacy_wrapper_dirs(
+    *args: Any,  # noqa: ANN401
+    logger: Callable[[str], Any] = print,
+    **kwargs: Any,  # noqa: ANN401
+) -> None:
+    legacy_dir = data_path("ssh")
+    if not legacy_dir.exists():
+        return
+
+    for path in legacy_dir.glob("bin-*"):
+        logger(f"Removing obsolete SSH wrapper: {path}")
+        remove_wrapper_path(path)
+
+
+def cleanup_stale_wrapper_dirs(
+    *args: Any,  # noqa: ANN401
+    stale_seconds: int = STALE_WRAPPER_SECONDS,
+    logger: Callable[[str], Any] = print,
+    **kwargs: Any,  # noqa: ANN401
+) -> None:
+    cache_dir = ssh_wrapper_path()
+    if not cache_dir.exists():
+        return
+
+    cutoff = time() - stale_seconds
+    current_wrapper = SSHWrapper().path
+    for path in cache_dir.glob("bin-*"):
+        if path == current_wrapper:
+            continue
+        access_time = get_wrapper_access_time(path)
+        if access_time is None or access_time >= cutoff:
+            continue
+        logger(f"Removing stale SSH wrapper from cache: {path}")
+        remove_wrapper_path(path)
+
+
 def can_generate_key() -> bool:
     """Check whether we can generate key."""
     return find_command("ssh-keygen") is not None
@@ -378,9 +494,9 @@ class SSHWrapper:
         """
         Calculates unique wrapper path.
 
-        It is based on template and DATA_DIR settings.
+        It is based on the wrapper content and stored in cache.
         """
-        return ssh_file(f"bin-{self.digest}")
+        return ssh_wrapper_path(f"bin-{self.digest}")
 
     def get_content(self, command: str = "ssh") -> str:
         return SSH_WRAPPER_TEMPLATE.format(
@@ -400,6 +516,7 @@ class SSHWrapper:
     def create(self) -> None:
         """Create wrapper for SSH to pass custom known hosts and key."""
         self.path.mkdir(parents=True, exist_ok=True)
+        ensure_ssh_dir()
 
         ssh_config = ssh_file(CONFIG)
         if not ssh_config.exists():

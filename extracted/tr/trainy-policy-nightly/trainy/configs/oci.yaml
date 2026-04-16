@@ -28,6 +28,8 @@ kubernetes:
             value: "eth0"
           - name: NCCL_SOCKET_IFNAME
             value: "eth0"
+          - name: NCCL_CUMEM_ENABLE
+            value: "0"
           volumeMounts:
             - name: infiniband
               mountPath: /dev/infiniband

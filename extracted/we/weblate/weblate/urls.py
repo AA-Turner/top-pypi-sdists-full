@@ -11,6 +11,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.decorators import login_not_required
 from django.urls import include, path, re_path
+from django.utils.module_loading import import_string
 from django.views.decorators.cache import cache_control, cache_page
 from django.views.decorators.vary import vary_on_cookie
 from django.views.generic import RedirectView, TemplateView
@@ -431,6 +432,22 @@ real_patterns = [
         "category/add/<object_path:path>/",
         weblate.trans.views.settings.add_category,
         name="add-category",
+    ),
+    # Share component in projects
+    path(
+        "link-add/<object_path:path>/",
+        weblate.trans.views.settings.component_link_add,
+        name="component-link-add",
+    ),
+    path(
+        "link-delete/<object_path:path>/",
+        weblate.trans.views.settings.component_link_delete,
+        name="component-link-delete",
+    ),
+    path(
+        "link-categories/<object_path:path>/",
+        weblate.trans.views.settings.component_link_categories,
+        name="component-link-categories",
     ),
     # Alerts dismiss
     path(
@@ -1078,6 +1095,13 @@ if "wlhosted.integrations" in settings.INSTALLED_APPS:
 
 # Django SAML2 Identity Provider
 if "djangosaml2idp" in settings.INSTALLED_APPS:
+    real_patterns.append(
+        path(
+            "idp/sso/<str:binding>/",
+            import_string("weblate.utils.djangosaml2idp_views.sso_entry"),
+            name="saml_login_binding",
+        ),
+    )
     real_patterns.append(
         path("idp/", include("djangosaml2idp.urls")),
     )

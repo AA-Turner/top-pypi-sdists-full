@@ -45,4 +45,4 @@ class StreamSource:
         raise NotImplementedError()
 
     def supports_message_headers(self) -> bool:
-        raise NotImplementedError()
+        return False

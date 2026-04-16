@@ -1,10 +1,12 @@
-# Copyright DataStax, Inc.
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,7 +29,6 @@ the corresponding CQL or Cassandra type strings.
 # for example), these classes would be a good place to tack on
 # .from_cql_literal() and .as_cql_literal() classmethods (or whatever).
 
-from __future__ import absolute_import  # to enable import io from stdlib
 import ast
 from binascii import unhexlify
 import calendar

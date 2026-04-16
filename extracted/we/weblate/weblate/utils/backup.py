@@ -8,14 +8,14 @@ from __future__ import annotations
 
 import os
 import string
-import subprocess
+import subprocess  # noqa: S404
 from pathlib import Path
 from random import SystemRandom
 from urllib.parse import urlparse
 
 from django.conf import settings
 
-from weblate.trans.util import get_clean_env
+from weblate.utils.commands import get_clean_env
 from weblate.utils.data import data_dir
 from weblate.utils.errors import add_breadcrumb, report_error
 from weblate.utils.files import cleanup_error_message
@@ -63,6 +63,8 @@ def make_password(length: int = 50):
 def tag_cache_dirs() -> None:
     """Create CACHEDIR.TAG in our cache dirs to exclude from backups."""
     dirs = [
+        # SSH wrapper cache
+        data_dir("cache", "ssh"),
         # Fontconfig cache
         data_dir("cache", "fonts"),
         # Static files (default is inside data)
@@ -89,8 +91,8 @@ def run_borg(cmd: list[str], env: dict[str, str] | None = None) -> str:
     with backup_lock():
         SSH_WRAPPER.create()
         try:
-            return subprocess.check_output(
-                ["borg", "--rsh", SSH_WRAPPER.filename, *cmd],
+            return subprocess.check_output(  # noqa: S603
+                ["borg", "--rsh", SSH_WRAPPER.filename, *cmd],  # noqa: S607
                 stderr=subprocess.STDOUT,
                 env=get_clean_env(env),
                 text=True,
@@ -104,7 +106,10 @@ def run_borg(cmd: list[str], env: dict[str, str] | None = None) -> str:
                 category="backup", message="borg output", stdout=error.stdout
             )
             report_error("Borg failed")
-            raise BackupError(cleanup_error_message(error.stdout)) from error
+            msg = cleanup_error_message(error.stdout or "")
+            if not msg.strip():
+                msg = f"Borg exited with status {error.returncode} without any output"
+            raise BackupError(msg) from error
 
 
 def initialize(location: str, passphrase: str) -> str:

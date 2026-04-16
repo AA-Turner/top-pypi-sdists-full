@@ -40,6 +40,7 @@ from django.utils.text import normalize_newlines, slugify
 from django.utils.translation import gettext, gettext_lazy
 from translation_finder import DiscoveryResult, discover
 
+from weblate.accounts.models import AuditLog
 from weblate.auth.models import Group, User
 from weblate.checks.flags import Flags
 from weblate.checks.models import CHECKS
@@ -932,18 +933,18 @@ class MergeForm(UnitForm):
         translation = unit.translation
         project = translation.component.project
         try:
-            self.cleaned_data["merge_unit"] = merge_unit = Unit.objects.get(
-                pk=self.cleaned_data["merge"],
-                translation__component__project=project,
-                translation__language=translation.language,
-            )
+            filter_kwargs: dict[str, Any] = {
+                "pk": self.cleaned_data["merge"],
+                "translation__component__project": project,
+                "translation__language": translation.language,
+            }
+            if not translation.is_source:
+                filter_kwargs["source"] = unit.source
+            self.cleaned_data["merge_unit"] = Unit.objects.get(**filter_kwargs)
         except Unit.DoesNotExist as error:
             raise ValidationError(
                 gettext("Could not find the merged string.")
             ) from error
-        # Compare in Python to ensure case sensitiveness on MySQL
-        if not translation.is_source and unit.source != merge_unit.source:
-            raise ValidationError(gettext("Could not find the merged string."))
         return self.cleaned_data
 
 
@@ -970,6 +971,15 @@ class RevertForm(UnitForm):
 class AutoForm(forms.Form):
     """Automatic translation form."""
 
+    COMPONENT_SLUG_HELP_TEXT = gettext_lazy(
+        "Enter slug of a component to use as source, keep blank to use all "
+        "components in the current project."
+    )
+    COMPONENT_SELECT_HELP_TEXT = gettext_lazy(
+        "Turn on contribution to shared translation memory for the project to "
+        "get access to additional components."
+    )
+
     mode = forms.ChoiceField(
         label=gettext_lazy("Automatic translation mode"),
         initial="suggest",
@@ -994,10 +1004,7 @@ class AutoForm(forms.Form):
     component = forms.ChoiceField(
         label=gettext_lazy("Component"),
         required=False,
-        help_text=gettext_lazy(
-            "Turn on contribution to shared translation memory for the project to "
-            "get access to additional components."
-        ),
+        help_text=COMPONENT_SLUG_HELP_TEXT,
         initial="",
     )
     engines = forms.MultipleChoiceField(
@@ -1047,10 +1054,7 @@ class AutoForm(forms.Form):
             self.fields["component"] = forms.CharField(
                 required=False,
                 label=gettext("Component"),
-                help_text=gettext(
-                    "Enter slug of a component to use as source, "
-                    "keep blank to use all components in the current project."
-                ),
+                help_text=self.fields["component"].help_text,
             )
         else:
             choices = [
@@ -1062,6 +1066,7 @@ class AutoForm(forms.Form):
                 ("", gettext("All components in current project")),
                 *choices,
             ]
+            self.fields["component"].help_text = self.COMPONENT_SELECT_HELP_TEXT
 
         engines = sorted(
             (
@@ -1113,7 +1118,7 @@ class AutoForm(forms.Form):
                 raise ValidationError(gettext("Component not found!"))
             try:
                 result = self.components.get(slug=component, project=self.project)
-            except Component.DoesNotExist as error:
+            except (Component.DoesNotExist, Component.MultipleObjectsReturned) as error:
                 raise ValidationError(gettext("Component not found!")) from error
         else:
             try:
@@ -1218,7 +1223,7 @@ class FullLanguageForm(forms.Form):
     lang = forms.MultipleChoiceField(
         label=gettext_lazy("Languages"), choices=[], widget=forms.SelectMultiple
     )
-    project: Project
+    obj: Category | Project
 
     def __init__(self, user: User, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -1234,6 +1239,7 @@ class RestrictedLanguageForm(forms.Form):
     lang = forms.ChoiceField(
         label=gettext_lazy("Language"), choices=[], widget=forms.Select
     )
+    obj: Category | Project
 
     def __init__(self, user: User, *args, **kwargs) -> None:
         super().__init__(user, *args, **kwargs)
@@ -1243,7 +1249,8 @@ class RestrictedLanguageForm(forms.Form):
         ]
 
     def get_lang_objects(self) -> QuerySet[Language]:
-        return super().get_lang_objects().filter_for_add(self.project)
+        project = self.obj.project if isinstance(self.obj, Category) else self.obj
+        return super().get_lang_objects().filter_for_add(project)
 
     def clean_lang(self):
         # Compatibility with NewLanguageOwnerForm
@@ -1256,7 +1263,7 @@ class NewComponentLanguageOwnerForm(FullLanguageForm):
 
     def __init__(self, user: User, component: Component, *args, **kwargs) -> None:
         self.component = component
-        self.project = component.project
+        self.obj = component.project
         super().__init__(user, *args, **kwargs)
 
 
@@ -1264,12 +1271,12 @@ class NewComponentLanguageForm(RestrictedLanguageForm, NewComponentLanguageOwner
     """Form for requesting a new language."""
 
 
-class NewProjectLanguageOwnerForm(FullLanguageForm):
-    """Form for adding a new language to all components in a project."""
+class NewProjectOrCategoryLanguageOwnerForm(FullLanguageForm):
+    """Form for adding a new language to all components in a project or a category."""
 
     def get_lang_objects(self) -> QuerySet[Language]:
         # Get all child components
-        components = self.project.components_user_can_add_new_language(self.user)
+        components = self.obj.components_user_can_add_new_language(self.user)
         components_count = components.count()
 
         # Count source and target languages
@@ -1294,23 +1301,25 @@ class NewProjectLanguageOwnerForm(FullLanguageForm):
         # Exclude already existing languages from the list
         return Language.objects.exclude(id__in=languages_in_all_components)
 
-    def __init__(self, user: User, project: Project, *args, **kwargs) -> None:
-        self.project = project
+    def __init__(self, user: User, obj: Category | Project, *args, **kwargs) -> None:
+        self.obj = obj
         super().__init__(user, *args, **kwargs)
 
 
-class NewProjectLanguageForm(RestrictedLanguageForm, NewProjectLanguageOwnerForm):
+class NewProjectOrCategoryLanguageForm(
+    RestrictedLanguageForm, NewProjectOrCategoryLanguageOwnerForm
+):
     pass
 
 
-def get_new_project_language_form(
-    request: AuthenticatedHttpRequest, project: Project
-) -> type[NewProjectLanguageForm | NewProjectLanguageOwnerForm]:
-    if not request.user.has_perm("translation.add", project):
+def get_new_project_or_category_language_form(
+    request: AuthenticatedHttpRequest, obj: Category | Project
+) -> type[NewProjectOrCategoryLanguageForm | NewProjectOrCategoryLanguageOwnerForm]:
+    if not request.user.has_perm("translation.add", obj):
         raise PermissionDenied
-    if request.user.has_perm("translation.add_more", project):
-        return NewProjectLanguageOwnerForm
-    return NewProjectLanguageForm
+    if request.user.has_perm("translation.add_more", obj):
+        return NewProjectOrCategoryLanguageOwnerForm
+    return NewProjectOrCategoryLanguageForm
 
 
 def get_new_component_language_form(
@@ -1695,7 +1704,6 @@ class ComponentSettingsForm(
             "variant_regex",
             "restricted",
             "auto_lock_error",
-            "links",
             "manage_units",
             "is_glossary",
             "glossary_color",
@@ -1715,10 +1723,6 @@ class ComponentSettingsForm(
         super().__init__(request, *args, **kwargs)
         if self.hide_restricted:
             self.fields["restricted"].widget = forms.HiddenInput()
-        self.fields["links"].queryset = request.user.managed_projects.exclude(
-            pk=self.instance.project.pk
-        )
-
         self.helper.layout = Layout(
             TabHolder(
                 Tab(
@@ -1740,7 +1744,6 @@ class ComponentSettingsForm(
                         gettext("Listing and access"),
                         "priority",
                         "restricted",
-                        "links",
                     ),
                     Fieldset(
                         gettext("Glossary"),
@@ -1843,6 +1846,50 @@ class ComponentSettingsForm(
         self.fields["vcs"].choices = [
             c for c in self.fields["vcs"].choices if c[0] in vcses
         ]
+        self.patch_unlinking_linked_repository_settings()
+        self.patch_linked_repository_settings()
+
+    def get_linked_repository_component(self) -> Component | None:
+        repo = self.data.get("repo") if self.is_bound else self.instance.repo
+        if not repo:
+            return None
+        try:
+            return Component.objects.get_linked(repo)
+        except (Component.DoesNotExist, ValueError):
+            return None
+
+    def patch_unlinking_linked_repository_settings(self) -> None:
+        if not self.is_bound or not self.instance.is_repo_link:
+            return
+
+        repo = self.data.get("repo") or ""
+        if is_repo_link(repo):
+            return
+
+        data = copy.copy(self.data)
+        for field_name in Component.LINKED_REPOSITORY_SETTINGS:
+            if field_name not in data:
+                data[field_name] = self.fields[field_name].prepare_value(
+                    getattr(self.instance, field_name)
+                )
+        self.data = data
+
+    def patch_linked_repository_settings(self) -> None:
+        linked_component = self.get_linked_repository_component()
+        if linked_component is None:
+            return
+
+        inherited_note = Component.LINKED_REPOSITORY_SETTING_MESSAGE
+        for field_name in Component.LINKED_REPOSITORY_SETTINGS:
+            field = self.fields[field_name]
+            effective_value = getattr(linked_component, field_name)
+            self.initial[field_name] = effective_value
+            field.initial = effective_value
+            field.disabled = True
+            if field.help_text:
+                field.help_text = format_html("{} {}", field.help_text, inherited_note)
+            else:
+                field.help_text = inherited_note
 
     @property
     def hide_restricted(self) -> bool:
@@ -1860,6 +1907,11 @@ class ComponentSettingsForm(
         data = self.cleaned_data
         if self.hide_restricted:
             data["restricted"] = self.instance.restricted
+
+        repo = data.get("repo") or ""
+        if is_repo_link(repo):
+            for field_name in Component.LINKED_REPOSITORY_SETTINGS:
+                data[field_name] = getattr(self.instance, field_name)
 
         if "file_format_params" in data:
             data["file_format_params"] = strip_unused_file_format_params(
@@ -2274,6 +2326,78 @@ class ComponentRenameForm(SettingsBaseForm, ComponentDocsMixin):
         super().__init__(request, *args, **kwargs)
         self.fields["project"].queryset = request.user.managed_projects
         self.fields["category"].queryset = self.instance.project.category_set.all()
+
+
+class ComponentLinkAddForm(forms.Form):
+    """Form for sharing a component into a project with an optional category."""
+
+    project = forms.ModelChoiceField(
+        queryset=Project.objects.none(),
+        widget=SortedSelect,
+        label=gettext_lazy("Project"),
+    )
+    category = forms.ModelChoiceField(
+        queryset=Category.objects.none(),
+        required=False,
+        empty_label="---------",
+        widget=SortedSelect,
+        label=gettext_lazy("Category"),
+    )
+
+    def __init__(self, *args, request=None, component=None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper(self)
+        self.helper.form_tag = False
+        self.helper.disable_csrf = True
+        if request and component:
+            managed = request.user.managed_projects.exclude(pk=component.project_id)
+            self.fields["project"].queryset = managed
+            self.fields["category"].queryset = Category.objects.filter(
+                project__in=managed
+            ).order()
+            # Build project -> categories map for dynamic JS filtering
+            categories = Category.objects.filter(project__in=managed).select_related(
+                "category", "project"
+            )
+            mapping: dict[int, list[dict]] = defaultdict(list)
+            for cat in categories:
+                mapping[cat.project_id].append({"id": cat.id, "name": str(cat)})
+            prefix = kwargs.get("prefix", "")
+            target_id = f"#id_{prefix}-category" if prefix else "#id_category"
+            self.fields["project"].widget.attrs["data-link-category-select"] = target_id
+            self.fields["project"].widget.attrs["data-link-category-map"] = json.dumps(
+                mapping
+            )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        project = cleaned_data.get("project")
+        category = cleaned_data.get("category")
+        if project and category and category.project != project:
+            self.add_error(
+                "category",
+                gettext("The category does not belong to the selected project."),
+            )
+        return cleaned_data
+
+
+class ComponentLinkCategoryForm(forms.Form):
+    """Form for updating the category of an existing component link."""
+
+    link_id = forms.IntegerField(widget=forms.HiddenInput)
+    category = forms.ModelChoiceField(
+        queryset=Category.objects.none(),
+        required=False,
+        empty_label="---------",
+        widget=SortedSelect(attrs={"class": "form-select"}),
+    )
+
+    def __init__(self, *args, project=None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        if project:
+            self.fields["category"].queryset = Category.objects.filter(
+                project=project
+            ).order()
 
 
 class CategoryRenameForm(SettingsBaseForm):
@@ -3034,7 +3158,7 @@ class TranslationDeleteForm(BaseDeleteForm):
         context = super().get_template_context(obj)
         context["languages_addon"] = any(
             addon.name == "weblate.consistency.languages"
-            for addon in obj.component.addons_cache["__all__"]
+            for addon in obj.component.addons_cache.addons
         )
         return context
 
@@ -3189,7 +3313,7 @@ class ProjectTokenCreateForm(forms.ModelForm):
         self.project = project
         super().__init__(*args, **kwargs)
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, acting_user: User | None = None, **kwargs):
         self.instance.is_bot = True
         base_name = name = f"bot-{self.project.slug}-{slugify(self.instance.full_name)}"
         while User.objects.filter(
@@ -3200,6 +3324,13 @@ class ProjectTokenCreateForm(forms.ModelForm):
         self.instance.email = f"{name}@bots.noreply.weblate.org"
         result = super().save(*args, **kwargs)
         self.project.add_user(self.instance, "Administration")
+        AuditLog.objects.create(
+            self.instance,
+            None,
+            "token-created",
+            project=self.project.name,
+            username=acting_user.username if acting_user is not None else None,
+        )
         return result
 
     def clean_expires(self):
@@ -3236,6 +3367,16 @@ class ProjectUserGroupForm(UserManageForm):
         super().__init__(*args, **kwargs)
         self.fields["user"].widget = forms.HiddenInput()
         self.fields["groups"].queryset = project.defined_groups.all()
+
+    def clean(self) -> dict[str, Any]:
+        cleaned_data = super().clean()
+        user = cleaned_data.get("user")
+        groups = cleaned_data.get("groups")
+        if user and user.is_bot and not groups:
+            raise ValidationError(
+                gettext_lazy("At least one team is required for a project token.")
+            )
+        return cleaned_data
 
 
 class ProjectFilterForm(forms.Form):

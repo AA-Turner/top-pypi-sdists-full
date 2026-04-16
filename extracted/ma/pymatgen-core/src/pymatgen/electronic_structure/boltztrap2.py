@@ -972,7 +972,11 @@ class BztPlotter:
         fig.show()
     """
 
-    def __init__(self, bzt_transP=None, bzt_interp=None) -> None:
+    def __init__(
+        self,
+        bzt_transP: BztTransportProperties | None = None,
+        bzt_interp: BztInterpolator | None = None,
+    ) -> None:
         """Placeholder.
 
         TODO: missing docstrings for __init__
@@ -1071,6 +1075,9 @@ class BztPlotter:
         mu = self.bzt_transP.mu_r_eV
 
         if prop_z == "doping" and prop_x == "temp":
+            if idx_prop in [5, 6]:
+                msg = "only prop_x=mu and prop_z=temp are available for c.c. and Hall c.c.!"
+                raise ValueError(msg)
             p_array = getattr(self.bzt_transP, f"{props[idx_prop]}_doping")
         else:
             p_array = getattr(self.bzt_transP, f"{props[idx_prop]}_{prop_x}")
@@ -1106,7 +1113,7 @@ class BztPlotter:
         elif prop_z == "temp" and prop_x == "mu":
             for temp in temps:
                 ti = temps_all.index(temp)
-                prop_out = np.linalg.eigh(p_array[ti])[0]
+                prop_out = np.linalg.eigvalsh(p_array[ti])
                 if output == "avg_eigs":
                     plt.plot(mu, prop_out.mean(axis=1), label=f"{temp} K")
                 elif output == "eigs":
@@ -1123,7 +1130,7 @@ class BztPlotter:
         elif prop_z == "temp" and prop_x == "doping":
             for temp in temps:
                 ti = temps_all.index(temp)
-                prop_out = np.linalg.eigh(p_array[dop_type][ti])[0]
+                prop_out = np.linalg.eigvalsh(p_array[dop_type][ti])
                 if output == "avg_eigs":
                     plt.semilogx(doping_all, prop_out.mean(axis=1), "s-", label=f"{temp} K")
                 elif output == "eigs":
@@ -1143,7 +1150,7 @@ class BztPlotter:
 
             for dop in doping:
                 dop_idx = doping_all.index(dop)
-                prop_out = np.linalg.eigh(p_array[dop_type][:, dop_idx])[0]
+                prop_out = np.linalg.eigvalsh(p_array[dop_type][:, dop_idx])
                 if output == "avg_eigs":
                     plt.plot(
                         temps_all,

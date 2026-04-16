@@ -1,9 +1,11 @@
 import sqlglot
+from sqlglot.dialects.dialect import DialectType
 from sqlglot.errors import ParseError
 
 from collate_sqllineage.core.analyzer import LineageAnalyzer
 from collate_sqllineage.core.holders import StatementLineageHolder
 from collate_sqllineage.core.models import AnalyzerContext
+from collate_sqllineage.core.parser.sqlglot.dialects import CollateSnowflake
 from collate_sqllineage.core.parser.sqlglot.extractors.lineage_holder_extractor import (
     LineageHolderExtractor,
 )
@@ -25,12 +27,18 @@ DIALECT_MAP = {
     "sparksql": "spark",
 }
 
+# Dialect classes overriding upstream sqlglot dialects to route through our patches
+DIALECT_OVERRIDES = {
+    "snowflake": CollateSnowflake,
+}
+
 
 class SqlGlotLineageAnalyzer(LineageAnalyzer):
     """SQL Statement Level Lineage Analyzer for `sqlglot`"""
 
     def __init__(self, dialect: str):
-        self._dialect = DIALECT_MAP.get(dialect, dialect)
+        mapped = DIALECT_MAP.get(dialect, dialect)
+        self._dialect: DialectType = DIALECT_OVERRIDES.get(mapped, mapped)
 
     def analyze(self, sql: str) -> StatementLineageHolder:
         # remove nested parentheses that sqlglot might have issues with

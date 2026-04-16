@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hatchet-sdk
-Version: 1.32.1
+Version: 1.32.2
 Summary: This is the official Python SDK for Hatchet, a distributed, fault-tolerant task queue. The SDK allows you to easily integrate Hatchet's task scheduling and workflow orchestration capabilities into your Python applications.
 Author-email: Alexander Belanger <alexander@hatchet.run>, Matt Kaye <matt@hatchet.run>, Gabe Ruttner <gabe@hatchet.run>, Mohammed Nafees <nafees@hatchet.run>
 License: MIT
@@ -33,7 +33,7 @@ Provides-Extra: lint
 Requires-Dist: black==26.3.1; extra == 'lint'
 Requires-Dist: mypy==1.20.0; extra == 'lint'
 Requires-Dist: psutil>=6.0.0; extra == 'lint'
-Requires-Dist: ruff==0.15.9; extra == 'lint'
+Requires-Dist: ruff==0.15.10; extra == 'lint'
 Requires-Dist: types-grpcio>=1.0.0; extra == 'lint'
 Requires-Dist: types-protobuf>=5.28.3.20241030; extra == 'lint'
 Requires-Dist: types-psutil>=6.1.0.20241221; extra == 'lint'

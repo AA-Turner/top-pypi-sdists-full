@@ -25,6 +25,7 @@
 import asyncio
 import ctypes
 import logging
+import os
 import subprocess
 from ctypes import byref, c_char, c_char_p, c_uint, c_uint64
 
@@ -63,6 +64,7 @@ class WinDivert:
         Creates a WinDivert handle.
 
         :param filter: The packet filter string (e.g. "tcp.DstPort == 80").
+            See the [WinDivert Filter Language](#windivert-filter-language) guide for more details.
         :param layer: The WinDivert layer (e.g. Layer.NETWORK, Layer.FLOW).
         :param priority: The priority of the handle (higher priority handles see packets first).
         :param flags: WinDivert flags (e.g. Flag.SNIFF, Flag.DROP).
@@ -136,7 +138,20 @@ class WinDivert:
         """
         if not service.stop_service():
             # Fallback to sc.exe if direct Win32 API fails
-            subprocess.run(["sc", "stop", "WinDivert"], capture_output=True)
+            try:
+                import ctypes.wintypes
+
+                buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
+                length = ctypes.windll.kernel32.GetSystemDirectoryW(buf, ctypes.wintypes.MAX_PATH)  # type: ignore[attr-defined]
+                if 0 < length <= ctypes.wintypes.MAX_PATH:
+                    system32 = buf.value
+                else:
+                    system32 = "C:\\Windows\\System32"
+            except (AttributeError, OSError, ImportError):
+                system32 = "C:\\Windows\\System32"
+
+            sc_path = os.path.join(system32, "sc.exe")
+            subprocess.run([sc_path, "stop", "WinDivert"], capture_output=True)
 
     @staticmethod
     def check_filter(filter: str, layer: Layer = Layer.NETWORK) -> tuple[bool, int, str]:
@@ -406,6 +421,9 @@ class WinDivert:
 
         :return: The return value is the number of bytes actually sent.
         """
+        if self._handle is None:
+            raise RuntimeError("WinDivert handle is not open")
+
         if recalculate_checksum:
             packet.recalculate_checksums()
 
@@ -502,6 +520,9 @@ class WinDivert:
         :param overlapped: An optional `Overlapped` structure for overlapped IO.
         :return: The number of bytes sent if synchronous, or `None` if `ERROR_IO_PENDING` occurred.
         """
+        if self._handle is None:
+            raise RuntimeError("WinDivert handle is not open")
+
         if recalculate_checksum:
             packet.recalculate_checksums()
 
@@ -544,6 +565,9 @@ class WinDivert:
 
         :return: The parameter value.
         """
+        if self._handle is None:
+            raise RuntimeError("WinDivert handle is not open")
+
         value = c_uint64(0)
         windivert_dll.WinDivertGetParam(self._handle, name, byref(value))  # type: ignore[attr-defined]
         return value.value
@@ -562,4 +586,7 @@ class WinDivert:
 
         For more info on the C call visit: https://reqrypt.org/windivert-doc.html#divert_set_param
         """
+        if self._handle is None:
+            raise RuntimeError("WinDivert handle is not open")
+
         return windivert_dll.WinDivertSetParam(self._handle, name, value)  # type: ignore[attr-defined]

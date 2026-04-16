@@ -25,7 +25,7 @@ CUDA_DEVICE_PROPERTIES = _SimpleNamespace(
     # TODO: L2_cache_size
 )
 
-if _torch.version.cuda.startswith("12."): # pyright: ignore [reportAttributeAccessIssue, reportOptionalMemberAccess]
+if _torch.version.cuda.startswith(("12.", "13.")): # pyright: ignore [reportAttributeAccessIssue, reportOptionalMemberAccess]
     CUDA_MEMORY_STATS_AS_NESTED_DICT = {
         "num_alloc_retries": 0,
         "num_ooms": 0,

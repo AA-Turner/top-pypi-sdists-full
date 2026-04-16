@@ -1,7 +1,6 @@
 import pytest
 
 from collate_sqllineage.core.models import Location, Path
-
 from .helpers import assert_table_lineage_equal
 
 
@@ -161,6 +160,28 @@ def test_copy_into_table_from_qualified_stage(dialect: str):
         {Location("@DB_01.SCHEMA_01.MY_STAGE")},
         {"db_01.schema_01.table_02"},
         dialect=dialect,
+    )
+
+
+@pytest.mark.parametrize("dialect", ["snowflake"])
+def test_copy_into_table_from_qualified_stage_with_subpath(dialect: str):
+    """
+    Snowflake load from 3-part qualified stage with subpath and file extension.
+    The ".csv" in the subpath must not be confused with a schema-level dot separator.
+    COPY INTO table FROM (SELECT * FROM @db.schema.stage/path/file.csv)
+    https://docs.snowflake.com/en/sql-reference/sql/copy-into-table
+    """
+    assert_table_lineage_equal(
+        """COPY INTO DB_01.SCHEMA_01.TABLE_02
+FROM (
+    SELECT *
+    FROM @DB_01.SCHEMA_01.MY_STAGE/data/2024/export.csv
+)
+FILE_FORMAT = (TYPE = CSV)""",
+        {Location("@DB_01.SCHEMA_01.MY_STAGE/data/2024/export.csv")},
+        {"db_01.schema_01.table_02"},
+        dialect=dialect,
+        test_sqlparse=False,
     )
 
 

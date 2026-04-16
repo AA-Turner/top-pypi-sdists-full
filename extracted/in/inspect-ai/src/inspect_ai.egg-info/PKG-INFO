@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.205
+Version: 0.3.206
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -42,7 +42,7 @@ Requires-Dist: nest_asyncio2>=1.7.2
 Requires-Dist: numpy
 Requires-Dist: platformdirs>=2.3.0
 Requires-Dist: psutil
-Requires-Dist: pydantic>=2.11.4
+Requires-Dist: pydantic>=2.13.0
 Requires-Dist: python-dotenv>=0.16.0
 Requires-Dist: pyyaml
 Requires-Dist: rich!=14.0.0,>=13.3.3
@@ -65,7 +65,7 @@ Requires-Dist: azure-identity; extra == "dev"
 Requires-Dist: azure-ai-inference; extra == "dev"
 Requires-Dist: fastapi; extra == "dev"
 Requires-Dist: google-genai>=1.69.0; extra == "dev"
-Requires-Dist: griffe<=1.14.0; extra == "dev"
+Requires-Dist: griffe>=2; extra == "dev"
 Requires-Dist: groq>=0.28.0; extra == "dev"
 Requires-Dist: huggingface_hub>=1.0.0; extra == "dev"
 Requires-Dist: inspect_scout; extra == "dev"
@@ -115,13 +115,15 @@ Provides-Extra: dev-mcp-tests
 Requires-Dist: mcp-server-fetch; extra == "dev-mcp-tests"
 Requires-Dist: mcp_server_git; extra == "dev-mcp-tests"
 Provides-Extra: doc
-Requires-Dist: quarto-cli==1.7.32; extra == "doc"
+Requires-Dist: quarto-cli>=1.9.36; extra == "doc"
 Requires-Dist: jupyter; extra == "doc"
 Requires-Dist: nbclient; extra == "doc"
 Requires-Dist: panflute; extra == "doc"
 Requires-Dist: markdown; extra == "doc"
-Requires-Dist: griffe<=1.14.0; extra == "doc"
+Requires-Dist: griffe>=2; extra == "doc"
 Requires-Dist: click>=8.2.0; extra == "doc"
+Requires-Dist: pyyaml; extra == "doc"
+Requires-Dist: types-PyYAML; extra == "doc"
 Provides-Extra: dist
 Requires-Dist: twine; extra == "dist"
 Requires-Dist: build; extra == "dist"

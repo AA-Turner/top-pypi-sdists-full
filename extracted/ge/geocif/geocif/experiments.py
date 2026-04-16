@@ -660,8 +660,38 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
 
     inputs = gc.gather_inputs(parser)
 
-    # Experiment 0: Model comparison (runs each model independently)
-    model_experiment = ["catboost", "tabpfn", "tabicl"]
+    # ----- Read [experiments] config with back-compat fallbacks -----
+    ALL_EXPS = ["model_comparison", "cid_ablation", "region_filter", "optuna"]
+
+    if parser.has_section("experiments") and parser.has_option("experiments", "run_experiments"):
+        run_experiments = ast.literal_eval(parser.get("experiments", "run_experiments"))
+    else:
+        run_experiments = list(ALL_EXPS)
+
+    if parser.has_section("experiments") and parser.has_option("experiments", "comparison_models"):
+        model_experiment = ast.literal_eval(parser.get("experiments", "comparison_models"))
+    else:
+        model_experiment = ["catboost", "tabpfn", "tabicl"]
+
+    if parser.has_section("experiments") and parser.has_option("experiments", "n_trials"):
+        n_trials = parser.getint("experiments", "n_trials")
+
+    # Auto-promote model_comparison if any dependent stage is requested.
+    if ("cid_ablation" in run_experiments or "region_filter" in run_experiments) \
+            and "model_comparison" not in run_experiments:
+        logger.warning(
+            "cid_ablation/region_filter require model_comparison for best-model "
+            "selection; auto-including model_comparison."
+        )
+        run_experiments = ["model_comparison"] + [
+            e for e in run_experiments if e != "model_comparison"
+        ]
+
+    # Filter unknown names.
+    unknown = [e for e in run_experiments if e not in ALL_EXPS]
+    if unknown:
+        logger.warning(f"Unknown experiment name(s) in run_experiments: {unknown} — ignored")
+    run_experiments = [e for e in run_experiments if e in ALL_EXPS]
 
     # Hyperparameter search space (for summary display)
     hp_space = [
@@ -682,48 +712,59 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
     all_cids = ast.literal_eval(parser.get("ML", "use_cids"))
 
     params = gc._build_summary_params(parser, inputs)
-    params.append(("Exp 0: models", ", ".join(model_experiment)))
-    params.append(("Exp 1: CIDs", ", ".join(all_cids)))
-    params.append(("Optimization", f"Optuna TPE, {n_trials} trials"))
-    for name, values in hp_space:
-        params.append((f"  {name}", ", ".join(str(v) for v in values)))
-    params.append(("Search space", f"{total_combos} combinations"))
+    params.append(("Experiments", ", ".join(run_experiments) if run_experiments else "(none)"))
+    if "model_comparison" in run_experiments:
+        params.append(("Exp 0: models", ", ".join(model_experiment)))
+    if "cid_ablation" in run_experiments:
+        params.append(("Exp 1: CIDs", ", ".join(all_cids)))
+    if "optuna" in run_experiments:
+        params.append(("Optimization", f"Optuna TPE, {n_trials} trials"))
+        for name, values in hp_space:
+            params.append((f"  {name}", ", ".join(str(v) for v in values)))
+        params.append(("Search space", f"{total_combos} combinations"))
     ut.display_run_summary("GeoCIF Experiments Runner", params, wait=20)
 
-    # Experiment 0: model comparison
-    logger.info("Experiment 0: Model comparison")
-    parser = main_models(logger, parser, model_experiment)
+    best_models = None  # set by model_comparison; reused by cid_ablation/region_filter
 
-    # Analyze model comparison (Experiment 0) — before Optuna so plots are available early
-    # Lookup is handled via "Model" column in _load_experiment_results;
-    # tuple only provides the experiment label ("models") for plot grouping
-    model_exp_list = [("models", "model_comparison", "", "str", model_experiment)]
-    analyze_experiments(parser, model_exp_list, logger)
-    analyze_model_ranking(parser, logger, metric="rmse", n_bootstrap=200)
+    # Experiment 0: model comparison
+    if "model_comparison" in run_experiments:
+        logger.info("Experiment 0: Model comparison")
+        parser = main_models(logger, parser, model_experiment)
+
+        # Analyze model comparison (Experiment 0) — before Optuna so plots are available early
+        # Lookup is handled via "Model" column in _load_experiment_results;
+        # tuple only provides the experiment label ("models") for plot grouping
+        model_exp_list = [("models", "model_comparison", "", "str", model_experiment)]
+        analyze_experiments(parser, model_exp_list, logger)
+        analyze_model_ranking(parser, logger, metric="rmse", n_bootstrap=200)
+
+        best_models = _get_best_models_from_exp0(parser, model_experiment)
+        logger.info(f"  Best models from Exp 0: {best_models}")
 
     # Experiment 1: CID ablation — run each CID type individually with best model
-    logger.info("Experiment 1: CID ablation")
-    all_cids = ast.literal_eval(parser.get("ML", "use_cids"))
-    best_models = _get_best_models_from_exp0(parser, model_experiment)
-    logger.info(f"  Best models from Exp 0: {best_models}")
-    parser = experiment_1_cid_ablation(logger, parser, best_models, all_cids)
+    if "cid_ablation" in run_experiments:
+        logger.info("Experiment 1: CID ablation")
+        all_cids = ast.literal_eval(parser.get("ML", "use_cids"))
+        parser = experiment_1_cid_ablation(logger, parser, best_models, all_cids)
 
-    cid_exp_list = [("cids", "", "", "str", all_cids)]
-    analyze_experiments(parser, cid_exp_list, logger, best_models=best_models)
+        cid_exp_list = [("cids", "", "", "str", all_cids)]
+        analyze_experiments(parser, cid_exp_list, logger, best_models=best_models)
 
     # Experiment 2: Region filter
-    logger.info("Experiment 2: Region filter")
-    parser = experiment_2_region_filter(logger, parser, best_models)
+    if "region_filter" in run_experiments:
+        logger.info("Experiment 2: Region filter")
+        parser = experiment_2_region_filter(logger, parser, best_models)
 
-    region_exp_list = [("region_filter", "region_filter", "", "str", list(best_models.values()))]
-    analyze_experiments(parser, region_exp_list, logger)
+        region_exp_list = [("region_filter", "region_filter", "", "str", list(best_models.values()))]
+        analyze_experiments(parser, region_exp_list, logger)
 
     # Bayesian hyperparameter optimization
-    logger.info(f"Starting Optuna optimization ({n_trials} trials)...")
-    study = optimize_hyperparameters(inputs, logger, parser, n_trials=n_trials)
+    if "optuna" in run_experiments:
+        logger.info(f"Starting Optuna optimization ({n_trials} trials)...")
+        study = optimize_hyperparameters(inputs, logger, parser, n_trials=n_trials)
 
-    # Analyze optimization results
-    analyze_optimization(parser, study, logger)
+        # Analyze optimization results
+        analyze_optimization(parser, study, logger)
 
 
 # ---------------------------------------------------------------------------

@@ -16,10 +16,12 @@
 import dataclasses
 import functools
 from typing import Callable, Collection, Mapping, Sequence, TypeAlias
+from flax import nnx
 import flax.struct
 import jax
 from jax import numpy as jnp
 from qwix._src.core import numerics
+from qwix._src.core import sparsity
 
 
 # ---------------------------------------------
@@ -32,14 +34,14 @@ class QArray:
   """A quantized array implementation with subchannel support.
 
   The following conditions hold:
-
-  * qvalue.shape == original.shape
-  * len(scale.shape) == len(original.shape)
-  * len(scale.shape) == len(zero_point.shape)
-  * To enable subchannel quantization, scale and zero_point can be  "generic
-    broadcasted" to original.shape, which means all(o % s == 0 for o, s in
-    zip(original.shape, scale.shape))
-  * original ≈ (qvalue - zero_point) * generic_broadcast(scale, original.shape)
+    * qvalue.shape == original.shape
+    * len(scale.shape) == len(original.shape)
+    * len(scale.shape) == len(zero_point.shape)
+    * To enable subchannel quantization, scale and zero_point can be
+      "generic broadcasted" to original.shape, which means
+        all(o % s == 0 for o, s in zip(original.shape, scale.shape))
+    * original ≈ (qvalue - zero_point) * generic_broadcast(
+        scale, original.shape)
 
   Attributes:
     qvalue: The quantized value.
@@ -96,6 +98,9 @@ class QArray:
 
   def swapaxes(self, axis1: int, axis2: int) -> 'QArray':
     return jax.tree.map(lambda x: x.swapaxes(axis1, axis2), self)
+
+# Register as NNX data to allow JAX arrays in Module attributes.
+nnx.register_data_type(QArray)
 
 
 def reshape(array: QArray, *new_shape) -> QArray:
@@ -247,6 +252,31 @@ def validate_qarray(array: QArray):
 # ---------------------------------------------
 
 
+def sparsify(array: jax.Array, how: sparsity.SparsityRule) -> jax.Array:
+  """Applies N:M sparsity to a dense array.
+
+  N:M sparsity ensures that at most N values are non-zero in each block of M
+  consecutive values. Sparsity is based on magnitude.
+
+  Args:
+    array: The array to sparsify.
+    how: How to sparsify the array.
+
+  Returns:
+    A sparsified array with the same shape and type as input.
+  """
+  # TODO(b/493278511): Replace this with curriculum learning.
+  mask = sparsity.get_sparsity_mask(
+      array,
+      n_sparsity=how.weight_sparsity_n,
+      m_sparsity=how.weight_sparsity_m,
+      order=how.weight_sparsity_order,
+      block_size=how.weight_sparsity_block_size,
+      offset=how.weight_sparsity_offset,
+  )
+  return jnp.where(mask, array, jnp.zeros_like(array))
+
+
 @dataclasses.dataclass(slots=True, frozen=True, kw_only=True)
 class HowToQuantize:
   """Determines how to quantize an array."""
@@ -328,9 +358,10 @@ def transpose_array(
   # avoid complex transposes here by calling squeeze first. For example, for
   # transpose [1, 2, None], instead of just calling transpose(1, 2, 0), we call
   # squeeze(0).expand(2).
+  new_axes = [sum(i < ax for i in used_axes) for ax in used_axes]
   return (
       array.squeeze([a for a in range(array.ndim) if a not in used_axes])
-      .transpose([sum(i < a for i in used_axes) for a in used_axes])
+      .transpose(new_axes)
       .reshape([1 if a is None else array.shape[a] for a in transpose])
   )
 
@@ -390,6 +421,29 @@ def call_with_generic_broadcast(
     else:
       raise ValueError(f'Cannot broadcast between {x.shape} {y.shape}')
   return op(x.reshape(x_shape), y.reshape(y_shape)).reshape(o_shape)
+
+
+def broadcast_to(
+    operand: MaybeQArray, target_shape: tuple[int, ...]
+) -> MaybeQArray:
+  """Broadcasts a QArray or Array to the target shape recursively."""
+  if operand.shape == target_shape:
+    return operand
+
+  def _broadcast_component(x: jax.Array | None):
+    """Broadcasts a single array component to the target shape."""
+    if x is None:
+      return None
+    # Ensure same rank for call_with_generic_broadcast
+    if x.ndim < len(target_shape):
+      x = x.reshape((1,) * (len(target_shape) - x.ndim) + x.shape)
+    return call_with_generic_broadcast(  # pylint: disable=g-long-lambda
+        lambda a, b: jnp.broadcast_to(a, b.shape),
+        x,
+        jnp.zeros(target_shape, dtype=jnp.bool_),
+    )
+
+  return jax.tree.map(_broadcast_component, operand)
 
 
 def calibrate(array: jax.Array, how: HowToQuantize) -> dict[str, jax.Array]:
@@ -482,14 +536,14 @@ def compute_scale_zero_point(
   if 'min' in calibration and 'max' in calibration:
     qmin, qmax = numerics.get_asymmetric_bound(qtype)
     scale = (calibration['max'] - calibration['min']) / (qmax - qmin)
-    scale = jnp.where(scale == 0, 1, scale)  # Scale shouldn't be 0.
+    scale = jnp.where(scale == 0, jnp.ones_like(scale), scale)
     zero_point = qmin - calibration['min'] / scale
     zero_point = numerics.convert_to(zero_point, qtype)
   elif 'absmax' in calibration:
     qmax = numerics.get_symmetric_bound(qtype)
     scale = calibration['absmax'] / qmax
     # Maybe adding an epsilon (1e-7) is faster?
-    scale = jnp.where(scale == 0, 1, scale)  # Scale shouldn't be 0.
+    scale = jnp.where(scale == 0, jnp.ones_like(scale), scale)
     zero_point = None
   else:
     raise ValueError(f'Unsupported calibration: {calibration}')
@@ -497,6 +551,13 @@ def compute_scale_zero_point(
     log2_scale = jnp.ceil(jnp.log2(scale))
     scale = (2**log2_scale).astype(scale.dtype)
   return scale, zero_point
+
+
+# Whether to multiply by the reciprocal of the scale instead of division during
+# quantization. This matches the behavior of AQT and can be more efficient in
+# some cases (e.g., under certain fusion patterns), but could be less accurate
+# due to potential precision loss in the reciprocal.
+USE_RECIPROCAL_FOR_QUANTIZATION = False
 
 
 def quantize_with_scale_zero_point(
@@ -530,7 +591,11 @@ def quantize_with_scale_zero_point(
   # dequantize() uses the scale dtype to reconstruct the original array.
   scale = scale.astype(array.dtype)
 
-  qvalue = call_with_generic_broadcast(jnp.divide, array, scale)
+  if USE_RECIPROCAL_FOR_QUANTIZATION:
+    inv_scale = jnp.reciprocal(scale)
+    qvalue = call_with_generic_broadcast(jnp.multiply, array, inv_scale)
+  else:
+    qvalue = call_with_generic_broadcast(jnp.divide, array, scale)
   if zero_point is not None:
     qvalue = call_with_generic_broadcast(
         jnp.add, qvalue, zero_point.astype(qvalue.dtype)
@@ -594,7 +659,7 @@ def quantize_api(
 
 
 def dequantize(array: QArray) -> jax.Array:
-  """Dequantizes an array. The reverse of `quantize`.
+  """Dequantizes an array. The reverse of |quantize|.
 
   Args:
     array: The quantized array to dequantize.

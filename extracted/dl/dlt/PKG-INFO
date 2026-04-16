@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt
-Version: 1.24.0
+Version: 1.25.0
 Summary: dlt is an open-source python-first scalable data loading library that does not require any backend to run.
 Project-URL: Homepage, https://github.com/dlt-hub
 Project-URL: Repository, https://github.com/dlt-hub/dlt
@@ -112,8 +112,14 @@ Requires-Dist: pyarrow>=21.0.0; extra == 'hf'
 Provides-Extra: http
 Requires-Dist: aiohttp>3.9.0; extra == 'http'
 Provides-Extra: hub
-Requires-Dist: dlt-runtime<0.25,>=0.21.2; (python_version >= '3.10') and extra == 'hub'
-Requires-Dist: dlthub<0.25,>=0.21.1; (python_version >= '3.10') and extra == 'hub'
+Requires-Dist: dlt-runtime<0.26,>=0.24.0; (python_version >= '3.10') and extra == 'hub'
+Requires-Dist: dlthub<0.26,>=0.22.1; (python_version >= '3.10') and extra == 'hub'
+Provides-Extra: lance
+Requires-Dist: duckdb>=1.4.3; extra == 'lance'
+Requires-Dist: ibis-framework>=12.0.0; (python_version >= '3.10') and extra == 'lance'
+Requires-Dist: lancedb>=0.22.0; extra == 'lance'
+Requires-Dist: pyarrow>=16.0.0; extra == 'lance'
+Requires-Dist: pylance>=4.0.0; extra == 'lance'
 Provides-Extra: lancedb
 Requires-Dist: duckdb>=1.4.3; extra == 'lancedb'
 Requires-Dist: ibis-framework>=12.0.0; (python_version >= '3.10') and extra == 'lancedb'

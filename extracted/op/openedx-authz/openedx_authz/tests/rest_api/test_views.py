@@ -19,7 +19,8 @@ from openedx_authz import api
 from openedx_authz.api.users import assign_role_to_user_in_scope
 from openedx_authz.constants import permissions, roles
 from openedx_authz.rest_api.data import RoleOperationError, RoleOperationStatus
-from openedx_authz.rest_api.v1.permissions import DynamicScopePermission
+from openedx_authz.rest_api.v1.permissions import AnyScopePermission, DynamicScopePermission
+from openedx_authz.rest_api.v1.views import UserValidationAPIView
 from openedx_authz.tests.api.test_roles import BaseRolesTestCase
 
 User = get_user_model()
@@ -1069,13 +1070,11 @@ class TestTeamMembersAPIView(ViewTestMixin):
         - regular_1 (library_user in Org1:LIB1): VIEW_LIBRARY_TEAM granted → sees Org1 members (3)
         - regular_3 (library_user in Org2:LIB2): VIEW_LIBRARY_TEAM granted → sees Org2 members (3)
         - regular_6 (library_author in Org3:LIB3): VIEW_LIBRARY_TEAM granted → sees Org3 members (5)
-        - regular_9 (no assignments): sees 0 users
     """
 
     def setUp(self):
         """Set up test fixtures."""
         super().setUp()
-
         self.url = reverse("openedx_authz:user-list")
         self.get_user_map_patcher = patch(
             "openedx_authz.api.utils.get_user_map",
@@ -1128,8 +1127,7 @@ class TestTeamMembersAPIView(ViewTestMixin):
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-        # -------------------------------------------------------------------- #
-
+    # -------------------------------------------------------------------- #
     # Filter by scopes                                                     #
     # -------------------------------------------------------------------- #
 
@@ -1310,6 +1308,312 @@ class TestTeamMembersAPIView(ViewTestMixin):
 
 
 @ddt
+class TestTeamMemberAssignmentsAPIView(ViewTestMixin):
+    """
+    Test suite for TeamMemberAssignmentsAPIView.
+
+    Setup summary (from ViewTestMixin.setUpClass):
+        lib:Org1:LIB1 → admin_1 (library_admin), regular_1 (library_user), regular_2 (library_user)
+        lib:Org2:LIB2 → admin_2 (library_user),  regular_3 (library_user),  regular_4 (library_user)
+        lib:Org3:LIB3 → admin_3 (library_admin), regular_5 (library_admin), regular_6 (library_author),
+                        regular_7 (library_contributor), regular_8 (library_user)
+
+    URL: /api/authz/v1/users/<username>/assignments/
+    Response fields per item: is_superadmin, role, org, scope, permission_count
+
+    Superadmin entry:
+        admin_1..3 are staff/superusers. Querying any of them always adds one
+        SuperAdminAssignmentData entry: role="django.superuser" (or "django.staff"),
+        org="*", scope="*", permission_count=None, is_superadmin=True.
+        This entry is always included regardless of org/role filters, since those
+        filters are applied only to the role assignments, not to the superadmin entry.
+
+    Visibility via filter_allowed_assignments:
+        - Staff/superuser: sees all role assignments for any user, plus the superadmin
+          entry when the target is a superadmin.
+        - regular_1 (library_user in Org1:LIB1): sees only Org1:LIB1 role assignments,
+          plus the superadmin entry when the target is a superadmin.
+        - regular_9 (no assignments): sees no role assignments for any user, but still
+          sees the superadmin entry when the target is a superadmin.
+    """
+
+    def setUp(self):
+        """Set up test fixtures."""
+        super().setUp()
+        self.get_user_map_patcher = patch(
+            "openedx_authz.api.utils.get_user_map",
+            side_effect=get_user_map_without_profile,
+        )
+        self.get_user_map_patcher.start()
+        self.addCleanup(self.get_user_map_patcher.stop)
+
+    def _url(self, username: str) -> str:
+        return reverse("openedx_authz:user-assignment-list", kwargs={"username": username})
+
+    # -------------------------------------------------------------------- #
+    # Visibility: calling user only sees assignments it has view access to #
+    # -------------------------------------------------------------------- #
+
+    @data(
+        # Staff/superuser targets get 1 superadmin entry + their role assignment(s)
+        ("admin_1", "admin_1", 2),  # superadmin entry + library_admin in Org1
+        ("admin_1", "admin_2", 2),  # superadmin entry + library_user in Org2
+        ("admin_1", "admin_3", 2),  # superadmin entry + library_admin in Org3
+        # Regular user targets get only their role assignments (no superadmin entry)
+        ("admin_1", "regular_5", 1),
+        # The superadmin entry is always included for superadmin targets, visible to all callers
+        ("regular_1", "admin_1", 2),  # superadmin entry + library_admin in Org1 (visible via Org1 access)
+        # regular_1 cannot see admin_2's Org2 role assignment, but superadmin entry is still included
+        ("regular_1", "admin_2", 1),  # superadmin entry only
+        # regular_9 has no assignments but superadmin entry is still included for admin targets
+        ("regular_9", "admin_1", 1),  # superadmin entry only
+    )
+    @unpack
+    def test_visibility_limited_to_accessible_scopes(self, caller: str, target: str, expected_count: int):
+        """Calling user only sees role assignments for scopes it has view access to.
+
+        The superadmin entry is always included when the target is a superadmin,
+        regardless of the calling user's permissions.
+
+        Expected result:
+            - Superadmin targets always include the superadmin entry.
+            - Role assignments are filtered by the calling user's permissions.
+            - Regular user targets return only their visible role assignments.
+        """
+        self.client.force_authenticate(user=User.objects.get(username=caller))
+
+        response = self.client.get(self._url(target))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], expected_count)
+
+    def test_unauthenticated_returns_401(self):
+        """Unauthenticated requests are rejected.
+
+        Expected result:
+            - Returns 401 UNAUTHORIZED.
+        """
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get(self._url("admin_1"))
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_unknown_user_returns_empty(self):
+        """Requesting assignments for a non-existent user returns an empty list.
+
+        Expected result:
+            - Returns 200 OK with count 0.
+        """
+        response = self.client.get(self._url("nonexistent_user"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+
+    # ------------------------------------------------------------------ #
+    # Filter by orgs                                                     #
+    # ------------------------------------------------------------------ #
+
+    @data(
+        # admin_3 has library_admin in lib:Org3:LIB3; superadmin entry is always included
+        ("admin_3", "Org3", 2),  # superadmin entry + Org3 role assignment
+        ("admin_3", "Org1", 1),  # superadmin entry only (no Org1 role assignment)
+        # regular_5 has library_admin in lib:Org3:LIB3 (no superadmin entry)
+        ("regular_5", "Org3", 1),
+        ("regular_5", "Org1", 0),
+        # non-existent org: superadmin entry still included for admin targets
+        ("admin_1", "OrgX", 1),  # superadmin entry only
+    )
+    @unpack
+    def test_filter_by_orgs(self, target: str, orgs: str, expected_count: int):
+        """Results are filtered to the requested orgs.
+
+        Expected result:
+            - Only assignments in the given org(s) are returned.
+            - Multiple orgs are OR-combined.
+        """
+        response = self.client.get(self._url(target), {"orgs": orgs})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], expected_count)
+
+    def test_filter_by_multiple_orgs(self):
+        """Multiple orgs are OR-combined.
+
+        Expected result:
+            - Returns assignments matching any of the given orgs.
+        """
+        # regular_6 has library_author in lib:Org3:LIB3
+        # regular_7 has library_contributor in lib:Org3:LIB3
+        # Use admin_1 (staff) to see all of regular_8's assignments
+        # regular_8 has library_user in lib:Org3:LIB3 only
+        response = self.client.get(self._url("regular_8"), {"orgs": "Org1,Org3"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+
+    # ------------------------------------------------------------------ #
+    # Filter by roles                                                    #
+    # ------------------------------------------------------------------ #
+
+    @data(
+        # role filter applies only to role assignments; superadmin entry is always included for admin targets
+        ("admin_1", roles.LIBRARY_ADMIN.external_key, 2),  # superadmin entry + library_admin
+        ("admin_1", roles.LIBRARY_USER.external_key, 1),  # superadmin entry only
+        ("regular_5", roles.LIBRARY_ADMIN.external_key, 1),
+        ("regular_5", roles.LIBRARY_USER.external_key, 0),
+        ("regular_6", roles.LIBRARY_AUTHOR.external_key, 1),
+        ("regular_6", roles.LIBRARY_ADMIN.external_key, 0),
+        ("admin_1", "non_existent_role", 1),  # superadmin entry only
+    )
+    @unpack
+    def test_filter_by_roles(self, target: str, role_filter: str, expected_count: int):
+        """Results are filtered to the requested roles.
+
+        Expected result:
+            - Only assignments with the given role(s) are returned.
+        """
+        response = self.client.get(self._url(target), {"roles": role_filter})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], expected_count)
+
+    def test_filter_by_multiple_roles(self):
+        """Multiple roles are OR-combined for role assignments; superadmin entry always included.
+
+        Expected result:
+            - Returns assignments matching any of the given roles, plus the superadmin entry.
+        """
+        # admin_3 has library_admin in Org3:LIB3; filter for admin + author returns
+        # 1 role assignment + 1 superadmin entry = 2
+        response = self.client.get(
+            self._url("admin_3"),
+            {"roles": f"{roles.LIBRARY_ADMIN.external_key},{roles.LIBRARY_AUTHOR.external_key}"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+
+    # ------------------------------------------------------------------ #
+    # Sorting                                                            #
+    # ------------------------------------------------------------------ #
+
+    @data(
+        ("role", "asc"),
+        ("role", "desc"),
+        ("org", "asc"),
+        ("org", "desc"),
+        ("scope", "asc"),
+        ("scope", "desc"),
+    )
+    @unpack
+    def test_sorting(self, sort_by: str, order: str):
+        """Results are sorted by role, org, or scope in asc/desc order.
+
+        Uses admin_3, who has 2 items in the response: a superadmin entry
+        (role="django.superuser", org="*", scope="*") and a role assignment
+        (role="library_admin", org="Org3", scope="lib:Org3:LIB3"). With two
+        distinct values per field the sort order is non-trivial and verifiable.
+
+        Expected result:
+            - Returns 200 OK.
+            - Results are ordered according to the requested field and direction.
+        """
+        response = self.client.get(self._url("admin_3"), {"sort_by": sort_by, "order": order})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreater(len(response.data["results"]), 1)
+        values = [item[sort_by] for item in response.data["results"]]
+        expected = sorted(values, key=lambda v: (v or "").lower(), reverse=order == "desc")
+        self.assertEqual(values, expected)
+
+    @data(
+        {"sort_by": "invalid"},
+        {"sort_by": "username"},
+        {"order": "ascending"},
+        {"order": "descending"},
+    )
+    def test_sorting_invalid_params(self, query_params: dict):
+        """Invalid sort_by or order values return 400.
+
+        Expected result:
+            - Returns 400 BAD REQUEST.
+        """
+        response = self.client.get(self._url("admin_1"), query_params)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # ------------------------------------------------------------------ #
+    # Pagination                                                         #
+    # ------------------------------------------------------------------ #
+
+    @data(
+        ({"page": 1, "page_size": 1}, 1, True),
+        ({"page": 2, "page_size": 1}, 1, False),
+        ({"page": 1, "page_size": 2}, 2, False),
+    )
+    @unpack
+    def test_pagination(self, query_params: dict, expected_page_count: int, has_next: bool):
+        """Results are paginated correctly.
+
+        Assigns regular_8 a second role (library_admin in Org1:LIB1) so it has
+        2 assignments visible to admin_1 (staff).
+
+        Expected result:
+            - Returns 200 OK.
+            - Page contains the expected number of items.
+            - `next` link is present only when more pages exist.
+        """
+        assign_role_to_user_in_scope("regular_8", roles.LIBRARY_ADMIN.external_key, "lib:Org1:LIB1")
+
+        response = self.client.get(self._url("regular_8"), query_params)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), expected_page_count)
+        if has_next:
+            self.assertIsNotNone(response.data["next"])
+        else:
+            self.assertIsNone(response.data["next"])
+
+    # ------------------------------------------------------------------ #
+    # Response shape                                                     #
+    # ------------------------------------------------------------------ #
+
+    def test_response_shape(self):
+        """Each result item contains the expected fields.
+
+        admin_1 is a superuser, so the response contains two items:
+        - A superadmin entry with role="django.superuser", org="*", scope="*",
+          permission_count=None, is_superadmin=True
+        - A regular role assignment entry with concrete values and is_superadmin=False
+
+        Expected result:
+            - Returns 200 OK.
+            - Each item has is_superadmin, role, org, scope, and permission_count.
+        """
+        response = self.client.get(self._url("admin_1"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+
+        superadmin_item = next(item for item in response.data["results"] if item["is_superadmin"])
+        self.assertIn(superadmin_item["role"], ("django.superuser", "django.staff"))
+        self.assertEqual(superadmin_item["org"], "*")
+        self.assertEqual(superadmin_item["scope"], "*")
+        self.assertIsNone(superadmin_item["permission_count"])
+
+        role_item = next(item for item in response.data["results"] if not item["is_superadmin"])
+        self.assertIn("role", role_item)
+        self.assertIn("org", role_item)
+        self.assertIn("scope", role_item)
+        self.assertIn("permission_count", role_item)
+        self.assertEqual(role_item["role"], roles.LIBRARY_ADMIN.external_key)
+        self.assertEqual(role_item["org"], "Org1")
+        self.assertEqual(role_item["scope"], "lib:Org1:LIB1")
+        self.assertGreater(role_item["permission_count"], 0)
+
+
+@ddt
 class TestRoleListView(ViewTestMixin):
     """Test suite for RoleListView."""
 
@@ -1447,3 +1751,301 @@ class TestRoleListView(ViewTestMixin):
         if status_code == status.HTTP_200_OK:
             self.assertIn("results", response.data)
             self.assertIn("count", response.data)
+
+
+@ddt
+class TestUserValidationAPIView(ViewTestMixin):
+    """Test suite for UserValidationAPIView."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        super().setUp()
+        self.url = reverse("openedx_authz:user-validation")
+
+    @data(
+        # All users valid - usernames
+        (["admin_1", "regular_1"], ["admin_1", "regular_1"], []),
+        # All users valid - emails
+        (["admin_1@example.com", "regular_1@example.com"], ["admin_1@example.com", "regular_1@example.com"], []),
+        # Mixed usernames and emails
+        (["admin_1", "regular_1@example.com"], ["admin_1", "regular_1@example.com"], []),
+        # Single user
+        (["admin_1"], ["admin_1"], []),
+    )
+    @unpack
+    def test_post_all_users_valid(self, input_users: list, expected_valid: list, expected_invalid: list):
+        """Test user validation when all users are valid.
+
+        Expected result:
+            - Returns 200 OK status
+            - All users are in valid_users list
+            - invalid_users list is empty
+            - Summary contains correct counts
+        """
+        self.client.force_authenticate(user=self.admin_user)
+        request_data = {"users": input_users}
+        response = self.client.post(self.url, data=request_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["valid_users"], expected_valid)
+        self.assertEqual(response.data["invalid_users"], expected_invalid)
+        self.assertEqual(response.data["summary"]["total"], len(input_users))
+        self.assertEqual(response.data["summary"]["valid_count"], len(expected_valid))
+        self.assertEqual(response.data["summary"]["invalid_count"], len(expected_invalid))
+
+    @data(
+        # Mix of valid and invalid users
+        (["admin_1", "nonexistent_user"], ["admin_1"], ["nonexistent_user"]),
+        # Mix of valid and invalid with emails
+        (["admin_1@example.com", "fake@example.com"], ["admin_1@example.com"], ["fake@example.com"]),
+        # Mix of usernames and emails with some invalid
+        (
+            ["admin_1", "fake@example.com", "regular_1@example.com"],
+            ["admin_1", "regular_1@example.com"],
+            ["fake@example.com"],
+        ),
+        # More complex mix
+        (
+            ["admin_1", "nonexistent1", "regular_1@example.com", "nonexistent2"],
+            ["admin_1", "regular_1@example.com"],
+            ["nonexistent1", "nonexistent2"],
+        ),
+    )
+    @unpack
+    def test_post_mixed_valid_invalid_users(self, input_users: list, expected_valid: list, expected_invalid: list):
+        """Test user validation when some users are valid and others are invalid.
+
+        Expected result:
+            - Returns 200 OK status
+            - Valid users are in valid_users list
+            - Invalid users are in invalid_users list
+            - Summary contains correct counts
+        """
+        self.client.force_authenticate(user=self.admin_user)
+        request_data = {"users": input_users}
+        response = self.client.post(self.url, data=request_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(set(response.data["valid_users"]), set(expected_valid))
+        self.assertEqual(set(response.data["invalid_users"]), set(expected_invalid))
+        self.assertEqual(response.data["summary"]["total"], len(input_users))
+        self.assertEqual(response.data["summary"]["valid_count"], len(expected_valid))
+        self.assertEqual(response.data["summary"]["invalid_count"], len(expected_invalid))
+
+    @data(
+        # All users invalid
+        (["nonexistent1", "nonexistent2"], [], ["nonexistent1", "nonexistent2"]),
+        # All invalid emails
+        (["fake1@example.com", "fake2@example.com"], [], ["fake1@example.com", "fake2@example.com"]),
+        # Single invalid user
+        (["nonexistent_user"], [], ["nonexistent_user"]),
+        # Single invalid email
+        (["fake@example.com"], [], ["fake@example.com"]),
+    )
+    @unpack
+    def test_post_all_users_invalid(self, input_users: list, expected_valid: list, expected_invalid: list):
+        """Test user validation when all users are invalid.
+
+        Expected result:
+            - Returns 200 OK status
+            - valid_users list is empty
+            - All users are in invalid_users list
+            - Summary contains correct counts
+        """
+        self.client.force_authenticate(user=self.admin_user)
+        request_data = {"users": input_users}
+        response = self.client.post(self.url, data=request_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["valid_users"], expected_valid)
+        self.assertEqual(set(response.data["invalid_users"]), set(expected_invalid))
+        self.assertEqual(response.data["summary"]["total"], len(input_users))
+        self.assertEqual(response.data["summary"]["valid_count"], len(expected_valid))
+        self.assertEqual(response.data["summary"]["invalid_count"], len(expected_invalid))
+
+    @data(
+        # Missing users field
+        {},
+        {"other_field": "value"},
+        # Empty users list (not allowed by serializer)
+        {"users": []},
+        # Invalid data types
+        {"users": "not_a_list"},
+        {"users": [{"not": "string"}]},
+        # Null values
+        {"users": None},
+        {"users": [None, "admin_1"]},
+        # Users with strings too long (over 255 characters)
+        {"users": ["a" * 256]},
+    )
+    def test_post_invalid_request_data(self, request_data: dict):
+        """Test user validation with invalid request data.
+
+        Test cases:
+            - Missing required fields
+            - Empty users list (not allowed)
+            - Invalid data types
+            - Null values
+            - Strings exceeding max length
+
+        Expected result:
+            - Returns 400 BAD REQUEST status
+        """
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.post(self.url, data=request_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @data(
+        # Unauthenticated request
+        (None, status.HTTP_401_UNAUTHORIZED),
+        # Admin user with proper permissions (superuser)
+        ("admin_1", status.HTTP_200_OK),
+        # Regular user without required permissions (only LIBRARY_USER)
+        ("regular_1", status.HTTP_403_FORBIDDEN),
+        # Regular user with LIBRARY_ADMIN role (has MANAGE_LIBRARY_TEAM permission)
+        ("regular_5", status.HTTP_200_OK),
+    )
+    @unpack
+    def test_post_authentication_and_permissions(self, username: str, expected_status: int):
+        """Test user validation with different authentication and permission scenarios.
+
+        Expected result:
+            - Returns 401 UNAUTHORIZED for unauthenticated requests
+            - Returns 403 FORBIDDEN for authenticated users without permissions
+            - Returns 200 OK for users with proper permissions
+        """
+        if username:
+            user = User.objects.get(username=username)
+            self.client.force_authenticate(user=user)
+        else:
+            self.client.force_authenticate(user=None)
+        request_data = {"users": ["admin_1", "regular_1"]}
+        response = self.client.post(self.url, data=request_data, format="json")
+        self.assertEqual(response.status_code, expected_status)
+        if expected_status == status.HTTP_200_OK:
+            self.assertIn("valid_users", response.data)
+            self.assertIn("invalid_users", response.data)
+            self.assertIn("summary", response.data)
+            self.assertIn("total", response.data["summary"])
+            self.assertIn("valid_count", response.data["summary"])
+            self.assertIn("invalid_count", response.data["summary"])
+
+    def test_post_serializer_deduplication(self):
+        """Test that serializer properly deduplicates users while preserving order.
+
+        The serializer automatically removes duplicates using dict.fromkeys().
+
+        Expected result:
+            - Returns 200 OK status
+            - Duplicates are automatically removed by the serializer
+            - Order is preserved for first occurrence
+        """
+        self.client.force_authenticate(user=self.admin_user)
+        request_data = {"users": ["admin_1", "admin_1", "nonexistent", "nonexistent", "regular_1"]}
+        response = self.client.post(self.url, data=request_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["valid_users"], ["admin_1", "regular_1"])
+        self.assertEqual(response.data["invalid_users"], ["nonexistent"])
+        self.assertEqual(response.data["summary"]["total"], 3)
+        self.assertEqual(response.data["summary"]["valid_count"], 2)
+        self.assertEqual(response.data["summary"]["invalid_count"], 1)
+
+    def test_post_large_user_list(self):
+        """Test user validation with a large list of users.
+
+        Expected result:
+            - Returns 200 OK status
+            - Correctly processes all users in the list
+            - Response structure is maintained
+        """
+        self.client.force_authenticate(user=self.admin_user)
+        valid_users = ["admin_1", "admin_2", "regular_1", "regular_2"]
+        invalid_users = [f"nonexistent_{i}" for i in range(10)]
+        all_users = valid_users + invalid_users
+        request_data = {"users": all_users}
+        response = self.client.post(self.url, data=request_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(set(response.data["valid_users"]), set(valid_users))
+        self.assertEqual(set(response.data["invalid_users"]), set(invalid_users))
+        self.assertEqual(response.data["summary"]["total"], len(all_users))
+        self.assertEqual(response.data["summary"]["valid_count"], len(valid_users))
+        self.assertEqual(response.data["summary"]["invalid_count"], len(invalid_users))
+
+    def test_post_response_serializer_structure(self):
+        """Test that response matches UserValidationAPIViewResponseSerializer structure.
+
+        Expected result:
+            - Returns 200 OK status
+            - Response contains all required fields
+            - Field types match serializer definition
+        """
+        self.client.force_authenticate(user=self.admin_user)
+        request_data = {"users": ["admin_1", "nonexistent"]}
+        response = self.client.post(self.url, data=request_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        required_fields = ["valid_users", "invalid_users", "summary"]
+        for field in required_fields:
+            self.assertIn(field, response.data)
+        summary_fields = ["total", "valid_count", "invalid_count"]
+        for field in summary_fields:
+            self.assertIn(field, response.data["summary"])
+            self.assertIsInstance(response.data["summary"][field], int)
+        self.assertIsInstance(response.data["valid_users"], list)
+        self.assertIsInstance(response.data["invalid_users"], list)
+
+    def test_post_inactive_user_validation(self):
+        """Test that inactive users are returned as invalid.
+
+        Expected result:
+            - Inactive users appear in invalid_users list
+            - Summary counts reflect inactive users as invalid
+            - Active users appear in valid_users list
+        """
+        User.objects.create(username="inactive_user", email="inactive@example.com", is_active=False)
+        self.client.force_authenticate(user=self.admin_user)
+        request_data = {"users": ["inactive_user", "inactive@example.com", "admin_1"]}
+        response = self.client.post(self.url, data=request_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("inactive_user", response.data["invalid_users"])
+        self.assertIn("inactive@example.com", response.data["invalid_users"])
+        self.assertIn("admin_1", response.data["valid_users"])
+        self.assertEqual(response.data["summary"]["total"], 3)
+        self.assertEqual(response.data["summary"]["valid_count"], 1)
+        self.assertEqual(response.data["summary"]["invalid_count"], 2)
+
+    def test_post_with_validate_users_exception(self):
+        """Test handling of unexpected exceptions from validate_users."""
+        self.client.force_authenticate(user=self.admin_user)
+        with patch.object(api, "validate_users") as mock_validate_users:
+            mock_validate_users.side_effect = Exception("Database connection error")
+            request_data = {"users": ["admin_1"]}
+            response = self.client.post(self.url, data=request_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.data["message"], "An error occurred while validating users")
+
+    def test_post_global_permission_inheritance(self):
+        """Test that UserValidationAPIView properly inherits from AnyScopePermission class."""
+        self.assertIn(AnyScopePermission, UserValidationAPIView.permission_classes)
+
+    def test_post_multiple_roles_user_access(self):
+        """Test access for a user with multiple roles that include management permissions."""
+        test_user = User.objects.create(username="multi_role_user", email="multi@example.com")
+        assign_role_to_user_in_scope(
+            user_external_key="multi_role_user",
+            role_external_key=roles.LIBRARY_ADMIN.external_key,
+            scope_external_key="lib:Org1:LIB1",
+        )
+        assign_role_to_user_in_scope(
+            user_external_key="multi_role_user",
+            role_external_key=roles.LIBRARY_USER.external_key,
+            scope_external_key="lib:Org2:LIB2",
+        )
+        self.client.force_authenticate(user=test_user)
+        request_data = {"users": ["admin_1", "regular_1"]}
+        response = self.client.post(self.url, data=request_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_post_empty_role_assignments_denied(self):
+        """Test that a user with no role assignments is properly denied access."""
+        test_user = User.objects.create(username="no_roles_user", email="noroles@example.com")
+        self.client.force_authenticate(user=test_user)
+        request_data = {"users": ["admin_1", "regular_1"]}
+        response = self.client.post(self.url, data=request_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

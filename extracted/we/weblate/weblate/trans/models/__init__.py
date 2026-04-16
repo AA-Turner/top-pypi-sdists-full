@@ -19,7 +19,7 @@ from weblate.trans.models.announcement import Announcement
 from weblate.trans.models.category import Category
 from weblate.trans.models.change import Change
 from weblate.trans.models.comment import Comment
-from weblate.trans.models.component import Component
+from weblate.trans.models.component import Component, ComponentLink
 from weblate.trans.models.componentlist import AutoComponentList, ComponentList
 from weblate.trans.models.label import Label
 from weblate.trans.models.pending import PendingUnitChange
@@ -29,6 +29,7 @@ from weblate.trans.models.translation import Translation
 from weblate.trans.models.unit import Unit
 from weblate.trans.models.variant import Variant
 from weblate.trans.models.workflow import WorkflowSetting
+from weblate.trans.removal import get_current_removal_batch
 from weblate.trans.signals import user_pre_delete
 from weblate.utils.decorators import disable_for_loaddata
 from weblate.utils.files import remove_tree
@@ -44,6 +45,7 @@ __all__ = [
     "Comment",
     "CommitPolicyChoices",
     "Component",
+    "ComponentLink",
     "ComponentList",
     "ContributorAgreement",
     "Label",
@@ -74,8 +76,11 @@ def project_post_delete(sender, instance: Project, **kwargs) -> None:
     - delete project directory
     - update stats
     """
-    # Update stats
-    transaction.on_commit(instance.stats.update_parents)
+    batch = get_current_removal_batch()
+    if batch is None:
+        transaction.on_commit(instance.stats.update_parents)
+    else:
+        batch.collect_stats(instance.stats.get_update_objects())
     instance.stats.delete()
 
     # Remove directory
@@ -84,6 +89,10 @@ def project_post_delete(sender, instance: Project, **kwargs) -> None:
 
 @receiver(pre_delete, sender=Component)
 def component_pre_delete(sender, instance: Component, **kwargs) -> None:
+    batch = instance.removal_batch or get_current_removal_batch()
+    if batch is not None:
+        batch.collect_stats(instance.stats.get_update_objects())
+        return
     # Collect list of stats to update, this can't be done after removal
     instance.stats.collect_update_objects()
 
@@ -96,13 +105,17 @@ def component_post_delete(sender, instance: Component, **kwargs) -> None:
     - delete component directory
     - update stats, this is accompanied by component_pre_delete
     """
-    # Update stats
-    transaction.on_commit(instance.stats.update_parents)
+    batch = instance.removal_batch or get_current_removal_batch()
+    if batch is None:
+        transaction.on_commit(instance.stats.update_parents)
     instance.stats.delete()
 
     # Do not delete linked components
     if not instance.is_repo_link:
         delete_object_dir(instance)
+
+    if batch is None:
+        instance.cleanup_conflicting_repository_setup_alerts()
 
 
 @receiver(post_delete, sender=Translation)
@@ -111,14 +124,13 @@ def translation_post_delete(sender, instance: Translation, **kwargs) -> None:
     transaction.on_commit(instance.stats.delete)
 
 
-@receiver(m2m_changed, sender=Component.links.through)
+@receiver(post_save, sender=ComponentLink)
+@receiver(post_delete, sender=ComponentLink)
 @disable_for_loaddata
-def component_links_updated(sender, instance, action, pk_set, **kwargs) -> None:
-    from weblate.utils.tasks import update_project_stats_link
+def component_links_updated(sender, instance, **kwargs) -> None:
+    from weblate.utils.tasks import update_project_stats_link  # noqa: PLC0415
 
-    if action in {"post_add", "post_remove", "post_clear"}:
-        for pk in pk_set:
-            update_project_stats_link.delay_on_commit(pk)
+    update_project_stats_link.delay_on_commit(instance.project_id)
 
 
 @receiver(m2m_changed, sender=Unit.labels.through)
@@ -200,6 +212,10 @@ def auto_component_list(sender, instance, **kwargs) -> None:
 @receiver(post_delete, sender=Component)
 @disable_for_loaddata
 def post_delete_linked(sender, instance, **kwargs) -> None:
+    batch = instance.removal_batch or get_current_removal_batch()
+    if batch is not None:
+        batch.collect_linked_component(instance.linked_component_id)
+        return
     # When removing project, the linked component might be already deleted now
     with suppress(Component.DoesNotExist):
         if instance.linked_component:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fido2
-Version: 2.1.1
+Version: 2.2.0
 Summary: FIDO2/WebAuthn library for implementing clients and servers.
 License: Copyright (c) 2018 Yubico AB
          All rights reserved.

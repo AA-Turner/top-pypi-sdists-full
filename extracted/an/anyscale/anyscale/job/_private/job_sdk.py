@@ -2,6 +2,7 @@ from typing import Any, cast, ClassVar, Dict, List, Optional, Union
 import uuid
 import warnings
 
+from anyscale._private.anyscale_client.common import APIJobRun
 from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.workload import WorkloadSDK
 from anyscale.cli_logger import BlockLogger
@@ -43,7 +44,6 @@ from anyscale.job.models import (
     JobState,
     JobStatus,
 )
-from anyscale.sdk.anyscale_client.models import Job
 from anyscale.sdk.anyscale_client.models.ha_job_states import HaJobStates
 from anyscale.sdk.anyscale_client.models.job_status import JobStatus as BackendJobStatus
 from anyscale.utils.runtime_env import parse_requirements_file
@@ -393,7 +393,7 @@ class PrivateJobSDK(WorkloadSDK):
         ha_state = model.state.current_state if model.state else None
         return cast(JobState, HA_JOB_STATE_TO_JOB_STATE.get(ha_state, JobState.UNKNOWN))
 
-    def _job_run_model_to_job_run_status(self, run: Job) -> JobRunStatus:
+    def _job_run_model_to_job_run_status(self, run: APIJobRun) -> JobRunStatus:
         state = self._BACKEND_JOB_STATUS_TO_JOB_RUN_STATE.get(
             run.status, JobRunState.UNKNOWN
         )
@@ -455,7 +455,9 @@ class PrivateJobSDK(WorkloadSDK):
             connections=connections,
         )
 
-    def _job_model_to_status(self, model: ProductionJob, runs: List[Job]) -> JobStatus:
+    def _job_model_to_status(
+        self, model: ProductionJob, runs: List[APIJobRun]
+    ) -> JobStatus:
         state = self._job_state_from_job_model(model)
         project_model = self.client.get_project(model.project_id)
         project = (
@@ -483,7 +485,7 @@ class PrivateJobSDK(WorkloadSDK):
         )
 
     def _decorated_job_to_status(
-        self, decorated_job: DecoratedProductionJob, runs: List[Job]
+        self, decorated_job: DecoratedProductionJob, runs: List[APIJobRun]
     ) -> JobStatus:
         """Convert DecoratedProductionJob to JobStatus without extra API call.
 
@@ -819,19 +821,14 @@ class PrivateJobSDK(WorkloadSDK):
         if last_job_run_id is None:
             return ""
         if run is None:
-            job_run_id = last_job_run_id
-        else:
-            runs: List[Job] = self.client.get_job_runs(job_model.id)
-            for job_run in runs:
-                if job_run.name == run:
-                    job_run_id = job_run.id
-                    break
-            else:
-                raise ValueError(
-                    f"Job run '{run}' was not found for job '{job_id or name}'."
-                )
+            return last_job_run_id
 
-        return job_run_id
+        runs = self.client.get_job_runs(job_model.id, run_name=run, max_runs_per_job=1)
+        if not runs:
+            raise ValueError(
+                f"Job run '{run}' was not found for job '{job_id or name}'."
+            )
+        return runs[0].id
 
     def get_logs(
         self,
@@ -1067,6 +1064,7 @@ class PrivateJobSDK(WorkloadSDK):
             kwargs: Dict[str, Any] = {
                 "name": name,
                 "project_id": resolved_project_id,
+                "cloud_id": cloud_id,
                 "creator_id": creator_id,
                 "archive_status": archive_status,
                 "state_filter": ha_job_states_filter,
@@ -1083,16 +1081,23 @@ class PrivateJobSDK(WorkloadSDK):
             }
             if page_size is not None:
                 kwargs["count"] = page_size
-            return self.client.list_jobs(**kwargs)
+            page = self.client.list_jobs(**kwargs)
+            if not page.results:
+                return page
 
-        def _parse_job(decorated_job: DecoratedProductionJob) -> JobStatus:
-            runs = self.client.get_job_runs(decorated_job.id)
-            # Use DecoratedProductionJob directly instead of making extra API call
-            return self._decorated_job_to_status(decorated_job=decorated_job, runs=runs)
+            # Batch fetch runs for all jobs in this page — 1 call instead of N
+            job_ids = [job.id for job in page.results]
+            runs_map = self.client.batch_get_job_runs(job_ids)
+
+            page.results = [
+                self._decorated_job_to_status(
+                    decorated_job=decorated_job,
+                    runs=runs_map.get(decorated_job.id, []),
+                )
+                for decorated_job in page.results
+            ]
+            return page
 
         return ResultIterator(
-            page_token=None,
-            max_items=max_items,
-            fetch_page=_fetch_page,
-            parse_fn=_parse_job,
+            page_token=None, max_items=max_items, fetch_page=_fetch_page,
         )

@@ -596,9 +596,8 @@ FROM (
                 TestColumnQualifierTuple("col1", "tab1"),
             ),
         ],
-        # SqlGlot: Column lineage through UNION in subquery doesn't align with other parsers yet
-        # TODO: Align SqlGlot graph shape for UNION inside subqueries (adds subquery column nodes)
-        test_sqlglot=False,
+        # SqlGlot graph is more compact (no intermediate subquery column nodes) vs SqlFluff/SqlParse
+        skip_graph_check=True,
     )
 
 
@@ -1373,9 +1372,8 @@ SELECT col1 FROM dataset.tab2) SELECT col1 FROM temp_cte"""
                 TestColumnQualifierTuple("col1", "dataset.target"),
             ),
         ],
-        # SqlGlot: CTE UNION lineage graph shape differs from other parsers
-        # TODO: Align SqlGlot CTE UNION node/edge structure
-        test_sqlglot=False,
+        # SqlGlot graph is more compact (no intermediate CTE column nodes) vs SqlFluff/SqlParse
+        skip_graph_check=True,
     )
 
 
@@ -1439,9 +1437,6 @@ def test_create_view_with_complex_sub_queries():
                 TestColumnQualifierTuple("col1", "new_table"),
             ),
         ],
-        # SqlGlot: Column lineage through nested subqueries with UNION returns empty - no error raised
-        # TODO: Fix SqlGlot to track column lineage through multiple nested subquery levels with UNION
-        test_sqlglot=False,
     )
 
 
@@ -1467,10 +1462,6 @@ def test_sqlfluff_create_view_with_complex_sub_queries():
                 TestColumnQualifierTuple("cc1", "new_table"),
             ),
         ],
-        # SqlGlot: Column lineage through nested subqueries with UNION and view column definitions
-        # returns empty - no error raised
-        # TODO: Fix SqlGlot to track column lineage through nested subqueries with explicit view column names
-        test_sqlglot=False,
         test_sqlparse=False,
     )
 
@@ -1560,9 +1551,6 @@ def test_ctes_with_join():
                 TestColumnQualifierTuple("x", "random_table"),
             ),
         ],
-        # SqlGlot: Column lineage with CTEs and JOIN returns empty - no error raised
-        # TODO: Fix SqlGlot to track column lineage through multiple CTEs with JOIN
-        test_sqlglot=False,
         test_sqlparse=False,
     )
 

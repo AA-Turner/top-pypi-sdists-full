@@ -536,6 +536,29 @@ class XBRL:
 
         if xbrl_attachments.get('instance'):
             xbrl.parser.parse_instance_content(xbrl_attachments.get('instance').content)
+        elif not xbrl_attachments.empty:
+            # Instance document missing from local SGML — SEC feed files before ~Oct 2020
+            # did not include the extracted iXBRL instance document.
+            # Fall back to fetching it from the filing homepage if network fallback is allowed.
+            from edgar.storage import is_using_local_storage, is_network_fallback_allowed
+            if is_using_local_storage() and is_network_fallback_allowed():
+                homepage_xbrl = XBRLAttachments(filing.homepage.attachments)
+                if homepage_xbrl.get('instance'):
+                    log.info(
+                        f"Instance document not in local storage for {filing.accession_no}. "
+                        f"Fetching from SEC (network fallback)."
+                    )
+                    xbrl.parser.parse_instance_content(homepage_xbrl.get('instance').content)
+                else:
+                    log.warning(
+                        f"XBRL instance document not found for {filing.accession_no}. "
+                        f"Entity info and facts will be unavailable."
+                    )
+            else:
+                log.warning(
+                    f"XBRL instance document not in local storage for {filing.accession_no}. "
+                    f"Enable network fallback or re-download this filing to access XBRL data."
+                )
 
         # Capture SGML period_of_report for date discrepancy detection
         try:

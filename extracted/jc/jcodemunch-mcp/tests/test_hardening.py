@@ -610,7 +610,7 @@ class TestContentHashing:
         symbols = parse_file(content, fname, "python")
         for s in symbols:
             assert s.content_hash, f"Symbol {s.name} missing content_hash"
-            assert len(s.content_hash) == 64, "SHA-256 hex should be 64 chars"
+            assert len(s.content_hash) == 64, "content_hash hex should be 64-char SHA-256"
 
     def test_reparse_produces_same_hashes(self):
         content, fname = _fixture("python", "sample.py")
@@ -804,7 +804,7 @@ class TestIndexVersioning:
         )
 
         assert index.index_version == INDEX_VERSION
-        assert index.index_version == 8
+        assert index.index_version == 9
 
     def test_load_preserves_version(self, tmp_path):
         store = IndexStore(base_path=str(tmp_path))

@@ -19790,6 +19790,8 @@ If any of these are present, the subscription cannot be created.
     '''LITERAL_RANGES'''
     LITERAL_ENUM_SERIES = 'LITERAL_ENUM_SERIES'
     '''LITERAL_ENUM_SERIES'''
+    TAG_BY_INTERVALS = 'TAG_BY_INTERVALS'
+    '''TAG_BY_INTERVALS'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -26552,6 +26554,38 @@ a file, primarily CSV.
 
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), List[scout_catalog_Dataset], self._return_none_for_unknown_union_types)
+
+    def get_datasets_with_external_connection_config(self, auth_header: str, get_datasets_request: "scout_catalog_GetDatasetsRequest") -> List[str]:
+        """Gets the subset of dataset RIDs that currently have external connection config attached.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(get_datasets_request)
+
+        _path = '/catalog/v1/datasets-simple/external-config'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), List[api_rids_DatasetRid], self._return_none_for_unknown_union_types)
 
     def get_dataset_file(self, auth_header: str, dataset_rid: str, file_id: str) -> "scout_catalog_DatasetFile":
         _conjure_encoder = ConjureEncoder()
@@ -41820,6 +41854,8 @@ class scout_checklistexecution_api_InvalidStreamingComputeNode(ConjureEnumType):
     '''LITERAL_ENUM_SERIES'''
     TIME_RANGE_FILTER = 'TIME_RANGE_FILTER'
     '''TIME_RANGE_FILTER'''
+    TAG_BY_INTERVALS = 'TAG_BY_INTERVALS'
+    '''TAG_BY_INTERVALS'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -51363,6 +51399,7 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
     _array: Optional["scout_compute_api_ArraySeries"] = None
     _struct: Optional["scout_compute_api_StructSeries"] = None
     _curve_fit: Optional["scout_compute_api_CurveFit"] = None
+    _video: Optional["scout_compute_api_Reference"] = None
     _raw: Optional["scout_compute_api_Reference"] = None
 
     @builtins.classmethod
@@ -51376,6 +51413,7 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
             'array': ConjureFieldDefinition('array', scout_compute_api_ArraySeries),
             'struct': ConjureFieldDefinition('struct', scout_compute_api_StructSeries),
             'curve_fit': ConjureFieldDefinition('curveFit', scout_compute_api_CurveFit),
+            'video': ConjureFieldDefinition('video', scout_compute_api_Reference),
             'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference)
         }
 
@@ -51389,11 +51427,12 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
             array: Optional["scout_compute_api_ArraySeries"] = None,
             struct: Optional["scout_compute_api_StructSeries"] = None,
             curve_fit: Optional["scout_compute_api_CurveFit"] = None,
+            video: Optional["scout_compute_api_Reference"] = None,
             raw: Optional["scout_compute_api_Reference"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (boolean is not None) + (enum is not None) + (numeric is not None) + (log is not None) + (ranges is not None) + (array is not None) + (struct is not None) + (curve_fit is not None) + (raw is not None) != 1:
+            if (boolean is not None) + (enum is not None) + (numeric is not None) + (log is not None) + (ranges is not None) + (array is not None) + (struct is not None) + (curve_fit is not None) + (video is not None) + (raw is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if boolean is not None:
@@ -51420,6 +51459,9 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
             if curve_fit is not None:
                 self._curve_fit = curve_fit
                 self._type = 'curveFit'
+            if video is not None:
+                self._video = video
+                self._type = 'video'
             if raw is not None:
                 self._raw = raw
                 self._type = 'raw'
@@ -51464,6 +51506,11 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._curve_fit = curve_fit
             self._type = 'curveFit'
+        elif type_of_union == 'video':
+            if video is None:
+                raise ValueError('a union value must not be None')
+            self._video = video
+            self._type = 'video'
         elif type_of_union == 'raw':
             if raw is None:
                 raise ValueError('a union value must not be None')
@@ -51503,6 +51550,10 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
         return self._curve_fit
 
     @builtins.property
+    def video(self) -> Optional["scout_compute_api_Reference"]:
+        return self._video
+
+    @builtins.property
     def raw(self) -> Optional["scout_compute_api_Reference"]:
         return self._raw
 
@@ -51525,6 +51576,8 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
             return visitor._struct(self.struct)
         if self._type == 'curveFit' and self.curve_fit is not None:
             return visitor._curve_fit(self.curve_fit)
+        if self._type == 'video' and self.video is not None:
+            return visitor._video(self.video)
         if self._type == 'raw' and self.raw is not None:
             return visitor._raw(self.raw)
 
@@ -51566,6 +51619,10 @@ class scout_compute_api_ComputeNodeVisitor:
 
     @abstractmethod
     def _curve_fit(self, curve_fit: "scout_compute_api_CurveFit") -> Any:
+        pass
+
+    @abstractmethod
+    def _video(self, video: "scout_compute_api_Reference") -> Any:
         pass
 
     @abstractmethod
@@ -55914,6 +55971,243 @@ scout_compute_api_ErrorResult.__qualname__ = "ErrorResult"
 scout_compute_api_ErrorResult.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_EventIntervalSource(ConjureBeanType):
+    """Intervals come from an event query. Each event defines [timestamp, timestamp+duration).
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'query': ConjureFieldDefinition('query', scout_rids_api_ComputeEventQuery),
+            'tag_by': ConjureFieldDefinition('tagBy', List[scout_compute_api_EventTagSource])
+        }
+
+    __slots__: List[str] = ['_query', '_tag_by']
+
+    def __init__(self, query: "scout_rids_api_ComputeEventQuery", tag_by: List["scout_compute_api_EventTagSource"]) -> None:
+        self._query = query
+        self._tag_by = tag_by
+
+    @builtins.property
+    def query(self) -> "scout_rids_api_ComputeEventQuery":
+        return self._query
+
+    @builtins.property
+    def tag_by(self) -> List["scout_compute_api_EventTagSource"]:
+        """Non-empty ordered list of tag sources. Each contributes a tag key-value pair per event interval.
+        """
+        return self._tag_by
+
+
+scout_compute_api_EventIntervalSource.__name__ = "EventIntervalSource"
+scout_compute_api_EventIntervalSource.__qualname__ = "EventIntervalSource"
+scout_compute_api_EventIntervalSource.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_EventLabelTag(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'label': ConjureFieldDefinition('label', scout_compute_api_StringConstant)
+        }
+
+    __slots__: List[str] = ['_label']
+
+    def __init__(self, label: "scout_compute_api_StringConstant") -> None:
+        self._label = label
+
+    @builtins.property
+    def label(self) -> "scout_compute_api_StringConstant":
+        return self._label
+
+
+scout_compute_api_EventLabelTag.__name__ = "EventLabelTag"
+scout_compute_api_EventLabelTag.__qualname__ = "EventLabelTag"
+scout_compute_api_EventLabelTag.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_EventLevelTag(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_compute_api_EventLevelTag.__name__ = "EventLevelTag"
+scout_compute_api_EventLevelTag.__qualname__ = "EventLevelTag"
+scout_compute_api_EventLevelTag.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_EventPropertyTag(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'property_name': ConjureFieldDefinition('propertyName', scout_compute_api_StringConstant)
+        }
+
+    __slots__: List[str] = ['_property_name']
+
+    def __init__(self, property_name: "scout_compute_api_StringConstant") -> None:
+        self._property_name = property_name
+
+    @builtins.property
+    def property_name(self) -> "scout_compute_api_StringConstant":
+        return self._property_name
+
+
+scout_compute_api_EventPropertyTag.__name__ = "EventPropertyTag"
+scout_compute_api_EventPropertyTag.__qualname__ = "EventPropertyTag"
+scout_compute_api_EventPropertyTag.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_EventTagSource(ConjureUnionType):
+    """A dimension contributing a tag key-value pair per event interval.
+    """
+    _interval_index: Optional["scout_compute_api_IntervalIndexTag"] = None
+    _level: Optional["scout_compute_api_EventLevelTag"] = None
+    _property: Optional["scout_compute_api_EventPropertyTag"] = None
+    _label: Optional["scout_compute_api_EventLabelTag"] = None
+    _range_start_timestamp: Optional["scout_compute_api_IntervalStartTimestampTag"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'interval_index': ConjureFieldDefinition('intervalIndex', scout_compute_api_IntervalIndexTag),
+            'level': ConjureFieldDefinition('level', scout_compute_api_EventLevelTag),
+            'property': ConjureFieldDefinition('property', scout_compute_api_EventPropertyTag),
+            'label': ConjureFieldDefinition('label', scout_compute_api_EventLabelTag),
+            'range_start_timestamp': ConjureFieldDefinition('rangeStartTimestamp', scout_compute_api_IntervalStartTimestampTag)
+        }
+
+    def __init__(
+            self,
+            interval_index: Optional["scout_compute_api_IntervalIndexTag"] = None,
+            level: Optional["scout_compute_api_EventLevelTag"] = None,
+            property: Optional["scout_compute_api_EventPropertyTag"] = None,
+            label: Optional["scout_compute_api_EventLabelTag"] = None,
+            range_start_timestamp: Optional["scout_compute_api_IntervalStartTimestampTag"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (interval_index is not None) + (level is not None) + (property is not None) + (label is not None) + (range_start_timestamp is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if interval_index is not None:
+                self._interval_index = interval_index
+                self._type = 'intervalIndex'
+            if level is not None:
+                self._level = level
+                self._type = 'level'
+            if property is not None:
+                self._property = property
+                self._type = 'property'
+            if label is not None:
+                self._label = label
+                self._type = 'label'
+            if range_start_timestamp is not None:
+                self._range_start_timestamp = range_start_timestamp
+                self._type = 'rangeStartTimestamp'
+
+        elif type_of_union == 'intervalIndex':
+            if interval_index is None:
+                raise ValueError('a union value must not be None')
+            self._interval_index = interval_index
+            self._type = 'intervalIndex'
+        elif type_of_union == 'level':
+            if level is None:
+                raise ValueError('a union value must not be None')
+            self._level = level
+            self._type = 'level'
+        elif type_of_union == 'property':
+            if property is None:
+                raise ValueError('a union value must not be None')
+            self._property = property
+            self._type = 'property'
+        elif type_of_union == 'label':
+            if label is None:
+                raise ValueError('a union value must not be None')
+            self._label = label
+            self._type = 'label'
+        elif type_of_union == 'rangeStartTimestamp':
+            if range_start_timestamp is None:
+                raise ValueError('a union value must not be None')
+            self._range_start_timestamp = range_start_timestamp
+            self._type = 'rangeStartTimestamp'
+
+    @builtins.property
+    def interval_index(self) -> Optional["scout_compute_api_IntervalIndexTag"]:
+        return self._interval_index
+
+    @builtins.property
+    def level(self) -> Optional["scout_compute_api_EventLevelTag"]:
+        return self._level
+
+    @builtins.property
+    def property(self) -> Optional["scout_compute_api_EventPropertyTag"]:
+        return self._property
+
+    @builtins.property
+    def label(self) -> Optional["scout_compute_api_EventLabelTag"]:
+        return self._label
+
+    @builtins.property
+    def range_start_timestamp(self) -> Optional["scout_compute_api_IntervalStartTimestampTag"]:
+        return self._range_start_timestamp
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_EventTagSourceVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_EventTagSourceVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'intervalIndex' and self.interval_index is not None:
+            return visitor._interval_index(self.interval_index)
+        if self._type == 'level' and self.level is not None:
+            return visitor._level(self.level)
+        if self._type == 'property' and self.property is not None:
+            return visitor._property(self.property)
+        if self._type == 'label' and self.label is not None:
+            return visitor._label(self.label)
+        if self._type == 'rangeStartTimestamp' and self.range_start_timestamp is not None:
+            return visitor._range_start_timestamp(self.range_start_timestamp)
+
+
+scout_compute_api_EventTagSource.__name__ = "EventTagSource"
+scout_compute_api_EventTagSource.__qualname__ = "EventTagSource"
+scout_compute_api_EventTagSource.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_EventTagSourceVisitor:
+
+    @abstractmethod
+    def _interval_index(self, interval_index: "scout_compute_api_IntervalIndexTag") -> Any:
+        pass
+
+    @abstractmethod
+    def _level(self, level: "scout_compute_api_EventLevelTag") -> Any:
+        pass
+
+    @abstractmethod
+    def _property(self, property: "scout_compute_api_EventPropertyTag") -> Any:
+        pass
+
+    @abstractmethod
+    def _label(self, label: "scout_compute_api_EventLabelTag") -> Any:
+        pass
+
+    @abstractmethod
+    def _range_start_timestamp(self, range_start_timestamp: "scout_compute_api_IntervalStartTimestampTag") -> Any:
+        pass
+
+
+scout_compute_api_EventTagSourceVisitor.__name__ = "EventTagSourceVisitor"
+scout_compute_api_EventTagSourceVisitor.__qualname__ = "EventTagSourceVisitor"
+scout_compute_api_EventTagSourceVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_EventsEnumSeries(ConjureBeanType):
     """Queries events and emits an enum series where each data point corresponds to an event and the enum value is
 derived from a single event field (property, label, etc).
@@ -57780,6 +58074,117 @@ first.
 scout_compute_api_IntersectRanges.__name__ = "IntersectRanges"
 scout_compute_api_IntersectRanges.__qualname__ = "IntersectRanges"
 scout_compute_api_IntersectRanges.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_IntervalIndexTag(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_compute_api_IntervalIndexTag.__name__ = "IntervalIndexTag"
+scout_compute_api_IntervalIndexTag.__qualname__ = "IntervalIndexTag"
+scout_compute_api_IntervalIndexTag.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_IntervalSource(ConjureUnionType):
+    """Where the intervals come from and how each is labeled.
+    """
+    _events: Optional["scout_compute_api_EventIntervalSource"] = None
+    _ranges: Optional["scout_compute_api_RangeIntervalSource"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'events': ConjureFieldDefinition('events', scout_compute_api_EventIntervalSource),
+            'ranges': ConjureFieldDefinition('ranges', scout_compute_api_RangeIntervalSource)
+        }
+
+    def __init__(
+            self,
+            events: Optional["scout_compute_api_EventIntervalSource"] = None,
+            ranges: Optional["scout_compute_api_RangeIntervalSource"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (events is not None) + (ranges is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if events is not None:
+                self._events = events
+                self._type = 'events'
+            if ranges is not None:
+                self._ranges = ranges
+                self._type = 'ranges'
+
+        elif type_of_union == 'events':
+            if events is None:
+                raise ValueError('a union value must not be None')
+            self._events = events
+            self._type = 'events'
+        elif type_of_union == 'ranges':
+            if ranges is None:
+                raise ValueError('a union value must not be None')
+            self._ranges = ranges
+            self._type = 'ranges'
+
+    @builtins.property
+    def events(self) -> Optional["scout_compute_api_EventIntervalSource"]:
+        return self._events
+
+    @builtins.property
+    def ranges(self) -> Optional["scout_compute_api_RangeIntervalSource"]:
+        return self._ranges
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_IntervalSourceVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_IntervalSourceVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'events' and self.events is not None:
+            return visitor._events(self.events)
+        if self._type == 'ranges' and self.ranges is not None:
+            return visitor._ranges(self.ranges)
+
+
+scout_compute_api_IntervalSource.__name__ = "IntervalSource"
+scout_compute_api_IntervalSource.__qualname__ = "IntervalSource"
+scout_compute_api_IntervalSource.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_IntervalSourceVisitor:
+
+    @abstractmethod
+    def _events(self, events: "scout_compute_api_EventIntervalSource") -> Any:
+        pass
+
+    @abstractmethod
+    def _ranges(self, ranges: "scout_compute_api_RangeIntervalSource") -> Any:
+        pass
+
+
+scout_compute_api_IntervalSourceVisitor.__name__ = "IntervalSourceVisitor"
+scout_compute_api_IntervalSourceVisitor.__qualname__ = "IntervalSourceVisitor"
+scout_compute_api_IntervalSourceVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_IntervalStartTimestampTag(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_compute_api_IntervalStartTimestampTag.__name__ = "IntervalStartTimestampTag"
+scout_compute_api_IntervalStartTimestampTag.__qualname__ = "IntervalStartTimestampTag"
+scout_compute_api_IntervalStartTimestampTag.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_LatLongPoint(ConjureBeanType):
@@ -60273,6 +60678,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     _enum_to_numeric: Optional["scout_compute_api_EnumToNumericSeries"] = None
     _refprop: Optional["scout_compute_api_RefpropSeries"] = None
     _extract_from_struct: Optional["scout_compute_api_ExtractNumericFromStructSeries"] = None
+    _tag_by_intervals: Optional["scout_compute_api_TagByIntervalsSeries"] = None
     _bit_operation: Optional["scout_compute_api_BitOperationSeries"] = None
     _channel: Optional["scout_compute_api_ChannelSeries"] = None
     _offset: Optional["scout_compute_api_OffsetSeries"] = None
@@ -60345,6 +60751,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             'enum_to_numeric': ConjureFieldDefinition('enumToNumeric', scout_compute_api_EnumToNumericSeries),
             'refprop': ConjureFieldDefinition('refprop', scout_compute_api_RefpropSeries),
             'extract_from_struct': ConjureFieldDefinition('extractFromStruct', scout_compute_api_ExtractNumericFromStructSeries),
+            'tag_by_intervals': ConjureFieldDefinition('tagByIntervals', scout_compute_api_TagByIntervalsSeries),
             'bit_operation': ConjureFieldDefinition('bitOperation', scout_compute_api_BitOperationSeries),
             'channel': ConjureFieldDefinition('channel', scout_compute_api_ChannelSeries),
             'offset': ConjureFieldDefinition('offset', scout_compute_api_OffsetSeries),
@@ -60417,6 +60824,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             enum_to_numeric: Optional["scout_compute_api_EnumToNumericSeries"] = None,
             refprop: Optional["scout_compute_api_RefpropSeries"] = None,
             extract_from_struct: Optional["scout_compute_api_ExtractNumericFromStructSeries"] = None,
+            tag_by_intervals: Optional["scout_compute_api_TagByIntervalsSeries"] = None,
             bit_operation: Optional["scout_compute_api_BitOperationSeries"] = None,
             channel: Optional["scout_compute_api_ChannelSeries"] = None,
             offset: Optional["scout_compute_api_OffsetSeries"] = None,
@@ -60427,7 +60835,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (abs is not None) + (negate is not None) + (cos is not None) + (sin is not None) + (tan is not None) + (acos is not None) + (asin is not None) + (ln is not None) + (log10 is not None) + (sqrt is not None) + (add is not None) + (subtract is not None) + (multiply is not None) + (divide is not None) + (floor_divide is not None) + (power is not None) + (modulo is not None) + (atan2 is not None) + (max is not None) + (mean is not None) + (min is not None) + (sum is not None) + (union is not None) + (product is not None) + (constant is not None) + (select_numeric is not None) + (bit_and is not None) + (bit_or is not None) + (bit_xor is not None) + (bit_shift_right is not None) + (bit_shift_left is not None) + (bit_test is not None) + (aggregate is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (z_score is not None) + (raw is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (drop_nan is not None) + (select1d_array_index is not None) + (select_newest_points is not None) + (aggregate_under_ranges is not None) + (filter_by_expression is not None) + (scalar_udf is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (bit_operation is not None) + (channel is not None) + (offset is not None) + (scale is not None) + (arithmetic is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) != 1:
+            if (abs is not None) + (negate is not None) + (cos is not None) + (sin is not None) + (tan is not None) + (acos is not None) + (asin is not None) + (ln is not None) + (log10 is not None) + (sqrt is not None) + (add is not None) + (subtract is not None) + (multiply is not None) + (divide is not None) + (floor_divide is not None) + (power is not None) + (modulo is not None) + (atan2 is not None) + (max is not None) + (mean is not None) + (min is not None) + (sum is not None) + (union is not None) + (product is not None) + (constant is not None) + (select_numeric is not None) + (bit_and is not None) + (bit_or is not None) + (bit_xor is not None) + (bit_shift_right is not None) + (bit_shift_left is not None) + (bit_test is not None) + (aggregate is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (z_score is not None) + (raw is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (drop_nan is not None) + (select1d_array_index is not None) + (select_newest_points is not None) + (aggregate_under_ranges is not None) + (filter_by_expression is not None) + (scalar_udf is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (tag_by_intervals is not None) + (bit_operation is not None) + (channel is not None) + (offset is not None) + (scale is not None) + (arithmetic is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if abs is not None:
@@ -60613,6 +61021,9 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             if extract_from_struct is not None:
                 self._extract_from_struct = extract_from_struct
                 self._type = 'extractFromStruct'
+            if tag_by_intervals is not None:
+                self._tag_by_intervals = tag_by_intervals
+                self._type = 'tagByIntervals'
             if bit_operation is not None:
                 self._bit_operation = bit_operation
                 self._type = 'bitOperation'
@@ -60940,6 +61351,11 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._extract_from_struct = extract_from_struct
             self._type = 'extractFromStruct'
+        elif type_of_union == 'tagByIntervals':
+            if tag_by_intervals is None:
+                raise ValueError('a union value must not be None')
+            self._tag_by_intervals = tag_by_intervals
+            self._type = 'tagByIntervals'
         elif type_of_union == 'bitOperation':
             if bit_operation is None:
                 raise ValueError('a union value must not be None')
@@ -61221,6 +61637,10 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
         return self._extract_from_struct
 
     @builtins.property
+    def tag_by_intervals(self) -> Optional["scout_compute_api_TagByIntervalsSeries"]:
+        return self._tag_by_intervals
+
+    @builtins.property
     def bit_operation(self) -> Optional["scout_compute_api_BitOperationSeries"]:
         return self._bit_operation
 
@@ -61373,6 +61793,8 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             return visitor._refprop(self.refprop)
         if self._type == 'extractFromStruct' and self.extract_from_struct is not None:
             return visitor._extract_from_struct(self.extract_from_struct)
+        if self._type == 'tagByIntervals' and self.tag_by_intervals is not None:
+            return visitor._tag_by_intervals(self.tag_by_intervals)
         if self._type == 'bitOperation' and self.bit_operation is not None:
             return visitor._bit_operation(self.bit_operation)
         if self._type == 'channel' and self.channel is not None:
@@ -61638,6 +62060,10 @@ class scout_compute_api_NumericSeriesVisitor:
 
     @abstractmethod
     def _extract_from_struct(self, extract_from_struct: "scout_compute_api_ExtractNumericFromStructSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _tag_by_intervals(self, tag_by_intervals: "scout_compute_api_TagByIntervalsSeries") -> Any:
         pass
 
     @abstractmethod
@@ -63355,6 +63781,39 @@ scout_compute_api_RangeAggregationOperationVisitor.__qualname__ = "RangeAggregat
 scout_compute_api_RangeAggregationOperationVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_RangeIntervalSource(ConjureBeanType):
+    """Intervals come from a range series. Must resolve to literal ranges.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'ranges': ConjureFieldDefinition('ranges', scout_compute_api_RangeSeries),
+            'tag_by': ConjureFieldDefinition('tagBy', List[scout_compute_api_RangeTagSource])
+        }
+
+    __slots__: List[str] = ['_ranges', '_tag_by']
+
+    def __init__(self, ranges: "scout_compute_api_RangeSeries", tag_by: List["scout_compute_api_RangeTagSource"]) -> None:
+        self._ranges = ranges
+        self._tag_by = tag_by
+
+    @builtins.property
+    def ranges(self) -> "scout_compute_api_RangeSeries":
+        return self._ranges
+
+    @builtins.property
+    def tag_by(self) -> List["scout_compute_api_RangeTagSource"]:
+        """Non-empty ordered list of tag sources. Each contributes a tag key-value pair per range interval.
+        """
+        return self._tag_by
+
+
+scout_compute_api_RangeIntervalSource.__name__ = "RangeIntervalSource"
+scout_compute_api_RangeIntervalSource.__qualname__ = "RangeIntervalSource"
+scout_compute_api_RangeIntervalSource.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_RangeMap(ConjureBeanType):
 
     @builtins.classmethod
@@ -63971,6 +64430,85 @@ class scout_compute_api_RangeSummary(ConjureBeanType):
 scout_compute_api_RangeSummary.__name__ = "RangeSummary"
 scout_compute_api_RangeSummary.__qualname__ = "RangeSummary"
 scout_compute_api_RangeSummary.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_RangeTagSource(ConjureUnionType):
+    """A dimension contributing a tag key-value pair per range interval.
+    """
+    _interval_index: Optional["scout_compute_api_IntervalIndexTag"] = None
+    _range_start_timestamp: Optional["scout_compute_api_IntervalStartTimestampTag"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'interval_index': ConjureFieldDefinition('intervalIndex', scout_compute_api_IntervalIndexTag),
+            'range_start_timestamp': ConjureFieldDefinition('rangeStartTimestamp', scout_compute_api_IntervalStartTimestampTag)
+        }
+
+    def __init__(
+            self,
+            interval_index: Optional["scout_compute_api_IntervalIndexTag"] = None,
+            range_start_timestamp: Optional["scout_compute_api_IntervalStartTimestampTag"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (interval_index is not None) + (range_start_timestamp is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if interval_index is not None:
+                self._interval_index = interval_index
+                self._type = 'intervalIndex'
+            if range_start_timestamp is not None:
+                self._range_start_timestamp = range_start_timestamp
+                self._type = 'rangeStartTimestamp'
+
+        elif type_of_union == 'intervalIndex':
+            if interval_index is None:
+                raise ValueError('a union value must not be None')
+            self._interval_index = interval_index
+            self._type = 'intervalIndex'
+        elif type_of_union == 'rangeStartTimestamp':
+            if range_start_timestamp is None:
+                raise ValueError('a union value must not be None')
+            self._range_start_timestamp = range_start_timestamp
+            self._type = 'rangeStartTimestamp'
+
+    @builtins.property
+    def interval_index(self) -> Optional["scout_compute_api_IntervalIndexTag"]:
+        return self._interval_index
+
+    @builtins.property
+    def range_start_timestamp(self) -> Optional["scout_compute_api_IntervalStartTimestampTag"]:
+        return self._range_start_timestamp
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_RangeTagSourceVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_RangeTagSourceVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'intervalIndex' and self.interval_index is not None:
+            return visitor._interval_index(self.interval_index)
+        if self._type == 'rangeStartTimestamp' and self.range_start_timestamp is not None:
+            return visitor._range_start_timestamp(self.range_start_timestamp)
+
+
+scout_compute_api_RangeTagSource.__name__ = "RangeTagSource"
+scout_compute_api_RangeTagSource.__qualname__ = "RangeTagSource"
+scout_compute_api_RangeTagSource.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_RangeTagSourceVisitor:
+
+    @abstractmethod
+    def _interval_index(self, interval_index: "scout_compute_api_IntervalIndexTag") -> Any:
+        pass
+
+    @abstractmethod
+    def _range_start_timestamp(self, range_start_timestamp: "scout_compute_api_IntervalStartTimestampTag") -> Any:
+        pass
+
+
+scout_compute_api_RangeTagSourceVisitor.__name__ = "RangeTagSourceVisitor"
+scout_compute_api_RangeTagSourceVisitor.__qualname__ = "RangeTagSourceVisitor"
+scout_compute_api_RangeTagSourceVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_RangeValue(ConjureUnionType):
@@ -66867,6 +67405,41 @@ class scout_compute_api_Summation(ConjureBeanType):
 scout_compute_api_Summation.__name__ = "Summation"
 scout_compute_api_Summation.__qualname__ = "Summation"
 scout_compute_api_Summation.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_TagByIntervalsSeries(ConjureBeanType):
+    """Injects tags derived from interval boundaries onto a numeric series. Points within an
+interval get tagged; points outside all intervals are dropped. Intervals come from either 
+events or ranges. If intervals with different tag map overlap, a data point falling in 
+multiple intervals is duplicated into each matching output group. Overlapping intervals
+with equal tag maps are not allowed.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
+            'intervals': ConjureFieldDefinition('intervals', scout_compute_api_IntervalSource)
+        }
+
+    __slots__: List[str] = ['_input', '_intervals']
+
+    def __init__(self, input: "scout_compute_api_NumericSeries", intervals: "scout_compute_api_IntervalSource") -> None:
+        self._input = input
+        self._intervals = intervals
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_NumericSeries":
+        return self._input
+
+    @builtins.property
+    def intervals(self) -> "scout_compute_api_IntervalSource":
+        return self._intervals
+
+
+scout_compute_api_TagByIntervalsSeries.__name__ = "TagByIntervalsSeries"
+scout_compute_api_TagByIntervalsSeries.__qualname__ = "TagByIntervalsSeries"
+scout_compute_api_TagByIntervalsSeries.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_TagFilter(ConjureBeanType):
@@ -74509,6 +75082,7 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     _refprop: Optional["scout_compute_resolved_api_RefpropSeriesNode"] = None
     _extract_from_struct: Optional["scout_compute_resolved_api_ExtractNumericFromStructSeriesNode"] = None
     _z_score: Optional["scout_compute_resolved_api_ZscoreSeriesNode"] = None
+    _tag_by_intervals: Optional["scout_compute_resolved_api_TagByIntervalsSeriesNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -74550,7 +75124,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             'enum_to_numeric': ConjureFieldDefinition('enumToNumeric', scout_compute_resolved_api_EnumToNumericSeriesNode),
             'refprop': ConjureFieldDefinition('refprop', scout_compute_resolved_api_RefpropSeriesNode),
             'extract_from_struct': ConjureFieldDefinition('extractFromStruct', scout_compute_resolved_api_ExtractNumericFromStructSeriesNode),
-            'z_score': ConjureFieldDefinition('zScore', scout_compute_resolved_api_ZscoreSeriesNode)
+            'z_score': ConjureFieldDefinition('zScore', scout_compute_resolved_api_ZscoreSeriesNode),
+            'tag_by_intervals': ConjureFieldDefinition('tagByIntervals', scout_compute_resolved_api_TagByIntervalsSeriesNode)
         }
 
     def __init__(
@@ -74593,10 +75168,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             refprop: Optional["scout_compute_resolved_api_RefpropSeriesNode"] = None,
             extract_from_struct: Optional["scout_compute_resolved_api_ExtractNumericFromStructSeriesNode"] = None,
             z_score: Optional["scout_compute_resolved_api_ZscoreSeriesNode"] = None,
+            tag_by_intervals: Optional["scout_compute_resolved_api_TagByIntervalsSeriesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (constant is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (drop_nan is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) + (filter_by_expression is not None) + (scalar_udf is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (z_score is not None) != 1:
+            if (constant is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (drop_nan is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) + (filter_by_expression is not None) + (scalar_udf is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (z_score is not None) + (tag_by_intervals is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if constant is not None:
@@ -74713,6 +75289,9 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             if z_score is not None:
                 self._z_score = z_score
                 self._type = 'zScore'
+            if tag_by_intervals is not None:
+                self._tag_by_intervals = tag_by_intervals
+                self._type = 'tagByIntervals'
 
         elif type_of_union == 'constant':
             if constant is None:
@@ -74904,6 +75483,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._z_score = z_score
             self._type = 'zScore'
+        elif type_of_union == 'tagByIntervals':
+            if tag_by_intervals is None:
+                raise ValueError('a union value must not be None')
+            self._tag_by_intervals = tag_by_intervals
+            self._type = 'tagByIntervals'
 
     @builtins.property
     def constant(self) -> Optional["scout_compute_resolved_api_ConstantNumericSeriesNode"]:
@@ -75057,6 +75641,10 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     def z_score(self) -> Optional["scout_compute_resolved_api_ZscoreSeriesNode"]:
         return self._z_score
 
+    @builtins.property
+    def tag_by_intervals(self) -> Optional["scout_compute_resolved_api_TagByIntervalsSeriesNode"]:
+        return self._tag_by_intervals
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_NumericSeriesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_NumericSeriesNodeVisitor'.format(visitor.__class__.__name__))
@@ -75136,6 +75724,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             return visitor._extract_from_struct(self.extract_from_struct)
         if self._type == 'zScore' and self.z_score is not None:
             return visitor._z_score(self.z_score)
+        if self._type == 'tagByIntervals' and self.tag_by_intervals is not None:
+            return visitor._tag_by_intervals(self.tag_by_intervals)
 
 
 scout_compute_resolved_api_NumericSeriesNode.__name__ = "NumericSeriesNode"
@@ -75295,6 +75885,10 @@ class scout_compute_resolved_api_NumericSeriesNodeVisitor:
 
     @abstractmethod
     def _z_score(self, z_score: "scout_compute_resolved_api_ZscoreSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _tag_by_intervals(self, tag_by_intervals: "scout_compute_resolved_api_TagByIntervalsSeriesNode") -> Any:
         pass
 
 
@@ -78596,6 +79190,44 @@ scout_compute_resolved_api_SummarizeSeriesNode.__qualname__ = "SummarizeSeriesNo
 scout_compute_resolved_api_SummarizeSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_TagByIntervalsSeriesNode(ConjureBeanType):
+    """Slices a numeric series by pre-resolved intervals, injecting tags from each interval.
+Points outside all intervals are dropped.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
+            'tag_keys': ConjureFieldDefinition('tagKeys', List[str]),
+            'sorted_intervals': ConjureFieldDefinition('sortedIntervals', List[scout_compute_resolved_api_TaggedInterval])
+        }
+
+    __slots__: List[str] = ['_input', '_tag_keys', '_sorted_intervals']
+
+    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", sorted_intervals: List["scout_compute_resolved_api_TaggedInterval"], tag_keys: List[str]) -> None:
+        self._input = input
+        self._tag_keys = tag_keys
+        self._sorted_intervals = sorted_intervals
+
+    @builtins.property
+    def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._input
+
+    @builtins.property
+    def tag_keys(self) -> List[str]:
+        return self._tag_keys
+
+    @builtins.property
+    def sorted_intervals(self) -> List["scout_compute_resolved_api_TaggedInterval"]:
+        return self._sorted_intervals
+
+
+scout_compute_resolved_api_TagByIntervalsSeriesNode.__name__ = "TagByIntervalsSeriesNode"
+scout_compute_resolved_api_TagByIntervalsSeriesNode.__qualname__ = "TagByIntervalsSeriesNode"
+scout_compute_resolved_api_TagByIntervalsSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_TagFilter(ConjureBeanType):
 
     @builtins.classmethod
@@ -78724,6 +79356,43 @@ class scout_compute_resolved_api_TagFiltersVisitor:
 scout_compute_resolved_api_TagFiltersVisitor.__name__ = "TagFiltersVisitor"
 scout_compute_resolved_api_TagFiltersVisitor.__qualname__ = "TagFiltersVisitor"
 scout_compute_resolved_api_TagFiltersVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_TaggedInterval(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'start': ConjureFieldDefinition('start', OptionalTypeWrapper[api_Timestamp]),
+            'end': ConjureFieldDefinition('end', OptionalTypeWrapper[api_Timestamp]),
+            'tags': ConjureFieldDefinition('tags', Dict[str, str])
+        }
+
+    __slots__: List[str] = ['_start', '_end', '_tags']
+
+    def __init__(self, tags: Dict[str, str], end: Optional["api_Timestamp"] = None, start: Optional["api_Timestamp"] = None) -> None:
+        self._start = start
+        self._end = end
+        self._tags = tags
+
+    @builtins.property
+    def start(self) -> Optional["api_Timestamp"]:
+        return self._start
+
+    @builtins.property
+    def end(self) -> Optional["api_Timestamp"]:
+        return self._end
+
+    @builtins.property
+    def tags(self) -> Dict[str, str]:
+        """Tags to inject for this interval. Guaranteed to match `TagByIntervalsSeriesNode.tagKeys`.
+        """
+        return self._tags
+
+
+scout_compute_resolved_api_TaggedInterval.__name__ = "TaggedInterval"
+scout_compute_resolved_api_TaggedInterval.__qualname__ = "TaggedInterval"
+scout_compute_resolved_api_TaggedInterval.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_Threshold(ConjureUnionType):
@@ -85379,6 +86048,39 @@ The Connection Service is responsible for creating, updating, and retrieving dat
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_datasource_connection_api_Connection, self._return_none_for_unknown_union_types)
 
+    def register_external_connection_config(self, auth_header: str, request: "scout_datasource_connection_api_RegisterExternalConnectionConfigRequest") -> "scout_datasource_connection_api_Connection":
+        """Registers or updates external connection configuration for an existing dataset and returns the
+compatibility connection resource that shares the dataset UUID.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/data-source/connection/v1/external-config'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_datasource_connection_api_Connection, self._return_none_for_unknown_union_types)
+
     def update_connection(self, auth_header: str, request: "scout_datasource_connection_api_UpdateConnectionRequest", rid: str) -> "scout_datasource_connection_api_Connection":
         """Updates an existing connection.
         """
@@ -87407,6 +88109,80 @@ class scout_datasource_connection_api_PopulateSeriesRequest(ConjureBeanType):
 scout_datasource_connection_api_PopulateSeriesRequest.__name__ = "PopulateSeriesRequest"
 scout_datasource_connection_api_PopulateSeriesRequest.__qualname__ = "PopulateSeriesRequest"
 scout_datasource_connection_api_PopulateSeriesRequest.__module__ = "nominal_api.scout_datasource_connection_api"
+
+
+class scout_datasource_connection_api_RegisterExternalConnectionConfigRequest(ConjureBeanType):
+    """Internal compatibility request that attaches external connection configuration to an existing dataset.
+The dataset remains the public resource; the returned connection is a legacy compatibility view.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'dataset_rid': ConjureFieldDefinition('datasetRid', api_rids_DatasetRid),
+            'connection_details': ConjureFieldDefinition('connectionDetails', scout_datasource_connection_api_ConnectionDetails),
+            'metadata': ConjureFieldDefinition('metadata', Dict[str, str]),
+            'required_tag_names': ConjureFieldDefinition('requiredTagNames', List[api_TagName]),
+            'available_tag_values': ConjureFieldDefinition('availableTagValues', OptionalTypeWrapper[Dict[api_TagName, List[api_TagValue]]]),
+            'scraping': ConjureFieldDefinition('scraping', OptionalTypeWrapper[scout_datasource_connection_api_ScrapingConfig]),
+            'should_scrape': ConjureFieldDefinition('shouldScrape', bool),
+            'limits': ConjureFieldDefinition('limits', OptionalTypeWrapper[scout_datasource_connection_api_LimitsConfig])
+        }
+
+    __slots__: List[str] = ['_dataset_rid', '_connection_details', '_metadata', '_required_tag_names', '_available_tag_values', '_scraping', '_should_scrape', '_limits']
+
+    def __init__(self, connection_details: "scout_datasource_connection_api_ConnectionDetails", dataset_rid: str, metadata: Dict[str, str], required_tag_names: List[str], should_scrape: bool, available_tag_values: Optional[Dict[str, List[str]]] = None, limits: Optional["scout_datasource_connection_api_LimitsConfig"] = None, scraping: Optional["scout_datasource_connection_api_ScrapingConfig"] = None) -> None:
+        self._dataset_rid = dataset_rid
+        self._connection_details = connection_details
+        self._metadata = metadata
+        self._required_tag_names = required_tag_names
+        self._available_tag_values = available_tag_values
+        self._scraping = scraping
+        self._should_scrape = should_scrape
+        self._limits = limits
+
+    @builtins.property
+    def dataset_rid(self) -> str:
+        return self._dataset_rid
+
+    @builtins.property
+    def connection_details(self) -> "scout_datasource_connection_api_ConnectionDetails":
+        return self._connection_details
+
+    @builtins.property
+    def metadata(self) -> Dict[str, str]:
+        """Metadata information about the external connection configuration.
+        """
+        return self._metadata
+
+    @builtins.property
+    def required_tag_names(self) -> List[str]:
+        """Additional tag names that are required to construct a fully qualified series.
+        """
+        return self._required_tag_names
+
+    @builtins.property
+    def available_tag_values(self) -> Optional[Dict[str, List[str]]]:
+        """Optional externally supplied tag values. In most cases these are indexed by scraping.
+        """
+        return self._available_tag_values
+
+    @builtins.property
+    def scraping(self) -> Optional["scout_datasource_connection_api_ScrapingConfig"]:
+        return self._scraping
+
+    @builtins.property
+    def should_scrape(self) -> bool:
+        return self._should_scrape
+
+    @builtins.property
+    def limits(self) -> Optional["scout_datasource_connection_api_LimitsConfig"]:
+        return self._limits
+
+
+scout_datasource_connection_api_RegisterExternalConnectionConfigRequest.__name__ = "RegisterExternalConnectionConfigRequest"
+scout_datasource_connection_api_RegisterExternalConnectionConfigRequest.__qualname__ = "RegisterExternalConnectionConfigRequest"
+scout_datasource_connection_api_RegisterExternalConnectionConfigRequest.__module__ = "nominal_api.scout_datasource_connection_api"
 
 
 class scout_datasource_connection_api_ScrapingConfig(ConjureUnionType):

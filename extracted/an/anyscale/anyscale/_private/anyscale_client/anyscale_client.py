@@ -13,12 +13,20 @@ from typing import Any, Callable, Dict, Generator, IO, List, Optional, Tuple
 from urllib.parse import urlparse
 
 from openapi_client.exceptions import ApiException
+from openapi_client.models.job_run_sort_field import JobRunSortField
+from openapi_client.models.search_job_runs_request import SearchJobRunsRequest
+from openapi_client.models.sort_by_clause_job_run_sort_field import (
+    SortByClauseJobRunSortField,
+)
+from openapi_client.models.sort_order import SortOrder
 import requests
 from rich.style import Style
 import smart_open
 
 from anyscale._private.anyscale_client.common import (
     AnyscaleClientInterface,
+    APIJobRun,
+    DEFAULT_MAX_RUNS_PER_JOB,
     DEFAULT_PYTHON_VERSION,
     DEFAULT_RAY_VERSION,
     RUNTIME_ENV_PACKAGE_FORMAT,
@@ -137,19 +145,12 @@ from anyscale.sdk.anyscale_client.models import (
     CreateBYODClusterEnvironmentConfigurationSchema,
     CreateClusterEnvironment,
     CreateClusterEnvironmentBuild,
-    Job as APIJobRun,
     ProductionServiceV2VersionModel,
     Project as ProjectExternal,
     RollbackServiceModel,
     TextQuery,
 )
-from anyscale.sdk.anyscale_client.models.jobs_query import JobsQuery
-from anyscale.sdk.anyscale_client.models.jobs_sort_field import JobsSortField
 from anyscale.sdk.anyscale_client.models.page_query import PageQuery
-from anyscale.sdk.anyscale_client.models.sort_by_clause_jobs_sort_field import (
-    SortByClauseJobsSortField,
-)
-from anyscale.sdk.anyscale_client.models.sort_order import SortOrder
 from anyscale.sdk.anyscale_client.rest import ApiException as ExternalApiException
 from anyscale.shared_anyscale_utils.bytes_util import Bytes
 from anyscale.shared_anyscale_utils.conf import ANYSCALE_HOST
@@ -160,7 +161,6 @@ from anyscale.util import (
     get_endpoint,
     is_anyscale_workspace,
 )
-from anyscale.utils.connect_helpers import search_entities
 from anyscale.utils.runtime_env import (
     is_workspace_dependency_tracking_disabled,
     parse_dot_env_file,
@@ -925,7 +925,7 @@ class AnyscaleClient(AnyscaleClientInterface):
             if not cloud_id:
                 raise ValueError(
                     "cloud_id is required for Azure Control Plane. "
-                    "Please provide a cloud_id."
+                    "Please provide a cloud_id. For CLI, use --cloud-id."
                 )
         else:
             cloud_id = None
@@ -1070,7 +1070,7 @@ class AnyscaleClient(AnyscaleClientInterface):
             if not cloud_id:
                 raise ValueError(
                     "cloud_id is required for Azure Control Plane. "
-                    "Please provide a cloud_id."
+                    "Please provide a cloud_id. For CLI, use --cloud-id."
                 )
         else:
             cloud_id = None
@@ -1134,7 +1134,7 @@ class AnyscaleClient(AnyscaleClientInterface):
             if not cloud_id:
                 raise ValueError(
                     "cloud_id is required for Azure Control Plane. "
-                    "Please provide a cloud_id."
+                    "Please provide a cloud_id. For CLI, use --cloud-id."
                 )
         else:
             cloud_id = None
@@ -1343,6 +1343,7 @@ class AnyscaleClient(AnyscaleClientInterface):
                 resp = self.list_jobs(
                     name=name,
                     project_id=project_id,
+                    cloud_id=cloud_id,
                     archive_status=archive_status,
                     count=self.LIST_ENDPOINT_COUNT,
                     paging_token=paging_token,
@@ -1361,22 +1362,42 @@ class AnyscaleClient(AnyscaleClientInterface):
 
             return result
 
-    @handle_api_exceptions
-    def get_job_runs(self, job_id: str) -> List[APIJobRun]:
-        job_runs: List[APIJobRun] = search_entities(
-            self._external_api_client.search_jobs,
-            JobsQuery(
-                ha_job_id=job_id,
-                show_ray_client_runs_only=False,
-                sort_by_clauses=[
-                    SortByClauseJobsSortField(
-                        sort_field=JobsSortField.CREATED_AT, sort_order=SortOrder.ASC,
-                    )
-                ],
-                paging=PageQuery(),
-            ),
+    def get_job_runs(
+        self,
+        job_id: str,
+        max_runs_per_job: Optional[int] = DEFAULT_MAX_RUNS_PER_JOB,
+        run_name: Optional[str] = None,
+    ) -> List[APIJobRun]:
+        runs_map = self.batch_get_job_runs(
+            [job_id], max_runs_per_job=max_runs_per_job, run_name=run_name,
         )
-        return job_runs
+        return runs_map.get(job_id, [])
+
+    @handle_api_exceptions
+    def batch_get_job_runs(
+        self,
+        ha_job_ids: List[str],
+        max_runs_per_job: Optional[int] = DEFAULT_MAX_RUNS_PER_JOB,
+        run_name: Optional[str] = None,
+    ) -> Dict[str, List[APIJobRun]]:
+        if max_runs_per_job is None:
+            max_runs_per_job = DEFAULT_MAX_RUNS_PER_JOB
+
+        request = SearchJobRunsRequest(
+            ha_job_ids=ha_job_ids,
+            sort_by_clauses=[
+                SortByClauseJobRunSortField(
+                    sort_field=JobRunSortField.CREATED_AT, sort_order=SortOrder.ASC,
+                ),
+            ],
+            max_runs_per_job=max_runs_per_job,
+            run_name=run_name,
+        )
+
+        response = self._internal_api_client.search_job_runs_api_v2_decorated_ha_jobs_job_runs_search_post(
+            request
+        )
+        return response.results
 
     @handle_api_exceptions
     def get_job_queue(self, job_queue_id: str) -> Optional[DecoratedJobQueue]:
@@ -1473,6 +1494,7 @@ class AnyscaleClient(AnyscaleClientInterface):
         *,
         name: Optional[str] = None,
         project_id: Optional[str] = None,
+        cloud_id: Optional[str] = None,
         creator_id: Optional[str] = None,
         state_filter: Optional[List[str]] = None,
         archive_status: Optional[str] = None,
@@ -1492,6 +1514,7 @@ class AnyscaleClient(AnyscaleClientInterface):
         # which causes TypeError in OpenAPI client validation
         kwargs: Dict[str, Any] = {
             "project_id": project_id,
+            "cloud_id": cloud_id,
             "name": name,
             "creator_id": creator_id,
             "type_filter": "BATCH_JOB",

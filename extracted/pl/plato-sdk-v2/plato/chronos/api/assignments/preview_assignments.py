@@ -12,15 +12,15 @@ from plato.chronos.models import AssignmentPreviewResponse
 
 def _build_request_args(
     session_public_id: str,
-    scope_type: str,
+    artifact_id: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
     url = f"/api/sessions/{session_public_id}/assignments/preview"
 
     params: dict[str, Any] = {}
-    if scope_type is not None:
-        params["scope_type"] = scope_type
+    if artifact_id is not None:
+        params["artifact_id"] = artifact_id
 
     headers: dict[str, str] = {}
     if x_api_key is not None:
@@ -37,16 +37,14 @@ def _build_request_args(
 def sync(
     client: httpx.Client,
     session_public_id: str,
-    scope_type: str,
+    artifact_id: str | None = None,
     x_api_key: str | None = None,
 ) -> AssignmentPreviewResponse:
-    """Preview assignments that would be created for a session without persisting them.
-
-    scope_type: "route" | "page" """
+    """Preview assignments that would be created for a session without persisting them."""
 
     request_args = _build_request_args(
         session_public_id=session_public_id,
-        scope_type=scope_type,
+        artifact_id=artifact_id,
         x_api_key=x_api_key,
     )
 
@@ -58,16 +56,14 @@ def sync(
 async def asyncio(
     client: httpx.AsyncClient,
     session_public_id: str,
-    scope_type: str,
+    artifact_id: str | None = None,
     x_api_key: str | None = None,
 ) -> AssignmentPreviewResponse:
-    """Preview assignments that would be created for a session without persisting them.
-
-    scope_type: "route" | "page" """
+    """Preview assignments that would be created for a session without persisting them."""
 
     request_args = _build_request_args(
         session_public_id=session_public_id,
-        scope_type=scope_type,
+        artifact_id=artifact_id,
         x_api_key=x_api_key,
     )
 

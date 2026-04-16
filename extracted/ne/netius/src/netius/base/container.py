@@ -150,13 +150,45 @@ class Container(Base):
         self.call_all("on_stop")
 
     def add_base(self, base):
+        """
+        Adds a base structure to the container, applying the
+        container's shared poll, logger and thread identity to
+        the base before appending it to the internal list of
+        managed bases.
+
+        :type base: Base/Agent
+        :param base: The base structure (server, client or agent)
+        to be added to the container.
+        """
+
         self.apply_base(base)
         self.bases.append(base)
 
     def remove_base(self, base):
+        """
+        Removes a previously added base structure from the
+        container's internal list of managed bases. After this
+        call the base will no longer receive poll events, tick
+        callbacks or lifecycle notifications from the container.
+
+        :type base: Base/Agent
+        :param base: The base structure to be removed from the
+        container.
+        """
+
         self.bases.remove(base)
 
     def start_base(self, base):
+        """
+        Starts a single base structure by propagating the
+        container's logging level and logger and then calling
+        the base's load operation.
+
+        :type base: Base/Agent
+        :param base: The base structure to be started under
+        the container.
+        """
+
         base.level = self.level
         base.logger = self.logger
         base.load()

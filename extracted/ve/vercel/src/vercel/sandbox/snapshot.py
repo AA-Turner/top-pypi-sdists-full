@@ -7,16 +7,15 @@ from typing import Literal
 
 from vercel._internal.iter_coroutine import iter_coroutine
 from vercel._internal.sandbox import AsyncSandboxOpsClient, SyncSandboxOpsClient
+from vercel._internal.sandbox.constants import MIN_SNAPSHOT_EXPIRATION
 from vercel._internal.sandbox.models import Snapshot as SnapshotModel
 from vercel._internal.sandbox.pagination import SnapshotListParams
-from vercel._internal.sandbox.snapshot import (
-    MIN_SNAPSHOT_EXPIRATION_MS as _MIN_SNAPSHOT_EXPIRATION_MS,
-    SnapshotExpiration as _SnapshotExpiration,
-)
+from vercel._internal.sandbox.snapshot import SnapshotExpiration as _SnapshotExpiration
+from vercel._internal.sandbox.time import to_ms_int
 
 from ..oidc import Credentials, get_credentials
 
-MIN_SNAPSHOT_EXPIRATION_MS = _MIN_SNAPSHOT_EXPIRATION_MS
+MIN_SNAPSHOT_EXPIRATION_MS = to_ms_int(MIN_SNAPSHOT_EXPIRATION)
 SnapshotExpiration = _SnapshotExpiration
 
 

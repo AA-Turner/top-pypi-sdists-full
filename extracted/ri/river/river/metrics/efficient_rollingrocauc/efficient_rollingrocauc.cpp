@@ -18,7 +18,7 @@
         ],
         "include_dirs": [
             "river/metrics/efficient_rollingrocauc",
-            "/home/runner/work/_temp/setup-uv-cache/builds-v0/.tmp3qietg/lib/python3.13/site-packages/numpy/_core/include"
+            "/home/runner/work/_temp/setup-uv-cache/builds-v0/.tmpesfbqz/lib/python3.13/site-packages/numpy/_core/include"
         ],
         "language": "c++",
         "libraries": [

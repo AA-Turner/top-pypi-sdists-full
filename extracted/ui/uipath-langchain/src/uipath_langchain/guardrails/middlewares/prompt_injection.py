@@ -5,27 +5,18 @@ from typing import Any, Sequence
 from uuid import uuid4
 
 from langchain.agents.middleware import AgentMiddleware, AgentState, before_model
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langgraph.runtime import Runtime
-from uipath.core.guardrails import (
-    GuardrailSelector,
-    GuardrailValidationResult,
-    GuardrailValidationResultType,
-)
-from uipath.platform import UiPath
+from uipath.core.guardrails import GuardrailSelector
 from uipath.platform.guardrails import BuiltInValidatorGuardrail, GuardrailScope
-from uipath.platform.guardrails.decorators._exceptions import GuardrailBlockException
 from uipath.platform.guardrails.guardrails import NumberParameterValue
 
-from uipath_langchain.agent.exceptions import AgentRuntimeError
-
 from ..models import GuardrailAction
-from ._utils import convert_block_exception, extract_text_from_messages
+from ._base import BuiltInGuardrailMiddlewareMixin
 
 logger = logging.getLogger(__name__)
 
 
-class UiPathPromptInjectionMiddleware:
+class UiPathPromptInjectionMiddleware(BuiltInGuardrailMiddlewareMixin):
     """Middleware for prompt injection detection using UiPath guardrails.
 
     Example:
@@ -91,7 +82,6 @@ class UiPathPromptInjectionMiddleware:
         )
 
         self._guardrail = self._create_guardrail()
-        self._uipath: UiPath | None = None
         self._middleware_instances = self._create_middleware_instances()
 
     def _create_middleware_instances(self) -> list[AgentMiddleware]:
@@ -134,55 +124,3 @@ class UiPathPromptInjectionMiddleware:
             validator_type="prompt_injection",
             validator_parameters=validator_parameters,
         )
-
-    def _get_uipath(self) -> UiPath:
-        """Get or create UiPath instance."""
-        if self._uipath is None:
-            self._uipath = UiPath()
-        return self._uipath
-
-    def _evaluate_guardrail(
-        self, input_data: str | dict[str, Any]
-    ) -> GuardrailValidationResult:
-        """Evaluate guardrail against input data."""
-        uipath = self._get_uipath()
-        return uipath.guardrails.evaluate_guardrail(input_data, self._guardrail)
-
-    def _handle_validation_result(
-        self, result: GuardrailValidationResult, input_data: str | dict[str, Any]
-    ) -> str | dict[str, Any] | None:
-        """Handle guardrail validation result."""
-        if result.result == GuardrailValidationResultType.VALIDATION_FAILED:
-            return self.action.handle_validation_result(result, input_data, self._name)
-        return None
-
-    def _check_messages(self, messages: list[BaseMessage]) -> None:
-        """Check messages for prompt injection and update with modified content if needed."""
-        if not messages:
-            return
-
-        text = extract_text_from_messages(messages)
-        if not text:
-            return
-
-        try:
-            result = self._evaluate_guardrail(text)
-            modified_text = self._handle_validation_result(result, text)
-            if (
-                modified_text is not None
-                and isinstance(modified_text, str)
-                and modified_text != text
-            ):
-                for msg in messages:
-                    if isinstance(msg, (HumanMessage, AIMessage)):
-                        if isinstance(msg.content, str) and text in msg.content:
-                            msg.content = msg.content.replace(text, modified_text, 1)
-                            break
-        except GuardrailBlockException as exc:
-            raise convert_block_exception(exc) from exc
-        except AgentRuntimeError:
-            raise
-        except Exception as e:
-            logger.error(
-                f"Error evaluating prompt injection guardrail: {e}", exc_info=True
-            )

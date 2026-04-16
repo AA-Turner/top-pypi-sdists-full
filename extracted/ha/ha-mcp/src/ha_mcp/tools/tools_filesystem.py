@@ -13,16 +13,23 @@ The tools will gracefully fail with installation instructions if the component i
 Feature Flag: Set HAMCP_ENABLE_FILESYSTEM_TOOLS=true to enable these tools.
 """
 
+import json
 import logging
 import os
 from typing import Annotated, Any
 
 from fastmcp.exceptions import ToolError
+from fastmcp.tools import tool
 from pydantic import Field
 
 from ..errors import ErrorCode, create_error_response
-from .helpers import exception_to_structured_error, log_tool_usage, raise_tool_error
-from .util_helpers import add_timezone_metadata, coerce_bool_param, coerce_int_param
+from .helpers import (
+    exception_to_structured_error,
+    log_tool_usage,
+    raise_tool_error,
+    register_tool_methods,
+)
+from .util_helpers import coerce_bool_param, coerce_int_param, unwrap_service_response
 
 logger = logging.getLogger(__name__)
 
@@ -86,29 +93,23 @@ async def _assert_mcp_tools_available(client: Any) -> None:
         ))
 
 
-def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
-    """Register filesystem access tools with the MCP server.
+class FilesystemTools:
+    """Filesystem access tools for Home Assistant."""
 
-    This function only registers tools if the feature flag is enabled.
-    Set HAMCP_ENABLE_FILESYSTEM_TOOLS=true to enable.
-    """
-    if not is_filesystem_tools_enabled():
-        logger.debug(
-            f"Filesystem tools disabled (set {FEATURE_FLAG}=true to enable)"
-        )
-        return
+    def __init__(self, client: Any) -> None:
+        self._client = client
 
-    logger.info("Filesystem tools enabled via feature flag")
-
-    @mcp.tool(
+    @tool(
+        name="ha_list_files",
         tags={"Files"},
         annotations={
             "readOnlyHint": True,
-            "title": "List Files"
-        }
+            "title": "List Files",
+        },
     )
     @log_tool_usage
     async def ha_list_files(
+        self,
         path: Annotated[
             str,
             Field(
@@ -157,7 +158,7 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         """
         try:
             # Check if custom component is available
-            await _assert_mcp_tools_available(client)
+            await _assert_mcp_tools_available(self._client)
 
             # Build service data
             service_data: dict[str, Any] = {"path": path}
@@ -165,7 +166,7 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 service_data["pattern"] = pattern
 
             # Call the custom component service
-            result = await client.call_service(
+            result = await self._client.call_service(
                 MCP_TOOLS_DOMAIN,
                 "list_files",
                 service_data,
@@ -174,18 +175,14 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
 
             # The service returns the response directly
             if isinstance(result, dict):
-                return await add_timezone_metadata(client, result)
+                return unwrap_service_response(result)
 
-            return await add_timezone_metadata(
-                client,
-                {
-                    "success": True,
-                    "path": path,
-                    "pattern": pattern,
-                    "files": [],
-                    "count": 0,
-                    "note": "Unexpected response format from service",
-                },
+            raise_tool_error(
+                create_error_response(
+                    ErrorCode.SERVICE_CALL_FAILED,
+                    "Unexpected response format from list_files service",
+                    context={"path": path},
+                )
             )
 
         except ToolError:
@@ -196,15 +193,17 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 context={"tool": "ha_list_files", "path": path, "pattern": pattern},
             )
 
-    @mcp.tool(
+    @tool(
+        name="ha_read_file",
         tags={"Files"},
         annotations={
             "readOnlyHint": True,
-            "title": "Read File"
-        }
+            "title": "Read File",
+        },
     )
     @log_tool_usage
     async def ha_read_file(
+        self,
         path: Annotated[
             str,
             Field(
@@ -273,7 +272,7 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             )
 
             # Check if custom component is available
-            await _assert_mcp_tools_available(client)
+            await _assert_mcp_tools_available(self._client)
 
             # Build service data
             service_data: dict[str, Any] = {"path": path}
@@ -281,7 +280,7 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 service_data["tail_lines"] = tail_lines_int
 
             # Call the custom component service
-            result = await client.call_service(
+            result = await self._client.call_service(
                 MCP_TOOLS_DOMAIN,
                 "read_file",
                 service_data,
@@ -289,15 +288,14 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             )
 
             if isinstance(result, dict):
-                return await add_timezone_metadata(client, result)
+                return unwrap_service_response(result)
 
-            return await add_timezone_metadata(
-                client,
-                {
-                    "success": False,
-                    "error": "Unexpected response format from service",
-                    "path": path,
-                },
+            raise_tool_error(
+                create_error_response(
+                    ErrorCode.SERVICE_CALL_FAILED,
+                    "Unexpected response format from read_file service",
+                    context={"path": path},
+                )
             )
 
         except ToolError:
@@ -308,15 +306,17 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 context={"tool": "ha_read_file", "path": path},
             )
 
-    @mcp.tool(
+    @tool(
+        name="ha_write_file",
         tags={"Files"},
         annotations={
             "destructiveHint": True,
-            "title": "Write File"
-        }
+            "title": "Write File",
+        },
     )
     @log_tool_usage
     async def ha_write_file(
+        self,
         path: Annotated[
             str,
             Field(
@@ -400,7 +400,7 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             create_dirs_bool = coerce_bool_param(create_dirs, "create_dirs", default=True)
 
             # Check if custom component is available
-            await _assert_mcp_tools_available(client)
+            await _assert_mcp_tools_available(self._client)
 
             # Build service data
             service_data: dict[str, Any] = {
@@ -411,7 +411,7 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             }
 
             # Call the custom component service
-            result = await client.call_service(
+            result = await self._client.call_service(
                 MCP_TOOLS_DOMAIN,
                 "write_file",
                 service_data,
@@ -419,15 +419,14 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             )
 
             if isinstance(result, dict):
-                return await add_timezone_metadata(client, result)
+                return unwrap_service_response(result)
 
-            return await add_timezone_metadata(
-                client,
-                {
-                    "success": False,
-                    "error": "Unexpected response format from service",
-                    "path": path,
-                },
+            raise_tool_error(
+                create_error_response(
+                    ErrorCode.SERVICE_CALL_FAILED,
+                    "Unexpected response format from write_file service",
+                    context={"path": path},
+                )
             )
 
         except ToolError:
@@ -438,15 +437,17 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 context={"tool": "ha_write_file", "path": path},
             )
 
-    @mcp.tool(
+    @tool(
+        name="ha_delete_file",
         tags={"Files"},
         annotations={
             "destructiveHint": True,
-            "title": "Delete File"
-        }
+            "title": "Delete File",
+        },
     )
     @log_tool_usage
     async def ha_delete_file(
+        self,
         path: Annotated[
             str,
             Field(
@@ -503,30 +504,25 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             confirm_bool = coerce_bool_param(confirm, "confirm", default=False)
 
             if not confirm_bool:
-                return await add_timezone_metadata(
-                    client,
-                    {
-                        "success": False,
-                        "error": "Deletion not confirmed",
-                        "message": (
-                            "You must set confirm=True to delete a file. "
-                            "This is a safety measure to prevent accidental deletions."
-                        ),
-                        "path": path,
-                        "suggestions": [
-                            f"Call ha_delete_file(path='{path}', confirm=True) to proceed",
+                raise_tool_error(
+                    create_error_response(
+                        ErrorCode.VALIDATION_INVALID_PARAMETER,
+                        "Deletion not confirmed. Set confirm=True to delete a file.",
+                        suggestions=[
+                            f"Call ha_delete_file(path={json.dumps(path)}, confirm=True) to proceed",
                         ],
-                    },
+                        context={"path": path},
+                    )
                 )
 
             # Check if custom component is available
-            await _assert_mcp_tools_available(client)
+            await _assert_mcp_tools_available(self._client)
 
             # Build service data
             service_data: dict[str, Any] = {"path": path}
 
             # Call the custom component service
-            result = await client.call_service(
+            result = await self._client.call_service(
                 MCP_TOOLS_DOMAIN,
                 "delete_file",
                 service_data,
@@ -534,15 +530,14 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             )
 
             if isinstance(result, dict):
-                return await add_timezone_metadata(client, result)
+                return unwrap_service_response(result)
 
-            return await add_timezone_metadata(
-                client,
-                {
-                    "success": False,
-                    "error": "Unexpected response format from service",
-                    "path": path,
-                },
+            raise_tool_error(
+                create_error_response(
+                    ErrorCode.SERVICE_CALL_FAILED,
+                    "Unexpected response format from delete_file service",
+                    context={"path": path},
+                )
             )
 
         except ToolError:
@@ -552,3 +547,19 @@ def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 e,
                 context={"tool": "ha_delete_file", "path": path},
             )
+
+
+def register_filesystem_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
+    """Register filesystem access tools with the MCP server.
+
+    This function only registers tools if the feature flag is enabled.
+    Set HAMCP_ENABLE_FILESYSTEM_TOOLS=true to enable.
+    """
+    if not is_filesystem_tools_enabled():
+        logger.debug(
+            f"Filesystem tools disabled (set {FEATURE_FLAG}=true to enable)"
+        )
+        return
+
+    logger.info("Filesystem tools enabled via feature flag")
+    register_tool_methods(mcp, FilesystemTools(client))

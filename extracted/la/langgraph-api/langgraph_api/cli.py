@@ -108,6 +108,47 @@ def _find_open_port(host: str) -> int:
         return s.getsockname()[1]
 
 
+def _resolve_server_url(
+    host: str, port: int, *, mount_prefix: str | None, tunnel: bool
+) -> str:
+    """Return the public-facing base URL for the server.
+
+    When *tunnel* is True a Cloudflare tunnel is started and the tunnel
+    URL is returned; otherwise the local ``http://host:port`` URL is used.
+    *mount_prefix* (if any) is appended to the result.
+    """
+    from langgraph_api.utils.network import format_hostport  # noqa: PLC0415
+
+    upstream_url = f"http://{format_hostport(host, port)}"
+    if mount_prefix:
+        upstream_url += mount_prefix
+
+    if not tunnel:
+        return upstream_url
+
+    logger.info("Starting Cloudflare Tunnel...")
+    from langgraph_api.tunneling.cloudflare import start_tunnel  # noqa: PLC0415
+
+    tunnel_obj = start_tunnel(port)
+    try:
+        public_url = tunnel_obj.url.result(timeout=30)
+    except FutureTimeoutError:
+        logger.warning(
+            "Timed out waiting for Cloudflare Tunnel URL; using local URL %s",
+            upstream_url,
+        )
+        public_url = upstream_url
+    except Exception as e:
+        tunnel_obj.process.kill()
+        raise RuntimeError("Failed to start Cloudflare Tunnel") from e
+
+    # Only append the prefix if we got a real tunnel URL; on timeout
+    # fallback, public_url is already upstream_url which has the prefix.
+    if mount_prefix and public_url != upstream_url:
+        public_url += mount_prefix
+    return public_url
+
+
 def _resolve_port(host: str, port: int | None) -> int:
     """Resolve the port to use for the server."""
     if port is not None:
@@ -209,38 +250,11 @@ def run_server(
             debugpy.wait_for_client()
             logger.info("Debugger attached. Starting server...")
 
-    # Determine local or tunneled URL
-    with patch_environment(
-        MIGRATIONS_PATH=__migrations_path__,
-        DATABASE_URI=__database_uri__,
-        REDIS_URI=__redis_uri__,
-    ):
-        from langgraph_api.utils.network import format_hostport  # noqa: PLC0415
-
-        upstream_url = f"http://{format_hostport(host, port)}"
-    if mount_prefix:
-        upstream_url += mount_prefix
-    if tunnel:
-        logger.info("Starting Cloudflare Tunnel...")
-        from langgraph_api.tunneling.cloudflare import start_tunnel  # noqa: PLC0415
-
-        tunnel_obj = start_tunnel(port)
-        try:
-            public_url = tunnel_obj.url.result(timeout=30)
-        except FutureTimeoutError:
-            logger.warning(
-                "Timed out waiting for Cloudflare Tunnel URL; using local URL %s",
-                upstream_url,
-            )
-            public_url = upstream_url
-        except Exception as e:
-            tunnel_obj.process.kill()
-            raise RuntimeError("Failed to start Cloudflare Tunnel") from e
-        local_url = public_url
-        if mount_prefix:
-            local_url += mount_prefix
-    else:
-        local_url = upstream_url
+    # Build all env patches up front so that langgraph_api.config (which
+    # is read at import time) sees every config value.  LANGGRAPH_API_URL
+    # is resolved inside the block (it depends on tunnel/mount_prefix) and
+    # overwritten then; the empty placeholder ensures patch_environment
+    # tracks and restores the original value on exit.
     to_patch = dict(
         MIGRATIONS_PATH=__migrations_path__,
         DATABASE_URI=__database_uri__,
@@ -258,7 +272,7 @@ def run_server(
         LANGGRAPH_UI_CONFIG=json.dumps(ui_config) if ui_config else None,
         LANGGRAPH_CHECKPOINTER=json.dumps(checkpointer) if checkpointer else None,
         LANGGRAPH_UI_BUNDLER="true",
-        LANGGRAPH_API_URL=local_url,
+        LANGGRAPH_API_URL="",  # resolved below, inside the patched block
         LANGGRAPH_DISABLE_FILE_PERSISTENCE=str(disable_persistence).lower(),
         LANGGRAPH_RUNTIME_EDITION=runtime_edition,
         # If true, we will not raise on blocking IO calls (via blockbuster)
@@ -273,9 +287,13 @@ def run_server(
                 logger.debug(f"Skipping loaded env var {k}={v}")
                 continue
             to_patch[k] = v
-    with patch_environment(
-        **to_patch,
-    ):
+
+    with patch_environment(**to_patch):
+        local_url = _resolve_server_url(
+            host, port, mount_prefix=mount_prefix, tunnel=tunnel
+        )
+        os.environ["LANGGRAPH_API_URL"] = local_url
+
         studio_origin = studio_url or _get_ls_origin() or "https://smith.langchain.com"
         full_studio_url = f"{studio_origin}/studio/?baseUrl={local_url}"
 

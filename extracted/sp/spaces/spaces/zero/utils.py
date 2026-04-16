@@ -38,7 +38,7 @@ def read_map_files():
     for map_file in Path('/proc/self/map_files').iterdir():
         try:
             path = map_file.readlink()
-        except OSError:
+        except OSError: # pragma: no cover
             continue
         yield map_file.name, path
 

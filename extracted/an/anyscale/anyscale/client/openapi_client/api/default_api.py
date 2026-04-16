@@ -25391,7 +25391,7 @@ class DefaultApi(object):
     def get_resource_policy_api_v2_policy_resource_type_resource_id_get(self, resource_type, resource_id, **kwargs):  # noqa: E501
         """Get Resource Policy  # noqa: E501
 
-        Get user group permission policy for a specific resource.  Parameters: - **resource_type**: Resource type (cloud, project, organization) - **resource_id**: Resource ID (e.g. cld_abc123, prj_xyz789).   For organization type, this parameter is ignored - your own organization is used.  Returns: ``` {     \"result\": {         \"bindings\": [             {\"role_name\": \"write\", \"principals\": [\"ug_abc123\"]},             {\"role_name\": \"readonly\", \"principals\": [\"ug_def456\", \"ug_ghi789\"]}         ]     } } ```  Permission requirements: - Caller must have read access to the organization  # noqa: E501
+        Get user group permission policy for a specific resource.  Parameters: - **resource_type**: Resource type (cloud, project, organization) - **resource_id**: Resource ID (e.g. cld_abc123, prj_xyz789).   For organization type, this parameter is ignored - your own organization is used.  Returns: ``` {     \"result\": {         \"bindings\": [             {\"role_name\": \"write\", \"principals\": [\"ug_abc123\"]},             {\"role_name\": \"readonly\", \"principals\": [\"ug_def456\", \"ug_ghi789\"]}         ]     } } ```  Permission requirements: - Caller must be an organization admin  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_resource_policy_api_v2_policy_resource_type_resource_id_get(resource_type, resource_id, async_req=True)
@@ -25417,7 +25417,7 @@ class DefaultApi(object):
     def get_resource_policy_api_v2_policy_resource_type_resource_id_get_with_http_info(self, resource_type, resource_id, **kwargs):  # noqa: E501
         """Get Resource Policy  # noqa: E501
 
-        Get user group permission policy for a specific resource.  Parameters: - **resource_type**: Resource type (cloud, project, organization) - **resource_id**: Resource ID (e.g. cld_abc123, prj_xyz789).   For organization type, this parameter is ignored - your own organization is used.  Returns: ``` {     \"result\": {         \"bindings\": [             {\"role_name\": \"write\", \"principals\": [\"ug_abc123\"]},             {\"role_name\": \"readonly\", \"principals\": [\"ug_def456\", \"ug_ghi789\"]}         ]     } } ```  Permission requirements: - Caller must have read access to the organization  # noqa: E501
+        Get user group permission policy for a specific resource.  Parameters: - **resource_type**: Resource type (cloud, project, organization) - **resource_id**: Resource ID (e.g. cld_abc123, prj_xyz789).   For organization type, this parameter is ignored - your own organization is used.  Returns: ``` {     \"result\": {         \"bindings\": [             {\"role_name\": \"write\", \"principals\": [\"ug_abc123\"]},             {\"role_name\": \"readonly\", \"principals\": [\"ug_def456\", \"ug_ghi789\"]}         ]     } } ```  Permission requirements: - Caller must be an organization admin  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_resource_policy_api_v2_policy_resource_type_resource_id_get_with_http_info(resource_type, resource_id, async_req=True)
@@ -33752,6 +33752,10 @@ class DefaultApi(object):
         :param async_req bool: execute request asynchronously
         :param str cluster_id: A cluster id to filter by
         :param str application_name: An application name to filter by
+        :param str name_filter: Filter by deployment name (substring match)
+        :param list[ServeDeploymentState] state_filter: Filter by deployment status
+        :param ServeDeploymentsSortField sort_field: Field to sort by. If absent, the default sort order is used (status DESC, name ASC).
+        :param SortOrder sort_order: If sort_field is absent, this field is ignored. If absent, this field defaults to ascending.
         :param str paging_token:
         :param int count:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -33780,6 +33784,10 @@ class DefaultApi(object):
         :param async_req bool: execute request asynchronously
         :param str cluster_id: A cluster id to filter by
         :param str application_name: An application name to filter by
+        :param str name_filter: Filter by deployment name (substring match)
+        :param list[ServeDeploymentState] state_filter: Filter by deployment status
+        :param ServeDeploymentsSortField sort_field: Field to sort by. If absent, the default sort order is used (status DESC, name ASC).
+        :param SortOrder sort_order: If sort_field is absent, this field is ignored. If absent, this field defaults to ascending.
         :param str paging_token:
         :param int count:
         :param _return_http_data_only: response data without head status code
@@ -33801,6 +33809,10 @@ class DefaultApi(object):
         all_params = [
             'cluster_id',
             'application_name',
+            'name_filter',
+            'state_filter',
+            'sort_field',
+            'sort_order',
             'paging_token',
             'count'
         ]
@@ -33835,6 +33847,15 @@ class DefaultApi(object):
             query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
         if 'application_name' in local_var_params and local_var_params['application_name'] is not None:  # noqa: E501
             query_params.append(('application_name', local_var_params['application_name']))  # noqa: E501
+        if 'name_filter' in local_var_params and local_var_params['name_filter'] is not None:  # noqa: E501
+            query_params.append(('name_filter', local_var_params['name_filter']))  # noqa: E501
+        if 'state_filter' in local_var_params and local_var_params['state_filter'] is not None:  # noqa: E501
+            query_params.append(('state_filter', local_var_params['state_filter']))  # noqa: E501
+            collection_formats['state_filter'] = 'multi'  # noqa: E501
+        if 'sort_field' in local_var_params and local_var_params['sort_field'] is not None:  # noqa: E501
+            query_params.append(('sort_field', local_var_params['sort_field']))  # noqa: E501
+        if 'sort_order' in local_var_params and local_var_params['sort_order'] is not None:  # noqa: E501
+            query_params.append(('sort_order', local_var_params['sort_order']))  # noqa: E501
         if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
             query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
         if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501

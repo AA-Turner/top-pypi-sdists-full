@@ -10,6 +10,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied, ValidationError
+from django.db import transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -26,6 +27,8 @@ from weblate.trans.forms import (
     AnnouncementForm,
     BaseDeleteForm,
     CategoryRenameForm,
+    ComponentLinkAddForm,
+    ComponentLinkCategoryForm,
     ComponentRenameForm,
     ComponentSettingsForm,
     ProjectRenameForm,
@@ -36,6 +39,7 @@ from weblate.trans.models import (
     Announcement,
     Category,
     Component,
+    ComponentLink,
     Project,
     Translation,
     WorkflowSetting,
@@ -169,7 +173,7 @@ def dismiss_alert(request: AuthenticatedHttpRequest, path):
     except ObjectDoesNotExist:
         pass
     else:
-        if alert.obj.dismissable:
+        if alert.obj.dismissible:
             alert.dismissed = True
             alert.save(update_fields=["dismissed"])
 
@@ -178,6 +182,7 @@ def dismiss_alert(request: AuthenticatedHttpRequest, path):
 
 @login_required
 @require_POST
+@transaction.atomic
 def remove(request: AuthenticatedHttpRequest, path):
     obj = parse_path(
         request,
@@ -290,14 +295,80 @@ def add_category(request: AuthenticatedHttpRequest, path):
 
 @login_required
 @require_POST
+def component_link_add(request: AuthenticatedHttpRequest, path):
+    obj = parse_path(request, path, (Component,))
+    if not request.user.has_perm("component.edit", obj):
+        raise PermissionDenied
+
+    form = ComponentLinkAddForm(
+        request.POST, request=request, component=obj, prefix="link_add"
+    )
+    if form.is_valid():
+        project = form.cleaned_data["project"]
+        category = form.cleaned_data["category"]
+        _link, created = ComponentLink.objects.get_or_create(
+            component=obj, project=project, defaults={"category": category}
+        )
+        if not created:
+            messages.error(
+                request,
+                gettext("This component is already shared in %s.") % project,
+            )
+    else:
+        show_form_errors(request, form)
+
+    return redirect_param(obj, "#sharing")
+
+
+@login_required
+@require_POST
+def component_link_delete(request: AuthenticatedHttpRequest, path):
+    obj = parse_path(request, path, (Component,))
+    if not request.user.has_perm("component.edit", obj):
+        raise PermissionDenied
+
+    link_id = request.POST.get("link_id")
+    try:
+        link = ComponentLink.objects.get(pk=link_id, component=obj)
+    except (ComponentLink.DoesNotExist, ValueError, TypeError) as e:
+        raise Http404 from e
+
+    link.delete()
+    return redirect_param(obj, "#sharing")
+
+
+@login_required
+@require_POST
+def component_link_categories(request: AuthenticatedHttpRequest, path):
+    obj = parse_path(request, path, (Component,))
+    if not request.user.has_perm("component.edit", obj):
+        raise PermissionDenied
+
+    # Look up the link first so we can pass the correct project to the form
+    link_id = request.POST.get("link_id")
+    try:
+        link = ComponentLink.objects.get(pk=link_id, component=obj)
+    except (ComponentLink.DoesNotExist, ValueError, TypeError) as e:
+        raise Http404 from e
+
+    form = ComponentLinkCategoryForm(request.POST, project=link.project)
+    if form.is_valid():
+        link.category = form.cleaned_data["category"]
+        link.save(update_fields=["category"])
+    else:
+        show_form_errors(request, form)
+
+    return redirect_param(obj, "#sharing")
+
+
+@login_required
+@require_POST
 def announcement(request: AuthenticatedHttpRequest, path):
     obj = parse_path(
         request, path, (ProjectLanguage, Translation, Component, Project, Category)
     )
 
-    if not request.user.has_perm("component.edit", obj) and not request.user.has_perm(
-        "announcement.add", obj
-    ):
+    if not request.user.has_perm("announcement.add", obj):
         raise PermissionDenied
 
     form = AnnouncementForm(request.POST)
@@ -419,7 +490,7 @@ class BackupsView(BackupsMixin, TemplateView):
     template_name = "trans/backups.html"
 
     def post(self, request: AuthenticatedHttpRequest, *args, **kwargs):
-        create_project_backup.delay(self.obj.pk)
+        create_project_backup.delay(self.obj.pk, request.user.pk)
         messages.success(
             request, gettext("Backup scheduled. It will be available soon.")
         )

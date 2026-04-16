@@ -1,8 +1,8 @@
 import base64
 import json
-from io import BytesIO
 from typing import TYPE_CHECKING, Dict, List, Tuple, Union
 
+from abstra_internals.controllers.sdk._multipart import parse_multipart
 from abstra_internals.email_signer import verify_email
 from abstra_internals.environment import IS_PRODUCTION
 from abstra_internals.utils.insensitive_dict import CaseInsensitiveDict
@@ -55,35 +55,14 @@ class HookSDKController:
             return body, query, headers
 
     def _multipart_form_parse(self, body: str, headers: CaseInsensitiveDict):
-        from multipart import (
-            MultipartParser,
-            MultipartPart,
-            parse_options_header,
-        )
-
-        raw_bytes = base64.b64decode(body)
-        _, options = parse_options_header(headers["Content-Type"])
-        boundary = options["boundary"].encode("utf-8")
-        p = MultipartParser(BytesIO(raw_bytes), boundary)
-        parts = []
-        for i in p:
-            if not isinstance(i, MultipartPart):
-                continue
-            filename = getattr(i, "filename", None)
-            if filename:
-                raw = getattr(i, "raw", b"")
-                parts.append(
-                    {
-                        "name": i.name,
-                        "filename": filename,
-                        "content_type": getattr(
-                            i, "content_type", "application/octet-stream"
-                        ),
-                        "content": base64.b64encode(raw).decode("ascii"),
-                    }
-                )
-            else:
-                parts.append({"name": i.name, "value": i.value})
+        # Hooks' public contract returns file content as a base64 string; the
+        # shared parser keeps raw bytes so pages can deliver real ``bytes`` to
+        # user code. Re-encode here to preserve the existing hooks contract.
+        parts = parse_multipart(body, headers)
+        for part in parts:
+            content = part.get("content")
+            if isinstance(content, (bytes, bytearray)):
+                part["content"] = base64.b64encode(content).decode("ascii")
         return parts
 
     def get_email_request(self):

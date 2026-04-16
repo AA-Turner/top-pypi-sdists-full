@@ -523,12 +523,20 @@ class ChatBedrockConverse(BaseChatModel):
     """Bedrock API key.
 
     Enables authentication using Bedrock API keys instead of standard AWS
-    credentials. When provided, the key is set as the AWS_BEARER_TOKEN_BEDROCK
+    credentials. When provided, the key is set as the ``AWS_BEARER_TOKEN_BEDROCK``
     environment variable.
+
+    .. warning::
+        Because this sets a **process-wide environment variable**, using
+        ``api_key`` is not compatible with multi-tenant deployments where
+        different model instances in the same process need different API keys.
+        Each new client creation overwrites the previous value. Use standard
+        AWS credentials (IAM roles, profiles, etc.) for multi-tenant scenarios.
 
     See: https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys-use.html
 
-    If not provided, will be read from `AWS_BEARER_TOKEN_BEDROCK` environment variable.
+    If not provided, will be read from ``AWS_BEARER_TOKEN_BEDROCK`` environment
+    variable (if it exists).
 
     If both an API key and AWS credentials are present, the API key takes precedence.
     """
@@ -1138,7 +1146,7 @@ class ChatBedrockConverse(BaseChatModel):
                         new_content.append(block)
                 if not has_guard_content:
                     new_content.append(
-                        {"guardContent": {"text": {"text": EMPTY_CONTENT}}}
+                        {"guardContent": {"text": {"text": "[tool_result]"}}}
                     )
                 msg["content"] = new_content
                 break
@@ -1167,6 +1175,7 @@ class ChatBedrockConverse(BaseChatModel):
         # Remove disable_streaming from kwargs as it's not a valid API parameter
         filtered_kwargs = {k: v for k, v in kwargs.items() if k != "disable_streaming"}
         additional_fields = filtered_kwargs.pop("additional_model_request_fields", None)
+        _apply_response_format(filtered_kwargs)
         cache_control = filtered_kwargs.pop("cache_control", None)
         params = self._converse_params(
             stop=stop,
@@ -1228,6 +1237,7 @@ class ChatBedrockConverse(BaseChatModel):
         # Remove disable_streaming from kwargs as it's not a valid API parameter
         filtered_kwargs = {k: v for k, v in kwargs.items() if k != "disable_streaming"}
         additional_fields = filtered_kwargs.pop("additional_model_request_fields", None)
+        _apply_response_format(filtered_kwargs)
         cache_control = filtered_kwargs.pop("cache_control", None)
         params = self._converse_params(
             stop=stop,
@@ -2571,6 +2581,50 @@ def _bedrock_to_lc(content: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 f"'reasoning_content' keys. Received:\n\n{block}"
             )
     return lc_content
+
+
+def _apply_response_format(kwargs: Dict[str, Any]) -> None:
+    response_format = kwargs.pop("response_format", None)
+    if response_format and "output_config" not in kwargs:
+        kwargs["output_config"] = _response_format_to_output_config(response_format)
+
+
+def _response_format_to_output_config(
+    response_format: Dict[str, Any],
+) -> Dict[str, Any]:
+    fmt_type = response_format.get("type")
+    if fmt_type != "json_schema":
+        msg = (
+            f"Unsupported response_format type: {fmt_type!r}. "
+            "Only 'json_schema' is supported for Bedrock Converse API."
+        )
+        raise ValueError(msg)
+
+    json_schema_block = response_format.get(
+        "jsonSchema", response_format.get("json_schema", {})
+    )
+    schema = json_schema_block.get("schema", {})
+    name = json_schema_block.get("name", "output_schema")
+    description = json_schema_block.get("description", name)
+
+    if isinstance(schema, str):
+        schema = json.loads(schema)
+
+    schema = copy.deepcopy(schema)
+    _set_additional_properties_false(schema)
+
+    return {
+        "textFormat": {
+            "type": "json_schema",
+            "structure": {
+                "jsonSchema": {
+                    "schema": json.dumps(schema),
+                    "name": name,
+                    "description": description,
+                }
+            },
+        }
+    }
 
 
 def _set_additional_properties_false(schema: dict) -> None:

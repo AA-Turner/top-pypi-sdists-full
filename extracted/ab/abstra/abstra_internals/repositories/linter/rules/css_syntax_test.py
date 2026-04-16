@@ -48,6 +48,14 @@ class CssSyntaxTest(BaseTest):
         self.assertTrue(any("bad.css" in label for label in issue_labels))
         self.assertFalse(any("good.css" in label for label in issue_labels))
 
+    def test_multiple_errors_single_issue(self):
+        (self.root / "bad.css").write_text("body { : red; color red; }")
+        rule = CssSyntax()
+        issues = rule.find_issues()
+        self.assertEqual(len(issues), 1)
+        self.assertIn("bad.css", issues[0].label)
+        self.assertGreater(issues[0].label.count("  - "), 1)
+
     def test_non_utf8_file_is_skipped(self):
         (self.root / "binary.css").write_bytes(b"\x80\x81\x82\x83")
         rule = CssSyntax()

@@ -6020,6 +6020,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSBEDROCK_AGENT_CORE_IDENTITY_NETWORK_SERVICE_ROLE_POLICY = "AWSBEDROCK_AGENT_CORE_IDENTITY_NETWORK_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

@@ -30,7 +30,7 @@ dependencies = [
     "pandas>=2.0.0,<3.0.0",
     "psutil>=6.0.0",
     "pyarrow>=10.0.1",
-    "pydantic>=2.11.4",
+    "pydantic>=2.13.0",
     "python-dotenv>=0.16.0",
     "rich>=13.3.3,!=14.0.0",
     "ruamel.yaml>=0.18.0",
@@ -82,6 +82,8 @@ doc = [
     "griffe",
     "pyyaml",
     "types-Markdown",
+    "rich",
+    "quarto-cli>=1.7"
 ]
 dist = ["twine", "build"]
 
@@ -113,6 +115,7 @@ doc = [
     "markdown",
     "griffe",
     "pyyaml",
+    "quarto-cli>=1.9.36"
 ]
 dist = ["twine", "build"]
 

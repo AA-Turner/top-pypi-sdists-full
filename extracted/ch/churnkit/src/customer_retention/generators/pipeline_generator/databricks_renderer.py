@@ -366,19 +366,47 @@ def add_recency_buckets(df):
 {%- if config.lifecycle.include_lifecycle_quadrant %}
 
 def add_lifecycle_quadrant(df):
-    \"\"\"Source: Data Discovery > Lifecycle Segmentation\"\"\"
-    if "days_since_first" not in df.columns:
+    \"\"\"Source: Data Discovery > Lifecycle Segmentation.
+
+    Parity contract with NB01d `classify_lifecycle_quadrants`: tenure threshold
+    is the median of `duration_days = days_since_first - days_since_last` (the
+    entity's active span), intensity is `event_count / max(duration_days, 1)`
+    (events-per-day rate). Quadrant names must match `LIFECYCLE_LABELS` from
+    `time_series_profiler.py`. Using raw `days_since_first` and raw
+    `event_count_*` as was done previously produced different medians, shifted
+    quadrant boundaries, and silently populated only 2-of-4 categories — the
+    FeatureSpec parity gate then rejected the gold table.
+    \"\"\"
+    if "days_since_first" not in df.columns or "days_since_last" not in df.columns:
         return df
-    intensity_cols = [c for c in df.columns if c.startswith("event_count_")]
-    if not intensity_cols:
+    event_count_cols = sorted(c for c in df.columns if c.startswith("event_count_"))
+    if not event_count_cols:
         return df
-    tenure_med = df.approxQuantile("days_since_first", [0.5], 0.01)[0]
-    intensity_med = df.approxQuantile(intensity_cols[0], [0.5], 0.01)[0]
+    event_count_col = (
+        "event_count_all_time" if "event_count_all_time" in event_count_cols
+        else event_count_cols[-1]
+    )
+    df = df.withColumn(
+        "_lifecycle_duration_days",
+        (F.col("days_since_first") - F.col("days_since_last")).cast("double"),
+    ).withColumn(
+        "_lifecycle_intensity",
+        F.col(event_count_col).cast("double")
+        / F.greatest(F.col("_lifecycle_duration_days"), F.lit(1.0)),
+    )
+    _quantile_result = df.approxQuantile(
+        ["_lifecycle_duration_days", "_lifecycle_intensity"], [0.5], 0.01,
+    )
+    tenure_med = _quantile_result[0][0] if _quantile_result[0] else 0.0
+    intensity_med = _quantile_result[1][0] if _quantile_result[1] else 0.0
+    _long = F.col("_lifecycle_duration_days") >= F.lit(tenure_med)
+    _high = F.col("_lifecycle_intensity") >= F.lit(intensity_med)
     df = df.withColumn("lifecycle_quadrant",
-        F.when((F.col("days_since_first") >= tenure_med) & (F.col(intensity_cols[0]) >= intensity_med), "steady_loyal_lifecycle")
-        .when((F.col("days_since_first") >= tenure_med) & (F.col(intensity_cols[0]) < intensity_med), "occasional_loyal_lifecycle")
-        .when((F.col("days_since_first") < tenure_med) & (F.col(intensity_cols[0]) >= intensity_med), "intense_brief_lifecycle")
+        F.when(_long & _high, "steady_loyal_lifecycle")
+        .when(_long & ~_high, "occasional_loyal_lifecycle")
+        .when(~_long & _high, "intense_brief_lifecycle")
         .otherwise("one_shot_lifecycle"))
+    df = df.drop("_lifecycle_duration_days", "_lifecycle_intensity")
     return df
 {%- endif %}
 {%- if config.lifecycle.include_cyclical_features %}
@@ -1003,19 +1031,45 @@ def add_recency_buckets(df):
 {%- if config.lifecycle.include_lifecycle_quadrant %}
 
 def add_lifecycle_quadrant(df):
-    \"\"\"Source: Data Discovery > Lifecycle Segmentation\"\"\"
-    if "days_since_first" not in df.columns:
+    \"\"\"Source: Data Discovery > Lifecycle Segmentation.
+
+    Parity contract with NB01d `classify_lifecycle_quadrants`: tenure threshold
+    is the median of `duration_days = days_since_first - days_since_last` (the
+    entity's active span), intensity is `event_count / max(duration_days, 1)`
+    (events-per-day rate). Prefers `event_count_all_time` as the count source,
+    falling back to the widest windowed count. Uses a batched `approxQuantile`
+    (one Spark job, both medians) so the step stays cheap on large gold tables.
+    \"\"\"
+    if "days_since_first" not in df.columns or "days_since_last" not in df.columns:
         return df
-    intensity_cols = [c for c in df.columns if c.startswith("event_count_")]
-    if not intensity_cols:
+    event_count_cols = sorted(c for c in df.columns if c.startswith("event_count_"))
+    if not event_count_cols:
         return df
-    tenure_med = df.approxQuantile("days_since_first", [0.5], 0.01)[0]
-    intensity_med = df.approxQuantile(intensity_cols[0], [0.5], 0.01)[0]
+    event_count_col = (
+        "event_count_all_time" if "event_count_all_time" in event_count_cols
+        else event_count_cols[-1]
+    )
+    df = df.withColumn(
+        "_lifecycle_duration_days",
+        (F.col("days_since_first") - F.col("days_since_last")).cast("double"),
+    ).withColumn(
+        "_lifecycle_intensity",
+        F.col(event_count_col).cast("double")
+        / F.greatest(F.col("_lifecycle_duration_days"), F.lit(1.0)),
+    )
+    _quantile_result = df.approxQuantile(
+        ["_lifecycle_duration_days", "_lifecycle_intensity"], [0.5], 0.01,
+    )
+    tenure_med = _quantile_result[0][0] if _quantile_result[0] else 0.0
+    intensity_med = _quantile_result[1][0] if _quantile_result[1] else 0.0
+    _long = F.col("_lifecycle_duration_days") >= F.lit(tenure_med)
+    _high = F.col("_lifecycle_intensity") >= F.lit(intensity_med)
     df = df.withColumn("lifecycle_quadrant",
-        F.when((F.col("days_since_first") >= tenure_med) & (F.col(intensity_cols[0]) >= intensity_med), "steady_loyal_lifecycle")
-        .when((F.col("days_since_first") >= tenure_med) & (F.col(intensity_cols[0]) < intensity_med), "occasional_loyal_lifecycle")
-        .when((F.col("days_since_first") < tenure_med) & (F.col(intensity_cols[0]) >= intensity_med), "intense_brief_lifecycle")
+        F.when(_long & _high, "steady_loyal_lifecycle")
+        .when(_long & ~_high, "occasional_loyal_lifecycle")
+        .when(~_long & _high, "intense_brief_lifecycle")
         .otherwise("one_shot_lifecycle"))
+    df = df.drop("_lifecycle_duration_days", "_lifecycle_intensity")
     return df
 {%- endif %}
 {%- if config.lifecycle.include_cyclical_features %}
@@ -1398,8 +1452,12 @@ from pyspark.sql import functions as F
 
 def _encode_one_hot(df, col, max_categories=100):
     if col not in df.columns:
-        print(f"WARNING: column '{col}' not in DataFrame, skipping one-hot encoding")
-        return df
+        raise RuntimeError(
+            f"[GOLD] one-hot encoding target '{col}' missing from DataFrame. "
+            "An upstream step (feature_selection, leakage exclusion, or silver merge) "
+            "dropped it before apply_encodings ran. Regenerate the pipeline — the "
+            "post-encoding '{col}_*' columns will otherwise be silently absent from gold."
+        )
     categories = [row[col] for row in df.select(col).distinct().collect() if row[col] is not None]
     if len(categories) > max_categories:
         print(f"WARNING: column '{col}' has {len(categories)} categories (>{max_categories}), using label encoding instead")
@@ -1412,12 +1470,14 @@ def _encode_one_hot(df, col, max_categories=100):
 
 def _label_encode(df, col):
     if col not in df.columns:
-        print(f"WARNING: column '{col}' not in DataFrame, skipping label encoding")
-        return df
+        raise RuntimeError(
+            f"[GOLD] label encoding target '{col}' missing from DataFrame. "
+            "An upstream step dropped it before apply_encodings ran."
+        )
     from pyspark.ml.feature import StringIndexer
-    indexer = StringIndexer(inputCol=col, outputCol=f"{col}_encoded", handleInvalid="keep")
-    df = indexer.fit(df).transform(df)
-    df = df.drop(col)
+    tmp = f"__{col}_idx"
+    indexer = StringIndexer(inputCol=col, outputCol=tmp, handleInvalid="keep", stringOrderType="alphabetAsc")
+    df = indexer.fit(df).transform(df).drop(col).withColumnRenamed(tmp, col)
     return df
 
 def _batch_scale_standard(df, cols):
@@ -1948,6 +2008,13 @@ def train_and_evaluate():
 {% if feature_spec_path %}
     with log_timing("feature_spec_gate", logger):
         _SPEC = FeatureSpec.load(_FEATURE_SPEC_PATH)
+        if _NAMESPACE is not None:
+            _runtime_spec_path = _NAMESPACE.feature_spec_path
+            if _runtime_spec_path != _FEATURE_SPEC_PATH and not _runtime_spec_path.exists():
+                import shutil as _spec_shutil
+                _runtime_spec_path.parent.mkdir(parents=True, exist_ok=True)
+                _spec_shutil.copy2(_FEATURE_SPEC_PATH, _runtime_spec_path)
+                print(f"[TRAINING] FeatureSpec snapshotted to {_runtime_spec_path} for parity report")
         df, _spec_leakage_drops = _apply_feature_spec_gate(df, _SPEC)
         print(
             f"[TRAINING] FeatureSpec applied: {len(_SPEC.selected_features)} features, "
@@ -2178,6 +2245,7 @@ def train_and_evaluate():
 
     if _NAMESPACE is not None:
         _training_meta = {
+            "pipeline_name": PIPELINE_NAME,
             "mlflow_experiment_name": _experiment_name,
             "mlflow_run_id": _parent_run.info.run_id,
             "composite_name": COMPOSITE_NAME,
@@ -2203,6 +2271,7 @@ def train_and_evaluate():
         _prod_diag = {
             "run_type": "production",
             "exploration_run_id": _SPEC.exploration_run_id,
+            "feature_spec_source_path": str(_FEATURE_SPEC_PATH),
             "feature_count": len(feature_cols),
             "feature_names": list(feature_cols),
             "split": {**_results.get("split", {}), "train": train_count, "test": test_count},

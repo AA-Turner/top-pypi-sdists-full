@@ -14,9 +14,10 @@ from pydantic import Field
 from ..config import get_global_settings
 from ..errors import create_validation_error
 from ..transforms.categorized_search import DEFAULT_PINNED_TOOLS
-from .helpers import exception_to_structured_error, log_tool_usage
+from .helpers import exception_to_structured_error, log_tool_usage, raise_tool_error
 from .util_helpers import (
     add_timezone_metadata,
+    build_pagination_metadata,
     coerce_bool_param,
     coerce_int_param,
     parse_string_list_param,
@@ -28,15 +29,22 @@ logger = logging.getLogger(__name__)
 def _build_pagination_metadata(
     total_matches: int, offset: int, limit: int, results: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    """Build standardized pagination metadata for search responses."""
-    has_more = (offset + len(results)) < total_matches
+    """Build standardized pagination metadata for search responses.
+
+    Thin wrapper around the shared ``build_pagination_metadata`` helper that
+    keeps the existing call-site signature (accepts a *results* list and uses
+    ``total_matches`` as the key name expected by search tools).
+    """
+    meta = build_pagination_metadata(total_matches, offset, limit, len(results))
+    # Search tools use "total_matches" instead of "total_count" —
+    # construct explicitly to avoid fragile dependency on shared helper's key names
     return {
-        "total_matches": total_matches,
-        "offset": offset,
-        "limit": limit,
-        "count": len(results),
-        "has_more": has_more,
-        "next_offset": offset + limit if has_more else None,
+        "total_matches": meta["total_count"],
+        "offset": meta["offset"],
+        "limit": meta["limit"],
+        "count": meta["count"],
+        "has_more": meta["has_more"],
+        "next_offset": meta["next_offset"],
     }
 
 
@@ -144,8 +152,8 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         annotations={
             "idempotentHint": True,
             "readOnlyHint": True,
-            "title": "Search Entities"
-        }
+            "title": "Search Entities",
+        },
     )
     @log_tool_usage
     async def ha_search_entities(
@@ -202,6 +210,7 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
 
         try:
             offset = coerce_int_param(offset, "offset", default=0, min_value=0) or 0
+            limit = coerce_int_param(limit, "limit", default=10, min_value=1)
 
             # If area_filter is provided, use area-based search
             if area_filter:
@@ -498,8 +507,8 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         annotations={
             "idempotentHint": True,
             "readOnlyHint": True,
-            "title": "Get System Overview"
-        }
+            "title": "Get System Overview",
+        },
     )
     @log_tool_usage
     async def ha_get_overview(
@@ -508,17 +517,46 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             Field(
                 default="minimal",
                 description=(
-                    "'minimal': 10 entities per domain sample (default); "
-                    "'standard': ALL entities per domain (friendly_name only); "
-                    "'full': ALL entities with entity_id + friendly_name + state + system_info"
+                    "'minimal': 10 entities/domain, top-5 states (default); "
+                    "'standard': 200 entities/page, top-10 states (use offset for more); "
+                    "'full': 200 entities/page + entity_id + state + full states. "
+                    "Use 'domains', 'limit', or max_entities_per_domain to control size"
                 ),
             ),
         ] = "minimal",
+        domains: Annotated[
+            str | list[str] | None,
+            Field(
+                default=None,
+                description=(
+                    "Filter to specific domains (e.g. 'light,sensor' or ['light','sensor']). "
+                    "None = all domains. Useful to avoid context window overload."
+                ),
+            ),
+        ] = None,
+        limit: Annotated[
+            int | str | None,
+            Field(
+                default=None,
+                description=(
+                    "Max total entities across all domains (default: unlimited for minimal, "
+                    "200 for standard/full). Counts and states always complete. "
+                    "Use with offset for pagination."
+                ),
+            ),
+        ] = None,
+        offset: Annotated[
+            int | str,
+            Field(
+                default=0,
+                description="Number of entities to skip for pagination (default: 0)",
+            ),
+        ] = 0,
         max_entities_per_domain: Annotated[
             int | None,
             Field(
                 default=None,
-                description="Override max entities per domain (None = all). Minimal defaults to 10.",
+                description="Override default entity cap per domain (minimal=10, standard/full=unlimited). 0 = no limit on entities or states.",
             ),
         ] = None,
         include_state: Annotated[
@@ -548,7 +586,10 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         Returns comprehensive system information at the requested detail level,
         including Home Assistant base_url, version, location, timezone, entity overview,
         and active persistent notifications (if any).
-        Default is 'minimal' — use this unless you specifically need all entities.
+        Use 'minimal' (default) for most queries. Domain counts and states_summary
+        are always complete regardless of entity pagination.
+        Standard/full modes paginate entities (default 200 per page) — use offset
+        to fetch more. Use 'domains' filter to narrow scope.
         """
         # Coerce boolean parameters that may come as strings from XML-style calls
         include_state_bool = coerce_bool_param(
@@ -561,11 +602,21 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             include_notifications, "include_notifications", default=True
         )
 
+        # Parse domains filter
+        parsed_domains = parse_string_list_param(domains, "domains", allow_csv=True)
+
+        # Parse pagination parameters
+        limit_int = coerce_int_param(limit, "limit", default=None, min_value=1)
+        offset_int = coerce_int_param(offset, "offset", default=0, min_value=0) or 0
+
         result = await smart_tools.get_system_overview(
             detail_level,
             max_entities_per_domain,
             include_state_bool,
             include_entity_id_bool,
+            domains_filter=parsed_domains,
+            limit=limit_int,
+            offset=offset_int,
         )
         result = cast(dict[str, Any], result)
 
@@ -623,6 +674,29 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             except Exception as e:
                 logger.warning(f"Failed to fetch notifications for overview: {e}")
 
+        # Include active repair issues
+        result["repair_count"] = 0
+        try:
+            repairs_result = await client.send_websocket_message(
+                {"type": "repairs/list_issues"}
+            )
+            if repairs_result.get("success"):
+                issues = repairs_result.get("result", {}).get("issues", [])
+                result["repair_count"] = len(issues)
+                if issues:
+                    result["repairs"] = [
+                        {
+                            "issue_id": r.get("issue_id"),
+                            "domain": r.get("domain"),
+                            "severity": r.get("severity"),
+                            "translation_key": r.get("translation_key"),
+                        }
+                        for r in issues
+                    ]
+        except Exception as e:
+            logger.warning("Failed to fetch repairs for overview: %s", e)
+            result["repairs_error"] = f"Could not fetch repairs: {e}"
+
         # Include tool discovery hint when search transform is active
         settings = get_global_settings()
         if settings.enable_tool_search:
@@ -656,8 +730,8 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         annotations={
             "idempotentHint": True,
             "readOnlyHint": True,
-            "title": "Deep Search"
-        }
+            "title": "Deep Search",
+        },
     )
     @log_tool_usage
     async def ha_deep_search(
@@ -672,8 +746,20 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 ),
             ),
         ] = None,
-        limit: int = 5,
-        offset: int = 0,
+        limit: Annotated[
+            int | str,
+            Field(
+                default=5,
+                description="Maximum total results to return (default: 5)",
+            ),
+        ] = 5,
+        offset: Annotated[
+            int | str,
+            Field(
+                default=0,
+                description="Number of results to skip for pagination (default: 0)",
+            ),
+        ] = 0,
         include_config: Annotated[
             bool | str,
             Field(
@@ -728,6 +814,8 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         )
         exact_match_bool = coerce_bool_param(exact_match, "exact_match", default=True)
         try:
+            limit = coerce_int_param(limit, "limit", default=5, min_value=1)
+            offset = coerce_int_param(offset, "offset", default=0, min_value=0)
             result = await smart_tools.deep_search(
                 query,
                 parsed_search_types,
@@ -764,93 +852,73 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         annotations={
             "idempotentHint": True,
             "readOnlyHint": True,
-            "title": "Get Entity State"
-        }
+            "title": "Get Entity State",
+        },
     )
     @log_tool_usage
-    async def ha_get_state(entity_id: str) -> dict[str, Any]:
-        """Get current status, state, and attributes of any entity (lights, switches, sensors, climate, covers, locks, fans, etc.)."""
-        try:
-            result = await client.get_entity_state(entity_id)
-            return await add_timezone_metadata(client, result)
-        except ToolError:
-            raise
-        except Exception as e:
-            exception_to_structured_error(
-                e,
-                context={"entity_id": entity_id},
-                suggestions=[
-                    f"Verify entity '{entity_id}' exists in Home Assistant",
-                    "Check Home Assistant connection",
-                    "Use ha_search_entities() to find correct entity IDs",
-                ],
-            )
-
-    @mcp.tool(
-        tags={"Search & Discovery"},
-        annotations={
-            "idempotentHint": True,
-            "readOnlyHint": True,
-            "title": "Get Multiple Entity States"
-        }
-    )
-    @log_tool_usage
-    async def ha_get_states(
-        entity_ids: Annotated[
-            list[str],
+    async def ha_get_state(
+        entity_id: Annotated[
+            str | list[str],
             Field(
-                description="List of entity IDs to retrieve states for (e.g., ['light.kitchen', 'sensor.temperature'])"
+                description="Entity ID or list of entity IDs to retrieve state for "
+                "(e.g., 'light.kitchen' or ['light.kitchen', 'sensor.temperature'])"
             ),
         ],
     ) -> dict[str, Any]:
-        """Get state information for multiple Home Assistant entities in a single call.
+        """Get current status, state, and attributes of one or more entities (lights, switches, sensors, climate, covers, locks, fans, etc.).
 
-        Efficiently retrieves states for multiple entities using parallel requests
-        instead of calling ha_get_state repeatedly. Maximum 100 entities per call.
-        Duplicate entity IDs are automatically deduplicated.
+        SINGLE ENTITY:
+        Pass a string entity_id. Returns the entity's full state and attributes.
 
+        MULTIPLE ENTITIES:
+        Pass a list of entity IDs (max 100). Efficiently retrieves states using
+        parallel requests. Duplicates are automatically deduplicated.
         Returns success=True if at least one entity state was retrieved.
         Check 'error_count' for any failed lookups in partial-success scenarios.
 
-        WHEN TO USE:
-        - Checking states of multiple entities at once (e.g., verifying automation results)
-        - Comparing states across related entities
-        - Any scenario requiring 2+ entity state lookups
-
         EXAMPLES:
-        - ha_get_states(["light.kitchen", "light.living_room", "sensor.temperature"])
-        - ha_get_states(["automation.morning_routine", "binary_sensor.motion"])
-
-        NOTE: For a single entity, use ha_get_state() instead.
+        - Single: ha_get_state("light.kitchen")
+        - Multiple: ha_get_state(["light.kitchen", "light.living_room", "sensor.temperature"])
         """
+        # Single entity path
+        if isinstance(entity_id, str):
+            try:
+                result = await client.get_entity_state(entity_id)
+                return await add_timezone_metadata(client, result)
+            except ToolError:
+                raise
+            except Exception as e:
+                exception_to_structured_error(
+                    e,
+                    context={"entity_id": entity_id},
+                    suggestions=[
+                        f"Verify entity '{entity_id}' exists in Home Assistant",
+                        "Check Home Assistant connection",
+                        "Use ha_search_entities() to find correct entity IDs",
+                    ],
+                )
+
+        # Multiple entities path
+        entity_ids: list[str] = entity_id
         MAX_ENTITIES = 100
 
         if not isinstance(entity_ids, list) or not entity_ids:
-            return await add_timezone_metadata(
-                client,
-                create_validation_error(
-                    "entity_ids must be a non-empty list of entity ID strings",
-                    parameter="entity_ids",
-                ),
-            )
+            raise_tool_error(create_validation_error(
+                "entity_id must be a non-empty string or list of entity ID strings",
+                parameter="entity_id",
+            ))
 
         if not all(isinstance(eid, str) for eid in entity_ids):
-            return await add_timezone_metadata(
-                client,
-                create_validation_error(
-                    "All entity_ids values must be strings",
-                    parameter="entity_ids",
-                ),
-            )
+            raise_tool_error(create_validation_error(
+                "All entity_id values must be strings",
+                parameter="entity_id",
+            ))
 
         if len(entity_ids) > MAX_ENTITIES:
-            return await add_timezone_metadata(
-                client,
-                create_validation_error(
-                    f"Too many entity IDs: {len(entity_ids)} exceeds maximum of {MAX_ENTITIES}",
-                    parameter="entity_ids",
-                ),
-            )
+            raise_tool_error(create_validation_error(
+                f"Too many entity IDs: {len(entity_ids)} exceeds maximum of {MAX_ENTITIES}",
+                parameter="entity_id",
+            ))
 
         # Deduplicate while preserving order
         unique_ids = list(dict.fromkeys(entity_ids))
@@ -861,16 +929,16 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
 
         try:
 
-            async def _fetch_state(entity_id: str) -> dict[str, Any]:
+            async def _fetch_state(eid: str) -> dict[str, Any]:
                 try:
-                    state = await client.get_entity_state(entity_id)
-                    return {"success": True, "entity_id": entity_id, "state": state}
+                    state = await client.get_entity_state(eid)
+                    return {"success": True, "entity_id": eid, "state": state}
                 except Exception as e:
-                    logger.warning(f"Failed to fetch state for '{entity_id}': {e}")
+                    logger.warning(f"Failed to fetch state for '{eid}': {e}")
                     # ast-grep-ignore — batch item failure, aggregated via asyncio.gather
                     return exception_to_structured_error(
                         e,
-                        context={"entity_id": entity_id},
+                        context={"entity_id": eid},
                         raise_error=False,
                     )
 

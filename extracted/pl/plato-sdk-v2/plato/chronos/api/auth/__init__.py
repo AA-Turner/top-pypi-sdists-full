@@ -1,6 +1,7 @@
 """API endpoints."""
 
 from . import (
+    authz_check_api_auth_authz_check_get,
     create_session_api_auth_session_post,
     debug_auth_api_auth_debug_get,
     delete_session_api_auth_session_delete,
@@ -17,5 +18,6 @@ __all__ = [
     "create_session_api_auth_session_post",
     "delete_session_api_auth_session_delete",
     "refresh_oauth_api_auth_refresh_oauth_post",
+    "authz_check_api_auth_authz_check_get",
     "debug_auth_api_auth_debug_get",
 ]

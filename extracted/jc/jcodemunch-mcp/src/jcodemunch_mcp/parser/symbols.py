@@ -69,15 +69,12 @@ def make_symbol_id(file_path: str, qualified_name: str, kind: str = "") -> str:
 
 
 def compute_content_hash(source_bytes: bytes) -> str:
-    """Compute SHA-256 hash of symbol source bytes.
-
-    Used for drift detection (did the source change since indexing?)
-    but not as a primary ID.
+    """Compute SHA-256 content hash for drift detection.
 
     Args:
         source_bytes: Raw bytes of the symbol source code.
 
     Returns:
-        Hex-encoded SHA-256 hash.
+        64-char hex-encoded SHA-256 digest.
     """
     return hashlib.sha256(source_bytes).hexdigest()

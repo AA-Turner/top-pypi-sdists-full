@@ -32,6 +32,7 @@ from typing import (
 import pyarrow as pa
 
 from chalk._lsp.error_builder import FeatureClassErrorBuilder, LSPErrorBuilder
+from chalk.utils import HAS_PEP_649
 from chalk.features import is_features_cls
 from chalk.features._class_property import classproperty, classproperty_support
 from chalk.features._encoding.pyarrow import pyarrow_to_primitive
@@ -914,7 +915,10 @@ def _process_class(
     online_store_config: Optional[OnlineStoreConfig],
     cache_strategy: CacheStrategy = CacheStrategy.ALL,
 ) -> Type[T]:
-    raw_cls_annotations = cls.__dict__.get("__annotations__", {})
+    if HAS_PEP_649:
+        raw_cls_annotations = cls.__annotations__
+    else:
+        raw_cls_annotations = cls.__dict__.get("__annotations__", {})
 
     alias_from_to: Dict[str, str] = {}
     additional_inits: list[str] = []

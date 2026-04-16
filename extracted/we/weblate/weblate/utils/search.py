@@ -16,7 +16,7 @@ from dateutil.parser import ParserError
 from dateutil.parser import parse as dateutil_parse
 from django.db import transaction
 from django.db.models import Count, Exists, F, OuterRef, Q, Value
-from django.db.utils import DataError, OperationalError
+from django.db.utils import DataError
 from django.http import Http404
 from django.utils import timezone
 from django.utils.translation import gettext
@@ -37,7 +37,7 @@ from weblate.checks.parser import RawQuotedString
 from weblate.lang.models import Language
 from weblate.trans.models import Category, Component, Label, Project, Translation
 from weblate.trans.util import PLURAL_SEPARATOR
-from weblate.utils.db import re_escape, using_postgresql
+from weblate.utils.db import re_escape
 from weblate.utils.state import (
     FUZZY_STATES,
     STATE_APPROVED,
@@ -284,7 +284,7 @@ class BaseTermExpr:
         microsecond=None,
     ):
         # Lazily import as this can be expensive
-        from dateparser.date import DateDataParser
+        from dateparser.date import DateDataParser  # noqa: PLC0415
 
         # Custom RELATIVE_BASE allows to base "1 day ago" from the midnight instead
         # of the current time
@@ -411,7 +411,7 @@ class BaseTermExpr:
         return result
 
     def convert_change_action(self, text: str) -> int:
-        from weblate.trans.models import Change
+        from weblate.trans.models import Change  # noqa: PLC0415
 
         try:
             return Change.ACTION_NAMES[text]
@@ -469,15 +469,14 @@ class BaseTermExpr:
 
         if isinstance(match, RegexExpr):
             # Regular expression
-            from weblate.trans.models import Unit
+            from weblate.trans.models import Unit  # noqa: PLC0415
 
             with transaction.atomic():
                 try:
                     Unit.objects.annotate(test=Value("")).filter(
                         test__trgm_regex=match.expr
                     ).exists()
-                except (DataError, OperationalError) as error:
-                    # PostgreSQL raises DataError, MySQL OperationalError
+                except DataError as error:
                     raise SearchQueryError(
                         gettext("Invalid regular expression: {}").format(error)
                     ) from error
@@ -580,7 +579,7 @@ class UnitTermExpr(BaseTermExpr):
 
     def has_field(self, text: str, context: dict) -> Q:  # noqa: C901
         if text == "plural":
-            return Q(source__search=PLURAL_SEPARATOR)
+            return Q(source__trgm_search=PLURAL_SEPARATOR)
         if text == "suggestion":
             return Q(suggestion__isnull=False)
         if text == "explanation":
@@ -630,10 +629,7 @@ class UnitTermExpr(BaseTermExpr):
             )
             if not terms:
                 return Q(source__isnull=True)
-            if using_postgresql():
-                template = r"[[:<:]]({})[[:>:]]"
-            else:
-                template = r"(^|[ \t\n\r\f\v])({})($|[ \t\n\r\f\v])"
+            template = r"[[:<:]]({})[[:>:]]"
             return Q(
                 source__iregex=template.format(
                     "|".join(re_escape(term) for term in terms)
@@ -720,7 +716,7 @@ class UnitTermExpr(BaseTermExpr):
         This is needed because filtering on a reverse ForeignKey relation
         with AND using exists ensures each check condition gets its own subquery.
         """
-        from weblate.checks.models import Check
+        from weblate.checks.models import Check  # noqa: PLC0415
 
         lookup = "name__iexact" if self.operator == ":=" else "name__icontains"
         return Q(
@@ -738,7 +734,7 @@ class UnitTermExpr(BaseTermExpr):
         This is needed because filtering on a reverse ForeignKey relation
         with AND using exists ensures each check condition gets its own subquery.
         """
-        from weblate.checks.models import Check
+        from weblate.checks.models import Check  # noqa: PLC0415
 
         lookup = "name__iexact" if self.operator == ":=" else "name__icontains"
         return Q(
@@ -756,7 +752,7 @@ class UnitTermExpr(BaseTermExpr):
         This is needed because filtering on ManyToMany relations
         with AND using exists ensures each screenshot condition gets its own subquery.
         """
-        from weblate.screenshots.models import Screenshot
+        from weblate.screenshots.models import Screenshot  # noqa: PLC0415
 
         lookup = "name__iexact" if self.operator == ":=" else "name__icontains"
         screenshot_query = Screenshot.objects.filter(**{lookup: text})
@@ -787,7 +783,7 @@ class UnitTermExpr(BaseTermExpr):
         return self.convert_int(text)
 
     def field_extra(self, field: str, query: Q, match: Any) -> Q:  # noqa: ANN401
-        from weblate.trans.models import Change
+        from weblate.trans.models import Change  # noqa: PLC0415
 
         if field in {"changed", "changed_by"}:
             return query & Q(change__action__in=Change.ACTIONS_CONTENT)

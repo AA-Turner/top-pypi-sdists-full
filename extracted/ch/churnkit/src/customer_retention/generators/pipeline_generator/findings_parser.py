@@ -56,11 +56,18 @@ _EXPLORATION_TO_PRODUCTION_MODEL = {
 
 
 def _edges_to_labels(edges: List[float]) -> List[str]:
-    labels = []
-    for i in range(len(edges) - 1):
-        labels.append(f"{int(edges[i])}-{int(edges[i + 1])}d")
-    labels.append(f"{int(edges[-1])}d+")
-    return labels
+    """Delegate to the canonical label generator used by NB01c/NB01d.
+
+    A prior in-house implementation emitted `["0-7d", "7-30d", ..., "180d+"]`
+    which does NOT match the `["0-7d", "8-30d", ..., ">180d"]` labels written
+    into the gold table by NB01d's Spark path and `create_recency_bucket_feature`.
+    The resulting one-hot column names then diverge from `FeatureSpec.selected_features`
+    and training fails at the parity gate.
+    """
+    from customer_retention.stages.profiling.temporal_pattern_analyzer import (
+        generate_bucket_labels,
+    )
+    return generate_bucket_labels(edges)
 
 
 _RECOGNIZED_BRONZE_OVERRIDE_KEYS = frozenset(
@@ -165,8 +172,12 @@ class FindingsParser:
 
     def _enforce_spec_schema_parity(self, config: PipelineConfig) -> None:
         pipeline_columns = set(config.gold.feature_selections or []) | self._collect_known_pipeline_columns(config)
+        pipeline_columns |= self._predict_one_hot_expanded_columns(
+            config, self._feature_spec, pipeline_columns,
+        )
         self._collect_allowlist_drops(
             self._feature_spec, pipeline_columns, config.target_column,
+            post_selection_step_targets=self._gold_post_selection_step_targets(config),
         )
 
     def _collect_known_pipeline_columns(self, config: PipelineConfig) -> Set[str]:
@@ -216,6 +227,7 @@ class FindingsParser:
         spec: FeatureSpec,
         pipeline_columns: Set[str],
         target_column: str,
+        post_selection_step_targets: Optional[Set[str]] = None,
     ) -> Set[str]:
         missing = [c for c in spec.selected_features if c not in pipeline_columns]
         if missing:
@@ -232,8 +244,30 @@ class FindingsParser:
             keep.add(spec.entity_column)
         if spec.timestamp_column:
             keep.add(spec.timestamp_column)
+        if post_selection_step_targets:
+            keep |= (post_selection_step_targets & pipeline_columns)
         keep |= {c for c in pipeline_columns if c.startswith("original_")}
         return {c for c in pipeline_columns if c not in keep}
+
+    @staticmethod
+    def _gold_post_selection_step_targets(config: "PipelineConfig") -> Set[str]:
+        """Bare columns of gold steps that run AFTER `apply_feature_selection`
+        in the generated Databricks/local pipeline. These targets must survive
+        feature selection or the steps silently no-op and their outputs (one-hot
+        expansions, scaled values) never land in gold.
+
+        Encodings are load-bearing: `_encode_one_hot(df, col)` drops the bare
+        column and emits `{col}_{value}` columns only when `col` is still
+        present. Scalings are preserved for symmetry — a scale target dropped
+        pre-scaling leaves the column unscaled, which would silently break
+        parity with the training-time fitted distribution.
+        """
+        targets: Set[str] = set()
+        for step in config.gold.encodings:
+            targets.add(step.column)
+        for step in config.gold.scalings:
+            targets.add(step.column)
+        return targets
 
     def _load_recommendations(self) -> Optional[RecommendationRegistry]:
         if self._namespace is not None:
@@ -910,8 +944,19 @@ class FindingsParser:
             return self._silver_merged_columns_cache
         delta = _get_delta_for_silver_schema()
         df = delta.read(str(silver_path))
-        self._silver_merged_columns_cache = set(df.columns)
+        self._silver_merged_columns_cache = self._strip_merge_suffix_artifacts(set(df.columns))
         return self._silver_merged_columns_cache
+
+    @staticmethod
+    def _strip_merge_suffix_artifacts(columns: Set[str]) -> Set[str]:
+        merge_pairs = {
+            c[:-2] for c in columns
+            if c.endswith("_x") and (c[:-2] + "_y") in columns
+        }
+        return {
+            c for c in columns
+            if not ((c.endswith("_x") or c.endswith("_y")) and c[:-2] in merge_pairs)
+        }
 
     @staticmethod
     def _predict_gold_generated_columns(config: "PipelineConfig") -> Set[str]:
@@ -921,6 +966,35 @@ class FindingsParser:
                 generated.add(f"{step.column}_is_zero")
                 generated.add(f"{step.column}_log")
         return generated
+
+    @staticmethod
+    def _one_hot_encoded_targets(config: "PipelineConfig", pipeline_columns: Set[str]) -> Set[str]:
+        return {
+            step.column
+            for step in config.gold.encodings
+            if (step.parameters or {}).get("method", "one_hot") == "one_hot"
+            and step.column in pipeline_columns
+        }
+
+    @staticmethod
+    def _predict_one_hot_expanded_columns(
+        config: "PipelineConfig",
+        spec: Optional[FeatureSpec],
+        pipeline_columns: Set[str],
+    ) -> Set[str]:
+        if spec is None:
+            return set()
+        encode_targets = FindingsParser._one_hot_encoded_targets(config, pipeline_columns)
+        if not encode_targets:
+            return set()
+        expanded: Set[str] = set()
+        for feature in spec.selected_features:
+            for target in encode_targets:
+                prefix = f"{target}_"
+                if feature != target and feature.startswith(prefix):
+                    expanded.add(feature)
+                    break
+        return expanded
 
     @staticmethod
     def _event_aggregated_columns(event_cfg: "BronzeEventConfig") -> Set[str]:
@@ -1175,8 +1249,12 @@ class FindingsParser:
         pipeline_columns |= self._predict_gold_generated_columns(config)
         spec = getattr(self, "_feature_spec", None)
         if spec is not None:
+            pipeline_columns |= self._predict_one_hot_expanded_columns(
+                config, spec, pipeline_columns,
+            )
             drop_columns = self._collect_allowlist_drops(
                 spec, pipeline_columns, config.target_column,
+                post_selection_step_targets=self._gold_post_selection_step_targets(config),
             )
         else:
             drop_columns = self._collect_feature_selection_drops(

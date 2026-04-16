@@ -66,10 +66,30 @@ class Drawer:
             if tooltip:
                 return tooltip
         if value is not None:
+            if self.poster.units == "mins":
+                display_value = self._format_duration(value)
+            else:
+                display_value = f"{value} {self.poster.units}"
             if type_name:
-                return f"{date_title} {value} for {type_name}"
-            return f"{date_title} {value} {self.poster.units}"
+                return f"{date_title} {display_value} ({type_name})"
+            return f"{date_title} {display_value}"
         return date_title
+
+    @staticmethod
+    def _format_duration(minutes):
+        """将分钟数格式化为 xx小时xx分钟 的形式"""
+        try:
+            total = float(minutes)
+        except (TypeError, ValueError):
+            return f"{minutes} mins"
+        hours = int(total // 60)
+        mins = int(total % 60)
+        if hours > 0 and mins > 0:
+            return f"{hours}小时{mins}分钟"
+        elif hours > 0:
+            return f"{hours}小时"
+        else:
+            return f"{mins}分钟"
 
     def _resolve_level_thresholds(self, type_name=None):
         if type_name and self.poster.level_thresholds_by_type:

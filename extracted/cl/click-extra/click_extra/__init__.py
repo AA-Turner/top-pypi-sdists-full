@@ -65,6 +65,7 @@ from .decorators import (  # type: ignore[no-redef]
     config_option,
     group,
     help_option,
+    jobs_option,
     lazy_group,
     no_config_option,
     option,
@@ -77,6 +78,7 @@ from .decorators import (  # type: ignore[no-redef]
     verbosity_option,
     version_option,
 )
+from .jobs import CPU_COUNT, DEFAULT_JOBS, JobsOption
 from .logging import (
     ExtraFormatter,
     ExtraStreamHandler,
@@ -111,6 +113,8 @@ from .version import ExtraVersionOption
 
 __all__ = [
     "BOOL",
+    "CPU_COUNT",
+    "DEFAULT_JOBS",
     "DEFAULT_SUBCOMMANDS_KEY",
     "FLOAT",
     "INT",
@@ -159,6 +163,7 @@ __all__ = [
     "HelpSection",
     "HelpTheme",
     "IntRange",
+    "JobsOption",
     "LazyGroup",
     "LogLevel",
     "MissingParameter",
@@ -213,6 +218,7 @@ __all__ = [
     "getchar",
     "group",
     "help_option",
+    "jobs_option",
     "launch",
     "lazy_group",
     "make_pass_decorator",
@@ -257,13 +263,13 @@ __all__ = [
 """
 
 
-__version__ = "7.11.0"
+__version__ = "7.12.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "8991839cb5e83c54e30a9d9eb8edca05b6ec44a5"
+__git_tag_sha__ = "c7259c07c19be2c179cedac4e065f53c05ac3e0f"
 
 
 def __getattr__(name: str) -> object:

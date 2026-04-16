@@ -4,9 +4,9 @@
 # SPDX-License-Identifier: BSD 2-Clause License
 #
 
-"""A dynamic food ordering flow example for Pipecat Flows.
+"""A food ordering flow example for Pipecat Flows.
 
-This example demonstrates a food ordering system using dynamic flows where
+This example demonstrates a food ordering system using flows where
 conversation paths are determined at runtime. The flow handles:
 
 1. Initial greeting and food type selection (pizza or sushi)
@@ -16,7 +16,7 @@ conversation paths are determined at runtime. The flow handles:
 
 Multi-LLM Support:
 Set LLM_PROVIDER environment variable to choose your LLM provider.
-Supported: openai (default), anthropic, google, aws
+Supported: openai_responses (default), openai, anthropic, google, aws
 
 Requirements:
 - CARTESIA_API_KEY (for TTS)
@@ -130,7 +130,7 @@ def create_initial_node() -> NodeConfig:
         role_message="You are an order-taking assistant. You must ALWAYS use the available functions to progress the conversation. This is a phone conversation and your responses will be converted to audio. Keep the conversation friendly, casual, and polite. Avoid outputting special characters and emojis.",
         task_messages=[
             {
-                "role": "user",
+                "role": "developer",
                 "content": "For this step, ask the user if they want pizza or sushi, and wait for them to use a function to choose. Start off by greeting them. Be friendly and casual; you're taking an order for food over the phone.",
             }
         ],
@@ -193,7 +193,7 @@ def create_pizza_node() -> NodeConfig:
         name="choose_pizza",
         task_messages=[
             {
-                "role": "user",
+                "role": "developer",
                 "content": """You are handling a pizza order. Use the available functions:
 - Use select_pizza_order when the user specifies both size AND type
 
@@ -258,7 +258,7 @@ def create_sushi_node() -> NodeConfig:
         name="choose_sushi",
         task_messages=[
             {
-                "role": "user",
+                "role": "developer",
                 "content": """You are handling a sushi order. Use the available functions:
 - Use select_sushi_order when the user specifies both count AND type
 
@@ -303,7 +303,7 @@ def create_confirmation_node() -> NodeConfig:
         name="confirm",
         task_messages=[
             {
-                "role": "user",
+                "role": "developer",
                 "content": """Read back the complete order details to the user and ask if they want anything else or if they want to make changes. Use the available functions:
 - Use complete_order when the user confirms that the order is correct and no changes are needed
 - Use revise_order if they want to change something
@@ -321,7 +321,7 @@ def create_end_node() -> NodeConfig:
         name="end",
         task_messages=[
             {
-                "role": "user",
+                "role": "developer",
                 "content": "Thank the user for their order and end the conversation politely and concisely.",
             }
         ],
@@ -334,7 +334,9 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY"))
     tts = CartesiaTTSService(
         api_key=os.getenv("CARTESIA_API_KEY"),
-        voice_id="820a3788-2b37-4d21-847a-b65d8a68c99a",  # Salesman
+        settings=CartesiaTTSService.Settings(
+            voice="820a3788-2b37-4d21-847a-b65d8a68c99a",  # Salesman
+        ),
     )
     # LLM service is created using the create_llm function from utils.py
     # Default is OpenAI; can be changed by setting LLM_PROVIDER environment variable
@@ -344,7 +346,8 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     context_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
-            vad_analyzer=SileroVADAnalyzer(), filter_incomplete_user_turns=True
+            vad_analyzer=SileroVADAnalyzer(),
+            filter_incomplete_user_turns=True,
         ),
     )
 
@@ -360,7 +363,14 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         ]
     )
 
-    task = PipelineTask(pipeline, params=PipelineParams(allow_interruptions=True))
+    task = PipelineTask(
+        pipeline,
+        params=PipelineParams(
+            enable_metrics=True,
+            enable_usage_metrics=True,
+        ),
+        idle_timeout_secs=runner_args.pipeline_idle_timeout_secs,
+    )
 
     # Define "global" functions available at every node
     async def get_delivery_estimate(

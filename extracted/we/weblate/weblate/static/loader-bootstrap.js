@@ -578,12 +578,11 @@ $(function () {
       $content.load($target.data("href"), (_responseText, status, xhr) => {
         if (status !== "success") {
           const msg = gettext("Error while loading page:");
-          $content.html(
-            `<div class="alert alert-danger" role="alert">
-                ${msg} ${xhr.statusText} (${xhr.status})
-              </div>
-            `,
-          );
+          const $alert = $("<div/>", {
+            class: "alert alert-danger",
+            role: "alert",
+          }).text(`${msg} ${xhr.statusText} (${xhr.status})`);
+          $content.empty().append($alert);
         }
         $target.data("loaded", 1);
         loadTableSorting();
@@ -978,6 +977,8 @@ $(function () {
   $("[data-task]").each(function () {
     const $message = $(this);
     const $bar = $message.find(".progress-bar");
+    const $messageText = $message.find(".task-message");
+    const $warnings = $message.find(".task-warnings");
     $bar.attr("data-completed", "0");
 
     const progressCompleted = () => {
@@ -998,9 +999,19 @@ $(function () {
         $.get($message.data("task"), (data) => {
           $bar.width(`${data.progress}%`);
           if (data.completed) {
+            const result = data.result ?? {};
             progressCompleted();
-            if (data.result.message) {
-              $message.text(data.result.message);
+            if (result.message) {
+              $messageText.text(result.message);
+            }
+            if (result.warnings?.length) {
+              $warnings.empty();
+              result.warnings.forEach((warning) => {
+                $("<div>")
+                  .addClass("text-warning mt-2")
+                  .text(warning)
+                  .appendTo($warnings);
+              });
             }
           }
         }).fail((jqXhr) => {
@@ -1764,7 +1775,7 @@ $(function () {
       } else if (difference < 60 * 60 * 24) {
         const hours = Math.floor(difference / (60 * 60));
         if (hours === 1) {
-          value = gettext("a hour ago");
+          value = gettext("an hour ago");
         } else {
           value = interpolate(ngettext("%s hour ago", "%s hours ago", hours), [
             hours,
@@ -1776,5 +1787,37 @@ $(function () {
       value = dateFormatter.format(new Date(timestamp));
     }
     timespan.textContent = value;
+  });
+
+  /* Filter category select options based on selected project for component links */
+  $("[data-link-category-select]").each(function () {
+    const $source = $(this);
+    const $target = $($source.data("link-category-select"));
+    if (!$target.length) return;
+
+    let categoriesMap;
+    try {
+      categoriesMap = JSON.parse(
+        $source.attr("data-link-category-map") || "{}",
+      );
+    } catch (e) {
+      console.error("Could not parse link category map", e);
+      return;
+    }
+
+    const emptyLabel = $target.find("option").first().text() || "---------";
+
+    $source.on("change", () => {
+      const key = $source.val();
+      $target.empty();
+      $target.append($("<option>").val("").text(emptyLabel));
+      const items = categoriesMap[key] || [];
+      for (const item of items) {
+        $target.append($("<option>").val(item.id).text(item.name));
+      }
+    });
+
+    // Filter initial state
+    $source.trigger("change");
   });
 });

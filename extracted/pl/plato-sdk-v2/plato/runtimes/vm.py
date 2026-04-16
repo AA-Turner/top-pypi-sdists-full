@@ -138,30 +138,37 @@ class VMRuntime(Runtime):
             alias: Custom alias for the VM. If None, an auto-generated alias is used.
         """
         alias = alias or f"vm-{id(self):x}"
-        env = await self._session.add_env(
-            Env.resource(
-                simulator=alias,
-                sim_config=SimConfigCompute(
-                    cpus=self._cpus,
-                    memory=self._memory,
-                    disk=self._disk,
+
+        # Reuse an already-provisioned env on retry.  When start() retries
+        # after connect_network or SSH fails, the env from the prior attempt
+        # is still live on the backend — calling add_env again with the same
+        # alias would raise "Duplicate alias".
+        env = self._envs.get(alias)
+        if env is None:
+            env = await self._session.add_env(
+                Env.resource(
+                    simulator=alias,
+                    sim_config=SimConfigCompute(
+                        cpus=self._cpus,
+                        memory=self._memory,
+                        disk=self._disk,
+                    ),
+                    alias=alias,
+                    docker_image_url=self.image,
+                    upload_rootfs=False,
+                    rootfs_storage_backend="snapshot-store",
                 ),
-                alias=alias,
-                docker_image_url=self.image,
-                upload_rootfs=False,
-                rootfs_storage_backend="snapshot-store",
-            ),
-            timeout=self._timeout,
-            heartbeat_timeout=self._heartbeat_timeout,
-        )
+                timeout=self._timeout,
+                heartbeat_timeout=self._heartbeat_timeout,
+            )
+            self._envs[alias] = env
+
         await self._session.connect_network()
 
         # Add SSH public key to the VM.
         if self._ssh_key_path:
             pub_key = Path(str(self._ssh_key_path) + ".pub").read_text().strip()
             await env.add_ssh_key(pub_key)
-
-        self._envs[alias] = env
         hostname, extra_opts = self._ssh_target(env)
         if self._ssh_key_path is not None:
             await self._wait_for_ssh(hostname, extra_opts=extra_opts, timeout=min(timeout, 60))

@@ -26,9 +26,10 @@ def _find_errors(node, errors=None):
     return errors
 
 
-class JsSyntaxErrorFound(LinterIssue):
-    def __init__(self, error_message: str, file_path: Path):
-        self.label = f"JS error in {file_path.name}: {error_message}"
+class JsSyntaxErrorsFound(LinterIssue):
+    def __init__(self, file_path: Path, errors: List[str]):
+        bullets = "\n".join(f"  - {err}" for err in errors)
+        self.label = f"JS errors in {file_path.name}:\n{bullets}"
         self.fixes = []
 
 
@@ -38,7 +39,7 @@ class JsSyntax(LinterRule):
     fix_with_ai = True
 
     def find_issues(self) -> List[LinterIssue]:
-        issues = []
+        issues: List[LinterIssue] = []
         root = Settings.root_path
         parser = Parser(JS_LANGUAGE)
 
@@ -55,8 +56,11 @@ class JsSyntax(LinterRule):
             if not tree.root_node.has_error:
                 continue
 
-            for row, col in _find_errors(tree.root_node):
-                msg = f"syntax error at line {row + 1}, col {col}"
-                issues.append(JsSyntaxErrorFound(msg, js_file))
+            file_errors = [
+                f"syntax error at line {row + 1}, col {col}"
+                for row, col in _find_errors(tree.root_node)
+            ]
+            if file_errors:
+                issues.append(JsSyntaxErrorsFound(js_file, file_errors))
 
         return issues

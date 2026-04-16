@@ -3,12 +3,12 @@ from typing import List, Optional, Union
 from sqlfluff.core.parser import BaseSegment
 
 from collate_sqllineage.core.holders import SubQueryLineageHolder
-from collate_sqllineage.core.models import Path, SubQuery, Table
+from collate_sqllineage.core.models import Location, Path, SubQuery, Table
 from collate_sqllineage.core.parser.sqlfluff.models import (
     SqlFluffSubQuery,
     SqlFluffTable,
 )
-from collate_sqllineage.core.parser.sqlfluff.utils import get_table_alias
+from collate_sqllineage.core.parser.sqlfluff.utils import get_child, get_table_alias
 from collate_sqllineage.utils.helpers import escape_identifier_name
 
 
@@ -17,7 +17,7 @@ def retrieve_holder_data_from(
     holder: SubQueryLineageHolder,
     table_identifier: BaseSegment,
     alias: Optional[str] = None,
-) -> Union[Path, SubQuery, Table]:
+) -> Union[Location, Path, SubQuery, Table]:
     """
     Build a 'SqlFluffSubquery' or 'SqlFluffTable' for a given list of segments and a table identifier segment.
     It will use the list of segments to find an alias and the holder CTE set of 'SqlFluffSubQuery'.
@@ -40,6 +40,8 @@ def retrieve_holder_data_from(
     if data is None:
         if table_identifier.type == "file_reference":
             return Path(escape_identifier_name(table_identifier.segments[-1].raw))
-        else:
-            return SqlFluffTable.of(table_identifier, alias=alias_)
+        # Snowflake stage reference inside FROM, e.g. @db.schema.stage[/subpath]
+        if get_child(table_identifier, "stage_path"):
+            return Location(escape_identifier_name(table_identifier.raw))
+        return SqlFluffTable.of(table_identifier, alias=alias_)
     return data

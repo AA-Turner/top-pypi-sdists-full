@@ -180,6 +180,16 @@ class ActionEvents(IntegerChoices):
     LABEL_REMOVE = 87, gettext_lazy("Label removed")
     # Translators: Name of event in the history
     REPO_CLEANUP = 88, gettext_lazy("Repository cleanup")
+    # Translators: Name of event in the history
+    NEW_SOURCE_UPLOAD = 89, gettext_lazy("Source string added in the upload")
+    # Translators: Name of event in the history
+    NEW_SOURCE_REPO = 90, gettext_lazy("Source string added in the repository")
+    # Translators: Name of event in the history
+    PROJECT_BACKUP = 91, gettext_lazy("Project backed up")
+    # Translators: Name of event in the history
+    PROJECT_RESTORE = 92, gettext_lazy("Project restored")
+    # Translators: Name of event in the history
+    COMPONENT_RESTORE = 93, gettext_lazy("Component restored")
 
 
 # Actions which are logged
@@ -200,6 +210,9 @@ ACTIONS_LOG = {
     ActionEvents.REMOVE_CATEGORY,
     ActionEvents.RENAME_CATEGORY,
     ActionEvents.MOVE_CATEGORY,
+    ActionEvents.PROJECT_BACKUP,
+    ActionEvents.PROJECT_RESTORE,
+    ActionEvents.COMPONENT_RESTORE,
 }
 
 
@@ -255,6 +268,7 @@ ACTIONS_REPOSITORY = {
     ActionEvents.FILE_UPLOAD,
     ActionEvents.FORCE_SYNC,
     ActionEvents.FORCE_SCAN,
+    ActionEvents.REPO_CLEANUP,
 }
 
 # Actions where target is rendered as translation string

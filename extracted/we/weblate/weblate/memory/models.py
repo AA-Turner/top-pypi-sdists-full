@@ -8,9 +8,10 @@ import json
 import math
 import os
 import re
-from typing import TYPE_CHECKING, BinaryIO
+from typing import TYPE_CHECKING, BinaryIO, TypedDict
 
 from django.conf import settings
+from django.contrib.postgres import indexes as postgres_indexes
 from django.db import models
 from django.db.models import Q, Value
 from django.db.models.functions import MD5
@@ -28,7 +29,7 @@ from weblate.memory.utils import (
     CATEGORY_USER_OFFSET,
     is_valid_memory_entry,
 )
-from weblate.utils.db import adjust_similarity_threshold, using_postgresql
+from weblate.utils.db import adjust_similarity_threshold
 from weblate.utils.errors import report_error
 
 if TYPE_CHECKING:
@@ -46,6 +47,18 @@ SUPPORTED_FORMATS = (
 )
 
 MIN_SIMILARITY_THRESHOLD = 0.3
+MEMORY_LOOKUP_LIMIT = 50
+
+
+class MemoryDict(TypedDict):
+    source: str
+    context: str
+    target: str
+    source_language: str
+    target_language: str
+    origin: str
+    category: int
+    status: int
 
 
 class MemoryImportError(Exception):
@@ -67,6 +80,9 @@ def get_node_data(unit, node):
 
 
 class MemoryQuerySet(models.QuerySet):
+    def global_file_query(self) -> Q:
+        return Q(from_file=True, user__isnull=True, project__isnull=True)
+
     def filter_type(
         self,
         *,
@@ -80,7 +96,7 @@ class MemoryQuerySet(models.QuerySet):
             base = base.using("memory_db")
         query = Q()
         if from_file:
-            query |= Q(from_file=from_file)
+            query |= self.global_file_query()
         if use_shared:
             query |= Q(shared=use_shared)
         if project:
@@ -90,19 +106,19 @@ class MemoryQuerySet(models.QuerySet):
         return base.filter(query)
 
     def filter(self, *args, **kwargs):
-        if using_postgresql():
-            # Use MD5 for filtering to utilize MD5 index,
-            # MariaDB does not support that, but has partial
-            # index on text fields created manually
-            for field in ("source", "target", "origin"):
-                if field in kwargs:
-                    kwargs[f"{field}__md5"] = MD5(Value(kwargs.pop(field)))
-                in_field = f"{field}__in"
-                if in_field in kwargs:
-                    kwargs[f"{field}__md5__in"] = [
-                        MD5(Value(value)) for value in kwargs.pop(in_field)
-                    ]
+        # Use MD5 for filtering to utilize MD5 index
+        for field in ("source", "target", "origin"):
+            if field in kwargs:
+                kwargs[f"{field}__md5"] = MD5(Value(kwargs.pop(field)))
+            in_field = f"{field}__in"
+            if in_field in kwargs:
+                kwargs[f"{field}__md5__in"] = [
+                    MD5(Value(value)) for value in kwargs.pop(in_field)
+                ]
         return super().filter(*args, **kwargs)
+
+    def get_lookup_length(self, text: str) -> int:
+        return len(NON_WORD_RE.sub("", text))
 
     def threshold_to_similarity(self, text: str, threshold: int) -> float:
         """
@@ -120,6 +136,9 @@ class MemoryQuerySet(models.QuerySet):
         We exclude non-word characters while calculating this as those are
         excluded in the trigram matching.
         """
+        if threshold >= 100:
+            return 1.0
+
         # Highest similarity we want to get
         high = 0.985
         # Limit the number of decimals to avoid too frequent flipping of the setting
@@ -140,14 +159,34 @@ class MemoryQuerySet(models.QuerySet):
 
         # Measure the length of alphanumeric characters in the text
         max_length = 2000
-        length = min(max(1, len(NON_WORD_RE.sub("", text))), max_length)
+        length = min(max(1, self.get_lookup_length(text)), max_length)
 
         # Apply boost based on square root of length so that it grows faster
         # for shorter strings
         boost = (maximum - base) * math.sqrt(length) / math.sqrt(max_length)
 
-        # Cap result into reasonable limits
-        return max(0.6, min(1.0, round(base + boost, decimals)))
+        similarity = max(0.6, min(1.0, round(base + boost, decimals)))
+
+        # Short, common strings tend to produce broad trigram matches. Start with
+        # a stricter threshold for those so that we avoid expensive fuzzy scans.
+        if threshold >= 75:
+            if length <= 8:
+                similarity = max(similarity, 0.97)
+            elif length <= 16:
+                similarity = max(similarity, 0.95)
+
+        return similarity
+
+    def minimum_similarity(self, text: str, threshold: int) -> float:
+        if threshold >= 100:
+            return 1.0
+        if threshold >= 75:
+            length = self.get_lookup_length(text)
+            if length <= 8:
+                return 0.92
+            if length <= 16:
+                return 0.90
+        return MIN_SIMILARITY_THRESHOLD
 
     def lookup(
         self,
@@ -159,36 +198,49 @@ class MemoryQuerySet(models.QuerySet):
         use_shared,
         threshold: int = 75,
     ):
+        base = self.prefetch_project().filter_type(
+            user=user,
+            project=project,
+            use_shared=use_shared,
+            from_file=True,
+        )
+
+        if threshold >= 100:
+            return base.filter(
+                source=text,
+                source_language=source_language,
+                target_language=target_language,
+            )[:MEMORY_LOOKUP_LIMIT]
+
         # Adjust similarity based on string length to get more relevant matches
         # for long strings
         similarity_threshold = self.threshold_to_similarity(text, threshold)
+        minimum_similarity = self.minimum_similarity(text, threshold)
 
         results = self.none()
 
-        while len(results) == 0 and similarity_threshold > MIN_SIMILARITY_THRESHOLD:
+        while len(results) == 0 and similarity_threshold >= minimum_similarity:
             # Change PostgreSQL similarity threshold configuration
             adjust_similarity_threshold(similarity_threshold)
 
             # Actual database query
-            results = (
-                self.prefetch_project()
-                .filter_type(
-                    # Type filtering
-                    user=user,
-                    project=project,
-                    use_shared=use_shared,
-                    from_file=True,
-                )
-                .filter(
-                    # Full-text search on source
-                    source__search=text,
-                    # Language filtering
-                    source_language=source_language,
-                    target_language=target_language,
-                )[:50]
+            results = base.filter(
+                # Full-text search on source
+                source__trgm_search=text,
+                # Language filtering
+                source_language=source_language,
+                target_language=target_language,
             )
+            results = results[:MEMORY_LOOKUP_LIMIT]
             # Decrease threshold in case no matches were found
-            similarity_threshold -= 0.05
+            similarity_threshold = round(similarity_threshold - 0.05, 3)
+            if (
+                len(results) == 0
+                and similarity_threshold
+                < minimum_similarity
+                < similarity_threshold + 0.05
+            ):
+                similarity_threshold = minimum_similarity
 
         return results
 
@@ -202,19 +254,16 @@ class MemoryQuerySet(models.QuerySet):
 class MemoryManager(models.Manager):
     def import_file(
         self,
+        *,
         request: AuthenticatedHttpRequest | None,
         fileobj: BinaryIO,
         langmap: dict[str, str] | None = None,
         source_language: Language | str | None = None,
         target_language: Language | str | None = None,
-        **kwargs,
+        user: User | None = None,
+        project: Project | None = None,
+        from_file: bool = True,
     ):
-        kwargs.update(
-            {
-                "from_file": True,
-                "status": Memory.STATUS_ACTIVE,
-            }
-        )
         origin = os.path.basename(fileobj.name).lower()
         name, extension = os.path.splitext(origin)
 
@@ -227,17 +276,37 @@ class MemoryManager(models.Manager):
             origin = f"{name[:25]}...{extension}"
 
         if extension == ".tmx":
-            result = self.import_tmx(request, fileobj, origin, langmap, **kwargs)
+            result = self.import_tmx(
+                request=request,
+                fileobj=fileobj,
+                origin=origin,
+                langmap=langmap,
+                user=user,
+                project=project,
+                from_file=True,
+                status=Memory.STATUS_ACTIVE,
+            )
         elif extension == ".json":
-            result = self.import_json(request, fileobj, origin, **kwargs)
+            result = self.import_json(
+                request=request,
+                fileobj=fileobj,
+                origin=origin,
+                user=user,
+                project=project,
+                from_file=True,
+                status=Memory.STATUS_ACTIVE,
+            )
         else:
             result = self.import_other_format(
-                request,
-                fileobj,
-                origin,
-                source_language,
-                target_language,
-                **kwargs,
+                request=request,
+                fileobj=fileobj,
+                origin=origin,
+                source_language=source_language,
+                target_language=target_language,
+                user=user,
+                project=project,
+                from_file=True,
+                status=Memory.STATUS_ACTIVE,
             )
 
         if not result:
@@ -248,14 +317,18 @@ class MemoryManager(models.Manager):
 
     def import_json(
         self,
+        *,
         request: AuthenticatedHttpRequest | None,
         fileobj: BinaryIO,
-        origin: str | None = None,
-        **kwargs,
+        origin: str,
+        user: User | None = None,
+        project: Project | None = None,
+        from_file: bool = False,
+        status: int = 0,
     ) -> int:
         # Lazily import as this is expensive
-        from jsonschema import validate
-        from jsonschema.exceptions import ValidationError
+        from jsonschema import validate  # noqa: PLC0415
+        from jsonschema.exceptions import ValidationError  # noqa: PLC0415
 
         content = fileobj.read()
         try:
@@ -287,7 +360,11 @@ class MemoryManager(models.Manager):
                     target=entry["target"],
                     origin=origin,
                     context=entry.get("context", ""),
-                    **kwargs,
+                    user=user,
+                    project=project,
+                    from_file=from_file,
+                    status=status,
+                    shared=False,
                 )
                 found += 1
             except Language.DoesNotExist:
@@ -296,11 +373,15 @@ class MemoryManager(models.Manager):
 
     def import_tmx(
         self,
+        *,
         request: AuthenticatedHttpRequest | None,
         fileobj: BinaryIO,
-        origin: str | None = None,
+        origin: str,
         langmap: dict[str, str] | None = None,
-        **kwargs,
+        user: User | None = None,
+        project: Project | None = None,
+        from_file: bool = False,
+        status: int = 0,
     ) -> int:
         try:
             storage = tmxfile.parsefile(fileobj)
@@ -340,7 +421,7 @@ class MemoryManager(models.Manager):
                     )
                 except Language.DoesNotExist as error:
                     raise MemoryImportError(
-                        gettext("Could not find language %s!") % header.get("srclang")
+                        gettext("Could not find language %s!") % lang_code
                     ) from error
                 translations[language.code] = text
 
@@ -360,19 +441,27 @@ class MemoryManager(models.Manager):
                     target=text,
                     origin=origin,
                     context=unit.getcontext(),
-                    **kwargs,
+                    user=user,
+                    project=project,
+                    from_file=from_file,
+                    status=status,
+                    shared=False,
                 )
                 found += 1
         return found
 
     def import_other_format(
         self,
+        *,
         request: AuthenticatedHttpRequest | None,
         fileobj: BinaryIO,
         origin: str,
         source_language: Language | str | None = None,
         target_language: Language | str | None = None,
-        **kwargs,
+        user: User | None = None,
+        project: Project | None = None,
+        from_file: bool = False,
+        status: int = 0,
     ) -> int:
         """
         Import memory from other formats.
@@ -382,7 +471,7 @@ class MemoryManager(models.Manager):
         `weblate.formats.auto`.
 
         """
-        from weblate.formats.auto import try_load
+        from weblate.formats.auto import try_load  # noqa: PLC0415
 
         lang_cache: dict[str, Language] = {}
         try:
@@ -424,16 +513,70 @@ class MemoryManager(models.Manager):
                 target=unit.target,
                 origin=origin,
                 context=unit.context,
-                **kwargs,
+                user=user,
+                project=project,
+                from_file=from_file,
+                status=status,
+                shared=False,
             )
             count += 1
         return count
 
-    def update_entry(self, **kwargs) -> None:
-        if not is_valid_memory_entry(**kwargs):  # pylint: disable=missing-kwoa
+    def update_entry(
+        self,
+        *,
+        source: str,
+        target: str,
+        source_language: Language,
+        target_language: Language,
+        context: str,
+        origin: str,
+        status: int,
+        user: User | None,
+        project: Project | None,
+        from_file: bool,
+        shared: bool,
+    ) -> None:
+        if not is_valid_memory_entry(
+            source=source,
+            target=target,
+            status=status,
+            source_language=source_language,
+            target_language=target_language,
+            origin=origin,
+            context=context,
+            user=user,
+            project=project,
+            from_file=from_file,
+            shared=shared,
+        ):
             return
-        if not self.filter(**kwargs).exists():
-            self.create(**kwargs)
+        if not self.filter(
+            source=source,
+            target=target,
+            status=status,
+            source_language=source_language,
+            target_language=target_language,
+            origin=origin,
+            context=context,
+            user=user,
+            project=project,
+            from_file=from_file,
+            shared=shared,
+        ).exists():
+            self.create(
+                source=source,
+                target=target,
+                status=status,
+                source_language=source_language,
+                target_language=target_language,
+                origin=origin,
+                context=context,
+                user=user,
+                project=project,
+                from_file=from_file,
+                shared=shared,
+            )
 
 
 class Memory(models.Model):
@@ -486,7 +629,6 @@ class Memory(models.Model):
         verbose_name = "Translation memory entry"
         verbose_name_plural = "Translation memory entries"
         indexes = [  # noqa: RUF012
-            # Additional indexes are created manually in the migration for full text search
             # Use MD5 to index text fields, applied in MemoryQuerySet.filter
             models.Index(
                 MD5("origin"),
@@ -497,11 +639,16 @@ class Memory(models.Model):
                 name="memory_md5_index",
             ),
             # Partial index for to optimize lookup for file based entries
-            # MySQL/MariaDB does not supports condition and uses full index instead.
             models.Index(
                 "from_file",
                 condition=Q(from_file=True),
                 name="memory_from_file",
+            ),
+            postgres_indexes.GinIndex(
+                postgres_indexes.OpClass(models.F("source"), name="gin_trgm_ops"),
+                models.F("target_language"),
+                models.F("source_language"),
+                name="memory_source_trgm",
             ),
         ]
 
@@ -521,7 +668,7 @@ class Memory(models.Model):
             text = "Unknown: {}"
         return text.format(self.origin)
 
-    def get_category(self):
+    def get_category(self) -> int:
         if self.from_file:
             return CATEGORY_FILE
         if self.shared:
@@ -532,7 +679,7 @@ class Memory(models.Model):
             return CATEGORY_USER_OFFSET + self.user_id
         return 0
 
-    def as_dict(self):
+    def as_dict(self) -> MemoryDict:
         """Convert to dict suitable for JSON export."""
         return {
             "source": self.source,

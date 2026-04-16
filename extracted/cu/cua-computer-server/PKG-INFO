@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cua-computer-server
-Version: 0.3.32
+Version: 0.3.34
 Summary: Server component for the Computer-Use Interface (CUI) framework powering Cua
 Author-Email: TryCua <gh@trycua.com>
 License: MIT
@@ -25,7 +25,7 @@ Requires-Dist: pyobjc-framework-ApplicationServices>=10.1; sys_platform == "darw
 Requires-Dist: python-xlib>=0.33; sys_platform == "linux"
 Requires-Dist: pywin32>=310; sys_platform == "win32"
 Requires-Dist: python-certifi-win32; sys_platform == "win32"
-Requires-Dist: cua-core>=0.1.18
+Requires-Dist: cua-core<0.4.0,>=0.3.0
 Requires-Dist: grpcio==1.78.0
 Requires-Dist: protobuf==6.31.1
 Provides-Extra: macos

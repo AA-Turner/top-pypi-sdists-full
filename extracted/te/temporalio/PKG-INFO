@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: temporalio
-Version: 1.25.0
+Version: 1.26.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -21,7 +21,8 @@ Requires-Dist: opentelemetry-sdk>=1.11.1,<2 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.11.1,<2 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-semantic-conventions>=0.40b0,<1 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-sdk-extension-aws>=2.0.0,<3 ; extra == 'lambda-worker-otel'
-Requires-Dist: openai-agents>=0.3,<0.7 ; extra == 'openai-agents'
+Requires-Dist: langsmith>=0.7.0,<0.8 ; extra == 'langsmith'
+Requires-Dist: openai-agents>=0.14.0 ; extra == 'openai-agents'
 Requires-Dist: mcp>=1.9.4,<2 ; extra == 'openai-agents'
 Requires-Dist: opentelemetry-api>=1.11.1,<2 ; extra == 'opentelemetry'
 Requires-Dist: opentelemetry-sdk>=1.11.1,<2 ; extra == 'opentelemetry'
@@ -30,6 +31,7 @@ Provides-Extra: aioboto3
 Provides-Extra: google-adk
 Provides-Extra: grpc
 Provides-Extra: lambda-worker-otel
+Provides-Extra: langsmith
 Provides-Extra: openai-agents
 Provides-Extra: opentelemetry
 Provides-Extra: pydantic

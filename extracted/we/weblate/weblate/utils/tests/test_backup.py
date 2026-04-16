@@ -3,13 +3,25 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import os
+import subprocess  # noqa: S404
+from contextlib import nullcontext
 from typing import cast
+from unittest.mock import patch
 
 from django.conf import settings
-from django.test import TransactionTestCase
+from django.test import SimpleTestCase, TransactionTestCase
 from django.test.utils import override_settings
 
-from weblate.utils.backup import backup, cleanup, get_paper_key, initialize, prune
+from weblate.utils.backup import (
+    BackupError,
+    backup,
+    cleanup,
+    get_paper_key,
+    initialize,
+    prune,
+    run_borg,
+    tag_cache_dirs,
+)
 from weblate.utils.data import data_path
 from weblate.utils.tasks import database_backup, settings_backup
 from weblate.utils.unittest import tempdir_setting
@@ -51,4 +63,33 @@ class BackupTest(TransactionTestCase):
             os.path.exists(
                 os.path.join(settings.DATA_DIR, "backups", "database.sql.gz")
             )
+        )
+
+    @tempdir_setting("CACHE_DIR")
+    @tempdir_setting("DATA_DIR")
+    def test_tag_cache_dirs_marks_ssh_wrapper_cache(self) -> None:
+        ssh_cache_dir = data_path("cache") / "ssh"
+        ssh_cache_dir.mkdir(parents=True)
+
+        tag_cache_dirs()
+
+        self.assertTrue((ssh_cache_dir / "CACHEDIR.TAG").exists())
+
+
+class RunBorgTest(SimpleTestCase):
+    def test_run_borg_reports_silent_failure(self) -> None:
+        error = subprocess.CalledProcessError(2, ["borg", "create"], output="")
+        with (
+            patch("weblate.utils.backup.backup_lock", return_value=nullcontext()),
+            patch("weblate.utils.backup.SSH_WRAPPER.create"),
+            patch("weblate.utils.backup.add_breadcrumb"),
+            patch("weblate.utils.backup.report_error"),
+            patch("weblate.utils.backup.subprocess.check_output", side_effect=error),
+            self.assertRaises(BackupError) as raised,
+        ):
+            run_borg(["create"])
+
+        self.assertEqual(
+            str(raised.exception),
+            "Borg exited with status 2 without any output",
         )

@@ -2,7 +2,6 @@
 # Licensed under the MIT License.
 
 from __future__ import annotations
-from typing import Optional
 
 from microsoft_agents.hosting.core.authorization.auth_types import AuthTypes
 
@@ -15,24 +14,24 @@ class AgentAuthConfiguration:
     CLIENT_ID: The client ID for the Azure AD application.
     AUTH_TYPE: The type of authentication to use (microsoft_agents.hosting.core.authorization.auth_types.AuthTypes).
     CLIENT_SECRET: The client secret for the Azure AD application (if using client secret authentication).
-    CERT_PEM_FILE: The path to the PEM file for certificate authentication (if using certificate authentication).
-    CERT_KEY_FILE: The path to the key file for certificate authentication (if using certificate authentication).
+    CERT_PFX_FILE: The path to the PFX certificate file (if using certificate authentication).
     CONNECTION_NAME: The name of the connection
+    FEDERATED_CLIENT_ID: The client ID for federated credentials (if using federated credentials authentication).
     SCOPES: The scopes to request
-    AUTHORITY: The authority URL for the Azure AD (if different from the default).f
+    AUTHORITY: The authority URL for the Azure AD (if different from the default).
     ALT_BLUEPRINT_ID: An optional alternative blueprint ID used when constructing a connector client.
     """
 
-    TENANT_ID: Optional[str]
-    CLIENT_ID: Optional[str]
+    TENANT_ID: str | None
     AUTH_TYPE: AuthTypes
-    CLIENT_SECRET: Optional[str]
-    CERT_PEM_FILE: Optional[str]
-    CERT_KEY_FILE: Optional[str]
-    CONNECTION_NAME: Optional[str]
-    SCOPES: Optional[list[str]]
-    AUTHORITY: Optional[str]
-    ALT_BLUEPRINT_ID: Optional[str]
+    CLIENT_ID: str | None
+    CLIENT_SECRET: str | None
+    CERT_PFX_FILE: str | None
+    CONNECTION_NAME: str | None
+    FEDERATED_CLIENT_ID: str | None
+    SCOPES: list[str] | None
+    AUTHORITY: str | None
+    ALT_BLUEPRINT_ID: str | None
     ANONYMOUS_ALLOWED: bool = False
 
     # Multi-connection support: Maintains a map of all configured connections
@@ -46,17 +45,17 @@ class AgentAuthConfiguration:
 
     def __init__(
         self,
-        auth_type: AuthTypes = None,
-        client_id: str = None,
-        tenant_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        cert_pem_file: Optional[str] = None,
-        cert_key_file: Optional[str] = None,
-        connection_name: Optional[str] = None,
-        authority: Optional[str] = None,
-        scopes: Optional[list[str]] = None,
+        auth_type: AuthTypes | None = None,
+        client_id: str | None = None,
+        tenant_id: str | None = None,
+        client_secret: str | None = None,
+        cert_pfx_file: str | None = None,
+        connection_name: str | None = None,
+        federated_client_id: str | None = None,
+        authority: str | None = None,
+        scopes: list[str] | None = None,
         anonymous_allowed: bool = False,
-        **kwargs: Optional[dict[str, str]],
+        **kwargs: str,
     ):
 
         self.AUTH_TYPE = auth_type or kwargs.get("AUTHTYPE", AuthTypes.client_secret)
@@ -64,9 +63,11 @@ class AgentAuthConfiguration:
         self.AUTHORITY = authority or kwargs.get("AUTHORITY", None)
         self.TENANT_ID = tenant_id or kwargs.get("TENANTID", None)
         self.CLIENT_SECRET = client_secret or kwargs.get("CLIENTSECRET", None)
-        self.CERT_PEM_FILE = cert_pem_file or kwargs.get("CERTPEMFILE", None)
-        self.CERT_KEY_FILE = cert_key_file or kwargs.get("CERTKEYFILE", None)
+        self.CERT_PFX_FILE = cert_pfx_file or kwargs.get("CERTPFXFILE", None)
         self.CONNECTION_NAME = connection_name or kwargs.get("CONNECTIONNAME", None)
+        self.FEDERATED_CLIENT_ID = federated_client_id or kwargs.get(
+            "FEDERATEDCLIENTID", None
+        )
         self.SCOPES = scopes or kwargs.get("SCOPES", None)
         self.ALT_BLUEPRINT_ID = kwargs.get("ALT_BLUEPRINT_NAME", None)
         self.ANONYMOUS_ALLOWED = anonymous_allowed or kwargs.get(

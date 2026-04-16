@@ -20,6 +20,7 @@ from microsoft_agents.activity import (
 )
 from microsoft_agents.activity.entity.entity_types import EntityTypes
 from microsoft_agents.hosting.core.authorization.claims_identity import ClaimsIdentity
+import microsoft_agents.hosting.core.telemetry.turn_context.spans as spans
 
 
 class TurnContext(TurnContextProtocol):
@@ -142,15 +143,9 @@ class TurnContext(TurnContextProtocol):
         """
         # Use lazy import to avoid circular dependency
         if not hasattr(self, "_streaming_response"):
-            try:
-                from microsoft_agents.hosting.aiohttp.app.streaming import (
-                    StreamingResponse,
-                )
+            from microsoft_agents.hosting.core.app.streaming import StreamingResponse
 
-                self._streaming_response = StreamingResponse(self)
-            except ImportError:
-                # If the hosting library isn't available, return None
-                self._streaming_response = None
+            self._streaming_response = StreamingResponse(self)
         return self._streaming_response
 
     @property
@@ -217,50 +212,52 @@ class TurnContext(TurnContextProtocol):
         # TODO: Check activity serialization
         ref = self.activity.get_conversation_reference()
 
-        def activity_validator(activity: Activity) -> Activity:
-            if not getattr(activity, "type", None):
-                activity.type = ActivityTypes.message
-            if activity.type != ActivityTypes.trace:
+        with spans.TurnContextSendActivities(self):
+
+            def activity_validator(activity: Activity) -> Activity:
+                if not getattr(activity, "type", None):
+                    activity.type = ActivityTypes.message
+                if activity.type != ActivityTypes.trace:
+                    nonlocal sent_non_trace_activity
+                    sent_non_trace_activity = True
+                if not activity.input_hint:
+                    activity.input_hint = "acceptingInput"
+                activity.id = None
+                return activity
+
+            output = [
+                activity_validator(
+                    TurnContext.apply_conversation_reference(deepcopy(act), ref)
+                )
+                for act in activities
+            ]
+
+            # send activities through adapter
+            async def logic():
                 nonlocal sent_non_trace_activity
-                sent_non_trace_activity = True
-            if not activity.input_hint:
-                activity.input_hint = "acceptingInput"
-            activity.id = None
-            return activity
 
-        output = [
-            activity_validator(
-                TurnContext.apply_conversation_reference(deepcopy(act), ref)
-            )
-            for act in activities
-        ]
+                if self.activity.delivery_mode == DeliveryModes.expect_replies:
+                    responses = []
+                    for activity in output:
+                        self.buffered_reply_activities.append(activity)
+                        # Ensure the TurnState has the InvokeResponseKey, since this activity
+                        # is not being sent through the adapter, where it would be added to TurnState.
+                        if activity.type == ActivityTypes.invoke_response:
+                            self.turn_state[TurnContext._INVOKE_RESPONSE_KEY] = activity
 
-        # send activities through adapter
-        async def logic():
-            nonlocal sent_non_trace_activity
+                        responses.append(ResourceResponse())
 
-            if self.activity.delivery_mode == DeliveryModes.expect_replies:
-                responses = []
-                for activity in output:
-                    self.buffered_reply_activities.append(activity)
-                    # Ensure the TurnState has the InvokeResponseKey, since this activity
-                    # is not being sent through the adapter, where it would be added to TurnState.
-                    if activity.type == ActivityTypes.invoke_response:
-                        self.turn_state[TurnContext._INVOKE_RESPONSE_KEY] = activity
+                    if sent_non_trace_activity:
+                        self.responded = True
 
-                    responses.append(ResourceResponse())
+                    return responses
 
+                responses = await self.adapter.send_activities(self, output)
                 if sent_non_trace_activity:
                     self.responded = True
-
                 return responses
 
-            responses = await self.adapter.send_activities(self, output)
-            if sent_non_trace_activity:
-                self.responded = True
-            return responses
-
-        return await self._emit(self._on_send_activities, output, logic())
+            return await self._emit(self._on_send_activities, output, logic())
 
     async def update_activity(self, activity: Activity):
         """

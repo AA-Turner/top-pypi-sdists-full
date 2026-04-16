@@ -50,7 +50,6 @@ from weblate.trans.tests.utils import (
     get_test_file,
     social_core_override_settings,
 )
-from weblate.utils.db import TransactionsTestMixin
 from weblate.vcs.ssh import get_key_data
 from weblate.wladmin.models import ConfigurationError, SupportStatus
 
@@ -75,9 +74,7 @@ TEST_BACKENDS = (
 )
 
 
-class SeleniumTests(
-    TransactionsTestMixin, BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin
-):
+class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin):
     _driver: WebDriver | None = None
     _driver_error: str = ""
     image_path = os.path.join(settings.BASE_DIR, "test-images")
@@ -184,6 +181,17 @@ class SeleniumTests(
 
     def scroll_top(self) -> None:
         self.driver.execute_script("window.scrollTo(0, 0)")
+
+    def assert_text_contains(self, css_selector: str, text: str) -> None:
+        """Assert the element matching css_selector contains text."""
+        self.assertIn(
+            text,
+            self.driver.find_element(By.CSS_SELECTOR, css_selector).text,
+        )
+
+    def count_elements(self, css_selector: str) -> int:
+        """Return the count of elements matching css_selector on the current page."""
+        return len(self.driver.find_elements(By.CSS_SELECTOR, css_selector))
 
     def screenshot(self, name: str) -> None:
         """Capture named full page screenshot."""
@@ -300,6 +308,50 @@ class SeleniumTests(
 
         # We should end up on login page as user was invalid
         self.driver.find_element(By.ID, "id_username")
+
+    def test_js_assets_are_loaded(self) -> None:
+        """Check that the main JS bundle is active and globals are available."""
+        self.assertTrue(
+            self.driver.execute_script(
+                "return typeof window.jQuery !== 'undefined' && typeof window.moment !== 'undefined' && typeof window.slugify !== 'undefined';"
+            )
+        )
+
+    def test_js_unit_tests(self) -> None:
+        self.assertEqual(self.driver.execute_script("return getNumber('1,23');"), 1.23)
+        self.assertEqual(self.driver.execute_script("return getNumber('1.23');"), 1.23)
+        self.assertIsNone(
+            self.driver.execute_script("return getNumber('not-a-number');")
+        )
+
+        self.assertEqual(
+            self.driver.execute_script("return quoteSearch('simple');"), "simple"
+        )
+        self.assertEqual(
+            self.driver.execute_script("return quoteSearch('two words');"),
+            '"two words"',
+        )
+
+        self.assertEqual(self.driver.execute_script("return compareCells(1, 2);"), -1)
+        self.assertEqual(
+            self.driver.execute_script("return compareCells('2,5%', '1,0%');"), 1
+        )
+        self.assertEqual(
+            self.driver.execute_script("return compareCells('abc', 'Abc');"), 0
+        )
+
+        self.assertEqual(
+            self.driver.execute_script(
+                "const cell = document.createElement('td'); cell.setAttribute('data-value', 'x-val'); return extractText(cell);"
+            ),
+            "x-val",
+        )
+        self.assertEqual(
+            self.driver.execute_script(
+                "const cell = document.createElement('td'); cell.textContent = 'inner'; return extractText(cell);"
+            ),
+            "inner",
+        )
 
     def test_login(self) -> None:
         # Do proper login with new user
@@ -656,6 +708,7 @@ class SeleniumTests(
             self.click("Browse all projects")
         with self.wait_for_page_load():
             self.click("WeblateOrg")
+        self.assert_text_contains(".announcement", "60%")
         self.click("Operations")
         self.click("Post announcement")
         self.screenshot("announcement-project.png")
@@ -668,6 +721,7 @@ class SeleniumTests(
         with self.wait_for_page_load():
             self.click("Czech")
         self.screenshot("announcement-language.png")
+        self.assert_text_contains(".announcement", "Czech translators rock!")
 
     def test_weblate(self) -> None:  # noqa: PLR0915
         user = self.open_admin()
@@ -771,9 +825,11 @@ class SeleniumTests(
         self.click("Operations")
         with self.wait_for_page_load():
             self.click("Users")
-        element = self.driver.find_element(By.ID, "id_user")
+        element = self.driver.find_element(By.ID, "id_project_add_user_user")
         element.send_keys("testuser")
-        Select(self.driver.find_element(By.ID, "id_group")).select_by_index(1)
+        Select(
+            self.driver.find_element(By.ID, "id_project_add_user_group")
+        ).select_by_index(1)
         with self.wait_for_page_load():
             element.submit()
         user = User.objects.get(username="testuser")
@@ -785,6 +841,7 @@ class SeleniumTests(
         with self.wait_for_page_load():
             self.click("Access control")
         self.screenshot("manage-users.png")
+        self.assertGreater(self.count_elements("table.table-striped tbody tr"), 0)
         # Automatic suggestions
         self.click(htmlid="projects-menu")
         with self.wait_for_page_load():
@@ -896,6 +953,8 @@ class SeleniumTests(
         with self.wait_for_page_load():
             self.click("Django")
         self.screenshot("strings-to-check.png")
+        count_text = self.driver.find_element(By.CSS_SELECTOR, ".card th.number").text
+        self.assertGreater(int(count_text.replace(",", "")), 0)
         self.click("Files")
         self.click("Upload translation")
         self.click("Files")
@@ -1014,6 +1073,7 @@ class SeleniumTests(
         with self.wait_for_page_load():
             self.driver.find_element(By.ID, "id_name").submit()
         self.screenshot("user-add-project-done.png")
+        self.assertIn("WeblateOrg", self.driver.title)
 
         # Click on add component
         with self.wait_for_page_load():
@@ -1073,6 +1133,7 @@ class SeleniumTests(
             self.click("Duplicates")
         self.click("Alerts")
         self.screenshot("alerts.png")
+        self.assertGreater(self.count_elements("#alerts .card"), 0)
 
         self.click("Insights")
         with self.wait_for_page_load():
@@ -1259,6 +1320,38 @@ class SeleniumTests(
         self.driver.find_element(By.ID, "id_extra_flags").send_keys(Keys.ESCAPE)
         time.sleep(0.2)
 
+    def test_dark_theme(self) -> None:
+        project = self.create_component()
+        Component.objects.create(
+            name="Android",
+            slug="android",
+            project=project,
+            repo="weblate://weblateorg/language-names",
+            filemask="app/src/main/res/values-*/strings.xml",
+            template="app/src/main/res/values/strings.xml",
+            file_format="aresource",
+        )
+        self.do_login()
+        self.click(htmlid="user-dropdown")
+        with self.wait_for_page_load():
+            self.click(htmlid="settings-button")
+        self.click("Preferences")
+        element = self.driver.find_element(By.ID, "id_theme")
+        Select(element).select_by_visible_text("Dark")
+        with self.wait_for_page_load():
+            element.submit()
+        time.sleep(0.2)
+        self.screenshot("dark-theme.png")
+        with self.wait_for_page_load():
+            self.driver.get(f"{self.live_server_url}{project.get_absolute_url()}")
+        self.screenshot("dark-theme-dashboard.png")
+        with self.wait_for_page_load():
+            self.click("Czech")
+        self.screenshot("dark-theme-language.png")
+        with self.wait_for_page_load():
+            self.click("Translate")
+        self.screenshot("dark-theme-translate.png")
+
     def test_glossary(self) -> None:
         user = self.do_login()
         project = self.create_component()
@@ -1274,6 +1367,7 @@ class SeleniumTests(
         with self.wait_for_page_load():
             self.click("Browse")
         self.screenshot("glossary-browse.png")
+        self.assertGreaterEqual(self.count_elements("tbody.unit-listing-body tr"), 2)
 
         with self.wait_for_page_load():
             self.click(self.driver.find_element(By.PARTIAL_LINK_TEXT, "projekt"))

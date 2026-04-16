@@ -5,7 +5,13 @@ from typing import Union
 from sqlfluff.core.parser import BaseSegment
 
 from collate_sqllineage.core.holders import SubQueryLineageHolder
-from collate_sqllineage.core.models import AnalyzerContext, Path, SubQuery, Table
+from collate_sqllineage.core.models import (
+    AnalyzerContext,
+    Location,
+    Path,
+    SubQuery,
+    Table,
+)
 from collate_sqllineage.core.parser import SourceHandlerMixin
 from collate_sqllineage.core.parser.sqlfluff.handlers.base import (
     ConditionalSegmentBaseHandler,
@@ -285,7 +291,7 @@ class SourceHandler(SourceHandlerMixin, ConditionalSegmentBaseHandler):
         :param segment: 'from_expression_element' type segment
         :param holder: 'SubQueryLineageHolder' to hold lineage
         """
-        dataset: Union[Path, Table, SubQuery]
+        dataset: Union[Location, Path, Table, SubQuery]
         all_segments = [
             seg for seg in retrieve_segments(segment) if seg.type != "keyword"
         ]

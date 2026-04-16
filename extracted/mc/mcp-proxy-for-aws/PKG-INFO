@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-proxy-for-aws
-Version: 1.3.0
+Version: 1.4.0
 Summary: MCP Proxy for AWS
 Project-URL: documentation, https://github.com/aws/aws-mcp-proxy/blob/main/README.md
 Project-URL: repository, https://github.com/aws/mcp-proxy-for-aws.git
@@ -379,8 +379,10 @@ For long-running sessions, consider using long-lived credentials:
 - Use an AWS profile via `--profile`
 - Use IAM Identity Center and run `aws sso login` before starting the proxy
 
+If your credentials do expire during a session, the proxy will automatically detect the auth failure and pick up refreshed credentials on the next request — no restart required. Simply refresh your credentials (e.g., `aws sso login`) and retry.
+
 ### Client hangs on tool calls
-If your MCP client hangs waiting for a tool call response (e.g., due to expired credentials or an unresponsive endpoint), use `--tool-timeout` to set a maximum duration in seconds for each tool call. When the timeout is exceeded, the proxy returns a graceful error to the agent instead of hanging indefinitely.
+If your MCP client hangs waiting for a tool call response (e.g., due to an unresponsive endpoint), use `--tool-timeout` to set a maximum duration in seconds for each tool call. When the timeout is exceeded, the proxy returns a graceful error to the agent instead of hanging indefinitely.
 
 ## Development & Contributing
 

@@ -81,7 +81,7 @@ def create_initial_node() -> NodeConfig:
         "role_message": "You are an inquisitive child. Use very simple language. Ask simple questions. You must ALWAYS use one of the available functions to progress the conversation. Your responses will be converted to audio. Avoid outputting special characters and emojis.",
         "task_messages": [
             {
-                "role": "user",
+                "role": "developer",
                 "content": "Say 'Hello world' and ask what is the user's favorite color.",
             }
         ],
@@ -112,7 +112,7 @@ def create_end_node() -> NodeConfig:
         name="create_end_node",
         task_messages=[
             {
-                "role": "user",
+                "role": "developer",
                 "content": "Thank the user for answering and end the conversation",
             }
         ],
@@ -124,7 +124,9 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     stt = CartesiaSTTService(api_key=os.getenv("CARTESIA_API_KEY"))
     tts = CartesiaTTSService(
         api_key=os.getenv("CARTESIA_API_KEY"),
-        voice_id="32b3f3c5-7171-46aa-abe7-b598964aa793",
+        settings=CartesiaTTSService.Settings(
+            voice="32b3f3c5-7171-46aa-abe7-b598964aa793",
+        ),
     )
     llm = GoogleLLMService(api_key=os.getenv("GOOGLE_API_KEY"))
 
@@ -133,6 +135,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         context,
         user_params=LLMUserAggregatorParams(
             vad_analyzer=SileroVADAnalyzer(),
+            filter_incomplete_user_turns=True,
         ),
     )
 
@@ -148,7 +151,14 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         ]
     )
 
-    task = PipelineTask(pipeline, params=PipelineParams(allow_interruptions=True))
+    task = PipelineTask(
+        pipeline,
+        params=PipelineParams(
+            enable_metrics=True,
+            enable_usage_metrics=True,
+        ),
+        idle_timeout_secs=runner_args.pipeline_idle_timeout_secs,
+    )
 
     # Initialize flow manager
     flow_manager = FlowManager(

@@ -110,7 +110,7 @@ class ConsistencyCheck(TargetCheck, BatchCheckMixin):
         return False
 
     def check_component(self, component: Component) -> Iterable[Unit]:
-        from weblate.trans.models import Unit
+        from weblate.trans.models import Unit  # noqa: PLC0415
 
         units = Unit.objects.filter(
             translation__component__project=component.project,
@@ -162,6 +162,7 @@ class ReusedCheck(TargetCheck, BatchCheckMixin):
     propagates = "target"
     batch_project_wide = True
     skip_suggestions = True
+    version_added = "4.18"
 
     def should_skip(self, unit: Unit):
         if unit.translation.plural.number <= 1 or not any(unit.get_target_plurals()):
@@ -169,7 +170,7 @@ class ReusedCheck(TargetCheck, BatchCheckMixin):
         return super().should_skip(unit)
 
     def check_target_unit(self, sources: list[str], targets: list[str], unit: Unit):
-        from weblate.trans.models import Unit
+        from weblate.trans.models import Unit  # noqa: PLC0415
 
         translation = unit.translation
         component = translation.component
@@ -181,7 +182,7 @@ class ReusedCheck(TargetCheck, BatchCheckMixin):
         return Unit.objects.same_target(unit).exists()
 
     def get_description(self, check_obj):
-        from weblate.trans.models import Unit
+        from weblate.trans.models import Unit  # noqa: PLC0415
 
         other_sources = (
             Unit.objects.same_target(check_obj.unit)
@@ -204,7 +205,7 @@ class ReusedCheck(TargetCheck, BatchCheckMixin):
         return False
 
     def check_component(self, component: Component) -> Iterable[Unit]:
-        from weblate.trans.models import Unit
+        from weblate.trans.models import Unit  # noqa: PLC0415
 
         units = Unit.objects.filter(
             translation__component__project=component.project,
@@ -287,11 +288,8 @@ class TranslatedCheck(TargetCheck, BatchCheckMixin):
         return gettext('Previous translation was "%s".') % target
 
     def should_skip_change(self, change: Change, unit: Unit):
-        # Skip automatic translation entries adding needs editing string
-        return (
-            change.action == ActionEvents.AUTO
-            and change.details.get("state", STATE_TRANSLATED) < STATE_TRANSLATED
-        )
+        # Skip translation entries adding needs editing string
+        return change.details.get("state", STATE_TRANSLATED) < STATE_TRANSLATED
 
     def should_break_changes(self, change: Change):
         # Stop changes processing on source string change or on
@@ -338,7 +336,7 @@ class TranslatedCheck(TargetCheck, BatchCheckMixin):
         return [("plurals", split_plural(target))]
 
     def check_component(self, component: Component) -> Iterable[Unit]:
-        from weblate.trans.models import Change, Unit
+        from weblate.trans.models import Change, Unit  # noqa: PLC0415
 
         units = (
             Unit.objects.filter(
@@ -350,7 +348,7 @@ class TranslatedCheck(TargetCheck, BatchCheckMixin):
                 Prefetch(
                     "change_set",
                     queryset=Change.objects.filter(
-                        action__in=self.TRACK_ACTIONS,
+                        action__in=self.TRACK_ACTIONS
                     ).order(),
                     to_attr="recent_consistency_changes",
                 )

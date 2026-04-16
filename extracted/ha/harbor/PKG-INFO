@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: harbor
-Version: 0.3.0
+Version: 0.4.0
 Summary: A framework for evaluating and optimizing agents and models using sandboxed environments.
 Author: Alex Shaw
 Author-email: Alex Shaw <alexgshaw64@gmail.com>
@@ -17,24 +17,39 @@ Requires-Dist: tenacity>=9.1.2
 Requires-Dist: python-dotenv>=1.1.1
 Requires-Dist: litellm>=1.80.8
 Requires-Dist: jinja2>=3.1.6
-Requires-Dist: dirhash>=0.5.0
-Requires-Dist: dockerfile-parse>=2.0.1
-Requires-Dist: e2b>=2.4.2
 Requires-Dist: datasets>=4.4.1
-Requires-Dist: runloop-api-client>=1.2.0
-Requires-Dist: daytona>=0.121.0
-Requires-Dist: kubernetes>=32.0.0
+Requires-Dist: dirhash>=0.5.0
 Requires-Dist: claude-agent-sdk>=0.1.17
 Requires-Dist: packaging>=25.0
 Requires-Dist: fastapi>=0.128.0
 Requires-Dist: uvicorn>=0.38.0
-Requires-Dist: modal>=1.3.2
 Requires-Dist: ruff>=0.13.0
 Requires-Dist: pathspec>=1.0.3
 Requires-Dist: supabase>=2.28.2
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: harbor[cloud] ; extra == 'all'
+Requires-Dist: harbor[tinker] ; extra == 'all'
+Requires-Dist: harbor[e2b] ; extra == 'cloud'
+Requires-Dist: harbor[daytona] ; extra == 'cloud'
+Requires-Dist: harbor[modal] ; extra == 'cloud'
+Requires-Dist: harbor[runloop] ; extra == 'cloud'
+Requires-Dist: harbor[gke] ; extra == 'cloud'
+Requires-Dist: daytona>=0.121.0 ; extra == 'daytona'
+Requires-Dist: e2b>=2.4.2 ; extra == 'e2b'
+Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'e2b'
+Requires-Dist: kubernetes>=32.0.0 ; extra == 'gke'
+Requires-Dist: modal>=1.4.0 ; extra == 'modal'
+Requires-Dist: runloop-api-client>=1.2.0 ; extra == 'runloop'
 Requires-Dist: tinker>=0.14.0 ; extra == 'tinker'
 Requires-Dist: tinker-cookbook>=0.1.0 ; extra == 'tinker'
 Requires-Python: >=3.12
+Provides-Extra: all
+Provides-Extra: cloud
+Provides-Extra: daytona
+Provides-Extra: e2b
+Provides-Extra: gke
+Provides-Extra: modal
+Provides-Extra: runloop
 Provides-Extra: tinker
 Description-Content-Type: text/markdown
 
@@ -42,6 +57,7 @@ Description-Content-Type: text/markdown
 
  [![](https://dcbadge.limes.pink/api/server/https://discord.gg/6xWPKhGDbA)](https://discord.gg/6xWPKhGDbA)
 [![Docs](https://img.shields.io/badge/Docs-000000?style=for-the-badge&logo=mdbook&color=105864)](https://harborframework.com/docs)
+[![Cookbook](https://img.shields.io/badge/Cookbook-000000?style=for-the-badge&logo=mdbook&color=105864)](https://github.com/harbor-framework/harbor-cookbook)
 
 
 
@@ -52,6 +68,7 @@ Harbor is a framework from the creators of [Terminal-Bench](https://www.tbench.a
 - Conduct experiments in thousands of environments in parallel through providers like Daytona and Modal. 
 - Generate rollouts for RL optimization.
 
+Check out the [Harbor Cookbook](https://github.com/harbor-framework/harbor-cookbook) for end-to-end examples and guides.
 
 ## Installation
 
@@ -110,20 +127,8 @@ harbor run -d "<dataset@version>" -m "<model>" -a "<agent>"
 
 If you use **Harbor** in academic work, please cite it using the “Cite this repository” button on GitHub or the following BibTeX entry:
 
-```
-@software{Harbor_Framework_Team_Harbor_A_framework_2026,
-author = {{Harbor Framework Team}},
-month = jan,
-title = {{Harbor: A framework for evaluating and optimizing agents and models in container environments}},
-url = {https://github.com/laude-institute/harbor},
-year = {2026}
-}
-```
-
-
-
 ```bibtex
-@software{Harbor_Framework_Team_Harbor_A_framework_2026,
+@software{Harbor_Framework,
 author = {{Harbor Framework Team}},
 month = jan,
 title = {{Harbor: A framework for evaluating and optimizing agents and models in container environments}},

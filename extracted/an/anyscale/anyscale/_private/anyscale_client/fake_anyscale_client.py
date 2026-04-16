@@ -8,6 +8,8 @@ import uuid
 
 from anyscale._private.anyscale_client.common import (
     AnyscaleClientInterface,
+    APIJobRun,
+    DEFAULT_MAX_RUNS_PER_JOB,
     WORKSPACE_CLUSTER_NAME_PREFIX,
 )
 from anyscale._private.models.image_uri import ImageURI
@@ -104,7 +106,6 @@ from anyscale.sdk.anyscale_client.models import (
     ClusterEnvironmentBuild,
     ClusterEnvironmentBuildStatus,
     ComputeNodeType,
-    Job as APIJobRun,
     ProductionServiceV2VersionModel,
     Resources as ComputeConfigResources,
     ServiceEventCurrentState,
@@ -1511,8 +1512,32 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
         return result
 
-    def get_job_runs(self, job_id: str) -> List[APIJobRun]:
-        return self._job_runs.get(job_id, [])
+    def get_job_runs(
+        self,
+        job_id: str,
+        max_runs_per_job: Optional[int] = DEFAULT_MAX_RUNS_PER_JOB,
+        run_name: Optional[str] = None,
+    ) -> List[APIJobRun]:
+        return self.batch_get_job_runs(
+            [job_id], max_runs_per_job=max_runs_per_job, run_name=run_name,
+        ).get(job_id, [])
+
+    def batch_get_job_runs(
+        self,
+        ha_job_ids: List[str],
+        max_runs_per_job: Optional[int] = DEFAULT_MAX_RUNS_PER_JOB,
+        run_name: Optional[str] = None,
+    ) -> Dict[str, List[APIJobRun]]:
+        limit = (
+            DEFAULT_MAX_RUNS_PER_JOB if max_runs_per_job is None else max_runs_per_job
+        )
+        result: Dict[str, List[APIJobRun]] = {}
+        for job_id in ha_job_ids:
+            runs = self._job_runs.get(job_id, [])
+            if run_name is not None:
+                runs = [r for r in runs if r.name == run_name]
+            result[job_id] = runs[:limit]
+        return result
 
     def update_job(self, model: ProductionJob):
         self._jobs[model.id] = model
@@ -1556,6 +1581,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         *,
         name: Optional[str] = None,
         project_id: Optional[str] = None,  # noqa: ARG002
+        cloud_id: Optional[str] = None,  # noqa: ARG002
         creator_id: Optional[str] = None,  # noqa: ARG002
         state_filter: Optional[List[str]] = None,  # noqa: ARG002
         archive_status: Optional[str] = None,  # noqa: ARG002

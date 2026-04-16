@@ -5,6 +5,7 @@ from . import (
     agents,
     artifacts,
     authz,
+    benchmarks,
     chronos_packages,
     cluster,
     jobs,
@@ -14,6 +15,7 @@ from . import (
     releases,
     sessions,
     testcases,
+    tools,
     user,
     work_orders,
 )
@@ -23,6 +25,7 @@ __all__ = [
     "agents",
     "artifacts",
     "authz",
+    "benchmarks",
     "chronos_packages",
     "cluster",
     "jobs",
@@ -32,6 +35,7 @@ __all__ = [
     "releases",
     "sessions",
     "testcases",
+    "tools",
     "user",
     "work_orders",
 ]

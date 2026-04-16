@@ -92,10 +92,12 @@ from .win_api import (
     WebAuthNUserEntityInformation,
     WebAuthNUserVerification,
     WebAuthNUserVerificationRequirement,
-    windll,
 )
 
 logger = logging.getLogger(__name__)
+
+LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800
+user32 = ctypes.WinDLL("user32", winmode=LOAD_LIBRARY_SEARCH_SYSTEM32)  # type: ignore
 
 _extension_output_types: dict[str, type[_JsonDataObject]] = {
     "hmacGetSecret": HMACGetSecretOutput,
@@ -149,7 +151,7 @@ class WindowsClient(WebAuthnClient):
         handle=None,
         allow_hmac_secret=False,
     ):
-        self.handle = handle or windll.user32.GetForegroundWindow()
+        self.handle = handle or user32.GetForegroundWindow()
         self._client_data_collector = client_data_collector
 
         self._allow_hmac_secret = allow_hmac_secret
@@ -306,7 +308,7 @@ class WindowsClient(WebAuthnClient):
             if obj.dwVersion >= 4 and options.extensions.get("credProps"):
                 extension_outputs["credProps"] = {"rk": bool(obj.bResidentKey)}
             if "hmac-secret" in extensions_out:
-                if obj.dwVersion >= 7:
+                if obj.dwVersion >= 7 and obj.pHmacSecret:
                     secret = obj.pHmacSecret.contents
                     secrets = (secret.first, secret.second)
                 else:
@@ -474,7 +476,7 @@ class WindowsClient(WebAuthnClient):
             extension_outputs["appid"] = bool(u2f_appid_used.value)
 
         if options.extensions:
-            if obj.dwVersion >= 3 and hmac_secret_salts:
+            if obj.dwVersion >= 3 and obj.pHmacSecret:
                 secret = obj.pHmacSecret.contents
                 if "prf" in options.extensions:
                     result = {"first": secret.first}

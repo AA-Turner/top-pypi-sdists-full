@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywebview
-Version: 6.2
+Version: 6.2.1
 Summary: Build GUI for your Python program with JavaScript, HTML, and CSS
 Author-email: Roman Sirokov <roman@flowrl.com>
 License: BSD 3-Clause License

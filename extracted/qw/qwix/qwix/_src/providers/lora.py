@@ -13,6 +13,7 @@
 # limitations under the License.
 """Low-Rank Adapation (LoRA) support."""
 import dataclasses
+import math
 import string
 from typing import Any, Callable, Collection, Sequence
 import warnings
@@ -25,7 +26,7 @@ from jax.nn import initializers
 from qwix._src import flax_util
 from qwix._src import model as qwix_model
 from qwix._src import qconfig
-from qwix._src.core import einsum
+from qwix._src.core import einsum_info
 from qwix._src.core import qarray
 from qwix._src.providers import ptq
 
@@ -100,19 +101,17 @@ def _parse_einsum_str_for_lora(
     Sequence[int | None],  # b_sharding_transpose
 ]:
   """Returns lora param shapes and einsum string for LoRA."""
-  einsum_info = einsum.get_einsum_info(
-      einsum_str, (len(lhs_shape), len(rhs_shape))
+  info = einsum_info.EinsumInfo.parse(
+      einsum_str, ndims=(len(lhs_shape), len(rhs_shape))
   )
-  lora_dim_char = _find_lora_dim_char(
-      set(einsum_info.lhs) | set(einsum_info.rhs)
-  )
+  lora_dim_char = _find_lora_dim_char(set(info.lhs) | set(info.rhs))
 
   a_shape, b_shape = (), (lora_rank,)
   a_str, b_str = '', lora_dim_char
   a_sharding_transpose, b_sharding_transpose = (), (None,)
-  assert len(einsum_info.rhs) == len(rhs_shape)
-  for i, (c, dim) in enumerate(zip(einsum_info.rhs, rhs_shape)):
-    if c in set(einsum_info.lhs) & set(einsum_info.rhs):  # batch or contracting
+  assert len(info.rhs) == len(rhs_shape)
+  for i, (c, dim) in enumerate(zip(info.rhs, rhs_shape)):
+    if c in set(info.lhs) & set(info.rhs):  # batch or contracting
       a_str += c
       a_shape += (dim,)
       a_sharding_transpose += (i,)
@@ -127,10 +126,83 @@ def _parse_einsum_str_for_lora(
   return (
       a_shape,
       b_shape,
-      ','.join([einsum_info.lhs, a_str, b_str]) + '->' + einsum_info.out,
+      ','.join([info.lhs, a_str, b_str]) + '->' + info.out,
       a_sharding_transpose,
       b_sharding_transpose,
   )
+
+
+def _create_lora_layer_shapes(
+    rhs_ca: Sequence[int],
+    rhs_ba: Sequence[int],
+    rhs_ra: Sequence[int],
+    contract_shape: typing.Shape,
+    batch_shape: typing.Shape,
+    remain_shape: typing.Shape,
+    rank: int,
+) -> tuple[
+    typing.Shape,  # a_shape
+    Sequence[int | None],  # a_sharding_transpose
+    typing.Shape,  # b_shape
+    Sequence[int | None],  # b_sharding_transpose
+]:
+  """Returns lora param shapes and sharding transposes for dot_general."""
+
+  # LoRA A: (batch, contracting, rank)
+  a_shape = (*batch_shape, math.prod(contract_shape), rank)
+  # LoRA B: (batch, rank, remain)
+  b_shape = (*batch_shape, rank, math.prod(remain_shape))
+
+  # Inherit sharding from first dims; XLA's SPMD partitioner will
+  # automatically infer and propagate sharding for subsequent ones.
+  a_sharding_transpose = (*rhs_ba, rhs_ca[0] if rhs_ca else None, None)
+  b_sharding_transpose = (*rhs_ba, None, rhs_ra[0] if rhs_ra else None)
+
+  return a_shape, a_sharding_transpose, b_shape, b_sharding_transpose
+
+
+def _compute_lora_delta(
+    lhs: jax.Array,
+    lora_a: jax.Array,
+    lora_b: jax.Array,
+    lhs_ca: Sequence[int],
+    lhs_ba: Sequence[int],
+    contract_shape: typing.Shape,
+    batch_shape: typing.Shape,
+    remain_shape: typing.Shape,
+    rank: int,
+    precision: jax.lax.PrecisionLike = None,
+) -> jax.Array:
+  """Computes the raw LoRA delta."""
+
+  lora_a_reshaped = jax.numpy.reshape(
+      lora_a, (*batch_shape, *contract_shape, rank)
+  )
+  delta_batch_axes = (*range(len(batch_shape)),)
+  lora_a_contract_axes = (
+      *range(len(batch_shape), len(batch_shape) + len(contract_shape)),
+  )
+  delta_a = jax.lax.dot_general(
+      lhs,
+      lora_a_reshaped,
+      ((lhs_ca, lora_a_contract_axes), (lhs_ba, delta_batch_axes)),
+      precision=precision,
+  )
+
+  # delta = delta_a @ lora_b
+  lora_b_reshaped = jax.numpy.reshape(
+      lora_b, (*batch_shape, rank, *remain_shape)
+  )
+  delta = jax.lax.dot_general(
+      delta_a,
+      lora_b_reshaped,
+      (
+          ((delta_a.ndim - 1,), (len(batch_shape),)),
+          (delta_batch_axes, delta_batch_axes),
+      ),
+      precision=precision,
+  )
+  return delta
 
 
 class LoraProvider(ptq.PtqProvider):
@@ -140,26 +212,28 @@ class LoraProvider(ptq.PtqProvider):
   during LoRA training.
   """
 
-  def __init__(self, rules=None, **kwargs):
+  def __init__(self, rules=None, *, disable_jit: bool = False, **kwargs):
     """Initializes the LoraProvider.
 
     Usage:
-      LoraProvider(module_path='module_path', rank=4, alpha=0.5)
+      LoraProvider(module_path='module_path', rank=4, alpha=8.0)
     or
       LoraProvider([
-          LoraRule(module_path='module_path', rank=4, alpha=0.5)
+          LoraRule(module_path='module_path', rank=4, alpha=8.0)
       ])
 
     Args:
       rules: A list of quantization rules.
+      disable_jit: Whether to disable JIT when wrapping methods.
       **kwargs: The keyword arguments to create a rule. Only one of rules and
         kwargs should be provided.
     """
+
     if rules is None:
       rules = [LoraRule(**kwargs)]
     elif kwargs:
       raise ValueError('Only one of rules and kwargs should be provided.')
-    super().__init__(rules=rules)
+    super().__init__(rules=rules, disable_jit=disable_jit)
 
   def dot_general(
       self,
@@ -190,27 +264,57 @@ class LoraProvider(ptq.PtqProvider):
     if weight_name is None:  # rhs is not a weight.
       return res
 
-    # We only support ...a,ab->...b for now.
-    assert (
-        len(rhs.shape) == 2
-        and tuple(dimension_numbers[0][1]) == (0,)
-        and not dimension_numbers[1][1]
-    ), f'Unsupported: {rhs.shape=} {dimension_numbers=}'
+    (lhs_ca, rhs_ca), (lhs_ba, rhs_ba) = dimension_numbers
+
+    rhs_ra = (
+        *(i for i in range(rhs.ndim) if i not in rhs_ca and i not in rhs_ba),
+    )
+
+    contract_shape = (*(rhs.shape[i] for i in rhs_ca),)
+    batch_shape = (*(rhs.shape[i] for i in rhs_ba),)
+    remain_shape = (*(rhs.shape[i] for i in rhs_ra),)
+
+    a_shape, a_sharding_transpose, b_shape, b_sharding_transpose = (
+        _create_lora_layer_shapes(
+            rhs_ca,
+            rhs_ba,
+            rhs_ra,
+            contract_shape,
+            batch_shape,
+            remain_shape,
+            rule.rank,
+        )
+    )
 
     lora_a, lora_b = _get_or_create_lora_params(
         name=weight_name,
         rule=rule,
-        a_shape=(rhs.shape[0], rule.rank),
-        b_shape=(rule.rank, rhs.shape[1]),
-        a_sharding_transpose=(0, None),
-        b_sharding_transpose=(None, 1),
+        a_shape=a_shape,
+        b_shape=b_shape,
+        a_sharding_transpose=a_sharding_transpose,
+        b_sharding_transpose=b_sharding_transpose,
     )
 
     if rule.dropout > 0:
       # This also works for linen.
-      lhs = nnx.Dropout(rule.dropout)(lhs, rngs=flax_util.make_rng('dropout'))
+      lhs = nnx.Dropout(rule.dropout, deterministic=False)(
+          lhs, rngs=flax_util.make_rng('dropout')
+      )
 
-    return res + lhs @ lora_a @ lora_b * (rule.alpha / rule.rank)
+    delta = _compute_lora_delta(
+        lhs,
+        lora_a,
+        lora_b,
+        lhs_ca,
+        lhs_ba,
+        contract_shape,
+        batch_shape,
+        remain_shape,
+        rule.rank,
+        precision=precision,
+    )
+
+    return res + delta * (rule.alpha / rule.rank)
 
   def einsum(
       self,
@@ -225,7 +329,8 @@ class LoraProvider(ptq.PtqProvider):
     if not isinstance(rule, LoraRule):
       return res
 
-    if not isinstance(einsum_str, str) or len(operands) != 2:
+    if len(operands) != 2:
+      # TODO(jiwonshin): Support N-ary einsum if there is a need in the future.
       raise ValueError(f'Unsupported einsum format: {einsum_str=} {operands=}')
     lhs, rhs = operands
 
@@ -256,7 +361,9 @@ class LoraProvider(ptq.PtqProvider):
 
     if rule.dropout > 0:
       # This also works for linen.
-      lhs = nnx.Dropout(rule.dropout)(lhs, rngs=flax_util.make_rng('dropout'))
+      lhs = nnx.Dropout(rule.dropout, deterministic=False)(
+          lhs, rngs=flax_util.make_rng('dropout')
+      )
 
     return res + (
         jax.numpy.einsum(lora_einsum_str, lhs, lora_a, lora_b, **kwargs)
@@ -276,6 +383,7 @@ class LoraProvider(ptq.PtqProvider):
       batch_group_count: int = 1,
       precision: jax.lax.PrecisionLike = None,
       preferred_element_type: jax.typing.DTypeLike | None = None,
+      out_sharding=None,
   ) -> jax.Array:
     """LoRA conv_general_dilated."""
     res = super().conv_general_dilated(
@@ -290,6 +398,7 @@ class LoraProvider(ptq.PtqProvider):
         batch_group_count=batch_group_count,
         precision=precision,
         preferred_element_type=preferred_element_type,
+        out_sharding=out_sharding,
     )
 
     rule, _ = self._get_current_rule_and_op_id(
@@ -321,7 +430,9 @@ class LoraProvider(ptq.PtqProvider):
 
     if rule.dropout > 0:
       # This also works for linen.
-      lhs = nnx.Dropout(rule.dropout)(lhs, rngs=flax_util.make_rng('dropout'))
+      lhs = nnx.Dropout(rule.dropout, deterministic=False)(
+          lhs, rngs=flax_util.make_rng('dropout')
+      )
 
     return res + jax.lax.conv_general_dilated(
         lhs,
