@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: testscenarios
-Version: 0.6
-Summary: Testscenarios, a pyunit extension for dependency injection
+Version: 0.6.1
+Summary: Testscenarios, a unittest extension for dependency injection
 Project-URL: Homepage, https://github.com/testing-cabal/testscenarios
 Project-URL: Bug Tracker, https://github.com/testing-cabal/testscenarios/issues
 Project-URL: Source Code, https://github.com/testing-cabal/testscenarios
 Author-email: Testing-cabal <testing-cabal@lists.launchpad.net>
-License: Apache-2.0 or BSD
+License: Apache-2.0 OR BSD-3-Clause
 License-File: COPYING
 Classifier: Development Status :: 6 - Mature
 Classifier: Intended Audience :: Developers

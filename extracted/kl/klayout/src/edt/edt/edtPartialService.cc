@@ -2288,7 +2288,7 @@ bool
 PartialService::key_event (unsigned int key, unsigned int buttons)
 {
   if (m_moving && buttons == 0 && (key == lay::KeyEnter || key == lay::KeyReturn)) {
-    mp_view->move_service ()->end_move ();
+    mp_view->move_service ()->finish_move ();
     return true;
   } else {
     return false;
@@ -2434,17 +2434,11 @@ PartialService::end_move (const db::DPoint & /*p*/, lay::angle_constraint_type /
 
   if (m_current != m_start) {
 
-    if (manager ()) {
-      manager ()->transaction (tl::to_string (tr ("Partial move")));
-    }
+    db::Transaction transaction ((manager () && ! manager ()->transacting ()) ? manager () : 0, tl::to_string (tr ("Partial move")));
 
     db::DTrans move_trans = db::DTrans (m_current - m_start);
 
     transform_selection (move_trans);
-
-    if (manager ()) {
-      manager ()->commit ();
-    }
 
   }
 

@@ -10,8 +10,6 @@ d - dimension
 
 from __future__ import annotations
 
-import threading
-
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -202,7 +200,7 @@ class DiT(nn.Module):
             average_upsampling=text_embedding_average_upsampling,
             conv_layers=conv_layers,
         )
-        self._cache_local = threading.local()  # thread-local storage for cache
+        self.text_cond, self.text_uncond = None, None  # text cache
         self.input_embed = InputEmbedding(mel_dim, text_dim, dim)
 
         self.rotary_embed = RotaryEmbedding(dim_head)
@@ -234,22 +232,6 @@ class DiT(nn.Module):
         self.checkpoint_activations = checkpoint_activations
 
         self.initialize_weights()
-
-    @property
-    def text_cond(self):
-        return getattr(self._cache_local, "text_cond", None)
-
-    @text_cond.setter
-    def text_cond(self, value):
-        self._cache_local.text_cond = value
-
-    @property
-    def text_uncond(self):
-        return getattr(self._cache_local, "text_uncond", None)
-
-    @text_uncond.setter
-    def text_uncond(self, value):
-        self._cache_local.text_uncond = value
 
     def initialize_weights(self):
         # Zero-out AdaLN layers in DiT blocks:

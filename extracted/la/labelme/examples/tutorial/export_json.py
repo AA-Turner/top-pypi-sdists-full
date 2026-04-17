@@ -14,7 +14,7 @@ from labelme import utils
 from labelme._label_file import LabelFile
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("json_file")
     parser.add_argument("-o", "--out", default=None)
@@ -31,6 +31,7 @@ def main():
 
     label_file: LabelFile = LabelFile(filename=json_file)
 
+    assert label_file.imageData is not None
     image: NDArray[np.uint8] = utils.img_data_to_arr(label_file.imageData)
 
     label_name_to_value: dict[str, int] = {"_background_": 0}
@@ -48,11 +49,14 @@ def main():
         label_names[value] = name
 
     lbl_viz = imgviz.label2rgb(
-        lbl, imgviz.asgray(image), label_names=label_names, loc="rb"
+        lbl,
+        imgviz.asgray(image),  # type: ignore[arg-type]  # imgviz stub too narrow
+        label_names=label_names,
+        loc="rb",
     )
 
     PIL.Image.fromarray(image).save(osp.join(out_dir, "img.png"))
-    utils.lblsave(osp.join(out_dir, "label.png"), lbl)
+    imgviz.io.lblsave(osp.join(out_dir, "label.png"), lbl.astype(np.uint8))
     PIL.Image.fromarray(lbl_viz).save(osp.join(out_dir, "label_viz.png"))
 
     with open(osp.join(out_dir, "label_names.txt"), "w") as f:

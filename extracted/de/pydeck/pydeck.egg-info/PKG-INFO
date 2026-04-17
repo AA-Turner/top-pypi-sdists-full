@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pydeck
-Version: 0.9.1
+Version: 0.9.2
 Summary: Widget for deck.gl maps
 Home-page: https://github.com/visgl/deck.gl/tree/master/bindings/pydeck
 Author: Andrew Duberstein
@@ -20,9 +20,28 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Framework :: Jupyter
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Provides-Extra: carto
-Provides-Extra: jupyter
 License-File: LICENSE.txt
+Requires-Dist: jinja2>=2.10.1
+Requires-Dist: numpy>=1.16.4
+Provides-Extra: carto
+Requires-Dist: pydeck-carto; extra == "carto"
+Provides-Extra: jupyter
+Requires-Dist: ipywidgets<8,>=7; extra == "jupyter"
+Requires-Dist: traitlets>=4.3.2; extra == "jupyter"
+Requires-Dist: ipykernel>=5.1.2; extra == "jupyter"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/uber/deck.gl/binder)
 [![Documentation Status](https://readthedocs.org/projects/deckgl/badge/?version=latest)](https://pydeck.gl)
@@ -36,7 +55,7 @@ License-File: LICENSE.txt
 The pydeck library is a set of Python bindings for making spatial visualizations with [deck.gl](https://deck.gl),
 optimized for a Jupyter environment. To get started, __[see the documentation](https://pydeck.gl/)__.
 
-__[To install pydeck, see the instructions here](https://pydeck.gl/installation.html)__.
+__[To install pydeck, see the instructions here](https://pydeck.gl/en/latest/installation.html)__.
 
 For __interactive demos__, click the binder logo below:
 
@@ -94,4 +113,4 @@ If you encounter an issue, file it in the [deck.gl issues page](https://github.c
 and include your browser's console output, if any.
 
 If you'd like to contribute to pydeck, please follow the [deck.gl contribution guidelines](https://github.com/visgl/deck.gl/blob/master/CONTRIBUTING.md)
-and the [pydeck development installation instructions](https://pydeck.gl/installation.html#development-notes).
+and the [pydeck development installation instructions](https://pydeck.gl/en/latest/contributing.html).

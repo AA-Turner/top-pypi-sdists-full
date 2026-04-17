@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-huggingface
-Version: 1.2.1
+Version: 1.2.2
 Summary: An integration package connecting Hugging Face and LangChain.
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/huggingface
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_huggingface/
@@ -24,7 +24,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0.0,>=3.10.0
 Requires-Dist: huggingface-hub<2.0.0,>=0.33.4
-Requires-Dist: langchain-core<2.0.0,>=1.2.11
+Requires-Dist: langchain-core<2.0.0,>=1.2.31
 Requires-Dist: tokenizers<1.0.0,>=0.19.1
 Provides-Extra: full
 Requires-Dist: sentence-transformers<6.0.0,>=5.2.0; extra == 'full'
@@ -45,6 +45,22 @@ Looking for the JS/TS version? Check out [LangChain.js](https://github.com/langc
 ```bash
 pip install langchain-huggingface
 ```
+
+> **Note:** The base install does not include `sentence-transformers` or `transformers`.
+> If you plan to use `HuggingFaceEmbeddings` or `HuggingFacePipeline` for **local inference**,
+> install the `[full]` extra which includes `sentence-transformers>=5.2.0` and `transformers>=5.0.0`:
+>
+> ```bash
+> pip install langchain-huggingface[full]
+> ```
+>
+> **Migrating from `langchain-community`?** Note that `langchain-community` accepted
+> `sentence-transformers>=2.2.0`, but `langchain-huggingface[full]` requires `>=5.2.0`.
+> If your project pins an older version, upgrade it:
+>
+> ```bash
+> pip install "sentence-transformers>=5.2.0"
+> ```
 
 ## 🤔 What is this?
 

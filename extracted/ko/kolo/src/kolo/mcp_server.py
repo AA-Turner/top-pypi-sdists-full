@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from .cli_mcp_shared import get_compact_trace as sync_get_compact_trace
 from .cli_mcp_shared import get_compact_traces, get_formatted_traces, get_node_data
@@ -35,7 +35,9 @@ def get_compact_trace(trace_id: str, include_returns: bool = False) -> str:
 
 
 @mcp.tool()
-def get_trace_node(trace_id: str, node_index: int) -> Dict:
+def get_trace_node(
+    trace_id: str, node_index: int, thread_id: Optional[str] = None
+) -> Dict:
     """Get detailed information about a specific node in a trace.
 
     This is useful when you need to deeply understand what happened at a specific
@@ -45,6 +47,10 @@ def get_trace_node(trace_id: str, node_index: int) -> Dict:
     Args:
         trace_id: ID of the trace containing the node
         node_index: Index of the node in the trace tree
+        thread_id: Optional thread id to look the node up in. Per-thread
+            node indices restart at 0, so this is required to disambiguate
+            nodes under non-main threads in multi-threaded traces. When
+            omitted, the main thread is used.
 
     Example:
         >>> get_trace_node("trc_123", 5)
@@ -52,7 +58,7 @@ def get_trace_node(trace_id: str, node_index: int) -> Dict:
     """
     db_path = get_db_path()
     trace_data, _ = load_trace_from_db(db_path, trace_id)
-    return get_node_data(trace_id, node_index, trace_data)
+    return get_node_data(trace_id, node_index, trace_data, thread_id=thread_id)
 
 
 @mcp.tool()

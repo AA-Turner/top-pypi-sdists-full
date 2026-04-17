@@ -299,6 +299,7 @@ class SyntaxTokenKind(str, Enum):
     PERSIST_MODE = "persist_mode"
     FILE_PATH = "file_path"
     F_FILE_PATH = "f_file_path"
+    F_QUOTED_ADDRESS = "f_quoted_address"
     CHART_TYPE = "chart_type"
     VALIDATE_SCOPE = "validate_scope"
     COPY_TYPE = "copy_type"
@@ -599,6 +600,7 @@ LARK_TOKEN_KIND: dict[str, SyntaxTokenKind] = {
     "PERSIST_MODE": SyntaxTokenKind.PERSIST_MODE,
     "FILE_PATH": SyntaxTokenKind.FILE_PATH,
     "F_FILE_PATH": SyntaxTokenKind.F_FILE_PATH,
+    "F_QUOTED_ADDRESS": SyntaxTokenKind.F_QUOTED_ADDRESS,
     "CHART_TYPE": SyntaxTokenKind.CHART_TYPE,
     "VALIDATE_SCOPE": SyntaxTokenKind.VALIDATE_SCOPE,
     "COPY_TYPE": SyntaxTokenKind.COPY_TYPE,
@@ -607,39 +609,34 @@ LARK_TOKEN_KIND: dict[str, SyntaxTokenKind] = {
 }
 
 
-@dataclass(slots=True)
-class SyntaxMeta:
-    line: int | None
-    column: int | None
-    end_line: int | None
-    end_column: int | None
-    start_pos: int | None
-    end_pos: int | None
-
-    @classmethod
-    def from_parser_meta(cls, meta: Any | None) -> "SyntaxMeta | None":
-        if meta is None:
-            return None
-        return cls(
-            line=getattr(meta, "line", None),
-            column=getattr(meta, "column", None),
-            end_line=getattr(meta, "end_line", None),
-            end_column=getattr(meta, "end_column", None),
-            start_pos=getattr(meta, "start_pos", None),
-            end_pos=getattr(meta, "end_pos", None),
-        )
+# Position fields (line/column/end_line/end_column/start_pos/end_pos) are
+# inlined on SyntaxNode and SyntaxToken below rather than stored on a
+# separate SyntaxMeta dataclass. This saves one allocation per element
+# during the pest walk — the prior design cost ~1.5k extra allocations per
+# parse. The legacy `SyntaxMeta` name is kept as a type alias referring to
+# the element itself so downstream consumers (`element.meta.line`) still
+# work via the `meta` property defined on each class.
 
 
 @dataclass(slots=True)
 class SyntaxToken:
     name: str
     value: str
-    meta: SyntaxMeta | None = None
+    line: int | None = None
+    column: int | None = None
+    end_line: int | None = None
+    end_column: int | None = None
+    start_pos: int | None = None
+    end_pos: int | None = None
     kind: SyntaxTokenKind | None = None
 
     @property
     def type(self) -> str:
         return self.name
+
+    @property
+    def meta(self) -> "SyntaxToken":
+        return self
 
     def __str__(self) -> str:
         return self.value
@@ -648,9 +645,21 @@ class SyntaxToken:
 @dataclass(slots=True)
 class SyntaxNode:
     name: str
-    children: tuple["SyntaxNode | SyntaxToken", ...]
-    meta: SyntaxMeta | None = None
+    # list rather than tuple so the pest fused walker (and any future
+    # post-pass) can append late-attached children (e.g. trailing comments
+    # appended to a gobbler ancestor after its recursive build returns).
+    children: list["SyntaxNode | SyntaxToken"]
+    line: int | None = None
+    column: int | None = None
+    end_line: int | None = None
+    end_column: int | None = None
+    start_pos: int | None = None
+    end_pos: int | None = None
     kind: SyntaxNodeKind | None = None
+
+    @property
+    def meta(self) -> "SyntaxNode":
+        return self
 
     def child_nodes(self, kind: SyntaxNodeKind | None = None) -> list["SyntaxNode"]:
         nodes = [child for child in self.children if isinstance(child, SyntaxNode)]
@@ -694,6 +703,9 @@ class SyntaxNode:
 
 
 SyntaxElement: TypeAlias = SyntaxNode | SyntaxToken
+# Historical name. Position fields live directly on SyntaxNode/SyntaxToken
+# now, so the element IS its own meta via the `meta` property.
+SyntaxMeta: TypeAlias = SyntaxElement
 
 
 def syntax_name(element: SyntaxElement) -> str:
@@ -720,18 +732,29 @@ def syntax_from_parser(element: Any) -> SyntaxElement:
     data = getattr(element, "data", None)
     token_type = getattr(element, "type", None)
     if data is not None:
+        meta_src = getattr(element, "meta", None)
         return SyntaxNode(
-            name=data,
-            children=tuple(syntax_from_parser(child) for child in element.children),
-            meta=SyntaxMeta.from_parser_meta(getattr(element, "meta", None)),
-            kind=LARK_NODE_KIND.get(data),
+            data,
+            [syntax_from_parser(child) for child in element.children],
+            getattr(meta_src, "line", None),
+            getattr(meta_src, "column", None),
+            getattr(meta_src, "end_line", None),
+            getattr(meta_src, "end_column", None),
+            getattr(meta_src, "start_pos", None),
+            getattr(meta_src, "end_pos", None),
+            LARK_NODE_KIND.get(data),
         )
     if token_type is not None:
         return SyntaxToken(
-            name=token_type,
-            value=element.value,
-            meta=SyntaxMeta.from_parser_meta(element),
-            kind=LARK_TOKEN_KIND.get(token_type),
+            token_type,
+            element.value,
+            getattr(element, "line", None),
+            getattr(element, "column", None),
+            getattr(element, "end_line", None),
+            getattr(element, "end_column", None),
+            getattr(element, "start_pos", None),
+            getattr(element, "end_pos", None),
+            LARK_TOKEN_KIND.get(token_type),
         )
     msg = f"Unknown syntax element {element!r}"
     raise TypeError(msg)

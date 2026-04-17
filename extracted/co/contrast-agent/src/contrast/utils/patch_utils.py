@@ -148,9 +148,9 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "aiohttp_session": ((2, 0), (2, 12)),
     "anthropic": (
         (0, 4),
-        (0, 87),
+        (0, 89),
     ),  # anthropic 0.4.0 is the first minor release with Stainless.
-    "ariadne": ((0, 26), (0, 26)),
+    "ariadne": ((0, 26), (1, 0)),
     "beaker": ((1, 0), (1, 13)),
     "botocore": ((1, 0), (1, 42)),
     "bottle": ((0, 13), (0, 13)),
@@ -176,8 +176,8 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "lxml": ((4, 1), (5, 4)),
     "markupsafe": ((1, 0), (2, 1)),
     "mod_wsgi": ((4, 1), (5, 0)),
-    "mysql": ((8, 0), (9, 4)),  # mysql-connector-python
-    "openai": ((0, 27), (0, 28)),
+    "mysql": ((8, 0), (9, 6)),  # mysql-connector-python
+    "openai": ((2, 0), (2, 31)),
     "pymysql": ((1, 0), (1, 1)),
     "psycopg2": ((2, 0), (2, 9)),
     "pymongo": ((4, 0), (4, 8)),

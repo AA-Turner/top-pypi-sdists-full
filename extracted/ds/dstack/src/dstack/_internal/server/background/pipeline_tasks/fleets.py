@@ -43,11 +43,13 @@ from dstack._internal.server.services import events
 from dstack._internal.server.services.fleets import (
     create_fleet_instance_model,
     emit_fleet_status_change_event,
+    get_fleet_requirements,
     get_fleet_spec,
     get_next_instance_num,
     is_fleet_empty,
     is_fleet_in_use,
 )
+from dstack._internal.server.services.instances import instance_matches_constraints
 from dstack._internal.server.services.locking import get_locker
 from dstack._internal.server.services.pipelines import PipelineHinterProtocol
 from dstack._internal.server.utils import sentry_utils
@@ -63,7 +65,7 @@ class FleetPipeline(Pipeline[PipelineItem]):
         workers_num: int = 10,
         queue_lower_limit_factor: float = 0.5,
         queue_upper_limit_factor: float = 2.0,
-        min_processing_interval: timedelta = timedelta(seconds=30),
+        min_processing_interval: timedelta = timedelta(seconds=15),
         lock_timeout: timedelta = timedelta(seconds=20),
         heartbeat_trigger: timedelta = timedelta(seconds=10),
         *,
@@ -243,6 +245,7 @@ class _ProcessResult:
     fleet_update_map: _FleetUpdateMap = field(default_factory=_FleetUpdateMap)
     instance_id_to_update_map: dict[uuid.UUID, _InstanceUpdateMap] = field(default_factory=dict)
     new_instance_creates: list["_NewInstanceCreate"] = field(default_factory=list)
+    consolidation_limit_reached: bool = False
 
 
 class _NewInstanceCreate(TypedDict):
@@ -313,6 +316,7 @@ async def _refetch_locked_fleet_for_lock_decision(
                 FleetModel.consolidation_attempt,
                 FleetModel.last_consolidated_at,
                 FleetModel.last_processed_at,
+                FleetModel.created_at,
             )
         )
         .execution_options(populate_existing=True)
@@ -350,10 +354,13 @@ def _get_fleet_spec_if_ready_for_consolidation(fleet_model: FleetModel) -> Optio
     if fleet_model.status == FleetStatus.TERMINATING:
         return None
     consolidation_fleet_spec = get_fleet_spec(fleet_model)
+    # TODO: Drop fleet_spec.autocreated check after existing autocreated fleets no longer supported
     if (
         consolidation_fleet_spec.configuration.nodes is None
         or consolidation_fleet_spec.autocreated
     ):
+        return None
+    if fleet_model.consolidation_attempt >= _MAX_CONSOLIDATION_ATTEMPTS:
         return None
     if not _is_fleet_ready_for_consolidation(fleet_model):
         return None
@@ -499,6 +506,16 @@ async def _apply_process_result(
                 "status_message", context.fleet_model.status_message
             ),
         )
+        if result.consolidation_limit_reached:
+            events.emit(
+                session=session,
+                message=(
+                    f"Fleet consolidation stopped after {_MAX_CONSOLIDATION_ATTEMPTS} attempts."
+                    " Update the fleet to resume"
+                ),
+                actor=events.SystemActor(),
+                targets=[events.Target.from_model(context.fleet_model)],
+            )
 
 
 async def _process_fleet(
@@ -538,17 +555,31 @@ def _consolidate_fleet_state_with_spec(
     consolidation_instances: Sequence[InstanceModel],
 ) -> _ProcessResult:
     result = _ProcessResult()
-    maintain_nodes_result = _maintain_fleet_nodes_in_min_max_range(
+
+    spec_mismatch_updates = _terminate_instances_not_matching_fleet_spec(
         instances=consolidation_instances,
         fleet_spec=consolidation_fleet_spec,
     )
+    if spec_mismatch_updates:
+        result.instance_id_to_update_map.update(spec_mismatch_updates)
+
+    # Exclude spec-mismatched instances so min/max check sees only compatible instances.
+    effective_instances = [i for i in consolidation_instances if i.id not in spec_mismatch_updates]
+
+    maintain_nodes_result = _maintain_fleet_nodes_in_min_max_range(
+        instances=effective_instances,
+        fleet_spec=consolidation_fleet_spec,
+    )
     if maintain_nodes_result.has_changes:
-        result.instance_id_to_update_map = maintain_nodes_result.instance_id_to_update_map
+        result.instance_id_to_update_map.update(maintain_nodes_result.instance_id_to_update_map)
         result.new_instance_creates = maintain_nodes_result.new_instance_creates
-    if maintain_nodes_result.changes_required:
-        result.fleet_update_map["consolidation_attempt"] = fleet_model.consolidation_attempt + 1
+    if len(spec_mismatch_updates) > 0 or maintain_nodes_result.changes_required:
+        new_attempt = fleet_model.consolidation_attempt + 1
+        result.fleet_update_map["consolidation_attempt"] = new_attempt
+        if new_attempt >= _MAX_CONSOLIDATION_ATTEMPTS:
+            result.consolidation_limit_reached = True
     else:
-        # The fleet is consolidated with respect to nodes min/max.
+        # The fleet is consolidated with respect to spec and nodes min/max.
         result.fleet_update_map["consolidation_attempt"] = 0
     result.fleet_update_map["last_consolidated_at"] = NOW_PLACEHOLDER
     return result
@@ -556,10 +587,12 @@ def _consolidate_fleet_state_with_spec(
 
 def _is_fleet_ready_for_consolidation(fleet_model: FleetModel) -> bool:
     consolidation_retry_delay = _get_consolidation_retry_delay(fleet_model.consolidation_attempt)
-    last_consolidated_at = fleet_model.last_consolidated_at or fleet_model.last_processed_at
+    last_consolidated_at = fleet_model.last_consolidated_at or fleet_model.created_at
     duration_since_last_consolidation = get_current_datetime() - last_consolidated_at
     return duration_since_last_consolidation >= consolidation_retry_delay
 
+
+_MAX_CONSOLIDATION_ATTEMPTS = 15
 
 # We use exponentially increasing consolidation retry delays so that
 # consolidation does not happen too often. In particular, this prevents
@@ -577,6 +610,47 @@ def _get_consolidation_retry_delay(consolidation_attempt: int) -> timedelta:
     if consolidation_attempt < len(_CONSOLIDATION_RETRY_DELAYS):
         return _CONSOLIDATION_RETRY_DELAYS[consolidation_attempt]
     return _CONSOLIDATION_RETRY_DELAYS[-1]
+
+
+def _terminate_instances_not_matching_fleet_spec(
+    instances: Sequence[InstanceModel],
+    fleet_spec: FleetSpec,
+) -> dict[uuid.UUID, _InstanceUpdateMap]:
+    updates: dict[uuid.UUID, _InstanceUpdateMap] = {}
+    for instance in instances:
+        if not _can_terminate_spec_mismatched_instance(instance):
+            continue
+        if not _instance_matches_fleet_spec(instance, fleet_spec):
+            updates[instance.id] = {
+                "status": InstanceStatus.TERMINATING,
+                "termination_reason": InstanceTerminationReason.FLEET_SPEC_MISMATCH,
+                "termination_reason_message": "Instance does not match fleet spec",
+            }
+    return updates
+
+
+def _can_terminate_spec_mismatched_instance(instance: InstanceModel) -> bool:
+    if instance.deleted:
+        return False
+    # Pending instances have not selected an offer yet, so InstancePipeline will provision them
+    # using the current fleet spec. Recycle only instances already tied to the old spec.
+    return instance.status in (InstanceStatus.IDLE, InstanceStatus.PROVISIONING)
+
+
+def _instance_matches_fleet_spec(instance: InstanceModel, fleet_spec: FleetSpec) -> bool:
+    if instance.offer is None:
+        # Not yet provisioned — will be provisioned using the current (updated) spec.
+        return True
+    profile = fleet_spec.merged_profile
+    requirements = get_fleet_requirements(fleet_spec)
+    return instance_matches_constraints(
+        instance,
+        backend_types=profile.backends,
+        regions=profile.regions,
+        instance_types=profile.instance_types,
+        zones=profile.availability_zones,
+        requirements=requirements,
+    )
 
 
 def _maintain_fleet_nodes_in_min_max_range(
@@ -645,18 +719,17 @@ def _should_delete_fleet(fleet_model: FleetModel) -> bool:
     if is_fleet_in_use(fleet_model) or not is_fleet_empty(fleet_model):
         return False
 
-    # TODO: Drop non-terminating fleets auto-deletion after dropping fleets auto-creation.
     fleet_spec = get_fleet_spec(fleet_model)
-    if (
-        fleet_model.status != FleetStatus.TERMINATING
-        and fleet_spec.configuration.nodes is not None
-        and fleet_spec.configuration.nodes.min == 0
-    ):
-        # Empty fleets that allow 0 nodes should not be auto-deleted
-        return False
+    if fleet_model.status == FleetStatus.TERMINATING:
+        logger.info("Automatic cleanup of terminating empty fleet %s", fleet_model.name)
+        return True
 
-    logger.info("Automatic cleanup of an empty fleet %s", fleet_model.name)
-    return True
+    # TODO: Drop autocreated fleet auto-deletion after existing autocreated fleets no longer supported.
+    if fleet_spec.autocreated:
+        logger.info("Automatic cleanup of empty autocreated fleet %s", fleet_model.name)
+        return True
+
+    return False
 
 
 def _build_instance_update_rows(

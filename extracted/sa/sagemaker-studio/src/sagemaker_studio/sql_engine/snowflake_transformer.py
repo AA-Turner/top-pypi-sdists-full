@@ -1,7 +1,13 @@
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from .database_transformer import DatabaseTransformer
 from .resource_fetching_definition import ResourceFetchingDefinition
+
+
+class SnowflakeAuthType(str, Enum):
+    USERNAME_PASSWORD = "USERNAME_PASSWORD"
+    PEM_PRIVATE_KEY = "PEM_PRIVATE_KEY"
 
 
 class SnowflakeTransformer(DatabaseTransformer):
@@ -12,7 +18,22 @@ class SnowflakeTransformer(DatabaseTransformer):
 
     @staticmethod
     def get_required_fields() -> List[str]:
-        return ["account", "database", "user", "password", "warehouse"]
+        return ["account", "database", "warehouse", "auth_type"]
+
+    @staticmethod
+    def _validate_auth_fields(connection_data: Dict[str, Any]) -> None:
+        """Validate that the correct credential fields are present for the auth type."""
+        auth_type = connection_data.get("auth_type")
+        if auth_type == SnowflakeAuthType.PEM_PRIVATE_KEY:
+            if not connection_data.get("user") or not connection_data.get("private_key"):
+                raise ValueError(
+                    "user and private_key are required for PEM_PRIVATE_KEY authentication"
+                )
+        else:
+            if not connection_data.get("user") or not connection_data.get("password"):
+                raise ValueError(
+                    "user and password are required for USERNAME_PASSWORD authentication"
+                )
 
     @staticmethod
     def to_sqlalchemy_config(connection_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -35,18 +56,39 @@ class SnowflakeTransformer(DatabaseTransformer):
         SnowflakeTransformer.validate_required_fields(
             SnowflakeTransformer.get_required_fields(), connection_data
         )
+        SnowflakeTransformer._validate_auth_fields(connection_data)
 
-        user = connection_data.get("user")
-        password = connection_data.get("password")
         database = connection_data.get("database")
         warehouse = connection_data.get("warehouse")
         account = connection_data.get("account")
+        auth_type = connection_data.get("auth_type")
 
-        connection_string = (
-            f"snowflake://{user}:{password}@{account}/{database}?warehouse={warehouse}"
-        )
+        if auth_type == SnowflakeAuthType.PEM_PRIVATE_KEY:
+            import base64
 
-        return {"connection_string": connection_string, "connect_args": connection_data}
+            user = connection_data.get("user")
+            pem_str = connection_data.get("private_key")
+            pem_str = pem_str if isinstance(pem_str, str) else pem_str.decode("utf-8")
+            pem_str = pem_str.replace("\\n", "\n").strip()
+            # Strip PEM headers/footers if present to get raw base64
+            pem_lines = [
+                line for line in pem_str.splitlines() if line and not line.startswith("-----")
+            ]
+            private_key_bytes = base64.b64decode("".join(pem_lines))
+
+            connection_string = f"snowflake://{user}@{account}/{database}?warehouse={warehouse}"
+            connect_args = {
+                k: v for k, v in connection_data.items() if k not in ("private_key", "auth_type")
+            }
+            connect_args["private_key"] = private_key_bytes
+        else:
+            user = connection_data.get("user")
+            password = connection_data.get("password")
+            connection_string = (
+                f"snowflake://{user}:{password}@{account}/{database}?warehouse={warehouse}"
+            )
+            connect_args = {k: v for k, v in connection_data.items() if k not in ("auth_type",)}
+        return {"connection_string": connection_string, "connect_args": connect_args}
 
     @staticmethod
     def get_resources_action(

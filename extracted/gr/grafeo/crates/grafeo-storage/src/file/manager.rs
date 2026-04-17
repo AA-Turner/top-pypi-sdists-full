@@ -37,6 +37,9 @@ pub struct GrafeoFileManager {
     active_slot: Mutex<u8>,
     /// Whether this manager was opened in read-only mode.
     read_only: bool,
+    /// Encryptor for section data (None = unencrypted).
+    #[cfg(feature = "encryption")]
+    section_encryptor: Option<grafeo_common::encryption::PageEncryptor>,
 }
 
 impl GrafeoFileManager {
@@ -105,6 +108,8 @@ impl GrafeoFileManager {
             active_header: Mutex::new(DbHeader::EMPTY),
             active_slot: Mutex::new(0),
             read_only: false,
+            #[cfg(feature = "encryption")]
+            section_encryptor: None,
         })
     }
 
@@ -143,6 +148,8 @@ impl GrafeoFileManager {
             active_header: Mutex::new(active_header),
             active_slot: Mutex::new(active_slot),
             read_only: false,
+            #[cfg(feature = "encryption")]
+            section_encryptor: None,
         })
     }
 
@@ -187,7 +194,19 @@ impl GrafeoFileManager {
             active_header: Mutex::new(active_header),
             active_slot: Mutex::new(active_slot),
             read_only: true,
+            #[cfg(feature = "encryption")]
+            section_encryptor: None,
         })
+    }
+
+    /// Sets the encryptor for section-level encryption.
+    ///
+    /// When set, all section data is encrypted on write and decrypted on read.
+    /// The GCM authentication tag provides integrity verification, replacing
+    /// the CRC-32 checksum for encrypted sections.
+    #[cfg(feature = "encryption")]
+    pub fn set_section_encryptor(&mut self, encryptor: grafeo_common::encryption::PageEncryptor) {
+        self.section_encryptor = Some(encryptor);
     }
 
     /// Returns `true` if this manager was opened in read-only mode.
@@ -225,6 +244,8 @@ impl GrafeoFileManager {
         use grafeo_common::testing::crash::maybe_crash;
 
         let checksum = crc32fast::hash(data);
+        // reason: millis since UNIX epoch fits in u64 for ~585 million years
+        #[allow(clippy::cast_possible_truncation)]
         let timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -294,6 +315,10 @@ impl GrafeoFileManager {
             return Ok(Vec::new());
         }
 
+        // reason: snapshot_length is the size of serialized in-memory data, fits in usize on 64-bit targets;
+        // on 32-bit targets the database would OOM long before reaching 4 GiB
+        // reason: value bounded by collection size, fits usize
+        #[allow(clippy::cast_possible_truncation)]
         let length = active_header.snapshot_length as usize;
         let expected_checksum = active_header.checksum;
         drop(active_header);
@@ -426,24 +451,59 @@ impl GrafeoFileManager {
         // Write each section at page-aligned offsets
         let page_size = 4096u64;
         let mut current_offset = SECTION_DATA_OFFSET;
+        // Next checkpoint iteration, used as the high part of the nonce so that
+        // the same (section_type, offset) pair produces a different nonce across
+        // checkpoints. Without this, identical section layouts would reuse nonces.
+        #[cfg(feature = "encryption")]
+        // reason: iteration wraps at u32::MAX which takes billions of checkpoints (~100+ years at 1/s)
+        #[allow(clippy::cast_possible_truncation)]
+        let nonce_iteration = (active_header.iteration + 1) as u32;
 
         for (section_type, data) in sections {
-            let checksum = crc32fast::hash(data);
+            // Encrypt section data if encryption is enabled.
+            // Nonce high word: iteration in bits [31:8], section type in bits [7:0].
+            // Bit-packing (not XOR) ensures unique high words: XOR is commutative
+            // so `iter ^ type` can collide across different (iter, type) pairs,
+            // but packing into disjoint bit lanes is injective for type < 256.
+            // Nonce low word: page-aligned write offset (unique within a checkpoint).
+            // AAD binds the ciphertext to the section type, preventing relocation.
+            // Encrypt section data if an encryptor is configured, otherwise
+            // write the plaintext bytes directly (no allocation).
+            #[cfg(feature = "encryption")]
+            let encrypted_buf: Option<Vec<u8>> = if let Some(ref enc) = self.section_encryptor {
+                let nonce_high = (nonce_iteration << 8) | (*section_type as u32 & 0xFF);
+                let nonce = grafeo_common::encryption::build_nonce(nonce_high, current_offset);
+                let aad = format!("grafeo-section:{}", *section_type as u32);
+                Some(
+                    enc.encrypt(data, &nonce, aad.as_bytes())
+                        .map_err(|e| Error::Internal(format!("section encryption failed: {e}")))?,
+                )
+            } else {
+                None
+            };
+
+            #[cfg(feature = "encryption")]
+            let write_data: &[u8] = encrypted_buf.as_deref().unwrap_or(data);
+            #[cfg(not(feature = "encryption"))]
+            let write_data: &[u8] = data;
+
+            let checksum = crc32fast::hash(write_data);
+            let length = write_data.len() as u64;
 
             file.seek(SeekFrom::Start(current_offset))?;
-            file.write_all(data)?;
+            file.write_all(write_data)?;
 
             dir.upsert(SectionDirectoryEntry {
                 section_type: *section_type,
                 version: 1,
                 flags: section_type.default_flags(),
                 offset: current_offset,
-                length: data.len() as u64,
+                length,
                 checksum,
             })?;
 
             // Align next section to page boundary
-            let section_end = current_offset + data.len() as u64;
+            let section_end = current_offset + length;
             current_offset = (section_end + page_size - 1) / page_size * page_size;
         }
 
@@ -462,6 +522,8 @@ impl GrafeoFileManager {
         // Build and write new DbHeader to inactive slot
         let new_iteration = active_header.iteration + 1;
         let target_slot = u8::from(*active_slot == 0);
+        // reason: millis since UNIX epoch fits in u64 for ~585 million years
+        #[allow(clippy::cast_possible_truncation)]
         let timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -554,15 +616,32 @@ impl GrafeoFileManager {
         let mut file = self.file.lock();
         file.seek(SeekFrom::Start(entry.offset))?;
 
+        // reason: section length is bounded by file size, which fits in usize on 64-bit targets;
+        // on 32-bit targets sections would OOM long before reaching 4 GiB
+        // reason: value bounded by collection size, fits usize
+        #[allow(clippy::cast_possible_truncation)]
         let mut data = vec![0u8; entry.length as usize];
         std::io::Read::read_exact(&mut *file, &mut data)?;
 
+        // Verify CRC on the raw bytes (encrypted or plaintext)
         let actual_crc = crc32fast::hash(&data);
         if actual_crc != entry.checksum {
             return Err(Error::Internal(format!(
                 "section {:?} CRC mismatch: expected {:#010X}, got {actual_crc:#010X}",
                 entry.section_type, entry.checksum
             )));
+        }
+
+        // Decrypt if encryption is enabled
+        #[cfg(feature = "encryption")]
+        if let Some(ref enc) = self.section_encryptor {
+            let aad = format!("grafeo-section:{}", entry.section_type as u32);
+            return enc.decrypt(&data, aad.as_bytes()).map_err(|_| {
+                Error::Internal(format!(
+                    "section {:?} decryption failed: wrong key or corrupted data",
+                    entry.section_type
+                ))
+            });
         }
 
         Ok(data)
@@ -614,10 +693,13 @@ impl GrafeoFileManager {
         // The section region [offset .. offset+length] was written by
         // write_sections() and its CRC is verified below before the mmap
         // is exposed to callers.
+        // reason: section length is bounded by file size, fits in usize on 64-bit targets
+        #[allow(clippy::cast_possible_truncation)]
+        let section_len = entry.length as usize;
         let mmap = unsafe {
             memmap2::MmapOptions::new()
                 .offset(entry.offset)
-                .len(entry.length as usize)
+                .len(section_len)
                 .map(&*file)
         }
         .map_err(Error::Io)?;
@@ -1351,5 +1433,82 @@ mod tests {
         let copy = GrafeoFileManager::open(&dest).unwrap();
         assert_eq!(copy.read_snapshot().unwrap(), b"read-only copy data");
         copy.close().unwrap();
+    }
+
+    #[test]
+    #[cfg(all(feature = "encryption", not(miri)))]
+    fn encrypted_section_roundtrip() {
+        use grafeo_common::encryption::KeyChain;
+        use grafeo_common::storage::SectionType;
+
+        let dir = test_dir();
+        let path = dir.path().join("encrypted.grafeo");
+
+        let kc = KeyChain::new([0xAB; 32]);
+
+        let section_data = b"sensitive graph data that must be encrypted";
+
+        // Write with encryption
+        {
+            let mut manager = GrafeoFileManager::create(&path).unwrap();
+            manager.set_section_encryptor(kc.encryptor_for("section", b"test"));
+            manager
+                .write_sections(&[(SectionType::LpgStore, &section_data[..])], 1, 0, 0, 0)
+                .unwrap();
+            manager.close().unwrap();
+        }
+
+        // Read back with same key
+        {
+            let mut manager = GrafeoFileManager::open(&path).unwrap();
+            manager.set_section_encryptor(kc.encryptor_for("section", b"test"));
+            let dir_opt = manager.read_section_directory().unwrap();
+            let section_dir = dir_opt.expect("directory should exist");
+            let entry = section_dir
+                .entries()
+                .iter()
+                .find(|e| e.section_type == SectionType::LpgStore)
+                .expect("LpgStore section should exist");
+            let decrypted = manager.read_section_data(entry).unwrap();
+            assert_eq!(decrypted, section_data);
+        }
+    }
+
+    #[test]
+    #[cfg(all(feature = "encryption", not(miri)))]
+    fn encrypted_section_wrong_key_fails() {
+        use grafeo_common::encryption::KeyChain;
+        use grafeo_common::storage::SectionType;
+
+        let dir = test_dir();
+        let path = dir.path().join("wrong_key.grafeo");
+
+        let kc_a = KeyChain::new([0xAA; 32]);
+        let kc_b = KeyChain::new([0xBB; 32]);
+
+        // Write with key A
+        {
+            let mut manager = GrafeoFileManager::create(&path).unwrap();
+            manager.set_section_encryptor(kc_a.encryptor_for("section", b"test"));
+            manager
+                .write_sections(&[(SectionType::LpgStore, b"secret data")], 1, 0, 0, 0)
+                .unwrap();
+            manager.close().unwrap();
+        }
+
+        // Read with key B: CRC passes (computed on encrypted bytes), but decryption fails
+        {
+            let mut manager = GrafeoFileManager::open(&path).unwrap();
+            manager.set_section_encryptor(kc_b.encryptor_for("section", b"test"));
+            let dir_opt = manager.read_section_directory().unwrap();
+            let section_dir = dir_opt.expect("directory should exist");
+            let entry = section_dir
+                .entries()
+                .iter()
+                .find(|e| e.section_type == SectionType::LpgStore)
+                .expect("section should exist");
+            let result = manager.read_section_data(entry);
+            assert!(result.is_err(), "decryption with wrong key should fail");
+        }
     }
 }

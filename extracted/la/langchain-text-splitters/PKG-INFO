@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-text-splitters
-Version: 1.1.1
+Version: 1.1.2
 Summary: LangChain text splitting utilities
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://docs.langchain.com/
@@ -24,7 +24,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing
 Requires-Python: <4.0.0,>=3.10.0
-Requires-Dist: langchain-core<2.0.0,>=1.2.13
+Requires-Dist: langchain-core<2.0.0,>=1.2.31
 Description-Content-Type: text/markdown
 
 # 🦜✂️ LangChain Text Splitters

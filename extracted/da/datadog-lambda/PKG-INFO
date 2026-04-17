@@ -1,13 +1,13 @@
 Metadata-Version: 2.1
 Name: datadog_lambda
-Version: 8.123.0
+Version: 8.124.0
 Summary: The Datadog AWS Lambda Library
 Home-page: https://github.com/DataDog/datadog-lambda-python
 License: Apache-2.0
 Keywords: datadog,aws,lambda,layer
 Author: Datadog, Inc.
 Author-email: dev@datadoghq.com
-Requires-Python: >=3.8.0,<4
+Requires-Python: >=3.8.0,<3.15
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
@@ -21,12 +21,17 @@ Provides-Extra: dev
 Requires-Dist: botocore (>=1.34.0,<2.0.0) ; extra == "dev"
 Requires-Dist: datadog (>=0.51.0,<1.0.0)
 Requires-Dist: ddtrace (>=3.19.1,<4) ; python_version >= "3.8" and python_version < "3.10"
-Requires-Dist: ddtrace (>=4.1.1,<5) ; python_version >= "3.10"
+Requires-Dist: ddtrace (>=4.1.1,<5,!=4.6.*) ; python_version >= "3.10"
 Requires-Dist: flake8 (>=5.0.4,<6.0.0) ; extra == "dev"
-Requires-Dist: pytest (>=8.0.0,<9.0.0) ; extra == "dev"
+Requires-Dist: pytest (>=8.3.4,<9.0.0) ; (python_version >= "3.8" and python_version < "3.10") and (extra == "dev")
+Requires-Dist: pytest (>=9.0.3,<10.0.0) ; (python_version >= "3.10") and (extra == "dev")
 Requires-Dist: pytest-benchmark (>=4.0,<5.0) ; extra == "dev"
-Requires-Dist: requests (>=2.22.0,<3.0.0) ; extra == "dev"
-Requires-Dist: ujson (>=5.9.0)
+Requires-Dist: requests (>=2.22.0,<3.0.0) ; (python_version >= "3.8" and python_version < "3.10") and (extra == "dev")
+Requires-Dist: requests (>=2.33.0,<3.0.0) ; (python_version >= "3.10") and (extra == "dev")
+Requires-Dist: ujson (>=5.10.0,<5.12.0) ; python_version >= "3.8" and python_version < "3.10"
+Requires-Dist: ujson (>=5.12.0,<6.0.0) ; python_version >= "3.10"
+Requires-Dist: urllib3 (>=1.25.4,<1.27) ; python_version >= "3.8" and python_version < "3.10"
+Requires-Dist: urllib3 (>=2.6.3,<3.0.0) ; python_version >= "3.10"
 Requires-Dist: wrapt (>=1.11.2,<2.0.0)
 Project-URL: Repository, https://github.com/DataDog/datadog-lambda-python
 Description-Content-Type: text/markdown

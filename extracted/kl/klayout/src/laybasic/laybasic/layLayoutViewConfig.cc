@@ -67,6 +67,7 @@ public:
     options.push_back (std::pair<std::string, std::string> (cfg_bitmap_caching, "true"));
     options.push_back (std::pair<std::string, std::string> (cfg_show_properties, "false"));
     options.push_back (std::pair<std::string, std::string> (cfg_apply_text_trans, "true"));
+    options.push_back (std::pair<std::string, std::string> (cfg_apply_text_trans_mode, "3"));
     options.push_back (std::pair<std::string, std::string> (cfg_global_trans, "r0"));
     options.push_back (std::pair<std::string, std::string> (cfg_default_text_size, "0.1"));
     options.push_back (std::pair<std::string, std::string> (cfg_text_point_mode, "false"));
@@ -114,6 +115,7 @@ public:
     options.push_back (std::pair<std::string, std::string> (cfg_guiding_shape_color, cc.to_string (tl::Color ())));
     options.push_back (std::pair<std::string, std::string> (cfg_guiding_shape_vertex_size, "5"));
     options.push_back (std::pair<std::string, std::string> (cfg_abs_units, "false"));
+    options.push_back (std::pair<std::string, std::string> (cfg_auto_create_new_layers, "true"));
     options.push_back (std::pair<std::string, std::string> (cfg_dbu_units, "false"));
     options.push_back (std::pair<std::string, std::string> (cfg_drawing_workers, "1"));
     options.push_back (std::pair<std::string, std::string> (cfg_drop_small_cells, "false"));

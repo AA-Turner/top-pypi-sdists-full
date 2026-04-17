@@ -374,6 +374,23 @@ def is_map_in_dtype_tree(dtype: pa.DataType) -> bool:
     return False
 
 
+def coerce_map_pylist_to_dict(value: Any, pa_type: pa.DataType) -> Any:
+    """Recursively convert pyarrow map list-of-tuples to Python dicts in to_pylist() output."""
+    if value is None:
+        return None
+    if pa.types.is_map(pa_type):
+        return {k: coerce_map_pylist_to_dict(v, pa_type.item_type) for k, v in value}
+    if pa.types.is_list(pa_type) or pa.types.is_large_list(pa_type):
+        return [coerce_map_pylist_to_dict(x, pa_type.value_type) for x in value]
+    if pa.types.is_struct(pa_type):
+        # Recurse into struct fields so that map fields nested inside a struct
+        # (e.g. TypedDict values in Dict[str, TypedDictWithDict]) are also converted.
+        return {
+            k: coerce_map_pylist_to_dict(v, pa_type.field(pa_type.get_field_index(k)).type) for k, v in value.items()
+        }
+    return value
+
+
 def pyarrow_to_polars(
     pa_type: pa.DataType, name: str | None = None, use_fixed_size_list: bool = False
 ) -> pl.PolarsDataType:

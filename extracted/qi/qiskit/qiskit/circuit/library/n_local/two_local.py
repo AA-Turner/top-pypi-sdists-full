@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -24,7 +24,7 @@ from .n_local import NLocal
 from ..standard_gates import get_standard_gate_name_mapping
 
 if typing.TYPE_CHECKING:
-    import qiskit  # pylint: disable=cyclic-import
+    import qiskit
 
 
 class TwoLocal(NLocal):
@@ -204,6 +204,7 @@ class TwoLocal(NLocal):
             insert_barriers: If ``True``, barriers are inserted in between each layer. If ``False``,
                 no barriers are inserted. Defaults to ``False``.
             initial_state: A :class:`.QuantumCircuit` object to prepend to the circuit.
+            name: The name to use for the generated circuit.
             flatten: Set this to ``True`` to output a flat circuit instead of nesting it inside multiple
                 layers of gate objects. By default currently the contents of
                 the output circuit will be wrapped in nested objects for

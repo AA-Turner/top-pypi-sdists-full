@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "click-extra"
-version = "7.12.0"
+version = "7.13.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -131,6 +131,8 @@ pytest11.click-extra = "click_extra.pytest"
 "pygments.lexers".ansi-ruby-console = "click_extra.pygments:AnsiRubyConsoleLexer"
 "pygments.lexers".ansi-sqlite-console = "click_extra.pygments:AnsiSqliteConsoleLexer"
 "pygments.lexers".ansi-tcsh-session = "click_extra.pygments:AnsiTcshSessionLexer"
+# MkDocs plugin for ANSI color rendering in code blocks.
+"mkdocs.plugins".click-extra = "click_extra.mkdocs:AnsiColorPlugin"
 
 [project.optional-dependencies]
 hjson = [
@@ -144,6 +146,14 @@ json5 = [
 jsonc = [
   # jsonc.loads() for JSONC config parsing.
   "json-with-comments>=1.2.10",
+]
+mkdocs = [
+  # MkDocs 1.4.0 is the first version with the on_startup plugin event.
+  "mkdocs>=1.4",
+  # Pygments 2.14.0 is the first version with lexers.algebra.GAPConsoleLexer that is referenced in our code.
+  "pygments>=2.14",
+  # pymdown-extensions 10.0 is the first version with stable highlight extension API.
+  "pymdown-extensions>=10",
 ]
 pygments = [
   # Pygments 2.14.0 is the first version with lexers.algebra.GAPConsoleLexer that is referenced in our code.
@@ -181,7 +191,7 @@ click-extra-demo = "click_extra.__main__:main"
 
 [project.urls]
 "Homepage" = "https://github.com/kdeldycke/click-extra"
-"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.12.0"
+"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.13.0"
 "Changelog" = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
 "Issues" = "https://github.com/kdeldycke/click-extra/issues"
 "Repository" = "https://github.com/kdeldycke/click-extra"
@@ -195,9 +205,15 @@ test = [
   "coverage[toml]>=7.12",
   # extra-platforms 5.0.0 re-introduced Python 3.10 support after dropping it in 4.x.
   "extra-platforms[pytest]>=5",
+  # MkDocs 1.4.0 is the first version with the on_startup plugin event.
+  "mkdocs>=1.4",
+  # mkdocs-click 0.8.0 stabilized the _make_usage/_make_plain_options API.
+  "mkdocs-click>=0.8",
   # myst-parser 4.0 added colon_fence extension for GitHub-style alert syntax.
   # Pinned to >=4 (not >=5) because myst-parser 5 requires Python 3.11+ and tests run on 3.10+.
   "myst-parser>=4",
+  # pymdown-extensions 10.0 is the first version with stable highlight extension API.
+  "pymdown-extensions>=10",
   # pytest 9.0.0 is the first supporting native TOML configuration files.
   "pytest>=9",
   # pytest-cov 7.0 updated the plugin interface for coverage reporting.
@@ -349,7 +365,7 @@ run.source = [ "click_extra" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "7.12.0"
+current_version = "7.13.0"
 allow_dirty = true
 ignore_missing_files = true
 # Parse versions with an optional .devN suffix (PEP 440).
@@ -403,25 +419,29 @@ replace = "date-released: {utcnow:%Y-%m-%d}"
 [[tool.bumpversion.files]]
 filename = "./readme.md"
 ignore_missing_version = true
+include_bumps = [ "dev" ]
 search = "raw.githubusercontent.com/kdeldycke/click-extra/main/"
 replace = "raw.githubusercontent.com/kdeldycke/click-extra/v{new_version}/"
 
 [[tool.bumpversion.files]]
 filename = "./docs/tutorial.md"
 ignore_missing_version = true
+include_bumps = [ "dev" ]
 search = "raw.githubusercontent.com/kdeldycke/click-extra/main/"
 replace = "raw.githubusercontent.com/kdeldycke/click-extra/v{new_version}/"
 
-# Restore image URLs from the previous release tag back to main.
+# Restore image URLs from the release tag back to main (only during next dev cycle).
 [[tool.bumpversion.files]]
 filename = "./readme.md"
 ignore_missing_version = true
+exclude_bumps = [ "dev" ]
 search = "raw.githubusercontent.com/kdeldycke/click-extra/v{current_version}/"
 replace = "raw.githubusercontent.com/kdeldycke/click-extra/main/"
 
 [[tool.bumpversion.files]]
 filename = "./docs/tutorial.md"
 ignore_missing_version = true
+exclude_bumps = [ "dev" ]
 search = "raw.githubusercontent.com/kdeldycke/click-extra/v{current_version}/"
 replace = "raw.githubusercontent.com/kdeldycke/click-extra/main/"
 
@@ -434,7 +454,7 @@ warn_return_any = true
 warn_unreachable = true
 pretty = true
 overrides = [
-  { ignore_missing_imports = true, module = [ "hjson", "jsonc" ] },
+  { ignore_missing_imports = true, module = [ "hjson", "jsonc", "pymdownx", "pymdownx.*" ] },
   # Sphinx uses Python 3.12+ type statement syntax (PEP 695), which causes
   # mypy to fail with syntax errors when checking against older Python versions.
   # XXX This is a temporary workaround until we drop support for Python 3.10 and 3.11 for Click Extra.
@@ -450,6 +470,10 @@ exclude = [
   "^https://github.com/.+/releases/.+/download/.*$",
   # Allow redirects of generic DOI URLs to their specific Zenodo release page.
   "^https://doi.org/.+/zenodo.*$",
+  # star-history uses client-side hash routing; fragments are not real HTML anchors.
+  "^https://star-history.com/#.*$",
+  # crates.io blocks automated link checkers.
+  "^https://crates.io/crates/.*$",
 ]
 
 [tool.repomatic]

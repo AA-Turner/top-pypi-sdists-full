@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mygeotab
-Version: 0.9.4
+Version: 0.9.5
 Summary: A Python client for the MyGeotab SDK
 Home-page: https://github.com/geotab/mygeotab-python
 Author: Geotab Inc.
@@ -148,6 +148,13 @@ Read the docs at `<http://mygeotab-python.readthedocs.org>`_
 
 Changes
 -------
+
+0.9.5 (2026-04-16)
+++++++++++++++++++
+
+**Improvements**
+
+- Altitude: Removed ``DaasResult`` wrapper to resurface access check errors directly to the user `#192 <https://github.com/Geotab/mygeotab-python/pull/192>`__.
 
 0.9.4 (2025-10-24)
 ++++++++++++++++++

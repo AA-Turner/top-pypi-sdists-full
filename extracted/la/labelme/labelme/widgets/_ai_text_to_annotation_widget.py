@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Callable
 
 from PyQt5 import QtCore
@@ -22,11 +24,15 @@ class AiTextToAnnotationWidget(QtWidgets.QWidget):
     _iou_spinbox: QtWidgets.QDoubleSpinBox
     _body: QtWidgets.QWidget
 
-    def __init__(self, on_submit, parent: QtWidgets.QWidget | None = None):
+    def __init__(
+        self,
+        on_submit: Callable[[bool], None],
+        parent: QtWidgets.QWidget | None = None,
+    ) -> None:
         super().__init__(parent=parent)
         self._init_ui(on_submit)
 
-    def _init_ui(self, on_submit: Callable[[], None]) -> None:
+    def _init_ui(self, on_submit: Callable[[bool], None]) -> None:
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(2)
@@ -137,8 +143,7 @@ class AiTextToAnnotationWidget(QtWidgets.QWidget):
                 QtWidgets.QToolTip.showText(
                     QtGui.QCursor.pos(),
                     self.tr(
-                        "Select 'Polygon', 'Rectangle', 'AI-Polygon', or 'AI-Mask' "
-                        "mode to enable"
+                        "Select 'Polygon', 'Rectangle', or 'AI-Points' mode to enable"
                     ),
                     self._body,
                 )

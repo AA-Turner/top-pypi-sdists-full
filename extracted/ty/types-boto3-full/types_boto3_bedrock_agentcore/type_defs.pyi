@@ -602,7 +602,8 @@ class ListCodeInterpreterSessionsRequestTypeDef(TypedDict):
 
 class ListMemoryRecordsInputTypeDef(TypedDict):
     memoryId: str
-    namespace: str
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
     memoryStrategyId: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -934,7 +935,8 @@ ListMemoryExtractionJobsInputPaginateTypeDef = TypedDict(
 
 class ListMemoryRecordsInputPaginateTypeDef(TypedDict):
     memoryId: str
-    namespace: str
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
     memoryStrategyId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -1337,14 +1339,16 @@ ListEventsInputTypeDef = TypedDict(
 
 class RetrieveMemoryRecordsInputPaginateTypeDef(TypedDict):
     memoryId: str
-    namespace: str
     searchCriteria: SearchCriteriaTypeDef
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class RetrieveMemoryRecordsInputTypeDef(TypedDict):
     memoryId: str
-    namespace: str
     searchCriteria: SearchCriteriaTypeDef
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 

@@ -1,5 +1,6 @@
-use pyo3::exceptions::{PyIndexError, PyKeyError, PyTypeError, PyValueError};
+use pyo3::exceptions::{PyIndexError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
+use pyo3::types::PySlice;
 use toml_edit::Item as ItemRs;
 use toml_edit::Value as ValueRs;
 
@@ -29,6 +30,7 @@ impl ArrayLikeMut<'_> {
 }
 
 /// Shared reference to an array-like TOML item.
+#[derive(Clone, Copy)]
 pub(crate) enum ArrayLikeRef<'a> {
     Array(&'a toml_edit::Array),
     Aot(&'a toml_edit::ArrayOfTables),
@@ -39,6 +41,42 @@ impl ArrayLikeRef<'_> {
         match self {
             Self::Array(arr) => arr.len(),
             Self::Aot(aot) => aot.len(),
+        }
+    }
+}
+
+/// Owned array-like item — the owned counterpart to `ArrayLikeRef`.
+///
+/// Used by proxy fast paths that need to hold the source data across a
+/// destination write lock (so that per-element handling on kind mismatch
+/// doesn't require re-entering Python iteration).
+pub(crate) enum ArrayLikeOwned {
+    Array(toml_edit::Array),
+    Aot(toml_edit::ArrayOfTables),
+}
+
+impl ArrayLikeOwned {
+    /// Clone `item` into an `ArrayLikeOwned` if it's array-like.
+    pub(crate) fn from_item(item: &ItemRs) -> Option<Self> {
+        match item {
+            ItemRs::Value(ValueRs::Array(arr)) => Some(Self::Array(arr.clone())),
+            ItemRs::ArrayOfTables(aot) => Some(Self::Aot(aot.clone())),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn as_ref(&self) -> ArrayLikeRef<'_> {
+        match self {
+            Self::Array(arr) => ArrayLikeRef::Array(arr),
+            Self::Aot(aot) => ArrayLikeRef::Aot(aot),
+        }
+    }
+
+    /// Decompose into elements as `Item`s.
+    pub(crate) fn into_items(self) -> Vec<Item> {
+        match self {
+            Self::Array(arr) => arr.into_iter().map(|v| Item(ItemRs::Value(v))).collect(),
+            Self::Aot(aot) => aot.into_iter().map(|t| Item(ItemRs::Table(t))).collect(),
         }
     }
 }
@@ -99,12 +137,42 @@ fn multiline_prefix(arr: &toml_edit::Array) -> Option<String> {
     indent_only(raw)
 }
 
-/// Apply multiline decor to a newly created value, matching the array's style.
-fn apply_multiline_decor(arr: &toml_edit::Array, v: &mut ValueRs) {
+/// For a single-line array, return the prefix a newly inserted element
+/// should have, matching the array's inter-element separator.  Returns
+/// `None` for multiline or empty arrays.
+fn single_line_separator(arr: &toml_edit::Array) -> Option<String> {
+    if multiline_prefix(arr).is_some() {
+        return None;
+    }
+    inter_element_prefix(arr)
+}
+
+/// The prefix of an existing non-first element — the whitespace that
+/// follows a comma in a single-line array.  Falls back to `" "` when the
+/// array has only one element; `None` when the array is empty.
+///
+/// Only meaningful for single-line arrays; on a multiline array element 1's
+/// prefix includes the line break and possibly a block comment.
+fn inter_element_prefix(arr: &toml_edit::Array) -> Option<String> {
+    if arr.is_empty() {
+        return None;
+    }
+    let sep = arr
+        .get(1)
+        .and_then(|e| e.decor().prefix())
+        .and_then(|r| r.as_str())
+        .unwrap_or(" ");
+    Some(sep.to_string())
+}
+
+/// Apply decor to a newly created value, matching the array's existing style.
+fn apply_element_decor(arr: &toml_edit::Array, v: &mut ValueRs) {
     if let Some(prefix) = multiline_prefix(arr) {
         let decor = v.decor_mut();
         decor.set_prefix(prefix);
         decor.set_suffix("");
+    } else if let Some(sep) = inter_element_prefix(arr) {
+        v.decor_mut().set_prefix(sep);
     }
 }
 
@@ -136,6 +204,25 @@ fn apply_last_suffix(arr: &mut toml_edit::Array, suffix: Option<String>) {
     }
 }
 
+/// Run `body` on `arr` with the last-element seam preserved across the
+/// operation.  The inline comment attached to the current last element
+/// (stored in the array's trailing slot) and the last element's suffix
+/// are both saved beforehand and re-applied afterwards.
+///
+/// `body` receives the inline-comment vector and must push one entry per
+/// element it appends so `restore_inline_comments` lands each comment in
+/// the right slot.
+fn with_preserved_seam(
+    arr: &mut toml_edit::Array,
+    body: impl FnOnce(&mut toml_edit::Array, &mut Vec<String>),
+) {
+    let saved_suffix = strip_last_suffix(arr);
+    let mut inlines = arr.save_inline_comments();
+    body(arr, &mut inlines);
+    arr.restore_inline_comments(&inlines);
+    apply_last_suffix(arr, saved_suffix);
+}
+
 /// Save the first element's leading prefix (whitespace after `[`).
 /// Returns `None` if the array is empty or the prefix is empty.
 ///
@@ -164,7 +251,7 @@ fn apply_first_prefix(arr: &mut toml_edit::Array, prefix: Option<String>) {
 /// Block comments and spacing separators live in each table's decor prefix.
 /// Mutations that replace an entry must save this first, then stamp the
 /// saved prefix onto the new table before inserting/replacing it.
-pub(crate) fn save_aot_entry_prefix(aot: &toml_edit::ArrayOfTables, index: usize) -> String {
+fn save_aot_entry_prefix(aot: &toml_edit::ArrayOfTables, index: usize) -> String {
     aot.get(index)
         .and_then(|t| t.decor().prefix()?.as_str())
         .unwrap_or_default()
@@ -175,7 +262,7 @@ pub(crate) fn save_aot_entry_prefix(aot: &toml_edit::ArrayOfTables, index: usize
 ///
 /// When entry 0 is removed, the new first entry may have a leading `\n`
 /// separator (left over from being a non-first entry).  Strip it.
-pub(crate) fn fix_first_aot_prefix(aot: &mut toml_edit::ArrayOfTables) {
+fn fix_first_aot_prefix(aot: &mut toml_edit::ArrayOfTables) {
     let Some(first) = aot.get_mut(0) else {
         return;
     };
@@ -200,7 +287,7 @@ pub(crate) fn fix_first_aot_prefix(aot: &mut toml_edit::ArrayOfTables) {
 /// When inserting at position 0 the new element needs no prefix (it is now
 /// first), but the *old* first element — now at position 1 — was re-pushed
 /// with its original prefix and must be fixed instead.
-pub(crate) fn fix_inserted_aot_spacing(aot: &mut toml_edit::ArrayOfTables, pos: usize) {
+fn fix_inserted_aot_spacing(aot: &mut toml_edit::ArrayOfTables, pos: usize) {
     // Detect whether the nearest non-first neighbour uses blank-line spacing.
     // Prefer the element *before* — elements after may also be newly pushed
     // and not yet corrected.
@@ -250,15 +337,22 @@ pub(crate) fn fix_inserted_aot_spacing(aot: &mut toml_edit::ArrayOfTables, pos: 
     }
 }
 
-pub(crate) fn require_table(item: Item) -> PyResult<toml_edit::Table> {
-    match item.0 {
-        ItemRs::Table(t) => Ok(t),
-        ItemRs::Value(ValueRs::InlineTable(it)) => Ok(it.into_table()),
-        other => Err(pyo3::exceptions::PyTypeError::new_err(format!(
-            "cannot append {} to array of tables (expected a table/dict)",
-            other.type_name()
-        ))),
-    }
+fn require_table(item: Item) -> PyResult<toml_edit::Table> {
+    let mut table = match item.0 {
+        ItemRs::Table(t) => t,
+        ItemRs::Value(ValueRs::InlineTable(it)) => it.into_table(),
+        other => {
+            return Err(pyo3::exceptions::PyTypeError::new_err(format!(
+                "cannot append {} to array of tables (expected a table/dict)",
+                other.type_name()
+            )));
+        }
+    };
+    // Clear any source position — when a table is cloned from another
+    // document, its span would otherwise cause toml_edit to interleave the
+    // rendering of AoT entries in span order rather than push order.
+    table.set_position(None);
+    Ok(table)
 }
 
 /// Clamp a signed index to `0..len` (negative counts from end, out-of-range clamps).
@@ -287,17 +381,8 @@ pub(crate) fn resolve_index(index: i64, len: usize) -> PyResult<usize> {
 
 /// Resolve an integer index against an array-like item.
 pub(crate) fn require_array_index(item: &ItemRs, index: i64) -> PyResult<usize> {
-    match item {
-        ItemRs::Value(ValueRs::Array(arr)) => resolve_index(index, arr.len()),
-        ItemRs::ArrayOfTables(aot) => resolve_index(index, aot.len()),
-        ItemRs::Table(_) | ItemRs::Value(ValueRs::InlineTable(_)) => {
-            Err(PyKeyError::new_err(index.to_string()))
-        }
-        _ => Err(PyTypeError::new_err(format!(
-            "TOML {} item is not subscriptable (use .value to get the Python object)",
-            item.type_name()
-        ))),
-    }
+    let target = as_array_like(item, "indexing")?;
+    resolve_index(index, target.len())
 }
 
 /// Collect concrete indices from resolved slice parameters.
@@ -523,7 +608,7 @@ fn aot_setitem_slice(
 
 /// Decoration state captured before an array removal so that the opening and
 /// closing brackets stay in their original positions.
-pub(crate) struct RemovalDecor {
+struct RemovalDecor {
     pub(crate) first_prefix: Option<String>,
     pub(crate) last_suffix: Option<String>,
 }
@@ -535,7 +620,7 @@ pub(crate) struct RemovalDecor {
 /// affect element 0 or element `len − 1`.  Returns `None` fields when the
 /// corresponding boundary is unaffected or the array is too small to need
 /// repair (single-element arrays becoming empty).
-pub(crate) fn save_removal_decor(
+fn save_removal_decor(
     arr: &toml_edit::Array,
     removing_first: bool,
     removing_last: bool,
@@ -556,7 +641,7 @@ pub(crate) fn save_removal_decor(
 }
 
 /// Apply saved decoration fixes after a removal + `restore_inline_comments`.
-pub(crate) fn apply_removal_decor(arr: &mut toml_edit::Array, decor: &RemovalDecor) {
+fn apply_removal_decor(arr: &mut toml_edit::Array, decor: &RemovalDecor) {
     // --- First-element prefix ---
     // The new first element inherits a prefix meant to follow a comma (e.g.
     // `" "` in `[1, 2]` or `" # note\n    "` in multiline arrays).  Replace
@@ -598,15 +683,13 @@ pub(crate) fn apply_removal_decor(arr: &mut toml_edit::Array, decor: &RemovalDec
 pub(crate) fn item_append(target: ArrayLikeMut<'_>, value: Item) -> PyResult<()> {
     match target {
         ArrayLikeMut::Array(arr) => {
-            let saved_suffix = strip_last_suffix(arr);
-            let mut ic = arr.save_inline_comments();
             let mut v = into_value(value)?;
             let inline = comments::take_value_inline_comment(&mut v);
-            apply_multiline_decor(arr, &mut v);
-            arr.push(v);
-            ic.push(inline);
-            arr.restore_inline_comments(&ic);
-            apply_last_suffix(arr, saved_suffix);
+            with_preserved_seam(arr, |arr, ic| {
+                apply_element_decor(arr, &mut v);
+                arr.push(v);
+                ic.push(inline);
+            });
             Ok(())
         }
         ArrayLikeMut::Aot(aot) => {
@@ -635,7 +718,7 @@ pub(crate) fn item_insert(
             let mut ic = arr.save_inline_comments();
             let mut v = into_value(value)?;
             let inline = comments::take_value_inline_comment(&mut v);
-            apply_multiline_decor(arr, &mut v);
+            apply_element_decor(arr, &mut v);
             arr.insert(resolved, v);
             ic.insert(resolved, inline);
             arr.restore_inline_comments(&ic);
@@ -697,16 +780,13 @@ pub(crate) fn item_extend(target: ArrayLikeMut<'_>, items: Vec<Item>) -> PyResul
             // Validate all values up front.
             let converted: Vec<ValueRs> =
                 items.into_iter().map(into_value).collect::<PyResult<_>>()?;
-            let saved_suffix = strip_last_suffix(arr);
-            let mut ic = arr.save_inline_comments();
-            for mut v in converted {
-                let inline = comments::take_value_inline_comment(&mut v);
-                apply_multiline_decor(arr, &mut v);
-                arr.push(v);
-                ic.push(inline);
-            }
-            arr.restore_inline_comments(&ic);
-            apply_last_suffix(arr, saved_suffix);
+            with_preserved_seam(arr, |arr, ic| {
+                for mut v in converted {
+                    ic.push(comments::take_value_inline_comment(&mut v));
+                    apply_element_decor(arr, &mut v);
+                    arr.push(v);
+                }
+            });
             Ok(())
         }
         ArrayLikeMut::Aot(aot) => {
@@ -724,33 +804,96 @@ pub(crate) fn item_extend(target: ArrayLikeMut<'_>, items: Vec<Item>) -> PyResul
     }
 }
 
-/// Test whether element at `index` in `target` equals `value`.
-fn element_eq(target: &ArrayLikeRef<'_>, index: usize, value: &Bound<'_, PyAny>) -> PyResult<bool> {
+/// Test whether the element at `index` structurally equals `needle`.
+fn structural_element_eq(target: &ArrayLikeRef<'_>, index: usize, needle: &ItemRs) -> bool {
     match target {
-        ArrayLikeRef::Array(arr) => match arr.get(index) {
-            Some(v) => equality::value_eq(v, value),
-            None => Ok(false),
-        },
-        ArrayLikeRef::Aot(aot) => match aot.get(index) {
-            Some(table) => equality::table_eq(table, value),
-            None => Ok(false),
-        },
+        ArrayLikeRef::Array(arr) => arr
+            .get(index)
+            .is_some_and(|v| equality::item_value_eq(needle, v)),
+        ArrayLikeRef::Aot(aot) => aot
+            .get(index)
+            .is_some_and(|t| equality::item_table_eq(needle, t)),
     }
 }
 
-pub(crate) fn item_count(target: ArrayLikeRef<'_>, value: &Bound<'_, PyAny>) -> PyResult<usize> {
-    let mut count = 0;
-    for i in 0..target.len() {
-        if element_eq(&target, i, value)? {
-            count += 1;
+/// Append `n` copies of `source`'s elements to `dest`, preserving the
+/// formatting (indentation, block and inline comments) of every cloned
+/// element including the source's last-element inline comment — which
+/// lives in the array's trailing slot and would otherwise be lost.
+///
+/// Returns `false` if `dest` and `source` are of different kinds (array
+/// vs array-of-tables), leaving `dest` unchanged.
+pub(crate) fn clone_elements_into(dest: &mut ItemRs, source: ArrayLikeRef<'_>, n: usize) -> bool {
+    match (dest, source) {
+        (ItemRs::Value(ValueRs::Array(dest_arr)), ArrayLikeRef::Array(src_arr)) => {
+            clone_array_elements(dest_arr, src_arr, n);
+            true
         }
+        (ItemRs::ArrayOfTables(dest_aot), ArrayLikeRef::Aot(src_aot)) => {
+            for _ in 0..n {
+                for t in src_aot.iter() {
+                    let mut t = t.clone();
+                    // Clear source position so toml_edit renders the cloned
+                    // entry in push order rather than interleaving it by span.
+                    t.set_position(None);
+                    dest_aot.push(t);
+                    fix_inserted_aot_spacing(dest_aot, dest_aot.len() - 1);
+                }
+            }
+            true
+        }
+        _ => false,
     }
-    Ok(count)
 }
 
-pub(crate) fn item_index(
+fn clone_array_elements(dest_arr: &mut toml_edit::Array, src_arr: &toml_edit::Array, n: usize) {
+    let src_inlines = src_arr.save_inline_comments();
+    with_preserved_seam(dest_arr, |dest_arr, ic| {
+        for _ in 0..n {
+            for (src_i, v) in src_arr.iter().enumerate() {
+                let mut v = v.clone();
+                // At a single-line seam, inject the destination's inter-element
+                // separator — source element 0 has no leading separator of its own.
+                if src_i == 0
+                    && let Some(sep) = single_line_separator(dest_arr)
+                {
+                    v.decor_mut().set_prefix(sep);
+                }
+                dest_arr.push_formatted(v);
+                ic.push(src_inlines[src_i].clone());
+            }
+        }
+    });
+}
+
+/// Append `extra` additional copies of `item`'s own elements to itself.
+///
+/// Used by `__mul__` and `__imul__`; callers should skip the call when
+/// `extra == 0` rather than relying on an internal short-circuit.
+pub(crate) fn item_repeat(item: &mut ItemRs, extra: usize, op: &str) -> PyResult<()> {
+    let source = item.clone();
+    let src_ref = as_array_like(&source, op)?;
+    clone_elements_into(item, src_ref, extra);
+    Ok(())
+}
+
+/// Check if any element structurally equals `needle`.
+pub(crate) fn contains_structural(target: ArrayLikeRef<'_>, needle: &ItemRs) -> bool {
+    (0..target.len()).any(|i| structural_element_eq(&target, i, needle))
+}
+
+/// Count how many elements structurally equal `needle`.
+pub(crate) fn item_count_structural(target: ArrayLikeRef<'_>, needle: &ItemRs) -> usize {
+    (0..target.len())
+        .filter(|&i| structural_element_eq(&target, i, needle))
+        .count()
+}
+
+/// Find the index of the first element structurally equal to `needle`
+/// within the range `[start, stop)`.
+pub(crate) fn item_index_structural_range(
     target: ArrayLikeRef<'_>,
-    value: &Bound<'_, PyAny>,
+    needle: &ItemRs,
     start: Option<i64>,
     stop: Option<i64>,
 ) -> PyResult<usize> {
@@ -758,11 +901,24 @@ pub(crate) fn item_index(
     let start = clamp_index(start.unwrap_or(0), len);
     let stop = clamp_index(stop.unwrap_or(len as i64), len);
     for i in start..stop {
-        if element_eq(&target, i, value)? {
+        if structural_element_eq(&target, i, needle) {
             return Ok(i);
         }
     }
     Err(PyValueError::new_err("value not in array"))
+}
+
+/// Find and remove the first element structurally equal to `needle`.
+///
+/// Returns the key/index affected for staleness tracking.
+pub(crate) fn find_and_remove(item: &mut ItemRs, needle: &ItemRs) -> PyResult<Affected> {
+    let index = {
+        let target = as_array_like(item, "remove()")?;
+        item_index_structural_range(target, needle, None, None)?
+    };
+    let target = as_array_like_mut(item, "remove()")?;
+    let (_removed, affected) = item_remove_at(target, index)?;
+    Ok(affected)
 }
 
 /// Format an array as multiline, with each element on its own line.
@@ -789,13 +945,12 @@ pub(crate) fn item_set_multiline(target: ArrayLikeMut<'_>, indent: usize) -> PyR
 /// Pop an element from an array-like item.
 ///
 /// When `index` is `Some`, pops by index; when `None`, pops the last element.
-pub(crate) fn list_pop(
-    target: ArrayLikeMut<'_>,
-    index: Option<&Bound<'_, PyAny>>,
-) -> PyResult<(Item, Affected)> {
+/// The caller must resolve the index to `i64` **before** locking the document,
+/// because `extract::<i64>()` can invoke Python's `__index__` protocol.
+pub(crate) fn list_pop(target: ArrayLikeMut<'_>, index: Option<i64>) -> PyResult<(Item, Affected)> {
     let len = target.len();
     let idx = match index {
-        Some(key_obj) => resolve_index(key_obj.extract::<i64>()?, len)?,
+        Some(i) => resolve_index(i, len)?,
         None => {
             if len == 0 {
                 return Err(PyIndexError::new_err("pop from empty array"));
@@ -804,6 +959,90 @@ pub(crate) fn list_pop(
         }
     };
     item_remove_at(target, idx)
+}
+
+// ---------------------------------------------------------------------------
+// Subscript key resolution (used by ListProxy)
+// ---------------------------------------------------------------------------
+
+/// A subscript key resolved from Python *before* locking the document.
+///
+/// Proxy values are resolved to their plain Python equivalents so that
+/// `extract()` works without locking the document.
+pub(crate) enum SubscriptKey<'py> {
+    Int(i64),
+    Slice(Bound<'py, PySlice>),
+}
+
+/// Resolve a `__getitem__`/`__setitem__`/`__delitem__` key to a typed enum.
+///
+/// This must be called *before* taking the document's write lock, because
+/// resolving a proxy key reads the document.  Returns `TypeError` for non-integer,
+/// non-slice keys.
+pub(crate) fn resolve_subscript_key<'py>(
+    py: Python<'py>,
+    key: &Bound<'py, PyAny>,
+) -> PyResult<SubscriptKey<'py>> {
+    if let Ok(slice) = key.cast::<PySlice>() {
+        return Ok(SubscriptKey::Slice(slice.clone()));
+    }
+    let resolved = crate::item_proxy::resolve_proxy(key)?;
+    let resolved_key = resolved.as_ref().map_or(key, |v| v.bind(py));
+    resolved_key
+        .extract::<i64>()
+        .map(SubscriptKey::Int)
+        .map_err(|_| {
+            let type_name = key
+                .get_type()
+                .name()
+                .map(|n| n.to_string())
+                .unwrap_or_else(|_| "?".to_owned());
+            PyTypeError::new_err(format!(
+                "TOML array indices must be integers or slices, not {type_name}"
+            ))
+        })
+}
+
+// ---------------------------------------------------------------------------
+// Setitem / Delitem (used by ListProxy)
+// ---------------------------------------------------------------------------
+
+/// Set an integer-keyed entry in an array or array of tables.
+/// Returns the key of the replaced element.
+pub(crate) fn item_setitem_int(
+    target: ArrayLikeMut<'_>,
+    idx_raw: i64,
+    value: Item,
+) -> PyResult<crate::item_ops::Key> {
+    use crate::item_ops::Key;
+    match target {
+        ArrayLikeMut::Array(array) => {
+            let idx = resolve_index(idx_raw, array.len())?;
+            let mut v = into_value(value)?;
+            let inline = comments::take_value_inline_comment(&mut v);
+            array.replace(idx, v);
+            if !inline.is_empty() {
+                comments::set_array_inline_comment(array, idx, &inline);
+            }
+            Ok(Key::Int(idx))
+        }
+        ArrayLikeMut::Aot(aot) => {
+            let idx = resolve_index(idx_raw, aot.len())?;
+            let mut table = require_table(value)?;
+            let saved = save_aot_entry_prefix(aot, idx);
+            table.decor_mut().set_prefix(&saved);
+            aot.replace(idx, table);
+            Ok(Key::Int(idx))
+        }
+    }
+}
+
+/// Delete an integer-keyed entry from an array or array of tables.
+pub(crate) fn item_delitem_int(item: &mut ItemRs, idx_raw: i64) -> PyResult<Affected> {
+    let target = as_array_like_mut(item, "__delitem__")?;
+    let idx = resolve_index(idx_raw, target.len())?;
+    let (_removed, affected) = item_remove_at(target, idx)?;
+    Ok(affected)
 }
 
 #[cfg(test)]

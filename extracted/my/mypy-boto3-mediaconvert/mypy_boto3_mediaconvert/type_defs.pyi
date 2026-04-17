@@ -191,6 +191,7 @@ from .literals import (
     Eac3StereoDownmixType,
     Eac3SurroundExModeType,
     Eac3SurroundModeType,
+    ElementalInferenceFeedManagementStateType,
     EmbeddedConvert608To708Type,
     EmbeddedTerminateCaptionsType,
     EmbeddedTimecodeOverrideType,
@@ -591,6 +592,8 @@ __all__ = (
     "DynamicAudioSelectorTypeDef",
     "Eac3AtmosSettingsTypeDef",
     "Eac3SettingsTypeDef",
+    "ElementalInferenceConfigurationTypeDef",
+    "ElementalInferenceFeedTypeDef",
     "EmbeddedDestinationSettingsTypeDef",
     "EmbeddedSourceSettingsTypeDef",
     "EncryptionContractConfigurationTypeDef",
@@ -1408,6 +1411,10 @@ class DynamicAudioSelectorTypeDef(TypedDict):
     Offset: NotRequired[int]
     SelectorType: NotRequired[DynamicAudioSelectorTypeType]
 
+class ElementalInferenceFeedTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    FeedManagementState: NotRequired[ElementalInferenceFeedManagementStateType]
+
 class EncryptionContractConfigurationTypeDef(TypedDict):
     SpekeAudioPreset: NotRequired[PresetSpeke20AudioType]
     SpekeVideoPreset: NotRequired[PresetSpeke20VideoType]
@@ -2179,6 +2186,7 @@ class CreateQueueRequestTypeDef(TypedDict):
     Name: str
     ConcurrentJobs: NotRequired[int]
     Description: NotRequired[str]
+    MaximumConcurrentFeeds: NotRequired[int]
     PricingPlan: NotRequired[PricingPlanType]
     ReservationPlanSettings: NotRequired[ReservationPlanSettingsTypeDef]
     Status: NotRequired[QueueStatusType]
@@ -2188,6 +2196,7 @@ class UpdateQueueRequestTypeDef(TypedDict):
     Name: str
     ConcurrentJobs: NotRequired[int]
     Description: NotRequired[str]
+    MaximumConcurrentFeeds: NotRequired[int]
     ReservationPlanSettings: NotRequired[ReservationPlanSettingsTypeDef]
     Status: NotRequired[QueueStatusType]
 
@@ -2243,6 +2252,10 @@ DolbyVisionTypeDef = TypedDict(
         "Profile": NotRequired[DolbyVisionProfileType],
     },
 )
+
+class ElementalInferenceConfigurationTypeDef(TypedDict):
+    Features: NotRequired[list[Literal["SMART_CROP"]]]
+    Feeds: NotRequired[list[ElementalInferenceFeedTypeDef]]
 
 class SpekeKeyProviderCmafOutputTypeDef(TypedDict):
     CertificateArn: NotRequired[str]
@@ -2658,6 +2671,7 @@ QueueTypeDef = TypedDict(
         "CreatedAt": NotRequired[datetime],
         "Description": NotRequired[str],
         "LastUpdated": NotRequired[datetime],
+        "MaximumConcurrentFeeds": NotRequired[int],
         "PricingPlan": NotRequired[PricingPlanType],
         "ProgressingJobsCount": NotRequired[int],
         "ReservationPlan": NotRequired[ReservationPlanTypeDef],
@@ -3636,6 +3650,7 @@ class JobTypeDef(TypedDict):
     ClientRequestToken: NotRequired[str]
     CreatedAt: NotRequired[datetime]
     CurrentPhase: NotRequired[JobPhaseType]
+    ElementalInferenceConfiguration: NotRequired[ElementalInferenceConfigurationTypeDef]
     ErrorCode: NotRequired[int]
     ErrorMessage: NotRequired[str]
     HopDestinations: NotRequired[list[HopDestinationTypeDef]]

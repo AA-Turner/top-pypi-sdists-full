@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -149,11 +149,7 @@ class SuzukiTrotter(ProductFormula):
         time = evolution.time
 
         def to_sparse_list(operator):
-            sparse_list = (
-                operator.to_sparse_list()
-                if isinstance(operator, SparsePauliOp)
-                else operator.to_sparse_list()
-            )
+            sparse_list = operator.to_sparse_list()
             paulis = [
                 (pauli, indices, real_or_fail(coeff) * time * 2 / self.reps)
                 for pauli, indices, coeff in sparse_list

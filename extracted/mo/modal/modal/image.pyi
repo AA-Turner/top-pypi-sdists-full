@@ -623,6 +623,7 @@ class _Image(modal._object._Object):
         ignore: typing.Union[
             collections.abc.Sequence[str], collections.abc.Callable[[pathlib.Path], bool]
         ] = modal.image.AUTO_DOCKERIGNORE,
+        build_args: dict[str, str] = {},
     ) -> _Image:
         """Extend an image with arbitrary Dockerfile-like commands.
 
@@ -1619,6 +1620,7 @@ class Image(modal.object.Object):
         ignore: typing.Union[
             collections.abc.Sequence[str], collections.abc.Callable[[pathlib.Path], bool]
         ] = modal.image.AUTO_DOCKERIGNORE,
+        build_args: dict[str, str] = {},
     ) -> Image:
         """Extend an image with arbitrary Dockerfile-like commands.
 

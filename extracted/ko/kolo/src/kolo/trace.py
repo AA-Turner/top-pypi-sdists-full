@@ -6,6 +6,7 @@ similar to the TypeScript implementation in vscode/src/trace.ts.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any, Dict, Generator, List, Optional
@@ -13,6 +14,30 @@ from typing import Any, Dict, Generator, List, Optional
 from .build_frame_tree import ExecutionTreeInfo, build_execution_tree
 from .node import ProcessedNode, make_processed_node
 from .utils import pretty_byte_size, relative_time
+
+
+@dataclass
+class ThreadSection:
+    """A single thread's processed tree plus its identifying metadata.
+
+    Used by ``Trace`` to carry all threads through the rendering pipeline
+    so compact/emit output can show frames from every thread, not just the
+    one that was active when profiling started.
+    """
+
+    thread_id: str
+    name: str
+    tree: "ProcessedTree"
+    is_main: bool
+
+    @property
+    def label(self) -> str:
+        parts = [f"Thread {self.name}" if self.name else f"Thread {self.thread_id}"]
+        if self.name and self.name != self.thread_id:
+            parts.append(f"(id={self.thread_id})")
+        if self.is_main:
+            parts.append("(main)")
+        return " ".join(parts)
 
 
 class ProcessedTree:
@@ -107,13 +132,34 @@ class Trace:
         self.dt_utc = datetime.fromtimestamp(self.timestamp, tz=timezone.utc)
         self.size = size
 
-        # The "main" tree which for now is the tree of frames
-        #  from the thread that was active when kolo was enabled
+        # The "main" tree is the tree of frames from the thread that was
+        # active when kolo was enabled. It is kept as a separate attribute
+        # for backwards-compat and because some callers (folder naming,
+        # HTTP/test detection) specifically want the originating thread.
         main_frames = self.get_main_frames_of_interest(unprocessed_data)
         self.main_tree = ProcessedTree(main_frames, self.id)
 
-        # TODO: Support and display multiple threads in output!
-        self.threads: List[ProcessedTree] = []
+        # Non-main-thread ``ProcessedTree`` construction is deferred until
+        # first access. Metadata-only callers (trace listing, name
+        # resolution) never look at ``self.threads`` so they should not
+        # pay the cost of building every worker's tree. ``emit_trace``
+        # also builds its own per-thread trees directly from
+        # ``unprocessed_data`` — deferring here keeps the two paths from
+        # duplicating work on the auto-emit hot path.
+        self._threads_cache: Optional[List[ThreadSection]] = None
+
+    @property
+    def threads(self) -> List[ThreadSection]:
+        """Lazy-constructed list of thread sections, main first.
+
+        Each non-main thread's ``ProcessedTree`` is built on first
+        access and cached, so metadata-only consumers don't pay the
+        multi-thread tree-building cost. Always returns at least the
+        main section when the main tree has root nodes.
+        """
+        if self._threads_cache is None:
+            self._threads_cache = self._build_thread_sections(self.unprocessed_data)
+        return self._threads_cache
 
     @property
     def name(self) -> str:
@@ -141,6 +187,65 @@ class Trace:
 
         # Final fallback to trace ID
         return self.id
+
+    def _build_thread_sections(self, data: Dict[str, Any]) -> List[ThreadSection]:
+        """Build the ordered list of thread sections for this trace.
+
+        The main thread (whichever thread was active when profiling
+        started) always comes first and reuses ``self.main_tree`` so we
+        don't rebuild the same tree twice. Other threads follow, sorted
+        by their earliest frame timestamp so output order matches
+        execution order.
+
+        For old-format traces that only have ``frames_of_interest`` (no
+        ``threads`` dict), only the main section is returned.
+        """
+        threads = data.get("threads", {}) or {}
+        current_thread_id = data.get("current_thread_id")
+
+        main_thread_name = ""
+        if current_thread_id and current_thread_id in threads:
+            main_thread_name = threads[current_thread_id].get("name", "") or ""
+
+        sections: List[ThreadSection] = [
+            ThreadSection(
+                thread_id=current_thread_id or "main",
+                name=main_thread_name or (current_thread_id or "main"),
+                tree=self.main_tree,
+                is_main=True,
+            )
+        ]
+
+        if not threads:
+            return sections
+
+        other_sections: List[ThreadSection] = []
+        for thread_id, thread_data in threads.items():
+            if thread_id == current_thread_id:
+                continue
+            frames = thread_data.get("frames", []) if thread_data else []
+            if not frames:
+                continue
+            tree = ProcessedTree(frames, self.id)
+            name = (thread_data.get("name") if thread_data else "") or thread_id
+            other_sections.append(
+                ThreadSection(
+                    thread_id=thread_id,
+                    name=name,
+                    tree=tree,
+                    is_main=False,
+                )
+            )
+
+        def earliest_timestamp(section: ThreadSection) -> float:
+            timestamps = [
+                n.start for n in section.tree.root_nodes if n.start is not None
+            ]
+            return min(timestamps) if timestamps else float("inf")
+
+        other_sections.sort(key=earliest_timestamp)
+        sections.extend(other_sections)
+        return sections
 
     @staticmethod
     def get_main_frames_of_interest(data: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -263,6 +368,9 @@ class Trace:
                 header_lines.append(f"config: {config}")
             if py_version:
                 header_lines.append(f"Python: {py_version}")
+            root_trace_id = self.unprocessed_data.get("root_trace_id")
+            if root_trace_id and root_trace_id != self.id:
+                header_lines.append(f"flushed segment of root trace: {root_trace_id}")
             header_lines.extend(
                 ["", "format: node_idx, type, qualname, start_to_end_loc, duration", ""]
             )
@@ -285,9 +393,7 @@ class Trace:
 """
             parts.append(guidance)
 
-        lines = []
-        for node in self.main_tree.dfs():
-            lines.append(node.full_compact_tree_line(include_return_value))
+        lines = list(self._compact_tree_lines(include_return_value))
 
         if include_header:
             parts.append("=== Trace ===\n" + "\n".join(lines))
@@ -297,11 +403,61 @@ class Trace:
         return "\n".join(parts)
 
     def compact_tree_only(self, include_return_value: bool = False) -> str:
-        """Return just the compact tree lines without any headers or metadata."""
-        lines = []
-        for node in self.main_tree.dfs():
-            lines.append(node.full_compact_tree_line(include_return_value))
-        return "\n".join(lines)
+        """Return compact output without the top-level trace metadata header.
+
+        Single-thread traces render as a bare tree. Multi-thread traces
+        still include per-thread section headers and the ``kolo trace
+        node ... --thread_id <id>`` access hints so consumers of this
+        string know which thread a copied index belongs to.
+        """
+        return "\n".join(self._compact_tree_lines(include_return_value))
+
+    def _compact_tree_lines(
+        self, include_return_value: bool
+    ) -> Generator[str, None, None]:
+        """Yield compact tree lines for every thread in this trace.
+
+        When the trace only has a single thread, the output is identical
+        to iterating ``self.main_tree.dfs()`` directly — no thread header
+        is emitted — so single-threaded traces are unchanged. With more
+        than one thread, each thread's frames are preceded by a header
+        line identifying the thread.
+        """
+        sections = [s for s in self.threads if s.tree.root_nodes]
+        # Fast path only when the main thread is the only thing to show.
+        # If the main tree is empty but a background thread has frames,
+        # we must still render the header and ``--thread_id`` hint —
+        # otherwise a user copying an index out of that section would
+        # hit ``kolo trace node TRACE_ID <idx>`` which resolves against
+        # the empty ``main_tree`` and silently returns the wrong node.
+        only_main = len(sections) == 0 or (
+            len(sections) == 1 and sections[0].tree is self.main_tree
+        )
+        if only_main:
+            tree = sections[0].tree if sections else self.main_tree
+            for node in tree.dfs():
+                yield node.full_compact_tree_line(include_return_value)
+            return
+
+        for i, section in enumerate(sections):
+            if i > 0:
+                yield ""
+            yield f"--- {section.label} ---"
+            # Per-section hint so users know how to copy a node index out
+            # of this thread — non-main threads need --thread_id because
+            # indices restart at 0 in every ProcessedTree.
+            if section.is_main:
+                yield (
+                    f"  (access: `kolo trace node {self.id} <idx>` — "
+                    "omit --thread_id to target the main thread)"
+                )
+            else:
+                yield (
+                    f"  (access: `kolo trace node {self.id} <idx> "
+                    f"--thread_id {section.thread_id}`)"
+                )
+            for node in section.tree.dfs():
+                yield node.full_compact_tree_line(include_return_value)
 
     def compact_metadata(self) -> str:
         """Return just the metadata section (source, config, python version, format)."""

@@ -16,6 +16,7 @@ from dstack._internal.core.backends.base.compute import (
     ComputeWithCreateInstanceSupport,
     ComputeWithGatewaySupport,
     ComputeWithGroupProvisioningSupport,
+    ComputeWithInstanceVolumesSupport,
     ComputeWithMultinodeSupport,
     ComputeWithPlacementGroupSupport,
     ComputeWithPrivateGatewaySupport,
@@ -68,6 +69,7 @@ from dstack._internal.core.models.profiles import (
     Profile,
     TerminationPolicy,
 )
+from dstack._internal.core.models.repos import AnyRunRepoData
 from dstack._internal.core.models.repos.base import RepoType
 from dstack._internal.core.models.repos.local import LocalRunRepoData
 from dstack._internal.core.models.resources import CPUSpec, Memory, ResourcesSpec
@@ -83,6 +85,8 @@ from dstack._internal.core.models.runs import (
 )
 from dstack._internal.core.models.users import GlobalRole
 from dstack._internal.core.models.volumes import (
+    AnyVolumeConfiguration,
+    KubernetesVolumeConfiguration,
     Volume,
     VolumeAttachment,
     VolumeConfiguration,
@@ -221,6 +225,8 @@ async def create_backend(
     backend_type: BackendType = BackendType.AWS,
     config: Optional[Dict] = None,
     auth: Optional[Dict] = None,
+    source_config: Optional[Dict] = None,
+    source_auth: Optional[Dict] = None,
 ) -> BackendModel:
     if config is None:
         config = {
@@ -237,6 +243,10 @@ async def create_backend(
         type=backend_type,
         config=json.dumps(config),
         auth=DecryptedString(plaintext=json.dumps(auth)),
+        source_config=None if source_config is None else json.dumps(source_config),
+        source_auth=(
+            None if source_auth is None else DecryptedString(plaintext=json.dumps(source_auth))
+        ),
     )
     session.add(backend)
     await session.commit()
@@ -329,14 +339,16 @@ def get_run_spec(
     profile: Union[Profile, Callable[[], Profile], None] = lambda: Profile(name="default"),
     configuration: Optional[AnyRunConfiguration] = None,
     ssh_key_pub: Optional[str] = "user_ssh_key",
+    repo_data: AnyRunRepoData = LocalRunRepoData(repo_dir="/"),
+    repo_code_hash: Optional[str] = None,
 ) -> RunSpec:
     if callable(profile):
         profile = profile()
     return RunSpec(
         run_name=run_name,
         repo_id=repo_id,
-        repo_data=LocalRunRepoData(repo_dir="/"),
-        repo_code_hash=None,
+        repo_data=repo_data,
+        repo_code_hash=repo_code_hash,
         configuration_path=configuration_path,
         configuration=configuration or DevEnvironmentConfiguration(ide="vscode"),
         profile=profile,
@@ -462,6 +474,7 @@ def get_job_provisioning_data(
     dockerized: bool = False,
     backend: BackendType = BackendType.AWS,
     region: str = "us-east-1",
+    availability_zone: Optional[str] = None,
     gpu_count: int = 0,
     gpu_memory_gib: float = 16,
     gpu_name: str = "T4",
@@ -497,6 +510,7 @@ def get_job_provisioning_data(
         hostname=hostname,
         internal_ip=internal_ip,
         region=region,
+        availability_zone=availability_zone,
         price=price,
         username=username,
         ssh_port=ssh_port,
@@ -785,7 +799,8 @@ async def create_instance(
     backend: BackendType = BackendType.VERDA,
     termination_policy: Optional[TerminationPolicy] = None,
     termination_idle_time: int = DEFAULT_FLEET_TERMINATION_IDLE_TIME,
-    region: str = "eu-west",
+    region: Optional[str] = None,
+    availability_zone: Optional[str] = None,
     remote_connection_info: Optional[RemoteConnectionInfo] = None,
     offer: Optional[Union[InstanceOfferWithAvailability, Literal["auto"]]] = "auto",
     job_provisioning_data: Optional[Union[JobProvisioningData, Literal["auto"]]] = "auto",
@@ -798,11 +813,14 @@ async def create_instance(
 ) -> InstanceModel:
     if instance_id is None:
         instance_id = uuid.uuid4()
+    if region is None:
+        region = "" if backend == BackendType.KUBERNETES else "eu-west"
     if job_provisioning_data == "auto":
         job_provisioning_data = get_job_provisioning_data(
             dockerized=True,
             backend=backend,
             region=region,
+            availability_zone=availability_zone,
             spot=spot,
             hostname="running_instance.ip",
             internal_ip=None,
@@ -987,7 +1005,7 @@ async def create_volume(
     created_at: datetime = datetime(2023, 1, 2, 3, 4, tzinfo=timezone.utc),
     last_processed_at: Optional[datetime] = None,
     last_job_processed_at: Optional[datetime] = None,
-    configuration: Optional[VolumeConfiguration] = None,
+    configuration: Optional[AnyVolumeConfiguration] = None,
     volume_provisioning_data: Optional[VolumeProvisioningData] = None,
     deleted_at: Optional[datetime] = None,
     backend: BackendType = BackendType.AWS,
@@ -1023,7 +1041,7 @@ def get_volume(
     name: str = "test_volume",
     user: str = "test_user",
     project_name: str = "test_project",
-    configuration: Optional[VolumeConfiguration] = None,
+    configuration: Optional[AnyVolumeConfiguration] = None,
     external: bool = False,
     created_at: datetime = datetime(2023, 1, 2, 3, 4, tzinfo=timezone.utc),
     last_processed_at: datetime = datetime(2023, 1, 2, 3, 4, tzinfo=timezone.utc),
@@ -1067,13 +1085,33 @@ def get_volume_configuration(
     size: Optional[Memory] = Memory(100),
     volume_id: Optional[str] = None,
     auto_cleanup_duration: Optional[Union[str, int]] = None,
-) -> VolumeConfiguration:
-    return VolumeConfiguration(
+) -> AnyVolumeConfiguration:
+    assert backend != BackendType.KUBERNETES, "use get_kubernetes_volume_configuration() instead"
+    return VolumeConfiguration.parse_obj(
+        dict(
+            name=name,
+            backend=backend,
+            region=region,
+            size=size,
+            volume_id=volume_id,
+            auto_cleanup_duration=auto_cleanup_duration,
+        )
+    ).__root__
+
+
+def get_kubernetes_volume_configuration(
+    name: str = "test-volume",
+    size: Optional[Memory] = Memory(100),
+    claim_name: Optional[str] = None,
+    auto_cleanup_duration: Optional[Union[str, int]] = None,
+    storage_class_name: Optional[str] = None,
+) -> KubernetesVolumeConfiguration:
+    return KubernetesVolumeConfiguration(
         name=name,
-        backend=backend,
-        region=region,
+        backend=BackendType.KUBERNETES,
         size=size,
-        volume_id=volume_id,
+        claim_name=claim_name,
+        storage_class_name=storage_class_name,
         auto_cleanup_duration=auto_cleanup_duration,
     )
 
@@ -1299,6 +1337,7 @@ class ComputeMockSpec(
     ComputeWithCreateInstanceSupport,
     ComputeWithGroupProvisioningSupport,
     ComputeWithPrivilegedSupport,
+    ComputeWithInstanceVolumesSupport,
     ComputeWithMultinodeSupport,
     ComputeWithReservationSupport,
     ComputeWithPlacementGroupSupport,

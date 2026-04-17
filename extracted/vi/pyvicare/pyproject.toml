@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "PyViCare"
-version = "2.59.0"
+version = "2.59.1"
 description = "Library to communicate with the Viessmann ViCare API."
 authors = [
   "Simon Gillet <mail+pyvicare@gillet.ninja>"

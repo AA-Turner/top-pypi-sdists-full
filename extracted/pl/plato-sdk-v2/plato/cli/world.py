@@ -104,6 +104,11 @@ def world_publish(
         "--skip-docker",
         help="Skip Docker build; retag the current :latest image with the new version tag instead",
     ),
+    no_skip_docker: bool = typer.Option(
+        False,
+        "--no-skip-docker",
+        help="Force Docker rebuild even with --dev (overrides the default skip behavior)",
+    ),
 ):
     """Build and publish a world package to the Plato worlds repository.
 
@@ -118,6 +123,13 @@ def world_publish(
 
     Requires PLATO_API_KEY environment variable for upload.
     """
+    # --dev implies --skip-docker unless --no-skip-docker is explicitly passed
+    if dev and not skip_docker and not no_skip_docker:
+        skip_docker = True
+        console.print(
+            "[dim]--dev implies --skip-docker (retag instead of rebuild). Use --no-skip-docker to force a rebuild.[/dim]"
+        )
+
     try:
         import tomli
     except ImportError:

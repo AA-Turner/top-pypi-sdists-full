@@ -141,7 +141,7 @@ class GenerateDataQualityCheckExpectationsAction(
             try:
                 data_asset = self._retrieve_asset_from_asset_name(event, asset_name)
 
-                metric_run, metric_run_id = self._get_metrics(data_asset)
+                metric_run, metric_run_id = self._get_metrics(data_asset, selected_dqis)
                 created_resources.append(
                     CreatedResource(resource_id=str(metric_run_id), type="MetricRun")
                 )
@@ -238,19 +238,66 @@ class GenerateDataQualityCheckExpectationsAction(
 
         return data_asset  # type: ignore[no-any-return]  # unable to narrow types strictly based on names
 
-    def _get_metrics(self, data_asset: DataAsset[Any, Any]) -> tuple[MetricRun, UUID]:
+    def _get_metrics(
+        self,
+        data_asset: DataAsset[Any, Any],
+        selected_dqis: Sequence[DataQualityIssues],
+    ) -> tuple[MetricRun, UUID]:
         batch_request = data_asset.build_batch_request()
         if data_asset.id is None:
             raise RuntimeError("DataAsset.id is None")  # noqa: TRY003
+
+        if not selected_dqis:
+            # Legacy: events predating DQI selection fetch the standard metric set.
+            metrics: set[MetricTypes] = {
+                MetricTypes.TABLE_COLUMNS,
+                MetricTypes.TABLE_COLUMN_TYPES,
+                MetricTypes.TABLE_ROW_COUNT,
+                MetricTypes.COLUMN_NON_NULL_COUNT,
+            }
+        else:
+            metrics = set()
+
+            if DataQualityIssues.SCHEMA in selected_dqis:
+                # Schema: reads column names and types from the metric run.
+                metrics |= {MetricTypes.TABLE_COLUMNS, MetricTypes.TABLE_COLUMN_TYPES}
+
+            if DataQualityIssues.COMPLETENESS in selected_dqis:
+                # Completeness: per-column non-null counts and overall row count.
+                # TABLE_COLUMNS and TABLE_COLUMN_TYPES are required by MetricListMetricRetriever
+                # to enumerate columns before computing column-level metrics.
+                metrics |= {
+                    MetricTypes.TABLE_COLUMNS,
+                    MetricTypes.TABLE_COLUMN_TYPES,
+                    MetricTypes.TABLE_ROW_COUNT,
+                    MetricTypes.COLUMN_NON_NULL_COUNT,
+                }
+
+            if DataQualityIssues.UNIQUENESS in selected_dqis:
+                # Uniqueness: per-column unique value proportions.
+                # TABLE_COLUMNS and TABLE_COLUMN_TYPES are required by MetricListMetricRetriever
+                # to enumerate columns before computing column-level metrics.
+                metrics |= {
+                    MetricTypes.TABLE_COLUMNS,
+                    MetricTypes.TABLE_COLUMN_TYPES,
+                    MetricTypes.COLUMN_UNIQUE_PROPORTION,
+                }
+
+            # VOLUME: uses parameterized windows resolved from historical EVRs at validation
+            # time, so no current profiling metrics are needed.
+
+            if not metrics:
+                # No DQI in this run needs profiling metrics (e.g. VOLUME-only).
+                # MetricListMetricRetriever raises if given an empty list, so use the
+                # lightest available metrics as a minimal baseline.
+                metrics = {MetricTypes.TABLE_COLUMNS, MetricTypes.TABLE_COLUMN_TYPES}
+
+        metric_list: list[MetricTypes] = sorted(metrics)
+
         metric_run = self._batch_inspector.compute_metric_list_run(
             data_asset_id=data_asset.id,
             batch_request=batch_request,
-            metric_list=[
-                MetricTypes.TABLE_COLUMNS,
-                MetricTypes.TABLE_COLUMN_TYPES,
-                MetricTypes.COLUMN_NON_NULL_COUNT,
-                MetricTypes.TABLE_ROW_COUNT,
-            ],
+            metric_list=metric_list,
         )
         metric_run_id = self._metric_repository.add_metric_run(metric_run)
         # Note: This exception is raised after the metric run is added to the repository so that

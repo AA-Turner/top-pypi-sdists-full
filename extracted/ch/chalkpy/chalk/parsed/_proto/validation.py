@@ -20,7 +20,8 @@ from chalk._gen.chalk.artifacts.v1.export_pb2 import (
 from chalk._gen.chalk.graph.v1 import graph_pb2 as graph_pb
 from chalk._gen.chalk.graph.v1.graph_pb2 import ResolverKind
 from chalk._lsp.error_builder import FeatureClassErrorBuilder, LSPErrorBuilder, ResolverErrorBuilder
-from chalk.features import FeatureSetBase, GenericFeatureConverter
+from chalk.features import FeatureSetBase
+from chalk.features._encoding._feature_converters._primitive_converter import PrimitiveFeatureConverter
 from chalk.features.pseudofeatures import PSEUDONAMESPACE
 from chalk.features.resolver import RESOLVER_REGISTRY
 from chalk.parsed._proto.utils import (
@@ -275,7 +276,7 @@ def _validate_primary_key(
     fqn = get_feature_type_fqn(feature)
     if not feature.scalar.HasField("arrow_type"):
         raise ValueError(f"The serialized dtype is not set for feature '{fqn}'")
-    pa_dtype = GenericFeatureConverter.convert_proto_dtype_to_pa_dtype(feature.scalar.arrow_type)
+    pa_dtype = PrimitiveFeatureConverter.convert_proto_dtype_to_pa_dtype(feature.scalar.arrow_type)
     if (
         not pa.types.is_integer(pa_dtype)
         and not pa.types.is_large_string(pa_dtype)

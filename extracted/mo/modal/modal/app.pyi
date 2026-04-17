@@ -497,7 +497,6 @@ class _App:
         i6pn: typing.Optional[bool] = None,
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
-        _experimental_proxy_ip: typing.Optional[str] = None,
         _experimental_restrict_output: bool = False,
         max_inputs: typing.Optional[int] = None,
     ) -> _FunctionDecoratorType:
@@ -545,7 +544,6 @@ class _App:
         i6pn: typing.Optional[bool] = None,
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
-        _experimental_proxy_ip: typing.Optional[str] = None,
         _experimental_restrict_output: bool = False,
         max_inputs: typing.Optional[int] = None,
     ) -> collections.abc.Callable[[typing.Union[CLS_T, modal._partial_function._PartialFunction]], CLS_T]:
@@ -618,12 +616,12 @@ class _App:
 
         ```python
         app_a = modal.App("a")
-        @app.function()
+        @app_a.function()
         def foo():
             ...
 
         app_b = modal.App("b")
-        @app.function()
+        @app_b.function()
         def bar():
             ...
 
@@ -1215,7 +1213,6 @@ class App:
         i6pn: typing.Optional[bool] = None,
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
-        _experimental_proxy_ip: typing.Optional[str] = None,
         _experimental_restrict_output: bool = False,
         max_inputs: typing.Optional[int] = None,
     ) -> _FunctionDecoratorType:
@@ -1263,7 +1260,6 @@ class App:
         i6pn: typing.Optional[bool] = None,
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
-        _experimental_proxy_ip: typing.Optional[str] = None,
         _experimental_restrict_output: bool = False,
         max_inputs: typing.Optional[int] = None,
     ) -> collections.abc.Callable[[typing.Union[CLS_T, modal.partial_function.PartialFunction]], CLS_T]:
@@ -1334,12 +1330,12 @@ class App:
 
         ```python
         app_a = modal.App("a")
-        @app.function()
+        @app_a.function()
         def foo():
             ...
 
         app_b = modal.App("b")
-        @app.function()
+        @app_b.function()
         def bar():
             ...
 

@@ -6,7 +6,7 @@ from typing import Any, cast, Dict, Generic, List, Optional, TypeVar, Union
 
 from captum._utils.common import _format_tensor_into_tuples
 from captum._utils.typing import TargetType, TensorOrTupleOfTensorsGeneric
-from captum.attr._utils.stat import Stat
+from captum.attr._utils.stat import Stat, StatValue
 from captum.attr._utils.summarizer import Summarizer
 from captum.log import log_usage
 from torch import Tensor
@@ -22,7 +22,7 @@ class ClassSummarizer(Summarizer, Generic[KeyType]):
     This also keeps track of an aggregate of all class summaries.
     """
 
-    @log_usage()
+    @log_usage(part_of_slo=False)
     def __init__(self, stats: List[Stat]) -> None:
         Summarizer.__init__.__wrapped__(self, stats)
         self.summaries: Dict[KeyType, Summarizer] = defaultdict(
@@ -60,7 +60,6 @@ class ClassSummarizer(Summarizer, Generic[KeyType]):
 
         num_labels = 1
 
-        # pyre-fixme[33]: Given annotation cannot contain `Any`.
         labels_typed: Union[List[Any], Tensor]
         if isinstance(labels, list) or isinstance(labels, Tensor):
             labels_typed = labels
@@ -93,7 +92,9 @@ class ClassSummarizer(Summarizer, Generic[KeyType]):
         self,
     ) -> Dict[
         KeyType,
-        Union[None, Dict[str, Optional[Tensor]], List[Dict[str, Optional[Tensor]]]],
+        Union[
+            None, Dict[str, Optional[StatValue]], List[Dict[str, Optional[StatValue]]]
+        ],
     ]:
         r"""
         Returns:

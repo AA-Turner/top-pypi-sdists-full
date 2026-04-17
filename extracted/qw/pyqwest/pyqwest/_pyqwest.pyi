@@ -18,9 +18,14 @@ from opentelemetry.metrics import MeterProvider
 from opentelemetry.trace import TracerProvider
 
 _T = TypeVar("_T")
-JSON: TypeAlias = Mapping[str, JSON] | Sequence[JSON] | str | int | float | bool | None
+_JSON: TypeAlias = (
+    Mapping[str, _JSON] | Sequence[_JSON] | str | int | float | bool | None
+)
+_RequestContent: TypeAlias = bytes | AsyncIterator[bytes] | Mapping[str, _JSON]
+_SyncRequestContent: TypeAlias = bytes | Iterable[bytes] | Mapping[str, _JSON]
 
-Buffer: TypeAlias = bytes | memoryview | bytearray
+_Buffer: TypeAlias = bytes | memoryview | bytearray
+_QueryParams: TypeAlias = dict[str, str | None] | Iterable[tuple[str, str | None]]
 
 class Headers:
     """Container of HTTP headers.
@@ -224,12 +229,15 @@ class Client:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> Awaitable[FullResponse]:
         """Executes a GET HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -242,14 +250,17 @@ class Client:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | AsyncIterator[bytes] | None = None,
+        content: _RequestContent | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> Awaitable[FullResponse]:
         """Executes a POST HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -262,13 +273,15 @@ class Client:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> Awaitable[FullResponse]:
         """Executes a DELETE HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
-
+            params: Query parameters to append to the URL. None values will be treated as key-only.
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
@@ -280,12 +293,15 @@ class Client:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> Awaitable[FullResponse]:
         """Executes a HEAD HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -298,12 +314,15 @@ class Client:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> Awaitable[FullResponse]:
         """Executes a OPTIONS HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -316,15 +335,17 @@ class Client:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | AsyncIterator[bytes] | None = None,
+        content: _RequestContent | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> Awaitable[FullResponse]:
         """Executes a PATCH HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
-            timeout: The timeout for the request in seconds.
+            content: The request content. A Python dictionary will be converted to JSON.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -337,14 +358,17 @@ class Client:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | AsyncIterator[bytes] | None = None,
+        content: _RequestContent | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> Awaitable[FullResponse]:
         """Executes a PUT HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -358,7 +382,9 @@ class Client:
         method: str,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | AsyncIterator[bytes] | None = None,
+        content: _RequestContent | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> Awaitable[FullResponse]:
         """Executes an HTTP request, returning the full buffered response.
 
@@ -366,7 +392,8 @@ class Client:
             method: The HTTP method.
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -380,7 +407,9 @@ class Client:
         method: str,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | AsyncIterator[bytes] | None = None,
+        content: _RequestContent | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> Awaitable[Response]:
         """Executes an HTTP request, allowing the response content to be streamed.
 
@@ -388,7 +417,8 @@ class Client:
             method: The HTTP method.
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -431,6 +461,7 @@ class HTTPTransport:
         enable_brotli: bool = True,
         enable_zstd: bool = True,
         use_system_dns: bool = False,
+        enable_cookie_store: bool = False,
         enable_otel: bool = True,
         meter_provider: MeterProvider | None = None,
         tracer_provider: TracerProvider | None = None,
@@ -464,6 +495,9 @@ class HTTPTransport:
                             asynchronous DNS resolver implemented in Rust, but it can have different
                             behavior from system DNS in certain environments. Try enabling this option if
                             you have any DNS resolution issues.
+            enable_cookie_store: Whether to enable automatic cookie storage and sending. When enabled,
+                          the transport will automatically store cookies from responses and send
+                          them with subsequent requests.
         """
 
     def __aenter__(self) -> Awaitable[HTTPTransport]:
@@ -520,7 +554,9 @@ class Request:
         method: str,
         url: str,
         headers: Headers | None = None,
-        content: bytes | AsyncIterator[bytes] | None = None,
+        content: _RequestContent | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> None:
         """Creates a new Request object.
 
@@ -528,7 +564,8 @@ class Request:
             method: The HTTP method.
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
         """
 
     @property
@@ -547,6 +584,9 @@ class Request:
     def content(self) -> AsyncIterator[bytes]:
         """Returns an async iterator over the request content."""
 
+    @property
+    def _json(self) -> bool: ...
+
 class Response:
     """An HTTP response."""
 
@@ -556,7 +596,7 @@ class Response:
         status: int,
         http_version: HTTPVersion | None = None,
         headers: Headers | None = None,
-        content: bytes | AsyncIterator[Buffer] | None = None,
+        content: bytes | AsyncIterator[_Buffer] | None = None,
         trailers: Headers | None = None,
     ) -> None:
         """Creates a new Response object.
@@ -604,7 +644,7 @@ class Response:
         """Returns the response headers."""
 
     @property
-    def content(self) -> AsyncIterator[Buffer]:
+    def content(self) -> AsyncIterator[_Buffer]:
         """Returns an asynchronous iterator over the response content."""
 
     @property
@@ -641,7 +681,9 @@ class SyncClient:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        *,
         timeout: float | None = None,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a GET HTTP request.
 
@@ -649,6 +691,7 @@ class SyncClient:
             url: The unencoded request URL.
             headers: The request headers.
             timeout: The timeout for the request in seconds.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -661,16 +704,19 @@ class SyncClient:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | Iterable[bytes] | None = None,
+        content: _SyncRequestContent | None = None,
+        *,
         timeout: float | None = None,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a POST HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
             timeout: The timeout for the request in seconds.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -683,7 +729,9 @@ class SyncClient:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        *,
         timeout: float | None = None,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a DELETE HTTP request.
 
@@ -691,6 +739,7 @@ class SyncClient:
             url: The unencoded request URL.
             headers: The request headers.
             timeout: The timeout for the request in seconds.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -703,7 +752,9 @@ class SyncClient:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        *,
         timeout: float | None = None,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a HEAD HTTP request.
 
@@ -711,6 +762,7 @@ class SyncClient:
             url: The unencoded request URL.
             headers: The request headers.
             timeout: The timeout for the request in seconds.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -723,7 +775,9 @@ class SyncClient:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        *,
         timeout: float | None = None,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a OPTIONS HTTP request.
 
@@ -731,6 +785,7 @@ class SyncClient:
             url: The unencoded request URL.
             headers: The request headers.
             timeout: The timeout for the request in seconds.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -743,16 +798,19 @@ class SyncClient:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | Iterable[bytes] | None = None,
+        content: _SyncRequestContent | None = None,
+        *,
         timeout: float | None = None,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a PATCH HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
             timeout: The timeout for the request in seconds.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -765,16 +823,19 @@ class SyncClient:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | Iterable[bytes] | None = None,
+        content: _SyncRequestContent | None = None,
+        *,
         timeout: float | None = None,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a PUT HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
             timeout: The timeout for the request in seconds.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -788,8 +849,10 @@ class SyncClient:
         method: str,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | Iterable[bytes] | None = None,
+        content: _SyncRequestContent | None = None,
+        *,
         timeout: float | None = None,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes an HTTP request, returning the full buffered response.
 
@@ -797,8 +860,9 @@ class SyncClient:
             method: The HTTP method.
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
             timeout: The timeout for the request in seconds.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -812,8 +876,10 @@ class SyncClient:
         method: str,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | Iterable[bytes] | None = None,
+        content: _SyncRequestContent | None = None,
+        *,
         timeout: float | None = None,
+        params: _QueryParams | None = None,
     ) -> AbstractContextManager[SyncResponse]:
         """Executes an HTTP request, allowing the response content to be streamed.
 
@@ -821,8 +887,9 @@ class SyncClient:
             method: The HTTP method.
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
             timeout: The timeout for the request in seconds.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -865,6 +932,7 @@ class SyncHTTPTransport:
         enable_brotli: bool = True,
         enable_zstd: bool = True,
         use_system_dns: bool = False,
+        enable_cookie_store: bool = False,
         enable_otel: bool = True,
         meter_provider: MeterProvider | None = None,
         tracer_provider: TracerProvider | None = None,
@@ -898,6 +966,9 @@ class SyncHTTPTransport:
                             asynchronous DNS resolver implemented in Rust, but it can have different
                             behavior from system DNS in certain environments. Try enabling this option if
                             you have any DNS resolution issues.
+            enable_cookie_store: Whether to enable automatic cookie storage and sending. When enabled,
+                          the transport will automatically store cookies from responses and send
+                          them with subsequent requests.
         """
 
     def __enter__(self) -> SyncHTTPTransport:
@@ -949,7 +1020,9 @@ class SyncRequest:
         method: str,
         url: str,
         headers: Headers | None = None,
-        content: bytes | Iterable[bytes] | None = None,
+        content: _SyncRequestContent | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> None:
         """Creates a new SyncRequest object.
 
@@ -957,8 +1030,8 @@ class SyncRequest:
             method: The HTTP method.
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
-            timeout: The timeout for the request in seconds.
+            content: The request content. A Python dictionary will be converted to JSON.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
         """
 
     @property
@@ -977,6 +1050,9 @@ class SyncRequest:
     def content(self) -> Iterator[bytes]:
         """Returns an iterator over the request content."""
 
+    @property
+    def _json(self) -> bool: ...
+
 class SyncResponse:
     """An HTTP response."""
 
@@ -986,7 +1062,7 @@ class SyncResponse:
         status: int,
         http_version: HTTPVersion | None = None,
         headers: Headers | None = None,
-        content: bytes | Iterable[Buffer] | None = None,
+        content: bytes | Iterable[_Buffer] | None = None,
         trailers: Headers | None = None,
     ) -> None:
         """Creates a new SyncResponse object.
@@ -1034,7 +1110,7 @@ class SyncResponse:
         """Returns the response headers."""
 
     @property
-    def content(self) -> Iterator[Buffer]:
+    def content(self) -> Iterator[_Buffer]:
         """Returns an iterator over the response content."""
 
     @property
@@ -1090,42 +1166,11 @@ class FullResponse:
         defaulting to UTF-8 otherwise.
         """
 
-    def json(self) -> JSON:
+    def json(self) -> _JSON:
         """Parses and returns the response content as JSON.
 
         The content-type header is not checked when using this method.
         """
-
-class StreamErrorCode:
-    NO_ERROR: StreamErrorCode
-    PROTOCOL_ERROR: StreamErrorCode
-    INTERNAL_ERROR: StreamErrorCode
-    FLOW_CONTROL_ERROR: StreamErrorCode
-    SETTINGS_TIMEOUT: StreamErrorCode
-    STREAM_CLOSED: StreamErrorCode
-    FRAME_SIZE_ERROR: StreamErrorCode
-    REFUSED_STREAM: StreamErrorCode
-    CANCEL: StreamErrorCode
-    COMPRESSION_ERROR: StreamErrorCode
-    CONNECT_ERROR: StreamErrorCode
-    ENHANCE_YOUR_CALM: StreamErrorCode
-    INADEQUATE_SECURITY: StreamErrorCode
-    HTTP_1_1_REQUIRED: StreamErrorCode
-
-class StreamError(Exception):
-    """An error representing an HTTP/2+ stream error."""
-
-    def __init__(self, message: str, code: StreamErrorCode) -> None:
-        """Creates a new StreamError.
-
-        Args:
-            message: The error message.
-            code: The stream error code.
-        """
-
-    @property
-    def code(self) -> StreamErrorCode:
-        """The stream error code."""
 
 class ReadError(Exception):
     """An error representing a read error during response reading."""

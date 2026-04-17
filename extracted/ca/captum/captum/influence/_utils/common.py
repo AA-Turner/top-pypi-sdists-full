@@ -25,7 +25,6 @@ from captum._utils.gradient import (
     _compute_jacobian_wrt_params_with_sample_wise_trick,
 )
 from captum._utils.progress import progress
-
 from torch import Tensor
 from torch.nn import Module
 from torch.utils.data import DataLoader, Dataset
@@ -205,7 +204,6 @@ def _get_k_most_influential_helper(
     influence_src_dataloader: DataLoader,
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     influence_batch_fn: Callable,
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     inputs: Any,
     k: int = 5,
     proponents: bool = True,
@@ -328,7 +326,6 @@ class _DatasetFromList(Dataset):
     def __init__(self, _l: List[Any]) -> None:
         self._l = _l
 
-    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def __getitem__(self, i: int) -> Any:
         return self._l[i]
 
@@ -337,7 +334,6 @@ class _DatasetFromList(Dataset):
 
 
 def _format_inputs_dataset(
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     inputs_dataset: Union[Tuple[Any, ...], DataLoader],
 ) -> DataLoader:
     # if `inputs_dataset` is not a `DataLoader`, turn it into one.
@@ -355,7 +351,6 @@ def _self_influence_by_batches_helper(
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     self_influence_batch_fn: Callable,
     instance_name: str,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     inputs_dataset: Union[Tuple[Any, ...], DataLoader],
     show_progress: bool = False,
 ) -> Tensor:
@@ -628,9 +623,7 @@ def _unflatten_params_factory(
 
 def _influence_batch_intermediate_quantities_influence_function(
     influence_inst: "IntermediateQuantitiesInfluenceFunction",
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     test_batch: Tuple[Any, ...],
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     train_batch: Tuple[Any, ...],
 ) -> Tensor:
     """
@@ -645,7 +638,6 @@ def _influence_batch_intermediate_quantities_influence_function(
 
 def _influence_helper_intermediate_quantities_influence_function(
     influence_inst: "IntermediateQuantitiesInfluenceFunction",
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     inputs_dataset: Union[Tuple[Any, ...], DataLoader],
     show_progress: bool,
 ) -> Tensor:
@@ -684,7 +676,6 @@ def _influence_helper_intermediate_quantities_influence_function(
 
 def _self_influence_helper_intermediate_quantities_influence_function(
     influence_inst: "IntermediateQuantitiesInfluenceFunction",
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     inputs_dataset: Optional[Union[Tuple[Any, ...], DataLoader]],
     show_progress: bool,
 ) -> Tensor:
@@ -836,7 +827,6 @@ class KMostInfluentialResults(NamedTuple):
 
 def _influence_route_to_helpers(
     influence_instance: Union["TracInCPBase", "InfluenceFunctionBase"],
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     inputs: Union[Tuple[Any, ...], DataLoader],
     k: Optional[int] = None,
     proponents: bool = True,
@@ -887,7 +877,9 @@ def _parameter_add(
     return tuple(param_1 + param_2 for (param_1, param_2) in zip(params_1, params_2))
 
 
-def _parameter_multiply(params: Tuple[Tensor, ...], c: Tensor) -> Tuple[Tensor, ...]:
+def _parameter_multiply(
+    params: Tuple[Tensor, ...], c: Union[Tensor, float]
+) -> Tuple[Tensor, ...]:
     """
     multiplies all tensors in a tuple of tensors by a given scalar
     """
@@ -918,7 +910,6 @@ def _parameter_linear_combination(
 
 def _compute_jacobian_sample_wise_grads_per_batch(
     influence_inst: Union["TracInCP", "InfluenceFunctionBase"],
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     inputs: Tuple[Any, ...],
     targets: Optional[Tensor] = None,
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
@@ -953,9 +944,7 @@ def _compute_jacobian_sample_wise_grads_per_batch(
 def _compute_batch_loss_influence_function_base(
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     loss_fn: Optional[Union[Module, Callable]],
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     input: Any,
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     target: Any,
     reduction_type: str,
 ):

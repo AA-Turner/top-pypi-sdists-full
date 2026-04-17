@@ -90,12 +90,18 @@ impl HashKey {
             Value::Int64(i) => HashKey::Int64(*i),
             Value::Float64(f) => {
                 // Convert float to bits for consistent hashing
+                // reason: intentional bit-level reinterpretation for hashing
+                #[allow(clippy::cast_possible_wrap)]
                 HashKey::Int64(f.to_bits() as i64)
             }
             Value::String(s) => HashKey::String(s.clone()),
             Value::Bytes(b) => HashKey::Bytes(b.to_vec()),
             Value::Timestamp(t) => HashKey::Int64(t.as_micros()),
+            // reason: date days and time nanos fit i64
+            #[allow(clippy::cast_possible_wrap)]
             Value::Date(d) => HashKey::Int64(d.as_days() as i64),
+            // reason: date days and time nanos are small, fit i64
+            #[allow(clippy::cast_possible_wrap)]
             Value::Time(t) => HashKey::Int64(t.as_nanos() as i64),
             Value::Duration(d) => HashKey::Composite(vec![
                 HashKey::Int64(d.months()),
@@ -134,10 +140,17 @@ impl HashKey {
             }
             // CRDT counters are opaque keys; hash by total logical value.
             Value::GCounter(counts) => {
+                // reason: CRDT counter values are practically small, wrap is acceptable for hashing
+                #[allow(clippy::cast_possible_wrap)]
                 HashKey::Int64(counts.values().copied().map(|v| v as i64).sum())
             }
             Value::OnCounter { pos, neg } => {
+                // reason: CRDT counter values are practically small, wrap is acceptable for hashing
+                #[allow(clippy::cast_possible_wrap)]
+                // reason: GCounter values are small, sum fits i64
                 let p: i64 = pos.values().copied().map(|v| v as i64).sum();
+                // reason: GCounter values are small, sum fits i64
+                #[allow(clippy::cast_possible_wrap)]
                 let n: i64 = neg.values().copied().map(|v| v as i64).sum();
                 HashKey::Int64(p - n)
             }
@@ -624,6 +637,10 @@ impl Operator for HashJoinOperator {
     fn name(&self) -> &'static str {
         "HashJoin"
     }
+
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+        self
+    }
 }
 
 /// Nested loop join operator.
@@ -960,6 +977,10 @@ impl Operator for NestedLoopJoinOperator {
     fn name(&self) -> &'static str {
         "NestedLoopJoin"
     }
+
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+        self
+    }
 }
 
 #[cfg(test)]
@@ -999,6 +1020,10 @@ mod tests {
 
         fn name(&self) -> &'static str {
             "Mock"
+        }
+
+        fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+            self
         }
     }
 
@@ -1260,5 +1285,111 @@ mod tests {
             neg: Arc::new(neg),
         };
         assert_eq!(HashKey::from_value(&v), HashKey::Int64(0));
+    }
+
+    #[test]
+    fn test_hash_join_into_any() {
+        let left = MockOperator::new(vec![]);
+        let right = MockOperator::new(vec![]);
+        let op = HashJoinOperator::new(
+            Box::new(left),
+            Box::new(right),
+            vec![0],
+            vec![0],
+            JoinType::Inner,
+            vec![LogicalType::Int64, LogicalType::Int64],
+        );
+        let any = Box::new(op).into_any();
+        assert!(any.downcast::<HashJoinOperator>().is_ok());
+    }
+
+    #[test]
+    fn test_nested_loop_join_into_any() {
+        let left = MockOperator::new(vec![]);
+        let right = MockOperator::new(vec![]);
+        let op = NestedLoopJoinOperator::new(
+            Box::new(left),
+            Box::new(right),
+            None,
+            JoinType::Cross,
+            vec![LogicalType::Int64, LogicalType::Int64],
+        );
+        let any = Box::new(op).into_any();
+        assert!(any.downcast::<NestedLoopJoinOperator>().is_ok());
+    }
+
+    #[test]
+    fn test_hash_key_ord_same_variant() {
+        use std::cmp::Ordering;
+
+        assert_eq!(HashKey::Null.cmp(&HashKey::Null), Ordering::Equal);
+        assert_eq!(
+            HashKey::Bool(false).cmp(&HashKey::Bool(true)),
+            Ordering::Less
+        );
+        assert_eq!(
+            HashKey::Bool(true).cmp(&HashKey::Bool(false)),
+            Ordering::Greater
+        );
+        assert_eq!(HashKey::Int64(1).cmp(&HashKey::Int64(2)), Ordering::Less);
+        assert_eq!(HashKey::Int64(5).cmp(&HashKey::Int64(5)), Ordering::Equal);
+        assert_eq!(
+            HashKey::String(arcstr::literal!("a")).cmp(&HashKey::String(arcstr::literal!("b"))),
+            Ordering::Less,
+        );
+        assert_eq!(
+            HashKey::Bytes(vec![1, 2]).cmp(&HashKey::Bytes(vec![1, 3])),
+            Ordering::Less,
+        );
+        assert_eq!(
+            HashKey::Composite(vec![HashKey::Int64(1)])
+                .cmp(&HashKey::Composite(vec![HashKey::Int64(2)])),
+            Ordering::Less,
+        );
+    }
+
+    #[test]
+    fn test_hash_key_ord_cross_variant() {
+        use std::cmp::Ordering;
+
+        // Null < Bool < Int64 < String < Bytes < Composite
+        assert_eq!(HashKey::Null.cmp(&HashKey::Bool(false)), Ordering::Less);
+        assert_eq!(HashKey::Bool(true).cmp(&HashKey::Null), Ordering::Greater);
+        assert_eq!(HashKey::Bool(false).cmp(&HashKey::Int64(0)), Ordering::Less);
+        assert_eq!(
+            HashKey::Int64(0).cmp(&HashKey::Bool(false)),
+            Ordering::Greater
+        );
+        assert_eq!(
+            HashKey::Int64(0).cmp(&HashKey::String(arcstr::literal!("a"))),
+            Ordering::Less,
+        );
+        assert_eq!(
+            HashKey::String(arcstr::literal!("a")).cmp(&HashKey::Int64(0)),
+            Ordering::Greater,
+        );
+        assert_eq!(
+            HashKey::String(arcstr::literal!("a")).cmp(&HashKey::Bytes(vec![1])),
+            Ordering::Less,
+        );
+        assert_eq!(
+            HashKey::Bytes(vec![1]).cmp(&HashKey::String(arcstr::literal!("a"))),
+            Ordering::Greater,
+        );
+        assert_eq!(
+            HashKey::Bytes(vec![1]).cmp(&HashKey::Composite(vec![])),
+            Ordering::Less,
+        );
+        assert_eq!(
+            HashKey::Composite(vec![]).cmp(&HashKey::Bytes(vec![1])),
+            Ordering::Greater,
+        );
+    }
+
+    #[test]
+    fn test_hash_key_partial_ord() {
+        // PartialOrd delegates to Ord, just verify it returns Some
+        assert!(HashKey::Null.partial_cmp(&HashKey::Int64(1)).is_some());
+        assert!(HashKey::Int64(1).partial_cmp(&HashKey::Int64(2)).is_some());
     }
 }

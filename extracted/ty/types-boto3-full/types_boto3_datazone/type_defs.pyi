@@ -649,6 +649,7 @@ __all__ = (
     "ProjectDeletionErrorTypeDef",
     "ProjectGrantFilterTypeDef",
     "ProjectMemberTypeDef",
+    "ProjectMembershipAssignmentTypeDef",
     "ProjectPolicyGrantPrincipalTypeDef",
     "ProjectProfileSummaryTypeDef",
     "ProjectSummaryTypeDef",
@@ -1270,7 +1271,8 @@ class TermRelationsOutputTypeDef(TypedDict):
 
 class CreateGroupProfileInputTypeDef(TypedDict):
     domainIdentifier: str
-    groupIdentifier: str
+    groupIdentifier: NotRequired[str]
+    rolePrincipalArn: NotRequired[str]
     clientToken: NotRequired[str]
 
 class CreateListingChangeSetInputTypeDef(TypedDict):
@@ -1321,6 +1323,7 @@ class CreateUserProfileInputTypeDef(TypedDict):
     domainIdentifier: str
     userIdentifier: str
     userType: NotRequired[UserTypeType]
+    sessionName: NotRequired[str]
     clientToken: NotRequired[str]
 
 class DataProductItemTypeDef(TypedDict):
@@ -1814,6 +1817,7 @@ GetUserProfileInputTypeDef = TypedDict(
         "domainIdentifier": str,
         "userIdentifier": str,
         "type": NotRequired[UserProfileTypeType],
+        "sessionName": NotRequired[str],
     },
 )
 
@@ -1874,12 +1878,16 @@ GroupProfileSummaryTypeDef = TypedDict(
         "id": NotRequired[str],
         "status": NotRequired[GroupProfileStatusType],
         "groupName": NotRequired[str],
+        "rolePrincipalArn": NotRequired[str],
+        "rolePrincipalId": NotRequired[str],
     },
 )
 
 class IamUserProfileDetailsTypeDef(TypedDict):
     arn: NotRequired[str]
     principalId: NotRequired[str]
+    sessionName: NotRequired[str]
+    groupProfileId: NotRequired[str]
 
 class InExpressionOutputTypeDef(TypedDict):
     columnName: str
@@ -2149,6 +2157,7 @@ class ListProjectsInputTypeDef(TypedDict):
     userIdentifier: NotRequired[str]
     groupIdentifier: NotRequired[str]
     name: NotRequired[str]
+    projectCategory: NotRequired[str]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
@@ -2480,6 +2489,7 @@ UpdateUserProfileInputTypeDef = TypedDict(
         "userIdentifier": str,
         "status": UserProfileStatusType,
         "type": NotRequired[UserProfileTypeType],
+        "sessionName": NotRequired[str],
     },
 )
 
@@ -2531,6 +2541,8 @@ CreateGroupProfileOutputTypeDef = TypedDict(
         "id": str,
         "status": GroupProfileStatusType,
         "groupName": str,
+        "rolePrincipalArn": str,
+        "rolePrincipalId": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2583,6 +2595,8 @@ GetGroupProfileOutputTypeDef = TypedDict(
         "id": str,
         "status": GroupProfileStatusType,
         "groupName": str,
+        "rolePrincipalArn": str,
+        "rolePrincipalId": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2659,6 +2673,8 @@ UpdateGroupProfileOutputTypeDef = TypedDict(
         "id": str,
         "status": GroupProfileStatusType,
         "groupName": str,
+        "rolePrincipalArn": str,
+        "rolePrincipalId": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2964,9 +2980,9 @@ DataSourceSummaryTypeDef = TypedDict(
 
 class CreateDomainInputTypeDef(TypedDict):
     name: str
-    domainExecutionRole: str
     description: NotRequired[str]
     singleSignOn: NotRequired[SingleSignOnTypeDef]
+    domainExecutionRole: NotRequired[str]
     kmsKeyIdentifier: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
     domainVersion: NotRequired[DomainVersionType]
@@ -3205,6 +3221,10 @@ class DeleteProjectMembershipInputTypeDef(TypedDict):
     projectIdentifier: str
     member: MemberTypeDef
 
+class ProjectMembershipAssignmentTypeDef(TypedDict):
+    member: MemberTypeDef
+    designation: UserDesignationType
+
 ProjectSummaryTypeDef = TypedDict(
     "ProjectSummaryTypeDef",
     {
@@ -3218,6 +3238,7 @@ ProjectSummaryTypeDef = TypedDict(
         "createdAt": NotRequired[datetime],
         "updatedAt": NotRequired[datetime],
         "domainUnitId": NotRequired[str],
+        "projectCategory": NotRequired[str],
     },
 )
 CreateSubscriptionTargetInputTypeDef = TypedDict(
@@ -3950,6 +3971,7 @@ class ListProjectsInputPaginateTypeDef(TypedDict):
     userIdentifier: NotRequired[str]
     groupIdentifier: NotRequired[str]
     name: NotRequired[str]
+    projectCategory: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListRulesInputPaginateTypeDef(TypedDict):
@@ -4788,6 +4810,7 @@ CreateProjectOutputTypeDef = TypedDict(
         "projectProfileId": str,
         "userParameters": list[EnvironmentConfigurationUserParameterOutputTypeDef],
         "environmentDeploymentDetails": EnvironmentDeploymentDetailsOutputTypeDef,
+        "projectCategory": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -4809,6 +4832,7 @@ GetProjectOutputTypeDef = TypedDict(
         "projectProfileId": str,
         "userParameters": list[EnvironmentConfigurationUserParameterOutputTypeDef],
         "environmentDeploymentDetails": EnvironmentDeploymentDetailsOutputTypeDef,
+        "projectCategory": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -4830,6 +4854,7 @@ UpdateProjectOutputTypeDef = TypedDict(
         "projectProfileId": str,
         "userParameters": list[EnvironmentConfigurationUserParameterOutputTypeDef],
         "environmentDeploymentDetails": EnvironmentDeploymentDetailsOutputTypeDef,
+        "projectCategory": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -5432,6 +5457,9 @@ class CreateProjectInputTypeDef(TypedDict):
     domainUnitId: NotRequired[str]
     projectProfileId: NotRequired[str]
     userParameters: NotRequired[Sequence[EnvironmentConfigurationUserParameterUnionTypeDef]]
+    projectCategory: NotRequired[str]
+    projectExecutionRole: NotRequired[str]
+    membershipAssignments: NotRequired[Sequence[ProjectMembershipAssignmentTypeDef]]
 
 class UpdateProjectInputTypeDef(TypedDict):
     domainIdentifier: str

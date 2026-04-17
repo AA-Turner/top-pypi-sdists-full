@@ -190,6 +190,14 @@ export function cloneStr(str: string): string {
     // to ensure we get a copy of the string to prevent the original string from being retained in memory.
     // For example, the import resolution cache in importResolver might hold onto the full original file content
     // because seemingly innocent the import name  (e.g., `foo` in `import foo`) is in the cache.
+
+    // V8 uses a SlicedString representation for substrings only above a small length threshold (currently 13),
+    // so short strings can be returned as-is without retaining the original text in memory.
+    // https://github.com/v8/v8/blob/02558d5a88c8f06ff064e3b6b332f342e1ab6143/src/objects/string.h#L1054
+    if (str.length < 13) {
+        return str;
+    }
+
     return Buffer.from(str, 'utf8').toString('utf8');
 }
 
@@ -197,6 +205,19 @@ export namespace Disposable {
     export function is(value: any): value is { dispose(): void } {
         return value && typeof value.dispose === 'function';
     }
+}
+
+export function isMap(obj: unknown): obj is Map<unknown, unknown> {
+    return typeof obj === 'object' && obj !== null && obj.constructor === Map;
+}
+
+export function isPromise(obj: unknown): obj is Promise<unknown> {
+    return (
+        typeof obj === 'object' &&
+        obj !== null &&
+        typeof (obj as any).then === 'function' &&
+        typeof (obj as any).catch === 'function'
+    );
 }
 
 /**

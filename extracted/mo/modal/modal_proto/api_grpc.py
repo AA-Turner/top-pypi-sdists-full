@@ -52,6 +52,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def AppGetLifecycle(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AppGetLifecycleRequest, modal_proto.api_pb2.AppGetLifecycleResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def AppGetLogs(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AppGetLogsRequest, modal_proto.api_pb2.TaskLogsBatch]') -> None:
         pass
 
@@ -85,6 +89,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def AppRollback(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AppRollbackRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def AppRollover(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AppRolloverRequest, modal_proto.api_pb2.AppRolloverResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -260,11 +268,23 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def EnvironmentGetManaged(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EnvironmentGetManagedRequest, modal_proto.api_pb2.EnvironmentGetManagedResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def EnvironmentGetOrCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EnvironmentGetOrCreateRequest, modal_proto.api_pb2.EnvironmentGetOrCreateResponse]') -> None:
         pass
 
     @abc.abstractmethod
     async def EnvironmentList(self, stream: 'grpclib.server.Stream[google.protobuf.empty_pb2.Empty, modal_proto.api_pb2.EnvironmentListResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def EnvironmentRoleSet(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EnvironmentRoleSetRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def EnvironmentSetManaged(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EnvironmentSetManagedRequest, google.protobuf.empty_pb2.Empty]') -> None:
         pass
 
     @abc.abstractmethod
@@ -616,6 +636,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def ServiceUserList(self, stream: 'grpclib.server.Stream[google.protobuf.empty_pb2.Empty, modal_proto.api_pb2.ServiceUserListResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def SharedVolumeDelete(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SharedVolumeDeleteRequest, google.protobuf.empty_pb2.Empty]') -> None:
         pass
 
@@ -673,6 +697,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def TaskResult(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.TaskResultRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def TemplateList(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.TemplateListRequest, modal_proto.api_pb2.TemplateListResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -776,6 +804,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def WorkspaceMembersList(self, stream: 'grpclib.server.Stream[google.protobuf.empty_pb2.Empty, modal_proto.api_pb2.WorkspaceMembersListResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def WorkspaceNameLookup(self, stream: 'grpclib.server.Stream[google.protobuf.empty_pb2.Empty, modal_proto.api_pb2.WorkspaceNameLookupResponse]') -> None:
         pass
 
@@ -828,6 +860,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.AppGetLayoutRequest,
                 modal_proto.api_pb2.AppGetLayoutResponse,
+            ),
+            '/modal.client.ModalClient/AppGetLifecycle': grpclib.const.Handler(
+                self.AppGetLifecycle,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.AppGetLifecycleRequest,
+                modal_proto.api_pb2.AppGetLifecycleResponse,
             ),
             '/modal.client.ModalClient/AppGetLogs': grpclib.const.Handler(
                 self.AppGetLogs,
@@ -882,6 +920,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.AppRollbackRequest,
                 google.protobuf.empty_pb2.Empty,
+            ),
+            '/modal.client.ModalClient/AppRollover': grpclib.const.Handler(
+                self.AppRollover,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.AppRolloverRequest,
+                modal_proto.api_pb2.AppRolloverResponse,
             ),
             '/modal.client.ModalClient/AppSetObjects': grpclib.const.Handler(
                 self.AppSetObjects,
@@ -1141,6 +1185,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.EnvironmentDeleteRequest,
                 google.protobuf.empty_pb2.Empty,
             ),
+            '/modal.client.ModalClient/EnvironmentGetManaged': grpclib.const.Handler(
+                self.EnvironmentGetManaged,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.EnvironmentGetManagedRequest,
+                modal_proto.api_pb2.EnvironmentGetManagedResponse,
+            ),
             '/modal.client.ModalClient/EnvironmentGetOrCreate': grpclib.const.Handler(
                 self.EnvironmentGetOrCreate,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1152,6 +1202,18 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 google.protobuf.empty_pb2.Empty,
                 modal_proto.api_pb2.EnvironmentListResponse,
+            ),
+            '/modal.client.ModalClient/EnvironmentRoleSet': grpclib.const.Handler(
+                self.EnvironmentRoleSet,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.EnvironmentRoleSetRequest,
+                google.protobuf.empty_pb2.Empty,
+            ),
+            '/modal.client.ModalClient/EnvironmentSetManaged': grpclib.const.Handler(
+                self.EnvironmentSetManaged,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.EnvironmentSetManagedRequest,
+                google.protobuf.empty_pb2.Empty,
             ),
             '/modal.client.ModalClient/EnvironmentUpdate': grpclib.const.Handler(
                 self.EnvironmentUpdate,
@@ -1675,6 +1737,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.SecretUpdateRequest,
                 google.protobuf.empty_pb2.Empty,
             ),
+            '/modal.client.ModalClient/ServiceUserList': grpclib.const.Handler(
+                self.ServiceUserList,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                google.protobuf.empty_pb2.Empty,
+                modal_proto.api_pb2.ServiceUserListResponse,
+            ),
             '/modal.client.ModalClient/SharedVolumeDelete': grpclib.const.Handler(
                 self.SharedVolumeDelete,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1764,6 +1832,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.TaskResultRequest,
                 google.protobuf.empty_pb2.Empty,
+            ),
+            '/modal.client.ModalClient/TemplateList': grpclib.const.Handler(
+                self.TemplateList,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.TemplateListRequest,
+                modal_proto.api_pb2.TemplateListResponse,
             ),
             '/modal.client.ModalClient/TokenFlowCreate': grpclib.const.Handler(
                 self.TokenFlowCreate,
@@ -1915,6 +1989,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.WorkspaceDashboardUrlRequest,
                 modal_proto.api_pb2.WorkspaceDashboardUrlResponse,
             ),
+            '/modal.client.ModalClient/WorkspaceMembersList': grpclib.const.Handler(
+                self.WorkspaceMembersList,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                google.protobuf.empty_pb2.Empty,
+                modal_proto.api_pb2.WorkspaceMembersListResponse,
+            ),
             '/modal.client.ModalClient/WorkspaceNameLookup': grpclib.const.Handler(
                 self.WorkspaceNameLookup,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1975,6 +2055,12 @@ class ModalClientStub:
             modal_proto.api_pb2.AppGetLayoutRequest,
             modal_proto.api_pb2.AppGetLayoutResponse,
         )
+        self.AppGetLifecycle = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/AppGetLifecycle',
+            modal_proto.api_pb2.AppGetLifecycleRequest,
+            modal_proto.api_pb2.AppGetLifecycleResponse,
+        )
         self.AppGetLogs = grpclib.client.UnaryStreamMethod(
             channel,
             '/modal.client.ModalClient/AppGetLogs',
@@ -2028,6 +2114,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/AppRollback',
             modal_proto.api_pb2.AppRollbackRequest,
             google.protobuf.empty_pb2.Empty,
+        )
+        self.AppRollover = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/AppRollover',
+            modal_proto.api_pb2.AppRolloverRequest,
+            modal_proto.api_pb2.AppRolloverResponse,
         )
         self.AppSetObjects = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -2287,6 +2379,12 @@ class ModalClientStub:
             modal_proto.api_pb2.EnvironmentDeleteRequest,
             google.protobuf.empty_pb2.Empty,
         )
+        self.EnvironmentGetManaged = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/EnvironmentGetManaged',
+            modal_proto.api_pb2.EnvironmentGetManagedRequest,
+            modal_proto.api_pb2.EnvironmentGetManagedResponse,
+        )
         self.EnvironmentGetOrCreate = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/EnvironmentGetOrCreate',
@@ -2298,6 +2396,18 @@ class ModalClientStub:
             '/modal.client.ModalClient/EnvironmentList',
             google.protobuf.empty_pb2.Empty,
             modal_proto.api_pb2.EnvironmentListResponse,
+        )
+        self.EnvironmentRoleSet = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/EnvironmentRoleSet',
+            modal_proto.api_pb2.EnvironmentRoleSetRequest,
+            google.protobuf.empty_pb2.Empty,
+        )
+        self.EnvironmentSetManaged = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/EnvironmentSetManaged',
+            modal_proto.api_pb2.EnvironmentSetManagedRequest,
+            google.protobuf.empty_pb2.Empty,
         )
         self.EnvironmentUpdate = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -2821,6 +2931,12 @@ class ModalClientStub:
             modal_proto.api_pb2.SecretUpdateRequest,
             google.protobuf.empty_pb2.Empty,
         )
+        self.ServiceUserList = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/ServiceUserList',
+            google.protobuf.empty_pb2.Empty,
+            modal_proto.api_pb2.ServiceUserListResponse,
+        )
         self.SharedVolumeDelete = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/SharedVolumeDelete',
@@ -2910,6 +3026,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/TaskResult',
             modal_proto.api_pb2.TaskResultRequest,
             google.protobuf.empty_pb2.Empty,
+        )
+        self.TemplateList = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/TemplateList',
+            modal_proto.api_pb2.TemplateListRequest,
+            modal_proto.api_pb2.TemplateListResponse,
         )
         self.TokenFlowCreate = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -3060,6 +3182,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/WorkspaceDashboardUrlGet',
             modal_proto.api_pb2.WorkspaceDashboardUrlRequest,
             modal_proto.api_pb2.WorkspaceDashboardUrlResponse,
+        )
+        self.WorkspaceMembersList = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/WorkspaceMembersList',
+            google.protobuf.empty_pb2.Empty,
+            modal_proto.api_pb2.WorkspaceMembersListResponse,
         )
         self.WorkspaceNameLookup = grpclib.client.UnaryUnaryMethod(
             channel,

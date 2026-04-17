@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from itertools import groupby
 
-import requests
+from contrast_vendor import requests
 from contrast_fireball import (
     ArchitectureComponent,
     Browser,

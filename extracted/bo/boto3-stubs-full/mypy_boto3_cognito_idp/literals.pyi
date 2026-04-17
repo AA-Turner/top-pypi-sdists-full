@@ -87,6 +87,7 @@ __all__ = (
     "UsernameAttributeTypeType",
     "VerifiedAttributeTypeType",
     "VerifySoftwareTokenResponseTypeType",
+    "WebAuthnFactorConfigurationTypeType",
 )
 
 AccountTakeoverEventActionTypeType = Literal[
@@ -216,6 +217,9 @@ UserVerificationTypeType = Literal["preferred", "required"]
 UsernameAttributeTypeType = Literal["email", "phone_number"]
 VerifiedAttributeTypeType = Literal["email", "phone_number"]
 VerifySoftwareTokenResponseTypeType = Literal["ERROR", "SUCCESS"]
+WebAuthnFactorConfigurationTypeType = Literal[
+    "MULTI_FACTOR_WITH_USER_VERIFICATION", "SINGLE_FACTOR"
+]
 CognitoIdentityProviderServiceName = Literal["cognito-idp"]
 ServiceName = Literal[
     "accessanalyzer",

@@ -1,6 +1,6 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-import requests
+from contrast_vendor import requests
 
 from .base_ts_message import BaseTsAppMessage, PYTHON
 from ._traces import _Traces

@@ -2,7 +2,7 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from typing import Any
 
-import requests
+from contrast_vendor import requests
 
 from contrast.utils.decorators import fail_loudly
 from contrast_vendor import structlog as logging

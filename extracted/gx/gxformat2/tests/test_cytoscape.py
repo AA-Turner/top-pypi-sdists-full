@@ -3,11 +3,16 @@ import os
 import shutil
 import tempfile
 
-from gxformat2.cytoscape import main
-from ._helpers import TEST_INTEROP_EXAMPLES, TEST_PATH
+from gxformat2.cytoscape import cytoscape_elements, CytoscapeElements, main
+from gxformat2.cytoscape._builder import _input_type_str
+from gxformat2.normalized import ensure_format2, normalized_format2
+from gxformat2.yaml import ordered_load
+
+from ._helpers import example_path, TEST_INTEROP_EXAMPLES
+from .example_wfs import MULTI_STRING_INPUT_WORKFLOW
 from .test_lint import WITH_REPORT
 
-EXAMPLE_PATH = os.path.join(TEST_PATH, "unicycler-extra-annotations.ga")
+EXAMPLE_PATH = example_path("real-hacked-unicycler-assembly-extra-annotations.ga")
 TEST_CYTOSCAPE_EXAMPLES = os.path.join(TEST_INTEROP_EXAMPLES, "cytoscape")
 
 
@@ -31,6 +36,39 @@ def test_interop_generation():
     # test Java against.
     write_cytoscape_elements(EXAMPLE_PATH)
     write_cytoscape_elements_for_string(WITH_REPORT)
+
+
+def test_cytoscape_elements_returns_typed_model():
+    elements = cytoscape_elements(EXAMPLE_PATH)
+    assert isinstance(elements, CytoscapeElements)
+    assert len(elements.nodes) > 0
+    assert len(elements.edges) > 0
+    # to_list round-trips to the flat format cytoscape.js expects
+    flat = elements.to_list()
+    assert isinstance(flat, list)
+    assert all(e["group"] in ("nodes", "edges") for e in flat)
+
+
+def test_cytoscape_elements_from_nf2():
+    nf2 = ensure_format2(EXAMPLE_PATH)
+    elements = cytoscape_elements(nf2)
+    assert isinstance(elements, CytoscapeElements)
+    assert len(elements.nodes) == len(nf2.inputs) + len(nf2.steps)
+
+
+def test_render_html():
+    from gxformat2.cytoscape import render_html
+
+    elements = cytoscape_elements(EXAMPLE_PATH)
+    html = render_html(elements)
+    assert "</body>" in html
+    assert "cytoscape" in html
+
+
+def test_multi_string_input_type():
+    nf2 = normalized_format2(ordered_load(MULTI_STRING_INPUT_WORKFLOW))
+    inp = nf2.inputs[0]
+    assert _input_type_str(inp) == "string[]"
 
 
 def write_cytoscape_elements_for_string(workflow_content):

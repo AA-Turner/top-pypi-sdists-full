@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+
 import PIL.Image
 import PIL.ImageEnhance
 from PyQt5 import QtWidgets
@@ -10,10 +14,17 @@ class BrightnessContrastDialog(QtWidgets.QDialog):
 
     img: PIL.Image.Image
 
-    def __init__(self, img: PIL.Image.Image, callback, parent=None):
+    def __init__(
+        self,
+        img: PIL.Image.Image,
+        callback: Callable[[QImage], None],
+        parent: QtWidgets.QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
+        self.setWindowTitle(self.tr("Brightness/Contrast"))
         self.setModal(True)
-        self.setWindowTitle("Brightness/Contrast")
+
+        self._on_image_changed = callback
 
         sliders = {}
         layouts = {}
@@ -59,9 +70,8 @@ class BrightnessContrastDialog(QtWidgets.QDialog):
         if img.mode != "RGB":
             img = img.convert("RGB")
         self.img = img
-        self.callback = callback
 
-    def onNewValue(self, _):
+    def onNewValue(self, _: int | None) -> None:
         brightness = self.slider_brightness.value() / self._base_value
         contrast = self.slider_contrast.value() / self._base_value
 
@@ -82,4 +92,4 @@ class BrightnessContrastDialog(QtWidgets.QDialog):
         qimage = QImage(
             img.tobytes(), img.width, img.height, img.width * len(img.getbands()), fmt
         )
-        self.callback(qimage)
+        self._on_image_changed(qimage)

@@ -1,4 +1,4 @@
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use pyo3::ffi;
 use pyo3::intern;
 use pyo3::prelude::*;
@@ -9,6 +9,7 @@ use pyo3::types::PyFrame;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::os::raw::c_int;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use thread_local::ThreadLocal;
 
@@ -16,7 +17,85 @@ use super::config;
 use super::filters;
 use super::plugins::{load_plugins, PluginProcessor};
 use super::utils;
-use super::utils::{Event, SerializedFrame};
+use super::utils::{Event, SerializedFrame, Serializer};
+
+const TRACKING_PROBE_INTERVAL: usize = 1024;
+
+#[path = "subtree_flush.rs"]
+mod subtree_flush;
+use subtree_flush::{resolve_flush_subtree_bytes, CandidateOwner, FlushCandidate, OpenSubtree};
+
+#[derive(Default)]
+struct FlushThreadState {
+    cumulative_bytes: usize,
+    armed: bool,
+    generation: u64,
+    probed_end_index: usize,
+    next_probe_end_index: usize,
+}
+
+struct RestoreGuard<'a, 'py> {
+    frames_by_thread: &'a Mutex<HashMap<String, Vec<SerializedFrame>>>,
+    thread_id: String,
+    start_index: usize,
+    subtree_by_thread: Option<HashMap<String, Vec<SerializedFrame>>>,
+    flushed_bytes: usize,
+    py: Python<'py>,
+}
+
+impl<'a, 'py> RestoreGuard<'a, 'py> {
+    fn new(
+        frames_by_thread: &'a Mutex<HashMap<String, Vec<SerializedFrame>>>,
+        thread_id: String,
+        start_index: usize,
+        drained_frames: Vec<SerializedFrame>,
+        py: Python<'py>,
+    ) -> Self {
+        let flushed_bytes = drained_frames.iter().map(|frame| frame.len()).sum();
+        let mut subtree_by_thread = HashMap::new();
+        subtree_by_thread.insert(thread_id.clone(), drained_frames);
+        Self {
+            frames_by_thread,
+            thread_id,
+            start_index,
+            subtree_by_thread: Some(subtree_by_thread),
+            flushed_bytes,
+            py,
+        }
+    }
+
+    fn subtree_by_thread(&self) -> &HashMap<String, Vec<SerializedFrame>> {
+        self.subtree_by_thread
+            .as_ref()
+            .expect("restore guard disarmed before subtree save completed")
+    }
+
+    fn flushed_bytes(&self) -> usize {
+        self.flushed_bytes
+    }
+
+    fn disarm(&mut self) {
+        self.subtree_by_thread = None;
+    }
+}
+
+impl Drop for RestoreGuard<'_, '_> {
+    fn drop(&mut self) {
+        let Some(mut subtree_by_thread) = self.subtree_by_thread.take() else {
+            return;
+        };
+        let Some(drained_frames) = subtree_by_thread.remove(&self.thread_id) else {
+            return;
+        };
+        let Ok(mut frames_by_thread) = self.frames_by_thread.lock_py_attached(self.py) else {
+            return;
+        };
+        let Some(frames) = frames_by_thread.get_mut(&self.thread_id) else {
+            return;
+        };
+        frames.splice(self.start_index..self.start_index, drained_frames);
+    }
+}
 
 #[pyclass(module = "kolo._kolo")]
 /// This struct holds data during profiling.
@@ -31,7 +110,8 @@ pub struct KoloProfiler {
     one_trace_per_test: bool,
     /// An identifier for the current trace. Can change if `one_trace_per_test` is `true`.
     trace_id: Mutex<String>,
-    trace_name: Option<String>,
+    explicit_trace_name: Option<String>,
+    trace_name: Mutex<Option<String>>,
     frames_by_thread: Mutex<HashMap<String, Vec<SerializedFrame>>>,
     threads: Mutex<HashMap<String, Py<PyAny>>>,
     /// A list of `Finder`s to check a filepath fragment for inclusion in the trace.
@@ -41,6 +121,11 @@ pub struct KoloProfiler {
     /// A dictionary mapping `co_name` to a list of associated `PluginProcessor` instances.
     default_include_frames: Mutex<HashMap<String, Vec<PluginProcessor>>>,
     /// A list of `PyFrame` objects (as the opaque `PyObject` type) and their associated `frame_id`.
+    // NOTE: `thread_local::ThreadLocal<RefCell<...>>` entries persist for
+    // threads that exit while tracing is active — they are only reclaimed
+    // when the whole `KoloProfiler` is dropped. Bounded by the number of
+    // distinct threads the process spawns, which is small in practice.
+    // Decided won't-fix; see #2535 item 1.
     call_frames: ThreadLocal<RefCell<utils::CallFrames>>,
     /// The time tracing started.
     timestamp: f64,
@@ -48,6 +133,7 @@ pub struct KoloProfiler {
     _frame_ids: ThreadLocal<RefCell<utils::FrameIds>>,
     /// The thread_id of the thread where KoloProfiler was activated
     current_thread_id: String,
+    current_thread_fn: Py<PyAny>,
     /// A tag for where the profiler was created. e.g. `kolo.enable` or
     /// `kolo.middleware.KoloMiddleware`.
     source: String,
@@ -55,8 +141,22 @@ pub struct KoloProfiler {
     timeout: usize,
     /// Whether to use the lightweight repr format when serializing frame data.
     lightweight_repr: bool,
+    serializer: Serializer,
     /// Omit return locals
     omit_return_locals: bool,
+    #[pyo3(get)]
+    /// Maximum buffered bytes before flushing a subtree. None means disabled.
+    flush_subtree_bytes: Option<usize>,
+    tracking_start_bytes: usize,
+    flush_thread_state: ThreadLocal<RefCell<FlushThreadState>>,
+    suspend_hooks: ThreadLocal<RefCell<bool>>,
+    // Relaxed is enough here: the generation only invalidates per-thread TLS state,
+    // and every other shared structure in the flush path is synchronized by Mutex.
+    flush_generation: AtomicU64,
+    flush_barrier: Mutex<()>,
+    subtree_stack: Mutex<HashMap<String, Vec<OpenSubtree>>>,
+    flush_in_progress: Mutex<HashSet<String>>,
+    root_trace_id: Mutex<String>,
 
     config: config::Config,
 }
@@ -119,6 +219,13 @@ impl KoloProfiler {
         let filters = config_dict
             .get_item("filters")
             .expect("config.get(\"filters\") should not raise.");
+        let trace_id = py_profiler
+            .getattr(intern!(py, "trace_id"))?
+            .extract::<String>()?;
+        let threading = PyModule::import(py, "threading")?;
+        let current_thread_fn = threading.getattr(intern!(py, "current_thread"))?.unbind();
+        let current_thread = current_thread_fn.bind(py).call0()?;
+        let flush_subtree_bytes: Option<usize> = resolve_flush_subtree_bytes(config_dict)?;
 
         Ok(Self {
             db_path: py_profiler
@@ -128,14 +235,15 @@ impl KoloProfiler {
             one_trace_per_test: py_profiler
                 .getattr(intern!(py, "one_trace_per_test"))?
                 .extract()?,
-            trace_id: Mutex::new(
-                py_profiler
-                    .getattr(intern!(py, "trace_id"))?
-                    .extract::<String>()?,
-            ),
-            trace_name: py_profiler
+            trace_id: Mutex::new(trace_id.clone()),
+            explicit_trace_name: py_profiler
                 .getattr(intern!(py, "trace_name"))?
                 .extract::<Option<String>>()?,
+            trace_name: Mutex::new(
+                py_profiler
+                    .getattr(intern!(py, "trace_name"))?
+                    .extract::<Option<String>>()?,
+            ),
             source: py_profiler
                 .getattr(intern!(py, "source"))?
                 .extract::<String>()?,
@@ -147,32 +255,82 @@ impl KoloProfiler {
             call_frames: ThreadLocal::new(),
             timestamp: utils::timestamp(),
             _frame_ids: ThreadLocal::new(),
-            current_thread_id: utils::get_current_thread_id(py).unwrap(),
+            current_thread_id: utils::get_thread_id(current_thread.as_ref(), py)?,
+            current_thread_fn,
             timeout: config.get_or(py, "sqlite_busy_timeout", 60)?,
             lightweight_repr: config.get_or(py, "lightweight_repr", false)?,
+            serializer: Serializer::new(py)?,
             omit_return_locals: config.get_or(py, "omit_return_locals", false)?,
+            flush_subtree_bytes,
+            tracking_start_bytes: subtree_flush::tracking_start_bytes(flush_subtree_bytes),
+            flush_thread_state: ThreadLocal::new(),
+            suspend_hooks: ThreadLocal::new(),
+            flush_generation: AtomicU64::new(0),
+            flush_barrier: Mutex::new(()),
+            subtree_stack: Mutex::new(HashMap::new()),
+            flush_in_progress: Mutex::new(HashSet::new()),
+            root_trace_id: Mutex::new(trace_id),
             config,
         })
     }
 
-    /// Extract test name or HTTP request/response information from frames to set the trace name.
-    fn _set_trace_name(&self, frames_by_thread: &HashMap<String, Vec<SerializedFrame>>) -> Option<String> {
-        utils::extract_test_trace_name(frames_by_thread, &self.current_thread_id)
-            .or_else(|| utils::extract_http_trace_name(frames_by_thread, &self.current_thread_id))
+    fn trace_name_for_frames(
+        &self,
+        py: Python,
+        frames_by_thread: &HashMap<String, Vec<SerializedFrame>>,
+    ) -> Option<String> {
+        self.trace_name_for_thread(py, frames_by_thread, &self.current_thread_id)
+    }
+
+    fn trace_name_for_thread(
+        &self,
+        py: Python,
+        frames_by_thread: &HashMap<String, Vec<SerializedFrame>>,
+        thread_id: &str,
+    ) -> Option<String> {
+        let mut trace_name = self
+            .trace_name
+            .lock_py_attached(py)
+            .expect("mutex poisoned");
+        utils::resolve_trace_name(
+            &mut trace_name,
+            frames_by_thread,
+            thread_id,
+            thread_id == self.current_thread_id.as_str(),
+        )
     }
 
     /// Build the trace as msgpack ready to save to sqlite or upload to the dashboard.
     fn build_trace_inner(&self, py: Python) -> Result<Py<PyBytes>, PyErr> {
-        let frames_by_thread = std::mem::take(&mut *self.frames_by_thread.lock_py_attached(py).expect("mutex poisoned"));
-        let threads = std::mem::take(&mut *self.threads.lock_py_attached(py).expect("mutex poisoned"));
-        let trace_id = self.trace_id.lock_py_attached(py).expect("mutex poisoned").clone();
-        
-        // Extract trace name if one wasn't explicitly set
-        let trace_name = if self.trace_name.is_none() {
-            self._set_trace_name(&frames_by_thread)
-        } else {
-            self.trace_name.clone()
+        let (frames_by_thread, threads, trace_id, root_trace_id) = {
+            let _flush_barrier = self
+                .flush_barrier
+                .lock_py_attached(py)
+                .expect("mutex poisoned");
+            let frames_by_thread = std::mem::take(
+                &mut *self
+                    .frames_by_thread
+                    .lock_py_attached(py)
+                    .expect("mutex poisoned"),
+            );
+            self.reset_subtree_tracking(py);
+            let threads =
+                std::mem::take(&mut *self.threads.lock_py_attached(py).expect("mutex poisoned"));
+            let trace_id = self
+                .trace_id
+                .lock_py_attached(py)
+                .expect("mutex poisoned")
+                .clone();
+            let root_trace_id = self
+                .root_trace_id
+                .lock_py_attached(py)
+                .expect("mutex poisoned")
+                .clone();
+            (frames_by_thread, threads, trace_id, root_trace_id)
         };
+
+        // Extract trace name if one wasn't explicitly set
+        let trace_name = self.trace_name_for_frames(py, &frames_by_thread);
 
         utils::build_trace(
             py,
@@ -185,6 +343,7 @@ impl KoloProfiler {
             self.timestamp,
             &self.config,
             false, // use_monitoring
+            Some(&root_trace_id),
         )
     }
 
@@ -206,11 +365,123 @@ impl KoloProfiler {
         let db_path_obj = path_class.call1((&self.db_path,))?;
         kwargs.set_item("db_path", db_path_obj)?;
 
-        let trace_id = self.trace_id.lock_py_attached(py).expect("mutex poisoned").clone();
+        let trace_id = self
+            .trace_id
+            .lock_py_attached(py)
+            .expect("mutex poisoned")
+            .clone();
         let db = PyModule::import(py, "kolo.db")?;
         let save = db.getattr(intern!(py, "save_trace"))?;
         save.call((&trace_id,), Some(&kwargs))?;
         Ok(())
+    }
+
+    fn record_closed_segment(
+        &self,
+        py: Python,
+        thread_id: &str,
+        start_index: usize,
+        end_index: usize,
+        resident_bytes: usize,
+        co_name: String,
+    ) {
+        let mut stacks = self
+            .subtree_stack
+            .lock_py_attached(py)
+            .expect("mutex poisoned");
+        subtree_flush::record_closed_segment(
+            &mut stacks,
+            thread_id,
+            start_index,
+            end_index,
+            resident_bytes,
+            co_name,
+        );
+    }
+
+    fn select_flush_candidate(
+        &self,
+        py: Python,
+        thread_id: &str,
+    ) -> Option<(CandidateOwner, FlushCandidate)> {
+        let subtree_stack = self
+            .subtree_stack
+            .lock_py_attached(py)
+            .expect("mutex poisoned");
+        subtree_flush::select_flush_candidate(
+            subtree_stack.get(thread_id).map_or(&[], Vec::as_slice),
+        )
+    }
+
+    fn shift_flush_state_after_flush(
+        &self,
+        py: Python,
+        thread_id: &str,
+        start_index: usize,
+        end_index: usize,
+        resident_delta: isize,
+    ) {
+        let mut stacks = self
+            .subtree_stack
+            .lock_py_attached(py)
+            .expect("mutex poisoned");
+        subtree_flush::shift_flush_state_after_flush(
+            stacks.get_mut(thread_id),
+            start_index,
+            end_index,
+            resident_delta,
+        );
+    }
+
+    fn maybe_flush_segments(&self, py: Python, thread_id: &str) -> PyResult<()> {
+        let current_bytes = self
+            .flush_thread_state
+            .get_or_default()
+            .borrow()
+            .cumulative_bytes;
+        let low_water_bytes = {
+            let mut flush_in_progress = self
+                .flush_in_progress
+                .lock_py_attached(py)
+                .expect("mutex poisoned");
+            let Some(low_water_bytes) = subtree_flush::begin_flush(
+                self.flush_subtree_bytes,
+                current_bytes,
+                &mut flush_in_progress,
+                thread_id,
+            ) else {
+                return Ok(());
+            };
+            low_water_bytes
+        };
+
+        let result = (|| -> PyResult<()> {
+            loop {
+                let current_bytes = self
+                    .flush_thread_state
+                    .get_or_default()
+                    .borrow()
+                    .cumulative_bytes;
+                if current_bytes <= low_water_bytes {
+                    break;
+                }
+
+                let Some((owner, candidate)) = self.select_flush_candidate(py, thread_id) else {
+                    break;
+                };
+                self.flush_subtree(py, thread_id, owner, candidate)?;
+            }
+            Ok(())
+        })();
+
+        subtree_flush::finish_flush(
+            &mut self
+                .flush_in_progress
+                .lock_py_attached(py)
+                .expect("mutex poisoned"),
+            thread_id,
+        );
+        result
     }
 
     /// Create a trace frame in msgpack format from a profiling event.
@@ -243,9 +514,10 @@ impl KoloProfiler {
         let arg = arg.downcast_bound::<PyAny>(py)?;
 
         let mut buf: Vec<u8> = vec![];
-        utils::write_frame(
+        utils::write_frame_with_serializer(
             &mut buf,
             pyframe,
+            &self.serializer,
             user_code_call_site,
             utils::Arg::Argument(arg),
             event,
@@ -277,30 +549,45 @@ impl KoloProfiler {
             frames.reverse();
             frame_types.reverse();
         }
-    
-        let threading = PyModule::import(py, "threading")?;
-        let current_thread = threading.call_method0("current_thread")?;
+
+        let current_thread = self.current_thread_fn.bind(py).call0()?;
         let thread_id = utils::get_thread_id(current_thread.as_ref(), py)?;
 
-        self.threads.lock_py_attached(py).expect("mutex poisoned").insert(thread_id.clone(), current_thread.unbind());
+        self.threads
+            .lock_py_attached(py)
+            .expect("mutex poisoned")
+            .insert(thread_id.clone(), current_thread.unbind());
 
+        let mut drained_count = 0;
         if self.one_trace_per_test {
             for (index, frame_type) in frame_types.iter().enumerate() {
                 match frame_type.as_str() {
                     "start_test" => {
                         frames.drain(..index);
+                        drained_count = index;
                         self.start_test(py)?
                     }
                     "end_test" => {
                         let mut before: Vec<SerializedFrame> = frames.drain(..index + 1).collect();
-                        self.push_frame_data(py, thread_id.clone(), &mut before)?;
+                        drained_count = index + 1;
+                        let drained_event = frame_types[..index + 1]
+                            .iter()
+                            .any(|frame_type| frame_type == "frame")
+                            .then_some(event);
+                        self.push_frame_data(py, thread_id.clone(), &mut before, drained_event)?;
                         self.save_in_db(py)?;
+                        self.reset_subtree_tracking(py);
                     }
                     _ => {}
                 }
             }
         }
-        self.push_frame_data(py, thread_id, frames)?;
+        let remaining_frame_types = &frame_types[drained_count..];
+        let track_event = remaining_frame_types
+            .iter()
+            .any(|frame_type| frame_type == "frame")
+            .then_some(event);
+        self.push_frame_data(py, thread_id, frames, track_event)?;
         Ok(())
     }
 
@@ -309,25 +596,338 @@ impl KoloProfiler {
         py: Python,
         thread_id: String,
         frames: &mut Vec<SerializedFrame>,
+        event: Option<Event>,
     ) -> PyResult<()> {
-        self.frames_by_thread
-            .lock_py_attached(py).expect("mutex poisoned")
-            .entry(thread_id)
-            .or_default()
-            .append(frames);
+        if frames.is_empty() {
+            return Ok(());
+        }
+
+        let (start_index, end_index) = {
+            let mut frames_by_thread = self
+                .frames_by_thread
+                .lock_py_attached(py)
+                .expect("mutex poisoned");
+            let thread_frames = frames_by_thread.entry(thread_id.clone()).or_default();
+            let start_index = thread_frames.len();
+            thread_frames.append(frames);
+            (start_index, thread_frames.len())
+        };
+
+        if self.flush_subtree_bytes.is_none() {
+            return Ok(());
+        }
+
+        let sum_frame_bytes = |slice_start: usize, slice_end: usize| -> usize {
+            let frames_by_thread = self
+                .frames_by_thread
+                .lock_py_attached(py)
+                .expect("mutex poisoned");
+            let thread_frames = frames_by_thread
+                .get(&thread_id)
+                .expect("thread frames missing after append");
+            thread_frames[slice_start..slice_end]
+                .iter()
+                .map(|frame| frame.len())
+                .sum()
+        };
+        let (added_bytes, current_bytes, flush_armed) = {
+            let flush_state = self.flush_thread_state.get_or_default();
+            let mut state = flush_state.borrow_mut();
+            let generation = self.flush_generation.load(Ordering::Relaxed);
+            if state.generation != generation {
+                state.cumulative_bytes = 0;
+                state.armed = false;
+                state.generation = generation;
+                state.probed_end_index = 0;
+                state.next_probe_end_index = 0;
+            }
+
+            if state.armed || self.tracking_start_bytes == 0 {
+                let added_bytes = sum_frame_bytes(start_index, end_index);
+                state.cumulative_bytes += added_bytes;
+                state.armed = true;
+                (added_bytes, state.cumulative_bytes, true)
+            } else {
+                if state.next_probe_end_index == 0 {
+                    state.next_probe_end_index = TRACKING_PROBE_INTERVAL;
+                }
+                if end_index < state.next_probe_end_index {
+                    return Ok(());
+                }
+
+                let probe_start = state.probed_end_index;
+                let probed_bytes = sum_frame_bytes(probe_start, end_index);
+                state.cumulative_bytes += probed_bytes;
+                state.probed_end_index = end_index;
+                state.next_probe_end_index = end_index + TRACKING_PROBE_INTERVAL;
+                if state.cumulative_bytes < self.tracking_start_bytes {
+                    return Ok(());
+                }
+
+                let added_bytes = if probe_start == start_index {
+                    probed_bytes
+                } else {
+                    sum_frame_bytes(start_index, end_index)
+                };
+                state.armed = true;
+                (added_bytes, state.cumulative_bytes, true)
+            }
+        };
+        let co_name = matches!(event, Some(Event::Call) | None).then(|| {
+            let frames_by_thread = self
+                .frames_by_thread
+                .lock_py_attached(py)
+                .expect("mutex poisoned");
+            let thread_frames = frames_by_thread
+                .get(&thread_id)
+                .expect("thread frames missing after append");
+            subtree_flush::extract_co_name(&thread_frames[start_index..end_index])
+        });
+
+        if !flush_armed {
+            return Ok(());
+        }
+
+        match event {
+            Some(Event::Call) => {
+                subtree_flush::push_open_subtree(
+                    &mut self
+                        .subtree_stack
+                        .lock_py_attached(py)
+                        .expect("mutex poisoned"),
+                    &thread_id,
+                    OpenSubtree {
+                        start_index,
+                        start_bytes: current_bytes.saturating_sub(added_bytes),
+                        co_name: co_name.unwrap_or_else(|| "<unknown>".to_string()),
+                        flush_candidate: None,
+                    },
+                );
+            }
+            Some(Event::Return) => {
+                let subtree = subtree_flush::pop_open_subtree(
+                    &mut self
+                        .subtree_stack
+                        .lock_py_attached(py)
+                        .expect("mutex poisoned"),
+                    &thread_id,
+                );
+                if let Some(subtree) = subtree {
+                    let subtree_bytes = current_bytes.saturating_sub(subtree.start_bytes);
+                    self.record_closed_segment(
+                        py,
+                        &thread_id,
+                        subtree.start_index,
+                        end_index,
+                        subtree_bytes,
+                        subtree.co_name,
+                    );
+                }
+            }
+            Some(Event::Unwind | Event::Resume | Event::Yield | Event::Throw) => {}
+            None => {
+                self.record_closed_segment(
+                    py,
+                    &thread_id,
+                    start_index,
+                    end_index,
+                    added_bytes,
+                    co_name.unwrap_or_else(|| "<unknown>".to_string()),
+                );
+            }
+        }
+        self.maybe_flush_segments(py, &thread_id)?;
         Ok(())
     }
 
     /// Start a new trace because a new test has started.
     fn start_test(&self, py: Python) -> PyResult<()> {
+        let _flush_barrier = self
+            .flush_barrier
+            .lock_py_attached(py)
+            .expect("mutex poisoned");
         // Set a new `self.trace_id`.
         let trace_id = utils::trace_id();
         let mut self_trace_id = self.trace_id.lock_py_attached(py).expect("mutex poisoned");
-        *self_trace_id = trace_id;
+        *self_trace_id = trace_id.clone();
+        let mut self_root_trace_id = self
+            .root_trace_id
+            .lock_py_attached(py)
+            .expect("mutex poisoned");
+        *self_root_trace_id = trace_id;
+        *self
+            .trace_name
+            .lock_py_attached(py)
+            .expect("mutex poisoned") = self.explicit_trace_name.clone();
 
         // Clear frames by thread
-        let mut frames = self.frames_by_thread.lock_py_attached(py).expect("mutex poisoned");
+        let mut frames = self
+            .frames_by_thread
+            .lock_py_attached(py)
+            .expect("mutex poisoned");
         *frames = HashMap::new();
+        drop(frames);
+        self.reset_subtree_tracking(py);
+        Ok(())
+    }
+
+    fn reset_subtree_tracking(&self, py: Python) {
+        self.flush_generation.fetch_add(1, Ordering::Relaxed);
+        subtree_flush::reset_tracking(
+            &mut self
+                .subtree_stack
+                .lock_py_attached(py)
+                .expect("mutex poisoned"),
+            &mut self
+                .flush_in_progress
+                .lock_py_attached(py)
+                .expect("mutex poisoned"),
+        );
+    }
+
+    fn flush_subtree(
+        &self,
+        py: Python,
+        thread_id: &str,
+        owner: CandidateOwner,
+        candidate: FlushCandidate,
+    ) -> PyResult<()> {
+        let _flush_barrier = self
+            .flush_barrier
+            .lock_py_attached(py)
+            .expect("mutex poisoned");
+        let mut restore_guard = {
+            let mut frames_by_thread = self
+                .frames_by_thread
+                .lock_py_attached(py)
+                .expect("mutex poisoned");
+            let frames = match frames_by_thread.get_mut(thread_id) {
+                Some(frames) => frames,
+                None => return Ok(()),
+            };
+            if candidate.start_index >= frames.len() || candidate.end_index > frames.len() {
+                return Ok(());
+            }
+
+            let subtree_frames: Vec<Vec<u8>> = frames
+                .drain(candidate.start_index..candidate.end_index)
+                .collect();
+            RestoreGuard::new(
+                &self.frames_by_thread,
+                thread_id.to_string(),
+                candidate.start_index,
+                subtree_frames,
+                py,
+            )
+        };
+        let flushed_bytes = restore_guard.flushed_bytes();
+
+        let subtrace_id = utils::trace_id();
+        let placeholder_buf = subtree_flush::build_subtree_flushed_placeholder(
+            &candidate.co_name,
+            &subtrace_id,
+            flushed_bytes,
+            candidate.segment_count,
+            utils::timestamp(),
+        );
+
+        let threads: HashMap<String, Py<PyAny>> = {
+            let mut threads = HashMap::new();
+            let guard = self.threads.lock_py_attached(py).expect("mutex poisoned");
+            if let Some(thread) = guard.get(thread_id) {
+                threads.insert(thread_id.to_string(), thread.clone_ref(py));
+            }
+            threads
+        };
+        let root_trace_id = self
+            .root_trace_id
+            .lock_py_attached(py)
+            .expect("mutex poisoned")
+            .clone();
+        let trace_name =
+            self.trace_name_for_thread(py, restore_guard.subtree_by_thread(), thread_id);
+
+        let save_result: PyResult<()> = (|| {
+            let data = utils::build_trace_from_parts(
+                py,
+                restore_guard.subtree_by_thread(),
+                &threads,
+                &subtrace_id,
+                trace_name,
+                &self.source,
+                thread_id.to_string(),
+                utils::timestamp(),
+                &self.config,
+                false,
+                Some(&root_trace_id),
+            )?;
+
+            let kwargs = PyDict::new(py);
+            kwargs.set_item("timeout", self.timeout)?;
+            kwargs.set_item("msgpack_data", data)?;
+
+            let pathlib = PyModule::import(py, "pathlib")?;
+            let path_class = pathlib.getattr(intern!(py, "Path"))?;
+            let db_path_obj = path_class.call1((&self.db_path,))?;
+            kwargs.set_item("db_path", db_path_obj)?;
+
+            let db = PyModule::import(py, "kolo.db")?;
+            let save = db.getattr(intern!(py, "save_trace"))?;
+            let suspend_hooks = self.suspend_hooks.get_or_default();
+            *suspend_hooks.borrow_mut() = true;
+            let save_result = save.call((&subtrace_id,), Some(&kwargs));
+            *suspend_hooks.borrow_mut() = false;
+            save_result?;
+            Ok(())
+        })();
+        if let Err(err) = save_result {
+            return Err(err);
+        }
+        let placeholder_len = placeholder_buf.len();
+        let mut frames_by_thread = self
+            .frames_by_thread
+            .lock_py_attached(py)
+            .expect("mutex poisoned");
+        let frames = match frames_by_thread.get_mut(thread_id) {
+            Some(frames) => frames,
+            None => {
+                return Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
+                    "missing frame buffer while finalizing flushed subtree {subtrace_id}",
+                )))
+            }
+        };
+        if candidate.start_index > frames.len() {
+            return Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "frame buffer changed while finalizing flushed subtree {subtrace_id}",
+            )));
+        }
+        frames.insert(candidate.start_index, placeholder_buf);
+        restore_guard.disarm();
+        drop(frames_by_thread);
+
+        {
+            let flush_state = self.flush_thread_state.get_or_default();
+            let mut state = flush_state.borrow_mut();
+            state.cumulative_bytes = state.cumulative_bytes.saturating_sub(flushed_bytes);
+            state.cumulative_bytes += placeholder_len;
+        }
+
+        subtree_flush::clear_flush_candidate(
+            owner,
+            &mut self
+                .subtree_stack
+                .lock_py_attached(py)
+                .expect("mutex poisoned"),
+            thread_id,
+        );
+
+        self.shift_flush_state_after_flush(
+            py,
+            thread_id,
+            candidate.start_index,
+            candidate.end_index,
+            placeholder_len as isize - flushed_bytes as isize,
+        );
         Ok(())
     }
 
@@ -378,6 +978,10 @@ impl KoloProfiler {
     ///
     /// Analagous to `KoloProfiler.__call__`.
     fn profile(&self, frame: &Py<PyAny>, arg: Py<PyAny>, event: Event, py: Python) {
+        if *self.suspend_hooks.get_or_default().borrow() {
+            return;
+        }
+
         let pyframe = frame.bind(py);
         let pyframe = pyframe
             .cast::<PyFrame>()
@@ -400,7 +1004,10 @@ impl KoloProfiler {
 
         let mut frames = vec![];
         let mut frame_types = vec![];
-        let default_include_frames = self.default_include_frames.lock_py_attached(py).expect("default_include_frames mutex poisoned");
+        let default_include_frames = self
+            .default_include_frames
+            .lock_py_attached(py)
+            .expect("default_include_frames mutex poisoned");
         if let Some(processors) = default_include_frames.get(&name.to_string()) {
             for processor in processors.iter() {
                 match self.run_frame_processor(py, processor, pyframe, event, &arg, &filename) {
@@ -557,4 +1164,62 @@ pub extern "C" fn profile_callback(
         profiler.profile(&frame, arg, event, py);
         0
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::subtree_flush::extract_co_name;
+    use super::SerializedFrame;
+    use rmpv::Value;
+
+    fn pack_frame(entries: Vec<(&str, Value)>) -> SerializedFrame {
+        let value = Value::Map(
+            entries
+                .into_iter()
+                .map(|(key, value)| (Value::String(key.into()), value))
+                .collect(),
+        );
+        let mut frame = Vec::new();
+        rmpv::encode::write_value(&mut frame, &value).unwrap();
+        frame
+    }
+
+    #[test]
+    fn test_extract_co_name_prefers_first_frame_with_name() {
+        let frames = vec![pack_frame(vec![
+            ("type", Value::String("frame".into())),
+            ("co_name", Value::String("process".into())),
+        ])];
+
+        assert_eq!(extract_co_name(&frames), "process");
+    }
+
+    #[test]
+    fn test_extract_co_name_skips_plugin_frames_without_name() {
+        let frames = vec![
+            pack_frame(vec![("type", Value::String("plugin".into()))]),
+            pack_frame(vec![
+                ("type", Value::String("frame".into())),
+                ("co_name", Value::String("process".into())),
+            ]),
+        ];
+
+        assert_eq!(extract_co_name(&frames), "process");
+    }
+
+    #[test]
+    fn test_extract_co_name_prefers_frame_over_plugin_name() {
+        let frames = vec![
+            pack_frame(vec![
+                ("type", Value::String("plugin".into())),
+                ("co_name", Value::String("plugin_name".into())),
+            ]),
+            pack_frame(vec![
+                ("type", Value::String("frame".into())),
+                ("co_name", Value::String("process".into())),
+            ]),
+        ];
+
+        assert_eq!(extract_co_name(&frames), "process");
+    }
 }

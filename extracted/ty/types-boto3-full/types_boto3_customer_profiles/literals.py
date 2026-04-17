@@ -55,6 +55,7 @@ __all__ = (
     "ListObjectTypeAttributesPaginatorName",
     "ListRecommenderFiltersPaginatorName",
     "ListRecommenderRecipesPaginatorName",
+    "ListRecommenderSchemasPaginatorName",
     "ListRecommendersPaginatorName",
     "ListRuleBasedMatchesPaginatorName",
     "ListSegmentDefinitionsPaginatorName",
@@ -74,6 +75,7 @@ __all__ = (
     "ReadinessStatusType",
     "RecommenderFilterStatusType",
     "RecommenderRecipeNameType",
+    "RecommenderSchemaStatusType",
     "RecommenderStatusType",
     "RegionName",
     "ResourceServiceName",
@@ -206,6 +208,7 @@ ListEventTriggersPaginatorName = Literal["list_event_triggers"]
 ListObjectTypeAttributesPaginatorName = Literal["list_object_type_attributes"]
 ListRecommenderFiltersPaginatorName = Literal["list_recommender_filters"]
 ListRecommenderRecipesPaginatorName = Literal["list_recommender_recipes"]
+ListRecommenderSchemasPaginatorName = Literal["list_recommender_schemas"]
 ListRecommendersPaginatorName = Literal["list_recommenders"]
 ListRuleBasedMatchesPaginatorName = Literal["list_rule_based_matches"]
 ListSegmentDefinitionsPaginatorName = Literal["list_segment_definitions"]
@@ -263,6 +266,7 @@ RecommenderRecipeNameType = Literal[
     "similar-items",
     "trending-now",
 ]
+RecommenderSchemaStatusType = Literal["ACTIVE", "DELETING"]
 RecommenderStatusType = Literal[
     "ACTIVE", "DELETING", "FAILED", "INACTIVE", "IN_PROGRESS", "PENDING", "STARTING", "STOPPING"
 ]
@@ -381,7 +385,19 @@ StatusType = Literal[
 StringDimensionTypeType = Literal["BEGINS_WITH", "CONTAINS", "ENDS_WITH", "EXCLUSIVE", "INCLUSIVE"]
 TaskTypeType = Literal["Arithmetic", "Filter", "Map", "Mask", "Merge", "Truncate", "Validate"]
 TrainingMetricNameType = Literal[
-    "coverage", "freshness", "hit", "popularity", "recall", "similarity"
+    "coverage",
+    "freshness",
+    "hit",
+    "mean_reciprocal_rank_at_25",
+    "normalized_discounted_cumulative_gain_at_10",
+    "normalized_discounted_cumulative_gain_at_25",
+    "normalized_discounted_cumulative_gain_at_5",
+    "popularity",
+    "precision_at_10",
+    "precision_at_25",
+    "precision_at_5",
+    "recall",
+    "similarity",
 ]
 TriggerTypeType = Literal["Event", "OnDemand", "Scheduled"]
 TypeType = Literal["ALL", "ANY", "NONE"]
@@ -844,6 +860,7 @@ PaginatorName = Literal[
     "list_object_type_attributes",
     "list_recommender_filters",
     "list_recommender_recipes",
+    "list_recommender_schemas",
     "list_recommenders",
     "list_rule_based_matches",
     "list_segment_definitions",

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: cogames
-Version: 0.25.6
+Version: 0.25.7
 Summary: Multi-agent cooperative games
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: <3.13,>=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mettagrid==0.25.4
+Requires-Dist: mettagrid==0.25.5
 Requires-Dist: softmax-cli==0.25.1
 Requires-Dist: packaging>=24.0.0
 Requires-Dist: pydantic>=2.11.5
@@ -118,13 +118,25 @@ RUN pip install --no-cache-dir cogames
 
 </details>
 
-## Step 2: Play Cogs vs Clips
+## Step 2: Run your first game
 
-Play an easy mission in Cogs vs Clips using:
+Start with `cogames play`. This is the default command for running a local episode.
+```bash
+cogames play -m arena -p starter -r log -s 300
+```
+
+If your environment supports GUI rendering and you want the guided onboarding flow, run:
 ```bash
 cogames tutorial play
 ```
-The game will open in a new window, and the terminal will give you instructions to complete training mission.
+The tutorial opens a new window, and the terminal gives you instructions for the training mission.
+
+Command guide:
+
+- `cogames play`: first local run; one episode with GUI, unicode, or log rendering
+- `cogames scrimmage`: repeat one policy across many episodes
+- `cogames pickup`: compare one policy against a pool and compute VOR; use this later, not as the default
+  "play the game" command
 
 ## Step 3: Submit a policy to the leaderboard
 

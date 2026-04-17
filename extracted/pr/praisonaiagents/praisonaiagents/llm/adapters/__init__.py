@@ -4,11 +4,13 @@ LLM Provider Adapters
 Concrete implementations of LLMProviderAdapter protocol that replace
 scattered provider dispatch logic throughout the core.
 
-This demonstrates the protocol-driven approach for Gap 2.
+This demonstrates the protocol-driven approach for Gap 3 (streaming)
+and integrates with Gap 2 (parallel tool execution).
 """
 
 from ..protocols import LLMProviderAdapterProtocol
 from ..model_capabilities import GEMINI_INTERNAL_TOOLS
+from ..streaming_protocol import StreamingCapableAdapter, get_streaming_adapter
 from typing import Dict, Any, List, Optional
 
 
@@ -36,6 +38,11 @@ class DefaultAdapter:
     def supports_streaming_with_tools(self) -> bool:
         return True  # Most providers support streaming with tools
     
+    def get_streaming_adapter(self) -> StreamingCapableAdapter:
+        """Get the streaming adapter for this provider."""
+        # Default providers use the default streaming adapter
+        return get_streaming_adapter("default")
+    
     def get_max_iteration_threshold(self) -> int:
         return 10  # Conservative default
     
@@ -57,6 +64,25 @@ class DefaultAdapter:
     
     def get_default_settings(self) -> Dict[str, Any]:
         return {}  # No provider-specific defaults
+    
+    def parse_tool_calls(self, raw_response: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+        """Default tool call parsing - use OpenAI-style format."""
+        if "choices" in raw_response and len(raw_response["choices"]) > 0:
+            message = raw_response["choices"][0].get("message", {})
+            return message.get("tool_calls")
+        return None
+    
+    def should_skip_streaming_with_tools(self) -> bool:
+        return False  # Most providers support streaming with tools
+    
+    def recover_tool_calls_from_text(self, response_text: str, tools: List[Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
+        return None  # No text recovery by default
+    
+    def inject_cache_control(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return messages  # No cache control by default
+    
+    def extract_reasoning_tokens(self, response: Dict[str, Any]) -> int:
+        return 0  # No reasoning tokens by default
 
 
 class OllamaAdapter(DefaultAdapter):
@@ -79,6 +105,10 @@ class OllamaAdapter(DefaultAdapter):
         # Ollama doesn't reliably support streaming with tools
         return False
     
+    def get_streaming_adapter(self) -> StreamingCapableAdapter:
+        """Get Ollama-specific streaming adapter."""
+        return get_streaming_adapter("ollama")
+    
     def get_max_iteration_threshold(self) -> int:
         return 1  # Ollama-specific threshold
     
@@ -98,6 +128,37 @@ class OllamaAdapter(DefaultAdapter):
         if iteration_count >= 1 and has_tool_results and not response_text:
             return True  # Signal that special handling is needed
         return False
+    
+    def recover_tool_calls_from_text(self, response_text: str, tools: List[Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
+        """Ollama-specific tool call recovery from response text."""
+        if not response_text or not tools:
+            return None
+        
+        try:
+            import json
+            response_json = json.loads(response_text.strip())
+            
+            # Normalize to list so both single and multi-tool payloads are supported
+            if isinstance(response_json, dict):
+                response_json = [response_json]
+
+            if isinstance(response_json, list):
+                tool_calls: List[Dict[str, Any]] = []
+                for idx, tool_json in enumerate(response_json):
+                    if isinstance(tool_json, dict) and "name" in tool_json:
+                        tool_calls.append({
+                            "id": f"call_{tool_json['name']}_{idx}_{hash(response_text) % 10000}",
+                            "type": "function",
+                            "function": {
+                                "name": tool_json["name"],
+                                "arguments": json.dumps(tool_json.get("arguments", {}))
+                            }
+                        })
+                return tool_calls if tool_calls else None
+        except (json.JSONDecodeError, TypeError, KeyError):
+            pass
+        
+        return None
     
     def post_tool_iteration(self, state: Dict[str, Any]) -> None:
         # Replaces: Ollama-specific post-tool summary branches
@@ -130,6 +191,10 @@ class AnthropicAdapter(DefaultAdapter):
 
     def supports_streaming_with_tools(self) -> bool:
         return False
+    
+    def get_streaming_adapter(self) -> StreamingCapableAdapter:
+        """Get Anthropic-specific streaming adapter."""
+        return get_streaming_adapter("anthropic")
 
 
 class GeminiAdapter(DefaultAdapter):
@@ -141,6 +206,13 @@ class GeminiAdapter(DefaultAdapter):
     - Doesn't support streaming with tools reliably
     - Supports structured output
     """
+    
+    def should_skip_streaming_with_tools(self) -> bool:
+        """Gemini should skip streaming when tools are present."""
+        return True
+    
+    def supports_structured_output(self) -> bool:
+        return True
     
     def format_tools(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         # Replaces: gemini_internal_tools handling in llm.py
@@ -161,8 +233,9 @@ class GeminiAdapter(DefaultAdapter):
         # Gemini has issues with streaming + tools
         return False
     
-    def supports_structured_output(self) -> bool:
-        return True
+    def get_streaming_adapter(self) -> StreamingCapableAdapter:
+        """Get Gemini-specific streaming adapter."""
+        return get_streaming_adapter("gemini")
 
 
 # Provider adapter registry - public for extension

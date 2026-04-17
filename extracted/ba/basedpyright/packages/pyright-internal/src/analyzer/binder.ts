@@ -253,6 +253,11 @@ export class Binder extends ParseTreeWalker {
     // hidden depending on whether they are listed in the __all__ list.
     private _potentialHiddenSymbols = new Map<string, Symbol>();
 
+    // Map of symbols imported via wildcard import in a py.typed (non-stub)
+    // module that should be treated as private if this module defines __all__
+    // and the symbol is not listed there.
+    private _potentialWildcardReexportSymbols = new Map<string, Symbol>();
+
     // Map of symbols at the module level that may be private depending
     // on whether they are listed in the __all__ list.
     private _potentialPrivateSymbols = new Map<string, Symbol>();
@@ -328,6 +333,15 @@ export class Binder extends ParseTreeWalker {
                 } else if (!this._fileInfo.isThirdParty) {
                     symbol.setPrivateLocalImport();
                 }
+            }
+        });
+
+        // Wildcard imports are considered a re-export form, but if this module defines
+        // __all__, that list determines the public interface and should restrict which
+        // wildcard-imported symbols are exposed.
+        this._potentialWildcardReexportSymbols.forEach((symbol, name) => {
+            if (this._dunderAllNames && !this._dunderAllNames.some((sym) => sym === name)) {
+                symbol.setPrivatePyTypedImport();
             }
         });
 
@@ -1239,12 +1253,23 @@ export class Binder extends ParseTreeWalker {
         const preElseLabel = this._createBranchLabel();
         const postForLabel = this._createBranchLabel();
 
+        // Determine if this loop is guaranteed to execute at least once
+        const isGuaranteedToExecute = this._isNonEmptyListOrTupleLiteral(node.d.iterableExpr);
+
         this._addAntecedent(preForLabel, this._currentFlowNode!);
         this._currentFlowNode = preForLabel;
-        this._addAntecedent(preElseLabel, this._currentFlowNode);
+
+        // Only add zero-iteration path for potentially-empty iterables
+        if (!isGuaranteedToExecute) {
+            this._addAntecedent(preElseLabel, this._currentFlowNode);
+        }
+
         const targetExpressions = this._trackCodeFlowExpressions(() => {
             this._createAssignmentTargetFlowNodes(node.d.targetExpr, /* walkTargets */ true, /* unbound */ false);
         });
+
+        // Record antecedent count before the loop body to detect continue back-edges.
+        const preBodyAntecedentCount = preForLabel.antecedents.length;
 
         this._bindLoopStatement(preForLabel, postForLabel, () => {
             this.walk(node.d.forSuite);
@@ -1255,6 +1280,39 @@ export class Binder extends ParseTreeWalker {
                 this._currentScopeCodeFlowExpressions?.add(value);
             });
         });
+
+        // For guaranteed loops, add post-body exit path to preElseLabel.
+        // When _currentFlowNode is reachable (normal completion or conditional break),
+        // use it directly — it carries the post-body type state.
+        // When _currentFlowNode is unreachable (all paths end with break/continue/return/raise),
+        // we must distinguish the cause:
+        //   - All break: preElseLabel gets nothing. Python's else doesn't run after break,
+        //     and break already sent the assigned-state to postForLabel.
+        //   - All continue: preForLabel accumulated continue back-edges. Use it as an
+        //     approximation for the loop-completion state feeding into else.
+        //   - All return/raise: preElseLabel gets nothing. Post-loop is unreachable.
+        //   - Mix with continue: if any continues occurred, use preForLabel for else path.
+        if (isGuaranteedToExecute) {
+            if (this._currentFlowNode!.flags & FlowFlags.Unreachable) {
+                // Check if any continue statements added back-edges to preForLabel.
+                const hasContinueBackEdges = preForLabel.antecedents.length > preBodyAntecedentCount;
+
+                if (hasContinueBackEdges) {
+                    // Some paths continued — use preForLabel (with accumulated continue state)
+                    // as the else-clause antecedent.
+                    const savedFlowNode = this._currentFlowNode!;
+                    this._currentFlowNode = preForLabel;
+                    this._addAntecedent(preElseLabel, preForLabel);
+                    this._currentFlowNode = savedFlowNode;
+                }
+                // Otherwise (all break / all return / all raise): preElseLabel gets no
+                // antecedent. For break, the flow already reached postForLabel directly.
+                // For return/raise, post-loop code is unreachable.
+            } else {
+                // Normal completion or conditional break — use current flow node.
+                this._addAntecedent(preElseLabel, this._currentFlowNode!);
+            }
+        }
 
         this._currentFlowNode = this._finishFlowLabel(preElseLabel);
         if (node.d.elseSuite) {
@@ -1873,6 +1931,18 @@ export class Binder extends ParseTreeWalker {
                         if (localSymbol) {
                             const importedSymbol = lookupInfo.symbolTable.get(name)!;
 
+                            if (
+                                (this._currentScope.type === ScopeType.Module ||
+                                    this._currentScope.type === ScopeType.Builtin) &&
+                                this._fileInfo.isInPyTypedPackage &&
+                                !this._fileInfo.isStubFile
+                            ) {
+                                // Wildcard imports are considered a re-export form. If this module
+                                // defines __all__, it determines the public interface, so we may
+                                // need to treat wildcard-imported names as private unless listed.
+                                this._potentialWildcardReexportSymbols.set(name, localSymbol);
+                            }
+
                             // Is the symbol in the target module's symbol table? If so,
                             // alias it.
                             if (importedSymbol) {
@@ -2446,6 +2516,24 @@ export class Binder extends ParseTreeWalker {
         }
 
         return true;
+    }
+
+    // Helper method to determine if an expression is a non-empty list or tuple literal.
+    // This is a syntactic check, not a semantic one, so it's very fast.
+    // Guards against starred expressions ([*empty_list]) and comprehensions ([v for v in []]).
+    private _isNonEmptyListOrTupleLiteral(expr: ExpressionNode): boolean {
+        if (expr.nodeType === ParseNodeType.List) {
+            return (
+                expr.d.items.length > 0 &&
+                expr.d.items.every(
+                    (item) => item.nodeType !== ParseNodeType.Unpack && item.nodeType !== ParseNodeType.Comprehension
+                )
+            );
+        }
+        if (expr.nodeType === ParseNodeType.Tuple) {
+            return expr.d.items.length > 0 && expr.d.items.every((item) => item.nodeType !== ParseNodeType.Unpack);
+        }
+        return false;
     }
 
     private _addTypingImportAliasesFromBuiltinsScope() {
@@ -3546,15 +3634,13 @@ export class Binder extends ParseTreeWalker {
                             } else {
                                 this._potentialPrivateSymbols.set(name, symbol);
                             }
-                        } else if (this._fileInfo.isStubFile || this._fileInfo.isInPyTypedPackage) {
-                            if (this._currentScope.type === ScopeType.Builtin) {
-                                // Don't include private-named symbols in the builtin scope.
-                                symbol.setIsExternallyHidden();
-                            } else {
-                                this._potentialPrivateSymbols.set(name, symbol);
-                            }
+                        } else if (this._currentScope.type === ScopeType.Builtin) {
+                            // Don't include private-named symbols in the builtin scope.
+                            symbol.setIsExternallyHidden();
                         } else {
-                            symbol.setIsPrivateMember();
+                            // Defer the private/protected decision until __all__ is processed
+                            // so an explicit __all__ entry can promote the symbol to public.
+                            this._potentialPrivateSymbols.set(name, symbol);
                         }
                     }
                 }
@@ -3613,6 +3699,7 @@ export class Binder extends ParseTreeWalker {
             symbol.addDeclaration({
                 type: DeclarationType.Intrinsic,
                 node,
+                name: nameValue,
                 intrinsicType: type,
                 uri: this._fileInfo.fileUri,
                 range: getEmptyRange(),

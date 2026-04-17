@@ -17,10 +17,12 @@ from aiohomematic.ccu_translations import (
     get_device_model_description,
     get_parameter_help,
     get_parameter_value_translation,
+    get_ui_label_translation,
     resolve_channel_type,
 )
 from aiohomematic.const import SCHEDULE_PATTERN, ParameterData, ParameterType
 from aiohomematic.easymode_data import (
+    MASTER_SENDER_TYPE,
     SenderTypeMetadata,
     get_channel_metadata,
     get_cross_validation_rules,
@@ -221,8 +223,12 @@ class FormSchemaGenerator:
 
         # Load easymode metadata for enrichment
         st_meta: SenderTypeMetadata | None = None
-        if channel_type and sender_type and (ch_meta := get_channel_metadata(channel_type=channel_type)):
-            st_meta = ch_meta.sender_types.get(sender_type)
+        if channel_type and (ch_meta := get_channel_metadata(channel_type=channel_type)):
+            if sender_type:
+                st_meta = ch_meta.sender_types.get(sender_type)
+            # Fall back to _MASTER metadata for MASTER/VALUES paramsets (no sender_type)
+            if st_meta is None:
+                st_meta = ch_meta.sender_types.get(MASTER_SENDER_TYPE)
 
         # Group parameters (with metadata-based ordering when available)
         groups = self._grouper.group(
@@ -480,7 +486,18 @@ class FormSchemaGenerator:
             form_param.presets = [
                 {
                     "value": entry.value,
-                    "label": (entry.label or (entry.label_key or str(entry.value))),
+                    "label": (
+                        entry.label
+                        or (
+                            get_ui_label_translation(
+                                label_key=entry.label_key,
+                                locale=self._label_resolver.locale,
+                            )
+                            if entry.label_key
+                            else None
+                        )
+                        or str(entry.value)
+                    ),
                 }
                 for entry in preset_def.presets
             ]

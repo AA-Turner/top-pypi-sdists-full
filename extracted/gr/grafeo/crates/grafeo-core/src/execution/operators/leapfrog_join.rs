@@ -141,7 +141,12 @@ impl LeapfrogJoinOperator {
             let node_id = match col.data_type() {
                 LogicalType::Node => col.get_node_id(row),
                 LogicalType::Edge => col.get_edge_id(row).map(|e| NodeId::new(e.as_u64())),
-                LogicalType::Int64 => col.get_int64(row).map(|i| NodeId::new(i as u64)),
+                // reason: ID encoding: i64 <-> u64 round-trip
+                LogicalType::Int64 => col.get_int64(row).map(|i| {
+                    // reason: ID encoding: i64 to u64 round-trip, negative IDs do not occur
+                    #[allow(clippy::cast_sign_loss)]
+                    NodeId::new(i as u64)
+                }),
                 _ => return None, // Unsupported join key type
             }?;
             path.push(node_id);
@@ -365,6 +370,10 @@ impl Operator for LeapfrogJoinOperator {
     fn name(&self) -> &'static str {
         "LeapfrogJoin"
     }
+
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+        self
+    }
 }
 
 #[cfg(test)]
@@ -403,6 +412,10 @@ mod tests {
 
         fn name(&self) -> &'static str {
             "MockScan"
+        }
+
+        fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+            self
         }
     }
 

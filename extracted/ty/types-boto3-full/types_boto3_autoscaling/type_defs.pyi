@@ -958,6 +958,7 @@ class AutoScalingInstanceDetailsTypeDef(TypedDict):
     HealthStatus: str
     ProtectedFromScaleIn: bool
     InstanceType: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     LaunchConfigurationName: NotRequired[str]
     LaunchTemplate: NotRequired[LaunchTemplateSpecificationTypeDef]
     ImageId: NotRequired[str]
@@ -970,6 +971,7 @@ class InstanceTypeDef(TypedDict):
     HealthStatus: str
     ProtectedFromScaleIn: bool
     InstanceType: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     LaunchConfigurationName: NotRequired[str]
     LaunchTemplate: NotRequired[LaunchTemplateSpecificationTypeDef]
     ImageId: NotRequired[str]
@@ -1468,6 +1470,7 @@ class AutoScalingGroupTypeDef(TypedDict):
     LaunchTemplate: NotRequired[LaunchTemplateSpecificationTypeDef]
     MixedInstancesPolicy: NotRequired[MixedInstancesPolicyOutputTypeDef]
     PredictedCapacity: NotRequired[int]
+    AvailabilityZoneIds: NotRequired[list[str]]
     LoadBalancerNames: NotRequired[list[str]]
     TargetGroupARNs: NotRequired[list[str]]
     HealthCheckGracePeriod: NotRequired[int]
@@ -1571,6 +1574,7 @@ class CreateAutoScalingGroupTypeTypeDef(TypedDict):
     DesiredCapacity: NotRequired[int]
     DefaultCooldown: NotRequired[int]
     AvailabilityZones: NotRequired[Sequence[str]]
+    AvailabilityZoneIds: NotRequired[Sequence[str]]
     LoadBalancerNames: NotRequired[Sequence[str]]
     TargetGroupARNs: NotRequired[Sequence[str]]
     HealthCheckType: NotRequired[str]
@@ -1606,6 +1610,7 @@ class UpdateAutoScalingGroupTypeTypeDef(TypedDict):
     DesiredCapacity: NotRequired[int]
     DefaultCooldown: NotRequired[int]
     AvailabilityZones: NotRequired[Sequence[str]]
+    AvailabilityZoneIds: NotRequired[Sequence[str]]
     HealthCheckType: NotRequired[str]
     HealthCheckGracePeriod: NotRequired[int]
     PlacementGroup: NotRequired[str]

@@ -67,6 +67,36 @@ Multi-dimensional (panel) with dims:
     )
     mmm.fit(X, y)
 
+Fixed scaling for stable production refreshes (e.g. population per country for
+impressions) can use a scalar, a one-dimensional ``dict`` keyed by the single
+remaining coordinate after reduction, or an :class:`xarray.DataArray` that
+broadcasts to the full ``country`` × ``channel`` grid — see
+:class:`~pymc_marketing.mmm.scaling.FixedScaling`.
+
+.. code-block:: python
+
+    import xarray as xr
+    from pymc_marketing.mmm.scaling import FixedScaling, Scaling
+
+    pop_scale = xr.DataArray(
+        [1e6, 2e6],
+        dims="country",
+        coords={"country": ["A", "B"]},
+    )
+    scaling = Scaling(
+        target=FixedScaling(dims=("country",), value=50_000.0),
+        channel=FixedScaling(dims=(), value=pop_scale),
+    )
+    mmm = MMM(
+        date_column="date",
+        channel_columns=["C1", "C2"],
+        adstock=GeometricAdstock(l_max=10),
+        saturation=LogisticSaturation(),
+        dims=("country",),
+        scaling=scaling,
+    )
+    # mmm.fit(X, y)
+
 Time-varying parameters and seasonality:
 
 .. code-block:: python
@@ -152,7 +182,6 @@ import json
 import warnings
 from collections.abc import Callable, Sequence
 from copy import deepcopy
-from functools import singledispatch
 from typing import Annotated, Any, cast
 
 import arviz as az
@@ -163,12 +192,10 @@ import pymc.dims as pmd
 import xarray as xr
 from pydantic import ConfigDict, Field, InstanceOf, StrictBool, validate_call
 from pymc.util import RandomState
-from pymc_extras.deserialize import deserialize
 from pymc_extras.prior import Prior
 from pytensor.xtensor import as_xtensor
 from pytensor.xtensor.type import XTensorVariable
 from scipy.optimize import OptimizeResult
-from xarray import DataArray
 
 from pymc_marketing.data.idata.mmm_wrapper import MMMIDataWrapper
 from pymc_marketing.data.idata.utils import subsample_draws
@@ -181,19 +208,13 @@ from pymc_marketing.mmm.additive_effect import (
 )
 from pymc_marketing.mmm.budget_optimizer import OptimizerCompatibleModelWrapper
 from pymc_marketing.mmm.causal import CausalGraphModel
-from pymc_marketing.mmm.components.adstock import (
-    AdstockTransformation,
-    adstock_from_dict,
-)
-from pymc_marketing.mmm.components.saturation import (
-    SaturationTransformation,
-    saturation_from_dict,
-)
+from pymc_marketing.mmm.components.adstock import AdstockTransformation
+from pymc_marketing.mmm.components.saturation import SaturationTransformation
 from pymc_marketing.mmm.constraints import Constraint
 from pymc_marketing.mmm.dims import XTensorLike
 from pymc_marketing.mmm.events import EventEffect
 from pymc_marketing.mmm.fourier import YearlyFourier
-from pymc_marketing.mmm.hsgp import HSGPBase, hsgp_from_dict
+from pymc_marketing.mmm.hsgp import HSGPBase
 from pymc_marketing.mmm.incrementality import Incrementality
 from pymc_marketing.mmm.lift_test import (
     add_cost_per_target_observations,
@@ -201,7 +222,14 @@ from pymc_marketing.mmm.lift_test import (
     scale_lift_measurements,
 )
 from pymc_marketing.mmm.plot import MMMPlotSuite
-from pymc_marketing.mmm.scaling import Scaling, VariableScaling
+from pymc_marketing.mmm.scaling import (
+    DataDerivedScaling,
+    FixedScaling,
+    Scaling,
+    VariableScaling,
+    panel_channel_fixed_scaling_remaining_dims,
+    validate_fixed_scaling_keys,
+)
 from pymc_marketing.mmm.sensitivity_analysis import SensitivityAnalysis
 from pymc_marketing.mmm.tvp import create_hsgp_from_config, infer_time_index
 from pymc_marketing.mmm.utility import UtilityFunctionType, average_response
@@ -215,6 +243,7 @@ from pymc_marketing.model_builder import (
 )
 from pymc_marketing.model_config import parse_model_config
 from pymc_marketing.model_graph import deterministics_to_flat
+from pymc_marketing.serialization import DeserializationContext, serialization
 
 
 def _deserialize_cost_per_unit(json_str: str) -> pd.DataFrame:
@@ -230,144 +259,6 @@ def _deserialize_cost_per_unit(json_str: str) -> pd.DataFrame:
         if hasattr(dt_accessor, "tz") and dt_accessor.tz is not None:
             df["date"] = dt_accessor.tz_localize(None)
     return df
-
-
-@singledispatch
-def _serialize_mu_effect(effect: MuEffect) -> dict[str, Any]:
-    """Serialize a MuEffect to JSON-compatible dict.
-
-    Default implementation uses Pydantic's model_dump for unknown types.
-    Register new types with: @_serialize_mu_effect.register(YourEffect)
-    """
-    # Check if the effect has model_dump (Pydantic BaseModel)
-    if not hasattr(effect, "model_dump"):
-        raise TypeError(
-            f"Cannot serialize MuEffect of type '{effect.__class__.__name__}': "
-            f"MuEffect subclasses must inherit from pydantic.BaseModel. "
-            f"Update your custom effect class to inherit from MuEffect (which is now a BaseModel). "
-            f"See pymc_marketing.mmm.additive_effect.MuEffect for the new base class definition."
-        )
-
-    return {
-        "class": effect.__class__.__name__,
-        **effect.model_dump(mode="json"),
-    }
-
-
-def _deserialize_mu_effect(data: dict[str, Any]) -> MuEffect:
-    """Deserialize a MuEffect from dict using class name."""
-    class_name = data.get("class")
-    if class_name not in _MUEFFECT_DESERIALIZERS:
-        raise ValueError(
-            f"Unknown MuEffect class: {class_name}. "
-            f"Registered types: {list(_MUEFFECT_DESERIALIZERS.keys())}"
-        )
-    return _MUEFFECT_DESERIALIZERS[class_name](data)
-
-
-# Deserialization registry: maps class name -> deserializer function
-_MUEFFECT_DESERIALIZERS: dict[str, Callable[[dict[str, Any]], MuEffect]] = {}
-
-
-# Register serializers/deserializers at module load
-# Imports are inside function to avoid circular dependencies
-def _register_mu_effect_handlers():
-    """Register all known MuEffect serialization handlers."""
-    from pymc_marketing.mmm import fourier as fourier_module
-    from pymc_marketing.mmm.additive_effect import (
-        EventAdditiveEffect,
-        FourierEffect,
-        LinearTrendEffect,
-    )
-    from pymc_marketing.mmm.linear_trend import LinearTrend
-
-    # FourierEffect
-    @_serialize_mu_effect.register(FourierEffect)
-    def _(effect: FourierEffect) -> dict[str, Any]:
-        return {
-            "class": "FourierEffect",
-            "fourier": effect.fourier.to_dict(),
-            "date_dim_name": effect.date_dim_name,
-        }
-
-    def _deser_fourier(data: dict[str, Any]) -> FourierEffect:
-        # Get Fourier class from module by name and use its from_dict method
-        fourier_data = data["fourier"]
-        fourier_class_name = fourier_data.get("class")
-        fourier_class = getattr(fourier_module, fourier_class_name, None)
-        if fourier_class is None:
-            raise ValueError(
-                f"Unknown Fourier class: {fourier_class_name}. "
-                f"Not found in pymc_marketing.mmm.fourier module."
-            )
-
-        fourier = fourier_class.from_dict(fourier_data)
-        return FourierEffect(
-            fourier=fourier,
-            date_dim_name=data.get("date_dim_name", "date"),
-        )
-
-    # LinearTrendEffect
-    @_serialize_mu_effect.register(LinearTrendEffect)
-    def _(effect: LinearTrendEffect) -> dict[str, Any]:
-        # Serialize trend data, handling priors separately
-        trend_data = effect.trend.model_dump(mode="json", exclude={"priors"})
-        # Manually serialize priors using Prior.to_dict()
-        if effect.trend.priors is not None:
-            trend_data["priors"] = {
-                key: prior.to_dict() for key, prior in effect.trend.priors.items()
-            }
-        return {
-            "class": "LinearTrendEffect",
-            "trend": trend_data,
-            "prefix": effect.prefix,
-            "date_dim_name": effect.date_dim_name,
-        }
-
-    def _deser_linear_trend(data: dict[str, Any]) -> LinearTrendEffect:
-        # Deserialize priors separately using generic deserialize()
-        # to support both Prior and SpecialPrior (e.g., LogNormalPrior)
-        trend_data = data["trend"].copy()
-        if "priors" in trend_data and trend_data["priors"] is not None:
-            trend_data["priors"] = {
-                key: deserialize(prior_dict)
-                for key, prior_dict in trend_data["priors"].items()
-            }
-        return LinearTrendEffect(
-            trend=LinearTrend.model_validate(trend_data),
-            prefix=data["prefix"],
-            date_dim_name=data.get("date_dim_name", "date"),
-        )
-
-    # EventAdditiveEffect
-    @_serialize_mu_effect.register(EventAdditiveEffect)
-    def _(effect: EventAdditiveEffect) -> dict[str, Any]:
-        result = {
-            "class": "EventAdditiveEffect",
-            **effect.model_dump(mode="json", exclude={"df_events", "effect"}),
-        }
-        result["event_names"] = effect.df_events["name"].tolist()
-        return result
-
-    def _deser_event(data: dict[str, Any]) -> EventAdditiveEffect:
-        raise ValueError(
-            "EventAdditiveEffect deserialization not supported: "
-            "requires original df_events DataFrame. "
-            f"Event names in saved model: {data.get('event_names', [])}"
-        )
-
-    # Populate deserialization registry
-    _MUEFFECT_DESERIALIZERS.update(
-        {
-            "FourierEffect": _deser_fourier,
-            "LinearTrendEffect": _deser_linear_trend,
-            "EventAdditiveEffect": _deser_event,
-        }
-    )
-
-
-# Register handlers at module load
-_register_mu_effect_handlers()
 
 
 class MMM(RegressionModelBuilder):
@@ -579,15 +470,15 @@ class MMM(RegressionModelBuilder):
             scaling = deepcopy(scaling)
 
             if "channel" not in scaling:
-                scaling["channel"] = VariableScaling(method="max", dims=self.dims)
+                scaling["channel"] = DataDerivedScaling(method="max", dims=self.dims)
             if "target" not in scaling:
-                scaling["target"] = VariableScaling(method="max", dims=self.dims)
+                scaling["target"] = DataDerivedScaling(method="max", dims=self.dims)
 
             scaling = Scaling(**scaling)
 
         self.scaling: Scaling = scaling or Scaling(
-            target=VariableScaling(method="max", dims=self.dims),
-            channel=VariableScaling(method="max", dims=self.dims),
+            target=DataDerivedScaling(method="max", dims=self.dims),
+            channel=DataDerivedScaling(method="max", dims=self.dims),
         )
 
         if set(self.scaling.target.dims).difference([*self.dims, "date"]):
@@ -598,6 +489,20 @@ class MMM(RegressionModelBuilder):
         if set(self.scaling.channel.dims).difference([*self.dims, "channel", "date"]):
             raise ValueError(
                 f"Channel scaling dims {self.scaling.channel.dims} must contain {self.dims}, 'channel', and 'date'"
+            )
+
+        rem_ch = panel_channel_fixed_scaling_remaining_dims(
+            self.dims,
+            cast(tuple[str, ...], self.scaling.channel.dims),
+        )
+        if (
+            isinstance(self.scaling.channel, FixedScaling)
+            and isinstance(self.scaling.channel.value, dict)
+            and len(rem_ch) == 1
+            and rem_ch[0] == "channel"
+        ):
+            validate_fixed_scaling_keys(
+                self.scaling.channel, channel_columns, "channel"
             )
 
         model_config = model_config if model_config is not None else {}
@@ -1003,13 +908,13 @@ class MMM(RegressionModelBuilder):
                 return {k: serialize_value(v) for k, v in value.items()}
             elif isinstance(value, (list, tuple)):
                 return [serialize_value(v) for v in value]
-            elif hasattr(value, "to_dict"):
-                # Handle any object with a to_dict method (Prior, SpecialPrior, etc.)
-                return value.to_dict()
-            elif hasattr(value, "model_dump"):
-                # Handle Pydantic models
-                return value.model_dump()
             else:
+                try:
+                    return serialization.serialize(value)
+                except (KeyError, TypeError):
+                    pass
+                if hasattr(value, "to_dict"):
+                    return value.to_dict()
                 return value
 
         serializable_config = {}
@@ -1021,38 +926,34 @@ class MMM(RegressionModelBuilder):
     def create_idata_attrs(self) -> dict[str, str]:
         """Return the idata attributes for the model."""
         attrs = super().create_idata_attrs()
+        attrs["__serialization_version__"] = "1"
         attrs["dims"] = json.dumps(self.dims)
         attrs["date_column"] = self.date_column
-        attrs["adstock"] = json.dumps(self.adstock.to_dict())
-        attrs["saturation"] = json.dumps(self.saturation.to_dict())
+        attrs["adstock"] = json.dumps(serialization.serialize(self.adstock))
+        attrs["saturation"] = json.dumps(serialization.serialize(self.saturation))
         attrs["adstock_first"] = json.dumps(self.adstock_first)
         attrs["control_columns"] = json.dumps(self.control_columns)
         attrs["channel_columns"] = json.dumps(self.channel_columns)
         attrs["yearly_seasonality"] = json.dumps(self.yearly_seasonality)
         attrs["time_varying_intercept"] = json.dumps(
-            self.time_varying_intercept
-            if not isinstance(self.time_varying_intercept, HSGPBase)
-            else {
-                **self.time_varying_intercept.to_dict(),
-                **{"hsgp_class": self.time_varying_intercept.__class__.__name__},
-            }
+            serialization.serialize(self.time_varying_intercept)
+            if isinstance(self.time_varying_intercept, HSGPBase)
+            else self.time_varying_intercept
         )
         attrs["time_varying_media"] = json.dumps(
-            self.time_varying_media
-            if not isinstance(self.time_varying_media, HSGPBase)
-            else {
-                **self.time_varying_media.to_dict(),
-                **{"hsgp_class": self.time_varying_media.__class__.__name__},
-            }
+            serialization.serialize(self.time_varying_media)
+            if isinstance(self.time_varying_media, HSGPBase)
+            else self.time_varying_media
         )
         attrs["target_column"] = self.target_column
-        attrs["scaling"] = json.dumps(self.scaling.model_dump(mode="json"))
+        attrs["scaling"] = json.dumps(serialization.serialize(self.scaling))
         attrs["dag"] = json.dumps(getattr(self, "dag", None))
         attrs["treatment_nodes"] = json.dumps(getattr(self, "treatment_nodes", None))
         attrs["outcome_node"] = json.dumps(getattr(self, "outcome_node", None))
 
-        # Serialize mu_effects
-        mu_effects_list = [_serialize_mu_effect(effect) for effect in self.mu_effects]
+        mu_effects_list = [
+            serialization.serialize(effect) for effect in self.mu_effects
+        ]
         attrs["mu_effects"] = json.dumps(mu_effects_list)
 
         if self._cost_per_unit_input is not None:
@@ -1075,44 +976,58 @@ class MMM(RegressionModelBuilder):
 
         return attrs
 
+    def save(self, fname: str, **kwargs) -> None:
+        """Save the model, including supplementary data for MuEffects."""
+        if self.idata is None or "posterior" not in self.idata:
+            raise RuntimeError("The model hasn't been fit yet, call .fit() first")
+
+        for effect in self.mu_effects:
+            if isinstance(effect, EventAdditiveEffect):
+                group_name = f"supplementary_data_{effect.prefix}"
+                if not hasattr(self.idata, group_name):
+                    ds = xr.Dataset.from_dataframe(
+                        effect.df_events.reset_index(drop=True)
+                    )
+                    self.idata.add_groups({group_name: ds})
+
+        super().save(fname, **kwargs)
+
     @classmethod
-    def _model_config_formatting(cls, model_config: dict) -> dict:
-        """Format the model configuration.
+    def load_from_idata(cls, idata: az.InferenceData, check: bool = True) -> MMM:
+        """Load from InferenceData, auto-migrating old formats."""
+        from pymc_marketing.serialization_migration import (
+            CURRENT_VERSION,
+            migrate_idata,
+        )
 
-        Because of json serialization, model_config values that were originally tuples
-        or numpy are being encoded as lists. This function converts them back to tuples
-        and numpy arrays to ensure correct id encoding.
+        version = int(idata.attrs.get("__serialization_version__", "0"))
+        if version < CURRENT_VERSION:
+            warnings.warn(
+                f"Loading a model saved with serialization format v{version}. "
+                f"Migrating to v{CURRENT_VERSION}. Re-save the model to avoid "
+                "this warning in the future.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            migrate_idata(idata)
 
-        Parameters
-        ----------
-        model_config : dict
-            The model configuration to format.
-
-        Returns
-        -------
-        dict
-            The formatted model configuration.
-
-        """
-
-        def format_nested_dict(d: dict) -> dict:
-            for key, value in d.items():
-                if isinstance(value, dict):
-                    d[key] = format_nested_dict(value)
-                elif isinstance(value, list):
-                    # Check if the key is "dims" to convert it to tuple
-                    if key == "dims":
-                        d[key] = tuple(value)
-                    # Convert all other lists to numpy arrays
-                    else:
-                        d[key] = np.array(value)
-            return d
-
-        return format_nested_dict(model_config.copy())
+        return super().load_from_idata(idata, check=check)  # type: ignore[return-value]
 
     @classmethod
     def attrs_to_init_kwargs(cls, attrs: dict[str, str]) -> dict[str, Any]:
         """Convert the idata attributes to the model initialization kwargs."""
+
+        def _deser(raw: str, fallback=None):
+            data = json.loads(raw)
+            if isinstance(data, dict) and "__type__" in data:
+                return serialization.deserialize(data)
+            return fallback if fallback is not None else data
+
+        tvi_raw = attrs.get("time_varying_intercept", "false")
+        tvm_raw = attrs.get("time_varying_media", "false")
+        tvi_data = json.loads(tvi_raw)
+        tvm_data = json.loads(tvm_raw)
+
         return {
             "model_config": cls._model_config_formatting(
                 json.loads(attrs["model_config"])
@@ -1120,20 +1035,24 @@ class MMM(RegressionModelBuilder):
             "date_column": attrs["date_column"],
             "control_columns": json.loads(attrs["control_columns"]),
             "channel_columns": json.loads(attrs["channel_columns"]),
-            "adstock": adstock_from_dict(json.loads(attrs["adstock"])),
-            "saturation": saturation_from_dict(json.loads(attrs["saturation"])),
+            "adstock": _deser(attrs["adstock"]),
+            "saturation": _deser(attrs["saturation"]),
             "adstock_first": json.loads(attrs.get("adstock_first", "true")),
             "yearly_seasonality": json.loads(attrs["yearly_seasonality"]),
-            "time_varying_intercept": hsgp_from_dict(
-                json.loads(attrs.get("time_varying_intercept", "false"))
+            "time_varying_intercept": (
+                serialization.deserialize(tvi_data)
+                if isinstance(tvi_data, dict) and "__type__" in tvi_data
+                else tvi_data
             ),
             "target_column": attrs["target_column"],
-            "time_varying_media": hsgp_from_dict(
-                json.loads(attrs.get("time_varying_media", "false"))
+            "time_varying_media": (
+                serialization.deserialize(tvm_data)
+                if isinstance(tvm_data, dict) and "__type__" in tvm_data
+                else tvm_data
             ),
             "sampler_config": json.loads(attrs["sampler_config"]),
             "dims": tuple(json.loads(attrs.get("dims", "[]"))),
-            "scaling": json.loads(attrs.get("scaling", "null")),
+            "scaling": _deser(attrs.get("scaling", "null")),
             "dag": json.loads(attrs.get("dag", "null")),
             "treatment_nodes": json.loads(attrs.get("treatment_nodes", "null")),
             "outcome_node": json.loads(attrs.get("outcome_node", "null")),
@@ -1766,7 +1685,7 @@ class MMM(RegressionModelBuilder):
         }
 
         if bool(self.time_varying_intercept) or bool(self.time_varying_media):
-            self._time_index = DataArray(
+            self._time_index = xr.DataArray(
                 np.arange(0, X[self.date_column].unique().shape[0]), dims=("date",)
             )
             self._time_resolution = (
@@ -1819,19 +1738,127 @@ class MMM(RegressionModelBuilder):
         """Compute and save scaling factors for channels and target."""
         self.scalers = xr.Dataset()
 
-        channel_method = getattr(
+        self.scalers["_channel"] = self._compute_scale_for_variable(
             self.xarray_dataset["_channel"],
-            self.scaling.channel.method,
+            self.scaling.channel,
         )
-        self.scalers["_channel"] = channel_method(
-            dim=("date", *self.scaling.channel.dims)
+        self.scalers["_target"] = self._compute_scale_for_variable(
+            self.xarray_dataset["_target"],
+            self.scaling.target,
         )
 
-        target_method = getattr(
-            self.xarray_dataset["_target"],
-            self.scaling.target.method,
+    def _compute_scale_for_variable(
+        self,
+        data: xr.DataArray,
+        scaling: VariableScaling,
+    ) -> xr.DataArray:
+        """Compute or construct a scale array for a single variable.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            The raw data variable from :attr:`xarray_dataset`.
+        scaling : VariableScaling
+            The scaling configuration for this variable.
+
+        Returns
+        -------
+        xr.DataArray
+            Scale factors with the reduction dims removed.
+        """
+        reduce_dims = ("date", *scaling.dims)
+
+        if isinstance(scaling, FixedScaling):
+            scale = self._build_fixed_scale(data, scaling, reduce_dims)
+        else:
+            method_fn = getattr(data, scaling.method)
+            scale = method_fn(dim=reduce_dims)
+
+        return scale
+
+    def _build_fixed_scale(
+        self,
+        data: xr.DataArray,
+        scaling: FixedScaling,
+        reduce_dims: tuple[str, ...],
+    ) -> xr.DataArray:
+        """Build a scale DataArray from a FixedScaling configuration."""
+        if isinstance(scaling.value, dict):
+            return self._build_fixed_scale_from_dict(data, scaling, reduce_dims)
+        if isinstance(scaling.value, xr.DataArray):
+            return self._align_fixed_scale_dataarray(data, scaling.value, reduce_dims)
+        return xr.DataArray(float(scaling.value))
+
+    def _build_fixed_scale_from_dict(
+        self,
+        data: xr.DataArray,
+        scaling: FixedScaling,
+        reduce_dims: tuple[str, ...],
+    ) -> xr.DataArray:
+        value_map = cast(dict[str, float], scaling.value)
+        remaining_dims = [d for d in data.dims if d not in reduce_dims]
+        if len(remaining_dims) != 1:
+            raise ValueError(
+                f"dict-valued fixed scaling requires exactly one remaining dimension "
+                f"after reduction over {reduce_dims!r}; got {remaining_dims!r}. "
+                f"Use an xarray.DataArray with dims {tuple(remaining_dims)!r} for "
+                f"multi-dimensional fixed scales."
+            )
+
+        dim_name = remaining_dims[0]
+        coords = data.coords[dim_name].values
+        coord_labels = {str(c) for c in coords}
+        provided_keys = set(value_map.keys())
+        missing = coord_labels - provided_keys
+        extra = provided_keys - coord_labels
+        if missing or extra:
+            parts = []
+            if missing:
+                parts.append(f"missing keys: {sorted(missing)}")
+            if extra:
+                parts.append(f"unexpected keys: {sorted(extra)}")
+            raise ValueError(
+                f"Fixed scaling dict keys for dimension "
+                f"'{dim_name}' do not match coordinate labels. "
+                f"{'; '.join(parts)}. "
+                f"Expected: {sorted(coord_labels)}."
+            )
+
+        values = np.array([value_map[str(c)] for c in coords])
+        return xr.DataArray(
+            values,
+            dims=(dim_name,),
+            coords={dim_name: coords},
         )
-        self.scalers["_target"] = target_method(dim=("date", *self.scaling.target.dims))
+
+    def _align_fixed_scale_dataarray(
+        self,
+        data: xr.DataArray,
+        user_scale: xr.DataArray,
+        reduce_dims: tuple[str, ...],
+    ) -> xr.DataArray:
+        """Broadcast a user-supplied scale grid to match reduced data coordinates."""
+        template = data.max(dim=reduce_dims, skipna=True).astype(float)
+        zeros = xr.zeros_like(template, dtype=float)
+        try:
+            aligned = user_scale.astype(float) + zeros
+        except (ValueError, TypeError) as e:
+            raise ValueError(
+                "Could not align fixed scaling DataArray with the data grid after "
+                f"reduction over {reduce_dims!r}. Check dimension names and coordinate "
+                f"labels. Underlying error: {e}"
+            ) from e
+        if np.isnan(np.asarray(aligned.values)).any():
+            raise ValueError(
+                "Fixed scaling DataArray produced NaNs after alignment — coordinates "
+                "likely do not match the data grid on a shared dimension."
+            )
+        if dict(aligned.sizes) != dict(template.sizes):
+            raise ValueError(
+                f"Fixed scaling DataArray has shape {dict(aligned.sizes)} after "
+                f"broadcast; expected {dict(template.sizes)} matching reduced data."
+            )
+        return aligned
 
     def get_scales_as_xarray(self) -> dict[str, xr.DataArray]:
         """Return the saved scaling factors as xarray DataArrays.
@@ -2517,13 +2544,15 @@ class MMM(RegressionModelBuilder):
         -------
         xr.DataArray
             Sampled saturation curves with dimensions:
-            - Simple model: (x, channel, sample)
-            - Panel model: (x, *custom_dims, channel, sample)
+            - Simple model: (chain, draw, x, channel)
+            - Panel model: (chain, draw, x, *custom_dims, channel)
 
-            The "sample" dimension indexes the posterior samples used.
-            The "x" coordinate represents spend levels in scaled space (consistent
-            with max_value). Y-values are in original scale when original_scale=True,
-            otherwise in scaled space.
+            When subsampling (``num_samples`` < total posterior draws), the
+            ``chain`` dimension has size 1 and ``draw`` has size ``num_samples``.
+            When all samples are used, the original chain/draw structure from
+            the posterior is preserved. The "x" coordinate represents spend
+            levels in scaled space (consistent with max_value). Y-values are
+            in original scale when original_scale=True, otherwise in scaled space.
 
         Raises
         ------
@@ -2537,8 +2566,8 @@ class MMM(RegressionModelBuilder):
         Sample curves with default parameters (original scale):
 
         >>> curves = mmm.sample_saturation_curve()
-        >>> curves.dims
-        ('sample', 'x', 'channel')
+        >>> set(curves.dims) >= {"chain", "draw", "x"}
+        True
 
         Sample curves using all posterior samples:
 
@@ -2569,9 +2598,10 @@ class MMM(RegressionModelBuilder):
           the model operates internally. This matches the pattern of other MMM methods.
         - For panel models, curves are generated for each combination of custom
           dimensions (e.g., each country) and channel.
-        - The returned array includes a "sample" dimension for uncertainty
-          quantification. Use `.mean(dim='sample')` for point estimates and
-          `.quantile()` for credible intervals.
+        - The returned array includes "chain" and "draw" dimensions for
+          uncertainty quantification, consistent with the ArviZ convention.
+          Use ``.mean(dim=["chain", "draw"])`` for point estimates and
+          ``.quantile()`` for credible intervals.
         - Posterior samples are drawn randomly without replacement when num_samples
           is less than the total available samples, otherwise all samples are used.
         """
@@ -2598,9 +2628,6 @@ class MMM(RegressionModelBuilder):
             max_value=max_value,
             num_points=num_points,
         )
-
-        # Flatten chain and draw dimensions to sample dimension
-        curve = curve.stack(sample=("chain", "draw"))
 
         # Convert to original scale if requested
         if original_scale:
@@ -2660,10 +2687,12 @@ class MMM(RegressionModelBuilder):
         -------
         xr.DataArray
             Sampled adstock curves with dimensions:
-            - Simple model: (time since exposure, channel, sample)
-            - Panel model: (time since exposure, *custom_dims, channel, sample)
+            - Simple model: (chain, draw, time since exposure, channel)
+            - Panel model: (chain, draw, time since exposure, *custom_dims, channel)
 
-            The "sample" dimension indexes the posterior samples used.
+            When subsampling (``num_samples`` < total posterior draws), the
+            ``chain`` dimension has size 1 and ``draw`` has size ``num_samples``.
+            When all samples are used, the original chain/draw structure is preserved.
             The "time since exposure" coordinate represents time periods from 0
             to l_max (the maximum lag for the adstock transformation).
 
@@ -2679,8 +2708,8 @@ class MMM(RegressionModelBuilder):
         Sample curves with default parameters:
 
         >>> curves = mmm.sample_adstock_curve()
-        >>> curves.dims
-        ('sample', 'time since exposure', 'channel')
+        >>> set(curves.dims) >= {"chain", "draw", "time since exposure"}
+        True
 
         Sample curves using all posterior samples:
 
@@ -2704,9 +2733,10 @@ class MMM(RegressionModelBuilder):
           diminishing returns.
         - For panel models, curves are generated for each combination of custom
           dimensions (e.g., each country) and channel.
-        - The returned array includes a "sample" dimension for uncertainty
-          quantification. Use `.mean(dim='sample')` for point estimates and
-          `.quantile()` for credible intervals.
+        - The returned array includes "chain" and "draw" dimensions for
+          uncertainty quantification, consistent with the ArviZ convention.
+          Use ``.mean(dim=["chain", "draw"])`` for point estimates and
+          ``.quantile()`` for credible intervals.
         - Posterior samples are drawn randomly without replacement when num_samples
           is less than the total available samples.
         """
@@ -2732,9 +2762,6 @@ class MMM(RegressionModelBuilder):
             parameters=parameters,
             amount=amount,
         )
-
-        # Flatten chain and draw dimensions to sample dimension
-        curve = curve.stack(sample=("chain", "draw"))
 
         return curve
 
@@ -3295,18 +3322,13 @@ class MMM(RegressionModelBuilder):
             mmm.build_from_idata(idata)
 
         """
-        # Restore mu_effects from idata attrs if present
         if "mu_effects" in idata.attrs:
             mu_effects_data = json.loads(idata.attrs["mu_effects"])
-            self.mu_effects = []
-            for effect_data in mu_effects_data:
-                try:
-                    effect = _deserialize_mu_effect(effect_data)
-                    self.mu_effects.append(effect)
-                except Exception as e:
-                    # Log warning but continue - don't fail the load for unsupported effects
-                    # Catches ValueError, KeyError, AttributeError, pydantic.ValidationError, etc.
-                    warnings.warn(f"Could not deserialize mu_effect: {e}", stacklevel=2)
+            ctx = DeserializationContext(idata=idata)
+            self.mu_effects = [
+                serialization.deserialize(effect_data, context=ctx)
+                for effect_data in mu_effects_data
+            ]
 
         dataset = idata.fit_data.to_dataframe()
 
@@ -3787,7 +3809,7 @@ class MultiDimensionalBudgetOptimizerWrapper(OptimizerCompatibleModelWrapper):
 
         Parameters
         ----------
-        allocation_strategy : DataArray
+        allocation_strategy : xr.DataArray
             The allocation strategy for the channels.
         noise_level : float
             The relative level of noise to add to the data allocation.

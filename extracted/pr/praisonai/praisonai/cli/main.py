@@ -4,6 +4,7 @@ import sys
 import argparse
 import warnings
 import os
+import json
 
 # Suppress Pydantic serialization warnings from LiteLLM BEFORE any imports
 # These warnings occur when LiteLLM's response objects have field mismatches
@@ -749,7 +750,8 @@ class PraisonAI:
                 n8n_handler = N8nHandler(
                     verbose=getattr(args, 'verbose', False),
                     n8n_url=getattr(args, 'n8n_url', 'http://localhost:5678'),
-                    api_url=getattr(args, 'api_url', 'http://127.0.0.1:8005')
+                    api_url=getattr(args, 'api_url', None),
+                    port=getattr(args, 'port', 8005)
                 )
                 result = n8n_handler.execute(self.agent_file)
                 return result
@@ -880,7 +882,7 @@ class PraisonAI:
             return default_args
         
         # Define special commands
-        special_commands = ['chat', 'code', 'call', 'realtime', 'train', 'ui', 'context', 'research', 'memory', 'rules', 'workflow', 'hooks', 'knowledge', 'session', 'tools', 'todo', 'docs', 'mcp', 'commit', 'serve', 'schedule', 'skills', 'profile', 'eval', 'agents', 'run', 'thinking', 'compaction', 'output', 'deploy', 'templates', 'recipe', 'endpoints', 'audio', 'embed', 'embedding', 'images', 'moderate', 'files', 'batches', 'vector-stores', 'rerank', 'ocr', 'assistants', 'fine-tuning', 'completions', 'messages', 'guardrails', 'rag', 'videos', 'a2a', 'containers', 'passthrough', 'responses', 'search', 'realtime-api', 'doctor', 'registry', 'package', 'install', 'uninstall', 'acp', 'debug', 'lsp', 'diag', 'browser', 'replay', 'bot', 'gateway', 'sandbox', 'wizard', 'migrate', 'security', 'persistence', 'paths', 'claw', 'github']
+        special_commands = ['chat', 'code', 'call', 'realtime', 'train', 'ui', 'context', 'research', 'memory', 'rules', 'workflow', 'hooks', 'knowledge', 'session', 'tools', 'todo', 'docs', 'mcp', 'commit', 'serve', 'schedule', 'skills', 'profile', 'eval', 'agents', 'run', 'thinking', 'compaction', 'output', 'deploy', 'templates', 'recipe', 'endpoints', 'audio', 'embed', 'embedding', 'images', 'moderate', 'files', 'batches', 'vector-stores', 'rerank', 'ocr', 'assistants', 'fine-tuning', 'completions', 'messages', 'guardrails', 'rag', 'videos', 'a2a', 'containers', 'passthrough', 'responses', 'search', 'realtime-api', 'doctor', 'registry', 'package', 'install', 'uninstall', 'acp', 'debug', 'lsp', 'diag', 'browser', 'replay', 'bot', 'gateway', 'sandbox', 'wizard', 'migrate', 'security', 'persistence', 'paths', 'claw', 'github', 'managed', 'flow', 'dashboard']
         
         parser = argparse.ArgumentParser(prog="praisonai", description="praisonAI command-line interface")
         parser.add_argument("--framework", choices=["crewai", "autogen", "praisonai"], help="Specify the framework")
@@ -963,6 +965,7 @@ class PraisonAI:
         
         # Metrics - token/cost tracking
         parser.add_argument("--metrics", action="store_true", help="Display token usage and cost metrics")
+        parser.add_argument("--metrics-json", action="store_true", help="Output structured cost and token data as JSON")
         
         # Image Description (Vision) - analyze existing images
         parser.add_argument("--image", type=str, help="Path to image file for vision-based description/analysis")
@@ -1020,7 +1023,7 @@ class PraisonAI:
         # n8n Integration - export workflow to n8n
         parser.add_argument("--n8n", action="store_true", help="Export workflow to n8n and open in browser")
         parser.add_argument("--n8n-url", type=str, default="http://localhost:5678", help="n8n instance URL (default: http://localhost:5678)")
-        parser.add_argument("--api-url", type=str, default="http://127.0.0.1:8005", help="PraisonAI API URL for n8n to call (default: http://127.0.0.1:8005)")
+        parser.add_argument("--api-url", type=str, help="PraisonAI API URL for n8n to call (default: auto-detected; for Docker Desktop on macOS/Windows with N8N_DOCKER=1 use http://host.docker.internal:8005)")
         
         # Serve - start API server for agents
         parser.add_argument("--serve", action="store_true", help="Start API server for agents (use with agents.yaml)")
@@ -1548,6 +1551,12 @@ class PraisonAI:
                 handle_run_command(unknown_args, verbose=getattr(args, 'verbose', False))
                 sys.exit(0)
             
+            elif args.command == 'managed':
+                # Managed agents — delegate to Typer app
+                from .commands.managed import app as managed_app
+                managed_app(unknown_args)
+                sys.exit(0)
+            
             elif args.command == 'thinking':
                 # Thinking command - manage thinking budgets
                 from .features.thinking import handle_thinking_command
@@ -1737,6 +1746,18 @@ class PraisonAI:
                 register_commands()
                 import sys as _sys
                 _sys.argv = ['praisonai', 'claw'] + unknown_args
+                try:
+                    typer_app()
+                except SystemExit as e:
+                    sys.exit(e.code if e.code else 0)
+                sys.exit(0)
+
+            elif args.command in ('flow', 'dashboard'):
+                # Flow/Dashboard commands - delegate to Typer CLI
+                from .app import app as typer_app, register_commands
+                register_commands()
+                import sys as _sys
+                _sys.argv = ['praisonai', args.command] + unknown_args
                 try:
                     typer_app()
                 except SystemExit as e:
@@ -4752,6 +4773,33 @@ Now, {final_instruction.lower()}:"""
             # Save output if --save is enabled
             if hasattr(self, 'args') and getattr(self.args, 'save', False):
                 self._save_output(prompt, result)
+            
+            # Metrics JSON - Output structured cost data
+            if hasattr(self, 'args') and getattr(self.args, 'metrics_json', False):
+                try:
+                    from .features.metrics import MetricsHandler
+                    _mh = MetricsHandler(verbose=getattr(self.args, 'verbose', False))
+                    # Extract from final_agent if it was used, otherwise from original agent
+                    active_agent = final_agent if 'final_agent' in locals() else agent
+                    agent_metrics = _mh.extract_metrics_from_agent(active_agent)
+                    # Resolve model name: prefer what the agent reported, fall back to config
+                    model_name = agent_metrics.get('model')
+                    if not model_name:
+                        model_name = agent_config.get('llm', 'unknown')
+                        if isinstance(model_name, dict):
+                            model_name = model_name.get('model', 'unknown')
+                    metrics_out = {
+                        "cost_usd": agent_metrics.get('cost', 0.0),
+                        "tokens_in": agent_metrics.get('prompt_tokens', 0),
+                        "tokens_out": agent_metrics.get('completion_tokens', 0),
+                        "model": model_name or 'unknown',
+                        "request_count": agent_metrics.get('llm_calls', 0),
+                    }
+                    print(json.dumps(metrics_out))
+                except Exception as exc:
+                    print(f"[metrics-json] warning: could not extract metrics: {exc}", file=sys.stderr)
+                    # CRITICAL: Always emit JSON when --metrics-json is set
+                    print(json.dumps({"cost_usd": 0.0, "tokens_in": 0, "tokens_out": 0, "model": "unknown", "request_count": 0}))
             
             return result
         elif CREWAI_AVAILABLE:

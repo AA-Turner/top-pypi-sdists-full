@@ -64,6 +64,10 @@ class TaskCommandRouterBase(abc.ABC):
     async def TaskSnapshotDirectory(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskSnapshotDirectoryRequest, modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse]') -> None:
         pass
 
+    @abc.abstractmethod
+    async def TaskUnmountDirectory(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskUnmountDirectoryRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
     def __mapping__(self) -> typing.Dict[str, grpclib.const.Handler]:
         return {
             '/modal.task_command_router.TaskCommandRouter/TaskContainerCreate': grpclib.const.Handler(
@@ -137,6 +141,12 @@ class TaskCommandRouterBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.task_command_router_pb2.TaskSnapshotDirectoryRequest,
                 modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse,
+            ),
+            '/modal.task_command_router.TaskCommandRouter/TaskUnmountDirectory': grpclib.const.Handler(
+                self.TaskUnmountDirectory,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.TaskUnmountDirectoryRequest,
+                google.protobuf.empty_pb2.Empty,
             ),
         }
 
@@ -215,4 +225,10 @@ class TaskCommandRouterStub:
             '/modal.task_command_router.TaskCommandRouter/TaskSnapshotDirectory',
             modal_proto.task_command_router_pb2.TaskSnapshotDirectoryRequest,
             modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse,
+        )
+        self.TaskUnmountDirectory = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/TaskUnmountDirectory',
+            modal_proto.task_command_router_pb2.TaskUnmountDirectoryRequest,
+            google.protobuf.empty_pb2.Empty,
         )

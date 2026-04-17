@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 import errno
 import logging
@@ -6,11 +8,9 @@ import signal
 import time
 from collections.abc import Iterable
 from enum import Enum
-from multiprocessing import get_context
+from multiprocessing import Process, get_context
 from multiprocessing.process import BaseProcess
-
-# TODO: Change import path to "collections.abc" after we stop supporting Python 3.8
-from typing import TYPE_CHECKING, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, NamedTuple
 from uuid import uuid4
 
 from redis import ConnectionPool, Redis
@@ -25,7 +25,11 @@ from .queue import Queue
 from .utils import parse_names
 from .worker import BaseWorker, Worker
 
-ForkProcess = get_context('fork').Process
+ForkProcess: type[BaseProcess]
+try:
+    ForkProcess = get_context('fork').Process
+except ValueError:
+    ForkProcess = Process
 
 if TYPE_CHECKING:
     from rq.serializers import Serializer
@@ -45,11 +49,11 @@ class WorkerPool:
 
     def __init__(
         self,
-        queues: Iterable[Union[str, Queue]],
+        queues: Iterable[str | Queue],
         connection: Redis,
         num_workers: int = 1,
         worker_class: type[BaseWorker] = Worker,
-        serializer: 'Serializer' = DefaultSerializer,
+        serializer: Serializer = DefaultSerializer,
         job_class: type[Job] = Job,
         queue_class: type[Queue] = Queue,
         *args,
@@ -176,7 +180,7 @@ class WorkerPool:
 
     def start_worker(
         self,
-        count: Optional[int] = None,
+        count: int | None = None,
         burst: bool = True,
         _sleep: float = 0,
         logging_level: str = 'INFO',
@@ -255,7 +259,7 @@ def run_worker(
     connection_pool_class,
     connection_pool_kwargs: dict,
     worker_class: type[BaseWorker] = Worker,
-    serializer: 'Serializer' = DefaultSerializer,
+    serializer: Serializer = DefaultSerializer,
     job_class: type[Job] = Job,
     queue_class: type[Queue] = Queue,
     burst: bool = True,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fsspec_xrootd
-Version: 0.5.2
+Version: 0.5.3
 Summary: xrootd implementation for fsspec
 Home-page: https://github.com/scikit-hep/fsspec-xrootd
 Author: Scott Demarest

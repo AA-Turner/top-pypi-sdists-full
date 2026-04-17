@@ -15,9 +15,27 @@ use crate::dict_ops;
 use crate::document::Document;
 use crate::equality;
 use crate::item_ops::{self, Key};
-use crate::item_proxy::ItemProxy;
+use crate::item_proxy::{ItemProxy, with_resolved_item};
 
 use toml_edit::DocumentMut as DocumentRs;
+
+/// Adds `read_checked` to a view type with `document`, `path`, `revision`
+/// fields.  Locks `inner.read()` first, then verifies freshness.  Closes
+/// the TOCTOU window between the check and the read.
+macro_rules! impl_view_read_checked {
+    ($ty:ty) => {
+        impl $ty {
+            pub(crate) fn read_checked<'py>(
+                &'py self,
+                py: Python<'py>,
+            ) -> PyResult<(&'py Document, parking_lot::RwLockReadGuard<'py, DocumentRs>)> {
+                let doc = self.document.bind(py).get();
+                let guard = doc.read_checked(&self.path, self.revision)?;
+                Ok((doc, guard))
+            }
+        }
+    };
+}
 
 fn get_key_set(doc: &DocumentRs, path: &[Key]) -> PyResult<HashSet<String>> {
     Ok(get_keys(doc, path)?.into_iter().collect())
@@ -58,6 +76,38 @@ fn keys_to_pyset<'py>(
     PySet::new(py, keys.iter())
 }
 
+/// Build a Python set of `(key, value)` tuples from the table at `path`.
+///
+/// Values are converted via `item_to_py`; non-hashable values (tables,
+/// arrays) cause `PySet::add` to raise `TypeError`, matching the behavior
+/// of `dict.items()` on the same input.
+/// Build a `(key, item_to_py(item))` Python tuple.
+fn entry_to_pytuple<'py>(
+    py: Python<'py>,
+    key: &str,
+    item: &toml_edit::Item,
+) -> PyResult<Bound<'py, PyTuple>> {
+    let py_val = item_ops::item_to_py(item, py)?;
+    PyTuple::new(
+        py,
+        [key.into_pyobject(py)?.into_any(), py_val.into_bound(py)],
+    )
+}
+
+fn items_to_pyset<'py>(
+    doc: &DocumentRs,
+    path: &[Key],
+    py: Python<'py>,
+) -> PyResult<Bound<'py, PySet>> {
+    let parent = item_ops::navigate_path(doc, path)?;
+    let set = PySet::empty(py)?;
+    dict_ops::for_each_entry(parent, |key, item| {
+        set.add(entry_to_pytuple(py, key, item)?)?;
+        Ok(())
+    })?;
+    Ok(set)
+}
+
 fn get_keys(doc: &DocumentRs, path: &[Key]) -> PyResult<Vec<String>> {
     let item = item_ops::navigate_path(doc, path)?;
     dict_ops::item_keys(item)
@@ -78,7 +128,10 @@ fn keys_to_pylist<'py>(
 
 fn get_len(doc: &DocumentRs, path: &[Key]) -> PyResult<usize> {
     let item = item_ops::navigate_path(doc, path)?;
-    item_ops::item_len(item).ok_or_else(|| PyTypeError::new_err("TOML item has no len()"))
+    let tbl = item
+        .as_table_like()
+        .ok_or_else(|| PyTypeError::new_err("TOML item has no len()"))?;
+    Ok(tbl.len())
 }
 
 fn contains_key(doc: &DocumentRs, path: &[Key], key: &str) -> PyResult<bool> {
@@ -89,7 +142,9 @@ fn contains_key(doc: &DocumentRs, path: &[Key], key: &str) -> PyResult<bool> {
 /// Invoke `f(key, child_proxy)` for every entry in the table at `path`.
 ///
 /// Shared by `ValuesView` and `ItemsView` for both `__iter__` and
-/// `__reversed__`.
+/// `__reversed__`.  Keys are collected under the read lock, then proxies
+/// are built individually (each `make_child_typed` takes its own short-lived
+/// lock) to avoid a recursive `RwLock::read()`.
 fn with_child_proxies(
     document: &Py<Document>,
     path: &[Key],
@@ -97,15 +152,19 @@ fn with_child_proxies(
     py: Python<'_>,
     mut f: impl FnMut(&str, Py<PyAny>) -> PyResult<()>,
 ) -> PyResult<()> {
-    let doc = document.bind(py).borrow();
-    doc.check_fresh(path, view_revision)?;
-    let revision = doc.revision;
-    let item = item_ops::navigate_path(&doc.inner, path)?;
-    dict_ops::for_each_key(item, |k| {
-        let proxy =
-            ItemProxy::make_child_typed(document, path, revision, py, Key::Str(k.to_owned()))?;
-        f(k, proxy)
-    })
+    let doc = document.bind(py).get();
+    let (keys, revision) = {
+        let inner = doc.inner.read();
+        doc.check_fresh(path, view_revision)?;
+        let revision = doc.revision();
+        let item = item_ops::navigate_path(&inner, path)?;
+        (dict_ops::item_keys(item)?, revision)
+    };
+    for k in &keys {
+        let proxy = ItemProxy::make_child_typed(document, path, revision, py, Key::Str(k.clone()))?;
+        f(k, proxy)?;
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -113,7 +172,7 @@ fn with_child_proxies(
 // ---------------------------------------------------------------------------
 
 /// A live view of the string keys in a TOML table (or the document root).
-#[pyclass(name = "KeysView", module = "tomledit")]
+#[pyclass(frozen, name = "KeysView", module = "tomledit")]
 pub(crate) struct KeysView {
     document: Py<Document>,
     path: Vec<Key>,
@@ -130,18 +189,18 @@ impl KeysView {
     }
 }
 
+impl_view_read_checked!(KeysView);
+
 #[pymethods]
 impl KeysView {
     fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        get_len(&doc.inner, &self.path)
+        let (_doc, inner) = self.read_checked(py)?;
+        get_len(&inner, &self.path)
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyIterator>> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        let list = keys_to_pylist(&doc.inner, &self.path, py)?;
+        let (_doc, inner) = self.read_checked(py)?;
+        let list = keys_to_pylist(&inner, &self.path, py)?;
         Ok(list.try_iter()?.unbind())
     }
 
@@ -149,23 +208,20 @@ impl KeysView {
         let Some(key) = crate::item_ops::extract_key_str(key)? else {
             return Ok(false);
         };
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        contains_key(&doc.inner, &self.path, &key)
+        let (_doc, inner) = self.read_checked(py)?;
+        contains_key(&inner, &self.path, &key)
     }
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        let keys = get_keys(&doc.inner, &self.path)?;
-        let inner: Vec<String> = keys.iter().map(|k| format!("'{k}'")).collect();
-        Ok(format!("KeysView([{}])", inner.join(", ")))
+        let (_doc, inner) = self.read_checked(py)?;
+        let keys = get_keys(&inner, &self.path)?;
+        let inner_str: Vec<String> = keys.iter().map(|k| format!("'{k}'")).collect();
+        Ok(format!("KeysView([{}])", inner_str.join(", ")))
     }
 
     fn __reversed__(&self, py: Python<'_>) -> PyResult<Py<PyIterator>> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        let mut keys = get_keys(&doc.inner, &self.path)?;
+        let (_doc, inner) = self.read_checked(py)?;
+        let mut keys = get_keys(&inner, &self.path)?;
         keys.reverse();
         let list = keys.into_pyobject(py)?;
         Ok(list.try_iter()?.unbind())
@@ -181,10 +237,9 @@ impl KeysView {
         py: Python<'py>,
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PySet>> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        let ours = get_key_set(&doc.inner, &self.path)?;
         let theirs = other_to_string_set(other)?;
+        let (_doc, inner) = self.read_checked(py)?;
+        let ours = get_key_set(&inner, &self.path)?;
         let result = &ours & &theirs;
         PySet::new(py, result.iter())
     }
@@ -194,10 +249,11 @@ impl KeysView {
         py: Python<'py>,
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        let ours = keys_to_pyset(&doc.inner, &self.path, py)?;
         let theirs = iterable_to_pyset(py, other)?;
+        let ours = {
+            let (_doc, inner) = self.read_checked(py)?;
+            keys_to_pyset(&inner, &self.path, py)?
+        };
         ours.call_method1("__or__", (theirs,))
     }
 
@@ -206,10 +262,9 @@ impl KeysView {
         py: Python<'py>,
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PySet>> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        let ours = get_key_set(&doc.inner, &self.path)?;
         let theirs = other_to_string_set(other)?;
+        let (_doc, inner) = self.read_checked(py)?;
+        let ours = get_key_set(&inner, &self.path)?;
         let result = &ours - &theirs;
         PySet::new(py, result.iter())
     }
@@ -219,17 +274,61 @@ impl KeysView {
         py: Python<'py>,
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        let ours = keys_to_pyset(&doc.inner, &self.path, py)?;
         let theirs = iterable_to_pyset(py, other)?;
+        let ours = {
+            let (_doc, inner) = self.read_checked(py)?;
+            keys_to_pyset(&inner, &self.path, py)?
+        };
         ours.call_method1("__xor__", (theirs,))
     }
 
+    // Reflected set operators for `set() OP keys`.  `|`, `&` and `^` are
+    // commutative, so they delegate to the forward methods.  `-` is not:
+    // `other - keys` subtracts *our* keys from `other`, which we do by
+    // building a Python set of our keys and calling its `__sub__`.
+
+    fn __ror__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        self.__or__(py, other)
+    }
+
+    fn __rand__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PySet>> {
+        self.__and__(py, other)
+    }
+
+    fn __rxor__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        self.__xor__(py, other)
+    }
+
+    fn __rsub__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let theirs = iterable_to_pyset(py, other)?;
+        let ours = {
+            let (_doc, inner) = self.read_checked(py)?;
+            keys_to_pyset(&inner, &self.path, py)?
+        };
+        theirs.call_method1("__sub__", (ours,))
+    }
+
     fn __eq__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        let ours = keys_to_pyset(&doc.inner, &self.path, py)?;
+        let ours = {
+            let (_doc, inner) = self.read_checked(py)?;
+            keys_to_pyset(&inner, &self.path, py)?
+        };
         ours.eq(other)
     }
 }
@@ -239,7 +338,7 @@ impl KeysView {
 // ---------------------------------------------------------------------------
 
 /// A live view of the values in a TOML table (or the document root).
-#[pyclass(name = "ValuesView", module = "tomledit")]
+#[pyclass(frozen, name = "ValuesView", module = "tomledit")]
 pub(crate) struct ValuesView {
     document: Py<Document>,
     path: Vec<Key>,
@@ -256,12 +355,13 @@ impl ValuesView {
     }
 }
 
+impl_view_read_checked!(ValuesView);
+
 #[pymethods]
 impl ValuesView {
     fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        get_len(&doc.inner, &self.path)
+        let (_doc, inner) = self.read_checked(py)?;
+        get_len(&inner, &self.path)
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyIterator>> {
@@ -273,22 +373,25 @@ impl ValuesView {
     }
 
     fn __contains__(&self, py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        let parent = item_ops::navigate_path(&doc.inner, &self.path)?;
-        let tbl = dict_ops::as_dict_like(parent, "__contains__")?;
-        for (_, item) in tbl.iter() {
-            if equality::item_eq(item, value)? {
-                return Ok(true);
-            }
-        }
-        Ok(false)
+        let doc = self.document.bind(py).get();
+        Ok(with_resolved_item(
+            value,
+            doc,
+            |d| d.check_fresh(&self.path, self.revision),
+            |inner, needle| {
+                let parent = item_ops::navigate_path(inner, &self.path)?;
+                let tbl = dict_ops::as_dict_like(parent, "__contains__")?;
+                Ok(tbl
+                    .iter()
+                    .any(|(_, item)| equality::items_structural_eq(item, needle)))
+            },
+        )?
+        .unwrap_or(false))
     }
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        let len = get_len(&doc.inner, &self.path)?;
+        let (_doc, inner) = self.read_checked(py)?;
+        let len = get_len(&inner, &self.path)?;
         Ok(format!("ValuesView(<{len} values>)"))
     }
 
@@ -316,7 +419,7 @@ impl ValuesView {
 // ---------------------------------------------------------------------------
 
 /// A live view of the (key, value) pairs in a TOML table (or the document root).
-#[pyclass(name = "ItemsView", module = "tomledit")]
+#[pyclass(frozen, name = "ItemsView", module = "tomledit")]
 pub(crate) struct ItemsView {
     document: Py<Document>,
     path: Vec<Key>,
@@ -333,12 +436,13 @@ impl ItemsView {
     }
 }
 
+impl_view_read_checked!(ItemsView);
+
 #[pymethods]
 impl ItemsView {
     fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        get_len(&doc.inner, &self.path)
+        let (_doc, inner) = self.read_checked(py)?;
+        get_len(&inner, &self.path)
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyIterator>> {
@@ -365,19 +469,22 @@ impl ItemsView {
         };
         let value = tuple.get_item(1)?;
 
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        let target = item_ops::navigate_path(&doc.inner, &self.path)?.get(key);
-        match target {
-            Some(item_rs) => equality::item_eq(item_rs, &value),
-            None => Ok(false),
-        }
+        let doc = self.document.bind(py).get();
+        Ok(with_resolved_item(
+            &value,
+            doc,
+            |d| d.check_fresh(&self.path, self.revision),
+            |inner, needle| {
+                let target = item_ops::navigate_path(inner, &self.path)?.get(&key);
+                Ok(target.is_some_and(|item_rs| equality::items_structural_eq(item_rs, needle)))
+            },
+        )?
+        .unwrap_or(false))
     }
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        let len = get_len(&doc.inner, &self.path)?;
+        let (_doc, inner) = self.read_checked(py)?;
+        let len = get_len(&inner, &self.path)?;
         Ok(format!("ItemsView(<{len} items>)"))
     }
 
@@ -403,31 +510,126 @@ impl ItemsView {
             return Ok(false);
         }
 
-        let doc = self.document.bind(py).borrow();
-        doc.check_fresh(&self.path, self.revision)?;
-        let our_len = get_len(&doc.inner, &self.path)?;
         let other_len = other.len()?;
-        if our_len != other_len {
-            return Ok(false);
-        }
 
-        // Build plain Python (key, value) tuples and check containment
-        // in `other`.  Using plain values (not proxies) avoids hashing
-        // issues and lets the other side's __contains__ compare correctly.
-        let keys = get_keys(&doc.inner, &self.path)?;
-        let parent = item_ops::navigate_path(&doc.inner, &self.path)?;
-        for key in &keys {
-            if let Some(item) = parent.get(key.as_str()) {
-                let py_val = item_ops::item_to_py(item, py)?;
-                let pair = PyTuple::new(
-                    py,
-                    [key.into_pyobject(py)?.into_any(), py_val.into_bound(py)],
-                )?;
-                if !other.contains(&pair)? {
-                    return Ok(false);
-                }
+        // Build plain Python (key, value) tuples under the read lock, then
+        // release it before calling into Python's __contains__ (which could
+        // re-enter our code if `other` is a view from the same document).
+        let pairs = {
+            let (_doc, inner) = self.read_checked(py)?;
+            let our_len = get_len(&inner, &self.path)?;
+            if our_len != other_len {
+                return Ok(false);
+            }
+            let parent = item_ops::navigate_path(&inner, &self.path)?;
+            let mut pairs = Vec::with_capacity(our_len);
+            dict_ops::for_each_entry(parent, |key, item| {
+                pairs.push(entry_to_pytuple(py, key, item)?);
+                Ok(())
+            })?;
+            pairs
+        };
+
+        for pair in &pairs {
+            if !other.contains(pair)? {
+                return Ok(false);
             }
         }
         Ok(true)
+    }
+
+    // Set operations.  Items are (key, value) tuples; we build a Python set
+    // of them and delegate.  Unhashable values raise `TypeError` during set
+    // construction — matching Python's `dict_items` semantics.
+
+    fn __or__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let theirs = iterable_to_pyset(py, other)?;
+        let ours = {
+            let (_doc, inner) = self.read_checked(py)?;
+            items_to_pyset(&inner, &self.path, py)?
+        };
+        ours.call_method1("__or__", (theirs,))
+    }
+
+    fn __and__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let theirs = iterable_to_pyset(py, other)?;
+        let ours = {
+            let (_doc, inner) = self.read_checked(py)?;
+            items_to_pyset(&inner, &self.path, py)?
+        };
+        ours.call_method1("__and__", (theirs,))
+    }
+
+    fn __sub__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let theirs = iterable_to_pyset(py, other)?;
+        let ours = {
+            let (_doc, inner) = self.read_checked(py)?;
+            items_to_pyset(&inner, &self.path, py)?
+        };
+        ours.call_method1("__sub__", (theirs,))
+    }
+
+    fn __xor__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let theirs = iterable_to_pyset(py, other)?;
+        let ours = {
+            let (_doc, inner) = self.read_checked(py)?;
+            items_to_pyset(&inner, &self.path, py)?
+        };
+        ours.call_method1("__xor__", (theirs,))
+    }
+
+    // Reflected forms: `|`, `&`, `^` are commutative; `-` is not.
+
+    fn __ror__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        self.__or__(py, other)
+    }
+
+    fn __rand__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        self.__and__(py, other)
+    }
+
+    fn __rxor__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        self.__xor__(py, other)
+    }
+
+    fn __rsub__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let theirs = iterable_to_pyset(py, other)?;
+        let ours = {
+            let (_doc, inner) = self.read_checked(py)?;
+            items_to_pyset(&inner, &self.path, py)?
+        };
+        theirs.call_method1("__sub__", (ours,))
     }
 }

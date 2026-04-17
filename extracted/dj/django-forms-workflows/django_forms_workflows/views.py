@@ -1106,6 +1106,7 @@ def submission_detail(request, submission_id):
                 target[stage_key] = {
                     "number": task.stage_number or 0,
                     "name": stage_name,
+                    "display_label": task.display_label,
                     "approval_logic": (
                         task.workflow_stage.approval_logic
                         if task.workflow_stage
@@ -1196,6 +1197,7 @@ def submission_detail(request, submission_id):
                     stage_map[stage_key] = {
                         "number": task.stage_number or 0,
                         "name": stage_name,
+                        "display_label": task.display_label,
                         "approval_logic": approval_logic,
                         "tasks": [],
                         "approved_count": 0,
@@ -1454,8 +1456,8 @@ def approval_inbox(request):
     # Compute default sort column index for DataTables (submitted_at)
     _exp_off = 1 if (any_exportable or any_pdf_exportable) else 0
     _cat_off = 0 if category_slug else 1
-    # columns: [checkbox?] [category?] actions form submitter stage step_num assigned submitted_at
-    default_sort_col = _exp_off + _cat_off + 1 + 5  # index of submitted_at
+    # columns: [checkbox?] [category?] actions form submitter step_num assigned submitted_at
+    default_sort_col = _exp_off + _cat_off + 1 + 4  # index of submitted_at
 
     return render(
         request,
@@ -3409,9 +3411,12 @@ def _build_approval_step_sections(submission):
                 )
                 continue
             lookup_key = f"{f['key']}_{swi_index}" if swi_index else f["key"]
-            if lookup_key not in form_data:
-                continue
-            raw_value = form_data[lookup_key]
+            # Always render stage-scoped fields so the section structure the
+            # form designer configured is preserved. Fields the approver
+            # left blank render with an empty value rather than being
+            # dropped (which left orphan section headers with nothing
+            # beneath them).
+            raw_value = form_data.get(lookup_key, "")
             field_type = f.get("field_type", "")
             if field_type == "currency" and raw_value not in (None, ""):
                 try:
@@ -3456,8 +3461,8 @@ def _build_approval_step_sections(submission):
                 task.completed_by.get_full_name() or task.completed_by.username
             )
 
-        # Section header: use the stored step_name directly; it now bakes in
-        # the stage's approve_label when tasks are created (workflow_engine.py).
+        # Section header: use the task's centralised display_label so the
+        # section header matches the inbox / approve / PDF rendering exactly.
         stage_order = task.stage_number or task.step_number or 1
         step_name = task.step_name or f"Step {stage_order}"
 
@@ -3465,6 +3470,7 @@ def _build_approval_step_sections(submission):
             {
                 "step_number": stage_order,
                 "step_name": step_name,
+                "display_label": task.display_label,
                 "status": task.status,
                 "group_name": (
                     task.assigned_group.name if task.assigned_group else None
@@ -4186,12 +4192,10 @@ def approval_inbox_ajax(request):
         approve_url = reverse("forms_workflows:approve_submission", args=[task.id])
         det_url = reverse("forms_workflows:submission_detail", args=[sub.id])
 
-        # For sub-workflow tasks, prefix the stage name with the instance index
-        # so "Payment Request" becomes "Payment 1: Payment Request".
-        stage_name = task.workflow_stage.name if task.workflow_stage else ""
-        swi = task.sub_workflow_instance
-        if swi and stage_name:
-            stage_name = f"Payment {swi.index}: {stage_name}"
+        # Standardised label used across inbox, approve page, submission
+        # detail, and PDFs — driven by ApprovalTask.display_label so any
+        # format change happens in one place.
+        stage_name = task.display_label
 
         row = {
             "DT_RowId": f"row_{task.id}",
@@ -4211,7 +4215,6 @@ def approval_inbox_ajax(request):
             "submitter": escape(
                 sub.submitter.get_full_name() or sub.submitter.username
             ),
-            "stage": f"Stage {task.stage_number}" if task.stage_number else "—",
             "step_num": escape(stage_name),
             "assigned": escape(
                 task.assigned_group.name
@@ -4855,3 +4858,201 @@ def create_approval_tasks(submission):
         submission.status = "approved"
         submission.completed_at = timezone.now()
         submission.save()
+
+
+# ---------------------------------------------------------------------------
+# Notification preferences
+# ---------------------------------------------------------------------------
+
+
+def _notification_rules_for_user(user):
+    """Return NotificationRule queryset where ``user`` is a group-based recipient.
+
+    Covers rules that target the user through:
+      - ``notify_groups`` (explicit M2M with auth.Group), OR
+      - ``notify_stage_groups`` + a ``StageApprovalGroup`` the user belongs to
+        (stage-scoped rule), OR
+      - ``notify_stage_groups`` + workflow-scoped rule (stage is null) where
+        the user is in a ``StageApprovalGroup`` of *any* stage in that workflow.
+
+    Dynamic-assignee, submitter, email-field, and static-email sources are
+    excluded because they are contextual to a specific submission and not
+    amenable to advance opt-out from a preferences page.
+    """
+    from .models import NotificationRule, StageApprovalGroup
+
+    user_group_ids = list(user.groups.values_list("id", flat=True))
+    if not user_group_ids:
+        return NotificationRule.objects.none()
+
+    stage_ids_for_user = list(
+        StageApprovalGroup.objects.filter(group_id__in=user_group_ids).values_list(
+            "stage_id", flat=True
+        )
+    )
+    workflow_ids_for_user = list(
+        StageApprovalGroup.objects.filter(group_id__in=user_group_ids).values_list(
+            "stage__workflow_id", flat=True
+        )
+    )
+
+    q = models.Q(notify_groups__in=user_group_ids)
+    if stage_ids_for_user:
+        q |= models.Q(notify_stage_groups=True, stage_id__in=stage_ids_for_user)
+    if workflow_ids_for_user:
+        q |= models.Q(
+            notify_stage_groups=True,
+            stage__isnull=True,
+            workflow_id__in=workflow_ids_for_user,
+        )
+
+    return (
+        NotificationRule.objects.filter(q)
+        .select_related("workflow__form_definition", "stage")
+        .distinct()
+    )
+
+
+# User-facing labels for the preferences page. The model's ``EVENT_TYPES``
+# labels include admin-oriented parentheticals (e.g. "Workflow Approved
+# (final decision)") that make sense when building rules but are noisy for
+# end users managing their own preferences.
+_FRIENDLY_EVENT_LABELS: dict = {
+    "submission_received": "Submission Received",
+    "approval_request": "Approval Request",
+    "stage_decision": "Stage Decision",
+    "workflow_approved": "Workflow Approved",
+    "workflow_denied": "Workflow Denied",
+    "form_withdrawn": "Form Withdrawn",
+    "approval_reminder": "Approval Reminder",
+    "escalation": "Escalation",
+}
+
+
+@login_required
+def notification_preferences(request):
+    """Show the signed-in user every NotificationRule they would receive and
+    let them mute or unmute each one. Per-rule granularity.
+    """
+    from .models import UserNotificationPreference
+
+    rules = _notification_rules_for_user(request.user)
+
+    if request.method == "POST":
+        # Expected POST payload: list of rule ids under ``muted_rules``
+        # (checked boxes). Anything missing from the payload but present in
+        # the user's eligible rules is treated as "subscribed" (record deleted).
+        eligible_ids = set(rules.values_list("id", flat=True))
+        posted_muted_ids = {
+            int(v) for v in request.POST.getlist("muted_rules") if v.isdigit()
+        }
+        # Only act on rules the user is actually eligible for — prevents a
+        # crafted POST from muting arbitrary rules.
+        muted_ids = posted_muted_ids & eligible_ids
+        unmuted_ids = eligible_ids - muted_ids
+
+        for rule_id in muted_ids:
+            UserNotificationPreference.objects.update_or_create(
+                user=request.user,
+                rule_id=rule_id,
+                defaults={"muted": True},
+            )
+        if unmuted_ids:
+            UserNotificationPreference.objects.filter(
+                user=request.user,
+                rule_id__in=unmuted_ids,
+            ).delete()
+
+        messages.success(request, "Notification preferences updated.")
+        return redirect("forms_workflows:notification_preferences")
+
+    muted_rule_ids = set(
+        request.user.notification_preferences.filter(muted=True).values_list(
+            "rule_id", flat=True
+        )
+    )
+
+    # Group for display: workflow → list of rules.
+    grouped: dict = {}
+    for rule in rules:
+        key = rule.workflow_id
+        bucket = grouped.setdefault(
+            key,
+            {
+                "workflow": rule.workflow,
+                "form_name": rule.workflow.form_definition.name
+                if rule.workflow.form_definition_id
+                else "(no form)",
+                "rules": [],
+            },
+        )
+        bucket["rules"].append(
+            {
+                "rule": rule,
+                "muted": rule.id in muted_rule_ids,
+                "reason": _rule_delivery_reason(rule, request.user),
+                "event_label": _FRIENDLY_EVENT_LABELS.get(
+                    rule.event, rule.get_event_display()
+                ),
+            }
+        )
+
+    groups_list = sorted(grouped.values(), key=lambda b: b["form_name"].lower())
+
+    return render(
+        request,
+        "django_forms_workflows/notification_preferences.html",
+        {
+            "workflow_groups": groups_list,
+            "total_rules": sum(len(b["rules"]) for b in groups_list),
+            "muted_count": len(muted_rule_ids),
+        },
+    )
+
+
+def _rule_delivery_reason(rule, user):
+    """Short human-readable explanation of *why* ``user`` would receive ``rule``.
+
+    Used in the preferences UI so the user understands which group membership
+    or assignment is triggering delivery.
+    """
+    from .models import StageApprovalGroup
+
+    reasons: list[str] = []
+
+    user_group_ids = set(user.groups.values_list("id", flat=True))
+    rule_group_ids = set(rule.notify_groups.values_list("id", flat=True))
+    overlap = user_group_ids & rule_group_ids
+    if overlap:
+        names = list(user.groups.filter(id__in=overlap).values_list("name", flat=True))
+        reasons.append("Member of group: " + ", ".join(names))
+
+    if rule.notify_stage_groups:
+        if rule.stage_id:
+            stage_group_ids = set(
+                StageApprovalGroup.objects.filter(stage_id=rule.stage_id).values_list(
+                    "group_id", flat=True
+                )
+            )
+            common = stage_group_ids & user_group_ids
+            if common:
+                names = list(
+                    user.groups.filter(id__in=common).values_list("name", flat=True)
+                )
+                reasons.append(
+                    f"Approver for stage “{rule.stage.name}” via: " + ", ".join(names)
+                )
+        else:
+            stage_group_ids = set(
+                StageApprovalGroup.objects.filter(
+                    stage__workflow_id=rule.workflow_id
+                ).values_list("group_id", flat=True)
+            )
+            common = stage_group_ids & user_group_ids
+            if common:
+                names = list(
+                    user.groups.filter(id__in=common).values_list("name", flat=True)
+                )
+                reasons.append("Approver in this workflow via: " + ", ".join(names))
+
+    return " · ".join(reasons) if reasons else "—"

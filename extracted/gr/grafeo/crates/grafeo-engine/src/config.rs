@@ -4,6 +4,31 @@ use std::fmt;
 use std::path::PathBuf;
 use std::time::Duration;
 
+/// Encryption-at-rest configuration.
+///
+/// Provides the key chain that derives per-component data encryption keys (DEKs)
+/// from a master encryption key (ME) via HKDF-SHA256. Each storage component
+/// (WAL, sections, vector pages) gets its own DEK.
+///
+/// Wrapped in `Arc` internally so `Config` can remain `Clone` without
+/// duplicating key material.
+#[cfg(feature = "encryption")]
+#[derive(Clone)]
+pub struct EncryptionConfig {
+    /// The key chain that derives per-component encryption keys.
+    /// Shared via Arc so Config can be cloned.
+    pub key_chain: std::sync::Arc<grafeo_common::encryption::KeyChain>,
+}
+
+#[cfg(feature = "encryption")]
+impl fmt::Debug for EncryptionConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EncryptionConfig")
+            .field("key_chain", &"[redacted]")
+            .finish()
+    }
+}
+
 /// The graph data model for a database.
 ///
 /// Each database uses exactly one model, chosen at creation time and immutable
@@ -218,7 +243,20 @@ pub struct Config {
     /// When set, the executor checks the deadline between operator batches and
     /// returns `QueryError::timeout()` if the wall-clock limit is exceeded.
     /// `None` means no timeout (queries may run indefinitely).
+    ///
+    /// Default: 30 seconds. Use `with_query_timeout()` to change or
+    /// `without_query_timeout()` to disable.
     pub query_timeout: Option<Duration>,
+
+    /// Maximum size in bytes for a single property value.
+    ///
+    /// When set, `set_node_property()` and `set_edge_property()` reject
+    /// values whose `estimated_size_bytes()` exceeds this limit.
+    /// `None` means no limit (any size is accepted).
+    ///
+    /// Default: 16 MiB. Use `with_max_property_size()` to change or
+    /// `without_max_property_size()` to disable.
+    pub max_property_size: Option<usize>,
 
     /// Run MVCC version garbage collection every N commits.
     ///
@@ -270,6 +308,16 @@ pub struct Config {
     /// `.grafeo` container and truncates the WAL. `None` means checkpoints
     /// only happen on explicit `wal_checkpoint()` or database close.
     pub checkpoint_interval: Option<Duration>,
+
+    /// Encryption configuration.
+    ///
+    /// When set, all data written to disk (WAL records, sections, snapshots) is
+    /// encrypted with AES-256-GCM. The key chain derives per-component keys from
+    /// a master encryption key via HKDF-SHA256.
+    ///
+    /// Requires the `encryption` feature flag. Without it, this field is ignored.
+    #[cfg(feature = "encryption")]
+    pub encryption: Option<EncryptionConfig>,
 }
 
 /// Configuration for adaptive query execution.
@@ -356,7 +404,8 @@ impl Default for Config {
             wal_durability: DurabilityMode::default(),
             storage_format: StorageFormat::default(),
             schema_constraints: false,
-            query_timeout: None,
+            query_timeout: Some(Duration::from_secs(30)),
+            max_property_size: Some(16 * 1024 * 1024), // 16 MiB
             gc_interval: 100,
             access_mode: AccessMode::default(),
             cdc_enabled: false,
@@ -364,6 +413,8 @@ impl Default for Config {
             cdc_retention: crate::cdc::CdcRetentionConfig::default(),
             section_configs: hashbrown::HashMap::new(),
             checkpoint_interval: None,
+            #[cfg(feature = "encryption")]
+            encryption: None,
         }
     }
 }
@@ -422,7 +473,10 @@ impl Config {
     pub fn with_memory_fraction(mut self, fraction: f64) -> Self {
         use grafeo_common::memory::buffer::BufferManagerConfig;
         let system_memory = BufferManagerConfig::detect_system_memory();
-        self.memory_limit = Some((system_memory as f64 * fraction) as usize);
+        // reason: product of system RAM and a 0..1 fraction is always a valid positive usize
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let budget = (system_memory as f64 * fraction) as usize;
+        self.memory_limit = Some(budget);
         self
     }
 
@@ -490,6 +544,27 @@ impl Config {
     #[must_use]
     pub fn with_query_timeout(mut self, timeout: Duration) -> Self {
         self.query_timeout = Some(timeout);
+        self
+    }
+
+    /// Disables the query timeout, allowing queries to run indefinitely.
+    #[must_use]
+    pub fn without_query_timeout(mut self) -> Self {
+        self.query_timeout = None;
+        self
+    }
+
+    /// Sets the maximum size in bytes for a single property value.
+    #[must_use]
+    pub fn with_max_property_size(mut self, size: usize) -> Self {
+        self.max_property_size = Some(size);
+        self
+    }
+
+    /// Disables the property value size limit.
+    #[must_use]
+    pub fn without_max_property_size(mut self) -> Self {
+        self.max_property_size = None;
         self
     }
 
@@ -638,7 +713,7 @@ mod tests {
         assert!(config.factorized_execution);
         assert_eq!(config.wal_durability, DurabilityMode::default());
         assert!(!config.schema_constraints);
-        assert!(config.query_timeout.is_none());
+        assert_eq!(config.query_timeout, Some(Duration::from_secs(30)));
         assert_eq!(config.gc_interval, 100);
     }
 
@@ -838,6 +913,26 @@ mod tests {
         );
     }
 
+    // --- max_property_size tests ---
+
+    #[test]
+    fn test_config_default_max_property_size() {
+        let config = Config::in_memory();
+        assert_eq!(config.max_property_size, Some(16 * 1024 * 1024));
+    }
+
+    #[test]
+    fn test_config_with_max_property_size() {
+        let config = Config::in_memory().with_max_property_size(1024);
+        assert_eq!(config.max_property_size, Some(1024));
+    }
+
+    #[test]
+    fn test_config_without_max_property_size() {
+        let config = Config::in_memory().without_max_property_size();
+        assert!(config.max_property_size.is_none());
+    }
+
     // --- schema_constraints tests ---
 
     #[test]
@@ -850,7 +945,19 @@ mod tests {
 
     #[test]
     fn test_config_with_query_timeout() {
-        let config = Config::in_memory().with_query_timeout(Duration::from_secs(30));
+        let config = Config::in_memory().with_query_timeout(Duration::from_secs(60));
+        assert_eq!(config.query_timeout, Some(Duration::from_secs(60)));
+    }
+
+    #[test]
+    fn test_config_without_query_timeout() {
+        let config = Config::in_memory().without_query_timeout();
+        assert!(config.query_timeout.is_none());
+    }
+
+    #[test]
+    fn test_config_default_query_timeout() {
+        let config = Config::in_memory();
         assert_eq!(config.query_timeout, Some(Duration::from_secs(30)));
     }
 

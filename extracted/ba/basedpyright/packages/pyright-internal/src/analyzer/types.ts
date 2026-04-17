@@ -691,7 +691,7 @@ export interface DataClassBehaviors {
     fieldDescriptorNames: string[];
 }
 
-interface ClassDetailsShared {
+export interface ClassDetailsShared {
     name: string;
     fullName: string;
     moduleName: string;

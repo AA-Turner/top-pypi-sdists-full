@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -34,7 +34,7 @@ class QuantumState:
         """Initialize a QuantumState object.
 
         Args:
-            op_shape (OpShape): Optional, an OpShape object for state dimensions.
+            op_shape (OpShape):  an OpShape object for state dimensions.
 
         .. note::
 
@@ -87,27 +87,22 @@ class QuantumState:
     @abstractmethod
     def is_valid(self, atol=None, rtol=None):
         """Return True if a valid quantum state."""
-        pass
 
     @abstractmethod
     def to_operator(self):
         """Convert state to matrix operator class"""
-        pass
 
     @abstractmethod
     def conjugate(self):
         """Return the conjugate of the operator."""
-        pass
 
     @abstractmethod
     def trace(self):
         """Return the trace of the quantum state as a density matrix."""
-        pass
 
     @abstractmethod
     def purity(self):
         """Return the purity of the quantum state."""
-        pass
 
     @abstractmethod
     def tensor(self, other: QuantumState) -> QuantumState:
@@ -122,7 +117,6 @@ class QuantumState:
         Raises:
             QiskitError: if other is not a quantum state.
         """
-        pass
 
     @abstractmethod
     def expand(self, other: QuantumState) -> QuantumState:
@@ -137,7 +131,6 @@ class QuantumState:
         Raises:
             QiskitError: if other is not a quantum state.
         """
-        pass
 
     def _add(self, other):
         """Return the linear combination self + other.
@@ -154,13 +147,13 @@ class QuantumState:
         raise NotImplementedError(f"{type(self)} does not support addition")
 
     def _multiply(self, other):
-        """Return the scalar multipled state other * self.
+        """Return the scalar multiplied state other * self.
 
         Args:
             other (complex): a complex number.
 
         Returns:
-            QuantumState: the scalar multipled state other * self.
+            QuantumState: the scalar multiplied state other * self.
 
         Raises:
             NotImplementedError: if subclass does not support scalar
@@ -184,7 +177,6 @@ class QuantumState:
             QiskitError: if the operator dimension does not match the
                          specified QuantumState subsystem dimensions.
         """
-        pass
 
     @abstractmethod
     def expectation_value(self, oper: BaseOperator, qargs: None | list = None) -> complex:
@@ -197,7 +189,6 @@ class QuantumState:
         Returns:
             complex: the expectation value.
         """
-        pass
 
     @abstractmethod
     def probabilities(self, qargs: None | list = None, decimals: None | int = None) -> np.ndarray:
@@ -215,7 +206,6 @@ class QuantumState:
         Returns:
             np.array: The Numpy vector array of probabilities.
         """
-        pass
 
     def probabilities_dict(self, qargs: None | list = None, decimals: None | int = None) -> dict:
         """Return the subsystem measurement probability dictionary.

@@ -7,6 +7,21 @@ env:
   - MODEL_ID=zai-org/GLM-4.5-Air-FP8
 
 replicas:
+  - count: 1
+    # For now replica group with router must have count: 1
+    commands:
+      - pip install sglang_router
+      - |
+          python -m sglang_router.launch_router \
+            --host 0.0.0.0 \
+            --port 8000 \
+            --pd-disaggregation \
+            --prefill-policy cache_aware
+    router:
+      type: sglang
+    resources:
+      cpu: 4
+
   - count: 1..4
     scaling:
       metric: rps
@@ -16,12 +31,12 @@ replicas:
           python -m sglang.launch_server \
             --model-path $MODEL_ID \
             --disaggregation-mode prefill \
-            --disaggregation-transfer-backend mooncake \
+            --disaggregation-transfer-backend nixl \
             --host 0.0.0.0 \
             --port 8000 \
             --disaggregation-bootstrap-port 8998
     resources:
-      gpu: 1
+      gpu: H200
 
   - count: 1..8
     scaling:
@@ -32,20 +47,16 @@ replicas:
           python -m sglang.launch_server \
             --model-path $MODEL_ID \
             --disaggregation-mode decode \
-            --disaggregation-transfer-backend mooncake \
+            --disaggregation-transfer-backend nixl \
             --host 0.0.0.0 \
             --port 8000
     resources:
-      gpu: 1
+      gpu: H200
 
 port: 8000
 model: zai-org/GLM-4.5-Air-FP8
 
 probes:
   - type: http
-    url: /health_generate
+    url: /health
     interval: 15s
-
-router:
-  type: sglang
-  pd_disaggregation: true

@@ -21615,7 +21615,7 @@ var KeepMcpTransport = class {
     );
     this.transport = new StdioClientTransport(launch);
     this.client = new Client(
-      { name: "keep-openclaw-plugin", version: "0.138.1" },
+      { name: "keep-openclaw-plugin", version: "0.139.1" },
       { capabilities: {} }
     );
     const thisTransport = this.transport;
@@ -21868,7 +21868,7 @@ function registerBootstrapContextEngine(api, mode) {
       info: {
         id: "keep",
         name: "keep (setup required)",
-        version: "0.138.1",
+        version: "0.139.1",
         ownsCompaction: false
       },
       async assemble(params) {
@@ -22185,7 +22185,7 @@ function register(api) {
       info: {
         id: "keep",
         name: "keep reflective memory",
-        version: "0.138.1",
+        version: "0.139.1",
         ownsCompaction: false
       },
       // -------------------------------------------------------------------

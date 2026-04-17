@@ -25,6 +25,53 @@ logger = logging.getLogger("kolo")
 # Lock file timeout in seconds (1 hour) - if lock is older than this, consider it stale
 LOCK_TIMEOUT_SECONDS = 3600
 
+# Marker file dropped into a trace directory when it is emitted outside of
+# auto-emit (e.g. via `kolo trace emit`). The file contents are a decimal
+# Unix timestamp. Directories whose marker is within MANUAL_EMIT_GRACE_SECONDS
+# are preserved by auto-emit cleanup even if the trace is no longer in the
+# latest-N window.
+MANUAL_EMIT_MARKER_NAME = ".manual_emit"
+MANUAL_EMIT_GRACE_SECONDS = 24 * 3600
+
+
+def write_manual_emit_marker(trace_dir: Path, now: float | None = None) -> None:
+    """Mark ``trace_dir`` as manually emitted so auto-emit cleanup preserves it.
+
+    Writes a current Unix timestamp to ``{trace_dir}/.manual_emit``. Silent on
+    I/O errors - marking is best-effort.
+    """
+    if now is None:
+        now = time.time()
+    try:
+        (trace_dir / MANUAL_EMIT_MARKER_NAME).write_text(f"{now:.6f}")
+    except OSError:  # pragma: no cover
+        pass
+
+
+def has_fresh_manual_emit_marker(
+    trace_dir: Path,
+    grace_seconds: float = MANUAL_EMIT_GRACE_SECONDS,
+    now: float | None = None,
+) -> bool:
+    """Return True if ``trace_dir`` has a manual-emit marker within the grace window.
+
+    A missing or unreadable marker returns False. A marker file whose contents
+    are not a valid timestamp is treated as stale (returns False) so that a
+    corrupt marker doesn't pin a directory forever.
+    """
+    marker = trace_dir / MANUAL_EMIT_MARKER_NAME
+    try:
+        raw = marker.read_text().strip()
+    except OSError:
+        return False
+    try:
+        marked_at = float(raw)
+    except ValueError:
+        return False
+    if now is None:
+        now = time.time()
+    return (now - marked_at) < grace_seconds
+
 
 @contextmanager
 def _migration_lock(lock_path: Path) -> Iterator[bool]:
@@ -75,34 +122,40 @@ def _migration_lock(lock_path: Path) -> Iterator[bool]:
                 pass
 
 
-def auto_emit(keep_count: int = 5) -> None:
+def auto_emit(keep_count: int = 5, db_path: Path | None = None) -> None:
     """
     Auto-emit the latest traces and cleanup old directories.
 
-    This is called via subprocess from the middleware after saving a trace.
-    It keeps only `keep_count` emitted trace directories.
+    This is called after saving a trace.
+    It reconciles the emitted directories so the latest `keep_count`
+    traces exist on disk and older directories are removed.
 
     Also runs migration from database to file-based storage if needed,
     protected by a lock to prevent concurrent migrations.
     """
     # Lazy imports to minimize startup time
-    from .db import list_traces_from_db, load_trace_from_db, setup_db
+    from .db import (
+        TraceNotFoundError,
+        list_traces_from_db,
+        load_trace_from_db,
+        setup_db,
+    )
     from .emit import emit_trace
     from .serialize import load_msgpack
     from .trace import Trace
 
-    db_path = setup_db()
+    if db_path is None:
+        db_path = setup_db()
     # db_path is .kolo/.internal/db.sqlite3, traces are in .kolo/traces
     kolo_dir = db_path.parent.parent
     traces_dir = kolo_dir / "traces"
-    if not traces_dir.exists():
-        return
 
     # Get the latest N trace IDs from the database
     traces = list_traces_from_db(db_path, count=keep_count)
     if not traces:
         return
 
+    traces_dir.mkdir(exist_ok=True)
     latest_trace_ids = {row[0] for row in traces}
 
     # Find existing emitted directories by looking for trace ID files inside them
@@ -117,22 +170,33 @@ def auto_emit(keep_count: int = 5) -> None:
                     existing_dirs[trace_id] = entry
                     break
 
-    # Delete directories for traces not in latest N
+    # Delete directories for traces not in latest N, but preserve any that
+    # carry a fresh manual-emit marker so users/agents inspecting specific
+    # traces aren't surprised by them disappearing under them.
+    now = time.time()
     for trace_id, dir_path in existing_dirs.items():
-        if trace_id not in latest_trace_ids:
-            try:
-                shutil.rmtree(dir_path)
-            except OSError:  # pragma: no cover
-                pass  # Silent failure - this runs in background
-
-    # Emit the latest trace if not already emitted
-    latest_trace_id = traces[0][0]
-    if latest_trace_id not in existing_dirs:
+        if trace_id in latest_trace_ids:
+            continue
+        if has_fresh_manual_emit_marker(dir_path, now=now):
+            continue
         try:
-            msgpack_data, _ = load_trace_from_db(db_path, latest_trace_id)
+            shutil.rmtree(dir_path)
+        except OSError:  # pragma: no cover
+            pass  # Silent failure - this runs in background
+
+    # Fill in any missing emitted directories within the desired latest-N set.
+    # Iterate oldest->newest so newly created directory mtimes preserve recency.
+    for row in reversed(traces):
+        trace_id = row[0]
+        if trace_id in existing_dirs:
+            continue
+        try:
+            msgpack_data, _ = load_trace_from_db(db_path, trace_id)
             data = load_msgpack(msgpack_data)
             trace = Trace(unprocessed_data=data, size=len(msgpack_data))
             emit_trace(trace, traces_dir)
+        except TraceNotFoundError:
+            logger.debug("Skipping disappeared trace during auto-emit: %s", trace_id)
         except (OSError, KeyError, ValueError):  # pragma: no cover
             pass  # Silent failure - this runs in background
 

@@ -1,10 +1,9 @@
 """
 Module for some shared things
 """
-from __future__ import division, print_function
-from __future__ import absolute_import
 from math import sin, cos, pi, sqrt
 
+from monty.json import MSONable
 import numpy as np
 
 # pylint: disable=invalid-name
@@ -14,14 +13,23 @@ class FormatError(RuntimeError):
     pass
 
 
-class Block(list):
+class Block(MSONable, list):
     """
     A class for blocks in CASTEP inputs files stored as a list of strings
     """
 
-    def __repr__(self):
-        r = super().__repr__()
-        return "Block(" + r + ")"
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert all(isinstance(s, str) for s in self)
+
+    def as_dict(self):
+        d = {"@module": self.__class__.__module__, "@class": self.__class__.__name__}
+        d["strings"] = list(self)
+        return d
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(d["strings"])
 
     def compact(self, inplace=False):
         """

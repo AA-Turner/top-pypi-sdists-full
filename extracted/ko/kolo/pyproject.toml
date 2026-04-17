@@ -5,13 +5,13 @@ backend-path = ["."]
 
 [project]
 name = "kolo"
-version = "3.0.0"
+version = "3.1.0"
 description = "See everything happening in your running Django app"
 readme = "README.md"
 authors = [{ name = "Wilhelm Klopp", email = "team@kolo.app" }]
 urls.Homepage = "https://kolo.app"
 urls.Changelog = "https://docs.kolo.app/en/latest/python-changelog.html"
-urls.Repository = "https://github.com/kolofordjango/kolo"
+urls.Repository = "https://github.com/koloai/kolo"
 license = { text = "© Kolo" }
 requires-python = ">=3.8"
 classifiers = [

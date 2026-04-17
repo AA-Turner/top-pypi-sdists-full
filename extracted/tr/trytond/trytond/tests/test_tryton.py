@@ -170,19 +170,26 @@ def _sqlite_copy(file_, restore=False):
         finally:
             database.put_connection(connection, True)
 
-    with Transaction().start(DB_NAME, 0) as transaction, \
-            sqlite.connect(file_) as conn2:
-        conn1 = transaction.connection
-        if restore:
-            conn2, conn1 = conn1, conn2
-        if hasattr(conn1, 'backup'):
-            conn1.backup(conn2)
-        else:
-            try:
-                import sqlitebck
-            except ImportError:
-                return False
-            sqlitebck.copy(conn1, conn2)
+    database = backend.Database(DB_NAME).connect()
+    conn1 = database.get_connection()
+    try:
+        with sqlite.connect(file_) as conn2:
+            if restore:
+                in_, out = conn2, conn1
+            else:
+                in_, out = conn1, conn2
+            if hasattr(in_, 'backup'):
+                in_.backup(out)
+            else:
+                try:
+                    import sqlitebck
+                except ImportError:
+                    return False
+                sqlitebck.copy(in_, out)
+        conn2.close()
+    finally:
+        database.put_connection(conn1)
+        database.close()
     return True
 
 

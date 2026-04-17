@@ -19,5 +19,5 @@ def save_plot(title: str, dpi: int = 500, context: ModelContext = None):
     if context:
         filename = f"{context.artifact_output_path}/{title}"
 
-    fig.savefig(filename, dpi=dpi)
+    fig.savefig(filename, dpi=dpi, bbox_inches="tight")
     plt.clf()

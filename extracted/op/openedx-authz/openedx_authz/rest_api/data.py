@@ -28,6 +28,17 @@ class AssignmentSortField(BaseEnum):
     SCOPE = "scope"
 
 
+class UserAssignmentSortField(BaseEnum):
+    """Enum for the user role assignment fields to sort by."""
+
+    ROLE = "role"
+    ORG = "org"
+    SCOPE = "scope"
+    FULL_NAME = "full_name"
+    USERNAME = "username"
+    EMAIL = "email"
+
+
 class SortOrder(BaseEnum):
     """Enum for the order to sort by."""
 
@@ -58,3 +69,19 @@ class RoleOperationError(BaseEnum):
     USER_DOES_NOT_HAVE_ROLE = "user_does_not_have_role"
     ROLE_ASSIGNMENT_ERROR = "role_assignment_error"
     ROLE_REMOVAL_ERROR = "role_removal_error"
+
+
+class ScopesQuerySetFields(BaseEnum):
+    """Enum for the annotated fields used in the Scopes query set for the scopes endpoint"""
+
+    SCOPE_ID = "scope_id"
+    DISPLAY_NAME_COL = "display_name_col"
+    ORG_NAME = "org_name"
+    SCOPE_TYPE = "scope_type"
+
+
+class ScopesTypeField(BaseEnum):
+    """Enum for the scope_type query field on the scopes endpoint"""
+
+    COURSE = "course"
+    LIBRARY = "library"

@@ -27,7 +27,7 @@ dependencies = [
   "matplotlib",
   "natsort>=7.1.0",
   "numpy",
-  "osam>=0.3.1",
+  "osam>=0.4.0",
   "pillow>=2.8",
   "pyqt5>=5.14.0",
   "pyqt5-qt5!=5.15.13 ; sys_platform == 'linux'",
@@ -42,20 +42,31 @@ dynamic = ["readme", "version"]
 content-type = "text/markdown"
 fragments = [{ path = "README.md" }]
 
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = 'src="(?!https?://)([^"]+)"'
+replacement = 'src="https://raw.githubusercontent.com/wkentaro/labelme/main/\1"'
+
 [tool.hatch.version]
 source = "vcs"
 
 [dependency-groups]
 dev = [
   "ipython",
+  "mdformat-frontmatter>=2.0.10",
+  "mdformat>=0.7",
   "pyqt5-stubs>=5.15.6.0",
   "pytest>=8.3.4",
+  "pytest-cov>=7.1.0",
   "pytest-qt>=4.4.0",
+  "pytest-xdist>=3.8.0",
   "ruff~=0.12.11",
+  "taplo>=0.9.3",
   "twine>=6.1.0",
   "ty>=0.0.1a29",
   "types-pillow>=10.2.0.20240822",
   "types-pyyaml>=6.0.12.20241230",
+  "typos>=1.45.0",
+  "yamlfix>=1.19.1",
 ]
 
 [project.scripts]
@@ -63,15 +74,14 @@ labelme = "labelme.__main__:main"
 
 [tool.pytest.ini_options]
 qt_api = "pyqt5"
-markers = [
-  "gui: mark a test as a GUI test.",
-]
+markers = ["gui: mark a test as a GUI test."]
 
 [tool.ruff.lint]
 select = [
-  "E",  # pycodestyle
-  "F",  # pyflakes
-  "I",  # isort
+  "ANN", # flake8-annotations
+  "E",   # pycodestyle
+  "F",   # pyflakes
+  "I",   # isort
   "UP",  # pyupgrade
 ]
 

@@ -1554,7 +1554,7 @@ def parse_helper_function(
         if param.kind == param.KEYWORD_ONLY:
             raise ValueError("Functions with keyword-only arguments are not supported")
         if param.kind == param.VAR_POSITIONAL:
-            raise ValueError("Functions with *args are not supported")
+            pass  # *args are supported — the static accelerator handles them by collecting extra positional args into a list
         if param.kind == param.VAR_KEYWORD:
             raise ValueError("Functions with **kwargs are not supported")
     module = inspect.getmodule(fn)

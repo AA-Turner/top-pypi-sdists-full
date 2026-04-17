@@ -10,13 +10,13 @@
     </message>
     <message>
         <location filename="../widgets/_ai_assisted_annotation_widget.py" line="0"/>
-        <source>AI suggests annotation in &apos;AI-Polygon&apos; and &apos;AI-Mask&apos; modes</source>
-        <translation>AI在'AI-Polygon'和'AI-Mask'模式下提供標註建議</translation>
+        <source>AI suggests annotation in &apos;AI-Points&apos; and &apos;AI-Box&apos; modes</source>
+        <translation>AI在'AI-Points'和'AI-Box'模式下建議標註</translation>
     </message>
     <message>
         <location filename="../widgets/_ai_assisted_annotation_widget.py" line="0"/>
-        <source>Select &apos;AI-Polygon&apos; or &apos;AI-Mask&apos; mode to enable AI-Assisted Annotation</source>
-        <translation>選擇「AI-Polygon」或「AI-Mask」模式以啟用AI輔助標註</translation>
+        <source>Select &apos;AI-Points&apos; or &apos;AI-Box&apos; mode to enable AI-Assisted Annotation</source>
+        <translation>選擇'AI-Points'或'AI-Box'模式以啟用AI輔助標註</translation>
     </message>
 </context>
 <context>
@@ -53,8 +53,16 @@
     </message>
     <message>
         <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
-        <source>Select &apos;Polygon&apos;, &apos;Rectangle&apos;, &apos;AI-Polygon&apos;, or &apos;AI-Mask&apos; mode to enable</source>
-        <translation>選擇 'Polygon'、'Rectangle'、'AI-Polygon' 或 'AI-Mask' 模式以啟用</translation>
+        <source>Select &apos;Polygon&apos;, &apos;Rectangle&apos;, or &apos;AI-Points&apos; mode to enable</source>
+        <translation>選擇'Polygon'、'Rectangle'或'AI-Points'模式以啟用</translation>
+    </message>
+</context>
+<context>
+    <name>BrightnessContrastDialog</name>
+    <message>
+        <location filename="../widgets/brightness_contrast_dialog.py" line="0"/>
+        <source>Brightness/Contrast</source>
+        <translation>亮度/對比度</translation>
     </message>
 </context>
 <context>
@@ -88,16 +96,6 @@
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Editing shapes</source>
         <translation>編輯形狀</translation>
-    </message>
-    <message>
-        <location filename="../widgets/canvas.py" line="0"/>
-        <source>Click points to include or Shift+Click to exclude for ai_polygon</source>
-        <translation>點擊以包含點或 Shift+點擊以排除點(AI多邊形)</translation>
-    </message>
-    <message>
-        <location filename="../widgets/canvas.py" line="0"/>
-        <source>Click points to include or Shift+Click to exclude for ai_mask</source>
-        <translation>點擊以包含點或 Shift+點擊以排除點(AI蒙版)</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
@@ -158,6 +156,21 @@
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click opposite corner for rectangle (Shift for square)</source>
         <translation>點擊矩形對角（Shift繪製正方形）</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click points to include or Shift+Click to exclude. Ctrl+LeftClick ends creation.</source>
+        <translation>點擊添加包含點或Shift+Click添加排除點。Ctrl+LeftClick結束創建。</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click first corner of bbox for AI segmentation</source>
+        <translation>點擊bbox的第一個角進行AI分割</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click opposite corner to segment object</source>
+        <translation>點擊對角以分割物件</translation>
     </message>
 </context>
 <context>
@@ -316,18 +329,8 @@
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Create Polygons</source>
-        <translation>創建多邊形</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Start drawing polygons</source>
         <translation>開始繪製多邊形</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Create Rectangle</source>
-        <translation>創建矩形</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -336,18 +339,8 @@
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Create Circle</source>
-        <translation>創建圓形</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Start drawing circles</source>
         <translation>開始繪製圓形</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Create Line</source>
-        <translation>創建直線</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -356,43 +349,13 @@
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Create Point</source>
-        <translation>創建控制點</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Start drawing points</source>
         <translation>開始繪製控制點</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Create LineStrip</source>
-        <translation>創建折線</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Start drawing linestrip. Ctrl+LeftClick ends creation.</source>
         <translation>開始繪製折線。Ctrl+單擊左鍵結束繪製。</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Create AI-Polygon</source>
-        <translation>創建AI多邊形</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Start drawing ai_polygon. Ctrl+LeftClick ends creation.</source>
-        <translation>開始繪製AI多邊形。Ctrl+單擊左鍵結束繪製。</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Create AI-Mask</source>
-        <translation>創建AI蒙版</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Start drawing ai_mask. Ctrl+LeftClick ends creation.</source>
-        <translation>開始繪製AI蒙版。Ctrl+單擊左鍵結束繪製。</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -645,11 +608,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Open &amp;Recent</source>
-        <translation>最近打開(&amp;R)</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>%s started.</source>
         <translation>%s 已啟動</translation>
     </message>
@@ -828,6 +786,73 @@ To use the preferences editor, start Labelme with a config file:
         <location filename="../app.py" line="0"/>
         <source>Reset Layout</source>
         <translation>重置佈局</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Polygon</source>
+        <translation>多邊形</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Rectangle</source>
+        <translation>矩形</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Circle</source>
+        <translation>圓形</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Line</source>
+        <translation>直線</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Point</source>
+        <translation>控制點</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>LineStrip</source>
+        <translation>折線</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>AI-Points</source>
+        <translation>AI-Points</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Click points to segment object. Ctrl+LeftClick ends creation.</source>
+        <translation>點擊添加點以分割對象。Ctrl+LeftClick結束創建。</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>AI-Box</source>
+        <translation>AI-Box</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Draw a bounding box to segment object.</source>
+        <translation>繪製邊界框以分割物件。</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>AI-Points Unavailable</source>
+        <translation>AI-Points 無法使用</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>%s does not support point prompts.
+Please select a different model or use AI-Box mode.</source>
+        <translation>%s 不支援點提示。
+請選擇其他模型或使用 AI-Box 模式。</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>File list is disabled when a label file is opened</source>
+        <translation>開啟標籤檔案時，檔案列表已停用</translation>
     </message>
 </context>
 </TS>

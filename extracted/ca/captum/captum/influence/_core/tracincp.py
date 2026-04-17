@@ -213,7 +213,6 @@ class TracInCPBase(DataInfluence):
     @abstractmethod
     def self_influence(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         inputs: Optional[Union[Tuple[Any, ...], DataLoader]] = None,
         show_progress: bool = False,
     ) -> Tensor:
@@ -274,7 +273,6 @@ class TracInCPBase(DataInfluence):
     @abstractmethod
     def _get_k_most_influential(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         inputs: Union[Tuple[Any, ...], DataLoader],
         k: int = 5,
         proponents: bool = True,
@@ -326,7 +324,6 @@ class TracInCPBase(DataInfluence):
     @abstractmethod
     def _influence(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         inputs: Union[Tuple[Any, ...], DataLoader],
         show_progress: bool = False,
     ) -> Tensor:
@@ -362,7 +359,6 @@ class TracInCPBase(DataInfluence):
     @abstractmethod
     def influence(  # type: ignore[override]
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         inputs: Union[Tuple[Any, ...], DataLoader],
         k: Optional[int] = None,
         proponents: bool = True,
@@ -404,6 +400,11 @@ class TracInCPBase(DataInfluence):
             proponents (bool, optional): Whether seeking proponents (`proponents=True`)
                     or opponents (`proponents=False`), if running in k-most influential
                     mode.
+                    Default: True
+            unpack_inputs (bool, optional): If True and `inputs` is a tuple or list,
+                    the elements are unpacked as separate positional arguments to the
+                    model. If False, `inputs` is wrapped in a tuple and passed as a
+                    single argument.
                     Default: True
             show_progress (bool, optional): For all modes, computation of results
                     requires "training dataset computations": computations for each
@@ -613,10 +614,9 @@ class TracInCP(TracInCPBase):
         if layers is not None:
             self.layer_modules = _set_active_parameters(model, layers)
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def influence(  # type: ignore[override]
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         inputs: Union[Tuple[Any, ...], DataLoader],
         k: Optional[int] = None,
         proponents: bool = True,
@@ -765,7 +765,6 @@ class TracInCP(TracInCPBase):
 
         inputs_batch = next(inputs_iter)
 
-        # pyre-fixme[2]: Parameter `inputs_batch` must have a type that does not contain `Any`. # noqa: E501
         def get_batch_contribution(inputs_batch: Tuple[Any, ...]) -> Tuple[Tensor, ...]:
             _input_jacobians = self._basic_computation_tracincp(
                 inputs_batch[0:-1],
@@ -815,10 +814,9 @@ class TracInCP(TracInCPBase):
             for all_inputs_batch_jacobian in zip(*all_inputs_batch_jacobians)
         )
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def compute_intermediate_quantities(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         inputs: Union[Tuple[Any, ...], DataLoader],
         aggregate: bool = False,
     ) -> Tensor:
@@ -878,7 +876,6 @@ class TracInCP(TracInCPBase):
         f_inputs: DataLoader = _format_inputs_dataset(inputs)
 
         def get_checkpoint_contribution(checkpoint: str) -> Tensor:
-            nonlocal f_inputs
             assert (
                 checkpoint is not None
             ), "None returned from `checkpoints`, cannot load."
@@ -916,9 +913,7 @@ class TracInCP(TracInCPBase):
 
     def _influence_batch_tracincp(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         input_checkpoint_jacobians: List[Tuple[Any, ...]],
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         train_batch: Tuple[Any, ...],
     ) -> Tensor:
         """
@@ -993,7 +988,6 @@ class TracInCP(TracInCPBase):
 
     def _influence(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         inputs: Union[Tuple[Any, ...], DataLoader],
         show_progress: bool = False,
         aggregate: bool = False,
@@ -1073,7 +1067,6 @@ class TracInCP(TracInCPBase):
 
     def _get_k_most_influential(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         inputs: Union[Tuple[Any, ...], DataLoader],
         k: int = 5,
         proponents: bool = True,
@@ -1164,7 +1157,6 @@ class TracInCP(TracInCPBase):
 
     def _self_influence_by_checkpoints(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         inputs: Union[Tuple[Any, ...], DataLoader],
         show_progress: bool = False,
     ) -> Tensor:
@@ -1246,7 +1238,6 @@ class TracInCP(TracInCPBase):
             )
 
         def get_checkpoint_contribution(checkpoint: str) -> Tensor:
-            nonlocal inputs_len
             # This function returns a 1D tensor representing the contribution to the
             # self influence score for the given checkpoint, for all batches in
             # `inputs`. The length of the 1D tensor is the total number of
@@ -1338,10 +1329,9 @@ class TracInCP(TracInCPBase):
 
         return batches_self_tracin_scores
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def self_influence(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         inputs: Optional[Union[Tuple[Any, ...], DataLoader]] = None,
         show_progress: bool = False,
         outer_loop_by_checkpoints: bool = False,
@@ -1417,7 +1407,6 @@ class TracInCP(TracInCPBase):
 
     def _basic_computation_tracincp(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         inputs: Tuple[Any, ...],
         targets: Optional[Tensor] = None,
         # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.

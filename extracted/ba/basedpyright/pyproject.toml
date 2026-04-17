@@ -21,7 +21,7 @@ requires-python = ">=3.8"
 dependencies = [
     "nodejs-wheel-binaries>=20.13.1",
 ]
-version = "1.39.0"
+version = "1.39.2"
 
 [project.urls]
 repository = "https://github.com/detachhead/basedpyright"
@@ -34,7 +34,7 @@ basedpyright-langserver = "basedpyright.langserver:main"
 dev = [
     "pylint>=3.0.0a7",
     "ruff>=0.2.2",
-    "nodejs-wheel>=20.13.1",
+    "nodejs-wheel>=24.14.1",
     "pdm-backend>=2.3.0",
     "typing_extensions>=4.12.2",
     "pytest>=8.2.2",
@@ -45,6 +45,7 @@ dev = [
     "mkdocs-macros-plugin>=1.2.0",
     "lsp-devtools>=0.2.3",
     "pygls<2",
+    "zizmor>=1.2.0",
 ]
 docstubs = [
     "docify>=1.0.0",

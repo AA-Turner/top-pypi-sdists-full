@@ -221,7 +221,6 @@ class AttackComparator(Generic[MetricResultType]):
 
     def _evaluate_batch(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         input_list: List[Any],
         # pyre-fixme[24]: Generic type `tuple` expects at least 1 type parameter.
         additional_forward_args: Optional[Tuple],
@@ -254,10 +253,9 @@ class AttackComparator(Generic[MetricResultType]):
                 batch_summarizers[key_list[i]].update(out_metric)
                 current_count += batch_size
 
-    @log_usage()
+    @log_usage(part_of_slo=False)
     def evaluate(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         inputs: Any,
         additional_forward_args: Optional[object] = None,
         perturbations_per_eval: int = 1,

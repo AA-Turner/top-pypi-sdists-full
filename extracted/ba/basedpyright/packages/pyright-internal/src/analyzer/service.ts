@@ -20,7 +20,7 @@ import {
 } from '../common/commandLineOptions';
 import { BasedConfigOptions, ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, LogLevel, NoErrorConsole, StandardConsole, log } from '../common/console';
-import { isString } from '../common/core';
+import { isPromise, isString } from '../common/core';
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction } from '../common/editAction';
 import { EditableProgram, ProgramView } from '../common/extensibility';
@@ -35,6 +35,7 @@ import { ServiceProvider } from '../common/serviceProvider';
 import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
+import { UriMap } from '../common/uri/uriMap';
 import {
     FileSpec,
     deduplicateFolders,
@@ -260,16 +261,35 @@ export class AnalyzerService {
         return service;
     }
 
-    runEditMode(callback: (e: EditableProgram) => void, token: CancellationToken) {
+    runEditMode(callback: (e: EditableProgram) => void, token: CancellationToken): FileEditAction[];
+    runEditMode(callback: (e: EditableProgram) => Promise<void>, token: CancellationToken): Promise<FileEditAction[]>;
+    runEditMode(
+        callback: (e: EditableProgram) => void | Promise<void>,
+        token: CancellationToken
+    ): FileEditAction[] | Promise<FileEditAction[]> {
         let edits: FileEditAction[] = [];
         this._backgroundAnalysisProgram.enterEditMode();
         try {
-            this._program.runEditMode(callback, token);
-        } finally {
-            edits = this._backgroundAnalysisProgram.exitEditMode();
-        }
+            const result = this._program.runEditMode(callback, token);
+            if (!isPromise(result)) {
+                edits = this._backgroundAnalysisProgram.exitEditMode();
+                return token.isCancellationRequested ? [] : edits;
+            }
 
-        return token.isCancellationRequested ? [] : edits;
+            return result.then(
+                (r) => {
+                    edits = this._backgroundAnalysisProgram.exitEditMode();
+                    return token.isCancellationRequested ? [] : edits;
+                },
+                (e) => {
+                    this._backgroundAnalysisProgram.exitEditMode();
+                    throw e;
+                }
+            );
+        } catch (e) {
+            this._backgroundAnalysisProgram.exitEditMode();
+            throw e;
+        }
     }
 
     dispose() {
@@ -339,8 +359,12 @@ export class AnalyzerService {
         // Open the file. Notebook cells are always tracked as they aren't 3rd party library files.
         // This is how it's worked in the past since each notebook used to have its own
         // workspace and the workspace include setting marked all cells as tracked.
+        // In check-only-open-files mode, treat all opened documents as tracked even if they
+        // are not owned by this workspace. This ensures in-memory edits to dependency files
+        // (e.g. files imported via extraPaths in another workspace) invalidate the program
+        // and are reflected immediately in language features like hover/rename.
         this._backgroundAnalysisProgram.setFileOpened(uri, version, contents, {
-            isTracked: this.isTracked(uri) || ipythonMode !== IPythonMode.None,
+            isTracked: this.isTracked(uri) || this.checkOnlyOpenFiles || ipythonMode !== IPythonMode.None,
             ipythonMode,
             chainedFileUri: chainedFileUri,
         });
@@ -364,7 +388,7 @@ export class AnalyzerService {
         changedRange?: ChangedRange
     ) {
         this._backgroundAnalysisProgram.updateOpenFileContents(uri, version, contents, {
-            isTracked: this.isTracked(uri),
+            isTracked: this.isTracked(uri) || this.checkOnlyOpenFiles || ipythonMode !== IPythonMode.None,
             ipythonMode,
             chainedFileUri: this.getChainedUri(uri),
             changedRange,
@@ -503,12 +527,12 @@ export class AnalyzerService {
         this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
-    invalidateAndForceReanalysis(reason: InvalidatedReason) {
+    invalidateAndForceReanalysis(reason: InvalidatedReason, refreshOptions?: RefreshOptions) {
         if (this.options.onInvalidated) {
             this.options.onInvalidated(reason);
         }
 
-        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(reason);
+        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(reason, refreshOptions);
     }
 
     // Forces the service to stop all analysis, discard all its caches,
@@ -837,7 +861,10 @@ export class AnalyzerService {
         const configOptions = new BasedConfigOptions(projectRoot);
 
         // If we found a config file, load it and apply its settings.
-        const configs = this._getExtendedConfigurations(configFilePath ?? pyprojectFilePath);
+        const configs = this._getExtendedConfigurations(
+            configFilePath ?? pyprojectFilePath,
+            !configFilePath ? pyprojectFilePath?.getDirectory() : undefined
+        );
         configOptions.initializeTypeCheckingMode('recommended');
         if (configs && configs.length > 0) {
             // Then we apply the config file settings. This can update the
@@ -851,8 +878,8 @@ export class AnalyzerService {
                 );
             }
 
-            // Set the configFileSource since we have a config file.
-            configOptions.configFileSource = configFilePath ?? pyprojectFilePath;
+            // Set the configFileSource since we have a config file (set by `_getExtendedConfigurations`)
+            configOptions.configFileSource = this._primaryConfigFileUri;
 
             // When not in language server mode, command line options override config file options.
             if (!commandLineOptions.fromLanguageServer) {
@@ -1219,7 +1246,12 @@ export class AnalyzerService {
 
     // Loads the config JSON object from the specified config file along with any
     // chained config files specified in the "extends" property (recursively).
-    private _getExtendedConfigurations(primaryConfigFileUri: Uri | undefined): ConfigFileContents[] | undefined {
+    // If pyprojectSearchDir is provided and the primary file is a pyproject.toml with no
+    // [tool.pyright] section, falls back to searching ancestor dirs from pyprojectSearchDir.
+    private _getExtendedConfigurations(
+        primaryConfigFileUri: Uri | undefined,
+        pyprojectSearchDir?: Uri
+    ): ConfigFileContents[] | undefined {
         this._primaryConfigFileUri = primaryConfigFileUri;
         this._extendedConfigFileUris = [];
 
@@ -1271,6 +1303,25 @@ export class AnalyzerService {
 
             curConfigFileUri = baseConfigUri;
         }
+
+        // If a pyproject.toml was found but had no [tool.pyright] section, fall back to
+        // searching ancestor directories as if that pyproject.toml didn't exist.
+        if (configJsonObjs.length === 0 && pyprojectSearchDir) {
+            const parentDir = pyprojectSearchDir.getDirectory();
+            if (!parentDir.equals(pyprojectSearchDir)) {
+                const fallback =
+                    findConfigFileHereOrUp(this.fs, parentDir) ?? findPyprojectTomlFileHereOrUp(this.fs, parentDir);
+                if (fallback) {
+                    return this._getExtendedConfigurations(
+                        fallback,
+                        // Provide the next pyprojectSearchDir, so we can continue
+                        // searching upward
+                        fallback.lastExtension.endsWith('.toml') ? fallback.getDirectory() : undefined
+                    );
+                }
+            }
+        }
+
         return configJsonObjs;
     }
 
@@ -1756,7 +1807,7 @@ export class AnalyzerService {
 
                     // If file doesn't exist, it is delete.
                     const isChange = event === 'change' && this.fs.existsSync(uri);
-                    this._scheduleLibraryAnalysis(isChange);
+                    this._scheduleLibraryAnalysis(isChange, uri);
                 });
             } catch {
                 (this._console as ConsoleInterface).error(
@@ -1810,7 +1861,7 @@ export class AnalyzerService {
         }
     }
 
-    private _scheduleLibraryAnalysis(isChange: boolean) {
+    private _scheduleLibraryAnalysis(isChange: boolean, changedFileUri?: Uri) {
         if (this._disposed) {
             // Already disposed.
             return;
@@ -1828,24 +1879,39 @@ export class AnalyzerService {
         // Add pending library files/folders changes.
         this._pendingLibraryChanges.changesOnly = this._pendingLibraryChanges.changesOnly && isChange;
 
+        // Track the specific file that changed only if all accumulated changes are content-only.
+        // If any change is structural (add/delete), clear the map since all files need updating.
+        if (this._pendingLibraryChanges.changesOnly && changedFileUri) {
+            if (!this._pendingLibraryChanges.changedFileUris) {
+                this._pendingLibraryChanges.changedFileUris = new UriMap<boolean>();
+            }
+            // Add to map (automatically handles duplicates via O(1) lookup)
+            this._pendingLibraryChanges.changedFileUris.set(changedFileUri, true);
+        } else if (!this._pendingLibraryChanges.changesOnly) {
+            // Clear the map if we've encountered a structural change
+            this._pendingLibraryChanges.changedFileUris = undefined;
+        }
+
         // Wait for a little while, since library changes
         // tend to happen in big batches when packages
         // are installed or uninstalled.
         this._libraryReanalysisTimer = setTimeout(() => {
             this._clearLibraryReanalysisTimer();
 
-            // Invalidate import resolver, mark all files dirty unconditionally,
+            // Invalidate import resolver, mark files dirty (specific files if available),
             // and reanalyze.
             this.invalidateAndForceReanalysis(
                 this._pendingLibraryChanges.changesOnly
                     ? InvalidatedReason.LibraryWatcherContentOnlyChanged
-                    : InvalidatedReason.LibraryWatcherChanged
+                    : InvalidatedReason.LibraryWatcherChanged,
+                this._pendingLibraryChanges
             );
             this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
 
             // No more pending changes.
             reanalysisTimeProvider!.libraryReanalysisStarted?.();
             this._pendingLibraryChanges.changesOnly = true;
+            this._pendingLibraryChanges.changedFileUris = undefined;
         }, backOffTimeInMS);
     }
 

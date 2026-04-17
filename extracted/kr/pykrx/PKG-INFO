@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pykrx
-Version: 1.2.6
+Version: 1.2.7
 Summary: KRX data scraping
 Author-email: Jonghun Yoo <jonghun.yoo@outlook.com>
 License: MIT
@@ -19,7 +19,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: requests>=2.32.0
 Requires-Dist: pandas<3.0,>=2.2.0
-Requires-Dist: numpy<2.0,>=1.24.0
+Requires-Dist: numpy>=2.0
 Requires-Dist: deprecated>=1.2.14
 Requires-Dist: multipledispatch>=1.0.0
 Requires-Dist: matplotlib>=3.8.0

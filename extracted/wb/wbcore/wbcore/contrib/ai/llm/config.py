@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from wbcore.workers import Queue
 
-from ..exceptions import APIStatusErrors, BadRequestErrors
+from ..exceptions import LLMCallError
 from .utils import run_llm
 
 logger = logging.getLogger("llm")
@@ -19,7 +19,7 @@ logger = logging.getLogger("llm")
 
 @shared_task(
     queue=Queue.BACKGROUND.value,
-    autoretry_for=tuple(APIStatusErrors),
+    autoretry_for=(LLMCallError,),
     retry_backoff=10,
     max_retries=5,  # retry 5 times maximum
     default_retry_delay=60,  # retry in 60s
@@ -39,14 +39,13 @@ def invoke_as_task(
     llm_kwargs: dict[str, Any] | None,
     result_parser: Callable | None,
 ):
+    if callable(query):
+        query = query(instance)
+    if not query:
+        query = dict()
+    if extra_query:
+        query.update(extra_query)
     try:
-        if callable(query):
-            query = query(instance)
-        if not query:
-            query = dict()
-        if extra_query:
-            query.update(extra_query)
-
         output_result, ai_msg = run_llm(
             prompt, output_model, chat_model, chat_model_name, max_tokens, query=query, extra_tools=tools, **llm_kwargs
         )
@@ -56,11 +55,9 @@ def invoke_as_task(
         elif output_result and isinstance(output_result, BaseModel):
             for field, value in output_result.model_dump().items():
                 setattr(instance, field, value)
-    except tuple(BadRequestErrors) as e:  # we silent bad request error because there is nothing we can do about it
-        logger.warning(str(e))
-    except tuple(APIStatusErrors) as e:  # for APIStatusError, we let celery retry it
+    except LLMCallError as e:
         raise e
-    except Exception as e:  # otherwise we log the error and silently fail
+    except Exception as e:
         logger.warning(str(e))
     return instance
 

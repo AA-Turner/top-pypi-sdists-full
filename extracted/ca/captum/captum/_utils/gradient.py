@@ -46,8 +46,8 @@ def apply_gradient_requirements(
      a tensor originally required grad is returned.
     """
     assert isinstance(
-        inputs, tuple
-    ), "Inputs should be wrapped in a tuple prior to preparing for gradients"
+        inputs, (tuple, list)
+    ), "Inputs should be wrapped in a tuple or list prior to preparing for gradients"
     grad_required = []
     for index, input in enumerate(inputs):
         assert isinstance(input, torch.Tensor), "Given input is not a torch.Tensor"
@@ -227,7 +227,6 @@ def _forward_layer_eval(
 def _forward_layer_distributed_eval(
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     forward_fn: Callable,
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     inputs: Any,
     layer: ModuleOrModuleList,
     target_ind: TargetType = None,
@@ -299,24 +298,28 @@ def _forward_layer_distributed_eval(
         # pyre-fixme[2]: Parameter must be annotated.
         def forward_hook(module, inp, out=None):
             eval_tsrs = inp if attribute_to_layer_input else out
-            is_eval_tuple = isinstance(eval_tsrs, tuple)
+            is_eval_tuple_or_list = isinstance(eval_tsrs, (tuple, list))
 
-            if not is_eval_tuple:
+            if not is_eval_tuple_or_list:
                 eval_tsrs = (eval_tsrs,)
             if require_layer_grads:
                 apply_gradient_requirements(eval_tsrs, warn=False)
             with lock:
-                nonlocal saved_layer
                 # Note that cloning behaviour of `eval_tsr` is different
                 # when `forward_hook_with_return` is set to True. This is because
                 # otherwise `backward()` on the last output layer won't execute.
                 if forward_hook_with_return:
                     saved_layer[original_module][eval_tsrs[0].device] = eval_tsrs
-                    eval_tsrs_to_return = tuple(
-                        eval_tsr.clone() for eval_tsr in eval_tsrs
-                    )
-                    if not is_eval_tuple:
-                        eval_tsrs_to_return = eval_tsrs_to_return[0]
+                    if not is_eval_tuple_or_list:
+                        eval_tsrs_to_return = eval_tsrs[0].clone()
+                    elif isinstance(eval_tsrs, list):
+                        eval_tsrs_to_return = [
+                            eval_tsr.clone() for eval_tsr in eval_tsrs
+                        ]
+                    else:
+                        eval_tsrs_to_return = tuple(
+                            eval_tsr.clone() for eval_tsr in eval_tsrs
+                        )
                     return eval_tsrs_to_return
                 else:
                     saved_layer[original_module][eval_tsrs[0].device] = tuple(
@@ -400,10 +403,8 @@ def _extract_device_ids(
     ):
         if (
             hasattr(forward_fn, "device_ids")
-            # pyre-fixme[33]: Given annotation cannot be `Any`.
             and cast(Any, forward_fn).device_ids is not None
         ):
-            # pyre-fixme[33]: Given annotation cannot be `Any`.
             device_ids = cast(Any, forward_fn).device_ids
         else:
             raise AssertionError(
@@ -554,6 +555,7 @@ def compute_layer_gradients_and_eval(
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     output_fn: Union[None, Callable] = None,
     grad_kwargs: Optional[Dict[str, Any]] = None,
+    offload_to_cpu: bool = False,
 ) -> Tuple[Tuple[Tensor, ...], Tuple[Tensor, ...], Tuple[Tensor, ...]]: ...
 
 
@@ -573,6 +575,7 @@ def compute_layer_gradients_and_eval(
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     output_fn: Union[None, Callable] = None,
     grad_kwargs: Optional[Dict[str, Any]] = None,
+    offload_to_cpu: bool = False,
 ) -> Tuple[List[Tuple[Tensor, ...]], List[Tuple[Tensor, ...]]]: ...
 
 
@@ -592,6 +595,7 @@ def compute_layer_gradients_and_eval(
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     output_fn: Union[None, Callable] = None,
     grad_kwargs: Optional[Dict[str, Any]] = None,
+    offload_to_cpu: bool = False,
 ) -> Tuple[Tuple[Tensor, ...], Tuple[Tensor, ...]]: ...
 
 
@@ -611,6 +615,7 @@ def compute_layer_gradients_and_eval(
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     output_fn: Union[None, Callable] = None,
     grad_kwargs: Optional[Dict[str, Any]] = None,
+    offload_to_cpu: bool = False,
 ) -> Union[
     Tuple[Tuple[Tensor, ...], Tuple[Tensor, ...]],
     Tuple[Tuple[Tensor, ...], Tuple[Tensor, ...], Tuple[Tensor, ...]],
@@ -668,6 +673,7 @@ def compute_layer_gradients_and_eval(
     with torch.autograd.set_grad_enabled(True):
         # saved_layer is a dictionary mapping device to a tuple of
         # layer evaluations on that device.
+        saved_layer: Dict[Module, Dict[device, Tuple[Tensor, ...]]]
         saved_layer, output = _forward_layer_distributed_eval(
             forward_fn,
             inputs,
@@ -683,8 +689,6 @@ def compute_layer_gradients_and_eval(
             " take gradient with respect to multiple outputs."
         )
 
-        # pyre-fixme[6]: For 2nd argument expected `Dict[Module, Dict[device,
-        #  typing.Tuple[Tensor, ...]]]` but got `Module`.
         device_ids = _extract_device_ids(forward_fn, saved_layer, device_ids)
 
         # Identifies correct device ordering based on device ids.
@@ -694,35 +698,44 @@ def compute_layer_gradients_and_eval(
             list(next(iter(saved_layer.values())).keys()), device_ids
         )
         all_outputs: Union[Tuple[Tensor, ...], List[Tuple[Tensor, ...]]]
+
+        def _get_layer_output(
+            single_layer: Module, device_id: device
+        ) -> Tuple[Tensor, ...]:
+            layer_out = saved_layer[single_layer][device_id]
+            if output_fn is not None:
+                layer_out = output_fn(layer_out)
+            # When offloading to CPU, move tensors before reduction (torch.cat)
+            # to avoid GPU OOM. This is safe because all_outputs is not used by
+            # torch.autograd.grad, which reads from saved_layer directly.
+            if offload_to_cpu:
+                layer_out = tuple(t.detach().cpu() for t in layer_out)
+            return layer_out
+
+        # pyre-fixme[9]: all_layers has type `List[Module]`; used as
+        #  `Union[List[Variable[ModuleOrModuleList <: [Module, List[Module]]]],
+        #  Variable[ModuleOrModuleList <: [Module, List[Module]]]]`.
+        all_layers: List[Module] = [layer] if isinstance(layer, Module) else layer
+
+        # Build all_outputs before backward pass. _get_layer_output detaches
+        # and moves tensors to CPU when offload_to_cpu is set, so these copies
+        # do not participate in the autograd graph and won't affect GPU memory
+        # during torch.autograd.grad (which reads from saved_layer directly).
         if isinstance(layer, Module):
             all_outputs = _reduce_list(
-                [
-                    (
-                        saved_layer[layer][device_id]
-                        if output_fn is None
-                        else output_fn(saved_layer[layer][device_id])
-                    )
-                    for device_id in key_list
-                ]
+                [_get_layer_output(layer, device_id) for device_id in key_list]
             )
         else:
             all_outputs = [
                 _reduce_list(
                     [
-                        (
-                            saved_layer[single_layer][device_id]
-                            if output_fn is None
-                            else output_fn(saved_layer[single_layer][device_id])
-                        )
+                        _get_layer_output(single_layer, device_id)
                         for device_id in key_list
                     ]
                 )
                 for single_layer in layer
             ]
-        # pyre-fixme[9]: all_layers has type `List[Module]`; used as
-        #  `Union[List[Variable[ModuleOrModuleList <: [Module, List[Module]]]],
-        #  Variable[ModuleOrModuleList <: [Module, List[Module]]]]`.
-        all_layers: List[Module] = [layer] if isinstance(layer, Module) else layer
+
         grad_inputs = tuple(
             layer_tensor
             for single_layer in all_layers
@@ -730,7 +743,6 @@ def compute_layer_gradients_and_eval(
             for layer_tensor in saved_layer[single_layer][device_id]
         )
         saved_grads = torch.autograd.grad(
-            # pyre-fixme[6]: For 1st argument expected `Tensor` but got `Module`.
             outputs=torch.unbind(output),
             inputs=grad_inputs,
             **grad_kwargs or {},
@@ -752,7 +764,13 @@ def compute_layer_gradients_and_eval(
                     output_fn(curr_saved_grad) for curr_saved_grad in curr_saved_grads
                 ]
 
-            all_grads.append(_reduce_list(curr_saved_grads))
+            reduced = _reduce_list(curr_saved_grads)
+            # When offloading to CPU, move gradient tensors after reduction
+            # (torch.cat) since reducing on GPU first is slightly more
+            # memory-efficient than moving individual tensors before reduction.
+            if offload_to_cpu:
+                reduced = tuple(t.cpu() for t in reduced)
+            all_grads.append(reduced)
 
         layer_grads: Union[Tuple[Tensor, ...], List[Tuple[Tensor, ...]]]
         layer_grads = all_grads
@@ -824,7 +842,6 @@ def _extract_parameters_from_layers(layer_modules):
 
 def _compute_jacobian_wrt_params(
     model: Module,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     inputs: Tuple[Any, ...],
     labels: Optional[Tensor] = None,
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
@@ -897,10 +914,8 @@ def _compute_jacobian_wrt_params(
         return tuple(grads)
 
 
-# pyre-fixme[3]: Return annotation cannot contain `Any`.
 def _compute_jacobian_wrt_params_with_sample_wise_trick(
     model: Module,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     inputs: Tuple[Any, ...],
     labels: Optional[Tensor] = None,
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.

@@ -495,7 +495,8 @@ def make_cookie(name, value, max_age=None, path='/', domain=None,
 
       .. code::
 
-          import webob.cookies
+          from contrast_vendor import webob
+          import contrast_vendor.webob.cookies
           webob.cookies.SAMESITE_VALIDATION = False
 
           ck = webob.cookies.make_cookie(cookie_name, value, samesite='future')

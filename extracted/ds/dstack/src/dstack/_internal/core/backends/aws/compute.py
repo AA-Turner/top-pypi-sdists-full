@@ -25,6 +25,7 @@ from dstack._internal.core.backends.base.compute import (
     ComputeWithAllOffersCached,
     ComputeWithCreateInstanceSupport,
     ComputeWithGatewaySupport,
+    ComputeWithInstanceVolumesSupport,
     ComputeWithMultinodeSupport,
     ComputeWithPlacementGroupSupport,
     ComputeWithPrivateGatewaySupport,
@@ -71,6 +72,7 @@ from dstack._internal.core.models.placement import (
 from dstack._internal.core.models.resources import Memory, Range
 from dstack._internal.core.models.runs import JobProvisioningData, Requirements
 from dstack._internal.core.models.volumes import (
+    AWSVolumeConfiguration,
     Volume,
     VolumeAttachmentData,
     VolumeProvisioningData,
@@ -88,6 +90,7 @@ class AWSGatewayBackendData(CoreModel):
     lb_arn: str
     tg_arn: str
     listener_arn: str
+    http_listener_arn: Optional[str] = None  # None for old gateways
 
 
 class AWSVolumeBackendData(CoreModel):
@@ -108,6 +111,7 @@ class AWSCompute(
     ComputeWithAllOffersCached,
     ComputeWithCreateInstanceSupport,
     ComputeWithPrivilegedSupport,
+    ComputeWithInstanceVolumesSupport,
     ComputeWithMultinodeSupport,
     ComputeWithReservationSupport,
     ComputeWithPlacementGroupSupport,
@@ -592,7 +596,7 @@ class AWSCompute(
         )
         logger.debug("Registered ALB target for gateway %s", configuration.instance_name)
 
-        logger.debug("Creating ALB Listener for gateway %s...", configuration.instance_name)
+        logger.debug("Creating HTTPS ALB listener for gateway %s...", configuration.instance_name)
         response = elb_client.create_listener(
             LoadBalancerArn=lb_arn,
             Protocol="HTTPS",
@@ -609,7 +613,26 @@ class AWSCompute(
             ],
         )
         listener_arn = response["Listeners"][0]["ListenerArn"]
-        logger.debug("Created ALB Listener for gateway %s", configuration.instance_name)
+        logger.debug("Created HTTPS ALB listener for gateway %s", configuration.instance_name)
+
+        logger.debug("Creating HTTP ALB listener for gateway %s...", configuration.instance_name)
+        response = elb_client.create_listener(
+            LoadBalancerArn=lb_arn,
+            Protocol="HTTP",
+            Port=80,
+            DefaultActions=[
+                {
+                    "Type": "redirect",
+                    "RedirectConfig": {
+                        "Protocol": "HTTPS",
+                        "Port": "443",
+                        "StatusCode": "HTTP_301",
+                    },
+                }
+            ],
+        )
+        http_listener_arn = response["Listeners"][0]["ListenerArn"]
+        logger.debug("Created HTTP ALB listener for gateway %s", configuration.instance_name)
 
         ip_address = _get_instance_ip(instance, configuration.public_ip)
         return GatewayProvisioningData(
@@ -621,6 +644,7 @@ class AWSCompute(
                 lb_arn=lb_arn,
                 tg_arn=tg_arn,
                 listener_arn=listener_arn,
+                http_listener_arn=http_listener_arn,
             ).json(),
         )
 
@@ -657,12 +681,15 @@ class AWSCompute(
         elb_client = self.session.client("elbv2", region_name=configuration.region)
 
         logger.debug("Deleting ALB resources for gateway %s...", configuration.instance_name)
+        if backend_data_parsed.http_listener_arn is not None:
+            elb_client.delete_listener(ListenerArn=backend_data_parsed.http_listener_arn)
         elb_client.delete_listener(ListenerArn=backend_data_parsed.listener_arn)
         elb_client.delete_target_group(TargetGroupArn=backend_data_parsed.tg_arn)
         elb_client.delete_load_balancer(LoadBalancerArn=backend_data_parsed.lb_arn)
         logger.debug("Deleted ALB resources for gateway %s", configuration.instance_name)
 
     def register_volume(self, volume: Volume) -> VolumeProvisioningData:
+        assert isinstance(volume.configuration, AWSVolumeConfiguration)
         ec2_client = self.session.client("ec2", region_name=volume.configuration.region)
 
         logger.debug("Requesting EBS volume %s", volume.configuration.volume_id)
@@ -690,6 +717,7 @@ class AWSCompute(
         )
 
     def create_volume(self, volume: Volume) -> VolumeProvisioningData:
+        assert isinstance(volume.configuration, AWSVolumeConfiguration)
         ec2_client = self.session.client("ec2", region_name=volume.configuration.region)
 
         volume_name = generate_unique_volume_name(volume)
@@ -748,6 +776,7 @@ class AWSCompute(
         )
 
     def delete_volume(self, volume: Volume):
+        assert isinstance(volume.configuration, AWSVolumeConfiguration)
         ec2_client = self.session.client("ec2", region_name=volume.configuration.region)
 
         logger.debug("Deleting EBS volume %s", volume.configuration.name)
@@ -763,6 +792,7 @@ class AWSCompute(
     def attach_volume(
         self, volume: Volume, provisioning_data: JobProvisioningData
     ) -> VolumeAttachmentData:
+        assert isinstance(volume.configuration, AWSVolumeConfiguration)
         ec2_client = self.session.client("ec2", region_name=volume.configuration.region)
 
         instance_id = provisioning_data.instance_id
@@ -801,6 +831,7 @@ class AWSCompute(
     def detach_volume(
         self, volume: Volume, provisioning_data: JobProvisioningData, force: bool = False
     ):
+        assert isinstance(volume.configuration, AWSVolumeConfiguration)
         ec2_client = self.session.client("ec2", region_name=volume.configuration.region)
 
         instance_id = provisioning_data.instance_id
@@ -823,6 +854,7 @@ class AWSCompute(
         logger.debug("Detached EBS volume %s from instance %s", volume.volume_id, instance_id)
 
     def is_volume_detached(self, volume: Volume, provisioning_data: JobProvisioningData) -> bool:
+        assert isinstance(volume.configuration, AWSVolumeConfiguration)
         ec2_client = self.session.client("ec2", region_name=volume.configuration.region)
 
         instance_id = provisioning_data.instance_id
@@ -1104,23 +1136,31 @@ def _get_vpc_id_subnets_ids_by_vpc_name_or_error(
     )
 
 
+_ON_DEMAND_QUOTA_CODES = {
+    "L-1216C47A": "Standard/OnDemand",
+    "L-417A185B": "P/OnDemand",
+    "L-DB2E81BA": "G/OnDemand",
+}
+
+
 def _get_regions_to_quotas(
     session: boto3.Session, regions: List[str]
 ) -> Dict[str, Dict[str, int]]:
-    def get_region_quotas(client: botocore.client.BaseClient) -> Dict[str, int]:
+    def get_region_quotas(region_name: str, client: botocore.client.BaseClient) -> Dict[str, int]:
         region_quotas = {}
-        try:
-            for page in client.get_paginator("list_service_quotas").paginate(ServiceCode="ec2"):
-                for q in page["Quotas"]:
-                    if "On-Demand" in q["QuotaName"]:
-                        region_quotas[q["UsageMetric"]["MetricDimensions"]["Class"]] = q["Value"]
-        except botocore.exceptions.ClientError as e:
-            if len(e.args) > 0 and "TooManyRequestsException" in e.args[0]:
-                logger.warning(
-                    "Failed to get quotas due to rate limits. Quotas won't be accounted for."
-                )
-            else:
-                logger.exception(e)
+        for quota_code, quota_class in _ON_DEMAND_QUOTA_CODES.items():
+            try:
+                resp = client.get_service_quota(ServiceCode="ec2", QuotaCode=quota_code)
+                region_quotas[quota_class] = resp["Quota"]["Value"]
+            except botocore.exceptions.ClientError as e:
+                if "TooManyRequestsException" in str(e):
+                    logger.warning(
+                        "Failed to get quota %s in %s due to rate limits",
+                        quota_code,
+                        region_name,
+                    )
+                else:
+                    logger.exception(e)
         return region_quotas
 
     regions_to_quotas = {}
@@ -1128,7 +1168,7 @@ def _get_regions_to_quotas(
         future_to_region = {}
         for region in regions:
             future = executor.submit(
-                get_region_quotas, session.client("service-quotas", region_name=region)
+                get_region_quotas, region, session.client("service-quotas", region_name=region)
             )
             future_to_region[future] = region
         for future in as_completed(future_to_region):
@@ -1177,6 +1217,7 @@ def _supported_instances(offer: InstanceOffer) -> bool:
         "p4d.",
         "p4de.",
         "p3.",
+        "g7e.",
         "g6.",
         "g6e.",
         "gr6.",

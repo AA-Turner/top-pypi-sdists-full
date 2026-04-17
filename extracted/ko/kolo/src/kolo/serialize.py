@@ -3,6 +3,7 @@ from __future__ import annotations
 import gzip
 import logging
 import os
+import threading
 import types
 from datetime import date, datetime, time
 from decimal import Decimal
@@ -55,6 +56,7 @@ SERIALIZE_PATH = os.path.normpath("kolo/serialize.py")
 # TODO: Make these threadlocals when we support multithreading
 QUERYSET_PATCHED = False
 IN_KOLO_PROFILER = False
+_PACKERS = threading.local()
 
 # Lazy-loaded Django QuerySet (to avoid importing Django at module load time)
 # This dramatically speeds up subprocess startup for emit --auto
@@ -166,8 +168,29 @@ def msgpack_decode_hook(code, data):
     raise ValueError(f"Unknown msgpack extension. Code: {code}")
 
 
+def _pack_with_msgpack(name: str, default, data):
+    stack_name = f"{name}_packers"
+    depth_name = f"{name}_depth"
+    packers = getattr(_PACKERS, stack_name, None)
+    if packers is None:
+        packers = []
+        setattr(_PACKERS, stack_name, packers)
+
+    depth = getattr(_PACKERS, depth_name, 0)
+    if depth == len(packers):
+        packers.append(
+            msgpack.Packer(default=default, strict_types=True, autoreset=True)
+        )
+
+    setattr(_PACKERS, depth_name, depth + 1)
+    try:
+        return packers[depth].pack(data)
+    finally:
+        setattr(_PACKERS, depth_name, depth)
+
+
 def _dump_msgpack(data):
-    return msgpack.packb(data, default=msgpack_encode_hook, strict_types=True)
+    return _pack_with_msgpack("default", msgpack_encode_hook, data)
 
 
 def dump_msgpack(data):
@@ -214,9 +237,7 @@ def msgpack_encode_hook_lightweight_repr(obj):
 
 
 def dump_msgpack_lightweight_repr(data):
-    return msgpack.packb(
-        data, default=msgpack_encode_hook_lightweight_repr, strict_types=True
-    )
+    return _pack_with_msgpack("lightweight", msgpack_encode_hook_lightweight_repr, data)
 
 
 def load_msgpack(data):

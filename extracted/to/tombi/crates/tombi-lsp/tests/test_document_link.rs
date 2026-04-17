@@ -91,7 +91,7 @@ mod document_link_tests {
                 {
                     path: project_root_path().join("crates/tombi-lsp/Cargo.toml"),
                     range: 4:18..4:34,
-                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::CargoToml,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::PathFile,
                 }
             ]));
         );
@@ -181,7 +181,7 @@ mod document_link_tests {
                 {
                     path: project_root_path().join("crates/tombi-lsp/Cargo.toml"),
                     range: 4:18..4:40,
-                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::CargoToml,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::PathFile,
                 }
             ]));
         );
@@ -278,6 +278,89 @@ mod document_link_tests {
 
         test_document_link!(
             #[tokio::test]
+            async fn cargo_workspace_local_dependency_ignores_cargo_toml_setting(
+                r#"
+                [dependencies]
+                member = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-workspace-local-cargo-toml-disabled/consumer/Cargo.toml"
+                )),
+            ) -> Ok(Some(vec![
+                {
+                    path: project_root_path().join(
+                        "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-workspace-local-cargo-toml-disabled/Cargo.toml"
+                    ),
+                    range: 1:11..1:27,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::WorkspaceCargoToml,
+                }
+            ]));
+        );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn cargo_workspace_local_dependency_links_disabled_by_workspace_setting(
+                r#"
+                [dependencies]
+                member = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-workspace-disabled/consumer/Cargo.toml"
+                )),
+            ) -> Ok(Some(vec![
+                {
+                    path: project_root_path().join(
+                        "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-workspace-disabled/member/Cargo.toml"
+                    ),
+                    range: 1:0..1:6,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::CargoToml,
+                }
+            ]));
+        );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn cargo_workspace_renamed_local_dependency_links_to_member(
+                r#"
+                [dependencies]
+                sev = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-workspace-renamed/consumer/Cargo.toml"
+                )),
+            ) -> Ok(Some(vec![
+                {
+                    path: project_root_path().join(
+                        "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-workspace-renamed/provider/Cargo.toml"
+                    ),
+                    range: 1:0..1:3,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::CargoToml,
+                },
+                {
+                    path: project_root_path().join(
+                        "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-workspace-renamed/Cargo.toml"
+                    ),
+                    range: 1:8..1:24,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::WorkspaceCargoToml,
+                }
+            ]));
+        );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn cargo_workspace_path_dependency_has_no_links_when_path_disabled(
+                r#"
+                [workspace.dependencies]
+                member = { path = "member" }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-path-disabled/Cargo.toml"
+                )),
+            ) -> Ok(None);
+        );
+
+        test_document_link!(
+            #[tokio::test]
             async fn cargo_package_workspace(
                 r#"
                 [package]
@@ -326,7 +409,7 @@ mod document_link_tests {
                 {
                     path: project_root_path().join("crates/tombi-ast/Cargo.toml"),
                     range: 12:22..12:38,
-                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::CargoToml,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::PathFile,
                 },
                 {
                     path: project_root_path().join("crates/tombi-accessor/Cargo.toml"),
@@ -349,7 +432,7 @@ mod document_link_tests {
                 {
                     path: project_root_path().join("crates/tombi-glob/src/bin/profile.rs"),
                     range: 2:8..2:26,
-                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::RustSource,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::PathFile,
                 }
             ]));
         );
@@ -414,7 +497,7 @@ mod document_link_tests {
                 {
                     path: project_root_path().join("crates/tombi-ast/Cargo.toml"),
                     range: 4:22..4:34,
-                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::CargoToml,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::PathFile,
                 }
             ]));
         );
@@ -545,7 +628,7 @@ mod document_link_tests {
                 {
                     path: cargo_feature_navigation_fixture_path().join("workspace/provider/Cargo.toml"),
                     range: 5:21..5:32,
-                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::CargoToml,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::PathFile,
                 },
                 {
                     path: cargo_feature_navigation_fixture_path().join("workspace/provider/Cargo.toml"),
@@ -553,6 +636,130 @@ mod document_link_tests {
                     tooltip: tombi_extension_cargo::DocumentLinkToolTip::CargoToml,
                 }
             ]));
+        );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn cargo_path_dependency_hides_cargo_toml_links_when_cargo_toml_disabled(
+                r#"
+                [workspace.dependencies]
+                member = { path = "member" }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-cargo-toml-disabled/Cargo.toml"
+                )),
+            ) -> Ok(Some(vec![
+                {
+                    path: project_root_path().join(
+                        "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-cargo-toml-disabled/member/Cargo.toml"
+                    ),
+                    range: 1:19..1:25,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::PathFile,
+                }
+            ]));
+        );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn cargo_path_dependency_links_disabled_by_path_setting(
+                r#"
+                [workspace.dependencies]
+                member = { path = "member" }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-path-disabled/Cargo.toml"
+                )),
+            ) -> Ok(None);
+        );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn cargo_path_dependency_links_ignore_crates_io_setting(
+                r#"
+                [workspace.dependencies]
+                member = { path = "member" }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-crates-io-disabled/Cargo.toml"
+                )),
+            ) -> Ok(Some(vec![
+                {
+                    path: project_root_path().join(
+                        "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-crates-io-disabled/member/Cargo.toml"
+                    ),
+                    range: 1:0..1:6,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::CargoToml,
+                },
+                {
+                    path: project_root_path().join(
+                        "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-crates-io-disabled/member/Cargo.toml"
+                    ),
+                    range: 1:19..1:25,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::PathFile,
+                }
+            ]));
+        );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn cargo_rust_source_links_ignore_cargo_toml_setting(
+                r#"
+                [package]
+                name = "app"
+                version = "0.1.0"
+
+                [[bin]]
+                name = "tool"
+                path = "src/bin/tool.rs"
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-cargo-toml-disabled-bin/Cargo.toml"
+                )),
+            ) -> Ok(Some(vec![
+                {
+                    path: project_root_path().join(
+                        "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-cargo-toml-disabled-bin/src/bin/tool.rs"
+                    ),
+                    range: 6:8..6:23,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::PathFile,
+                }
+            ]));
+        );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn cargo_git_dependency_links_disabled_by_git_setting(
+                r#"
+                [package]
+                name = "test"
+                version = "0.1.0"
+
+                [dependencies]
+                serde = { git = "https://github.com/serde-rs/serde" }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-git-disabled/Cargo.toml"
+                )),
+            ) -> Ok(Some(vec![
+                {
+                    url: "https://crates.io/crates/serde",
+                    range: 5:0..5:5,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::CrateIo,
+                }
+            ]));
+        );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn cargo_default_features_produce_no_document_links(
+                r#"
+                [workspace.dependencies]
+                member = { path = "member" }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-document-link-default/Cargo.toml"
+                )),
+            ) -> Ok(None);
         );
     }
 
@@ -659,6 +866,58 @@ mod document_link_tests {
 
         test_document_link!(
             #[tokio::test]
+            async fn pyproject_workspace_member_links_ignore_pypi_setting(
+                r#"
+                [project]
+                dependencies = ["member", "anyio>=4.0"]
+
+                [tool.uv.workspace]
+                members = ["member"]
+
+                [tool.uv.sources]
+                member = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/pyproject-document-link-pypi-disabled/pyproject.toml"
+                )),
+            ) -> Ok(Some(vec![
+                {
+                    path: project_root_path().join(
+                        "crates/tombi-lsp/tests/fixtures/extensions/pyproject-document-link-pypi-disabled/member/pyproject.toml"
+                    ),
+                    range: 4:12..4:18,
+                    tooltip: "Open pyproject.toml",
+                }
+            ]));
+        );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn pyproject_local_dependency_links_disabled_by_pyproject_setting(
+                r#"
+                [project]
+                dependencies = ["member", "anyio>=4.0"]
+
+                [tool.uv.workspace]
+                members = ["member"]
+
+                [tool.uv.sources]
+                member = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/pyproject-document-link-pyproject-disabled/pyproject.toml"
+                )),
+            ) -> Ok(Some(vec![
+                {
+                    url: "https://pypi.org/project/anyio/",
+                    range: 1:27..1:37,
+                    tooltip: "Open PyPI Package",
+                }
+            ]));
+        );
+
+        test_document_link!(
+            #[tokio::test]
             async fn pyproject_tool_uv_dependency_lists(
                 r#"
                 [tool.uv]
@@ -690,6 +949,48 @@ mod document_link_tests {
                     tooltip: "Open PyPI Package",
                 }
             ]));
+        );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn pyproject_default_features_disable_pyproject_toml_links(
+                r#"
+                [project]
+                dependencies = ["member", "anyio>=4.0"]
+
+                [tool.uv.workspace]
+                members = ["member"]
+
+                [tool.uv.sources]
+                member = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/pyproject-document-link-default/pyproject.toml"
+                )),
+            ) -> Ok(Some(vec![
+                {
+                    url: "https://pypi.org/project/anyio/",
+                    range: 1:27..1:37,
+                    tooltip: "Open PyPI Package",
+                }
+            ]));
+        );
+    }
+
+    mod tombi_schema_default {
+        use super::*;
+
+        test_document_link!(
+            #[tokio::test]
+            async fn tombi_default_features_produce_no_path_document_links(
+                r#"
+                [schema]
+                catalog = { path = "https://www.schemastore.org/api/json/catalog.json" }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/tombi-document-link-default/tombi.toml"
+                )),
+            ) -> Ok(None);
         );
     }
 }

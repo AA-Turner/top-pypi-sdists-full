@@ -64,7 +64,7 @@ class ApiClient(object):
             self.default_headers[header_name] = header_value
         self.cookie = cookie
         # Set default User-Agent.
-        self.user_agent = 'volcstack-python-sdk/5.0.23'
+        self.user_agent = 'volcstack-python-sdk/5.0.24'
         self.client_side_validation = configuration.client_side_validation
 
         self.interceptor_chain = InterceptorChain()
@@ -144,7 +144,7 @@ class ApiClient(object):
                     _request_timeout=interceptor_context.request.request_timeout)
                 self.last_response = response_data
             except Exception as e:
-                sdk_core_logger.warning("request error: {}".format(e))
+                sdk_core_logger.debug("request error: {}".format(e))
                 retry_err = e
                 if retry_count >= num_max_retries:
                     raise e

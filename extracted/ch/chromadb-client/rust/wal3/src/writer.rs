@@ -732,6 +732,33 @@ impl<P: FragmentPointer, FP: FragmentPublisher<FragmentPointer = P>, MP: Manifes
         Ok(log_position)
     }
 
+    /// Perform phase 0 of garbage collection.
+    ///
+    /// Transition any existing gc/GARBAGE state back to empty without deleting queued garbage.
+    ///
+    #[tracing::instrument(skip(self, _options))]
+    pub(crate) async fn garbage_collect_phase0_reset_garbage(
+        &self,
+        _options: &GarbageCollectionOptions,
+    ) -> Result<(), Error> {
+        let Some((garbage, e_tag)) =
+            Garbage::load(&self.options.throttle_manifest, &self.batch_manager).await?
+        else {
+            return Ok(());
+        };
+        if garbage.is_empty() {
+            return Ok(());
+        }
+        let Some(e_tag) = e_tag.as_ref() else {
+            return Err(Error::GarbageCollection(
+                "loaded garbage without e_tag".to_string(),
+            ));
+        };
+        self.batch_manager
+            .reset_garbage(&self.options.throttle_manifest, e_tag)
+            .await
+    }
+
     /// Perform phase 1 of garbage collection.
     ///
     /// Pre-condition:  manifest/MANIFEST exists.
@@ -1556,11 +1583,43 @@ mod tests {
 
     struct TestFragmentConsumer;
 
+    struct TestFragmentUploader;
+
+    #[async_trait::async_trait]
+    impl crate::FragmentUploader<(FragmentSeqNo, LogPosition)> for TestFragmentUploader {
+        async fn upload_parquet(
+            &self,
+            _pointer: &(FragmentSeqNo, LogPosition),
+            _messages: Vec<Vec<u8>>,
+            _cmek: Option<Cmek>,
+            _epoch_micros: u64,
+        ) -> Result<crate::interfaces::UploadResult, Error> {
+            unreachable!("upload_parquet is not used in this test")
+        }
+
+        async fn preferred_storage(&self) -> chroma_storage::Storage {
+            unreachable!("preferred_storage is not used in this test")
+        }
+
+        async fn preferred_prefix(&self) -> String {
+            unreachable!("preferred_prefix is not used in this test")
+        }
+
+        async fn preferred_storage_wrapper(&self) -> &crate::StorageWrapper {
+            unreachable!("preferred_storage_wrapper is not used in this test")
+        }
+
+        async fn storages(&self) -> &[crate::StorageWrapper] {
+            unreachable!("storages is not used in this test")
+        }
+    }
+
     #[async_trait::async_trait]
     impl crate::FragmentManagerFactory for TestFragmentFactory {
         type FragmentPointer = (FragmentSeqNo, LogPosition);
         type Publisher = TestFragmentPublisher;
         type Consumer = TestFragmentConsumer;
+        type Uploader = TestFragmentUploader;
 
         async fn make_publisher(&self) -> Result<Self::Publisher, Error> {
             Ok(TestFragmentPublisher)
@@ -1570,8 +1629,16 @@ mod tests {
             Ok(TestFragmentConsumer)
         }
 
+        async fn make_fragment_uploader(&self) -> Result<Self::Uploader, Error> {
+            Ok(TestFragmentUploader)
+        }
+
         async fn preferred_storage(&self) -> chroma_storage::Storage {
             unreachable!("preferred_storage is not used in this test")
+        }
+
+        fn write_options(&self) -> LogWriterOptions {
+            LogWriterOptions::default()
         }
     }
 

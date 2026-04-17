@@ -351,7 +351,8 @@ FF_CRONS_ENABLED = env("FF_CRONS_ENABLED", cast=bool, default=True)
 FF_LOG_DROPPED_EVENTS = env("FF_LOG_DROPPED_EVENTS", cast=bool, default=False)
 FF_LOG_QUERY_AND_PARAMS = env("FF_LOG_QUERY_AND_PARAMS", cast=bool, default=False)
 # Not in public docs: internal feature flag
-FF_USE_REDIS_QUEUE = env("FF_USE_REDIS_QUEUE", cast=bool, default=False)
+FF_USE_REDIS_QUEUE = env("FF_USE_REDIS_QUEUE", cast=bool, default=True)
+
 
 # Internal flag intended for testing only
 CRON_SCHEDULER_SLEEP_TIME = env("CRON_SCHEDULER_SLEEP_TIME", cast=int, default=5)

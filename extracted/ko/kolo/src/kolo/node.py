@@ -396,6 +396,32 @@ class LogMessageNode(ProcessedNode):
         return f"Log: {msg_str}"
 
 
+class SubtreeFlushedNode(ProcessedNode):
+    """Node representing a flushed subtree placeholder."""
+
+    def _extract_timestamps(
+        self, tree_node: ExecutionTreeNode
+    ) -> tuple[Optional[float], Optional[float]]:
+        timestamp = self.data.get("timestamp")
+        return timestamp, timestamp
+
+    def compact_type(self) -> str:
+        return "sf"
+
+    def return_value(self) -> str:
+        return ""
+
+    def compact_tree_line(self) -> str:
+        co_name = self.data.get("co_name", "<unknown>")
+        flushed_trace_id = self.data.get("flushed_trace_id", "<unknown>")
+        segment_count = self.data.get("flushed_segment_count")
+        if segment_count is not None and segment_count > 1:
+            detail = f"{co_name} +{segment_count - 1} more"
+        else:
+            detail = co_name
+        return f"[flushed segment] {detail} -> {flushed_trace_id}"
+
+
 def make_processed_node(
     tree_node: ExecutionTreeNode, parent: Optional[ProcessedNode], trace_id: str
 ) -> ProcessedNode:
@@ -418,5 +444,7 @@ def make_processed_node(
         return DjangoTemplateNode(tree_node, parent, trace_id)
     elif node_type == "log_message":
         return LogMessageNode(tree_node, parent, trace_id)
+    elif node_type == "subtree_flushed":
+        return SubtreeFlushedNode(tree_node, parent, trace_id)
     else:
         raise ValueError(f"Unknown node type: {node_type}")

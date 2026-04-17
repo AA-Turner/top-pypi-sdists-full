@@ -14,7 +14,6 @@ import pyarrow as pa
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.missing_value import MissingValueStrategy
 from chalk.features._encoding.primitive import TPrimitive
-from chalk.features._encoding.rich import structure_primitive_to_rich
 from chalk.utils.json import TJSON
 
 from ._base import (
@@ -104,7 +103,7 @@ class BoolFeatureConverter(
         return pb.ScalarValue(bool_value=prim)
 
     def from_primitive_to_rich(self, value: bool) -> bool:
-        return structure_primitive_to_rich(value, bool)
+        return _coerce_bool(value) if value is not None else cast(bool, None)
 
     def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
         if pb_value.HasField("null_value"):

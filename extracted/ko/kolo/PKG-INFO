@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kolo
-Version: 3.0.0
+Version: 3.1.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
@@ -46,7 +46,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Changelog, https://docs.kolo.app/en/latest/python-changelog.html
 Project-URL: Homepage, https://kolo.app
-Project-URL: Repository, https://github.com/kolofordjango/kolo
+Project-URL: Repository, https://github.com/koloai/kolo
 
 # Kolo
 

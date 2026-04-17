@@ -21,7 +21,7 @@ def pylint(session: nox.Session) -> None:
     Run pylint.
     """
 
-    session.install("pylint~=3.3.0")
+    session.install("pylint~=4.0.0")
     session.install("-e", ".[dev]")
     session.run("pylint", "src", *session.posargs)
 
@@ -89,3 +89,18 @@ def zipapp(session: nox.Session) -> None:
         session.error(
             f"Expected valid result, was unable to run zipapp. Produced: {result}"
         )
+
+
+@nox.session(default=False)
+def generate_aliases(session: nox.Session) -> None:
+    """
+    Generate the particle.literals and pdgid.literals modules with all aliases for particles in the "database" CSV file.
+    """
+
+    session.install("-e.", "cogapp")
+    session.run(
+        "cog",
+        "-rP",
+        "src/particle/pdgid/literals.py",
+        "src/particle/particle/literals.py",
+    )

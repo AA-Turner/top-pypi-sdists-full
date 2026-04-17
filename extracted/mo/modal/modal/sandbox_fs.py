@@ -11,9 +11,13 @@ from typing import Union, cast
 from ._utils.async_utils import synchronize_api
 from ._utils.logger import logger
 from ._utils.sandbox_fs_utils import (
+    make_make_directory_command,
     make_read_file_command,
+    make_remove_command,
     make_write_file_command,
+    raise_make_directory_error,
     raise_read_file_error,
+    raise_remove_error,
     raise_write_file_error,
     translate_exec_errors,
     validate_absolute_remote_path,
@@ -59,7 +63,7 @@ class _SandboxFilesystem:
         **Usage**
 
         ```python fixture:sandbox
-        sandbox.filesystem.write_bytes(b"Hello, world!\n", "/tmp/hello.bin")
+        sandbox.filesystem.write_bytes(b"Hello, world!\\n", "/tmp/hello.bin")
         contents = sandbox.filesystem.read_bytes("/tmp/hello.bin")
         print(contents.decode("utf-8"))
         ```
@@ -95,7 +99,7 @@ class _SandboxFilesystem:
         **Usage**
 
         ```python fixture:sandbox
-        sandbox.filesystem.write_text("Hello, world!\n", "/tmp/hello.txt")
+        sandbox.filesystem.write_text("Hello, world!\\n", "/tmp/hello.txt")
         contents = sandbox.filesystem.read_text("/tmp/hello.txt")
         print(contents)
         ```
@@ -138,7 +142,7 @@ class _SandboxFilesystem:
         **Usage**
 
         ```python fixture:sandbox
-        sandbox.filesystem.write_text("Hello, world!\n", "/tmp/hello.txt")
+        sandbox.filesystem.write_text("Hello, world!\\n", "/tmp/hello.txt")
         sandbox.filesystem.copy_to_local("/tmp/hello.txt", "/tmp/local-hello.txt")
         ```
         """
@@ -199,7 +203,7 @@ class _SandboxFilesystem:
         **Usage**
 
         ```python fixture:sandbox
-        sandbox.filesystem.write_bytes(b"Hello, world!\n", "/tmp/hello.bin")
+        sandbox.filesystem.write_bytes(b"Hello, world!\\n", "/tmp/hello.bin")
         ```
         """
         validate_absolute_remote_path(remote_path, "write_bytes")
@@ -239,7 +243,7 @@ class _SandboxFilesystem:
         **Usage**
 
         ```python fixture:sandbox
-        sandbox.filesystem.write_text("Hello, world!\n", "/tmp/hello.txt")
+        sandbox.filesystem.write_text("Hello, world!\\n", "/tmp/hello.txt")
         ```
         """
         validate_absolute_remote_path(remote_path, "write_text")
@@ -271,7 +275,7 @@ class _SandboxFilesystem:
         from pathlib import Path
 
         local_path = Path(tempfile.mktemp())
-        local_path.write_text("Hello, world!\n")
+        local_path.write_text("Hello, world!\\n")
         sandbox.filesystem.copy_from_local(local_path, "/tmp/hello.txt")
         ```
         """
@@ -302,6 +306,87 @@ class _SandboxFilesystem:
 
         dur_s = max(time.monotonic() - t0, 0.001)
         _log_throughput(f"copy_from_local {local_path} -> {remote_path}", total_bytes, dur_s)
+
+    async def remove(self, remote_path: str, *, recursive: bool = False) -> None:
+        """Remove a file or directory in the Sandbox.
+
+        `remote_path` must be an absolute path in the Sandbox.
+
+        When `remote_path` is a directory and `recursive` is `False` (the
+        default), removes it only if it is empty. When `recursive` is `True`,
+        removes the directory and all its contents.
+
+        Recursive directory removal is not supported on all mounts.
+        In particular, `CloudBucketMount` does not support it. An
+        `InvalidError` is raised in that case.
+
+        **Raises**
+
+        - `SandboxFilesystemNotFoundError`: the path does not exist.
+        - `SandboxFilesystemDirectoryNotEmptyError`: `recursive` is `False` and the directory is not empty.
+        - `SandboxFilesystemPermissionError`: removal is not permitted.
+        - `InvalidError`: the operation is not supported by the mount.
+        - `SandboxFilesystemError`: the command fails for any other reason.
+
+        **Usage**
+
+        To remove a file:
+
+        ```python fixture:sandbox
+        sandbox.filesystem.write_bytes(b"Hello, world!\\n", "/tmp/hello.bin")
+        sandbox.filesystem.remove("/tmp/hello.bin")
+        ```
+
+        To remove a directory and all its contents:
+
+        ```python fixture:sandbox
+        sandbox.filesystem.make_directory("/tmp/mydir/subdir")
+        sandbox.filesystem.remove("/tmp/mydir", recursive=True)
+        ```
+        """
+        validate_absolute_remote_path(remote_path, "remove")
+
+        with translate_exec_errors("remove", remote_path):
+            process = await self._sandbox.exec(_SANDBOX_FS_TOOLS_PATH, make_remove_command(remote_path, recursive))
+            stderr, returncode = await asyncio.gather(process.stderr.read(), process.wait())
+
+        if returncode != 0:
+            raise_remove_error(returncode, stderr, remote_path)
+
+    async def make_directory(self, remote_path: str, *, create_parents: bool = True) -> None:
+        """Create a new directory in the Sandbox.
+
+        `remote_path` must be an absolute path in the Sandbox.
+
+        When `create_parents` is `True` (the default), any missing parent directories are created and the call is
+        idempotent (succeeds silently if the directory already exists). When `create_parents` is `False`, the
+        immediate parent directory must already exist and the path must not already exist.
+
+        **Raises**
+
+        - `SandboxFilesystemNotFoundError`: the parent directory does not exist and `create_parents` is `False`.
+        - `SandboxFilesystemPathAlreadyExistsError`: the path already exists.
+        - `SandboxFilesystemNotADirectoryError`: a path component is not a directory.
+        - `SandboxFilesystemPermissionError`: creation is not permitted.
+        - `InvalidError`: the operation is not supported by the mount.
+        - `SandboxFilesystemError`: the command fails for any other reason.
+
+        **Usage**
+
+        ```python fixture:sandbox
+        sandbox.filesystem.make_directory("/tmp/a/b/c")
+        ```
+        """
+        validate_absolute_remote_path(remote_path, "make_directory")
+
+        with translate_exec_errors("make_directory", remote_path):
+            process = await self._sandbox.exec(
+                _SANDBOX_FS_TOOLS_PATH, make_make_directory_command(remote_path, create_parents)
+            )
+            stderr, returncode = await asyncio.gather(process.stderr.read(), process.wait())
+
+        if returncode != 0:
+            raise_make_directory_error(returncode, stderr, remote_path)
 
 
 SandboxFilesystem = synchronize_api(_SandboxFilesystem)

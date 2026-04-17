@@ -1,18 +1,18 @@
-# Copyright 2020 - 2025 Ternaris
+# Copyright 2020-2026 Ternaris
 # SPDX-License-Identifier: Apache-2.0
 """Code generators for the extensible type system."""
 
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from rosbags.interfaces import Nodetype
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from rosbags.interfaces.typing import FieldDesc, Typesdict
+    from rosbags.interfaces.typing import Basename, FieldDesc, Typesdict
 
 
 INTLIKE = re.compile('^u?(bool|int|float)')
@@ -31,7 +31,15 @@ def get_typehint(desc: FieldDesc) -> str:
     if desc[0] == Nodetype.BASE:
         if desc[1][0] == 'string':
             return 'str'
-        typ = 'int' if desc[1][0] in {'char', 'byte', 'octet'} else desc[1][0]
+        typ = cast(
+            'Basename',
+            (
+                'int'
+                if desc[1][0].split('unsigned ')[-1]
+                in {'char', 'byte', 'octet', 'short', 'long', 'long long'}
+                else desc[1][0]
+            ),
+        )
         match = INTLIKE.match(typ)
         assert match, typ
         return match.group(1)
@@ -44,13 +52,29 @@ def get_typehint(desc: FieldDesc) -> str:
     sub = desc[1][0]
     if sub[0] == Nodetype.BASE:
         typ = sub[1][0]
-        if typ in {'byte', 'char'} or INTLIKE.match(typ):
-            typ = {
-                'bool': 'bool_',
-                'byte': 'uint8',
-                'char': 'uint8',
-                'octet': 'uint8',
-            }.get(typ, typ)
+        if typ.split('unsigned ')[-1] in {
+            'byte',
+            'char',
+            'octet',
+            'short',
+            'long',
+            'long long',
+        } or INTLIKE.match(typ):
+            typ = cast(
+                'Basename',
+                {
+                    'bool': 'bool_',
+                    'byte': 'uint8',
+                    'char': 'uint8',
+                    'octet': 'uint8',
+                    'short': 'int16',
+                    'long': 'int32',
+                    'long long': 'int64',
+                    'unsigned short': 'uint16',
+                    'unsigned long': 'uint32',
+                    'unsigned long long': 'uint64',
+                }.get(typ, typ),
+            )
             return f'np.ndarray[tuple[int, ...], np.dtype[np.{typ}]]'
 
     return f'list[{get_typehint(sub)}]'
@@ -82,7 +106,7 @@ def generate_python_code(
     if not base:
         add = list(typs.keys())
     lines = [
-        '# Copyright 2020 - 2025 Ternaris',
+        '# Copyright 2020-2026 Ternaris',
         '# SPDX-License-Identifier'  # avoid reuse trigger
         ': Apache-2.0',
         '#',

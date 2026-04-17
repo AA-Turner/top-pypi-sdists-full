@@ -43,7 +43,11 @@ pub async fn did_open(
         return Ok(None);
     }
 
-    if !cargo_did_open_enabled(features) {
+    if !features
+        .map(|features| features.enabled())
+        .unwrap_or_default()
+        .value()
+    {
         return Ok(None);
     }
 
@@ -70,20 +74,25 @@ pub async fn did_open(
             return false;
         }
 
-        if !urls.background.is_empty() {
-            let background_urls = urls.background;
-            let background_cache_options = cache_options.clone();
-            tokio::spawn(async move {
-                warm_urls(background_urls, offline, background_cache_options).await;
-            });
-        }
+        let should_refresh_inlay_hint = !urls.awaited.is_empty();
+        let awaited_urls = urls.awaited;
+        let background_urls = urls.background;
+        let background_cache_options = cache_options.clone();
 
-        if urls.awaited.is_empty() {
-            return false;
-        }
+        tokio::join!(
+            async move {
+                if !background_urls.is_empty() {
+                    warm_urls(background_urls, offline, background_cache_options).await;
+                }
+            },
+            async move {
+                if !awaited_urls.is_empty() {
+                    warm_urls(awaited_urls, offline, cache_options).await;
+                }
+            }
+        );
 
-        warm_urls(urls.awaited, offline, cache_options).await;
-        true
+        should_refresh_inlay_hint
     });
 
     Ok(Some(handle))
@@ -102,10 +111,6 @@ async fn warm_urls(
         .await;
 }
 
-fn cargo_did_open_enabled(features: Option<&CargoExtensionFeatures>) -> bool {
-    features.map_or(true, CargoExtensionFeatures::enabled)
-}
-
 fn warming_disabled(offline: bool, cache_options: Option<&tombi_cache::Options>) -> bool {
     offline
         || cache_options
@@ -119,22 +124,57 @@ async fn collect_prefetch_urls(
     toml_version: TomlVersion,
     features: Option<&CargoExtensionFeatures>,
 ) -> PrefetchUrls {
-    let warm_hover = features.map_or(
-        true,
-        CargoExtensionFeatures::dependency_detail_hover_enabled,
-    );
-    let warm_versions = features.map_or(
-        true,
-        CargoExtensionFeatures::dependency_version_completion_enabled,
-    );
-    let warm_feature_details = features.map_or(true, |features| {
-        features.dependency_feature_completion_enabled()
-            || features.default_features_inlay_hint_enabled()
-    });
-    let prioritize_inlay_hint = features.map_or(
-        true,
-        CargoExtensionFeatures::default_features_inlay_hint_enabled,
-    );
+    let lsp = features.and_then(|features| features.lsp());
+    let (
+        dependency_detail_hover_enabled,
+        dependency_version_completion_enabled,
+        dependency_feature_completion_enabled,
+        dependency_version_inlay_hint_enabled,
+        default_features_inlay_hint_prioritized,
+    ) = lsp
+        .map(|lsp| {
+            let hover = lsp.hover();
+            let completion = lsp.completion();
+            let inlay_hint = lsp.inlay_hint();
+            (
+                hover.as_ref().and_then(|hover| {
+                    hover
+                        .dependency_detail()
+                        .map(|dependency_detail| dependency_detail.enabled())
+                }),
+                completion
+                    .as_ref()
+                    .and_then(|completion| completion.dependency_version().map(|dv| dv.enabled())),
+                completion
+                    .as_ref()
+                    .and_then(|completion| completion.dependency_feature().map(|df| df.enabled())),
+                inlay_hint.as_ref().and_then(|inlay_hint| {
+                    inlay_hint
+                        .dependency_version()
+                        .map(|dependency_version| dependency_version.enabled())
+                }),
+                inlay_hint.as_ref().and_then(|inlay_hint| {
+                    inlay_hint
+                        .default_features()
+                        .map(|default_features| default_features.enabled())
+                }),
+            )
+        })
+        .unwrap_or_default();
+
+    let warm_hover = dependency_detail_hover_enabled.unwrap_or_default().value();
+    let warm_versions = dependency_version_completion_enabled
+        .unwrap_or_default()
+        .value();
+    let warm_feature_details = dependency_feature_completion_enabled
+        .unwrap_or_default()
+        .value()
+        || dependency_version_inlay_hint_enabled
+            .unwrap_or_default()
+            .value();
+    let prioritize_inlay_hint = default_features_inlay_hint_prioritized
+        .unwrap_or_default()
+        .value();
 
     if !warm_hover && !warm_versions && !warm_feature_details && !prioritize_inlay_hint {
         return PrefetchUrls::default();
@@ -401,7 +441,7 @@ mod tests {
         BoolDefaultTrue, CargoCompletionFeatureTree, CargoCompletionFeatures,
         CargoExtensionFeatureTree, CargoExtensionFeatures, CargoHoverFeatureTree,
         CargoHoverFeatures, CargoInlayHintFeatureTree, CargoInlayHintFeatures, CargoLspFeatureTree,
-        CargoLspFeatures, ToggleFeature,
+        CargoLspFeatures, ToggleFeatureDefaultTrue,
     };
     use tombi_document_tree::TryIntoDocumentTree;
 
@@ -420,8 +460,8 @@ mod tests {
         urls.iter().cloned().collect()
     }
 
-    fn disabled_toggle() -> ToggleFeature {
-        ToggleFeature {
+    fn disabled_toggle() -> ToggleFeatureDefaultTrue {
+        ToggleFeatureDefaultTrue {
             enabled: Some(BoolDefaultTrue(false)),
         }
     }

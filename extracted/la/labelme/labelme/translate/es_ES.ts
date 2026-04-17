@@ -10,13 +10,13 @@
     </message>
     <message>
         <location filename="../widgets/_ai_assisted_annotation_widget.py" line="0"/>
-        <source>AI suggests annotation in &apos;AI-Polygon&apos; and &apos;AI-Mask&apos; modes</source>
-        <translation>La IA sugiere anotación en los modos 'AI-Polygon' y 'AI-Mask'</translation>
+        <source>AI suggests annotation in &apos;AI-Points&apos; and &apos;AI-Box&apos; modes</source>
+        <translation>La IA sugiere anotaciones en los modos 'AI-Points' y 'AI-Box'</translation>
     </message>
     <message>
         <location filename="../widgets/_ai_assisted_annotation_widget.py" line="0"/>
-        <source>Select &apos;AI-Polygon&apos; or &apos;AI-Mask&apos; mode to enable AI-Assisted Annotation</source>
-        <translation>Seleccione el modo 'AI-Polygon' o 'AI-Mask' para habilitar AI-Assisted Annotation</translation>
+        <source>Select &apos;AI-Points&apos; or &apos;AI-Box&apos; mode to enable AI-Assisted Annotation</source>
+        <translation>Seleccione el modo 'AI-Points' o 'AI-Box' para habilitar la Anotación Asistida por IA</translation>
     </message>
 </context>
 <context>
@@ -53,8 +53,16 @@
     </message>
     <message>
         <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
-        <source>Select &apos;Polygon&apos;, &apos;Rectangle&apos;, &apos;AI-Polygon&apos;, or &apos;AI-Mask&apos; mode to enable</source>
-        <translation>Seleccione el modo 'Polygon', 'Rectangle', 'AI-Polygon' o 'AI-Mask' para habilitar</translation>
+        <source>Select &apos;Polygon&apos;, &apos;Rectangle&apos;, or &apos;AI-Points&apos; mode to enable</source>
+        <translation>Selecciona el modo 'Polygon', 'Rectangle' o 'AI-Points' para habilitar</translation>
+    </message>
+</context>
+<context>
+    <name>BrightnessContrastDialog</name>
+    <message>
+        <location filename="../widgets/brightness_contrast_dialog.py" line="0"/>
+        <source>Brightness/Contrast</source>
+        <translation>Brillo/Contraste</translation>
     </message>
 </context>
 <context>
@@ -88,16 +96,6 @@
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Editing shapes</source>
         <translation>Editando formas</translation>
-    </message>
-    <message>
-        <location filename="../widgets/canvas.py" line="0"/>
-        <source>Click points to include or Shift+Click to exclude for ai_polygon</source>
-        <translation>Haz clic en los puntos para incluir o Mayús+Clic para excluir (polígono IA)</translation>
-    </message>
-    <message>
-        <location filename="../widgets/canvas.py" line="0"/>
-        <source>Click points to include or Shift+Click to exclude for ai_mask</source>
-        <translation>Haz clic en los puntos para incluir o Mayús+Clic para excluir (máscara IA)</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
@@ -158,6 +156,21 @@
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click opposite corner for rectangle (Shift for square)</source>
         <translation>Haz clic en la esquina opuesta del rectángulo (Shift para cuadrado)</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click points to include or Shift+Click to exclude. Ctrl+LeftClick ends creation.</source>
+        <translation>Haz clic en puntos para incluir o Shift+Click para excluir. Ctrl+LeftClick finaliza la creación.</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click first corner of bbox for AI segmentation</source>
+        <translation>Haga clic en la primera esquina del bbox para segmentación con IA</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click opposite corner to segment object</source>
+        <translation>Haga clic en la esquina opuesta para segmentar el objeto</translation>
     </message>
 </context>
 <context>
@@ -316,18 +329,8 @@
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Create Polygons</source>
-        <translation>Crear polígonos</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Start drawing polygons</source>
         <translation>Empezar a dibujar polígonos</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Create Rectangle</source>
-        <translation>Crear rectángulo</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -336,18 +339,8 @@
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Create Circle</source>
-        <translation>Crear círculo</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Start drawing circles</source>
         <translation>Empezar a dibujar círculos</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Create Line</source>
-        <translation>Crear línea</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -356,43 +349,13 @@
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Create Point</source>
-        <translation>Crear punto</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Start drawing points</source>
         <translation>Empezar a dibujar puntos</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Create LineStrip</source>
-        <translation>Crear línea continua</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Start drawing linestrip. Ctrl+LeftClick ends creation.</source>
         <translation>Empezar a dibujar línea continua. Ctrl+Clic izquierdo finaliza la creación.</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Create AI-Polygon</source>
-        <translation>Crear polígono IA</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Start drawing ai_polygon. Ctrl+LeftClick ends creation.</source>
-        <translation>Empezar a dibujar polígono IA. Ctrl+Clic izquierdo finaliza la creación.</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Create AI-Mask</source>
-        <translation>Crear máscara IA</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Start drawing ai_mask. Ctrl+LeftClick ends creation.</source>
-        <translation>Empezar a dibujar máscara IA. Ctrl+Clic izquierdo finaliza la creación.</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -645,11 +608,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Open &amp;Recent</source>
-        <translation>Abrir &amp;recientes</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>%s started.</source>
         <translation>%s iniciado.</translation>
     </message>
@@ -828,6 +786,73 @@ Para usar el editor de preferencias, inicie Labelme con un archivo de configurac
         <location filename="../app.py" line="0"/>
         <source>Reset Layout</source>
         <translation>Restablecer diseño</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Polygon</source>
+        <translation>Polígono</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Rectangle</source>
+        <translation>Rectángulo</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Circle</source>
+        <translation>Círculo</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Line</source>
+        <translation>Línea</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Point</source>
+        <translation>Punto</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>LineStrip</source>
+        <translation>Línea continua</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>AI-Points</source>
+        <translation>AI-Points</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Click points to segment object. Ctrl+LeftClick ends creation.</source>
+        <translation>Haz clic en puntos para segmentar el objeto. Ctrl+LeftClick finaliza la creación.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>AI-Box</source>
+        <translation>AI-Box</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Draw a bounding box to segment object.</source>
+        <translation>Dibuje un cuadro delimitador para segmentar el objeto.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>AI-Points Unavailable</source>
+        <translation>AI-Points no disponible</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>%s does not support point prompts.
+Please select a different model or use AI-Box mode.</source>
+        <translation>%s no admite indicaciones de puntos.
+Seleccione un modelo diferente o use el modo AI-Box.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>File list is disabled when a label file is opened</source>
+        <translation>La lista de archivos está desactivada cuando se abre un archivo de etiquetas</translation>
     </message>
 </context>
 </TS>

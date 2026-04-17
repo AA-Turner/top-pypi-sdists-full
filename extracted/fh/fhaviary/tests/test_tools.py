@@ -13,7 +13,6 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel, Field
-from pytest_subtests import SubTests
 from tenacity import retry, retry_if_exception_type, stop_after_attempt
 from typeguard import suppress_type_checks
 
@@ -513,7 +512,7 @@ PARAMETERS:
         tool = Tool.from_function(fn, **kwargs)
         assert tool.info.describe_str().strip() == expected
 
-    def test_describe(self, subtests: SubTests) -> None:
+    def test_describe(self, subtests: pytest.Subtests) -> None:
         """Test that describe_xyz functions for FunctionInfo are reasonable."""
         tool = Tool.from_function(many_edge_cases)
 
@@ -608,8 +607,8 @@ PARAMETERS:
             tool._tool_fn(**call.function.arguments)
 
     @pytest.mark.asyncio
-    async def test_tool_serialization(
-        self, dummy_env: DummyEnv, subtests: SubTests
+    async def test_tool_serialization(  # noqa: PLR0915
+        self, dummy_env: DummyEnv, subtests: pytest.Subtests
     ) -> None:
         def get_todo_list(n: int):
             """Get todo list for today.
@@ -661,6 +660,15 @@ PARAMETERS:
             action = ToolRequestMessage(tool_calls=[tool_call])
             new_messages = await dummy_env.exec_tool_calls(action)
             assert new_messages[0].content == "Go for a walk\nRead a book"
+
+        with subtests.test("tool call from name with custom id"):
+            custom_id = "custom123"
+            tool_call = ToolCall.from_name("get_todo_list", id=custom_id, n=2)
+            assert tool_call.id == custom_id
+            action = ToolRequestMessage(tool_calls=[tool_call])
+            new_messages = await dummy_env.exec_tool_calls(action)
+            assert new_messages[0].content == "Go for a walk\nRead a book"
+            assert new_messages[0].tool_call_id == custom_id
 
         with subtests.test("tool call from tool"):
             tool_call = ToolCall.from_tool(tool, n=2)

@@ -17,7 +17,6 @@ from .untrusted_deserialization import *
 from .unvalidated_redirect import *
 from .xxe import *
 from .xpath_injection import *
-from .prompt_injection import *
 
 # Non-dataflow rules
 # NOTE: some of our unit tests are sensitive to the ordering of these imports

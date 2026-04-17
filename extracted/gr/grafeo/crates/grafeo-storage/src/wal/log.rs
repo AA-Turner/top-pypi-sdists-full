@@ -120,6 +120,9 @@ pub struct WalManager {
     current_sequence: AtomicU64,
     /// Latest checkpoint epoch.
     checkpoint_epoch: Mutex<Option<EpochId>>,
+    /// Encryptor for WAL records (None = unencrypted).
+    #[cfg(feature = "encryption")]
+    encryptor: Option<grafeo_common::encryption::PageEncryptor>,
 }
 
 impl WalManager {
@@ -165,12 +168,31 @@ impl WalManager {
             last_sync: Mutex::new(Instant::now()),
             current_sequence: AtomicU64::new(max_sequence),
             checkpoint_epoch: Mutex::new(None),
+            #[cfg(feature = "encryption")]
+            encryptor: None,
         };
 
         // Open or create the active log
         manager.ensure_active_log()?;
 
         Ok(manager)
+    }
+
+    /// Sets the encryptor for WAL record encryption.
+    ///
+    /// When set, all written records are encrypted with AES-256-GCM and the
+    /// GCM authentication tag replaces the CRC32 checksum. The nonce is derived
+    /// from the WAL sequence number.
+    #[cfg(feature = "encryption")]
+    pub fn set_encryptor(&mut self, encryptor: grafeo_common::encryption::PageEncryptor) {
+        self.encryptor = Some(encryptor);
+    }
+
+    /// Returns whether encryption is active.
+    #[cfg(feature = "encryption")]
+    #[must_use]
+    pub fn is_encrypted(&self) -> bool {
+        self.encryptor.is_some()
     }
 
     /// Logs a record to the WAL.
@@ -208,20 +230,80 @@ impl WalManager {
 
             maybe_crash("wal_before_write");
 
-            // Write length prefix
-            let len = data.len() as u32;
-            log_file.writer.write_all(&len.to_le_bytes())?;
+            // Encrypt or write plaintext depending on encryption configuration.
+            // Encrypted frame: [len:4][nonce(12) || ciphertext || tag(16)]
+            // Plaintext frame:  [len:4][data][crc32:4]
+            #[cfg(feature = "encryption")]
+            let (frame_data, record_size) = if let Some(ref enc) = self.encryptor {
+                let file_seq = self.current_sequence.load(Ordering::Relaxed);
+                // Use the file byte offset as the nonce counter, not the ephemeral
+                // record count. The byte offset survives restarts (file is append-only)
+                // and is unique per record within a file. Combined with the file sequence,
+                // this guarantees nonce uniqueness even after crash + restart.
+                //
+                // The nonce high word is 4 bytes, so the file sequence must fit in u32.
+                // With one rotation per ~64 MB of WAL, this allows ~256 exabytes of
+                // total WAL writes before exhaustion, which is effectively unlimited.
+                let seq_u32 = u32::try_from(file_seq).map_err(|_| {
+                    Error::Internal(
+                        "WAL file sequence exceeds u32::MAX: encryption nonce space exhausted"
+                            .to_string(),
+                    )
+                })?;
+                let byte_offset = log_file.size;
+                let nonce = grafeo_common::encryption::build_nonce(seq_u32, byte_offset);
+                let aad = b"grafeo-wal";
+                let encrypted = enc
+                    .encrypt(data, &nonce, aad)
+                    .map_err(|e| Error::Internal(format!("WAL encryption failed: {e}")))?;
+                // reason: WAL wire format uses u32 length prefix; individual records are well under 4 GiB
+                #[allow(clippy::cast_possible_truncation)]
+                let len = encrypted.len() as u32;
+                log_file.writer.write_all(&len.to_le_bytes())?;
+                log_file.writer.write_all(&encrypted)?;
+                let size = 4 + encrypted.len() as u64;
+                (true, size)
+            } else {
+                (false, 0u64)
+            };
 
-            // Write data
-            log_file.writer.write_all(data)?;
+            #[cfg(feature = "encryption")]
+            if !frame_data {
+                // reason: WAL wire format uses u32 length prefix; individual records are well under 4 GiB
+                #[allow(clippy::cast_possible_truncation)]
+                let len = data.len() as u32;
+                log_file.writer.write_all(&len.to_le_bytes())?;
+                log_file.writer.write_all(data)?;
+                let checksum = crc32fast::hash(data);
+                log_file.writer.write_all(&checksum.to_le_bytes())?;
+            }
 
-            // Write checksum
-            let checksum = crc32fast::hash(data);
-            log_file.writer.write_all(&checksum.to_le_bytes())?;
+            #[cfg(not(feature = "encryption"))]
+            {
+                // Write length prefix
+                // reason: WAL wire format uses u32 length prefix; individual records are well under 4 GiB
+                #[allow(clippy::cast_possible_truncation)]
+                let len = data.len() as u32;
+                log_file.writer.write_all(&len.to_le_bytes())?;
+
+                // Write data
+                log_file.writer.write_all(data)?;
+
+                // Write checksum
+                let checksum = crc32fast::hash(data);
+                log_file.writer.write_all(&checksum.to_le_bytes())?;
+            }
 
             maybe_crash("wal_after_write");
 
             // Update size tracking
+            #[cfg(feature = "encryption")]
+            let record_size = if frame_data {
+                record_size
+            } else {
+                4 + data.len() as u64 + 4
+            };
+            #[cfg(not(feature = "encryption"))]
             let record_size = 4 + data.len() as u64 + 4; // length + data + checksum
             log_file.size += record_size;
 
@@ -313,7 +395,11 @@ impl WalManager {
         transaction_id: TransactionId,
         epoch: EpochId,
     ) -> Result<()> {
-        // Force sync on checkpoint
+        // Ordering guarantee: fsync all WAL data before writing checkpoint
+        // metadata. This ensures that on recovery, any WAL entries referenced
+        // by the checkpoint metadata are durable on disk. Without this barrier,
+        // a crash between metadata write and WAL sync could cause recovery to
+        // skip replaying un-synced WAL records.
         self.sync()?;
 
         // Get current log sequence
@@ -322,7 +408,13 @@ impl WalManager {
         // Get current timestamp
         let timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_millis() as u64)
+            // reason: millis since UNIX epoch fits in u64 for ~585 million years
+            .map(|d| {
+                // reason: value is bounded by format constraints
+                #[allow(clippy::cast_possible_truncation)]
+                let ms = d.as_millis() as u64;
+                ms
+            })
             .unwrap_or(0);
 
         // Create checkpoint metadata
@@ -415,11 +507,11 @@ impl WalManager {
             path: new_path,
         };
 
-        // Replace active log
+        // Replace active log, syncing the old one to ensure durability
         let mut guard = self.active_log.lock();
-        if let Some(old_log) = guard.take() {
-            // Ensure old log is flushed
-            drop(old_log);
+        if let Some(mut old_log) = guard.take() {
+            old_log.writer.flush()?;
+            old_log.writer.get_ref().sync_all()?;
         }
         *guard = Some(new_log);
 
@@ -528,14 +620,20 @@ impl WalManager {
         if let Ok(files) = self.log_files() {
             for file in files {
                 if let Ok(metadata) = fs::metadata(&file) {
-                    total += metadata.len() as usize;
+                    // reason: WAL files are capped at max_log_size (default 64 MiB), fits in usize on all targets
+                    #[allow(clippy::cast_possible_truncation)]
+                    let file_len = metadata.len() as usize;
+                    total += file_len;
                 }
             }
         }
         // Also include checkpoint metadata file
         let metadata_path = self.dir.join(CHECKPOINT_METADATA_FILE);
         if let Ok(metadata) = fs::metadata(&metadata_path) {
-            total += metadata.len() as usize;
+            // reason: checkpoint metadata file is a small fixed-size struct, fits in usize
+            #[allow(clippy::cast_possible_truncation)]
+            let meta_len = metadata.len() as usize;
+            total += meta_len;
         }
         total
     }

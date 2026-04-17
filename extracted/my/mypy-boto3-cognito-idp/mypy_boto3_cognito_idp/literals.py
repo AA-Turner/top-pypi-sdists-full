@@ -88,6 +88,7 @@ __all__ = (
     "UsernameAttributeTypeType",
     "VerifiedAttributeTypeType",
     "VerifySoftwareTokenResponseTypeType",
+    "WebAuthnFactorConfigurationTypeType",
 )
 
 
@@ -218,6 +219,9 @@ UserVerificationTypeType = Literal["preferred", "required"]
 UsernameAttributeTypeType = Literal["email", "phone_number"]
 VerifiedAttributeTypeType = Literal["email", "phone_number"]
 VerifySoftwareTokenResponseTypeType = Literal["ERROR", "SUCCESS"]
+WebAuthnFactorConfigurationTypeType = Literal[
+    "MULTI_FACTOR_WITH_USER_VERIFICATION", "SINGLE_FACTOR"
+]
 CognitoIdentityProviderServiceName = Literal["cognito-idp"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -321,6 +325,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -336,6 +341,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -402,6 +408,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -458,6 +465,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -555,6 +563,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",
@@ -571,6 +580,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -584,6 +594,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -605,6 +616,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -617,6 +629,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -652,6 +665,7 @@ PaginatorName = Literal[
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",
@@ -662,6 +676,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

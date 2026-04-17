@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-section-index
-Version: 0.3.11
+Version: 0.3.12
 Summary: MkDocs plugin to allow clickable sections that lead to an index page
 Project-URL: Documentation, https://oprypin.github.io/mkdocs-section-index/
 Project-URL: Source, https://github.com/oprypin/mkdocs-section-index
@@ -17,16 +17,16 @@ Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Text Processing :: Markup :: Markdown
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: mkdocs<=1.6.1,>=1.2
 Requires-Dist: properdocs>=1.6.5
 Description-Content-Type: text/markdown
@@ -46,11 +46,11 @@ pip install mkdocs-section-index
 [mkdocs]: https://www.mkdocs.org/
 [plugin]: https://www.mkdocs.org/user-guide/plugins/
 
-## [Example](example/)
+## [Example](https://github.com/oprypin/mkdocs-section-index/tree/master/example/)
 
 ![Screencast with comparison](https://user-images.githubusercontent.com/371383/99844559-8c4caa00-2b73-11eb-9e97-fad82447746c.gif)
 
-With this `nav` in *mkdocs.yml* (or without `nav` but with [an equivalent directory structure](example/docs/)):
+With this `nav` in *mkdocs.yml* (or without `nav` but with [an equivalent directory structure](https://github.com/oprypin/mkdocs-section-index/tree/master/example/docs)):
 
 ```yaml
 nav:

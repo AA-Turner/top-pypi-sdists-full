@@ -6622,6 +6622,8 @@ class StatusClass(_Aspect):
 
     def __init__(self,
         removed: Optional[bool]=None,
+        lifecycleStage: Union[None, str]=None,
+        lifecycleLastUpdated: Union[None, "AuditStampClass"]=None,
     ):
         super().__init__()
         
@@ -6630,19 +6632,54 @@ class StatusClass(_Aspect):
             self.removed = self.RECORD_SCHEMA.fields_dict["removed"].default
         else:
             self.removed = removed
+        self.lifecycleStage = lifecycleStage
+        self.lifecycleLastUpdated = lifecycleLastUpdated
     
     def _restore_defaults(self) -> None:
         self.removed = self.RECORD_SCHEMA.fields_dict["removed"].default
+        self.lifecycleStage = self.RECORD_SCHEMA.fields_dict["lifecycleStage"].default
+        self.lifecycleLastUpdated = self.RECORD_SCHEMA.fields_dict["lifecycleLastUpdated"].default
     
     
     @property
     def removed(self) -> bool:
-        """Whether the entity has been removed (soft-deleted)."""
+        """Whether the entity has been removed (soft-deleted).
+    Kept for backward compatibility. When lifecycleStage is set to a stage
+    with hideInSearch=true, this field is NOT automatically synced — the
+    search layer uses lifecycleStage settings directly."""
         return self._inner_dict.get('removed')  # type: ignore
     
     @removed.setter
     def removed(self, value: bool) -> None:
         self._inner_dict['removed'] = value
+    
+    
+    @property
+    def lifecycleStage(self) -> Union[None, str]:
+        """The lifecycle stage of the entity, referencing a lifecycleStageType entity.
+    When null, the entity is in its default active state (visible in search).
+    When set, the referenced lifecycle stage's settings determine behavior
+    (e.g., hideInSearch=true excludes the entity from default search results).
+    
+    Users can override default filtering by explicitly filtering on this field."""
+        return self._inner_dict.get('lifecycleStage')  # type: ignore
+    
+    @lifecycleStage.setter
+    def lifecycleStage(self, value: Union[None, str]) -> None:
+        self._inner_dict['lifecycleStage'] = value
+    
+    
+    @property
+    def lifecycleLastUpdated(self) -> Union[None, "AuditStampClass"]:
+        """Attribution for the lifecycle stage transition — who moved the entity
+    into its current stage and when. Populated automatically by the
+    setLifecycleStage mutation; should be set by any code path that
+    writes the lifecycleStage field."""
+        return self._inner_dict.get('lifecycleLastUpdated')  # type: ignore
+    
+    @lifecycleLastUpdated.setter
+    def lifecycleLastUpdated(self, value: Union[None, "AuditStampClass"]) -> None:
+        self._inner_dict['lifecycleLastUpdated'] = value
     
     
 class SubTypesClass(_Aspect):
@@ -15195,6 +15232,147 @@ class IncidentAssigneeClass(DictWrapper):
         self._inner_dict['assignedAt'] = value
     
     
+class IncidentExternalLinkClass(DictWrapper):
+    """A link to an external system (e.g., Jira, ServiceNow, PagerDuty) associated with an incident."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.incident.IncidentExternalLink")
+    def __init__(self,
+        connectionId: str,
+        system: str,
+        externalId: str,
+        url: str,
+        created: "AuditStampClass",
+        syncEnabled: Optional[bool]=None,
+        lastSyncTimeMillis: Union[None, int]=None,
+    ):
+        super().__init__()
+        
+        self.connectionId = connectionId
+        self.system = system
+        self.externalId = externalId
+        self.url = url
+        self.created = created
+        if syncEnabled is None:
+            # default: True
+            self.syncEnabled = self.RECORD_SCHEMA.fields_dict["syncEnabled"].default
+        else:
+            self.syncEnabled = syncEnabled
+        self.lastSyncTimeMillis = lastSyncTimeMillis
+    
+    def _restore_defaults(self) -> None:
+        self.connectionId = str()
+        self.system = str()
+        self.externalId = str()
+        self.url = str()
+        self.created = AuditStampClass._construct_with_defaults()
+        self.syncEnabled = self.RECORD_SCHEMA.fields_dict["syncEnabled"].default
+        self.lastSyncTimeMillis = self.RECORD_SCHEMA.fields_dict["lastSyncTimeMillis"].default
+    
+    
+    @property
+    def connectionId(self) -> str:
+        """Unique connection identifier for this integration. Allows linking to multiple instances
+    of the same system (e.g., 'primary-jira', 'ops-servicenow', 'critical-pagerduty')."""
+        return self._inner_dict.get('connectionId')  # type: ignore
+    
+    @connectionId.setter
+    def connectionId(self, value: str) -> None:
+        self._inner_dict['connectionId'] = value
+    
+    
+    @property
+    def system(self) -> str:
+        """The external system name (e.g., 'jira', 'servicenow', 'pagerduty')."""
+        return self._inner_dict.get('system')  # type: ignore
+    
+    @system.setter
+    def system(self, value: str) -> None:
+        self._inner_dict['system'] = value
+    
+    
+    @property
+    def externalId(self) -> str:
+        """The identifier in the external system (e.g., 'PROJ-123' for Jira)."""
+        return self._inner_dict.get('externalId')  # type: ignore
+    
+    @externalId.setter
+    def externalId(self, value: str) -> None:
+        self._inner_dict['externalId'] = value
+    
+    
+    @property
+    def url(self) -> str:
+        """The direct URL to the external issue/ticket."""
+        return self._inner_dict.get('url')  # type: ignore
+    
+    @url.setter
+    def url(self, value: str) -> None:
+        self._inner_dict['url'] = value
+    
+    
+    @property
+    def created(self) -> "AuditStampClass":
+        """When this link was created."""
+        return self._inner_dict.get('created')  # type: ignore
+    
+    @created.setter
+    def created(self, value: "AuditStampClass") -> None:
+        self._inner_dict['created'] = value
+    
+    
+    @property
+    def syncEnabled(self) -> bool:
+        """Whether bidirectional sync is enabled for this link."""
+        return self._inner_dict.get('syncEnabled')  # type: ignore
+    
+    @syncEnabled.setter
+    def syncEnabled(self, value: bool) -> None:
+        self._inner_dict['syncEnabled'] = value
+    
+    
+    @property
+    def lastSyncTimeMillis(self) -> Union[None, int]:
+        """Epoch milliseconds of the last successful synchronization."""
+        return self._inner_dict.get('lastSyncTimeMillis')  # type: ignore
+    
+    @lastSyncTimeMillis.setter
+    def lastSyncTimeMillis(self, value: Union[None, int]) -> None:
+        self._inner_dict['lastSyncTimeMillis'] = value
+    
+    
+class IncidentExternalLinksClass(_Aspect):
+    """Links to external systems for this incident (e.g., Jira, ServiceNow, PagerDuty)"""
+
+
+    ASPECT_NAME = 'incidentExternalLinks'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.incident.IncidentExternalLinks")
+
+    def __init__(self,
+        links: Optional[List["IncidentExternalLinkClass"]]=None,
+    ):
+        super().__init__()
+        
+        if links is None:
+            # default: []
+            self.links = list()
+        else:
+            self.links = links
+    
+    def _restore_defaults(self) -> None:
+        self.links = list()
+    
+    
+    @property
+    def links(self) -> List["IncidentExternalLinkClass"]:
+        """List of links to external systems"""
+        return self._inner_dict.get('links')  # type: ignore
+    
+    @links.setter
+    def links(self, value: List["IncidentExternalLinkClass"]) -> None:
+        self._inner_dict['links'] = value
+    
+    
 class IncidentInfoClass(_Aspect):
     """Information about an incident raised on an asset."""
 
@@ -15354,6 +15532,159 @@ class IncidentInfoClass(_Aspect):
     @created.setter
     def created(self, value: "AuditStampClass") -> None:
         self._inner_dict['created'] = value
+    
+    
+class IncidentNoteClass(DictWrapper):
+    """A note or update added to an incident, either by a user in DataHub or synced from an
+    external incident management system."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.incident.IncidentNote")
+    def __init__(self,
+        message: str,
+        created: "AuditStampClass",
+        source: Union[None, "IncidentNoteSourceClass"]=None,
+    ):
+        super().__init__()
+        
+        self.message = message
+        self.created = created
+        self.source = source
+    
+    def _restore_defaults(self) -> None:
+        self.message = str()
+        self.created = AuditStampClass._construct_with_defaults()
+        self.source = self.RECORD_SCHEMA.fields_dict["source"].default
+    
+    
+    @property
+    def message(self) -> str:
+        """The content of the note. Rendered as markdown in the UI."""
+        return self._inner_dict.get('message')  # type: ignore
+    
+    @message.setter
+    def message(self, value: str) -> None:
+        self._inner_dict['message'] = value
+    
+    
+    @property
+    def created(self) -> "AuditStampClass":
+        """When the note was created, and the actor who created it."""
+        return self._inner_dict.get('created')  # type: ignore
+    
+    @created.setter
+    def created(self, value: "AuditStampClass") -> None:
+        self._inner_dict['created'] = value
+    
+    
+    @property
+    def source(self) -> Union[None, "IncidentNoteSourceClass"]:
+        """The source of this note. Absent if the note was created natively in DataHub."""
+        return self._inner_dict.get('source')  # type: ignore
+    
+    @source.setter
+    def source(self, value: Union[None, "IncidentNoteSourceClass"]) -> None:
+        self._inner_dict['source'] = value
+    
+    
+class IncidentNoteSourceClass(DictWrapper):
+    """The source of an incident note, indicating whether it was created natively in DataHub
+    or synced from an external system (e.g., Jira, ServiceNow)."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.incident.IncidentNoteSource")
+    def __init__(self,
+        sourceType: Union[None, Union[str, "IncidentNoteSourceTypeClass"]]=None,
+        externalUrl: Union[None, str]=None,
+        externalId: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.sourceType = sourceType
+        self.externalUrl = externalUrl
+        self.externalId = externalId
+    
+    def _restore_defaults(self) -> None:
+        self.sourceType = self.RECORD_SCHEMA.fields_dict["sourceType"].default
+        self.externalUrl = self.RECORD_SCHEMA.fields_dict["externalUrl"].default
+        self.externalId = self.RECORD_SCHEMA.fields_dict["externalId"].default
+    
+    
+    @property
+    def sourceType(self) -> Union[None, Union[str, "IncidentNoteSourceTypeClass"]]:
+        """The type of system this note originated from. Optional — inferred from externalId presence
+    when absent, but useful for explicit filtering and future third-party source types."""
+        return self._inner_dict.get('sourceType')  # type: ignore
+    
+    @sourceType.setter
+    def sourceType(self, value: Union[None, Union[str, "IncidentNoteSourceTypeClass"]]) -> None:
+        self._inner_dict['sourceType'] = value
+    
+    
+    @property
+    def externalUrl(self) -> Union[None, str]:
+        """URL to the note in the external system (e.g., a Jira comment permalink)."""
+        return self._inner_dict.get('externalUrl')  # type: ignore
+    
+    @externalUrl.setter
+    def externalUrl(self, value: Union[None, str]) -> None:
+        self._inner_dict['externalUrl'] = value
+    
+    
+    @property
+    def externalId(self) -> Union[None, str]:
+        """Unique identifier for the note in the external system, used for deduplication.
+    For example, a Jira comment ID."""
+        return self._inner_dict.get('externalId')  # type: ignore
+    
+    @externalId.setter
+    def externalId(self, value: Union[None, str]) -> None:
+        self._inner_dict['externalId'] = value
+    
+    
+class IncidentNoteSourceTypeClass(object):
+    """The source type of an incident note, indicating whether it was created natively
+    in DataHub or synced from an external system."""
+    
+    NATIVE = "NATIVE"
+    """Created via the DataHub UI or API."""
+    
+    EXTERNAL = "EXTERNAL"
+    """Synced from an external incident management or ticketing system."""
+    
+    
+    
+class IncidentNotesClass(_Aspect):
+    """A collection of notes and updates added to an incident over its lifetime, by users
+    in DataHub or synced from external systems. Stored as a separate aspect so that
+    ingestion sources that UPSERT IncidentInfo do not accidentally overwrite user-authored notes."""
+
+
+    ASPECT_NAME = 'incidentNotes'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.incident.IncidentNotes")
+
+    def __init__(self,
+        notes: Optional[List["IncidentNoteClass"]]=None,
+    ):
+        super().__init__()
+        
+        if notes is None:
+            # default: []
+            self.notes = list()
+        else:
+            self.notes = notes
+    
+    def _restore_defaults(self) -> None:
+        self.notes = list()
+    
+    
+    @property
+    def notes(self) -> List["IncidentNoteClass"]:
+        """The list of notes associated with this incident, ordered by creation time ascending."""
+        return self._inner_dict.get('notes')  # type: ignore
+    
+    @notes.setter
+    def notes(self, value: List["IncidentNoteClass"]) -> None:
+        self._inner_dict['notes'] = value
     
     
 class IncidentSourceClass(_Aspect):
@@ -16180,6 +16511,194 @@ class RelatedDocumentClass(DictWrapper):
     @document.setter
     def document(self, value: str) -> None:
         self._inner_dict['document'] = value
+    
+    
+class LifecycleStageSettingsClass(DictWrapper):
+    """Settings that control how entities in a given lifecycle stage behave in the platform."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.lifecycle.LifecycleStageSettings")
+    def __init__(self,
+        hideInSearch: Optional[bool]=None,
+    ):
+        super().__init__()
+        
+        if hideInSearch is None:
+            # default: False
+            self.hideInSearch = self.RECORD_SCHEMA.fields_dict["hideInSearch"].default
+        else:
+            self.hideInSearch = hideInSearch
+    
+    def _restore_defaults(self) -> None:
+        self.hideInSearch = self.RECORD_SCHEMA.fields_dict["hideInSearch"].default
+    
+    
+    @property
+    def hideInSearch(self) -> bool:
+        """When true, entities in this stage are excluded from default search results.
+    Users can still discover them by explicitly filtering on the lifecycleStage field."""
+        return self._inner_dict.get('hideInSearch')  # type: ignore
+    
+    @hideInSearch.setter
+    def hideInSearch(self, value: bool) -> None:
+        self._inner_dict['hideInSearch'] = value
+    
+    
+class LifecycleStageTransitionPolicyClass(DictWrapper):
+    """Defines which prior stages (or no stage) are allowed to transition INTO this stage.
+    Enforced server-side via a MutationHook on the Status aspect.
+    
+    Modeled as entry constraints rather than exit constraints so that adding a new
+    stage is self-contained — you declare its own entry policy without editing
+    every existing stage."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.lifecycle.LifecycleStageTransitionPolicy")
+    def __init__(self,
+        allowedPreviousStages: Union[None, List[str]]=None,
+    ):
+        super().__init__()
+        
+        self.allowedPreviousStages = allowedPreviousStages
+    
+    def _restore_defaults(self) -> None:
+        self.allowedPreviousStages = self.RECORD_SCHEMA.fields_dict["allowedPreviousStages"].default
+    
+    
+    @property
+    def allowedPreviousStages(self) -> Union[None, List[str]]:
+        """Lifecycle stage type URNs that an entity must currently be in to transition
+    INTO this stage. Use the sentinel value "urn:li:lifecycleStageType:__NONE__"
+    to allow entry from the default active state (no stage set).
+    
+    null/absent: any prior stage (or no stage) can transition to this one.
+    empty list: nothing can transition to this stage (unreachable)."""
+        return self._inner_dict.get('allowedPreviousStages')  # type: ignore
+    
+    @allowedPreviousStages.setter
+    def allowedPreviousStages(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['allowedPreviousStages'] = value
+    
+    
+class LifecycleStageTypeInfoClass(_Aspect):
+    """Information about a lifecycle stage type.
+    
+    Lifecycle stages control entity visibility and behavior in the platform.
+    Each stage can apply to specific entity types and define search visibility
+    and transition policies.
+    
+    When an entity's Status.lifecycleStage is set to a lifecycle stage type URN,
+    the stage's settings determine how the entity is treated (e.g., hidden from
+    default search when hideInSearch=true).
+    
+    The entityTypes field controls which entity types this stage can be applied to:
+      - null/absent: the stage applies to ALL entity types
+      - empty list: the stage applies to NO entity types (disabled)
+      - explicit list: the stage only applies to those entity types"""
+
+
+    ASPECT_NAME = 'lifecycleStageTypeInfo'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.lifecycle.LifecycleStageTypeInfo")
+
+    def __init__(self,
+        name: str,
+        settings: "LifecycleStageSettingsClass",
+        created: "AuditStampClass",
+        lastModified: "AuditStampClass",
+        description: Union[None, str]=None,
+        entityTypes: Union[None, List[str]]=None,
+        transitionPolicy: Union[None, "LifecycleStageTransitionPolicyClass"]=None,
+    ):
+        super().__init__()
+        
+        self.name = name
+        self.description = description
+        self.entityTypes = entityTypes
+        self.settings = settings
+        self.transitionPolicy = transitionPolicy
+        self.created = created
+        self.lastModified = lastModified
+    
+    def _restore_defaults(self) -> None:
+        self.name = str()
+        self.description = self.RECORD_SCHEMA.fields_dict["description"].default
+        self.entityTypes = self.RECORD_SCHEMA.fields_dict["entityTypes"].default
+        self.settings = LifecycleStageSettingsClass._construct_with_defaults()
+        self.transitionPolicy = self.RECORD_SCHEMA.fields_dict["transitionPolicy"].default
+        self.created = AuditStampClass._construct_with_defaults()
+        self.lastModified = AuditStampClass._construct_with_defaults()
+    
+    
+    @property
+    def name(self) -> str:
+        """Display name of the lifecycle stage type."""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        self._inner_dict['name'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Description of what this lifecycle stage represents."""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def entityTypes(self) -> Union[None, List[str]]:
+        """Entity type names this stage applies to (e.g., ["document", "glossaryTerm"]).
+    When null/absent, applies to all entity types.
+    When empty, applies to no entity types (effectively disabled)."""
+        return self._inner_dict.get('entityTypes')  # type: ignore
+    
+    @entityTypes.setter
+    def entityTypes(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['entityTypes'] = value
+    
+    
+    @property
+    def settings(self) -> "LifecycleStageSettingsClass":
+        """Settings that control platform behavior for entities in this stage."""
+        return self._inner_dict.get('settings')  # type: ignore
+    
+    @settings.setter
+    def settings(self, value: "LifecycleStageSettingsClass") -> None:
+        self._inner_dict['settings'] = value
+    
+    
+    @property
+    def transitionPolicy(self) -> Union[None, "LifecycleStageTransitionPolicyClass"]:
+        """Optional policy defining which prior stages can transition INTO this stage.
+    When null, any prior stage can transition to this one (no enforcement)."""
+        return self._inner_dict.get('transitionPolicy')  # type: ignore
+    
+    @transitionPolicy.setter
+    def transitionPolicy(self, value: Union[None, "LifecycleStageTransitionPolicyClass"]) -> None:
+        self._inner_dict['transitionPolicy'] = value
+    
+    
+    @property
+    def created(self) -> "AuditStampClass":
+        """Audit stamp capturing the time and actor who created this lifecycle stage type."""
+        return self._inner_dict.get('created')  # type: ignore
+    
+    @created.setter
+    def created(self, value: "AuditStampClass") -> None:
+        self._inner_dict['created'] = value
+    
+    
+    @property
+    def lastModified(self) -> "AuditStampClass":
+        """Audit stamp capturing the time and actor who last modified this lifecycle stage type."""
+        return self._inner_dict.get('lastModified')  # type: ignore
+    
+    @lastModified.setter
+    def lastModified(self, value: "AuditStampClass") -> None:
+        self._inner_dict['lastModified'] = value
     
     
 class LogicalParentClass(_Aspect):
@@ -17462,7 +17981,7 @@ class IncidentKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'incidentKey'
-    ASPECT_INFO = {'keyForEntity': 'incident', 'entityCategory': 'core', 'entityAspects': ['incidentInfo', 'globalTags'], 'entityDoc': 'An incident for an asset.'}
+    ASPECT_INFO = {'keyForEntity': 'incident', 'entityCategory': 'core', 'entityAspects': ['incidentInfo', 'incidentExternalLinks', 'incidentNotes', 'globalTags'], 'entityDoc': 'An incident for an asset.'}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.IncidentKey")
 
     def __init__(self,
@@ -17508,6 +18027,35 @@ class InviteTokenKeyClass(_Aspect):
     @property
     def id(self) -> str:
         """A unique id for the invite token."""
+        return self._inner_dict.get('id')  # type: ignore
+    
+    @id.setter
+    def id(self, value: str) -> None:
+        self._inner_dict['id'] = value
+    
+    
+class LifecycleStageTypeKeyClass(_Aspect):
+    """Key for a Lifecycle Stage Type"""
+
+
+    ASPECT_NAME = 'lifecycleStageTypeKey'
+    ASPECT_INFO = {'keyForEntity': 'lifecycleStageType', 'entityCategory': 'core', 'entityAspects': ['lifecycleStageTypeInfo', 'status'], 'entityDoc': 'Defines a lifecycle stage that entities can be placed in (e.g., Proposed, Certified, Archived). Controls search visibility and transition policies.'}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.LifecycleStageTypeKey")
+
+    def __init__(self,
+        id: str,
+    ):
+        super().__init__()
+        
+        self.id = id
+    
+    def _restore_defaults(self) -> None:
+        self.id = str()
+    
+    
+    @property
+    def id(self) -> str:
+        """Unique identifier for the lifecycle stage type, e.g. "PROPOSED", "CERTIFIED", "ARCHIVED"."""
         return self._inner_dict.get('id')  # type: ignore
     
     @id.setter
@@ -28734,7 +29282,13 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.identity.NativeGroupMembership': NativeGroupMembershipClass,
     'com.linkedin.pegasus2avro.identity.RoleMembership': RoleMembershipClass,
     'com.linkedin.pegasus2avro.incident.IncidentAssignee': IncidentAssigneeClass,
+    'com.linkedin.pegasus2avro.incident.IncidentExternalLink': IncidentExternalLinkClass,
+    'com.linkedin.pegasus2avro.incident.IncidentExternalLinks': IncidentExternalLinksClass,
     'com.linkedin.pegasus2avro.incident.IncidentInfo': IncidentInfoClass,
+    'com.linkedin.pegasus2avro.incident.IncidentNote': IncidentNoteClass,
+    'com.linkedin.pegasus2avro.incident.IncidentNoteSource': IncidentNoteSourceClass,
+    'com.linkedin.pegasus2avro.incident.IncidentNoteSourceType': IncidentNoteSourceTypeClass,
+    'com.linkedin.pegasus2avro.incident.IncidentNotes': IncidentNotesClass,
     'com.linkedin.pegasus2avro.incident.IncidentSource': IncidentSourceClass,
     'com.linkedin.pegasus2avro.incident.IncidentSourceType': IncidentSourceTypeClass,
     'com.linkedin.pegasus2avro.incident.IncidentStage': IncidentStageClass,
@@ -28756,6 +29310,9 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.knowledge.ParentDocument': ParentDocumentClass,
     'com.linkedin.pegasus2avro.knowledge.RelatedAsset': RelatedAssetClass,
     'com.linkedin.pegasus2avro.knowledge.RelatedDocument': RelatedDocumentClass,
+    'com.linkedin.pegasus2avro.lifecycle.LifecycleStageSettings': LifecycleStageSettingsClass,
+    'com.linkedin.pegasus2avro.lifecycle.LifecycleStageTransitionPolicy': LifecycleStageTransitionPolicyClass,
+    'com.linkedin.pegasus2avro.lifecycle.LifecycleStageTypeInfo': LifecycleStageTypeInfoClass,
     'com.linkedin.pegasus2avro.logical.LogicalParent': LogicalParentClass,
     'com.linkedin.pegasus2avro.metadata.key.AssertionKey': AssertionKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.ChartKey': ChartKeyClass,
@@ -28797,6 +29354,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.key.GlossaryTermKey': GlossaryTermKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.IncidentKey': IncidentKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.InviteTokenKey': InviteTokenKeyClass,
+    'com.linkedin.pegasus2avro.metadata.key.LifecycleStageTypeKey': LifecycleStageTypeKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.MLFeatureKey': MLFeatureKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.MLFeatureTableKey': MLFeatureTableKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.MLModelDeploymentKey': MLModelDeploymentKeyClass,
@@ -29275,7 +29833,13 @@ __SCHEMA_TYPES = {
     'NativeGroupMembership': NativeGroupMembershipClass,
     'RoleMembership': RoleMembershipClass,
     'IncidentAssignee': IncidentAssigneeClass,
+    'IncidentExternalLink': IncidentExternalLinkClass,
+    'IncidentExternalLinks': IncidentExternalLinksClass,
     'IncidentInfo': IncidentInfoClass,
+    'IncidentNote': IncidentNoteClass,
+    'IncidentNoteSource': IncidentNoteSourceClass,
+    'IncidentNoteSourceType': IncidentNoteSourceTypeClass,
+    'IncidentNotes': IncidentNotesClass,
     'IncidentSource': IncidentSourceClass,
     'IncidentSourceType': IncidentSourceTypeClass,
     'IncidentStage': IncidentStageClass,
@@ -29297,6 +29861,9 @@ __SCHEMA_TYPES = {
     'ParentDocument': ParentDocumentClass,
     'RelatedAsset': RelatedAssetClass,
     'RelatedDocument': RelatedDocumentClass,
+    'LifecycleStageSettings': LifecycleStageSettingsClass,
+    'LifecycleStageTransitionPolicy': LifecycleStageTransitionPolicyClass,
+    'LifecycleStageTypeInfo': LifecycleStageTypeInfoClass,
     'LogicalParent': LogicalParentClass,
     'AssertionKey': AssertionKeyClass,
     'ChartKey': ChartKeyClass,
@@ -29338,6 +29905,7 @@ __SCHEMA_TYPES = {
     'GlossaryTermKey': GlossaryTermKeyClass,
     'IncidentKey': IncidentKeyClass,
     'InviteTokenKey': InviteTokenKeyClass,
+    'LifecycleStageTypeKey': LifecycleStageTypeKeyClass,
     'MLFeatureKey': MLFeatureKeyClass,
     'MLFeatureTableKey': MLFeatureTableKeyClass,
     'MLModelDeploymentKey': MLModelDeploymentKeyClass,
@@ -29581,6 +30149,8 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     StructuredPropertySettingsClass,
     StructuredPropertyDefinitionClass,
     StructuredPropertiesClass,
+    IncidentNotesClass,
+    IncidentExternalLinksClass,
     IncidentSourceClass,
     IncidentInfoClass,
     GlossaryTermInfoClass,
@@ -29612,6 +30182,7 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     BusinessAttributesClass,
     DataHubUpgradeResultClass,
     DataHubUpgradeRequestClass,
+    LifecycleStageTypeInfoClass,
     DomainsClass,
     DomainPropertiesClass,
     ApplicationsClass,
@@ -29790,6 +30361,7 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     DataHubRoleKeyClass,
     DataHubAccessTokenKeyClass,
     CorpUserKeyClass,
+    LifecycleStageTypeKeyClass,
     GlossaryTermKeyClass,
     DataHubRetentionKeyClass,
     DataHubPersonaKeyClass,
@@ -29821,6 +30393,8 @@ class AspectBag(TypedDict, total=False):
     structuredPropertySettings: StructuredPropertySettingsClass
     propertyDefinition: StructuredPropertyDefinitionClass
     structuredProperties: StructuredPropertiesClass
+    incidentNotes: IncidentNotesClass
+    incidentExternalLinks: IncidentExternalLinksClass
     incidentSource: IncidentSourceClass
     incidentInfo: IncidentInfoClass
     glossaryTermInfo: GlossaryTermInfoClass
@@ -29852,6 +30426,7 @@ class AspectBag(TypedDict, total=False):
     businessAttributes: BusinessAttributesClass
     dataHubUpgradeResult: DataHubUpgradeResultClass
     dataHubUpgradeRequest: DataHubUpgradeRequestClass
+    lifecycleStageTypeInfo: LifecycleStageTypeInfoClass
     domains: DomainsClass
     domainProperties: DomainPropertiesClass
     applications: ApplicationsClass
@@ -30030,6 +30605,7 @@ class AspectBag(TypedDict, total=False):
     dataHubRoleKey: DataHubRoleKeyClass
     dataHubAccessTokenKey: DataHubAccessTokenKeyClass
     corpUserKey: CorpUserKeyClass
+    lifecycleStageTypeKey: LifecycleStageTypeKeyClass
     glossaryTermKey: GlossaryTermKeyClass
     dataHubRetentionKey: DataHubRetentionKeyClass
     dataHubPersonaKey: DataHubPersonaKeyClass
@@ -30097,6 +30673,7 @@ KEY_ASPECTS: Dict[str, Type[_Aspect]] = {
     'dataHubRole': DataHubRoleKeyClass,
     'dataHubAccessToken': DataHubAccessTokenKeyClass,
     'corpuser': CorpUserKeyClass,
+    'lifecycleStageType': LifecycleStageTypeKeyClass,
     'glossaryTerm': GlossaryTermKeyClass,
     'dataHubRetention': DataHubRetentionKeyClass,
     'dataHubPersona': DataHubPersonaKeyClass,
@@ -30165,6 +30742,7 @@ ENTITY_TYPE_NAMES: List[str] = [
     'dataHubRole',
     'dataHubAccessToken',
     'corpuser',
+    'lifecycleStageType',
     'glossaryTerm',
     'dataHubRetention',
     'dataHubPersona',
@@ -30230,6 +30808,7 @@ EntityTypeName = Literal[
     'dataHubRole',
     'dataHubAccessToken',
     'corpuser',
+    'lifecycleStageType',
     'glossaryTerm',
     'dataHubRetention',
     'dataHubPersona',

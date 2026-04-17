@@ -8,6 +8,7 @@ from sagemaker_studio.connections.sql_helper.mssql_sql_helper import MSSQLHelper
 from sagemaker_studio.connections.sql_helper.mysql_sql_helper import MySQLHelper
 from sagemaker_studio.connections.sql_helper.postgresql_helper import PostgreSQLHelper
 from sagemaker_studio.connections.sql_helper.snowflake_sql_helper import SnowflakeSqlHelper
+from sagemaker_studio.sql_engine.snowflake_transformer import SnowflakeAuthType
 
 connection = make_dataclass("Connection", ["secret", "connection_creds", "data"])(
     {"username": "admin", "password": "secret"},
@@ -31,6 +32,26 @@ connection = make_dataclass("Connection", ["secret", "connection_creds", "data"]
 
 snowflake_connection = make_dataclass("Connection", ["secret", "connection_creds", "data"])(
     {"username": "admin", "password": "secret"},
+    make_dataclass("ConnectionCredentials", [])(),
+    make_dataclass("ConnectionData", ["physical_endpoints"])(
+        [
+            make_dataclass("PhysicalEndpoint", ["awsLocation", "glueConnection"])(
+                awsLocation={"awsRegion": "us-east-1"},
+                glueConnection=make_dataclass("GlueConnection", ["connectionProperties"])(
+                    connectionProperties={
+                        "DATABASE": "sales",
+                        "HOST": "db.example.com.snowflakecomputing.com",
+                        "PORT": "1433",
+                        "WAREHOUSE": "wh1",
+                    },
+                ),
+            )
+        ]
+    ),
+)
+
+snowflake_pem_connection = make_dataclass("Connection", ["secret", "connection_creds", "data"])(
+    {"sfUser": "SVC_ACCOUNT", "pem_private_key": "MIIBfakekey=="},
     make_dataclass("ConnectionCredentials", [])(),
     make_dataclass("ConnectionData", ["physical_endpoints"])(
         [
@@ -128,7 +149,18 @@ def test_to_snowflake_helper_sql_config_returns_secret_identity():
         "account": "db.example.com.us-east-1",
         "region": "us-east-1",
         "warehouse": "wh1",
+        "auth_type": SnowflakeAuthType.USERNAME_PASSWORD,
     }
+
+
+def test_to_snowflake_helper_sql_config_pem_private_key():
+    result = SnowflakeSqlHelper.to_sql_config(snowflake_pem_connection)
+    assert result["auth_type"] == SnowflakeAuthType.PEM_PRIVATE_KEY
+    assert result["user"] == "SVC_ACCOUNT"
+    assert result["private_key"] == "MIIBfakekey=="
+    assert "password" not in result
+    assert "sfUser" not in result
+    assert "pem_private_key" not in result
 
 
 @patch(

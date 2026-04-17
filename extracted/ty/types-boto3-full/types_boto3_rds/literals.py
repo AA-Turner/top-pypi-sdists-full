@@ -85,6 +85,7 @@ __all__ = (
     "DescribePendingMaintenanceActionsPaginatorName",
     "DescribeReservedDBInstancesOfferingsPaginatorName",
     "DescribeReservedDBInstancesPaginatorName",
+    "DescribeServerlessV2PlatformVersionsPaginatorName",
     "DescribeSourceRegionsPaginatorName",
     "DescribeTenantDatabasesPaginatorName",
     "DownloadDBLogFilePortionPaginatorName",
@@ -209,6 +210,9 @@ DescribeReservedDBInstancesOfferingsPaginatorName = Literal[
     "describe_reserved_db_instances_offerings"
 ]
 DescribeReservedDBInstancesPaginatorName = Literal["describe_reserved_db_instances"]
+DescribeServerlessV2PlatformVersionsPaginatorName = Literal[
+    "describe_serverless_v2_platform_versions"
+]
 DescribeSourceRegionsPaginatorName = Literal["describe_source_regions"]
 DescribeTenantDatabasesPaginatorName = Literal["describe_tenant_databases"]
 DownloadDBLogFilePortionPaginatorName = Literal["download_db_log_file_portion"]
@@ -737,6 +741,7 @@ PaginatorName = Literal[
     "describe_pending_maintenance_actions",
     "describe_reserved_db_instances",
     "describe_reserved_db_instances_offerings",
+    "describe_serverless_v2_platform_versions",
     "describe_source_regions",
     "describe_tenant_databases",
     "download_db_log_file_portion",

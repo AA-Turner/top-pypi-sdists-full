@@ -24,10 +24,16 @@ Supported backends:
 import warnings
 
 __all__ = [
-    "PraisonDB",
+    "DB",  # recommended short name
+    "PraisonAIDB",
+    "PraisonDB",  # backward-compatible alias
     "PostgresDB", 
     "SQLiteDB",
     "RedisDB",
+    "NeonDB",
+    "CockroachDB",
+    "XataDB",
+    "TursoDB",
 ]
 
 # Deprecation warning message
@@ -41,6 +47,16 @@ _DEPRECATION_MSG = (
 
 # Lazy imports to avoid loading heavy dependencies
 def __getattr__(name: str):
+    if name == "DB":
+        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
+        from .adapter import DB
+        return DB
+    
+    if name == "PraisonAIDB":
+        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
+        from .adapter import PraisonAIDB
+        return PraisonAIDB
+    
     if name == "PraisonDB":
         warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
         from .adapter import PraisonDB
@@ -60,5 +76,21 @@ def __getattr__(name: str):
         warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
         from .adapter import RedisDB
         return RedisDB
+    
+    if name == "NeonDB":
+        from .adapter import NeonDB
+        return NeonDB
+    
+    if name == "CockroachDB":
+        from .adapter import CockroachDB
+        return CockroachDB
+    
+    if name == "XataDB":
+        from .adapter import XataDB
+        return XataDB
+    
+    if name == "TursoDB":
+        from .adapter import TursoDB
+        return TursoDB
     
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: click-extra
-Version: 7.12.0
+Version: 7.13.0
 Summary: 🌈 Drop-in replacement for Click to make user-friendly and colorful CLI
 Keywords: ansi-colors,ansi-escape-codes,cli-framework,click,click-extension,click-plugin,cloup,colorization,config-file,configuration-file,hjson,ini,json5,pygments,pytest-plugin,python-cli,python-tabulate,sphinx-extension,tabulate,toml-parser
 Author: Kevin Deldycke
@@ -53,6 +53,9 @@ Requires-Dist: wcmatch>=10
 Requires-Dist: hjson>=3.1 ; extra == 'hjson'
 Requires-Dist: json5>=0.12.1 ; extra == 'json5'
 Requires-Dist: json-with-comments>=1.2.10 ; extra == 'jsonc'
+Requires-Dist: mkdocs>=1.4 ; extra == 'mkdocs'
+Requires-Dist: pygments>=2.14 ; extra == 'mkdocs'
+Requires-Dist: pymdown-extensions>=10 ; extra == 'mkdocs'
 Requires-Dist: pygments>=2.14 ; extra == 'pygments'
 Requires-Dist: pytest>=9 ; extra == 'pytest'
 Requires-Dist: docutils>=0.20 ; extra == 'sphinx'
@@ -63,7 +66,7 @@ Requires-Dist: xmltodict>=1 ; extra == 'xml'
 Requires-Dist: pyyaml>=6.0.3 ; extra == 'yaml'
 Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/kdeldycke/click-extra
-Project-URL: Download, https://github.com/kdeldycke/click-extra/releases/tag/v7.12.0
+Project-URL: Download, https://github.com/kdeldycke/click-extra/releases/tag/v7.13.0
 Project-URL: Changelog, https://github.com/kdeldycke/click-extra/blob/main/changelog.md
 Project-URL: Issues, https://github.com/kdeldycke/click-extra/issues
 Project-URL: Repository, https://github.com/kdeldycke/click-extra
@@ -71,6 +74,7 @@ Project-URL: Funding, https://github.com/sponsors/kdeldycke
 Provides-Extra: hjson
 Provides-Extra: json5
 Provides-Extra: jsonc
+Provides-Extra: mkdocs
 Provides-Extra: pygments
 Provides-Extra: pytest
 Provides-Extra: sphinx
@@ -81,7 +85,7 @@ Description-Content-Type: text/markdown
 
 <p align="center">
   <a href="https://github.com/kdeldycke/click-extra/">
-    <img src="https://raw.githubusercontent.com/kdeldycke/click-extra/v7.12.0/docs/assets/logo-banner.svg" alt="Click Extra">
+    <img src="https://raw.githubusercontent.com/kdeldycke/click-extra/v7.13.0/docs/assets/logo-banner.svg" alt="Click Extra">
   </a>
 </p>
 
@@ -99,7 +103,7 @@ It should be easy to write a good CLI in Python. [Click](https://click.palletspr
 
 Click Extra is a **ready-to-use wrapper around Click** to make your CLI look good and behave well. It is a drop-in replacement with good defaults that saves lots of boilerplate code and frustration by making all parts working together.
 
-It also comes with [workarounds and patches](https://kdeldycke.github.io/click-extra/issues.html) that have not reached upstream yet (or are unlikely to).
+It also comes with [workarounds and patches](https://kdeldycke.github.io/click-extra/upstream.html) that have not reached upstream yet (or are unlikely to).
 
 ## Who is this for?
 
@@ -125,11 +129,11 @@ This is a great way to play with Click Extra and check that it runs fine on your
 
 It transforms this vanilla `click` CLI:
 
-![click CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/v7.12.0/docs/assets/click-help-screen.png)
+![click CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/v7.13.0/docs/assets/click-help-screen.png)
 
 Into this:
 
-![click-extra CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/v7.12.0/docs/assets/click-extra-screen.png)
+![click-extra CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/v7.13.0/docs/assets/click-extra-screen.png)
 
 To undestrand how we ended up with the result above, [go read the tutorial](https://kdeldycke.github.io/click-extra/tutorial.html).
 
@@ -168,7 +172,8 @@ To undestrand how we ended up with the result above, [go read the tutorial](http
 - [Inline testing of CLI examples](https://kdeldycke.github.io/click-extra/sphinx.html#inline-tests) in documentation
 - Render [GitHub alerts](https://kdeldycke.github.io/click-extra/sphinx.html#github-alerts) into MyST admonitions
 - [ANSI-capable Pygments lexers](https://kdeldycke.github.io/click-extra/pygments.html#ansi-language-lexers) for shell session and console output
-- [Fixes 50+ bugs](https://kdeldycke.github.io/click-extra/issues.html) from other Click-related projects
+- [MkDocs plugin](https://kdeldycke.github.io/click-extra/mkdocs.html) for ANSI color rendering in code blocks
+- [Fixes 50+ bugs](https://kdeldycke.github.io/click-extra/upstream.html) from other Click-related projects
 - Rely on [Cloup](https://github.com/janluke/cloup) to add:
   - option groups
   - constraints

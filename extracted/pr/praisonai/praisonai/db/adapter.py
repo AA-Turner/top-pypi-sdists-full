@@ -1,5 +1,5 @@
 """
-PraisonDB adapter - implements the DbAdapter protocol from praisonaiagents.
+PraisonAIDB adapter - implements the DbAdapter protocol from praisonaiagents.
 
 This module provides the bridge between the core Agent's db interface
 and the wrapper's persistence layer (PersistenceOrchestrator).
@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
-class PraisonDB:
+class PraisonAIDB:
     """
     Universal database adapter for PraisonAI agents.
     
@@ -21,15 +21,15 @@ class PraisonDB:
     
     Example:
         from praisonaiagents import Agent
-        from praisonai.db import PraisonDB
+        from praisonai.db import PraisonAIDB
         
         # Simple usage with PostgreSQL
-        db = PraisonDB(database_url="postgresql://localhost/mydb")
+        db = PraisonAIDB(database_url="postgresql://localhost/mydb")
         agent = Agent(name="Assistant", db=db, session_id="my-session")
         agent.chat("Hello!")
         
         # With multiple backends
-        db = PraisonDB(
+        db = PraisonAIDB(
             database_url="postgresql://localhost/mydb",
             state_url="redis://localhost:6379"
         )
@@ -98,9 +98,23 @@ class PraisonDB:
         self._initialized = True
     
     def _detect_backend(self, url: str) -> str:
-        """Detect backend type from URL."""
+        """Detect backend type from URL.
+        
+        Supports cloud-native serverless providers:
+        - Neon (*.neon.tech) -> postgres
+        - CockroachDB (*.cockroachlabs.cloud) -> postgres
+        - Xata (*.xata.sh) -> postgres
+        - Supabase direct Postgres (*.supabase.com port 5432/6543) -> postgres
+        - Supabase REST (*.supabase.co via HTTPS) -> supabase
+        - Turso/libSQL (libsql://) -> turso
+        """
         url_lower = url.lower()
         
+        # Turso/libSQL — unique scheme
+        if url_lower.startswith("libsql://"):
+            return "turso"
+        
+        # PostgreSQL-compatible (including cloud providers)
         if url_lower.startswith("postgresql://") or url_lower.startswith("postgres://"):
             return "postgres"
         elif url_lower.startswith("mysql://"):
@@ -110,6 +124,9 @@ class PraisonDB:
         elif url_lower.startswith("redis://"):
             return "redis"
         elif url_lower.startswith("http://") or url_lower.startswith("https://"):
+            # Supabase REST API
+            if ".supabase.co" in url_lower or ".supabase.com" in url_lower:
+                return "supabase"
             # Could be Qdrant, Weaviate, etc.
             if "qdrant" in url_lower or ":6333" in url_lower:
                 return "qdrant"
@@ -490,7 +507,7 @@ class PraisonDB:
             self._knowledge_store.close()
 
 
-class PostgresDB(PraisonDB):
+class PostgresDB(PraisonAIDB):
     """PostgreSQL-specific database adapter."""
     
     def __init__(
@@ -506,7 +523,7 @@ class PostgresDB(PraisonDB):
         super().__init__(database_url=url, **options)
 
 
-class SQLiteDB(PraisonDB):
+class SQLiteDB(PraisonAIDB):
     """SQLite-specific database adapter."""
     
     def __init__(self, path: str = "praisonai.db", database_url: str = None, **options):
@@ -518,7 +535,7 @@ class SQLiteDB(PraisonDB):
         return "sqlite"
 
 
-class RedisDB(PraisonDB):
+class RedisDB(PraisonAIDB):
     """Redis-specific database adapter (for state only)."""
     
     def __init__(
@@ -529,3 +546,94 @@ class RedisDB(PraisonDB):
     ):
         url = f"redis://{host}:{port}"
         super().__init__(state_url=url, **options)
+
+
+class NeonDB(PraisonAIDB):
+    """Neon serverless PostgreSQL adapter.
+    
+    Auto-configures SSL, retry logic, and connection timeout for Neon's
+    scale-to-zero architecture.
+    
+    Example:
+        db = NeonDB(database_url="postgresql://user:pass@ep-xxx.neon.tech/mydb")
+    """
+    
+    def __init__(self, database_url: Optional[str] = None, **options):
+        import os
+        url = database_url or os.getenv("NEON_DATABASE_URL")
+        if not url:
+            raise ValueError(
+                "Neon database URL required. Provide database_url or set NEON_DATABASE_URL."
+            )
+        super().__init__(database_url=url, **options)
+
+
+class CockroachDB(PraisonAIDB):
+    """CockroachDB Serverless adapter.
+    
+    Auto-configures SSL, retry logic (including serialization error 40001),
+    and connection timeout.
+    
+    Example:
+        db = CockroachDB(database_url="postgresql://user:pass@xxx.cockroachlabs.cloud:26257/mydb")
+    """
+    
+    def __init__(self, database_url: Optional[str] = None, **options):
+        import os
+        url = database_url or os.getenv("COCKROACHDB_URL")
+        if not url:
+            raise ValueError(
+                "CockroachDB URL required. Provide database_url or set COCKROACHDB_URL."
+            )
+        super().__init__(database_url=url, **options)
+
+
+class XataDB(PraisonAIDB):
+    """Xata serverless PostgreSQL adapter.
+    
+    Example:
+        db = XataDB(database_url="postgresql://user:pass@xxx.xata.sh:5432/mydb")
+    """
+    
+    def __init__(self, database_url: Optional[str] = None, **options):
+        import os
+        url = database_url or os.getenv("XATA_DATABASE_URL")
+        if not url:
+            raise ValueError(
+                "Xata database URL required. Provide database_url or set XATA_DATABASE_URL."
+            )
+        super().__init__(database_url=url, **options)
+
+
+class TursoDB(PraisonAIDB):
+    """Turso/libSQL database adapter.
+    
+    Uses the libsql Python driver for Turso's SQLite-compatible edge database.
+    
+    Example:
+        db = TursoDB(
+            database_url="libsql://mydb-user.turso.io",
+            turso_auth_token="eyJ..."
+        )
+    """
+    
+    def __init__(
+        self,
+        database_url: Optional[str] = None,
+        turso_auth_token: Optional[str] = None,
+        **options
+    ):
+        import os
+        url = database_url or os.getenv("TURSO_DATABASE_URL")
+        token = turso_auth_token or os.getenv("TURSO_AUTH_TOKEN")
+        if not url:
+            raise ValueError(
+                "Turso database URL required. Provide database_url or set TURSO_DATABASE_URL."
+            )
+        options["auth_token"] = token
+        super().__init__(database_url=url, **options)
+
+
+# Backward-compatible aliases
+PraisonDB = PraisonAIDB
+DB = PraisonAIDB

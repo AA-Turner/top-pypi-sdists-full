@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: tinker
-Version: 0.18.0
+Version: 0.18.1
 Summary: The official Python SDK for the tinker API
 Project-URL: Homepage, https://thinkingmachines.ai/tinker
 Project-URL: Repository, https://github.com/thinking-machines-lab/tinker
@@ -28,6 +28,7 @@ Requires-Dist: click>=8.0.0
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx[http2]<1,>=0.23.0
 Requires-Dist: numpy
+Requires-Dist: protobuf>=4.21
 Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: sniffio

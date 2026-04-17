@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Iterable, Literal, Optional, Sequence, Union
 
 import httpx
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import and_, exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, contains_eager, joinedload, load_only
 
@@ -14,7 +14,10 @@ from dstack._internal.core.consts import DSTACK_RUNNER_HTTP_PORT, DSTACK_SHIM_HT
 from dstack._internal.core.errors import GatewayError, SSHError
 from dstack._internal.core.models.backends.base import BackendType
 from dstack._internal.core.models.common import NetworkMode, RegistryAuth
-from dstack._internal.core.models.configurations import DevEnvironmentConfiguration
+from dstack._internal.core.models.configurations import (
+    DevEnvironmentConfiguration,
+    ServiceConfiguration,
+)
 from dstack._internal.core.models.files import FileArchiveMapping
 from dstack._internal.core.models.instances import InstanceStatus, SSHConnectionParams
 from dstack._internal.core.models.metrics import Metric
@@ -48,10 +51,12 @@ from dstack._internal.server.background.pipeline_tasks.base import (
     set_processed_update_map_fields,
     set_unlock_update_map_fields,
 )
-from dstack._internal.server.background.scheduled_tasks.common import get_provisioning_timeout
+from dstack._internal.server.background.pipeline_tasks.common import get_provisioning_timeout
 from dstack._internal.server.db import get_db, get_session_ctx
 from dstack._internal.server.models import (
+    ExportedFleetModel,
     FleetModel,
+    ImportModel,
     InstanceModel,
     JobModel,
     ProbeModel,
@@ -67,7 +72,7 @@ from dstack._internal.server.services import logs as logs_services
 from dstack._internal.server.services.backends.provisioning import (
     get_instance_specific_gpu_devices,
     get_instance_specific_mounts,
-    resolve_provisioning_image_name,
+    resolve_provisioning_image,
 )
 from dstack._internal.server.services.gateways import get_or_add_gateway_connection
 from dstack._internal.server.services.instances import (
@@ -309,6 +314,7 @@ class _ProcessContext:
     job: Job
     job_submission: JobSubmission
     job_provisioning_data: Optional[JobProvisioningData]
+    instance_access_revoked: bool
     server_ssh_private_keys: Optional[tuple[str, Optional[str]]] = None
 
     @property
@@ -374,6 +380,7 @@ async def _load_process_context(item: JobRunningPipelineItem) -> Optional[_Proce
             )
             run = run_model_to_run(run_model, include_sensitive=True)
             job = find_job(run.jobs, job_model.replica_num, job_model.job_num)
+        instance_access_revoked = await _is_instance_access_revoked(session, job_model)
         job_submission = job_model_to_job_submission(job_model)
         server_ssh_private_keys = get_instance_ssh_private_keys(get_or_error(job_model.instance))
         return _ProcessContext(
@@ -383,12 +390,24 @@ async def _load_process_context(item: JobRunningPipelineItem) -> Optional[_Proce
             job=job,
             job_submission=job_submission,
             job_provisioning_data=job_submission.job_provisioning_data,
+            instance_access_revoked=instance_access_revoked,
             server_ssh_private_keys=server_ssh_private_keys,
         )
 
 
 async def _process_running_job(context: _ProcessContext) -> _ProcessResult:
     result = _ProcessResult()
+    if context.instance_access_revoked:
+        _terminate_job(
+            job_model=context.job_model,
+            job_update_map=result.job_update_map,
+            termination_reason=JobTerminationReason.INSTANCE_ACCESS_REVOKED,
+            termination_reason_message=(
+                "The instance is no longer imported into the job's project"
+            ),
+        )
+        return result
+
     if context.job_provisioning_data is None:
         logger.error("%s: job_provisioning_data of an active job is None", fmt(context.job_model))
         _terminate_job(
@@ -557,6 +576,22 @@ async def _fetch_run_model(
         )
     res = await session.execute(query)
     return res.unique().scalar_one()
+
+
+async def _is_instance_access_revoked(session: AsyncSession, job_model: JobModel) -> bool:
+    if job_model.instance is None or job_model.instance.project_id == job_model.project_id:
+        return False
+    return not (
+        await session.execute(
+            select(
+                exists().where(
+                    ImportModel.project_id == job_model.project_id,
+                    ImportModel.export_id == ExportedFleetModel.export_id,
+                    ExportedFleetModel.fleet_id == job_model.instance.fleet_id,
+                )
+            )
+        )
+    ).scalar()
 
 
 async def _process_provisioning_status(
@@ -991,6 +1026,22 @@ async def _register_service_replica(
     if context.run_model.gateway_id is None:
         return None
 
+    job_spec = JobSpec.__response__.parse_raw(context.job_model.job_spec_data)
+
+    # For router-based services (e.g. PD disaggregation), only router replicas should be
+    # registered with the gateway. Worker replicas are discovered by the router-worker
+    # sync pipeline and should not be routed to directly by the gateway.
+    config = context.run.run_spec.configuration
+    assert isinstance(config, ServiceConfiguration)
+    router_group = next((g for g in config.replica_groups if g.router is not None), None)
+    is_router_replica = router_group is not None and job_spec.replica_group == router_group.name
+    if router_group is not None and not is_router_replica:
+        logger.debug(
+            "%s: skipping gateway replica registration (non-router replica)",
+            fmt(context.job_model),
+        )
+        return None
+
     async with get_session_ctx() as session:
         gateway_model, conn = await get_or_add_gateway_connection(
             session, context.run_model.gateway_id
@@ -1011,7 +1062,7 @@ async def _register_service_replica(
         async with conn.client() as gateway_client:
             await gateway_client.register_replica(
                 run=context.run,
-                job_spec=JobSpec.__response__.parse_raw(context.job_model.job_spec_data),
+                job_spec=job_spec,
                 job_submission=job_submission,
                 instance_project_ssh_private_key=instance_project_ssh_private_key,
                 ssh_head_proxy=ssh_head_proxy,
@@ -1126,13 +1177,15 @@ def _process_provisioning_with_shim(
     ssh_user: Optional[str],
     ssh_key: Optional[str],
 ) -> bool:
-    job_spec = JobSpec.__response__.parse_raw(job_model.job_spec_data)
+    job_spec = get_job_spec(job_model)
     shim_client = client.ShimClient(port=ports[DSTACK_SHIM_HTTP_PORT])
 
     resp = shim_client.healthcheck()
     if resp is None:
         logger.debug("%s: shim is not available yet", fmt(job_model))
         return False
+
+    image_name, registry_auth = resolve_provisioning_image(job_spec.image_name, registry_auth, jpd)
 
     registry_username = ""
     registry_password = ""
@@ -1167,7 +1220,6 @@ def _process_provisioning_with_shim(
         cpu = None
         memory = None
         network_mode = NetworkMode.HOST
-    image_name = resolve_provisioning_image_name(job_spec, jpd)
     if shim_client.is_api_v2_supported():
         shim_client.submit_task(
             task_id=job_model.id,
@@ -1320,7 +1372,7 @@ def _submit_job_to_runner(
     job: Job,
     jrd: Optional[JobRuntimeData],
     cluster_info: ClusterInfo,
-    code: bytes,
+    code: Optional[bytes],
     file_archives: Iterable[tuple[uuid.UUID, bytes]],
     secrets: Dict[str, str],
     repo_credentials: Optional[RemoteRepoCreds],
@@ -1352,11 +1404,15 @@ def _submit_job_to_runner(
         repo_credentials=repo_credentials,
         instance_env=instance_env,
     )
-    logger.debug("%s: uploading file archive(s)", fmt(job_model))
     for archive_id, archive in file_archives:
+        logger.debug("%s: uploading file archive: %s", fmt(job_model), archive_id)
         runner_client.upload_archive(archive_id, archive)
-    logger.debug("%s: uploading code", fmt(job_model))
-    runner_client.upload_code(code)
+    if code is None and not runner_client.is_code_upload_optional():
+        # Old runner, we must call `/api/upload_code` to proceed
+        code = b""
+    if code is not None:
+        logger.debug("%s: uploading code", fmt(job_model))
+        runner_client.upload_code(code)
     logger.debug("%s: starting job", fmt(job_model))
     job_info = runner_client.run_job()
     if job_info is not None:
@@ -1520,18 +1576,20 @@ def _get_repo_code_hash(run: Run, job: Job) -> Optional[str]:
     return job.job_spec.repo_code_hash
 
 
-async def _get_job_code(project: ProjectModel, repo: RepoModel, code_hash: Optional[str]) -> bytes:
+async def _get_job_code(
+    project: ProjectModel, repo: RepoModel, code_hash: Optional[str]
+) -> Optional[bytes]:
     if code_hash is None:
-        return b""
+        return None
     async with get_session_ctx() as session:
         code_model = await get_code_model(session=session, repo=repo, code_hash=code_hash)
     if code_model is None:
-        return b""
+        return None
     if code_model.blob is not None:
         return code_model.blob
     storage = get_default_storage()
     if storage is None:
-        return b""
+        return None
     blob = await run_async(
         storage.get_code,
         project.name,
@@ -1542,7 +1600,7 @@ async def _get_job_code(project: ProjectModel, repo: RepoModel, code_hash: Optio
         logger.error(
             "Failed to get repo code hash %s from storage for repo %s", code_hash, repo.name
         )
-        return b""
+        return None
     return blob
 
 

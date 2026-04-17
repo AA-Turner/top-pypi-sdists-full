@@ -18,6 +18,8 @@ import traceback
 from datetime import datetime, timezone
 from typing import Optional
 
+from datahub.secret.secret_store import SecretStore, SecretStoreConfig
+
 from acryl.executor.common.config import ConfigModel
 from acryl.executor.context.execution_context import ExecutionContext
 from acryl.executor.context.executor_context import ExecutorContext
@@ -27,7 +29,6 @@ from acryl.executor.execution.task_registry import TaskRegistry
 from acryl.executor.request.execution_request import ExecutionRequest
 from acryl.executor.request.signal_request import SignalRequest
 from acryl.executor.result.execution_result import ExecutionResult, Type
-from acryl.executor.secret.secret_store import SecretStore, SecretStoreConfig
 from acryl.executor.secret.secret_store_registry import SecretStoreRegistry
 
 logger = logging.getLogger(__name__)

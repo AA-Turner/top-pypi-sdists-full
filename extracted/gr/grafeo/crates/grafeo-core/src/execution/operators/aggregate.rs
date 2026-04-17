@@ -495,6 +495,8 @@ impl AggregateState {
                     let mut sorted = values.clone();
                     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                     // Index calculation per SQL standard: floor(p * (n - 1))
+                    // reason: percentile index is bounded by sorted.len(), fits usize
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                     let index = (percentile * (sorted.len() - 1) as f64).floor() as usize;
                     Value::Float64(sorted[index])
                 }
@@ -508,7 +510,11 @@ impl AggregateState {
                     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                     // Linear interpolation per SQL standard
                     let rank = percentile * (sorted.len() - 1) as f64;
+                    // reason: rank is bounded by sorted.len() - 1, fits usize
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                     let lower_idx = rank.floor() as usize;
+                    // reason: rank is a non-negative f64 from percentile calculation, fits usize
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                     let upper_idx = rank.ceil() as usize;
                     if lower_idx == upper_idx {
                         Value::Float64(sorted[lower_idx])
@@ -666,6 +672,8 @@ impl GroupKeyPart {
             Value::Null => Self::Null,
             Value::Bool(b) => Self::Bool(b),
             Value::Int64(i) => Self::Int64(i),
+            // reason: intentional bit-level reinterpretation for grouping equality
+            #[allow(clippy::cast_possible_wrap)]
             Value::Float64(f) => Self::Int64(f.to_bits() as i64),
             Value::String(s) => Self::String(s.clone()),
             Value::Bytes(b) => Self::Bytes(b),
@@ -779,6 +787,11 @@ impl HashAggregateOperator {
             aggregation_complete: false,
             results: None,
         }
+    }
+
+    /// Decomposes this operator for push-based conversion.
+    pub fn into_parts(self) -> (Box<dyn Operator>, Vec<usize>, Vec<AggregateExpr>) {
+        (self.child, self.group_columns, self.aggregates)
     }
 
     /// Performs the aggregation.
@@ -939,6 +952,10 @@ impl Operator for HashAggregateOperator {
     fn name(&self) -> &'static str {
         "HashAggregate"
     }
+
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+        self
+    }
 }
 
 /// Simple (non-grouping) aggregate operator for global aggregations.
@@ -1077,6 +1094,10 @@ impl Operator for SimpleAggregateOperator {
     fn name(&self) -> &'static str {
         "SimpleAggregate"
     }
+
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+        self
+    }
 }
 
 #[cfg(test)]
@@ -1115,6 +1136,10 @@ mod tests {
 
         fn name(&self) -> &'static str {
             "Mock"
+        }
+
+        fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+            self
         }
     }
 
@@ -1817,5 +1842,45 @@ mod tests {
         // Population stdev of single value is 0
         let stdev = result.column(0).unwrap().get_float64(0).unwrap();
         assert!((stdev - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_hash_aggregate_into_any() {
+        let mock = MockOperator::new(vec![]);
+        let op = HashAggregateOperator::new(
+            Box::new(mock),
+            vec![0],
+            vec![AggregateExpr::count_star()],
+            vec![LogicalType::Int64, LogicalType::Int64],
+        );
+        let any = Box::new(op).into_any();
+        assert!(any.downcast::<HashAggregateOperator>().is_ok());
+    }
+
+    #[test]
+    fn test_simple_aggregate_into_any() {
+        let mock = MockOperator::new(vec![]);
+        let op = SimpleAggregateOperator::new(
+            Box::new(mock),
+            vec![AggregateExpr::count_star()],
+            vec![LogicalType::Int64],
+        );
+        let any = Box::new(op).into_any();
+        assert!(any.downcast::<SimpleAggregateOperator>().is_ok());
+    }
+
+    #[test]
+    fn test_hash_aggregate_into_parts() {
+        let mock = MockOperator::new(vec![]);
+        let op = HashAggregateOperator::new(
+            Box::new(mock),
+            vec![0, 2],
+            vec![AggregateExpr::sum(1), AggregateExpr::count_star()],
+            vec![LogicalType::Int64, LogicalType::Int64, LogicalType::Int64],
+        );
+        let (mut child, group_columns, aggregates) = op.into_parts();
+        assert_eq!(group_columns, vec![0, 2]);
+        assert_eq!(aggregates.len(), 2);
+        assert!(child.next().unwrap().is_none());
     }
 }

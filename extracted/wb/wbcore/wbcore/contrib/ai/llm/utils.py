@@ -9,6 +9,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, ValidationError
 
+from wbcore.contrib.ai.exceptions import LLMCallError, is_bad_request
+
 type Prompt = str | list[BaseMessage] | BaseMessage
 
 
@@ -61,8 +63,16 @@ def run_llm(
     chat_prompt_template = _convert_prompt_to_chat_prompt_template(prompt, format_instructions=format_instructions)
 
     chain = chat_prompt_template | llm
-
-    response = chain.invoke(query)  # type: ignore
+    try:
+        response = chain.invoke(query)
+    except Exception as e:
+        if is_bad_request(e):
+            return None, SystemMessage(content=str(e))
+        raise LLMCallError(
+            e,
+            llm_name=chat_model.__name__,
+            model=chat_model_name,
+        ) from e
     if output_model:
         with suppress(ValidationError, IndexError):
             return output_model.model_validate(response.tool_calls[0]["args"]), response

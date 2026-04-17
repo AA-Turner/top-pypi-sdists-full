@@ -23,7 +23,9 @@ from ._base import (
 from ._bool_converter import BoolFeatureConverter
 from ._bytes_converter import BytesFeatureConverter, LargeBinaryFeatureConverter
 from ._date_converter import Date32FeatureConverter, Date64FeatureConverter
+from ._decimal_converter import DecimalFeatureConverter
 from ._datetime_converter import DatetimeFeatureConverter
+from ._enum_converter import EnumFeatureConverter
 from ._dataclass_converter import (
     DataclassFeatureConverter,
     _build_dc_to_dict,
@@ -32,7 +34,8 @@ from ._dataclass_converter import (
     _build_to_rich_converter,
 )
 from ._factory import make_feature_converter, make_primitive_converter
-from ._float_converter import Float32FeatureConverter, Float64FeatureConverter
+from ._fixed_size_list_converter import FixedSizeListFeatureConverter
+from ._float_converter import Float16FeatureConverter, Float32FeatureConverter, Float64FeatureConverter
 from ._generic_converter import (
     GenericFeatureConverter,
     JSONCodec,
@@ -43,8 +46,21 @@ from ._generic_converter import (
     _to_old_style_type,
     canonicalize_typ,
 )
-from ._int_converter import Int32FeatureConverter, Int64FeatureConverter
+from ._int_converter import (
+    Int8FeatureConverter,
+    Int16FeatureConverter,
+    Int32FeatureConverter,
+    Int64FeatureConverter,
+    UInt8FeatureConverter,
+    UInt16FeatureConverter,
+    UInt32FeatureConverter,
+    UInt64FeatureConverter,
+)
+from ._attrs_converter import AttrsFeatureConverter
+from ._dict_converter import DictFeatureConverter
 from ._list_converter import ListFeatureConverter
+from ._set_converter import SetFeatureConverter
+from ._named_tuple_converter import NamedTupleFeatureConverter
 from ._primitive_converter import (
     PrimitiveFeatureConverter,
     pa_scalar_to_proto,
@@ -53,6 +69,8 @@ from ._primitive_converter import (
 from ._string_converter import LargeStringFeatureConverter, StringFeatureConverter
 from ._time_converter import Time32sFeatureConverter, Time32msFeatureConverter, Time64usFeatureConverter, Time64nsFeatureConverter
 from ._timedelta_converter import TimedeltaFeatureConverter
+from ._typed_dict_converter import TypedDictFeatureConverter
+from ._uuid_ip_converters import UUIDFeatureConverter, IPv4FeatureConverter, IPv6FeatureConverter
 
 __all__ = [
     # _base
@@ -77,11 +95,15 @@ __all__ = [
     # bytes_converter
     "BytesFeatureConverter",
     "LargeBinaryFeatureConverter",
+    # decimal_converter
+    "DecimalFeatureConverter",
     # date_converter
     "Date32FeatureConverter",
     "Date64FeatureConverter",
     # datetime_converter
     "DatetimeFeatureConverter",
+    # enum_converter
+    "EnumFeatureConverter",
     # dataclass_converter
     "DataclassFeatureConverter",
     "_build_dc_to_dict",
@@ -92,6 +114,7 @@ __all__ = [
     "make_feature_converter",
     "make_primitive_converter",
     # float_converters
+    "Float16FeatureConverter",
     "Float32FeatureConverter",
     "Float64FeatureConverter",
     # generic_converter
@@ -104,10 +127,26 @@ __all__ = [
     "_to_old_style_type",
     "canonicalize_typ",
     # int_converter
+    "Int8FeatureConverter",
+    "Int16FeatureConverter",
     "Int32FeatureConverter",
     "Int64FeatureConverter",
+    "UInt8FeatureConverter",
+    "UInt16FeatureConverter",
+    "UInt32FeatureConverter",
+    "UInt64FeatureConverter",
+    # fixed_size_list_converter
+    "FixedSizeListFeatureConverter",
     # list_converter
     "ListFeatureConverter",
+    # set_converter
+    "SetFeatureConverter",
+    # attrs_converter
+    "AttrsFeatureConverter",
+    # dict_converter
+    "DictFeatureConverter",
+    # namedtuple_converter
+    "NamedTupleFeatureConverter",
     # primitive_converter
     "PrimitiveFeatureConverter",
     "pa_scalar_to_proto",
@@ -123,4 +162,10 @@ __all__ = [
     "Time64nsFeatureConverter",
     # timedelta_converter
     "TimedeltaFeatureConverter",
+    # typed_dict_converter
+    "TypedDictFeatureConverter",
+    # uuid_ip_converters
+    "UUIDFeatureConverter",
+    "IPv4FeatureConverter",
+    "IPv6FeatureConverter",
 ]

@@ -57,6 +57,7 @@ from .literals import (
     ReadinessStatusType,
     RecommenderFilterStatusType,
     RecommenderRecipeNameType,
+    RecommenderSchemaStatusType,
     RecommenderStatusType,
     RuleBasedMatchingStatusType,
     S3ConnectorOperatorType,
@@ -151,6 +152,8 @@ __all__ = (
     "CreateRecommenderFilterResponseTypeDef",
     "CreateRecommenderRequestTypeDef",
     "CreateRecommenderResponseTypeDef",
+    "CreateRecommenderSchemaRequestTypeDef",
+    "CreateRecommenderSchemaResponseTypeDef",
     "CreateSegmentDefinitionRequestTypeDef",
     "CreateSegmentDefinitionResponseTypeDef",
     "CreateSegmentEstimateRequestTypeDef",
@@ -186,6 +189,7 @@ __all__ = (
     "DeleteRecommenderFilterRequestTypeDef",
     "DeleteRecommenderFilterResponseTypeDef",
     "DeleteRecommenderRequestTypeDef",
+    "DeleteRecommenderSchemaRequestTypeDef",
     "DeleteSegmentDefinitionRequestTypeDef",
     "DeleteSegmentDefinitionResponseTypeDef",
     "DeleteWorkflowRequestTypeDef",
@@ -272,6 +276,8 @@ __all__ = (
     "GetRecommenderFilterResponseTypeDef",
     "GetRecommenderRequestTypeDef",
     "GetRecommenderResponseTypeDef",
+    "GetRecommenderSchemaRequestTypeDef",
+    "GetRecommenderSchemaResponseTypeDef",
     "GetSegmentDefinitionRequestTypeDef",
     "GetSegmentDefinitionResponseTypeDef",
     "GetSegmentEstimateRequestTypeDef",
@@ -353,6 +359,9 @@ __all__ = (
     "ListRecommenderRecipesRequestPaginateTypeDef",
     "ListRecommenderRecipesRequestTypeDef",
     "ListRecommenderRecipesResponseTypeDef",
+    "ListRecommenderSchemasRequestPaginateTypeDef",
+    "ListRecommenderSchemasRequestTypeDef",
+    "ListRecommenderSchemasResponseTypeDef",
     "ListRecommendersRequestPaginateTypeDef",
     "ListRecommendersRequestTypeDef",
     "ListRecommendersResponseTypeDef",
@@ -424,6 +433,8 @@ __all__ = (
     "RecommenderFilterTypeDef",
     "RecommenderPromotionalFilterTypeDef",
     "RecommenderRecipeTypeDef",
+    "RecommenderSchemaFieldTypeDef",
+    "RecommenderSchemaSummaryTypeDef",
     "RecommenderSummaryTypeDef",
     "RecommenderUpdateTypeDef",
     "ResponseMetadataTypeDef",
@@ -663,8 +674,14 @@ class CreateRecommenderFilterRequestTypeDef(TypedDict):
     DomainName: str
     RecommenderFilterName: str
     RecommenderFilterExpression: str
+    RecommenderSchemaName: NotRequired[str]
     Description: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
+
+class RecommenderSchemaFieldTypeDef(TypedDict):
+    TargetFieldName: str
+    ContentType: NotRequired[ContentTypeType]
+    FeatureType: NotRequired[FeatureTypeType]
 
 class CreateSegmentSnapshotRequestTypeDef(TypedDict):
     DomainName: str
@@ -741,6 +758,10 @@ class DeleteRecommenderFilterRequestTypeDef(TypedDict):
 class DeleteRecommenderRequestTypeDef(TypedDict):
     DomainName: str
     RecommenderName: str
+
+class DeleteRecommenderSchemaRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderSchemaName: str
 
 class DeleteSegmentDefinitionRequestTypeDef(TypedDict):
     DomainName: str
@@ -966,6 +987,10 @@ class GetRecommenderRequestTypeDef(TypedDict):
 class TrainingMetricsTypeDef(TypedDict):
     Time: NotRequired[datetime]
     Metrics: NotRequired[dict[TrainingMetricNameType, float]]
+
+class GetRecommenderSchemaRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderSchemaName: str
 
 class GetSegmentDefinitionRequestTypeDef(TypedDict):
     DomainName: str
@@ -1217,6 +1242,7 @@ class ListRecommenderFiltersRequestTypeDef(TypedDict):
 
 class RecommenderFilterSummaryTypeDef(TypedDict):
     RecommenderFilterName: NotRequired[str]
+    RecommenderSchemaName: NotRequired[str]
     RecommenderFilterExpression: NotRequired[str]
     CreatedAt: NotRequired[datetime]
     Description: NotRequired[str]
@@ -1231,6 +1257,11 @@ class ListRecommenderRecipesRequestTypeDef(TypedDict):
 class RecommenderRecipeTypeDef(TypedDict):
     name: NotRequired[RecommenderRecipeNameType]
     description: NotRequired[str]
+
+class ListRecommenderSchemasRequestTypeDef(TypedDict):
+    DomainName: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 class ListRecommendersRequestTypeDef(TypedDict):
     DomainName: str
@@ -1557,6 +1588,7 @@ class GetProfileHistoryRecordResponseTypeDef(TypedDict):
 class GetRecommenderFilterResponseTypeDef(TypedDict):
     RecommenderFilterName: str
     RecommenderFilterExpression: str
+    RecommenderSchemaName: str
     CreatedAt: datetime
     Status: RecommenderFilterStatusType
     Description: str
@@ -1752,6 +1784,34 @@ class EngagementPreferencesTypeDef(TypedDict):
 class DataStoreResponseTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     Readiness: NotRequired[ReadinessTypeDef]
+
+class CreateRecommenderSchemaRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderSchemaName: str
+    Fields: Mapping[str, Sequence[RecommenderSchemaFieldTypeDef]]
+    Tags: NotRequired[Mapping[str, str]]
+
+class CreateRecommenderSchemaResponseTypeDef(TypedDict):
+    RecommenderSchemaArn: str
+    RecommenderSchemaName: str
+    Fields: dict[str, list[RecommenderSchemaFieldTypeDef]]
+    CreatedAt: datetime
+    Status: RecommenderSchemaStatusType
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetRecommenderSchemaResponseTypeDef(TypedDict):
+    RecommenderSchemaName: str
+    Fields: dict[str, list[RecommenderSchemaFieldTypeDef]]
+    CreatedAt: datetime
+    Status: RecommenderSchemaStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RecommenderSchemaSummaryTypeDef(TypedDict):
+    RecommenderSchemaName: str
+    Fields: dict[str, list[RecommenderSchemaFieldTypeDef]]
+    CreatedAt: datetime
+    Status: RecommenderSchemaStatusType
 
 class CreateUploadJobRequestTypeDef(TypedDict):
     DomainName: str
@@ -1967,6 +2027,10 @@ class ListRecommenderFiltersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListRecommenderRecipesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListRecommenderSchemasRequestPaginateTypeDef(TypedDict):
+    DomainName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListRecommendersRequestPaginateTypeDef(TypedDict):
@@ -2237,6 +2301,11 @@ EngagementPreferencesUnionTypeDef = Union[
     EngagementPreferencesTypeDef, EngagementPreferencesOutputTypeDef
 ]
 
+class ListRecommenderSchemasResponseTypeDef(TypedDict):
+    RecommenderSchemas: list[RecommenderSchemaSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListEventStreamsResponseTypeDef(TypedDict):
     Items: list[EventStreamSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2250,11 +2319,13 @@ class RecommenderConfigOutputTypeDef(TypedDict):
     EventsConfig: NotRequired[EventsConfigOutputTypeDef]
     TrainingFrequency: NotRequired[int]
     InferenceConfig: NotRequired[InferenceConfigTypeDef]
+    IncludedColumns: NotRequired[dict[str, list[str]]]
 
 class RecommenderConfigTypeDef(TypedDict):
     EventsConfig: NotRequired[EventsConfigTypeDef]
     TrainingFrequency: NotRequired[int]
     InferenceConfig: NotRequired[InferenceConfigTypeDef]
+    IncludedColumns: NotRequired[Mapping[str, Sequence[str]]]
 
 class EventTriggerConditionOutputTypeDef(TypedDict):
     EventTriggerDimensions: list[EventTriggerDimensionOutputTypeDef]
@@ -2614,6 +2685,7 @@ class GetSegmentMembershipResponseTypeDef(TypedDict):
 class GetRecommenderResponseTypeDef(TypedDict):
     RecommenderName: str
     RecommenderRecipeName: RecommenderRecipeNameType
+    RecommenderSchemaName: str
     RecommenderConfig: RecommenderConfigOutputTypeDef
     Description: str
     Status: RecommenderStatusType
@@ -2628,6 +2700,7 @@ class GetRecommenderResponseTypeDef(TypedDict):
 class RecommenderSummaryTypeDef(TypedDict):
     RecommenderName: NotRequired[str]
     RecipeName: NotRequired[RecommenderRecipeNameType]
+    RecommenderSchemaName: NotRequired[str]
     RecommenderConfig: NotRequired[RecommenderConfigOutputTypeDef]
     CreatedAt: NotRequired[datetime]
     Description: NotRequired[str]
@@ -2643,6 +2716,7 @@ class CreateRecommenderRequestTypeDef(TypedDict):
     RecommenderRecipeName: RecommenderRecipeNameType
     RecommenderConfig: NotRequired[RecommenderConfigUnionTypeDef]
     Description: NotRequired[str]
+    RecommenderSchemaName: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
 
 class UpdateRecommenderRequestTypeDef(TypedDict):

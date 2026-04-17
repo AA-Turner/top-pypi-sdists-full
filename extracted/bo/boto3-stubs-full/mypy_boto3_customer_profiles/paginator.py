@@ -20,6 +20,7 @@ Usage::
         ListObjectTypeAttributesPaginator,
         ListRecommenderFiltersPaginator,
         ListRecommenderRecipesPaginator,
+        ListRecommenderSchemasPaginator,
         ListRecommendersPaginator,
         ListRuleBasedMatchesPaginator,
         ListSegmentDefinitionsPaginator,
@@ -37,6 +38,7 @@ Usage::
     list_object_type_attributes_paginator: ListObjectTypeAttributesPaginator = client.get_paginator("list_object_type_attributes")
     list_recommender_filters_paginator: ListRecommenderFiltersPaginator = client.get_paginator("list_recommender_filters")
     list_recommender_recipes_paginator: ListRecommenderRecipesPaginator = client.get_paginator("list_recommender_recipes")
+    list_recommender_schemas_paginator: ListRecommenderSchemasPaginator = client.get_paginator("list_recommender_schemas")
     list_recommenders_paginator: ListRecommendersPaginator = client.get_paginator("list_recommenders")
     list_rule_based_matches_paginator: ListRuleBasedMatchesPaginator = client.get_paginator("list_rule_based_matches")
     list_segment_definitions_paginator: ListSegmentDefinitionsPaginator = client.get_paginator("list_segment_definitions")
@@ -68,6 +70,8 @@ from .type_defs import (
     ListRecommenderFiltersResponseTypeDef,
     ListRecommenderRecipesRequestPaginateTypeDef,
     ListRecommenderRecipesResponseTypeDef,
+    ListRecommenderSchemasRequestPaginateTypeDef,
+    ListRecommenderSchemasResponseTypeDef,
     ListRecommendersRequestPaginateTypeDef,
     ListRecommendersResponseTypeDef,
     ListRuleBasedMatchesRequestPaginateTypeDef,
@@ -93,6 +97,7 @@ __all__ = (
     "ListObjectTypeAttributesPaginator",
     "ListRecommenderFiltersPaginator",
     "ListRecommenderRecipesPaginator",
+    "ListRecommenderSchemasPaginator",
     "ListRecommendersPaginator",
     "ListRuleBasedMatchesPaginator",
     "ListSegmentDefinitionsPaginator",
@@ -265,6 +270,27 @@ class ListRecommenderRecipesPaginator(_ListRecommenderRecipesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/paginator/ListRecommenderRecipes.html#CustomerProfiles.Paginator.ListRecommenderRecipes.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/paginators/#listrecommenderrecipespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListRecommenderSchemasPaginatorBase = Paginator[ListRecommenderSchemasResponseTypeDef]
+else:
+    _ListRecommenderSchemasPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListRecommenderSchemasPaginator(_ListRecommenderSchemasPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/paginator/ListRecommenderSchemas.html#CustomerProfiles.Paginator.ListRecommenderSchemas)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/paginators/#listrecommenderschemaspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRecommenderSchemasRequestPaginateTypeDef]
+    ) -> PageIterator[ListRecommenderSchemasResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/paginator/ListRecommenderSchemas.html#CustomerProfiles.Paginator.ListRecommenderSchemas.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/paginators/#listrecommenderschemaspaginator)
         """
 
 

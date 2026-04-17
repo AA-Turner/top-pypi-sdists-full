@@ -25,6 +25,7 @@ from . import (
     list_sessions,
     log_job_mutation,
     make,
+    ready_callback_schema,
     remove_job,
     reset,
     set_date,
@@ -72,4 +73,5 @@ __all__ = [
     "get_presigned_url",
     "get_s3_content",
     "vm_shutdown_callback_schema",
+    "ready_callback_schema",
 ]

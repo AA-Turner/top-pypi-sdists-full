@@ -31,7 +31,7 @@ class _Client:
     client_type: int
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.4.1"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.4.2"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -92,6 +92,10 @@ class _Client:
     @classmethod
     async def from_credentials(cls, token_id: str, token_secret: str) -> _Client:
         """Constructor based on token credentials; useful for managing Modal on behalf of third-party users.
+
+        Also useful when it's necessary to explicitly manage the lifecycle of the client
+        (e.g. when running Modal in a forked subprocess) — see
+        [troubleshooting](/docs/guide/troubleshooting#connection-issues-in-forked-processes).
 
         **Usage:**
 
@@ -163,7 +167,7 @@ class Client:
     client_type: int
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.4.1"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.4.2"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -275,6 +279,10 @@ class Client:
         def __call__(self, /, token_id: str, token_secret: str) -> Client:
             """Constructor based on token credentials; useful for managing Modal on behalf of third-party users.
 
+            Also useful when it's necessary to explicitly manage the lifecycle of the client
+            (e.g. when running Modal in a forked subprocess) — see
+            [troubleshooting](/docs/guide/troubleshooting#connection-issues-in-forked-processes).
+
             **Usage:**
 
             ```python notest
@@ -287,6 +295,10 @@ class Client:
 
         async def aio(self, /, token_id: str, token_secret: str) -> Client:
             """Constructor based on token credentials; useful for managing Modal on behalf of third-party users.
+
+            Also useful when it's necessary to explicitly manage the lifecycle of the client
+            (e.g. when running Modal in a forked subprocess) — see
+            [troubleshooting](/docs/guide/troubleshooting#connection-issues-in-forked-processes).
 
             **Usage:**
 

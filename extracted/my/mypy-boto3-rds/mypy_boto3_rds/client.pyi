@@ -65,6 +65,7 @@ from .paginator import (
     DescribePendingMaintenanceActionsPaginator,
     DescribeReservedDBInstancesOfferingsPaginator,
     DescribeReservedDBInstancesPaginator,
+    DescribeServerlessV2PlatformVersionsPaginator,
     DescribeSourceRegionsPaginator,
     DescribeTenantDatabasesPaginator,
     DownloadDBLogFilePortionPaginator,
@@ -243,6 +244,7 @@ from .type_defs import (
     DescribePendingMaintenanceActionsMessageTypeDef,
     DescribeReservedDBInstancesMessageTypeDef,
     DescribeReservedDBInstancesOfferingsMessageTypeDef,
+    DescribeServerlessV2PlatformVersionsMessageTypeDef,
     DescribeSourceRegionsMessageTypeDef,
     DescribeTenantDatabasesMessageTypeDef,
     DescribeValidDBInstanceModificationsMessageTypeDef,
@@ -346,6 +348,7 @@ from .type_defs import (
     RestoreDBInstanceToPointInTimeResultTypeDef,
     RevokeDBSecurityGroupIngressMessageTypeDef,
     RevokeDBSecurityGroupIngressResultTypeDef,
+    ServerlessV2PlatformVersionsMessageTypeDef,
     SourceRegionMessageTypeDef,
     StartActivityStreamRequestTypeDef,
     StartActivityStreamResponseTypeDef,
@@ -1579,6 +1582,16 @@ class RDSClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rds/client/#describe_reserved_db_instances_offerings)
         """
 
+    def describe_serverless_v2_platform_versions(
+        self, **kwargs: Unpack[DescribeServerlessV2PlatformVersionsMessageTypeDef]
+    ) -> ServerlessV2PlatformVersionsMessageTypeDef:
+        """
+        Describes the properties of specific platform versions for Aurora Serverless v2.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/client/describe_serverless_v2_platform_versions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rds/client/#describe_serverless_v2_platform_versions)
+        """
+
     def describe_source_regions(
         self, **kwargs: Unpack[DescribeSourceRegionsMessageTypeDef]
     ) -> SourceRegionMessageTypeDef:
@@ -2678,6 +2691,17 @@ class RDSClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_reserved_db_instances"]
     ) -> DescribeReservedDBInstancesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rds/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_serverless_v2_platform_versions"]
+    ) -> DescribeServerlessV2PlatformVersionsPaginator:
         """
         Create a paginator for an operation.
 

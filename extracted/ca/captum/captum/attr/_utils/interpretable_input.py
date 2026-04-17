@@ -1,11 +1,26 @@
 # pyre-strict
 from abc import ABC, abstractmethod
-from typing import Callable, cast, Dict, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    cast,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    TYPE_CHECKING,
+    Union,
+)
 
+import numpy as np
+import PIL.Image
 import torch
-
 from captum._utils.typing import TokenizerLike
+from captum.attr._utils.visualization import draw_mask_border, draw_mask_legend
 from torch import Tensor
+
+if TYPE_CHECKING:
+    from matplotlib.pyplot import Axes, Figure
 
 
 def _scatter_itp_attr_by_mask(
@@ -25,9 +40,8 @@ def _scatter_itp_attr_by_mask(
 
     # input_shape in shape(batch_size, *inp_feature_dims)
     # attribute in shape(*output_dims, *inp_feature_dims)
-    # pyre-fixme[60]: Concatenation not yet support for multiple variadic tuples:
-    #  `*output_dims, *input_shape[slice(1, None, None)]`.
-    attr_shape = (*output_dims, *input_shape[1:])
+    # Current limitation in pyre with multiple variadic tuples
+    attr_shape = (*output_dims, *input_shape[1:])  # pyre-ignore[60]
 
     expanded_feature_indices = mask.expand(attr_shape)
 
@@ -39,15 +53,25 @@ def _scatter_itp_attr_by_mask(
         # (*output_dims, 1..., 1, n_itp_features)
         # then broadcast to (*output_dims, *inp.shape[1:-1], n_itp_features)
         n_extra_dims = len(extra_inp_dims)
-        # pyre-fixme[60]: Concatenation not yet support for multiple variadic
-        #  tuples: `*output_dims, *(1).__mul__(n_extra_dims)`.
-        unsqueezed_shape = (*output_dims, *(1,) * n_extra_dims, n_itp_features)
-        # pyre-fixme[60]: Concatenation not yet support for multiple variadic
-        #  tuples: `*output_dims, *extra_inp_dims`.
-        expanded_shape = (*output_dims, *extra_inp_dims, n_itp_features)
+        # Current limitation in pyre with multiple variadic tuples
+        unsqueezed_shape = (  # pyre-ignore[60]
+            *output_dims,
+            *(1,) * n_extra_dims,
+            n_itp_features,
+        )
+        expanded_shape = (  # pyre-ignore[60]
+            *output_dims,
+            *extra_inp_dims,
+            n_itp_features,
+        )
         expanded_itp_attr = itp_attr.reshape(unsqueezed_shape).expand(expanded_shape)
     else:
         expanded_itp_attr = itp_attr
+
+    # gather index must be long
+    # may support int32 soon https://github.com/pytorch/pytorch/pull/151822
+    if expanded_feature_indices.dtype != torch.long:
+        expanded_feature_indices = expanded_feature_indices.long()
 
     # gather from (*output_dims, *inp.shape[1:-1], n_itp_features)
     attr = torch.gather(expanded_itp_attr, -1, expanded_feature_indices)
@@ -119,9 +143,7 @@ class InterpretableInput(ABC):
         pass
 
     @abstractmethod
-    def to_model_input(
-        self, perturbed_tensor: Optional[Tensor] = None
-    ) -> Union[str, Tensor]:
+    def to_model_input(self, perturbed_tensor: Optional[Tensor] = None) -> Any:
         """
         Get the (perturbed) input in the format required by the model
         based on the given (perturbed) interpretable representation.
@@ -286,6 +308,8 @@ class TextTemplateInput(InterpretableInput):
         self.n_features = n_features
         self.n_itp_features = n_itp_features
 
+        # preserve template before modification
+        self.template = template
         if isinstance(template, str):
             template = template.format
         else:
@@ -480,3 +504,290 @@ class TextTokenInput(InterpretableInput):
 
     def format_attr(self, itp_attr: Tensor) -> Tensor:
         return itp_attr
+
+
+class ImageMaskInput(InterpretableInput):
+    """
+    ImageMaskInput is an implementation of InterpretableInput for the image, whose
+    interpretable features are certain image segments (e.g., groups of pixels).
+    It takes an image and its corresponding segmentation masks .
+    Its interpretable representation will be a binary tensor of the number of
+    the image segment features whose values indicates if the image segment is
+    “presence” or “absence”. By default, its model input will be the masked out image.
+    But it also accepts an optional processor function, which converts the image into
+    the model inputs if the model does not directly consume images.
+    A typical example is MM LLM, which requires the image to be processed with
+    other texts into the tokenized multi-modality tensors.
+
+    Args:
+
+        image (PIL.Image.Image): an opened PIL image file.
+        mask (Tensor, optional): the mask to group the image pixels into
+                segment features. It must be in the same shape as the image size
+                and assign each pixel a mask index.
+                Pixels with the same index will be seen as a single
+                interpretable feature, which means they must be perturbed together
+                and end with same attributions. When mask is None, the entire image is
+                considered as one interpretable feature.
+                Default: None
+        mask_list (List[Tensor], optional): a list of binary masks to group
+                the image pixels as interpretable segment features. Each mask indicates
+                one feature and must be in the same shape as the image size. Value True
+                means the pixel is included in the feature. Compared to mask, mask_list
+                allows multiple features to be defined on the same pixel. If mask_list
+                is not None, mask will be ignored.
+                Default: None
+        baseline (Tuple[int, int, int], optional): the baseline RGB value for
+                the “absent” image pixels.
+                Default: (255, 255, 255)
+        processor_fn (Callable, optional): function convert the image into
+                the model input. A common example is the multi-modality LLM processor
+                function which take an input image to encode with any text prompt
+                and outputs the inputs for the LLM
+
+    Examples::
+
+        >>> def processor_fn(image):
+        >>>    messages = [
+        >>>        {
+        >>>            "role": "user",
+        >>>            "content": [
+        >>>                {"type": "image"},
+        >>>                {
+        >>>                    "type": "text",
+        >>>                    "text": "Please describe the image in detail.",
+        >>>                },
+        >>>            ],
+        >>>        }
+        >>>    ]
+        >>>
+        >>>    prompt = processor.apply_chat_template(
+        >>>        messages, add_generation_prompt=True
+        >>>    )
+        >>>
+        >>>    return processor(
+        >>>        text=prompt,
+        >>>        images=image,
+        >>>        return_tensors="pt",
+        >>>    ).to(model.device)
+        >>>
+        >>> image = Image.open("test.jpg")
+        >>>
+        >>> # Split horizontally: left half = 0, right half = 1
+        >>> mask = torch.zeros(image.size[::-1], dtype=torch.int32)
+        >>> mask[:, image.size[0] // 2:] = 1
+        >>>
+        >>> image_mask_inp = ImageMaskInput(
+        >>>     image=image,
+        >>>     mask=mask,
+        >>>     processor_fn=processor_fn,
+        >>> )
+        >>>
+        >>> text_inp.to_tensor()
+        >>> # torch.tensor([[1, 1]])
+        >>>
+        >>> text_inp.to_model_input(torch.tensor([[0, 1]]))
+        >>> # model inputs where the right half of the image is masked out
+
+    """
+
+    image: PIL.Image.Image
+    mask: Tensor
+    mask_list: List[Tensor]
+    baseline: Tuple[int, int, int]
+    processor_fn: Callable[[PIL.Image.Image], Any]
+    n_itp_features: int
+    original_model_inputs: Any
+    mask_id_to_idx: Dict[int, int]
+    values: List[str]
+
+    def __init__(
+        self,
+        image: PIL.Image.Image,
+        mask: Optional[Tensor] = None,
+        mask_list: Optional[List[Tensor]] = None,
+        baseline: Tuple[int, int, int] = (255, 255, 255),
+        processor_fn: Callable[[PIL.Image.Image], Any] = lambda x: x,
+    ) -> None:
+        super().__init__()
+
+        self.processor_fn = processor_fn
+        self.image = image
+        self.baseline = baseline
+
+        image_shape = (image.size[1], image.size[0])  # (height, width)
+
+        if mask_list is not None:
+            # Validate that all masks in mask_list have the correct shape
+            for i, m in enumerate(mask_list):
+                assert m.shape == image_shape, (
+                    f"mask_list[{i}] shape {m.shape} must match "
+                    f"image shape {image_shape}"
+                )
+
+            mask_ids = list(range(len(mask_list)))
+            # Create a dummy mask for compatibility
+            mask = torch.empty(0)
+        else:
+            # Create a dummy mask if None is provided
+            if mask is None:
+                # Create a mask with all zeros (entire image as one segment)
+                mask = torch.zeros(image_shape, dtype=torch.int32)
+            else:
+                # Validate that mask size matches image size
+                assert (
+                    mask.shape == image_shape
+                ), f"mask shape {mask.shape} must match image shape {image_shape}"
+
+            mask_ids = torch.unique(mask).cpu().tolist()
+
+            # dummy mask_list
+            mask_list = []
+
+        self.mask = mask
+        self.mask_list = mask_list
+        self.n_itp_features = len(mask_ids)
+        self.mask_id_to_idx = {int(mid): i for i, mid in enumerate(mask_ids)}
+
+        # temporarily for compatibility with AttributionResult
+        # which use the values for plot legends
+        self.values = [f"image_feature_{mid}" for mid in mask_ids]
+
+        self.original_model_inputs = processor_fn(image)
+
+    def to_tensor(self) -> Tensor:
+        return torch.tensor([[1.0] * self.n_itp_features])
+
+    def to_model_input(self, perturbed_tensor: Optional[Tensor] = None) -> Any:
+        if perturbed_tensor is None:
+            return self.original_model_inputs
+
+        img_array = np.array(self.image)
+
+        if self.mask_list:
+            for itp_idx, feature_mask in enumerate(self.mask_list):
+                if perturbed_tensor[0][itp_idx] == 0:
+                    mask_positions = feature_mask.bool()
+                    img_array[mask_positions] = self.baseline
+        else:
+            for mask_id, itp_idx in self.mask_id_to_idx.items():
+                if perturbed_tensor[0][itp_idx] == 0:
+                    mask_positions = self.mask == mask_id
+                    img_array[mask_positions] = self.baseline
+
+        perturbed_image = PIL.Image.fromarray(img_array.astype("uint8"))
+
+        return self.processor_fn(perturbed_image)
+
+    def get_mask_list(self) -> List[Tensor]:
+        """
+        Get the list of binary masks for each interpretable feature.
+        If mask_list is provided, return it directly. Otherwise, create
+        a list of binary masks from the mask tensor.
+
+        Returns:
+            List[Tensor]: list of binary masks, one for each interpretable feature
+        """
+        return self.mask_list or [
+            self.mask == mask_id for mask_id in self.mask_id_to_idx.keys()
+        ]
+
+    def format_attr(self, itp_attr: Tensor) -> Tensor:
+        """
+        Attribution for interpretable image segments
+        Returns: 2D tensor of shape (1, n_itp_features)
+        """
+        return itp_attr
+
+    def format_pixel_attr(self, itp_attr: Tensor) -> Tensor:
+        """
+        Attribution for image pixels.
+        When mask_list is used, attributions from overlapping features are summed.
+        Returns: 3D tensor of shape (1, height, width)
+        """
+        device = itp_attr.device
+        image_shape = (self.image.size[1], self.image.size[0])  # (height, width)
+
+        if self.mask_list:
+            # For mask_list, sum attributions from overlapping features
+            output_dims = itp_attr.shape[:-1]
+            attr_shape = (*output_dims, *image_shape)
+            formatted_attr = torch.zeros(attr_shape, device=device)
+
+            for itp_idx, feature_mask in enumerate(self.mask_list):
+                # Get attribution value for this feature
+                # itp_attr shape: (*output_dims, n_itp_features)
+                feature_attr = itp_attr[..., itp_idx]
+                # Expand to match image shape and add where mask is True
+                mask_bool = feature_mask.bool().to(device)
+                # Expand feature_attr to broadcast with mask
+                expanded_attr = feature_attr.unsqueeze(-1).unsqueeze(-1)
+                formatted_attr = formatted_attr + expanded_attr * mask_bool
+
+            return formatted_attr
+        else:
+            # Map mask IDs to continuous indices
+            formatted_mask = torch.zeros_like(self.mask, device=device)
+            for mask_id, itp_idx in self.mask_id_to_idx.items():
+                formatted_mask[self.mask == mask_id] = itp_idx
+
+            formatted_attr = _scatter_itp_attr_by_mask(
+                itp_attr,
+                (1, *image_shape),
+                formatted_mask.unsqueeze(0),
+            )
+            return formatted_attr
+
+    def plot_mask_overlay(
+        self, show: bool = False, border_width: int = 0, show_legends: bool = True
+    ) -> Union[None, Tuple["Figure", "Axes"]]:
+        """
+        util to help visualize the mask segementation
+
+        Args:
+            show: If True, display the plot immediately using plt.show().
+                  If False, return the figure and axes objects.
+            border_width: Width of the border around each segment in pixels.
+                          Set to 0 to disable borders. Default is 0.
+            show_legends: If True, display the mask id for each segment at its
+                          centroid. Default is True.
+        """
+
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+
+        ax.imshow(self.image)
+        fig.set_facecolor("white")
+
+        # random colors for all interpretable features
+        opacity = 0.6
+        colors = [
+            np.array([*np.random.random(3), opacity])
+            for _ in range(self.n_itp_features)
+        ]
+
+        mask_list = self.get_mask_list()
+
+        for mask, color, mid in zip(mask_list, colors, self.mask_id_to_idx.keys()):
+            mask_np = mask.numpy().astype(bool)
+            h, w = mask_np.shape
+            mask_image = mask_np.reshape(h, w, 1) * color.reshape(1, 1, -1)
+            ax.imshow(mask_image)
+
+            # Add border inside each segment using erosion
+            if border_width > 0:
+                border_color = np.array([*color[:3], 0.8])
+                draw_mask_border(ax, mask_np, border_width, border_color)
+
+            # Calculate centroid and display mask id
+            if show_legends:
+                draw_mask_legend(ax, mask_np, label=str(mid))
+
+        ax.axis("off")
+
+        if show:
+            plt.show()
+            return None
+        else:
+            return fig, ax

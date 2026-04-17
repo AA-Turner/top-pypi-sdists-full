@@ -10,13 +10,13 @@
     </message>
     <message>
         <location filename="../widgets/_ai_assisted_annotation_widget.py" line="0"/>
-        <source>AI suggests annotation in &apos;AI-Polygon&apos; and &apos;AI-Mask&apos; modes</source>
-        <translation>AIが'AI-Polygon'と'AI-Mask'モードでアノテーションを提案します</translation>
+        <source>AI suggests annotation in &apos;AI-Points&apos; and &apos;AI-Box&apos; modes</source>
+        <translation>AIが'AI-Points'および'AI-Box'モードでアノテーションを提案</translation>
     </message>
     <message>
         <location filename="../widgets/_ai_assisted_annotation_widget.py" line="0"/>
-        <source>Select &apos;AI-Polygon&apos; or &apos;AI-Mask&apos; mode to enable AI-Assisted Annotation</source>
-        <translation>「AI-Polygon」または「AI-Mask」モードを選択してAI支援アノテーションを有効化</translation>
+        <source>Select &apos;AI-Points&apos; or &apos;AI-Box&apos; mode to enable AI-Assisted Annotation</source>
+        <translation>'AI-Points'または'AI-Box'モードを選択してAI支援アノテーションを有効化</translation>
     </message>
 </context>
 <context>
@@ -53,8 +53,16 @@
     </message>
     <message>
         <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
-        <source>Select &apos;Polygon&apos;, &apos;Rectangle&apos;, &apos;AI-Polygon&apos;, or &apos;AI-Mask&apos; mode to enable</source>
-        <translation>「Polygon」「Rectangle」「AI-Polygon」「AI-Mask」モードで有効</translation>
+        <source>Select &apos;Polygon&apos;, &apos;Rectangle&apos;, or &apos;AI-Points&apos; mode to enable</source>
+        <translation>「Polygon」「Rectangle」または「AI-Points」モードで有効</translation>
+    </message>
+</context>
+<context>
+    <name>BrightnessContrastDialog</name>
+    <message>
+        <location filename="../widgets/brightness_contrast_dialog.py" line="0"/>
+        <source>Brightness/Contrast</source>
+        <translation>明るさ/コントラスト</translation>
     </message>
 </context>
 <context>
@@ -88,16 +96,6 @@
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Editing shapes</source>
         <translation>図形を編集中</translation>
-    </message>
-    <message>
-        <location filename="../widgets/canvas.py" line="0"/>
-        <source>Click points to include or Shift+Click to exclude for ai_polygon</source>
-        <translation>クリックで含める点を、Shift+クリックで除外する点を指定 (AIポリゴン)</translation>
-    </message>
-    <message>
-        <location filename="../widgets/canvas.py" line="0"/>
-        <source>Click points to include or Shift+Click to exclude for ai_mask</source>
-        <translation>クリックで含める点を、Shift+クリックで除外する点を指定 (AIマスク)</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
@@ -158,6 +156,21 @@
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click opposite corner for rectangle (Shift for square)</source>
         <translation>矩形の対角をクリック（Shiftで正方形）</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click points to include or Shift+Click to exclude. Ctrl+LeftClick ends creation.</source>
+        <translation>クリックで含める点を、Shift+Clickで除外する点を指定。Ctrl+LeftClickで作成を完了。</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click first corner of bbox for AI segmentation</source>
+        <translation>AIセグメンテーション用にbboxの最初の角をクリック</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click opposite corner to segment object</source>
+        <translation>対角をクリックしてオブジェクトをセグメント</translation>
     </message>
 </context>
 <context>
@@ -322,20 +335,8 @@
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Create Polygons</source>
-        <translation>ポリゴン
-を作成</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Start drawing polygons</source>
         <translation>ポリゴンの描画を開始</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Create Rectangle</source>
-        <translation>矩形
-を作成</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -344,20 +345,8 @@
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Create Circle</source>
-        <translation>円
-を作成</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Start drawing circles</source>
         <translation>円の描画を開始</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Create Line</source>
-        <translation>直線
-を作成</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -366,47 +355,13 @@
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Create Point</source>
-        <translation>点
-を作成</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Start drawing points</source>
         <translation>点の描画を開始</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Create LineStrip</source>
-        <translation>折れ線
-を作成</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Start drawing linestrip. Ctrl+LeftClick ends creation.</source>
         <translation>折れ線の描画を開始。Ctrl+左クリックで完了。</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Create AI-Polygon</source>
-        <translation>AIポリゴン
-を作成</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Start drawing ai_polygon. Ctrl+LeftClick ends creation.</source>
-        <translation>AIポリゴンの描画を開始。Ctrl+左クリックで完了。</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Create AI-Mask</source>
-        <translation>AIマスク
-を作成</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Start drawing ai_mask. Ctrl+LeftClick ends creation.</source>
-        <translation>AIマスクの描画を開始。Ctrl+左クリックで完了。</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -667,11 +622,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Open &amp;Recent</source>
-        <translation>最近使用したファイル(&amp;R)</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>%s started.</source>
         <translation>%s を起動しました</translation>
     </message>
@@ -850,6 +800,73 @@ To use the preferences editor, start Labelme with a config file:
         <location filename="../app.py" line="0"/>
         <source>Reset Layout</source>
         <translation>レイアウトをリセット</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Polygon</source>
+        <translation>ポリゴン</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Rectangle</source>
+        <translation>矩形</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Circle</source>
+        <translation>円</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Line</source>
+        <translation>直線</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Point</source>
+        <translation>点</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>LineStrip</source>
+        <translation>折れ線</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>AI-Points</source>
+        <translation>AI-Points</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Click points to segment object. Ctrl+LeftClick ends creation.</source>
+        <translation>クリックでオブジェクトをセグメント。Ctrl+LeftClickで作成を完了。</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>AI-Box</source>
+        <translation>AI-Box</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Draw a bounding box to segment object.</source>
+        <translation>バウンディングボックスを描画してオブジェクトをセグメント。</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>AI-Points Unavailable</source>
+        <translation>AI-Pointsは利用できません</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>%s does not support point prompts.
+Please select a different model or use AI-Box mode.</source>
+        <translation>%s はポイントプロンプトに対応していません。
+別のモデルを選択するか、AI-Boxモードを使用してください。</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>File list is disabled when a label file is opened</source>
+        <translation>ラベルファイルを開いている場合、ファイルリストは無効です</translation>
     </message>
 </context>
 </TS>

@@ -86,8 +86,8 @@ class VolumeInfo:
 
 class _VolumeManager:
     """Namespace with methods for managing named Volume objects."""
-    @staticmethod
     async def create(
+        self,
         name: str,
         *,
         version: typing.Optional[int] = None,
@@ -123,8 +123,8 @@ class _VolumeManager:
         """
         ...
 
-    @staticmethod
     async def list(
+        self,
         *,
         max_objects: typing.Optional[int] = None,
         created_before: typing.Union[datetime.datetime, str, None] = None,
@@ -157,8 +157,8 @@ class _VolumeManager:
         """
         ...
 
-    @staticmethod
     async def delete(
+        self,
         name: str,
         *,
         allow_missing: bool = False,
@@ -269,7 +269,7 @@ class VolumeManager:
             """
             ...
 
-    create: typing.ClassVar[__create_spec]
+    create: __create_spec
 
     class __list_spec(typing_extensions.Protocol):
         def __call__(
@@ -342,7 +342,7 @@ class VolumeManager:
             """
             ...
 
-    list: typing.ClassVar[__list_spec]
+    list: __list_spec
 
     class __delete_spec(typing_extensions.Protocol):
         def __call__(
@@ -405,7 +405,7 @@ class VolumeManager:
             """
             ...
 
-    delete: typing.ClassVar[__delete_spec]
+    delete: __delete_spec
 
 class _Volume(modal._object._Object):
     """A writeable volume that can be used to share files between one or more Modal functions.
@@ -455,7 +455,7 @@ class _Volume(modal._object._Object):
 
     @synchronicity.classproperty
     @classmethod
-    def objects(cls) -> type[_VolumeManager]: ...
+    def objects(cls) -> _VolumeManager: ...
     @property
     def name(self) -> typing.Optional[str]: ...
     def read_only(self) -> _Volume:
@@ -791,7 +791,7 @@ class Volume(modal.object.Object):
 
     @synchronicity.classproperty
     @classmethod
-    def objects(cls) -> type[VolumeManager]: ...
+    def objects(cls) -> VolumeManager: ...
     @property
     def name(self) -> typing.Optional[str]: ...
     def read_only(self) -> Volume:

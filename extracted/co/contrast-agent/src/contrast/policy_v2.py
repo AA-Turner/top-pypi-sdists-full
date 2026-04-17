@@ -264,6 +264,8 @@ ai_usage: list[PolicyDefinition] = [
                 "anthropic.lib.bedrock._client.AsyncAnthropicBedrock": "bedrock",
                 "anthropic.lib.vertex._client.AnthropicVertex": "vertex",
                 "anthropic.lib.vertex._client.AsyncAnthropicVertex": "vertex",
+                "openai.OpenAI": "openai",
+                "openai.AsyncOpenAI": "openai",
             },
         },
     }
@@ -277,6 +279,28 @@ ai_usage: list[PolicyDefinition] = [
             "anthropic.resources.messages.messages",
             ["Messages.create", "Messages.stream"],
         ),
+        ("openai.resources.audio.speech", ["Speech.create"]),
+        ("openai.resources.audio.transcriptions", ["Transcriptions.create"]),
+        ("openai.resources.audio.translations", ["Translations.create"]),
+        (
+            "openai.resources.chat.completions.completions",
+            ["Completions.create", "Completions.list", "Completions.stream"],
+        ),
+        ("openai.resource.batches", ["Batches.create"]),
+        ("openai.resources.completions", ["Completions.create"]),
+        ("openai.resources.embeddings", ["Embeddings.create"]),
+        ("openai.resources.fine_tuning.jobs.jobs", ["Jobs.create"]),
+        (
+            "openai.resources.images",
+            ["Images.create_variation", "Images.edit", "Images.generate"],
+        ),
+        ("openai.resources.moderations", ["Moderations.create"]),
+        ("openai.resources.realtime.calls", ["Calls.accept"]),
+        (
+            "openai.resources.realtime.realtime",
+            ["Realtime.connect", "ConnectionManager.connect"],
+        ),
+        ("openai.resources.videos", ["Videos.create", "Videos.create_and_poll"]),
     ]
 ] + [
     {
@@ -285,6 +309,7 @@ ai_usage: list[PolicyDefinition] = [
         "event": {"name": "aws-api-call"},
     }
 ]
+
 
 graphql_request: list[PolicyDefinition] = [
     {

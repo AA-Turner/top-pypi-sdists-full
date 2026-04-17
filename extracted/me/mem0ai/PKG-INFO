@@ -1,17 +1,17 @@
 Metadata-Version: 2.4
 Name: mem0ai
-Version: 1.0.11
+Version: 2.0.0
 Summary: Long-term memory for AI Agents
 Author-email: Mem0 <support@mem0.ai>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: <4.0,>=3.9
 Requires-Dist: openai>=1.90.0
-Requires-Dist: posthog>=3.5.0
+Requires-Dist: posthog>=4.5.0
 Requires-Dist: protobuf<7.0.0,>=5.29.6
 Requires-Dist: pydantic>=2.7.3
 Requires-Dist: pytz>=2024.1
-Requires-Dist: qdrant-client>=1.9.1
+Requires-Dist: qdrant-client>=1.12.0
 Requires-Dist: sqlalchemy>=2.0.31
 Provides-Extra: dev
 Requires-Dist: isort>=5.13.2; extra == 'dev'
@@ -22,16 +22,9 @@ Requires-Dist: boto3>=1.34.0; extra == 'extras'
 Requires-Dist: elasticsearch<9.0.0,>=8.0.0; extra == 'extras'
 Requires-Dist: fastembed>=0.3.1; extra == 'extras'
 Requires-Dist: langchain-community>=0.0.0; extra == 'extras'
+Requires-Dist: langchain>=0.1.0; extra == 'extras'
 Requires-Dist: opensearch-py>=2.0.0; extra == 'extras'
 Requires-Dist: sentence-transformers>=5.0.0; extra == 'extras'
-Provides-Extra: graph
-Requires-Dist: apache-age-python>=0.0.6; extra == 'graph'
-Requires-Dist: kuzu>=0.11.0; extra == 'graph'
-Requires-Dist: langchain-aws>=0.2.23; extra == 'graph'
-Requires-Dist: langchain-memgraph>=0.1.0; extra == 'graph'
-Requires-Dist: langchain-neo4j>=0.4.0; extra == 'graph'
-Requires-Dist: neo4j>=5.23.1; extra == 'graph'
-Requires-Dist: rank-bm25>=0.2.2; extra == 'graph'
 Provides-Extra: llms
 Requires-Dist: google-genai>=1.0.0; extra == 'llms'
 Requires-Dist: google-generativeai>=0.3.0; extra == 'llms'
@@ -41,6 +34,8 @@ Requires-Dist: ollama>=0.3.0; extra == 'llms'
 Requires-Dist: openai>=1.90.0; extra == 'llms'
 Requires-Dist: together>=0.2.10; extra == 'llms'
 Requires-Dist: vertexai>=0.1.0; extra == 'llms'
+Provides-Extra: nlp
+Requires-Dist: spacy>=3.7.0; extra == 'nlp'
 Provides-Extra: test
 Requires-Dist: pytest-asyncio>=0.23.7; extra == 'test'
 Requires-Dist: pytest-mock>=3.14.0; extra == 'test'
@@ -65,7 +60,7 @@ Requires-Dist: pymongo>=4.13.2; extra == 'vector-stores'
 Requires-Dist: pymysql>=1.1.0; extra == 'vector-stores'
 Requires-Dist: redis<6.0.0,>=5.0.0; extra == 'vector-stores'
 Requires-Dist: redisvl<1.0.0,>=0.1.0; extra == 'vector-stores'
-Requires-Dist: upstash-vector>=0.1.0; extra == 'vector-stores'
+Requires-Dist: upstash-vector>=0.6.0; extra == 'vector-stores'
 Requires-Dist: valkey>=6.0.0; extra == 'vector-stores'
 Requires-Dist: vecs>=0.4.0; extra == 'vector-stores'
 Requires-Dist: weaviate-client<4.15.0,>=4.4.0; extra == 'vector-stores'
@@ -114,16 +109,30 @@ Description-Content-Type: text/markdown
 <p align="center">
   <a href="https://mem0.ai/research"><strong>📄 Building Production-Ready AI Agents with Scalable Long-Term Memory →</strong></a>
 </p>
-<p align="center">
-  <strong>⚡ +26% Accuracy vs. OpenAI Memory • 🚀 91% Faster • 💰 90% Fewer Tokens</strong>
-</p>
 
-> **🎉 mem0ai v1.0.0 is now available!** This major release includes API modernization, improved vector store support, and enhanced GCP integration. [See migration guide →](MIGRATION_GUIDE_v1.0.md)
+## New Memory Algorithm (April 2026)
 
-##  🔥 Research Highlights
-- **+26% Accuracy** over OpenAI Memory on the LOCOMO benchmark
-- **91% Faster Responses** than full-context, ensuring low-latency at scale
-- **90% Lower Token Usage** than full-context, cutting costs without compromise
+| Benchmark | Old | New  | Tokens  | Latency p50  |
+| --- | --- | --- | --- | --- |
+| **LoCoMo** | 71.4 | **91.6** | 7.0K  | 0.88s  |
+| **LongMemEval** | 67.8 | **93.4** | 6.8K  | 1.09s  |
+| **BEAM (1M)** | — | **64.1** | 6.7K  | 1.00s  |
+| **BEAM (10M)** | — | **48.6** | 6.9K  | 1.05s  |
+
+All benchmarks run on the same production-representative model stack. Single-pass retrieval (one call, no agentic loops).
+
+**What changed:**
+- **Single-pass ADD-only extraction** -- one LLM call, no UPDATE/DELETE. Memories accumulate; nothing is overwritten.
+- **Agent-generated facts are first-class** -- when an agent confirms an action, that information is now stored with equal weight.
+- **Entity linking** -- entities are extracted, embedded, and linked across memories for retrieval boosting.
+- **Multi-signal retrieval** -- semantic, BM25 keyword, and entity matching scored in parallel and fused.
+
+See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgrade instructions. The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers.
+
+## Research Highlights
+- **91.6 on LoCoMo** -- +20 points over the previous algorithm
+- **93.4 on LongMemEval** -- +26 points, with +53.6 on assistant memory recall
+- **64.1 on BEAM (1M)** -- production-scale memory evaluation at 1M tokens
 - [Read the full paper](https://mem0.ai/research)
 
 # Introduction
@@ -161,6 +170,13 @@ Install the sdk via pip:
 pip install mem0ai
 ```
 
+For enhanced hybrid search with BM25 keyword matching and entity extraction, install with NLP support:
+
+```bash
+pip install mem0ai[nlp]
+python -m spacy download en_core_web_sm
+```
+
 Install sdk via npm:
 ```bash
 npm install mem0ai
@@ -182,7 +198,9 @@ See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full comm
 
 ### Basic Usage
 
-Mem0 requires an LLM to function, with `gpt-4.1-nano-2025-04-14 from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
+Mem0 requires an LLM to function, with `gpt-5-mini` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
+
+Mem0 uses `text-embedding-3-small` from OpenAI as the default embedding model. For best results with hybrid search (semantic + keyword + entity boosting), we recommend using at least [Qwen 600M](https://huggingface.co/Alibaba-NLP/gte-Qwen2-1.5B-instruct) or a comparable embedding model. See [Supported Embeddings](https://docs.mem0.ai/components/embedders/overview) for configuration details.
 
 First step is to instantiate the memory:
 
@@ -195,13 +213,13 @@ memory = Memory()
 
 def chat_with_memories(message: str, user_id: str = "default_user") -> str:
     # Retrieve relevant memories
-    relevant_memories = memory.search(query=message, user_id=user_id, limit=3)
+    relevant_memories = memory.search(query=message, filters={"user_id": user_id}, top_k=3)
     memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories["results"])
 
     # Generate Assistant response
     system_prompt = f"You are a helpful AI. Answer the question based on query and memories.\nUser Memories:\n{memories_str}"
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]
-    response = openai_client.chat.completions.create(model="gpt-4.1-nano-2025-04-14", messages=messages)
+    response = openai_client.chat.completions.create(model="gpt-5-mini", messages=messages)
     assistant_response = response.choices[0].message.content
 
     # Create new memories from the conversation

@@ -9,6 +9,7 @@ import contrast_fireball
 
 from contrast.agent.policy.handlers import EventDict
 from contrast.reporting import fireball
+from contrast.utils.stack_trace_utils import StackSummary, build_stack
 
 ApiProvider = Literal[
     "anthropic",
@@ -24,10 +25,15 @@ def ai_usage_event(
     api_url: str,
     api_provider: ApiProvider | None,
     model: str | None,
+    stack: StackSummary | None = None,
 ) -> fireball.LogRecordEvent:
     """
     Creates a LogRecordEvent for AI usage.
     """
+    if api_provider is not None and api_provider not in get_args(ApiProvider):
+        raise ValueError(
+            f"Invalid API provider '{api_provider}'. Must be one of: {get_args(ApiProvider)}."
+        )
     event_details = {
         "ai_usage.api_provider": api_provider,
         "ai_usage.api_url": api_url,
@@ -36,6 +42,7 @@ def ai_usage_event(
     return fireball.LogRecordEvent(
         contrast_fireball.LogRecordEventType.AiUsage,
         event_details,
+        stack=stack,
     )
 
 
@@ -103,14 +110,18 @@ def botocore_log_event_builder(
         ):
             return None  # Not an ai-usage call, don't create an event
 
+        api_provider = service.removesuffix("-runtime")
         api_url = self.meta.endpoint_url
         params = args["api_params"]
         model = params.get("modelId") or params.get("foundationModel")
 
+        stack = build_stack()[:-1]  # Exclude the botocore frame.
+
         return ai_usage_event(
-            api_provider=service,
+            api_provider=api_provider,
             api_url=api_url,
             model=model,
+            stack=stack,
         )
 
     return log_record_attrs

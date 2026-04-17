@@ -1,7 +1,6 @@
 """Test exporting Galaxy workflow to abstract CWL syntax."""
 
-import os
-
+import pytest
 from cwltool.context import (
     getdefault,
     LoadingContext,
@@ -15,11 +14,13 @@ from cwltool.main import (
 
 from gxformat2.abstract import CWL_VERSION, from_dict
 from gxformat2.yaml import ordered_dump, ordered_load
-from ._helpers import TEST_PATH, to_example_path
+
+from ._helpers import example_path, find_iwc_ga_files, IWC_DIR, iwc_fixture_ids, to_example_path
 from .example_wfs import (
     BASIC_WORKFLOW,
     FLOAT_INPUT_DEFAULT,
     INT_INPUT,
+    MULTI_STRING_INPUT_WORKFLOW,
     NESTED_WORKFLOW,
     OPTIONAL_INPUT,
     PJA_1,
@@ -87,12 +88,12 @@ def test_nested_workflow():
 
 
 def test_sars_covid_example():
-    sars_example = os.path.join(TEST_PATH, "sars-cov-2-variant-calling.ga")
+    sars_example = example_path("real-sars-cov2-variant-calling.ga")
     _run_example_path(sars_example)
 
 
 def test_no_input_label_example():
-    no_input_label = os.path.join(TEST_PATH, "basic_without_step_input_label.ga")
+    no_input_label = example_path("real-basic-without-step-input-label.ga")
     _run_example_path(no_input_label)
 
 
@@ -114,6 +115,11 @@ def test_string_inputs():
         abstract_as_dict = from_dict(as_dict)
         assert abstract_as_dict["inputs"]["seed"]["type"] == "string"
         assert abstract_as_dict["inputs"]["seed"]["default"] == "mycooldefault"
+
+
+def test_multi_string_inputs():
+    abstract_as_dict = from_dict(ordered_load(MULTI_STRING_INPUT_WORKFLOW))
+    assert abstract_as_dict["inputs"]["multi-text"]["type"] == "string[]"
 
 
 def _run_example_path(path):
@@ -167,3 +173,20 @@ def check_abstract_def(abstract_as_dict):
 
 def _examples_path_for(workflow_path):
     return to_example_path(workflow_path, "abstractcwl", "cwl")
+
+
+# --- IWC integration tests ---
+
+GA_FILES = find_iwc_ga_files()
+
+
+@pytest.mark.skipif(IWC_DIR is None, reason="GXFORMAT2_TEST_IWC_DIRECTORY not set")
+class TestIWCAbstract:
+    """Abstract CWL export for all IWC .ga workflows."""
+
+    @pytest.mark.parametrize("ga_path", GA_FILES, ids=iwc_fixture_ids(GA_FILES))
+    def test_abstract_export(self, ga_path):
+        with open(ga_path) as f:
+            wf = ordered_load(f)
+        abstract_as_dict = from_dict(wf)
+        check_abstract_def(abstract_as_dict)

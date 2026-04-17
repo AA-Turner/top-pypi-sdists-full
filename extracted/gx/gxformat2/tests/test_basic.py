@@ -1,15 +1,14 @@
-import os
-
 from gxformat2.converter import ImportOptions
 from gxformat2.export import from_galaxy_native
 from gxformat2.yaml import ordered_load
+
 from ._helpers import (
     assert_valid_native,
     copy_without_workflow_output_labels,
+    example_path,
     from_native,
     native_workflow_outputs,
     round_trip,
-    TEST_PATH,
     to_native,
 )
 from .example_wfs import (
@@ -21,6 +20,7 @@ from .example_wfs import (
     SLASH_IN_STEP_LABEL_EXPLICIT_OUTPUT,
     TRS_URL_SUBWORKFLOW,
     URL_SUBWORKFLOW,
+    USER_DEFINED_TOOL_WORKFLOW,
     WHEN_EXAMPLE,
 )
 
@@ -298,7 +298,7 @@ def test_round_trip_whens():
 
 def test_export_native_no_labels():
     # Ensure outputs don't get mapped to 'null' key and ensure
-    native_unicycler = ordered_load(open(os.path.join(TEST_PATH, "unicycler.ga")).read())
+    native_unicycler = ordered_load(open(example_path("real-unicycler-assembly.ga")).read())
     before_output_count = 0
     for _ in native_workflow_outputs(native_unicycler):
         before_output_count += 1
@@ -352,7 +352,7 @@ steps:
     in:
       input1: the_input
 """)
-    assert as_dict["inputs"]["the_input"]["format"] == "txt"
+    assert as_dict["inputs"]["the_input"]["format"] == ["txt"]
 
 
 def test_input_formats_multi():
@@ -667,6 +667,70 @@ def test_unlabeled_pause_step_round_trip():
     # Step 1 should be a pause, not reassigned
     assert as_native_rt["steps"]["1"]["type"] == "pause"
     assert as_native_rt["steps"]["1"]["label"] is None
+
+
+def test_user_defined_tool_round_trip():
+    """GalaxyUserTool survives Format2 -> native -> Format2 round-trip."""
+    as_dict = round_trip(USER_DEFINED_TOOL_WORKFLOW)
+    step = as_dict["steps"]["my_tool"]
+    assert "run" in step
+    run = step["run"]
+    assert run["class"] == "GalaxyUserTool"
+    assert run["name"] == "cat_user_defined"
+    assert run["container"] == "busybox"
+    # Should not have tool_id since it's a user-defined tool
+    assert "tool_id" not in step
+
+
+def test_native_user_defined_tool_to_format2():
+    """Native workflow with tool_representation exports as run: {class: GalaxyUserTool, ...}."""
+    native_workflow = {
+        "a_galaxy_workflow": "true",
+        "format-version": "0.1",
+        "name": "User Tool Test",
+        "steps": {
+            "0": {
+                "id": 0,
+                "type": "data_input",
+                "label": "the_input",
+                "tool_state": '{"name": "the_input"}',
+                "input_connections": {},
+                "workflow_outputs": [],
+            },
+            "1": {
+                "id": 1,
+                "type": "tool",
+                "label": "my_tool",
+                "tool_id": None,
+                "tool_version": None,
+                "tool_uuid": None,
+                "tool_representation": {
+                    "class": "GalaxyUserTool",
+                    "id": "cat_user_defined",
+                    "version": "0.1",
+                    "name": "cat_user_defined",
+                    "description": "concatenates a file",
+                    "container": "busybox",
+                    "shell_command": "cat '$(inputs.input1.path)' > output.txt",
+                    "inputs": [{"name": "input1", "type": "data", "format": "txt"}],
+                    "outputs": [{"name": "output1", "type": "data", "format": "txt", "from_work_dir": "output.txt"}],
+                },
+                "tool_state": "{}",
+                "input_connections": {
+                    "input1": [{"id": 0, "output_name": "output"}],
+                },
+                "workflow_outputs": [{"output_name": "output1", "label": "the_output"}],
+            },
+        },
+    }
+    as_format2 = from_native(native_workflow)
+    step = as_format2["steps"]["my_tool"]
+    assert "run" in step
+    assert step["run"]["class"] == "GalaxyUserTool"
+    assert step["run"]["name"] == "cat_user_defined"
+    assert step["run"]["container"] == "busybox"
+    assert "tool_id" not in step
+    assert "tool_version" not in step
 
 
 def assert_valid_format2(as_dict_format2):

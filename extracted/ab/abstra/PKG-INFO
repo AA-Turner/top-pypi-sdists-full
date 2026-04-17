@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abstra
-Version: 3.30.18
+Version: 3.30.19
 Summary: Abstra Lib
 Home-page: https://abstra.io
 License: MIT
@@ -40,8 +40,8 @@ Requires-Dist: psutil
 Requires-Dist: jinja2>=3.1.0
 Requires-Dist: html5lib>=1.1
 Requires-Dist: tinycss2>=1.2
-Requires-Dist: tree-sitter>=0.23.0
-Requires-Dist: tree-sitter-javascript>=0.23.0
+Requires-Dist: tree-sitter<0.25.0,>=0.23.0
+Requires-Dist: tree-sitter-javascript<0.25.0,>=0.23.0
 Requires-Dist: jsonschema>=4.20.0
 Requires-Dist: openpyxl==3.1.5
 Requires-Dist: pypdfium2==4.30.0

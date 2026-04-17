@@ -16,11 +16,12 @@ import importlib
 import inspect
 from typing import Any, Union
 
+from datahub.secret.datahub_secret_store import DataHubSecretStore
+from datahub.secret.environment_secret_store import EnvironmentSecretStore
+from datahub.secret.file_secret_store import FileSecretStore
+from datahub.secret.secret_store import SecretStore
+
 from acryl import __package_name__
-from acryl.executor.secret.datahub_secret_store import DataHubSecretStore
-from acryl.executor.secret.environment_secret_store import EnvironmentSecretStore
-from acryl.executor.secret.file_secret_store import FileSecretStore
-from acryl.executor.secret.secret_store import SecretStore
 
 
 def _is_importable(path: str) -> bool:
@@ -61,6 +62,13 @@ class SecretStoreRegistry:
         self.register("env", EnvironmentSecretStore)
         self.register("datahub", DataHubSecretStore)
         self.register("file", FileSecretStore)
+        # Cloud secret stores — lazy-loaded, only imported when configured.
+        self.register_lazy(
+            "aws-sm", "datahub.secret.aws_secret_store.AwsSecretsManagerStore"
+        )
+        self.register_lazy(
+            "gcp-sm", "datahub.secret.gcp_secret_store.GcpSecretManagerStore"
+        )
 
     def _get_registered_type(self) -> type[SecretStore]:
         return SecretStore
@@ -114,8 +122,8 @@ class SecretStoreRegistry:
             return path
 
     def is_enabled(self, key: str) -> bool:
-        tp = self._mapping[key]
-        return not isinstance(tp, Exception)
+        tp = self._mapping.get(key)
+        return tp is not None and not isinstance(tp, Exception)
 
     def get(self, key: str) -> type[SecretStore]:
         if _is_importable(key):

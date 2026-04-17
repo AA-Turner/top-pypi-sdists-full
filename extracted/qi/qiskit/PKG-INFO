@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit
-Version: 2.3.1
+Version: 2.4.0
 Summary: An open-source SDK for working with quantum computers at the level of extended quantum circuits, operators, and primitives.
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
 License-Expression: Apache-2.0
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

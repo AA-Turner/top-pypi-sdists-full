@@ -183,6 +183,8 @@ impl FactorizedExpandOperator {
                 target_ids.push_node_id(target_id);
             }
 
+            // reason: factorized column lengths fit u32
+            #[allow(clippy::cast_possible_truncation)]
             offsets.push(edge_ids.len() as u32);
         }
 
@@ -257,6 +259,10 @@ impl Operator for FactorizedExpandOperator {
 
     fn name(&self) -> &'static str {
         "FactorizedExpand"
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+        self
     }
 }
 
@@ -517,6 +523,8 @@ impl FactorizedExpandChain {
                 target_ids.push_node_id(target_id);
             }
 
+            // reason: factorized column lengths fit u32
+            #[allow(clippy::cast_possible_truncation)]
             offsets.push(edge_ids.len() as u32);
         }
 
@@ -565,6 +573,10 @@ impl Operator for SingleChunkOperator {
 
     fn name(&self) -> &'static str {
         "SingleChunk"
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+        self
     }
 }
 
@@ -730,6 +742,10 @@ impl Operator for LazyFactorizedChainOperator {
 
     fn name(&self) -> &'static str {
         "LazyFactorizedChain"
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+        self
     }
 }
 
@@ -959,5 +975,23 @@ mod tests {
         // Flatten and verify correctness
         let flat = factorized.flatten();
         assert_eq!(flat.row_count(), 10);
+    }
+
+    #[test]
+    fn test_factorized_expand_into_any() {
+        let store = Arc::new(LpgStore::new().unwrap());
+        let scan = Box::new(ScanOperator::with_label(store.clone(), "Person"));
+        let op = FactorizedExpandOperator::new(store.clone(), scan, 0, Direction::Outgoing, vec![]);
+        let any = Box::new(op).into_any();
+        assert!(any.downcast::<FactorizedExpandOperator>().is_ok());
+    }
+
+    #[test]
+    fn test_lazy_factorized_chain_into_any() {
+        let store = Arc::new(LpgStore::new().unwrap());
+        let scan = Box::new(ScanOperator::with_label(store.clone(), "Person"));
+        let op = LazyFactorizedChainOperator::new(store.clone(), scan, vec![]);
+        let any = Box::new(op).into_any();
+        assert!(any.downcast::<LazyFactorizedChainOperator>().is_ok());
     }
 }

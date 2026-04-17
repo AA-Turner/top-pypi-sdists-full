@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fast-agent-mcp
-Version: 0.6.16
+Version: 0.6.17
 Summary: Define, Prompt and Test MCP enabled Agents and Workflows
 Author-email: Shaun Smith <fastagent@llmindset.co.uk>
 License:                                  Apache License
@@ -220,20 +220,20 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: <3.15,>=3.13.5
-Requires-Dist: a2a-sdk>=0.3.16
+Requires-Dist: a2a-sdk==0.3.26
 Requires-Dist: agent-client-protocol==0.9.0
-Requires-Dist: aiohttp>=3.13.2
-Requires-Dist: anthropic[vertex]>=0.86.0
-Requires-Dist: deprecated>=1.2.18
-Requires-Dist: email-validator>=2.2.0
-Requires-Dist: fastapi>=0.121.0
-Requires-Dist: fastmcp==3.2.0
-Requires-Dist: google-genai>=1.66.0
-Requires-Dist: jsonschema>=4.25.1
-Requires-Dist: keyring>=24.3.1
+Requires-Dist: aiohttp==3.13.5
+Requires-Dist: anthropic[vertex]==0.96.0
+Requires-Dist: deprecated==1.3.1
+Requires-Dist: email-validator==2.2.0
+Requires-Dist: fastapi==0.136.0
+Requires-Dist: fastmcp==3.2.3
+Requires-Dist: google-genai==1.66.0
+Requires-Dist: jsonschema==4.25.1
+Requires-Dist: keyring==25.7.0
 Requires-Dist: mcp==1.27.0
-Requires-Dist: mslex>=1.3.0
-Requires-Dist: multilspy>=0.0.15
+Requires-Dist: mslex==1.3.0
+Requires-Dist: multilspy==0.0.15
 Requires-Dist: openai[aiohttp]==2.31.0
 Requires-Dist: opentelemetry-distro==0.60b1
 Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.39.1
@@ -241,18 +241,18 @@ Requires-Dist: opentelemetry-instrumentation-anthropic==0.52.1; python_version >
 Requires-Dist: opentelemetry-instrumentation-google-genai==0.6b0
 Requires-Dist: opentelemetry-instrumentation-mcp==0.52.1; python_version >= '3.10' and python_version < '4.0'
 Requires-Dist: opentelemetry-instrumentation-openai==0.52.1; python_version >= '3.10' and python_version < '4.0'
-Requires-Dist: prompt-toolkit>=3.0.52
-Requires-Dist: pydantic-settings>=2.7.0
-Requires-Dist: pydantic>=2.10.4
-Requires-Dist: pyperclip>=1.9.0
-Requires-Dist: python-frontmatter>=1.1.0
-Requires-Dist: pyyaml>=6.0.2
-Requires-Dist: rich>=14.3.3
-Requires-Dist: ruamel-yaml>=0.18.16
-Requires-Dist: tiktoken>=0.12.0
-Requires-Dist: typer>=0.24.1
-Requires-Dist: uvloop>=0.22.1; platform_system != 'Windows'
-Requires-Dist: watchfiles>=1.1.0
+Requires-Dist: prompt-toolkit==3.0.52
+Requires-Dist: pydantic-settings==2.13.0
+Requires-Dist: pydantic==2.13.1
+Requires-Dist: pyperclip==1.9.0
+Requires-Dist: python-frontmatter==1.1.0
+Requires-Dist: pyyaml==6.0.3
+Requires-Dist: rich==14.3.3
+Requires-Dist: ruamel-yaml==0.19.1
+Requires-Dist: tiktoken==0.12.0
+Requires-Dist: typer==0.24.1
+Requires-Dist: uvloop==0.22.1; platform_system != 'Windows'
+Requires-Dist: watchfiles==1.1.1
 Provides-Extra: all-providers
 Requires-Dist: azure-identity>=1.14.0; extra == 'all-providers'
 Requires-Dist: boto3>=1.35.0; extra == 'all-providers'

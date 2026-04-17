@@ -1,0 +1,61 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+fail_fast: false
+exclude: '^README.rst$|^tests/|^setup.py$|^examples/'
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 8c2e6113ec9f1b3013544e26c0943456befb07bf
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-yaml
+    -   id: check-added-large-files
+-   repo: local
+    hooks:
+    -   id: flake8
+        name: Run flake8
+        files: ^varname/.+$
+        pass_filenames: false
+        entry: flake8
+        args: [varname]
+        types: [python]
+        language: system
+    -   id: versionchecker
+        name: Check version agreement in pyproject and __version__
+        entry: bash -c
+        language: system
+        args:
+            - get_ver() { echo $(egrep "^__version|^version" $1 | cut -d= -f2 | sed 's/\"\| //g'); };
+              v1=`get_ver pyproject.toml`;
+              v2=`get_ver varname/__init__.py`;
+              if [[ $v1 == $v2 ]]; then exit 0; else exit 1; fi
+        pass_filenames: false
+        files: ^pyproject\.toml|varname/__init__\.py$
+    -   id: pytest
+        name: Run pytest
+        entry: pytest
+        language: system
+        args: [tests/]
+        pass_filenames: false
+        files: ^tests/.+$|^varname/.+$
+    -   id: compile-readme
+        name: Make README.md
+        entry: python make_readme.py README.raw.md > README.md
+        language: system
+        files: README.raw.md
+        pass_filenames: false
+        always_run: true
+    -   id: mypycheck
+        name: Type checking by mypy
+        entry: mypy
+        language: system
+        files: ^varname/.+$
+        pass_filenames: false
+        types: [python]
+        args: [-p, varname]
+    -   id: execute-playground
+        name: Run playground notebook
+        entry: jupyter nbconvert playground/playground.ipynb --execute --to notebook
+        language: system
+        files: playground/playground.ipynb
+        pass_filenames: false

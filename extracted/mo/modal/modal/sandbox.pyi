@@ -74,24 +74,25 @@ class SandboxConnectCredentials:
 class Probe:
     """Probe configuration for the Sandbox Readiness Probe.
 
-    Usage:
-        ```py notest
-        # Wait until a file exists.
-        readiness_probe = modal.Probe.with_exec(
-            "sh", "-c", "test -f /tmp/ready",
-        )
+    **Usage**
 
-        # Wait until a TCP port is accepting connections.
-        readiness_probe = modal.Probe.with_tcp(8080)
+    ```python notest
+    # Wait until a file exists.
+    readiness_probe = modal.Probe.with_exec(
+        "sh", "-c", "test -f /tmp/ready",
+    )
 
-        app = modal.App.lookup('sandbox-readiness-probe', create_if_missing=True)
-        sandbox = modal.Sandbox.create(
-            "python3", "-m", "http.server", "8080",
-            readiness_probe=readiness_probe,
-            app=app,
-        )
-        sandbox.wait_until_ready()
-        ```
+    # Wait until a TCP port is accepting connections.
+    readiness_probe = modal.Probe.with_tcp(8080)
+
+    app = modal.App.lookup('sandbox-readiness-probe', create_if_missing=True)
+    sandbox = modal.Sandbox.create(
+        "python3", "-m", "http.server", "8080",
+        readiness_probe=readiness_probe,
+        app=app,
+    )
+    sandbox.wait_until_ready()
+    ```
     """
 
     tcp_port: typing.Optional[int]
@@ -383,14 +384,15 @@ class _Sandbox(modal._object._Object):
     async def mount_image(self, path: typing.Union[pathlib.PurePosixPath, str], image: modal.image._Image):
         """Mount an Image at a specified path in a running Sandbox.
 
-        `path` should be a directory. If it doesn't exist it will be created. If it exists and contains
-        data, the previous directory will be replaced by the mount.
+        `path` should be a directory that is **not** the root path (`/`). If the path doesn't exist
+        it will be created. If it exists and contains data, the previous directory will be replaced
+        by the mount.
 
-        The `image` argument currently only supports Images that are either:
-        - prebuilt using `image.build()`
-        - referenced by image id, e.g. `Image.from_id(...)`
-        - filesystem/directory snapshots e.g. created by `.snapshot_directory()`
-        or `.snapshot_filesystem()`"
+        The `image` argument supports any Image that has an object ID, including:
+        - Images built using `image.build()`
+        - Images referenced by ID, e.g. `Image.from_id(...)`
+        - Filesystem/directory snapshots, e.g. created by `.snapshot_directory()` or `.snapshot_filesystem()`
+        - Empty images created with `Image.from_scratch()`
 
         Usage:
         ```py notest
@@ -401,6 +403,15 @@ class _Sandbox(modal._object._Object):
         sandbox_session_2.mount_image("/user_project", user_project_snapshot)
         sandbox_session_2.ls("/user_project")
         ```
+        """
+        ...
+
+    async def unmount_image(self, path: typing.Union[pathlib.PurePosixPath, str]):
+        """Unmount a previously mounted Image from a running Sandbox.
+
+        `path` must be the exact mount point that was passed to `.mount_image()`.
+        After unmounting, the underlying Sandbox filesystem at that path becomes
+        visible again.
         """
         ...
 
@@ -573,6 +584,7 @@ class _Sandbox(modal._object._Object):
         timeout: typing.Optional[int] = None,
         workdir: typing.Optional[str] = None,
         secret_ids: typing.Optional[collections.abc.Collection[str]] = None,
+        env: typing.Optional[dict[str, str]] = None,
         text: bool = True,
         bufsize: typing.Literal[-1, 1] = -1,
         runtime_debug: bool = False,
@@ -605,11 +617,19 @@ class _Sandbox(modal._object._Object):
         ...
 
     async def mkdir(self, path: str, parents: bool = False) -> None:
-        """[Alpha] Create a new directory in the Sandbox."""
+        """[Alpha] Create a new directory in the Sandbox.
+
+        .. deprecated:: 2026-04-15
+            Use `Sandbox.filesystem.make_directory()` instead.
+        """
         ...
 
     async def rm(self, path: str, recursive: bool = False) -> None:
-        """[Alpha] Remove a file or directory in the Sandbox."""
+        """[Alpha] Remove a file or directory in the Sandbox.
+
+        .. deprecated:: 2026-04-15
+            Use `Sandbox.filesystem.remove()` instead.
+        """
         ...
 
     def watch(
@@ -1350,14 +1370,15 @@ class Sandbox(modal.object.Object):
         def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str], image: modal.image.Image):
             """Mount an Image at a specified path in a running Sandbox.
 
-            `path` should be a directory. If it doesn't exist it will be created. If it exists and contains
-            data, the previous directory will be replaced by the mount.
+            `path` should be a directory that is **not** the root path (`/`). If the path doesn't exist
+            it will be created. If it exists and contains data, the previous directory will be replaced
+            by the mount.
 
-            The `image` argument currently only supports Images that are either:
-            - prebuilt using `image.build()`
-            - referenced by image id, e.g. `Image.from_id(...)`
-            - filesystem/directory snapshots e.g. created by `.snapshot_directory()`
-            or `.snapshot_filesystem()`"
+            The `image` argument supports any Image that has an object ID, including:
+            - Images built using `image.build()`
+            - Images referenced by ID, e.g. `Image.from_id(...)`
+            - Filesystem/directory snapshots, e.g. created by `.snapshot_directory()` or `.snapshot_filesystem()`
+            - Empty images created with `Image.from_scratch()`
 
             Usage:
             ```py notest
@@ -1374,14 +1395,15 @@ class Sandbox(modal.object.Object):
         async def aio(self, /, path: typing.Union[pathlib.PurePosixPath, str], image: modal.image.Image):
             """Mount an Image at a specified path in a running Sandbox.
 
-            `path` should be a directory. If it doesn't exist it will be created. If it exists and contains
-            data, the previous directory will be replaced by the mount.
+            `path` should be a directory that is **not** the root path (`/`). If the path doesn't exist
+            it will be created. If it exists and contains data, the previous directory will be replaced
+            by the mount.
 
-            The `image` argument currently only supports Images that are either:
-            - prebuilt using `image.build()`
-            - referenced by image id, e.g. `Image.from_id(...)`
-            - filesystem/directory snapshots e.g. created by `.snapshot_directory()`
-            or `.snapshot_filesystem()`"
+            The `image` argument supports any Image that has an object ID, including:
+            - Images built using `image.build()`
+            - Images referenced by ID, e.g. `Image.from_id(...)`
+            - Filesystem/directory snapshots, e.g. created by `.snapshot_directory()` or `.snapshot_filesystem()`
+            - Empty images created with `Image.from_scratch()`
 
             Usage:
             ```py notest
@@ -1396,6 +1418,27 @@ class Sandbox(modal.object.Object):
             ...
 
     mount_image: __mount_image_spec
+
+    class __unmount_image_spec(typing_extensions.Protocol):
+        def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str]):
+            """Unmount a previously mounted Image from a running Sandbox.
+
+            `path` must be the exact mount point that was passed to `.mount_image()`.
+            After unmounting, the underlying Sandbox filesystem at that path becomes
+            visible again.
+            """
+            ...
+
+        async def aio(self, /, path: typing.Union[pathlib.PurePosixPath, str]):
+            """Unmount a previously mounted Image from a running Sandbox.
+
+            `path` must be the exact mount point that was passed to `.mount_image()`.
+            After unmounting, the underlying Sandbox filesystem at that path becomes
+            visible again.
+            """
+            ...
+
+    unmount_image: __unmount_image_spec
 
     class __snapshot_directory_spec(typing_extensions.Protocol):
         def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
@@ -1780,6 +1823,7 @@ class Sandbox(modal.object.Object):
             timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
             secret_ids: typing.Optional[collections.abc.Collection[str]] = None,
+            env: typing.Optional[dict[str, str]] = None,
             text: bool = True,
             bufsize: typing.Literal[-1, 1] = -1,
             runtime_debug: bool = False,
@@ -1802,6 +1846,7 @@ class Sandbox(modal.object.Object):
             timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
             secret_ids: typing.Optional[collections.abc.Collection[str]] = None,
+            env: typing.Optional[dict[str, str]] = None,
             text: bool = True,
             bufsize: typing.Literal[-1, 1] = -1,
             runtime_debug: bool = False,
@@ -1874,22 +1919,38 @@ class Sandbox(modal.object.Object):
 
     class __mkdir_spec(typing_extensions.Protocol):
         def __call__(self, /, path: str, parents: bool = False) -> None:
-            """[Alpha] Create a new directory in the Sandbox."""
+            """[Alpha] Create a new directory in the Sandbox.
+
+            .. deprecated:: 2026-04-15
+                Use `Sandbox.filesystem.make_directory()` instead.
+            """
             ...
 
         async def aio(self, /, path: str, parents: bool = False) -> None:
-            """[Alpha] Create a new directory in the Sandbox."""
+            """[Alpha] Create a new directory in the Sandbox.
+
+            .. deprecated:: 2026-04-15
+                Use `Sandbox.filesystem.make_directory()` instead.
+            """
             ...
 
     mkdir: __mkdir_spec
 
     class __rm_spec(typing_extensions.Protocol):
         def __call__(self, /, path: str, recursive: bool = False) -> None:
-            """[Alpha] Remove a file or directory in the Sandbox."""
+            """[Alpha] Remove a file or directory in the Sandbox.
+
+            .. deprecated:: 2026-04-15
+                Use `Sandbox.filesystem.remove()` instead.
+            """
             ...
 
         async def aio(self, /, path: str, recursive: bool = False) -> None:
-            """[Alpha] Remove a file or directory in the Sandbox."""
+            """[Alpha] Remove a file or directory in the Sandbox.
+
+            .. deprecated:: 2026-04-15
+                Use `Sandbox.filesystem.remove()` instead.
+            """
             ...
 
     rm: __rm_spec

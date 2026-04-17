@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certificates
-Version: 2.3.0
+Version: 2.3.2
 Summary: Generate event certificates easily.
 Author-email: Cassio Botaro <cassiobotaro@gmail.com>
 License-Expression: Apache-2.0

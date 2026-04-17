@@ -111,14 +111,39 @@ def get_compact_trace(
     return trace.compact(include_returns)
 
 
-def get_node_data(trace_id: str, node_index: int, trace_data: bytes) -> dict:
-    """Get node data for a specific node index."""
+def get_node_data(
+    trace_id: str,
+    node_index: int,
+    trace_data: bytes,
+    thread_id: Optional[str] = None,
+) -> dict:
+    """Get node data for a specific node index.
+
+    ``thread_id`` selects which thread's tree to look the index up in.
+    Indices restart at 0 per thread, so the same ``node_index`` means
+    different frames in different threads. When ``thread_id`` is None
+    the main thread (whichever thread was active when profiling
+    started) is used, matching pre-threading behavior.
+    """
     data = load_msgpack(trace_data)
     trace = Trace(unprocessed_data=data, size=len(trace_data))
 
-    node = trace.main_tree.find_node_by_index(node_index)
+    if thread_id is None:
+        tree = trace.main_tree
+    else:
+        matching = [s for s in trace.threads if s.thread_id == thread_id]
+        if not matching:
+            known = ", ".join(s.thread_id for s in trace.threads) or "<none>"
+            raise ValueError(
+                f"Thread {thread_id!r} not found in trace {trace_id}. "
+                f"Known thread ids: {known}"
+            )
+        tree = matching[0].tree
+
+    node = tree.find_node_by_index(node_index)
     if node is None:
-        raise ValueError(f"Node {node_index} not found in trace {trace_id}")
+        where = f"thread {thread_id}" if thread_id else "main thread"
+        raise ValueError(f"Node {node_index} not found in {where} of trace {trace_id}")
 
     return {
         "index": node.index,

@@ -1,0 +1,1 @@
+import{w as e}from"./input-group-CVcDwtFe.js";function t(t){e.success(t)}function n(t,n){e.error(t,{description:n})}export{t as n,n as t};

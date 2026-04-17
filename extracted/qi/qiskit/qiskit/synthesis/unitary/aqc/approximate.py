@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -12,7 +12,7 @@
 """Base classes for an approximate circuit definition."""
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Optional, SupportsFloat
+from typing import SupportsFloat
 import numpy as np
 
 from qiskit.circuit.quantumcircuit import QuantumCircuit
@@ -21,7 +21,7 @@ from qiskit.circuit.quantumcircuit import QuantumCircuit
 class ApproximateCircuit(QuantumCircuit, ABC):
     """A base class that represents an approximate circuit."""
 
-    def __init__(self, num_qubits: int, name: Optional[str] = None) -> None:
+    def __init__(self, num_qubits: int, name: str | None = None) -> None:
         """
         Args:
             num_qubits: number of qubits this circuit will span.

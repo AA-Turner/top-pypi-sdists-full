@@ -307,19 +307,18 @@ class NativeHydrator:
         # Match v1: a blank line between the concept and the next comment
         # detaches the comment, so it is preserved as a standalone element
         # rather than mutating the concept's description.
-        if concept_node.meta is None:
+        base_line = concept_node.end_line
+        if base_line is None:
             return output
-        base_line = concept_node.meta.end_line
         comments = []
         for x in trailing:
             if (
                 isinstance(x, SyntaxToken)
                 and x.kind == SyntaxTokenKind.COMMENT
-                and x.meta is not None
-                and x.meta.line == base_line
+                and x.line == base_line
             ):
                 comments.append(self.hydrate_comment(x))
-                base_line = x.meta.end_line
+                base_line = x.end_line
             else:
                 break
         if comments:
@@ -332,20 +331,24 @@ class NativeHydrator:
         return self._cached_rule_context
 
     def hydrate_rule(self, element: SyntaxElement) -> Any:
-        if isinstance(element, SyntaxToken):
+        # type() is faster than isinstance for the concrete dataclasses.
+        if type(element) is SyntaxToken:
             return self.hydrate_token(element)
-        handler = NODE_HYDRATORS.get(element.kind) if element.kind else None
-        if handler:
-            return handler(element, self.rule_context(), self.hydrate_rule)
-        if len(element.children) == 1 and element.kind in TRANSPARENT_NODES:
-            return self.hydrate_rule(element.children[0])
+        node: SyntaxNode = element  # type: ignore[assignment]
+        kind = node.kind
+        handler = NODE_HYDRATORS.get(kind) if kind is not None else None
+        if handler is not None:
+            return handler(node, self._cached_rule_context, self.hydrate_rule)
+        if kind in TRANSPARENT_NODES and len(node.children) == 1:
+            return self.hydrate_rule(node.children[0])
         raise UnsupportedSyntaxError.from_syntax(
-            f"No v2 hydrator for syntax node '{syntax_name(element)}'",
-            element,
+            f"No v2 hydrator for syntax node '{syntax_name(node)}'",
+            node,
         )
 
     def hydrate_token(self, token: SyntaxToken) -> Any:
-        handler = TOKEN_HYDRATORS.get(token.kind) if token.kind else None
-        if handler:
-            return handler(token, self.rule_context())
+        kind = token.kind
+        handler = TOKEN_HYDRATORS.get(kind) if kind is not None else None
+        if handler is not None:
+            return handler(token, self._cached_rule_context)
         return token.value

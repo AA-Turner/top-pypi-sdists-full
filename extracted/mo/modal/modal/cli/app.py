@@ -1,8 +1,12 @@
 # Copyright Modal Labs 2022
 import re
+import sys
+import time
+import warnings
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Union
+from typing import Optional, Union, get_args
 
+import click
 import rich
 import typer
 from click import UsageError
@@ -11,15 +15,27 @@ from rich.text import Text
 from typer import Argument
 
 from modal._object import _get_environment_name
+from modal._traceback import print_server_warnings
 from modal._utils.async_utils import synchronizer
 from modal._utils.browser_utils import open_url_and_display
 from modal.client import _Client
 from modal.environments import ensure_env
+from modal.exception import InvalidError, NotFoundError
+from modal.output import OutputManager
+from modal.runner import DEPLOYMENT_STRATEGY_TYPE, _stop_and_wait_for_containers
 from modal_proto import api_pb2
 
 from .._logs import _FETCH_LIMIT, _MAX_FETCH_RANGE, LogsFilters
 from .._utils.time_utils import locale_tz, timestamp_to_localized_str
-from .utils import ENV_OPTION, display_table, fetch_app_logs, get_app_id_from_name, stream_app_logs, tail_app_logs
+from .utils import (
+    ENV_OPTION,
+    YES_OPTION,
+    confirm_or_suggest_yes,
+    display_table,
+    fetch_app_logs,
+    stream_app_logs,
+    tail_app_logs,
+)
 
 APP_IDENTIFIER = Argument("", help="App name or ID")
 NAME_OPTION = typer.Option("", "-n", "--name", help="Deprecated: Pass App name as a positional argument")
@@ -38,12 +54,50 @@ APP_STATE_TO_MESSAGE = {
 }
 
 
-@synchronizer.create_blocking
-async def get_app_id(app_identifier: str, env: Optional[str], client: Optional[_Client] = None) -> str:
-    """Resolve an app_identifier that may be a name or an ID into an ID."""
+async def resolve_app_identifier(
+    app_identifier: str, env: Optional[str], client: Optional[_Client] = None
+) -> tuple[str, str, api_pb2.AppLifecycle]:  # Return app_id, environment_name, lifecycle
+    """Handle an App ID or an App name and return context about the App it points at.
+
+    When a name is provided, we may retrieve either a currently deployed App or an App that
+    was recently stopped (if no other App with that name has been deployed since).
+    It is up to callers of this function to decide whether it's valid to use the App ID
+    based on the lifecycle returned and their specific operations.
+
+    Can also raise a NotFoundError if the argument matches the App ID regex but the App
+    doesn't exist on the backend, or if there is no currently deployed or recently stopped App
+    with that name.
+
+    The function also always returns a valid environment name for any name-based lookups,
+    which may reflect the server-defined default environment when the provided argument was null.
+
+    """
+    if client is None:
+        client = await _Client.from_env()
     if re.match(r"^ap-[a-zA-Z0-9]{22}$", app_identifier):
-        return app_identifier
-    return await get_app_id_from_name.aio(app_identifier, env, client)
+        # Identifier is an App ID. This is unambiguous, so we can make the request and return
+        # the lifecycle. AppGetLifecycle will raise NotFoundError if the ID doesn't point at an App.
+        # If we return, it's a real App, but it's up to the caller to decide what to do based on
+        # the App's current state as conveyed by the lifecycle. We do propagate a NotFoundError
+        # from the server if the App ID doesn't actually exist.
+        request = api_pb2.AppGetLifecycleRequest(app_id=app_identifier)
+        resp = await client.stub.AppGetLifecycle(request)
+        return app_identifier, "", resp.lifecycle
+    else:
+        # Identifier is treated as a name, which may or may not point at a currently deployed App
+        # (inside a specific environment)
+        request = api_pb2.AppGetByDeploymentNameRequest(name=app_identifier, environment_name=env or "")
+        resp = await client.stub.AppGetByDeploymentName(request)
+        if resp.app_id:
+            # App is currently deployed
+            return resp.app_id, resp.environment_name, resp.lifecycle
+        elif resp.previous_app_id:
+            # An App with this name was recently stopped. Return the ID of the stopped App
+            # and let callers decide what to do based on the lifecycle.
+            return resp.previous_app_id, resp.environment_name, resp.lifecycle
+        else:
+            msg = f"No App with name '{app_identifier}' found in the '{resp.environment_name}' environment."
+            raise NotFoundError(msg)
 
 
 @app_cli.command("list")
@@ -122,7 +176,8 @@ _SOURCE_OPTIONS = {
 
 
 @app_cli.command("logs", no_args_is_help=True)
-def logs(
+@synchronizer.create_blocking
+async def logs(
     app_identifier: str = APP_IDENTIFIER,
     follow: bool = typer.Option(False, "-f", "--follow", help="Stream log output until App stops"),
     since: Optional[str] = typer.Option(
@@ -222,7 +277,7 @@ def logs(
     if tail is not None and tail > _FETCH_LIMIT:
         raise UsageError(f"--tail value must not exceed {_FETCH_LIMIT}.")
 
-    app_id = get_app_id(app_identifier, env)
+    app_id, _, _ = await resolve_app_identifier(app_identifier, env)
 
     if source is not None:
         if source not in _SOURCE_OPTIONS:
@@ -248,7 +303,7 @@ def logs(
     )
 
     if follow:
-        stream_app_logs(
+        await stream_app_logs.aio(
             app_id,
             task_id=container_id or "",
             show_timestamps=timestamps,
@@ -271,7 +326,7 @@ def logs(
 
         if since and tail is None:
             # Range mode: --since without --tail fetches everything in the range.
-            fetch_app_logs(
+            await fetch_app_logs.aio(
                 app_id,
                 since_dt,
                 until_dt or now,
@@ -283,7 +338,7 @@ def logs(
             # Tail mode: single fetch with limit.
             # --since is a hard floor, --until shifts the anchor.
             effective_tail = tail if tail is not None else _DEFAULT_LOGS_TAIL
-            tail_app_logs(
+            await tail_app_logs.aio(
                 app_id,
                 effective_tail,
                 show_timestamps=timestamps,
@@ -331,17 +386,84 @@ async def rollback(
     """
     env = ensure_env(env)
     client = await _Client.from_env()
-    app_id = await get_app_id.aio(app_identifier, env, client)
+    app_id, environment_name, lifecycle = await resolve_app_identifier(app_identifier, env, client)
+    if lifecycle.app_state != api_pb2.APP_STATE_DEPLOYED:
+        env_suffix = f" in the '{environment_name}' environment" if environment_name else ""
+        raise InvalidError(f"App '{app_identifier}' is not deployed{env_suffix}.")
+
     if not version:
         version_number = -1
     else:
         if m := re.match(r"v(\d+)", version):
             version_number = int(m.group(1))
         else:
-            raise UsageError(f"Invalid version specifer: {version}")
+            raise UsageError(f"Invalid version specifier: {version}")
     req = api_pb2.AppRollbackRequest(app_id=app_id, version=version_number)
     await client.stub.AppRollback(req)
     rich.print("[green]✓[/green] Deployment rollback successful!")
+
+
+@app_cli.command("rollover", no_args_is_help=True)
+@synchronizer.create_blocking
+async def rollover(
+    app_identifier: str = APP_IDENTIFIER,
+    *,
+    strategy: str = typer.Option(
+        "rolling",
+        help="Strategy for rollover",
+        click_type=click.Choice(get_args(DEPLOYMENT_STRATEGY_TYPE)),
+    ),
+    env: Optional[str] = ENV_OPTION,
+):
+    """Redeploy an App to get new containers without code changes.
+
+    A rollover replaces existing containers with fresh ones built from the same
+    App version — useful for refreshing containers without changing your code.
+    The rollover appears as a new entry in the App's deployment history.
+
+    **Examples:**
+
+    Rollover an App using a rolling deployment. Running containers are now considered
+    outdated and will be gracefully replaced by new ones.
+
+    ```
+    modal app rollover my-app
+    ```
+
+    Rollover an App by terminating any running containers. Inputs on the queue will
+    start new containers.
+
+    ```
+    modal app rollover my-app --strategy recreate
+    ```
+    """
+    env = ensure_env(env)
+    client = await _Client.from_env()
+
+    app_id, environment_name, lifecycle = await resolve_app_identifier(app_identifier, env, client)
+    if lifecycle.app_state != api_pb2.APP_STATE_DEPLOYED:
+        env_suffix = f" in the '{environment_name}' environment" if environment_name else ""
+        raise InvalidError(f"App '{app_identifier}' is not deployed{env_suffix}.")
+
+    output_mgr = OutputManager.get()
+    output_mgr.print(f"🔨 Starting app rollover with {strategy} strategy")
+    t0 = time.monotonic()
+
+    req = api_pb2.AppRolloverRequest(app_id=app_id)
+    response = await client.stub.AppRollover(req)
+    print_server_warnings(response.server_warnings)
+
+    if strategy == "recreate":
+        try:
+            await _stop_and_wait_for_containers(client, app_id, response.deployed_at, env)
+        except Exception as exc:
+            warnings.warn(f"App updated successfully, but containers did not all terminate. {exc}", UserWarning)
+            output_mgr.print(f"\nView Deployment: [magenta]{response.url}[/magenta]")
+            sys.exit(1)
+
+    duration = time.monotonic() - t0
+    output_mgr.step_completed(f"Rollover completed in {duration:.3f}s with {strategy} strategy! 🎉")
+    output_mgr.print(f"\nView Deployment: [magenta]{response.url}[/magenta]")
 
 
 @app_cli.command("stop", no_args_is_help=True)
@@ -349,11 +471,40 @@ async def rollback(
 async def stop(
     app_identifier: str = APP_IDENTIFIER,
     *,
+    yes: bool = YES_OPTION,
     env: Optional[str] = ENV_OPTION,
 ):
-    """Stop an app."""
+    """Permanently stop an App and terminate its running containers."""
+    env = ensure_env(env)
     client = await _Client.from_env()
-    app_id = await get_app_id.aio(app_identifier, env)
+    app_id, environment_name, lifecycle = await resolve_app_identifier(app_identifier, env, client)
+
+    if lifecycle.app_state == api_pb2.APP_STATE_STOPPED:
+        msg = "App is already stopped."
+        if lifecycle.stopped_at:
+            stopped_at = timestamp_to_localized_str(lifecycle.stopped_at)
+            verb = "Stopped" if lifecycle.stopped_by else "Finished"
+            attribution = f" by '{lifecycle.stopped_by}'" if lifecycle.stopped_by else ""
+            msg += f" ({verb} at {stopped_at}{attribution})."
+        raise SystemExit(msg)
+
+    if not yes:
+        res = await client.stub.TaskList(api_pb2.TaskListRequest(app_id=app_id))
+        num_containers = len(res.tasks)
+
+        if environment_name:
+            msg = f"Are you sure you want to stop App '{app_identifier}' in the '{environment_name}' environment?"
+        else:
+            msg = f"Are you sure you want to stop App '{app_identifier}'?"
+
+        if num_containers:
+            msg += (
+                f" This will immediately terminate {num_containers} running"
+                f" container{'s' if num_containers != 1 else ''}."
+            )
+        else:
+            msg += " No containers are currently running."
+        confirm_or_suggest_yes(msg)
     req = api_pb2.AppStopRequest(app_id=app_id, source=api_pb2.APP_STOP_SOURCE_CLI)
     await client.stub.AppStop(req)
 
@@ -366,7 +517,7 @@ async def history(
     env: Optional[str] = ENV_OPTION,
     json: bool = False,
 ):
-    """Show App deployment history, for a currently deployed app
+    """Show an App's deployment history.
 
     **Examples:**
 
@@ -376,7 +527,7 @@ async def history(
     modal app history ap-123456
     ```
 
-    Get the history for a currently deployed App based on its name:
+    Get the history for an App based on its name:
 
     ```
     modal app history my-app
@@ -385,7 +536,7 @@ async def history(
     """
     env = ensure_env(env)
     client = await _Client.from_env()
-    app_id = await get_app_id.aio(app_identifier, env, client)
+    app_id, _, _ = await resolve_app_identifier(app_identifier, env, client)
     resp = await client.stub.AppDeploymentHistory(api_pb2.AppDeploymentHistoryRequest(app_id=app_id))
 
     columns = [
@@ -460,7 +611,6 @@ async def dashboard(
     ```
     """
     client = await _Client.from_env()
-    app_id = await get_app_id.aio(app_identifier, env, client)
-
+    app_id, _, _ = await resolve_app_identifier(app_identifier, env, client)
     url = f"https://modal.com/id/{app_id}"
     open_url_and_display(url, "App dashboard")

@@ -196,6 +196,8 @@ __all__ = (
     "Eac3StereoDownmixType",
     "Eac3SurroundExModeType",
     "Eac3SurroundModeType",
+    "ElementalInferenceFeatureType",
+    "ElementalInferenceFeedManagementStateType",
     "EmbeddedConvert608To708Type",
     "EmbeddedTerminateCaptionsType",
     "EmbeddedTimecodeOverrideType",
@@ -900,6 +902,10 @@ Eac3PhaseControlType = Literal["NO_SHIFT", "SHIFT_90_DEGREES"]
 Eac3StereoDownmixType = Literal["DPL2", "LO_RO", "LT_RT", "NOT_INDICATED"]
 Eac3SurroundExModeType = Literal["DISABLED", "ENABLED", "NOT_INDICATED"]
 Eac3SurroundModeType = Literal["DISABLED", "ENABLED", "NOT_INDICATED"]
+ElementalInferenceFeatureType = Literal["SMART_CROP"]
+ElementalInferenceFeedManagementStateType = Literal[
+    "ASSOCIATED", "CREATED", "DELETED", "PENDING_DELETION"
+]
 EmbeddedConvert608To708Type = Literal["DISABLED", "UPCONVERT"]
 EmbeddedTerminateCaptionsType = Literal["DISABLED", "END_OF_INPUT"]
 EmbeddedTimecodeOverrideType = Literal["NONE", "USE_MDPM"]
@@ -1465,7 +1471,9 @@ S3StorageClassType = Literal[
     "STANDARD_IA",
 ]
 SampleRangeConversionType = Literal["LIMITED_RANGE_CLIP", "LIMITED_RANGE_SQUEEZE", "NONE"]
-ScalingBehaviorType = Literal["DEFAULT", "FILL", "FIT", "FIT_NO_UPSCALE", "STRETCH_TO_OUTPUT"]
+ScalingBehaviorType = Literal[
+    "DEFAULT", "FILL", "FIT", "FIT_NO_UPSCALE", "SMART_CROP", "STRETCH_TO_OUTPUT"
+]
 SccDestinationFramerateType = Literal[
     "FRAMERATE_23_97",
     "FRAMERATE_24",

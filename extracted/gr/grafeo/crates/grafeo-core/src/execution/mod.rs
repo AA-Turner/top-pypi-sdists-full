@@ -32,6 +32,7 @@ pub mod operators;
 #[cfg(feature = "parallel")]
 pub mod parallel;
 pub mod pipeline;
+pub mod pipeline_convert;
 pub mod profile;
 pub mod selection;
 pub mod sink;
@@ -52,6 +53,8 @@ pub use collector::{
     Collector, CollectorStats, CountCollector, LimitCollector, MaterializeCollector,
     PartitionCollector, StatsCollector,
 };
+#[cfg(feature = "spill")]
+pub use memory::OperatorMemoryContext;
 pub use memory::{ExecutionMemoryContext, ExecutionMemoryContextBuilder};
 #[cfg(feature = "parallel")]
 pub use parallel::{

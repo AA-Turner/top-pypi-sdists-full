@@ -9,6 +9,7 @@ __all__ = [
     'crypto',
     'http',
     'io',
+    'logging',
     'mqtt',
     'mqtt5',
     'mqtt_request_response',
@@ -16,7 +17,7 @@ __all__ = [
     'websocket',
 ]
 
-__version__ = '0.32.0'
+__version__ = '0.32.1'
 
 
 class NativeResource:

@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -147,7 +147,6 @@ class BasePassManager(ABC):
         Returns:
             Pass manager IR.
         """
-        pass
 
     @abstractmethod
     def _passmanager_backend(
@@ -167,13 +166,12 @@ class BasePassManager(ABC):
         Returns:
             Output program.
         """
-        pass
 
     def run(
         self,
         in_programs: Any | list[Any],
-        callback: Callable = None,
-        num_processes: int = None,
+        callback: Callable | None = None,
+        num_processes: int | None = None,
         *,
         property_set: dict[str, object] | None = None,
         **kwargs,
@@ -350,7 +348,7 @@ def _run_workflow_in_new_process(
     """
     return _run_workflow(
         program=program,
-        pass_manager=dill.loads(pass_manager_bin),
+        pass_manager=dill.loads(pass_manager_bin),  # noqa: S301 Only used for IPC
         initial_property_set=initial_property_set,
-        callback=dill.loads(callback),
+        callback=dill.loads(callback),  # noqa: S301 Only used for IPC
     )

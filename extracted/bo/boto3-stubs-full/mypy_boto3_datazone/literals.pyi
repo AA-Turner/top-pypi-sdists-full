@@ -295,7 +295,7 @@ GovernanceTypeType = Literal["AWS_MANAGED", "USER_MANAGED"]
 GovernedEntityTypeType = Literal["ASSET"]
 GraphEntityTypeType = Literal["LINEAGE_NODE"]
 GroupProfileStatusType = Literal["ASSIGNED", "NOT_ASSIGNED"]
-GroupSearchTypeType = Literal["DATAZONE_SSO_GROUP", "SSO_GROUP"]
+GroupSearchTypeType = Literal["DATAZONE_SSO_GROUP", "IAM_ROLE_SESSION_GROUP", "SSO_GROUP"]
 HyperPodOrchestratorType = Literal["EKS", "SLURM"]
 InventorySearchScopeType = Literal["ASSET", "DATA_PRODUCT", "GLOSSARY", "GLOSSARY_TERM"]
 JobRunModeType = Literal["ON_DEMAND", "SCHEDULED"]
@@ -526,7 +526,7 @@ UserDesignationType = Literal[
 UserProfileStatusType = Literal["ACTIVATED", "ASSIGNED", "DEACTIVATED", "NOT_ASSIGNED"]
 UserProfileTypeType = Literal["IAM", "SSO"]
 UserSearchTypeType = Literal["DATAZONE_IAM_USER", "DATAZONE_SSO_USER", "DATAZONE_USER", "SSO_USER"]
-UserTypeType = Literal["IAM_ROLE", "IAM_USER", "SSO_USER"]
+UserTypeType = Literal["IAM_ROLE", "IAM_ROLE_SESSION", "IAM_USER", "SSO_USER"]
 DataZoneServiceName = Literal["datazone"]
 ServiceName = Literal[
     "accessanalyzer",

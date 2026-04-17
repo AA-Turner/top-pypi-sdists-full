@@ -292,14 +292,6 @@ paths:
           items:
             type: string
           type: array
-      - description: Comma-separated list of connection schema IDs. Restricts results
-          to those created by connections with the given connection schemas.
-        in: query
-        name: connectionSchemaIds
-        schema:
-          items:
-            type: string
-          type: array
       - description: File data type. Restricts results to those with the specified
           data type.
         in: query

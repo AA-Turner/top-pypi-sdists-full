@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymc-marketing
-Version: 0.19.2
+Version: 0.19.3
 Summary: Marketing Statistical Models in PyMC
 Project-URL: repository, https://github.com/pymc-labs/pymc-marketing
 Project-URL: homepage, https://www.pymc-marketing.io
@@ -213,13 +213,14 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Typing :: Typed
-Requires-Python: >=3.11
+Requires-Python: >=3.12
+Requires-Dist: arviz-plots[matplotlib]<2.0,>=1.0.0
 Requires-Dist: arviz<1.0.0,>=0.13.0
 Requires-Dist: matplotlib>=3.5.1
 Requires-Dist: narwhals
@@ -259,6 +260,7 @@ Requires-Dist: numpydoc; extra == 'docs'
 Requires-Dist: numpyro; extra == 'docs'
 Requires-Dist: nutpie>=0.16.7; extra == 'docs'
 Requires-Dist: osqp<1.0.0,>=0.6.2; extra == 'docs'
+Requires-Dist: plotly>=6.3.0; extra == 'docs'
 Requires-Dist: preliz>=0.20.0; extra == 'docs'
 Requires-Dist: pylint; extra == 'docs'
 Requires-Dist: sphinx; extra == 'docs'
@@ -278,6 +280,7 @@ Requires-Dist: ruff>=0.1.4; extra == 'lint'
 Provides-Extra: test
 Requires-Dist: blackjax; extra == 'test'
 Requires-Dist: dowhy; extra == 'test'
+Requires-Dist: fastprogress; extra == 'test'
 Requires-Dist: graphviz>=0.20.1; extra == 'test'
 Requires-Dist: ipykernel; extra == 'test'
 Requires-Dist: jax; extra == 'test'

@@ -1,78 +1,50 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: captum
-Version: 0.8.0
-Summary: Model interpretability for PyTorch
-Home-page: https://captum.ai
+Version: 0.9.0
+Summary: Model Interpretability for PyTorch
 Author: PyTorch Team
-License: BSD-3
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://captum.ai
 Project-URL: Documentation, https://captum.ai
 Project-URL: Source, https://github.com/pytorch/captum
 Project-URL: conda, https://anaconda.org/pytorch/captum
-Keywords: Model Interpretability,Model Understanding,Model Interpretability,Model Understanding,Feature Importance,Neuron Importance,Data Attribution,Explainable AI,PyTorch
+Keywords: Model Interpretability,Model Understanding,Feature Importance,Neuron Importance,Data Attribution,Explainable AI,PyTorch
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: matplotlib
-Requires-Dist: numpy<2.0
+Requires-Dist: numpy
 Requires-Dist: packaging
-Requires-Dist: torch>=1.10
+Requires-Dist: torch>=2.3
 Requires-Dist: tqdm
-Provides-Extra: dev
-Requires-Dist: flask; extra == "dev"
-Requires-Dist: ipython; extra == "dev"
-Requires-Dist: ipywidgets; extra == "dev"
-Requires-Dist: jupyter; extra == "dev"
-Requires-Dist: flask-compress; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: parameterized; extra == "dev"
-Requires-Dist: black; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: sphinx; extra == "dev"
-Requires-Dist: sphinx-autodoc-typehints; extra == "dev"
-Requires-Dist: sphinxcontrib-katex; extra == "dev"
-Requires-Dist: mypy>=0.760; extra == "dev"
-Requires-Dist: usort==1.0.2; extra == "dev"
-Requires-Dist: ufmt; extra == "dev"
-Requires-Dist: scikit-learn; extra == "dev"
-Requires-Dist: annoy; extra == "dev"
-Provides-Extra: insights
-Requires-Dist: flask; extra == "insights"
-Requires-Dist: ipython; extra == "insights"
-Requires-Dist: ipywidgets; extra == "insights"
-Requires-Dist: jupyter; extra == "insights"
-Requires-Dist: flask-compress; extra == "insights"
+Provides-Extra: tutorials
+Requires-Dist: torchtext; extra == "tutorials"
+Requires-Dist: torchvision; extra == "tutorials"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: parameterized; extra == "test"
-Provides-Extra: tutorials
-Requires-Dist: flask; extra == "tutorials"
-Requires-Dist: ipython; extra == "tutorials"
-Requires-Dist: ipywidgets; extra == "tutorials"
-Requires-Dist: jupyter; extra == "tutorials"
-Requires-Dist: flask-compress; extra == "tutorials"
-Requires-Dist: torchtext; extra == "tutorials"
-Requires-Dist: torchvision; extra == "tutorials"
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: black==25.11.0; extra == "test"
+Requires-Dist: flake8; extra == "test"
+Requires-Dist: pyre-check-nightly==0.0.101750936314; extra == "test"
+Requires-Dist: usort==1.1.0; extra == "test"
+Requires-Dist: ufmt; extra == "test"
+Provides-Extra: optional
+Requires-Dist: openai; extra == "optional"
+Requires-Dist: scikit-learn; extra == "optional"
+Requires-Dist: annoy; extra == "optional"
+Provides-Extra: dev
+Requires-Dist: captum[optional,test]; extra == "dev"
+Requires-Dist: sphinx<8.2.0; extra == "dev"
+Requires-Dist: sphinx-autodoc-typehints; extra == "dev"
+Requires-Dist: sphinxcontrib-katex; extra == "dev"
+Dynamic: license-file
 
 ![Captum Logo](./website/static/img/captum_logo.png)
 
@@ -121,30 +93,13 @@ Captum can also be used by application engineers who are using trained models in
 ## Installation
 
 **Installation Requirements**
-- Python >= 3.9
-- PyTorch >= 1.10
+- Python >= 3.10
+- PyTorch >= 2.3
 
 
 ##### Installing the latest release
 
-The latest release of Captum is easily installed either via
-[Anaconda](https://www.anaconda.com/distribution/#download-section) (recommended) or via `pip`.
-
-**with `conda`**
-
-You can install captum from any of the following supported conda channels:
-
-- channel: `pytorch`
-
-  ```sh
-  conda install captum -c pytorch
-  ```
-
-- channel: `conda-forge`
-
-  ```sh
-  conda install captum -c conda-forge
-  ```
+Install released Captum via `pip`.
 
 **With `pip`**
 
@@ -165,8 +120,6 @@ pip install -e .
 
 To customize the installation, you can also run the following variants of the
 above:
-* `pip install -e .[insights]`: Also installs all packages necessary for running Captum Insights.
-**NOTE**: Captum Insights is being deprecated. See further details [below](#captum-insights).
 * `pip install -e .[dev]`: Also installs all tools necessary for development
   (testing, linting, docs building; see [Contributing](#contributing) below).
 * `pip install -e .[tutorials]`: Also installs all packages necessary for running the tutorial notebooks.
@@ -460,52 +413,10 @@ approximation for given inputs and baselines is.
 More details on the list of supported algorithms and how to apply
 Captum on different types of models can be found in our tutorials.
 
+## Captum Insights (Retired)
 
-## Captum Insights
-
-**NOTE**: *Support for Captum Insights is being deprecated in an upcoming release.
-While the code will still be available, there will no longer be active
-development or support for it.*
-
-Captum provides a web interface called Insights for easy visualization and
-access to a number of our interpretability algorithms.
-
-To analyze a sample model on CIFAR10 via Captum Insights run
-
-```
-python -m captum.insights.attr_vis.example
-```
-
-and navigate to the URL specified in the output.
-
-![Captum Insights Screenshot](./website/static/img/captum_insights_screenshot.png)
-
-To build Insights you will need [Node](https://nodejs.org/en/) >= 8.x
-and [Yarn](https://yarnpkg.com/en/) >= 1.5.
-
-To build and launch from a checkout in a conda environment run
-
-```
-conda install -c conda-forge yarn
-BUILD_INSIGHTS=1 python setup.py develop
-python captum/insights/example.py
-```
-
-### Captum Insights Jupyter Widget
-Captum Insights also has a Jupyter widget providing the same user interface as the web app.
-To install and enable the widget, run
-
-```
-jupyter nbextension install --py --symlink --sys-prefix captum.insights.attr_vis.widget
-jupyter nbextension enable captum.insights.attr_vis.widget --py --sys-prefix
-```
-
-To build the widget from a checkout in a conda environment run
-
-```
-conda install -c conda-forge yarn
-BUILD_INSIGHTS=1 python setup.py develop
-```
+Captum Insights was retired after v0.8.0 and is no longer supported. You can check out
+the repository at the v0.8.0 tag to view the defunct code.
 
 ## FAQ
 If you have questions about using Captum methods, please check this [FAQ](docs/faq.md), which addresses many common issues.
@@ -543,8 +454,7 @@ You can watch the recorded talk [here](https://www.youtube.com/watch?v=ayhBHZYje
 - [Paper](https://arxiv.org/abs/2106.07475) on Investigating Sanity Checks for Saliency Maps
 
 
-Summer school on medical imaging at University of Lyon. A class on model explainability (link to the video)
-https://www.youtube.com/watch?v=vn-jLzY67V0
+Summer school on medical imaging at University of Lyon has a class on model explainability you can watch [here](https://www.youtube.com/watch?v=vn-jLzY67V0)
 
 ## References of Algorithms
 
@@ -556,7 +466,7 @@ https://www.youtube.com/watch?v=vn-jLzY67V0
 * `LayerConductance`: [Computationally Efficient Measures of Internal Neuron Importance, Avanti Shrikumar et al. 2018](https://arxiv.org/abs/1807.09946)
 * `DeepLift`, `NeuronDeepLift`, `LayerDeepLift`: [Learning Important Features Through Propagating Activation Differences, Avanti Shrikumar et al. 2017](https://arxiv.org/abs/1704.02685) and [Towards better understanding of gradient-based attribution methods for deep neural networks, Marco Ancona et al. 2018](https://openreview.net/pdf?id=Sy21R9JAW)
 * `NeuronIntegratedGradients`: [Computationally Efficient Measures of Internal Neuron Importance, Avanti Shrikumar et al. 2018](https://arxiv.org/abs/1807.09946)
-* `GradientShap`, `NeuronGradientShap`, `LayerGradientShap`, `DeepLiftShap`, `NeuronDeepLiftShap`, `LayerDeepLiftShap`: [A Unified Approach to Interpreting Model Predictions, Scott M. Lundberg et al. 2017](http://papers.nips.cc/paper/7062-a-unified-approach-to-interpreting-model-predictions)
+* `GradientShap`, `NeuronGradientShap`, `LayerGradientShap`, `DeepLiftShap`, `NeuronDeepLiftShap`, `LayerDeepLiftShap`: [A Unified Approach to Interpreting Model Predictions, Scott M. Lundberg et al. 2017](https://proceedings.neurips.cc/paper/2017/hash/8a20a8621978632d76c43dfd28b67767-Abstract.html)
 * `InternalInfluence`: [Influence-Directed Explanations for Deep Convolutional Networks, Klas Leino et al. 2018](https://arxiv.org/abs/1802.03788)
 * `Saliency`, `NeuronGradient`: [Deep Inside Convolutional Networks: Visualising
 Image Classification Models and Saliency Maps, K. Simonyan, et. al. 2014](https://arxiv.org/abs/1312.6034)
@@ -573,7 +483,7 @@ Image Classification Models and Saliency Maps, K. Simonyan, et. al. 2014](https:
 * `BinaryConcreteStochasticGates`: [Stochastic Gates with Binary Concrete Distribution](https://arxiv.org/abs/1712.01312)
 * `GaussianStochasticGates`: [Stochastic Gates with Gaussian Distribution](https://arxiv.org/abs/1810.04247)
 
-More details about the above mentioned [attribution algorithms](https://captum.ai/docs/attribution_algorithms) and their pros and cons can be found on our [web-site](https://captum.ai/docs/algorithms_comparison_matrix).
+More details about the above mentioned [attribution algorithms](https://captum.ai/docs/attribution_algorithms) and their pros and cons can be found on our [website](https://captum.ai/docs/algorithms_comparison_matrix).
 
 ## License
 Captum is BSD licensed, as found in the [LICENSE](LICENSE) file.

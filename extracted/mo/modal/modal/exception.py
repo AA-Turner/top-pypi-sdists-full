@@ -351,6 +351,12 @@ class SandboxFilesystemNotFoundError(SandboxFilesystemError):
     pass
 
 
+class SandboxFilesystemDirectoryNotEmptyError(SandboxFilesystemError):
+    """Raised when a directory is not empty."""
+
+    pass
+
+
 class SandboxFilesystemIsADirectoryError(SandboxFilesystemError):
     """Raised when a file operation in the sandbox targets a directory when it should target a non-directory file."""
 
@@ -371,5 +377,11 @@ class SandboxFilesystemPermissionError(SandboxFilesystemError):
 
 class SandboxFilesystemFileTooLargeError(SandboxFilesystemError):
     """Raised when a file exceeds the maximum allowed size for a read operation in the sandbox."""
+
+    pass
+
+
+class SandboxFilesystemPathAlreadyExistsError(SandboxFilesystemError):
+    """Raised when a path already exists and the operation requires it to be absent."""
 
     pass

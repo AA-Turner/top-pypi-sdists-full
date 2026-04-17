@@ -68,7 +68,7 @@ class LimeBase(PerturbationAttribution):
 
     def __init__(
         self,
-        forward_func: Callable[..., Tensor],
+        forward_func: Callable[..., Union[int, float, Tensor]],
         interpretable_model: Model,
         similarity_func: Callable[
             ...,
@@ -238,7 +238,7 @@ class LimeBase(PerturbationAttribution):
                 self.to_interp_rep_transform is not None
             ), "Must provide transform from original input space to interpretable space"
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     @torch.no_grad()
     def attribute(
         self,
@@ -548,8 +548,7 @@ class LimeBase(PerturbationAttribution):
 
         return generate_perturbation
 
-    # pyre-fixme[24] Generic type `Callable` expects 2 type parameters.
-    def attribute_future(self) -> Callable:
+    def attribute_future(self) -> None:
         r"""
         This method is not implemented for LimeBase.
         """
@@ -566,7 +565,6 @@ class LimeBase(PerturbationAttribution):
     ) -> Tensor:
         model_out = _run_forward(
             self.forward_func,
-            # pyre-fixme[6]: For 1st argument expected `Sequence[Variable[TupleOrTens...
             _reduce_list(curr_model_inputs),
             expanded_target,
             expanded_additional_args,
@@ -592,16 +590,19 @@ class LimeBase(PerturbationAttribution):
 # for Lime child implementation.
 
 
-# pyre-fixme[3]: Return type must be annotated.
-# pyre-fixme[2]: Parameter must be annotated.
-def default_from_interp_rep_transform(curr_sample, original_inputs, **kwargs):
+def default_from_interp_rep_transform(
+    curr_sample: Tensor,
+    original_inputs: TensorOrTupleOfTensorsGeneric,
+    **kwargs: Any,
+) -> TensorOrTupleOfTensorsGeneric:
+
     assert (
         "feature_mask" in kwargs
     ), "Must provide feature_mask to use default interpretable representation transform"
     assert (
         "baselines" in kwargs
     ), "Must provide baselines to use default interpretable representation transform"
-    feature_mask = kwargs["feature_mask"]
+    feature_mask: TensorOrTupleOfTensorsGeneric = kwargs["feature_mask"]
     if isinstance(feature_mask, Tensor):
         binary_mask = curr_sample[0][feature_mask].bool()
         return (
@@ -612,10 +613,15 @@ def default_from_interp_rep_transform(curr_sample, original_inputs, **kwargs):
         binary_mask = tuple(
             curr_sample[0][feature_mask[j]].bool() for j in range(len(feature_mask))
         )
-        return tuple(
-            binary_mask[j].to(original_inputs[j].dtype) * original_inputs[j]
-            + (~binary_mask[j]).to(original_inputs[j].dtype) * kwargs["baselines"][j]
-            for j in range(len(feature_mask))
+
+        return cast(
+            TensorOrTupleOfTensorsGeneric,
+            tuple(
+                binary_mask[j].to(original_inputs[j].dtype) * original_inputs[j]
+                + (~binary_mask[j]).to(original_inputs[j].dtype)
+                * kwargs["baselines"][j]
+                for j in range(len(feature_mask))
+            ),
         )
 
 
@@ -654,9 +660,12 @@ def get_exp_kernel_similarity_function(
             similarity_fn for Lime or LimeBase.
     """
 
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def default_exp_kernel(original_inp, perturbed_inp, __, **kwargs):
+    def default_exp_kernel(
+        original_inp: TensorOrTupleOfTensorsGeneric,
+        perturbed_inp: TensorOrTupleOfTensorsGeneric,
+        __: Any,
+        **kwargs: Any,
+    ) -> float:
         flattened_original_inp = _flatten_tensor_or_tuple(original_inp).float()
         flattened_perturbed_inp = _flatten_tensor_or_tuple(perturbed_inp).float()
         if distance_mode == "cosine":
@@ -756,7 +765,7 @@ class Lime(LimeBase):
 
     def __init__(
         self,
-        forward_func: Callable[..., Tensor],
+        forward_func: Callable[..., Union[int, float, Tensor]],
         interpretable_model: Optional[Model] = None,
         # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
         similarity_func: Optional[Callable] = None,
@@ -870,7 +879,7 @@ class Lime(LimeBase):
             None,
         )
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def attribute(  # type: ignore
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
@@ -1038,7 +1047,12 @@ class Lime(LimeBase):
                         coefficient of the corresponding interpretale feature.
                         All elements with the same value in the feature mask
                         will contain the same coefficient in the returned
-                        attributions. If return_input_shape is False, a 1D
+                        attributions.
+                        If forward_func returns a single element per batch, then the
+                        first dimension of each tensor will be 1, and the remaining
+                        dimensions will have the same shape as the original input
+                        tensor.
+                        If return_input_shape is False, a 1D
                         tensor is returned, containing only the coefficients
                         of the trained interpreatable models, with length
                         num_interp_features.
@@ -1112,8 +1126,7 @@ class Lime(LimeBase):
             show_progress=show_progress,
         )
 
-    # pyre-fixme[24] Generic type `Callable` expects 2 type parameters.
-    def attribute_future(self) -> Callable:
+    def attribute_future(self) -> None:
         return super().attribute_future()
 
     def _attribute_kwargs(  # type: ignore
@@ -1242,6 +1255,7 @@ class Lime(LimeBase):
                 coefs,
                 num_interp_features,
                 is_inputs_tuple,
+                leading_dim_one=(bsz > 1),
             )
         else:
             return coefs
@@ -1254,6 +1268,7 @@ class Lime(LimeBase):
         coefs: Tensor,
         num_interp_features: int,
         is_inputs_tuple: Literal[True],
+        leading_dim_one: bool = False,
     ) -> Tuple[Tensor, ...]: ...
 
     @typing.overload
@@ -1264,6 +1279,7 @@ class Lime(LimeBase):
         coefs: Tensor,
         num_interp_features: int,
         is_inputs_tuple: Literal[False],
+        leading_dim_one: bool = False,
     ) -> Tensor: ...
 
     @typing.overload
@@ -1274,6 +1290,7 @@ class Lime(LimeBase):
         coefs: Tensor,
         num_interp_features: int,
         is_inputs_tuple: bool,
+        leading_dim_one: bool = False,
     ) -> Union[Tensor, Tuple[Tensor, ...]]: ...
 
     def _convert_output_shape(
@@ -1283,6 +1300,7 @@ class Lime(LimeBase):
         coefs: Tensor,
         num_interp_features: int,
         is_inputs_tuple: bool,
+        leading_dim_one: bool = False,
     ) -> Union[Tensor, Tuple[Tensor, ...]]:
         coefs = coefs.flatten()
         attr = [
@@ -1295,4 +1313,7 @@ class Lime(LimeBase):
                     coefs[single_feature].item()
                     * (feature_mask[tensor_ind] == single_feature).float()
                 )
+        if leading_dim_one:
+            for i in range(len(attr)):
+                attr[i] = attr[i][0:1]
         return _format_output(is_inputs_tuple, tuple(attr))

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: peft
-Version: 0.19.0
+Version: 0.19.1
 Summary: Parameter-Efficient Fine-Tuning (PEFT)
 Home-page: https://github.com/huggingface/peft
 Author: The HuggingFace team

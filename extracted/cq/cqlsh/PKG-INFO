@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: cqlsh
-Version: 6.2.1
+Version: 6.2.2
 Summary: cqlsh is a Python-based command-line client for running CQL commands on a cassandra cluster.
 Author: Brad Schoening
 Author-email: Jeff Widman <jeff@jeffwidman.com>
+Project-URL: Homepage, https://github.com/jeffwidman/cqlsh
 Project-URL: Documentation, https://cassandra.apache.org/doc/latest/tools/cqlsh.html
 Project-URL: Issues, https://github.com/jeffwidman/cqlsh/issues
 Project-URL: Changelog, https://github.com/jeffwidman/cqlsh#changelog
@@ -14,11 +15,12 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cassandra-driver
@@ -93,6 +95,12 @@ This PyPI package is maintained by [Jeff Widman](https://github.com/jeffwidman) 
 Unfortunately the Cassandra project does not always increment the `cqlsh` version number, so for every
 release we need to document not only the `cqlsh` version but also the `cassandra` version in which it
 shipped.
+
+#### 6.2.2 (April 16, 2026)
+This packages `cqlsh` `6.2.0` from [Cassandra 5.0.5](https://github.com/apache/cassandra/blob/cassandra-5.0.5/pylib/cqlshlib):
+
+ * Update pyproject.toml Python versions (drop 3.9; add 3.13 & 3.14).
+ * Add --disable-history support and a corresponding [history] disabled config option.
 
 #### 6.2.1 (August 6, 2025)
 

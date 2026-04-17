@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -150,7 +150,7 @@ class UnitaryGate(Gate):
             qc.global_phase = global_phase
             self.definition = qc
         elif self.num_qubits == 2:
-            from qiskit.synthesis.two_qubit.two_qubit_decompose import (  # pylint: disable=cyclic-import
+            from qiskit.synthesis.two_qubit.two_qubit_decompose import (
                 two_qubit_cnot_decompose,
             )
 
@@ -159,9 +159,7 @@ class UnitaryGate(Gate):
 
             mat = self.to_matrix()
 
-            # pylint: disable=cyclic-import
             from qiskit.synthesis.unitary.qsd import qs_decomposition
-            from qiskit.quantum_info.operators import Operator
 
             try:
                 # The Rust code for Quantum Shannon Decomposition may return QiskitError
@@ -173,6 +171,8 @@ class UnitaryGate(Gate):
             # If QSD fails or provides numerically imprecise matrices, fallback on the
             # Isometry decomposition (which produces more gates but is more numerically
             # stable)
+            from qiskit.quantum_info.operators import Operator
+
             if (mat_def is None) or not (
                 matrix_equal(Operator(mat_def).to_matrix(), mat, atol=1e-7)
             ):
@@ -193,7 +193,7 @@ class UnitaryGate(Gate):
         is ``False``, and as :class:`.AnnotatedOperation` when ``annotated`` is ``True``.
 
         Args:
-            num_ctrl_qubits: Number of controls to add. Defauls to ``1``.
+            num_ctrl_qubits: Number of controls to add. Defaults to ``1``.
             label: Optional gate label. Defaults to ``None``. Ignored if the controlled gate
                 is implemented as an annotated operation.
             ctrl_state: The control state of the gate, specified either as an integer or a bitstring
@@ -207,10 +207,7 @@ class UnitaryGate(Gate):
         if not annotated:
             mat = self.to_matrix()
             cmat = _compute_control_matrix(mat, num_ctrl_qubits, ctrl_state=None)
-
-            # pylint: disable=cyclic-import
             from qiskit.synthesis.unitary.qsd import qs_decomposition
-            from qiskit.quantum_info.operators import Operator
 
             try:
                 # The Rust code for Quantum Shannon Decomposition may return QiskitError
@@ -222,6 +219,7 @@ class UnitaryGate(Gate):
             # If QSD fails or provides numerically imprecise matrices, fallback on the
             # Isometry decomposition (which produces more gates but is more numerically
             # stable)
+            from qiskit.quantum_info.operators import Operator
 
             if (cmat_def is None) or not (
                 matrix_equal(Operator(cmat_def).to_matrix(), cmat, atol=1e-7)

@@ -6,7 +6,7 @@ import dataclasses
 import inspect
 import json
 from datetime import timedelta
-from typing import Any, Callable, ClassVar, Collection, Dict, Mapping, Optional, Sequence, Union, cast
+from typing import Any, Callable, ClassVar, Collection, Dict, Mapping, Optional, Sequence, TypeVar, Union, cast
 
 import google.protobuf.message
 import pyarrow as pa
@@ -28,28 +28,22 @@ from chalk._gen.chalk.graph.v1.graph_pb2 import (
 from chalk._gen.chalk.graph.v2 import sources_pb2 as sources_pb
 from chalk._gen.chalk.lsp.v1.lsp_pb2 import Location, Position, Range
 from chalk._validation.feature_validation import FeatureValidation
-from chalk.features import (
-    CacheStrategy,
-    Feature,
-    Features,
-    FeatureWrapper,
-    Filter,
-    GenericFeatureConverter,
-    TimeDelta,
-    TPrimitive,
-    Underscore,
-    ensure_feature,
-    unwrap_feature,
-)
+from chalk.features import CacheStrategy, Feature, Features, Filter, TimeDelta, TPrimitive, Underscore, ensure_feature
 from chalk.features._encoding._feature_converters._list_converter import ListFeatureConverter
 from chalk.features._encoding._feature_converters._timedelta_converter import TimedeltaFeatureConverter
-from chalk.features._encoding.converter import PrimitiveFeatureConverter, make_primitive_converter, pa_scalar_to_proto
+from chalk.features._encoding.converter import (
+    PrimitiveFeatureConverter,
+    make_feature_converter,
+    make_primitive_converter,
+    pa_scalar_to_proto,
+)
 from chalk.features._encoding.protobuf import (
     convert_proto_message_type_to_pyarrow_type,
     serialize_message_file_descriptor,
 )
 from chalk.features._encoding.pyarrow import rich_to_pyarrow
-from chalk.features._encoding.rich import TRich
+
+TRich = TypeVar("TRich")
 from chalk.features._encoding.serialized_rich_type import SerializedRichType
 from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
 from chalk.features.incremental import IncrementalConfig
@@ -449,7 +443,7 @@ class ToProtoConverter:
 
     @staticmethod
     def convert_rich_type_to_protobuf(rich_type: type[TRich]) -> arrow_pb.ArrowType:
-        converter = GenericFeatureConverter(name="helper", is_nullable=False, rich_type=rich_type)
+        converter = make_feature_converter(name="helper", is_nullable=False, rich_type=rich_type)
         return converter.protobuf_dtype
 
     @staticmethod
@@ -668,7 +662,7 @@ class ToProtoConverter:
         for i in range(len(raw_inputs)):
             raw_input = raw_inputs[i]
             if state and i == state.pos:
-                converter = GenericFeatureConverter(
+                converter = make_feature_converter(
                     name="state", is_nullable=False, rich_type=state.typ, rich_default=state.initial
                 )
                 inputs.append(
@@ -868,7 +862,7 @@ class ToProtoConverter:
         if mat is None:
             raise ValueError("Feature is missing window materialization")
 
-        converter = cast(GenericFeatureConverter[Any, Any], f.converter)
+        converter = f.converter
         aggregation_kwargs = dict(mat.aggregation_kwargs)
         res = pb.FeatureType(
             group_by=pb.GroupByFeatureType(
@@ -984,7 +978,7 @@ class ToProtoConverter:
             _ref = f.version.reference[f.version.default]
             if isinstance(_ref, Feature):
                 _dtype_feature = _ref
-        converter = cast(GenericFeatureConverter[Any, Any], _dtype_feature.converter)
+        converter = _dtype_feature.converter
         aggregation_kwargs = {} if wmp is None else dict(wmp.aggregation_kwargs)
         res = pb.FeatureType(
             scalar=pb.ScalarFeatureType(
@@ -1339,9 +1333,12 @@ class ToProtoConverter:
                 )
             )
         elif isinstance(p, StreamResolverParamKeyedState):
-            converter = GenericFeatureConverter(
-                name="helper", is_nullable=False, rich_type=p.typ, rich_default=p.default_value
-            )
+            try:
+                converter = make_feature_converter(
+                    name="helper", is_nullable=False, rich_type=p.typ, rich_default=p.default_value
+                )
+            except Exception:
+                converter = None
             arrow_type = None
             if converter:
                 try:

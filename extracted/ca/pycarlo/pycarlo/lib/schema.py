@@ -2263,6 +2263,7 @@ class EntitlementTypes(pycarlo.lib.types.Enum):
     * `API_CALLS`None
     * `AUDIT_LOGGING`None
     * `AUTH_GROUP_CONNECTION_RESTRICTION`None
+    * `CREDENTIAL_TRANSFORMATION_PIPELINE`None
     * `CUSTOM_CONNECTOR`None
     * `DATA_LAKES`None
     * `DATA_MESH`None
@@ -2286,6 +2287,7 @@ class EntitlementTypes(pycarlo.lib.types.Enum):
         "API_CALLS",
         "AUDIT_LOGGING",
         "AUTH_GROUP_CONNECTION_RESTRICTION",
+        "CREDENTIAL_TRANSFORMATION_PIPELINE",
         "CUSTOM_CONNECTOR",
         "DATA_LAKES",
         "DATA_MESH",
@@ -6548,6 +6550,7 @@ class TraceFilterFieldName(pycarlo.lib.types.Enum):
     * `DURATION`None
     * `MODEL`None
     * `PROMPT_TOKENS`None
+    * `STATUS`None
     * `TASK`None
     * `TOTAL_TOKENS`None
     * `WORKFLOW`None
@@ -6559,6 +6562,7 @@ class TraceFilterFieldName(pycarlo.lib.types.Enum):
         "DURATION",
         "MODEL",
         "PROMPT_TOKENS",
+        "STATUS",
         "TASK",
         "TOTAL_TOKENS",
         "WORKFLOW",
@@ -8181,7 +8185,13 @@ class ConfluentKafkaCredentialsInput(sgqlc.types.Input):
 
 class ConnectionTestOptions(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("dc_id", "skip_validation", "skip_permission_tests", "test_options")
+    __field_names__ = (
+        "dc_id",
+        "skip_validation",
+        "skip_permission_tests",
+        "test_options",
+        "ctp_config",
+    )
     dc_id = sgqlc.types.Field(UUID, graphql_name="dcId")
     """DC UUID. To disambiguate accounts with multiple collectors."""
 
@@ -8196,6 +8206,12 @@ class ConnectionTestOptions(sgqlc.types.Input):
 
     test_options = sgqlc.types.Field("ValidatorTestOptions", graphql_name="testOptions")
     """Specify tests to run (Redshift only)."""
+
+    ctp_config = sgqlc.types.Field(JSONString, graphql_name="ctpConfig")
+    """CTP pipeline config (steps and mapper) to apply when testing
+    credentials. Required when the connection relies on credential
+    transformation.
+    """
 
 
 class ConversationFiltersInput(sgqlc.types.Input):
@@ -12529,6 +12545,7 @@ class TraceFiltersInput(sgqlc.types.Input):
         "min_total_tokens",
         "max_total_tokens",
         "conversation_id",
+        "statuses",
     )
     models = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="models"
@@ -12571,6 +12588,11 @@ class TraceFiltersInput(sgqlc.types.Input):
 
     conversation_id = sgqlc.types.Field(String, graphql_name="conversationId")
     """Filter by exact conversation ID"""
+
+    statuses = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="statuses"
+    )
+    """Filter by status: 'OK' or 'HAS_ERRORS' (OR logic)"""
 
 
 class TraceSegmentFilterInput(sgqlc.types.Input):
@@ -19624,6 +19646,7 @@ class Connection(sgqlc.types.Type):
         "is_active",
         "disabled_on",
         "dbt_projects",
+        "ctp_config",
         "account",
         "connection_identifier",
         "connection_identifiers",
@@ -19718,6 +19741,9 @@ class Connection(sgqlc.types.Type):
     * `first` (`Int`)None
     * `last` (`Int`)None
     """
+
+    ctp_config = sgqlc.types.Field(JSONString, graphql_name="ctpConfig")
+    """Custom CTP pipeline config for this connection, if set."""
 
     account = sgqlc.types.Field(Account, graphql_name="account")
 
@@ -27336,6 +27362,24 @@ class FigPracticalMetricsData(sgqlc.types.Type):
     """Model usage counts"""
 
 
+class FigProjectSummary(sgqlc.types.Type):
+    """Figs grouped by project (FIG_PROJECT env var)."""
+
+    __schema__ = schema
+    __field_names__ = ("project", "fig_count", "agent_count", "last_activity")
+    project = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="project")
+    """Project name"""
+
+    fig_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="figCount")
+    """Total figs in this project"""
+
+    agent_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="agentCount")
+    """Distinct agents in this project"""
+
+    last_activity = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="lastActivity")
+    """Most recent fig started_at"""
+
+
 class FigRecord(sgqlc.types.Type):
     """A single agent execution record."""
 
@@ -27374,6 +27418,9 @@ class FigRecord(sgqlc.types.Type):
         "total_completion_tokens",
         "tool_types_summary",
         "models_used",
+        "cost_usd",
+        "agent_type",
+        "card_id",
         "score_dimensions",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
@@ -27474,6 +27521,15 @@ class FigRecord(sgqlc.types.Type):
 
     models_used = sgqlc.types.Field(GenericScalar, graphql_name="modelsUsed")
     """LLM models used during execution"""
+
+    cost_usd = sgqlc.types.Field(Float, graphql_name="costUsd")
+    """Estimated USD cost, locked at completion time"""
+
+    agent_type = sgqlc.types.Field(String, graphql_name="agentType")
+    """Agent type classification"""
+
+    card_id = sgqlc.types.Field(String, graphql_name="cardId")
+    """Agent Card ID that governed this execution"""
 
     score_dimensions = sgqlc.types.Field(GenericScalar, graphql_name="scoreDimensions")
     """Per-fig process quality dimensions, signals, and explanations"""
@@ -32628,6 +32684,9 @@ class Mutation(sgqlc.types.Type):
         "set_warehouse_name",
         "set_etl_container_name",
         "set_connection_name",
+        "set_connection_ctp_config",
+        "remove_connection_ctp_config",
+        "validate_connection_ctp_config",
         "set_integration_name",
         "create_or_update_saml_identity_provider",
         "delete_saml_identity_provider",
@@ -33127,6 +33186,11 @@ class Mutation(sgqlc.types.Type):
                 ("agent_name", sgqlc.types.Arg(String, graphql_name="agentName", default=None)),
                 ("attempt", sgqlc.types.Arg(Int, graphql_name="attempt", default=1)),
                 (
+                    "completed_at",
+                    sgqlc.types.Arg(DateTime, graphql_name="completedAt", default=None),
+                ),
+                ("duration_s", sgqlc.types.Arg(Float, graphql_name="durationS", default=None)),
+                (
                     "files_touched",
                     sgqlc.types.Arg(GenericScalar, graphql_name="filesTouched", default=None),
                 ),
@@ -33197,6 +33261,8 @@ class Mutation(sgqlc.types.Type):
     * `agent_id` (`String!`): Agent identifier
     * `agent_name` (`String`): Human-readable agent name
     * `attempt` (`Int`): Retry attempt number (default: `1`)
+    * `completed_at` (`DateTime`): When execution completed
+    * `duration_s` (`Float`): Wall-clock duration in seconds
     * `files_touched` (`GenericScalar`): List of files modified
     * `langgraph_run_id` (`String`): LangGraph run ID
     * `meta` (`GenericScalar`): Arbitrary metadata
@@ -48700,6 +48766,93 @@ class Mutation(sgqlc.types.Type):
     * `name` (`String!`): Desired name.
     """
 
+    set_connection_ctp_config = sgqlc.types.Field(
+        "SetConnectionCtpConfig",
+        graphql_name="setConnectionCtpConfig",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "config",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(JSONString), graphql_name="config", default=None
+                    ),
+                ),
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set the custom CTP config for a connection.
+
+    Arguments:
+
+    * `config` (`JSONString!`): CTP pipeline config (steps and mapper)
+      to use for this connection.
+    * `connection_id` (`UUID!`): UUID of the connection to configure.
+    """
+
+    remove_connection_ctp_config = sgqlc.types.Field(
+        "RemoveConnectionCtpConfig",
+        graphql_name="removeConnectionCtpConfig",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Remove the custom CTP config from a connection.
+
+    Arguments:
+
+    * `connection_id` (`UUID!`): UUID of the connection to update.
+    """
+
+    validate_connection_ctp_config = sgqlc.types.Field(
+        "ValidateConnectionCtpConfig",
+        graphql_name="validateConnectionCtpConfig",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "config",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(JSONString), graphql_name="config", default=None
+                    ),
+                ),
+                (
+                    "connection_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="connectionType", default=None
+                    ),
+                ),
+                (
+                    "dc_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dcId", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Validate a CTP config for a connection without
+    saving it.
+
+    Arguments:
+
+    * `config` (`JSONString!`): CTP pipeline config (steps and mapper)
+      to validate.
+    * `connection_type` (`String!`): The connection type to validate
+      the config for.
+    * `dc_id` (`UUID!`): UUID of the data collector to validate
+      against.
+    """
+
     set_integration_name = sgqlc.types.Field(
         "SetIntegrationName",
         graphql_name="setIntegrationName",
@@ -50006,6 +50159,7 @@ class Mutation(sgqlc.types.Type):
                     "create_warehouse_type",
                     sgqlc.types.Arg(String, graphql_name="createWarehouseType", default=None),
                 ),
+                ("ctp_config", sgqlc.types.Arg(JSONString, graphql_name="ctpConfig", default=None)),
                 ("dc_id", sgqlc.types.Arg(UUID, graphql_name="dcId", default=None)),
                 ("dw_id", sgqlc.types.Arg(UUID, graphql_name="dwId", default=None)),
                 ("is_active", sgqlc.types.Arg(Boolean, graphql_name="isActive", default=True)),
@@ -50034,6 +50188,8 @@ class Mutation(sgqlc.types.Type):
     * `connection_type` (`String!`): The type of connection to add
     * `create_warehouse_type` (`String`): Create a new warehouse for
       the connection
+    * `ctp_config` (`JSONString`): CTP pipeline config to associate
+      with the connection after creation.
     * `dc_id` (`UUID`): DC UUID. To disambiguate accounts with
       multiple collectors
     * `dw_id` (`UUID`): Add connection to an existing warehouse
@@ -50592,6 +50748,7 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
                     ),
                 ),
+                ("ctp_config", sgqlc.types.Arg(JSONString, graphql_name="ctpConfig", default=None)),
                 (
                     "should_replace",
                     sgqlc.types.Arg(Boolean, graphql_name="shouldReplace", default=False),
@@ -50609,6 +50766,8 @@ class Mutation(sgqlc.types.Type):
 
     * `changes` (`JSONString!`): JSON Key/values with fields to update
     * `connection_id` (`UUID!`): ID for connection to update
+    * `ctp_config` (`JSONString`): CTP pipeline config to associate
+      with the connection.
     * `should_replace` (`Boolean`): Set true to replace all
       credentials with changes. Otherwise inserts/replaces (default:
       `false`)
@@ -55100,6 +55259,7 @@ class Query(sgqlc.types.Type):
         "get_fig_score",
         "get_fig_costs",
         "get_fig_practical_metrics",
+        "get_fig_projects",
         "get_fig_best_runs",
         "list_custom_dashboards",
         "get_custom_dashboard",
@@ -55667,39 +55827,22 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="resourceId", default=None
                     ),
                 ),
-                ("min_stale_days", sgqlc.types.Arg(Int, graphql_name="minStaleDays", default=90)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=50)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                (
-                    "table_types",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
-                        graphql_name="tableTypes",
-                        default=None,
-                    ),
-                ),
             )
         ),
     )
     """(experimental) Get tables that are candidates for storage
-    optimization, sorted by safety (safest first) then by size
-    (largest first). Only tables that have not been read for at least
-    minStaleDays are included.
+    optimization, sorted by size (largest first).
 
     Arguments:
 
     * `resource_id` (`UUID!`): UUID of the warehouse to scan for
       optimization candidates
-    * `min_stale_days` (`Int`): Minimum days since last read to be
-      considered stale (default: 90) (default: `90`)
     * `first` (`Int`): Maximum number of candidates to return per page
       (default: 50) (default: `50`)
     * `after` (`String`): Cursor from a previous page's endCursor to
       fetch the next page
-    * `table_types` (`[String!]`): Filter by table types. Defaults to
-      ['TABLE', 'EXTERNAL', 'DYNAMIC'] (excludes VIEWs which don't
-      consume storage). Pass an empty list or specific types to
-      override.
     """
 
     get_my_dashboard_schedules = sgqlc.types.Field(
@@ -55761,10 +55904,13 @@ class Query(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 ("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),
+                ("project", sgqlc.types.Arg(String, graphql_name="project", default=None)),
                 ("status", sgqlc.types.Arg(String, graphql_name="status", default=None)),
                 ("risk_level", sgqlc.types.Arg(String, graphql_name="riskLevel", default=None)),
-                ("since", sgqlc.types.Arg(String, graphql_name="since", default=None)),
+                ("since", sgqlc.types.Arg(DateTime, graphql_name="since", default=None)),
+                ("until", sgqlc.types.Arg(DateTime, graphql_name="until", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=50)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=0)),
             )
         ),
     )
@@ -55773,12 +55919,18 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `agent_id` (`String`): Filter by agent ID
+    * `project` (`String`): Filter by project (FIG_PROJECT env var)
     * `status` (`String`): Filter by status (running, success, failed,
       timeout, cancelled)
     * `risk_level` (`String`): Filter by risk level (low, medium,
       high, critical)
-    * `since` (`String`): Filter to figs started after this ISO date
+    * `since` (`DateTime`): Filter to figs started at or after this
+      time
+    * `until` (`DateTime`): Filter to figs started at or before this
+      time
     * `limit` (`Int`): Max results to return (default: `50`)
+    * `offset` (`Int`): Number of records to skip for pagination
+      (default: `0`)
     """
 
     get_fig = sgqlc.types.Field(
@@ -55819,7 +55971,11 @@ class Query(sgqlc.types.Type):
         FigCostData,
         graphql_name="getFigCosts",
         args=sgqlc.types.ArgDict(
-            (("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),)
+            (
+                ("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),
+                ("since", sgqlc.types.Arg(DateTime, graphql_name="since", default=None)),
+                ("until", sgqlc.types.Arg(DateTime, graphql_name="until", default=None)),
+            )
         ),
     )
     """(experimental) Token cost breakdown by agent
@@ -55827,6 +55983,10 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `agent_id` (`String`): Filter by agent ID
+    * `since` (`DateTime`): Filter to figs started at or after this
+      time
+    * `until` (`DateTime`): Filter to figs started at or before this
+      time
     """
 
     get_fig_practical_metrics = sgqlc.types.Field(
@@ -55845,6 +56005,13 @@ class Query(sgqlc.types.Type):
 
     * `agent_id` (`String`): Filter by agent ID
     * `days` (`Int`): Number of days to look back (default: `30`)
+    """
+
+    get_fig_projects = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FigProjectSummary)), graphql_name="getFigProjects"
+    )
+    """(experimental) Distinct projects with fig count, agent count, and
+    last activity
     """
 
     get_fig_best_runs = sgqlc.types.Field(
@@ -72987,12 +73154,16 @@ class Query(sgqlc.types.Type):
                     "credentials_key",
                     sgqlc.types.Arg(String, graphql_name="credentialsKey", default=None),
                 ),
+                ("ctp_config", sgqlc.types.Arg(JSONString, graphql_name="ctpConfig", default=None)),
             )
         ),
     )
     """Arguments:
 
     * `credentials_key` (`String`)None
+    * `ctp_config` (`JSONString`): CTP pipeline config to apply when
+      listing projects. Required when the connection relies on
+      credential transformation.
     """
 
     get_slack_oauth_url = sgqlc.types.Field(
@@ -76278,6 +76449,14 @@ class RelinkOpsgenieIncident(sgqlc.types.Type):
     """If an opsgenie incident was restored"""
 
 
+class RemoveConnectionCtpConfig(sgqlc.types.Type):
+    """Remove the custom CTP config from a connection."""
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+
 class RemoveConnectionMutation(sgqlc.types.Type):
     """Remove an integration connection and deschedule any associated
     jobs
@@ -77649,6 +77828,15 @@ class SetAzureDevopsSourceSelections(sgqlc.types.Type):
     """Always true. Response will contain errors on failure."""
 
 
+class SetConnectionCtpConfig(sgqlc.types.Type):
+    """Set (create or replace) the custom CTP config for a connection."""
+
+    __schema__ = schema
+    __field_names__ = ("uuid",)
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """UUID of the created or updated CTP config record."""
+
+
 class SetConnectionDeletionProtectionMutation(sgqlc.types.Type):
     """Set deletion protection for an integration connection"""
 
@@ -78669,32 +78857,35 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
         "resource_uuid",
         "table_type",
         "discovered_time",
+        "project_name",
+        "dataset_name",
+        "table_name",
         "total_row_count",
         "total_byte_count",
         "days_since_latest_read",
-        "days_since_latest_write",
         "latest_read",
         "latest_write",
+        "latest_update",
+        "latest_query",
         "importance_score",
+        "is_important",
+        "criticality",
+        "node_type",
         "degree_out",
-        "is_critical_src_node",
-        "is_critical_hub_node",
-        "is_critical_analytical_node",
+        "degree_in",
+        "total_reads",
+        "total_writes",
+        "total_users",
         "total_reading_users",
         "total_writing_users",
         "is_monitored",
-        "has_cyclic_child",
-        "total_reads",
-        "total_read_only_reads",
-        "total_writes",
-        "total_writes_from_file",
-        "prc_active_days",
-        "last_volume_change",
-        "degree_in",
-        "days_diff_latest_reads_write",
-        "avg_writes_per_active_day",
+        "has_active_monitor",
+        "is_periodic_metadata",
+        "is_excluded",
+        "created_time",
+        "last_observed",
     )
-    mcon = sgqlc.types.Field(String, graphql_name="mcon")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """Monte Carlo object name — unique table identifier"""
 
     full_table_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fullTableId")
@@ -78709,6 +78900,15 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
     discovered_time = sgqlc.types.Field(DateTime, graphql_name="discoveredTime")
     """When the table was first discovered by Monte Carlo"""
 
+    project_name = sgqlc.types.Field(String, graphql_name="projectName")
+    """Project or catalog name"""
+
+    dataset_name = sgqlc.types.Field(String, graphql_name="datasetName")
+    """Dataset or schema name"""
+
+    table_name = sgqlc.types.Field(String, graphql_name="tableName")
+    """Table name"""
+
     total_row_count = sgqlc.types.Field(Float, graphql_name="totalRowCount")
     """Most recent row count for this table"""
 
@@ -78716,10 +78916,9 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
     """Most recent byte count for this table"""
 
     days_since_latest_read = sgqlc.types.Field(Float, graphql_name="daysSinceLatestRead")
-    """Number of days since the table was last read"""
-
-    days_since_latest_write = sgqlc.types.Field(Float, graphql_name="daysSinceLatestWrite")
-    """Number of days since the table was last written to"""
+    """Number of days since the table was last read (computed at query
+    time)
+    """
 
     latest_read = sgqlc.types.Field(DateTime, graphql_name="latestRead")
     """Timestamp of the most recent read operation"""
@@ -78727,26 +78926,40 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
     latest_write = sgqlc.types.Field(DateTime, graphql_name="latestWrite")
     """Timestamp of the most recent write operation"""
 
+    latest_update = sgqlc.types.Field(DateTime, graphql_name="latestUpdate")
+    """Timestamp of the most recent metadata update"""
+
+    latest_query = sgqlc.types.Field(DateTime, graphql_name="latestQuery")
+    """Timestamp of the most recent query referencing this table"""
+
     importance_score = sgqlc.types.Field(Float, graphql_name="importanceScore")
     """Computed importance score (higher = more important)"""
+
+    is_important = sgqlc.types.Field(Boolean, graphql_name="isImportant")
+    """Whether this table is marked as important"""
+
+    criticality = sgqlc.types.Field(String, graphql_name="criticality")
+    """Criticality classification of this table"""
+
+    node_type = sgqlc.types.Field(String, graphql_name="nodeType")
+    """Node type classification in the lineage graph"""
 
     degree_out = sgqlc.types.Field(Float, graphql_name="degreeOut")
     """Number of downstream dependencies — tables that read from this
     table
     """
 
-    is_critical_src_node = sgqlc.types.Field(Boolean, graphql_name="isCriticalSrcNode")
-    """Whether this table is a critical source node in the lineage graph"""
+    degree_in = sgqlc.types.Field(Float, graphql_name="degreeIn")
+    """Number of upstream dependencies — tables that write to this table"""
 
-    is_critical_hub_node = sgqlc.types.Field(Boolean, graphql_name="isCriticalHubNode")
-    """Whether this table is a critical hub node in the lineage graph"""
+    total_reads = sgqlc.types.Field(Float, graphql_name="totalReads")
+    """Total number of read operations on this table"""
 
-    is_critical_analytical_node = sgqlc.types.Field(
-        Boolean, graphql_name="isCriticalAnalyticalNode"
-    )
-    """Whether this table is a critical analytical node in the lineage
-    graph
-    """
+    total_writes = sgqlc.types.Field(Float, graphql_name="totalWrites")
+    """Total number of write operations on this table"""
+
+    total_users = sgqlc.types.Field(Float, graphql_name="totalUsers")
+    """Total number of distinct users who have interacted with this table"""
 
     total_reading_users = sgqlc.types.Field(Float, graphql_name="totalReadingUsers")
     """Number of distinct users who have read this table"""
@@ -78757,39 +78970,20 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
     is_monitored = sgqlc.types.Field(Boolean, graphql_name="isMonitored")
     """Whether the table is actively monitored by Monte Carlo"""
 
-    has_cyclic_child = sgqlc.types.Field(Boolean, graphql_name="hasCyclicChild")
-    """Whether this table has a downstream periodic dependent in the
-    lineage graph
-    """
+    has_active_monitor = sgqlc.types.Field(Boolean, graphql_name="hasActiveMonitor")
+    """Whether this table has at least one active monitor"""
 
-    total_reads = sgqlc.types.Field(Float, graphql_name="totalReads")
-    """Total number of read operations on this table"""
+    is_periodic_metadata = sgqlc.types.Field(Boolean, graphql_name="isPeriodicMetadata")
+    """Whether this table has periodic metadata collection"""
 
-    total_read_only_reads = sgqlc.types.Field(Float, graphql_name="totalReadOnlyReads")
-    """Read operations not tied to writes — true consumption signal"""
+    is_excluded = sgqlc.types.Field(Boolean, graphql_name="isExcluded")
+    """Whether this table is excluded from monitoring"""
 
-    total_writes = sgqlc.types.Field(Float, graphql_name="totalWrites")
-    """Total number of write operations on this table"""
+    created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
+    """When the table was originally created"""
 
-    total_writes_from_file = sgqlc.types.Field(Float, graphql_name="totalWritesFromFile")
-    """Number of write operations from file/bulk loads"""
-
-    prc_active_days = sgqlc.types.Field(Float, graphql_name="prcActiveDays")
-    """Proportion of days with activity (0.0 to 1.0)"""
-
-    last_volume_change = sgqlc.types.Field(DateTime, graphql_name="lastVolumeChange")
-    """When the table's size last changed"""
-
-    degree_in = sgqlc.types.Field(Float, graphql_name="degreeIn")
-    """Number of upstream dependencies — tables that write to this table"""
-
-    days_diff_latest_reads_write = sgqlc.types.Field(Float, graphql_name="daysDiffLatestReadsWrite")
-    """Days between last write and last read (positive = writes outlast
-    reads)
-    """
-
-    avg_writes_per_active_day = sgqlc.types.Field(Float, graphql_name="avgWritesPerActiveDay")
-    """Average number of write operations per active day"""
+    last_observed = sgqlc.types.Field(DateTime, graphql_name="lastObserved")
+    """When the table was last observed by Monte Carlo"""
 
 
 class StorageOptimizationCandidatesResult(sgqlc.types.Type):
@@ -78804,7 +78998,7 @@ class StorageOptimizationCandidatesResult(sgqlc.types.Type):
     """Storage optimization candidates for the current page"""
 
     total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
-    """Total number of candidates matching the filter across all pages"""
+    """Total number of candidates across all pages"""
 
     page_info = sgqlc.types.Field(
         sgqlc.types.non_null("StorageOptimizationPageInfo"), graphql_name="pageInfo"
@@ -84048,6 +84242,23 @@ class VCSSummary(sgqlc.types.Type):
         sgqlc.types.list_of(AvailableFilter), graphql_name="availableFilters"
     )
     """Filters available in the result"""
+
+
+class ValidateConnectionCtpConfig(sgqlc.types.Type):
+    """Validate a CTP config without saving it. Returns validation errors
+    from the agent.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("valid", "errors")
+    valid = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="valid")
+    """Whether the config is valid."""
+
+    errors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="errors",
+    )
+    """Validation errors, if any."""
 
 
 class ValidateCron(sgqlc.types.Type):
@@ -92472,7 +92683,7 @@ class ReportArgumentsMonitorLogs(sgqlc.types.Type, ReportArgumentsInterface):
 
 class Resource(sgqlc.types.Type, Node):
     """A resource which contains assets, e.g., a data warehouse, a report
-    engine, etc
+    engine, etc.
     """
 
     __schema__ = schema

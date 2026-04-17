@@ -10,16 +10,18 @@ from graphdatascience.call_builder import IndirectCallBuilder
 from graphdatascience.endpoints import (
     AlphaRemoteEndpoints,
     BetaEndpoints,
-    DirectEndpoints,
+    DirectSessionEndpoints,
 )
 from graphdatascience.error.uncallable_namespace import UncallableNamespace
 from graphdatascience.graph.graph_remote_proc_runner import GraphRemoteProcRunner
+from graphdatascience.procedure_surface.api.model import ModelCatalogEndpoints
 from graphdatascience.query_runner.arrow_authentication import ArrowAuthentication
 from graphdatascience.query_runner.arrow_info import ArrowInfo
 from graphdatascience.query_runner.arrow_query_runner import ArrowQueryRunner
 from graphdatascience.query_runner.neo4j_query_runner import Neo4jQueryRunner
 from graphdatascience.query_runner.query_mode import QueryMode
 from graphdatascience.query_runner.query_runner import QueryRunner
+from graphdatascience.query_runner.query_type import QueryType
 from graphdatascience.query_runner.session_query_runner import SessionQueryRunner
 from graphdatascience.query_runner.standalone_session_query_runner import StandaloneSessionQueryRunner
 from graphdatascience.server_version.server_version import ServerVersion
@@ -29,7 +31,7 @@ from graphdatascience.session.session_v2_endpoints import SessionV2Endpoints
 from graphdatascience.utils.util_remote_proc_runner import UtilRemoteProcRunner
 
 
-class AuraGraphDataScience(DirectEndpoints, UncallableNamespace):
+class AuraGraphDataScience(DirectSessionEndpoints, UncallableNamespace):
     """
     Primary API class for interacting with Neo4j database + Graph Data Science Session.
     Always bind this object to a variable called `gds`.
@@ -164,9 +166,13 @@ class AuraGraphDataScience(DirectEndpoints, UncallableNamespace):
             The query result as a DataFrame
         """
         if retryable:
-            return self._query_runner.run_retryable_cypher(query, params, database, custom_error=False, mode=mode)
+            return self._query_runner.run_retryable_cypher(
+                query, QueryType.USER_DIRECTED, params, database, custom_error=False, mode=mode
+            )
         else:
-            return self._query_runner.run_cypher(query, params, database, custom_error=False, mode=mode)
+            return self._query_runner.run_cypher(
+                query, QueryType.USER_DIRECTED, params, database, custom_error=False, mode=mode
+            )
 
     @property
     def graph(self) -> GraphRemoteProcRunner:
@@ -191,6 +197,10 @@ class AuraGraphDataScience(DirectEndpoints, UncallableNamespace):
         These endpoints are a preview of the API for the next major version of this library.
         """
         return self._v2_endpoints
+
+    @property
+    def model(self) -> ModelCatalogEndpoints:
+        return self.v2.model
 
     def __getattr__(self, attr: str) -> IndirectCallBuilder:
         return IndirectCallBuilder(self._query_runner, f"gds.{attr}", self._server_version)

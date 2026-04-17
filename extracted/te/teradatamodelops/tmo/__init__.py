@@ -1,4 +1,4 @@
-__version__ = "7.2.6"
+__version__ = "7.2.7"
 
 # Import client
 from tmo.api_client import TmoClient

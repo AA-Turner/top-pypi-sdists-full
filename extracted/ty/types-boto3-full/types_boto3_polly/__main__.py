@@ -12,8 +12,8 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for boto3 Polly 1.42.89\n"
-        "Version:         1.42.89\n"
+        "Type annotations for boto3 Polly 1.42.90\n"
+        "Version:         1.42.90\n"
         "Builder version: 8.12.0\n"
         "Docs:            https://youtype.github.io/types_boto3_docs/types_boto3_polly//\n"
         "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly.html#polly\n"
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("1.42.89\n")
+    sys.stdout.write("1.42.90\n")
 
 
 def main() -> None:

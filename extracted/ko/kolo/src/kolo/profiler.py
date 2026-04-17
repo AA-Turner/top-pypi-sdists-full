@@ -16,7 +16,10 @@ import ulid
 
 from kolo.threads import get_thread_id
 
-from .config import CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE
+from .config import (
+    CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE,
+    resolve_flush_subtree_bytes as _resolve_flush_subtree_bytes,
+)
 from .db import save_trace
 from .filters.attrs import attrs_filter
 from .filters.core import (
@@ -39,6 +42,13 @@ from .serialize import (
     frame_path,
     user_code_call_site,
 )
+from .subtree_flush import (
+    FlushCandidate,
+    OpenSubtree,
+    SubtreeFlushTracker,
+    TRACKING_PROBE_INTERVAL,
+)
+from .trace_build import build_serialized_trace
 from .utils import extract_http_trace_name, extract_test_trace_name
 from .version import __version__
 
@@ -132,6 +142,7 @@ class KoloProfiler:
         self.one_trace_per_test = one_trace_per_test
         trace_id = ulid.new()
         self.trace_id = f"trc_{trace_id}"
+        self._explicit_trace_name = name
         self.trace_name = name
         self.start_test_indices: Dict[str, int] = {}
         self.config = config if config is not None else {}
@@ -157,6 +168,13 @@ class KoloProfiler:
         self.timestamp = time.time()
         self.rust_profiler = None
         self.omit_return_locals = self.config.get("omit_return_locals", False)
+        self.flush_subtree_bytes = _resolve_flush_subtree_bytes(self.config)
+        self.root_trace_id = self.trace_id
+        self._subtree_flush = SubtreeFlushTracker(self.flush_subtree_bytes)
+        self._subtree_stack = self._subtree_flush.subtree_stack
+        self._thread_cumulative_bytes = self._subtree_flush.thread_cumulative_bytes
+        self._flush_in_progress = self._subtree_flush.flush_in_progress
+        self._subtree_flush_lock = threading.RLock()
 
         # Key is the thread id, value is the native python thread object
         self.threads: Dict[str, threading.Thread] = {}
@@ -169,6 +187,90 @@ class KoloProfiler:
             self.dump_msgpack = dump_msgpack_lightweight_repr
         else:
             self.dump_msgpack = dump_msgpack
+
+    def _build_trace_meta(self):
+        config = {
+            k: v
+            for k, v in self.config.items()
+            if k not in CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE
+        }
+        config["use_monitoring"] = False
+        config["use_rust"] = False
+
+        return {
+            "version": __version__,
+            "source": self.source,
+            "environment": {
+                "py_version": platform.python_version(),
+                "py_version_full": sys.version,
+                "platform": platform.platform(),
+                "system": platform.system(),
+                "machine": platform.machine(),
+                "processor": platform.processor(),
+            },
+            "config": config,
+        }
+
+    def _low_water_bytes(self) -> int:
+        return self._subtree_flush.low_water_bytes()
+
+    def _co_name_from_packed_frames(self, frames: List[bytes]) -> str:
+        fallback = "<unknown>"
+        for packed_frame in frames:
+            frame_data = msgpack.unpackb(packed_frame, strict_map_key=False)
+            if frame_data.get("type") == "frame":
+                return frame_data.get("co_name", "<unknown>")
+            if fallback == "<unknown>" and "co_name" in frame_data:
+                fallback = frame_data.get("co_name", "<unknown>")
+        return fallback
+
+    def _select_flush_candidate(
+        self, thread_id: str
+    ) -> tuple[OpenSubtree, FlushCandidate] | None:
+        return self._subtree_flush.select_flush_candidate(thread_id)
+
+    def _shift_flush_state_after_flush(
+        self,
+        thread_id: str,
+        *,
+        start_index: int,
+        end_index: int,
+        resident_delta: int,
+    ) -> None:
+        self._subtree_flush.shift_flush_state_after_flush(
+            thread_id,
+            start_index=start_index,
+            end_index=end_index,
+            resident_delta=resident_delta,
+        )
+
+    def _maybe_flush_segments(self, thread_id: str) -> None:
+        if not self._subtree_flush.begin_flush(thread_id):
+            return
+
+        try:
+            low_water_bytes = self._subtree_flush.low_water_bytes()
+            while self._subtree_flush.current_bytes(thread_id) > low_water_bytes:
+                selected = self._select_flush_candidate(thread_id)
+                if selected is None:
+                    break
+                owner, candidate = selected
+                if not self._flush_subtree(thread_id, owner, candidate):
+                    break
+        finally:
+            self._subtree_flush.finish_flush(thread_id)
+
+    def _snapshot_trace_inputs(self, frames_by_thread=None):
+        with self._subtree_flush_lock:
+            source = (
+                self.frames_by_thread if frames_by_thread is None else frames_by_thread
+            )
+            frames_snapshot = {
+                thread_id: list(frames) for thread_id, frames in source.items()
+            }
+            threads = dict(self.threads)
+            trace_name = self._resolve_trace_name(frames_snapshot)
+        return frames_snapshot, threads, trace_name
 
     def __call__(self, frame: types.FrameType, event: str, arg: object) -> None:
         if event in ["c_call", "c_return", "c_exception"]:
@@ -284,45 +386,237 @@ class KoloProfiler:
                     for index, frame_type in enumerate(frame_types):  # pragma: no cover
                         if frame_type == "start_test":
                             before, frames = frames[:index], frames[index:]
+                            before_types, frame_types = (
+                                frame_types[:index],
+                                frame_types[index:],
+                            )
 
-                            self.push_frame_data(before)
+                            self.push_frame_data(
+                                before,
+                                event=event if "frame" in before_types else None,
+                            )
 
                             self.start_test()
 
                         elif frame_type == "end_test":
                             before, frames = frames[: index + 1], frames[index + 1 :]
+                            before_types, frame_types = (
+                                frame_types[: index + 1],
+                                frame_types[index + 1 :],
+                            )
 
-                            self.push_frame_data(before)
+                            self.push_frame_data(
+                                before,
+                                event=event if "frame" in before_types else None,
+                            )
 
                             self.end_test()
 
-                self.push_frame_data(frames)
+                self.push_frame_data(
+                    frames,
+                    event=event if "frame" in frame_types else None,
+                )
 
-    def push_frame_data(self, data):
+    def push_frame_data(self, data, event=None):
+        if not data:
+            return
+
         current_thread = threading.current_thread()
-
         thread_id = get_thread_id(current_thread)
-        if thread_id not in self.threads:
-            self.threads[thread_id] = current_thread
+        with self._subtree_flush_lock:
+            if thread_id not in self.threads:
+                self.threads[thread_id] = current_thread
 
-        if thread_id not in self.frames_by_thread:
-            self.frames_by_thread[thread_id] = []
+            if thread_id not in self.frames_by_thread:
+                self.frames_by_thread[thread_id] = []
 
-        self.frames_by_thread[thread_id].extend(data)
+            thread_frames = self.frames_by_thread[thread_id]
+            frame_start_index = len(thread_frames)
+            thread_frames.extend(data)
+            frame_end_index = len(thread_frames)
+
+        if self.flush_subtree_bytes is None:
+            return
+
+        batch_bytes = (
+            len(data[0]) if len(data) == 1 else sum(len(frame) for frame in data)
+        )
+        tracker = self._subtree_flush
+        current_bytes = tracker.thread_cumulative_bytes.get(thread_id, 0)
+        flush_tracking_armed = False
+        added_bytes = 0
+
+        if (
+            thread_id in tracker.flush_tracking_armed
+            or tracker._tracking_start_bytes == 0
+        ):
+            current_bytes += batch_bytes
+            tracker.thread_cumulative_bytes[thread_id] = current_bytes
+            tracker.flush_tracking_armed.add(thread_id)
+            flush_tracking_armed = True
+            added_bytes = batch_bytes
+        else:
+            current_bytes += batch_bytes
+            tracker.thread_cumulative_bytes[thread_id] = current_bytes
+            if current_bytes >= tracker._tracking_start_bytes:
+                tracker.flush_tracking_armed.add(thread_id)
+                flush_tracking_armed = True
+                added_bytes = batch_bytes
+            else:
+                next_probe = tracker._next_tracking_probe.get(
+                    thread_id,
+                    TRACKING_PROBE_INTERVAL,
+                )
+                if frame_end_index >= next_probe:
+                    tracker._probed_frame_index[thread_id] = frame_end_index
+                    tracker._next_tracking_probe[thread_id] = (
+                        frame_end_index + TRACKING_PROBE_INTERVAL
+                    )
+
+        if not flush_tracking_armed:
+            return
+
+        if event == "call":
+            co_name = self._co_name_from_packed_frames(data)
+            self._subtree_flush.push_open_subtree(
+                thread_id,
+                start_index=frame_start_index,
+                start_bytes=max(0, current_bytes - added_bytes),
+                co_name=co_name,
+            )
+        elif event == "return":
+            subtree = self._subtree_flush.pop_open_subtree(thread_id)
+            if subtree is not None:
+                subtree_bytes = current_bytes - subtree.start_bytes
+                self._subtree_flush.record_closed_segment(
+                    thread_id,
+                    start_index=subtree.start_index,
+                    end_index=frame_end_index,
+                    resident_bytes=subtree_bytes,
+                    co_name=subtree.co_name,
+                )
+        else:
+            self._subtree_flush.record_closed_segment(
+                thread_id,
+                start_index=frame_start_index,
+                end_index=frame_end_index,
+                resident_bytes=added_bytes,
+                co_name=self._co_name_from_packed_frames(data),
+            )
+
+        self._maybe_flush_segments(thread_id)
+
+    def _flush_subtree(
+        self,
+        thread_id: str,
+        owner: OpenSubtree,
+        candidate: FlushCandidate,
+    ) -> bool:
+        """Save a flushable closed segment and replace it with a placeholder."""
+        with self._subtree_flush_lock:
+            frames = self.frames_by_thread[thread_id]
+            subtree_frames = list(frames[candidate.start_index : candidate.end_index])
+            flushed_bytes = sum(len(frame) for frame in subtree_frames)
+            subtrace_id = f"trc_{ulid.new()}"
+            thread = self.threads.get(thread_id, threading.current_thread())
+            trace_name = self._resolve_trace_name({thread_id: subtree_frames})
+            serialized_data = build_serialized_trace(
+                command_line_args=sys.argv,
+                current_commit_sha=COMMIT_SHA,
+                current_thread_id=thread_id,
+                meta=self._build_trace_meta(),
+                timestamp=time.time(),
+                trace_id=subtrace_id,
+                trace_name=trace_name,
+                root_trace_id=self.root_trace_id,
+                threads={thread_id: thread},
+                frames_by_thread={thread_id: subtree_frames},
+            )
+            try:
+                self._save_serialized_subtrace(subtrace_id, serialized_data)
+            except Exception:
+                logger.warning(
+                    "Failed to save flushed subtree %s; leaving frames resident",
+                    subtrace_id,
+                    exc_info=True,
+                )
+                return False
+
+            placeholder = {
+                "type": "subtree_flushed",
+                "frame_id": f"frm_{ulid.new()}",
+                "co_name": candidate.co_name,
+                "flushed_trace_id": subtrace_id,
+                "flushed_bytes": flushed_bytes,
+                "flushed_segment_count": candidate.segment_count,
+                "timestamp": time.time(),
+            }
+            placeholder_data = self.dump_msgpack(placeholder)
+
+            del frames[candidate.start_index : candidate.end_index]
+            frames.insert(candidate.start_index, placeholder_data)
+
+            resident_delta = len(placeholder_data) - flushed_bytes
+            self._thread_cumulative_bytes[thread_id] += resident_delta
+
+            self._subtree_flush.clear_flush_candidate(thread_id, owner)
+
+            self._shift_flush_state_after_flush(
+                thread_id,
+                start_index=candidate.start_index,
+                end_index=candidate.end_index,
+                resident_delta=resident_delta,
+            )
+        return True
+
+    def _save_serialized_subtrace(
+        self, subtrace_id: str, serialized_data: bytes
+    ) -> None:
+        # Runs under _subtree_flush_lock. Suspend sys.setprofile on the current
+        # thread while saving so the hot callback path stays free of save guards.
+        # NOTE (#2535 item 4): we deliberately do NOT mirror KoloMonitor's
+        # `thread_locals.is_saving` guard here. The two backends use different
+        # APIs — sys.setprofile supports per-thread unregister with zero hot-path
+        # cost, while sys.monitoring does not, which is why the monitor needs an
+        # in-band re-entrance flag. Adding the same flag to the profiler costs a
+        # threading.local lookup on every callback (~12% slowdown on
+        # benchmark_chaos_exclude[with_python_profiler] when measured), so the
+        # unification is not worth it.
+        timeout = self.config.get("sqlite_busy_timeout", 60)
+        db_path = self.db_path
+
+        previous_profiler = sys.getprofile()
+        sys.setprofile(None)
+        try:
+            save_trace(
+                subtrace_id,
+                serialized_data,
+                db_path=db_path,
+                timeout=timeout,
+            )
+        finally:
+            sys.setprofile(previous_profiler)
 
     def start_test(self):
-        self.trace_id = f"trc_{ulid.new()}"
-        self.start_test_indices = {
-            thread_id: len(frames)
-            for thread_id, frames in self.frames_by_thread.items()
-        }
+        with self._subtree_flush_lock:
+            self.trace_id = f"trc_{ulid.new()}"
+            self.root_trace_id = self.trace_id
+            self.trace_name = self._explicit_trace_name
+            self.start_test_indices = {
+                thread_id: len(frames)
+                for thread_id, frames in self.frames_by_thread.items()
+            }
+            self._subtree_flush.reset(self.frames_by_thread)
 
     def end_test(self):
-        frames_by_thread = {
-            thread_id: frames[self.start_test_indices.get(thread_id, 0) :]
-            for thread_id, frames in self.frames_by_thread.items()
-        }
+        with self._subtree_flush_lock:
+            frames_by_thread = {
+                thread_id: list(frames[self.start_test_indices.get(thread_id, 0) :])
+                for thread_id, frames in self.frames_by_thread.items()
+            }
         self.save(frames_by_thread=frames_by_thread)
+        with self._subtree_flush_lock:
+            self._subtree_flush.reset(self.frames_by_thread)
 
     def __enter__(self) -> None:
         if self.config.get("use_rust", True):
@@ -351,62 +645,22 @@ class KoloProfiler:
         if self.rust_profiler:
             return self.rust_profiler.build_trace()
 
-        config = {
-            k: v
-            for k, v in self.config.items()
-            if k not in CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE
-        }
-        # Config to ALWAYS include, even if the user user didn't change the default
-        config["use_monitoring"] = False
-        config["use_rust"] = False
+        frames_by_thread, threads, trace_name = self._snapshot_trace_inputs(
+            frames_by_thread
+        )
 
-        timestamp = self.timestamp
-        data = {
-            "command_line_args": sys.argv,
-            "current_commit_sha": COMMIT_SHA,
-            "current_thread_id": self.current_thread_id,
-            "meta": {
-                "version": __version__,
-                "source": self.source,
-                "environment": {
-                    "py_version": platform.python_version(),
-                    "py_version_full": sys.version,
-                    "platform": platform.platform(),
-                    "system": platform.system(),
-                    "machine": platform.machine(),
-                    "processor": platform.processor(),
-                },
-                "config": config,
-            },
-            "timestamp": timestamp,
-            "trace_id": self.trace_id,
-            "trace_name": self.trace_name,
-        }
-
-        if frames_by_thread is None:
-            frames_by_thread = self.frames_by_thread
-
-        # From kolo v2.35.0 onwards, frames_of_interest and frames are always empty
-        data["frames_of_interest"] = []
-        data["frames"] = {}
-
-        data["threads"] = {}
-        for thread_id, thread in self.threads.items():
-            data["threads"][thread_id] = {
-                "name": thread.name,
-                "ident": getattr(thread, "ident", None),
-                "native_id": getattr(thread, "native_id", None),
-                "daemon": thread.daemon,
-                "is_alive": thread.is_alive(),
-            }
-
-            if thread_id in frames_by_thread:
-                data["threads"][thread_id]["frames"] = [
-                    msgpack.unpackb(f, strict_map_key=False)
-                    for f in frames_by_thread[thread_id]
-                ]
-
-        return self.dump_msgpack(data)
+        return build_serialized_trace(
+            command_line_args=sys.argv,
+            current_commit_sha=COMMIT_SHA,
+            current_thread_id=self.current_thread_id,
+            meta=self._build_trace_meta(),
+            timestamp=self.timestamp,
+            trace_id=self.trace_id,
+            trace_name=trace_name,
+            root_trace_id=self.root_trace_id,
+            threads=threads,
+            frames_by_thread=frames_by_thread,
+        )
 
     def save(self, frames_by_thread=None) -> None:
         """
@@ -417,9 +671,6 @@ class KoloProfiler:
         if self.rust_profiler:
             self.rust_profiler.save()
             return
-
-        if self.trace_name is None:
-            self._set_trace_name(frames_by_thread)
 
         serialized_data = self.build_trace(frames_by_thread=frames_by_thread)
         timeout = self.config.get("sqlite_busy_timeout", 60)
@@ -442,6 +693,11 @@ class KoloProfiler:
         trace_name = extract_http_trace_name(frames_by_thread, self.current_thread_id)
         if trace_name:
             self.trace_name = trace_name
+
+    def _resolve_trace_name(self, frames_by_thread=None):
+        if self.trace_name is None:
+            self._set_trace_name(frames_by_thread)
+        return self.trace_name
 
     def process_frame(self, frame: types.FrameType, event: str, arg: object) -> bytes:
         if event == "call":

@@ -11,7 +11,6 @@ from captum._utils.common import (
     _format_tensor_into_tuples,
     _run_forward,
 )
-
 from captum._utils.gradient import _forward_layer_eval
 from captum._utils.typing import TargetType, TensorOrTupleOfTensorsGeneric
 from captum.attr._core.feature_permutation import FeaturePermutation
@@ -57,7 +56,7 @@ class LayerFeaturePermutation(LayerAttribution, FeaturePermutation):
         LayerAttribution.__init__(self, forward_func, layer, device_ids)
         FeaturePermutation.__init__(self, forward_func)
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def attribute(
         self,
         inputs: Union[Tensor, Tuple[Tensor, ...]],

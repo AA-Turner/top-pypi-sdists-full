@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: x-transformers
-Version: 2.18.5
+Version: 2.18.8
 Summary: X-Transformers
 Project-URL: Homepage, https://pypi.org/project/x-transformers/
 Project-URL: Repository, https://codeberg.org/lucidrains/x-transformers
@@ -2710,6 +2710,18 @@ ids_out, num_out, is_number_mask = model.generate(start_ids, start_nums, 17)
     archivePrefix = {arXiv},
     primaryClass = {cs.CL},
     url     = {https://arxiv.org/abs/2510.25741},
+}
+```
+
+```bibtex
+@misc{prairie2026parcaescalinglawsstable,
+    title   = {Parcae: Scaling Laws For Stable Looped Language Models},
+    author  = {Hayden Prairie and Zachary Novack and Taylor Berg-Kirkpatrick and Daniel Y. Fu},
+    year    = {2026},
+    eprint  = {2604.12946},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.LG},
+    url     = {https://arxiv.org/abs/2604.12946},
 }
 ```
 

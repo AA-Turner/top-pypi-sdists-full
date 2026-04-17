@@ -12,6 +12,7 @@ from schema_salad.exceptions import SchemaSaladException
 
 from gxformat2.schema.v19_09 import load_document
 from gxformat2.yaml import ordered_dump, ordered_load
+
 from .example_wfs import (
     BASIC_WORKFLOW,
     RUNTIME_INPUTS,
@@ -176,4 +177,16 @@ class TestCommentsSchema:
     def test_empty_comments_list(self):
         wf = ordered_load(BASIC_WORKFLOW)
         wf["comments"] = []
+        _load_format2_dict(wf)
+
+    def test_comment_and_step_label_overlap(self):
+        """A comment and a step can share the same label without conflict."""
+        wf = ordered_load(BASIC_WORKFLOW)
+        wf["comments"] = [
+            {
+                "type": "text",
+                "label": "cat",
+                "text": "Same label as the step",
+            },
+        ]
         _load_format2_dict(wf)

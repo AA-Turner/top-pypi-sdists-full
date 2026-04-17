@@ -2,7 +2,7 @@ import os
 import sys
 from _typeshed import ReadableBuffer, Unused
 from collections.abc import Iterator
-from typing import Final, Literal, NoReturn, overload
+from typing import Final, Literal, NoReturn, SupportsIndex, overload
 from typing_extensions import Self, disjoint_base
 
 ACCESS_DEFAULT: Final = 0
@@ -57,7 +57,7 @@ class mmap:
     To map anonymous memory, pass -1 as the fileno (both versions).
     """
     if sys.platform == "win32":
-        def __new__(self, fileno: int, length: int, tagname: str | None = None, access: int = 0, offset: int = 0) -> Self: ...
+        def __new__(cls, fileno: int, length: int, tagname: str | None = None, access: int = 0, offset: int = 0) -> Self: ...
     else:
         if sys.version_info >= (3, 13):
             def __new__(
@@ -102,22 +102,22 @@ class mmap:
     def read(self, n: int | None = None, /) -> bytes: ...
     def write(self, bytes: ReadableBuffer, /) -> int: ...
     @overload
-    def __getitem__(self, key: int, /) -> int:
+    def __getitem__(self, key: SupportsIndex, /) -> int:
         """Return self[key]."""
         ...
     @overload
-    def __getitem__(self, key: slice, /) -> bytes:
+    def __getitem__(self, key: slice[SupportsIndex | None], /) -> bytes:
         """Return self[key]."""
         ...
-    def __delitem__(self, key: int | slice, /) -> NoReturn:
+    def __delitem__(self, key: SupportsIndex | slice[SupportsIndex | None], /) -> NoReturn:
         """Delete self[key]."""
         ...
     @overload
-    def __setitem__(self, key: int, value: int, /) -> None:
+    def __setitem__(self, key: SupportsIndex, value: int, /) -> None:
         """Set self[key] to value."""
         ...
     @overload
-    def __setitem__(self, key: slice, value: ReadableBuffer, /) -> None:
+    def __setitem__(self, key: slice[SupportsIndex | None], value: ReadableBuffer, /) -> None:
         """Set self[key] to value."""
         ...
     # Doesn't actually exist, but the object actually supports "in" because it has __getitem__,

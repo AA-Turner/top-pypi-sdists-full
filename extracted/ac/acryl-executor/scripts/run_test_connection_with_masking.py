@@ -130,7 +130,6 @@ def check_test_connection_support(datahub_binary: Path) -> bool:
             [str(datahub_binary), "ingest", "run", "--help"],
             capture_output=True,
             text=True,
-            timeout=10,
         )
         return "test-source-connection" in result.stdout
     except Exception as e:

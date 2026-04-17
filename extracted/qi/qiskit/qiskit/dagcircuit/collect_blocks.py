@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -102,17 +102,14 @@ class BlockCollector:
                 return [pred for pred in self.dag.successors(node) if isinstance(pred, DAGOpNode)]
             else:
                 return [pred for pred in self.dag.predecessors(node) if isinstance(pred, DAGOpNode)]
+        elif self._collect_from_back:
+            return [
+                self.dag.get_node(pred_id) for pred_id in self.dag.direct_successors(node.node_id)
+            ]
         else:
-            if self._collect_from_back:
-                return [
-                    self.dag.get_node(pred_id)
-                    for pred_id in self.dag.direct_successors(node.node_id)
-                ]
-            else:
-                return [
-                    self.dag.get_node(pred_id)
-                    for pred_id in self.dag.direct_predecessors(node.node_id)
-                ]
+            return [
+                self.dag.get_node(pred_id) for pred_id in self.dag.direct_predecessors(node.node_id)
+            ]
 
     def _direct_succs(self, node):
         """Returns direct successors of a node. This function takes into account the
@@ -124,17 +121,14 @@ class BlockCollector:
                 return [succ for succ in self.dag.predecessors(node) if isinstance(succ, DAGOpNode)]
             else:
                 return [succ for succ in self.dag.successors(node) if isinstance(succ, DAGOpNode)]
+        elif self._collect_from_back:
+            return [
+                self.dag.get_node(succ_id) for succ_id in self.dag.direct_predecessors(node.node_id)
+            ]
         else:
-            if self._collect_from_back:
-                return [
-                    self.dag.get_node(succ_id)
-                    for succ_id in self.dag.direct_predecessors(node.node_id)
-                ]
-            else:
-                return [
-                    self.dag.get_node(succ_id)
-                    for succ_id in self.dag.direct_successors(node.node_id)
-                ]
+            return [
+                self.dag.get_node(succ_id) for succ_id in self.dag.direct_successors(node.node_id)
+            ]
 
     def _have_uncollected_nodes(self):
         """Returns whether there are uncollected (pending) nodes"""

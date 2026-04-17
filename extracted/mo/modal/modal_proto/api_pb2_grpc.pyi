@@ -43,6 +43,10 @@ class ModalClientStub:
         modal_proto.api_pb2.AppGetLayoutRequest,
         modal_proto.api_pb2.AppGetLayoutResponse,
     ]
+    AppGetLifecycle: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.AppGetLifecycleRequest,
+        modal_proto.api_pb2.AppGetLifecycleResponse,
+    ]
     AppGetLogs: grpc.UnaryStreamMultiCallable[
         modal_proto.api_pb2.AppGetLogsRequest,
         modal_proto.api_pb2.TaskLogsBatch,
@@ -78,6 +82,10 @@ class ModalClientStub:
     AppRollback: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.AppRollbackRequest,
         google.protobuf.empty_pb2.Empty,
+    ]
+    AppRollover: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.AppRolloverRequest,
+        modal_proto.api_pb2.AppRolloverResponse,
     ]
     AppSetObjects: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.AppSetObjectsRequest,
@@ -261,6 +269,10 @@ class ModalClientStub:
         modal_proto.api_pb2.EnvironmentDeleteRequest,
         google.protobuf.empty_pb2.Empty,
     ]
+    EnvironmentGetManaged: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EnvironmentGetManagedRequest,
+        modal_proto.api_pb2.EnvironmentGetManagedResponse,
+    ]
     EnvironmentGetOrCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.EnvironmentGetOrCreateRequest,
         modal_proto.api_pb2.EnvironmentGetOrCreateResponse,
@@ -268,6 +280,14 @@ class ModalClientStub:
     EnvironmentList: grpc.UnaryUnaryMultiCallable[
         google.protobuf.empty_pb2.Empty,
         modal_proto.api_pb2.EnvironmentListResponse,
+    ]
+    EnvironmentRoleSet: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EnvironmentRoleSetRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
+    EnvironmentSetManaged: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EnvironmentSetManagedRequest,
+        google.protobuf.empty_pb2.Empty,
     ]
     EnvironmentUpdate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.EnvironmentUpdateRequest,
@@ -632,6 +652,11 @@ class ModalClientStub:
         modal_proto.api_pb2.SecretUpdateRequest,
         google.protobuf.empty_pb2.Empty,
     ]
+    ServiceUserList: grpc.UnaryUnaryMultiCallable[
+        google.protobuf.empty_pb2.Empty,
+        modal_proto.api_pb2.ServiceUserListResponse,
+    ]
+    """Service users"""
     SharedVolumeDelete: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SharedVolumeDeleteRequest,
         google.protobuf.empty_pb2.Empty,
@@ -694,6 +719,11 @@ class ModalClientStub:
         modal_proto.api_pb2.TaskResultRequest,
         google.protobuf.empty_pb2.Empty,
     ]
+    TemplateList: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.TemplateListRequest,
+        modal_proto.api_pb2.TemplateListResponse,
+    ]
+    """Templates"""
     TokenFlowCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.TokenFlowCreateRequest,
         modal_proto.api_pb2.TokenFlowCreateResponse,
@@ -798,6 +828,10 @@ class ModalClientStub:
         modal_proto.api_pb2.WorkspaceDashboardUrlRequest,
         modal_proto.api_pb2.WorkspaceDashboardUrlResponse,
     ]
+    WorkspaceMembersList: grpc.UnaryUnaryMultiCallable[
+        google.protobuf.empty_pb2.Empty,
+        modal_proto.api_pb2.WorkspaceMembersListResponse,
+    ]
     WorkspaceNameLookup: grpc.UnaryUnaryMultiCallable[
         google.protobuf.empty_pb2.Empty,
         modal_proto.api_pb2.WorkspaceNameLookupResponse,
@@ -854,6 +888,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.AppGetLayoutResponse: ...
     @abc.abstractmethod
+    def AppGetLifecycle(
+        self,
+        request: modal_proto.api_pb2.AppGetLifecycleRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.AppGetLifecycleResponse: ...
+    @abc.abstractmethod
     def AppGetLogs(
         self,
         request: modal_proto.api_pb2.AppGetLogsRequest,
@@ -907,6 +947,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.AppRollbackRequest,
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def AppRollover(
+        self,
+        request: modal_proto.api_pb2.AppRolloverRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.AppRolloverResponse: ...
     @abc.abstractmethod
     def AppSetObjects(
         self,
@@ -1176,6 +1222,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
     @abc.abstractmethod
+    def EnvironmentGetManaged(
+        self,
+        request: modal_proto.api_pb2.EnvironmentGetManagedRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.EnvironmentGetManagedResponse: ...
+    @abc.abstractmethod
     def EnvironmentGetOrCreate(
         self,
         request: modal_proto.api_pb2.EnvironmentGetOrCreateRequest,
@@ -1187,6 +1239,18 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: google.protobuf.empty_pb2.Empty,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.EnvironmentListResponse: ...
+    @abc.abstractmethod
+    def EnvironmentRoleSet(
+        self,
+        request: modal_proto.api_pb2.EnvironmentRoleSetRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def EnvironmentSetManaged(
+        self,
+        request: modal_proto.api_pb2.EnvironmentSetManagedRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
     @abc.abstractmethod
     def EnvironmentUpdate(
         self,
@@ -1725,6 +1789,13 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
     @abc.abstractmethod
+    def ServiceUserList(
+        self,
+        request: google.protobuf.empty_pb2.Empty,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ServiceUserListResponse:
+        """Service users"""
+    @abc.abstractmethod
     def SharedVolumeDelete(
         self,
         request: modal_proto.api_pb2.SharedVolumeDeleteRequest,
@@ -1816,6 +1887,13 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.TaskResultRequest,
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def TemplateList(
+        self,
+        request: modal_proto.api_pb2.TemplateListRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.TemplateListResponse:
+        """Templates"""
     @abc.abstractmethod
     def TokenFlowCreate(
         self,
@@ -1970,6 +2048,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.WorkspaceDashboardUrlRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.WorkspaceDashboardUrlResponse: ...
+    @abc.abstractmethod
+    def WorkspaceMembersList(
+        self,
+        request: google.protobuf.empty_pb2.Empty,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.WorkspaceMembersListResponse: ...
     @abc.abstractmethod
     def WorkspaceNameLookup(
         self,

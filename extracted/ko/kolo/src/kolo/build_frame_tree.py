@@ -16,6 +16,16 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
+def subtree_flushed_name(
+    co_name: Optional[str],
+    segment_count: Optional[int] = None,
+) -> str:
+    name = co_name or "<unknown>"
+    if segment_count is not None and segment_count > 1:
+        return f"[flushed segment] {name} +{segment_count - 1} more"
+    return f"[flushed segment] {name}"
+
+
 @dataclass
 class ExecutionTreeNode:
     """
@@ -164,7 +174,7 @@ RETURN_LIKE_FRAMES = [
     "django_create_test_db_end",
 ]
 
-LEAF_FRAMES = ["log_message"]
+LEAF_FRAMES = ["log_message", "subtree_flushed"]
 
 # With sys.monitoring, we have these new frame types in addition to call and return
 RETURN_FRAME_EVENTS = ["return", "unwind", "yield"]
@@ -435,6 +445,10 @@ def frame_of_interest_name(frame: Dict[str, Any]) -> str:
     elif frame_type in ("background_job", "background_job_end"):
         return frame["name"]
 
+    elif frame_type == "subtree_flushed":
+        co_name = frame["co_name"] if "co_name" in frame else None
+        return subtree_flushed_name(co_name, frame.get("flushed_segment_count"))
+
     else:
         return frame_type
 
@@ -553,6 +567,22 @@ def make_tree_node(frame: Dict[str, Any], index: int) -> ExecutionTreeNode:
 
     elif frame_type == "django_create_test_db_start":
         return ExecutionTreeNode(type="django_create_test_db", data={}, **base_data)
+
+    elif frame_type == "subtree_flushed":
+        co_name = frame["co_name"] if "co_name" in frame else None
+        segment_count = frame.get("flushed_segment_count")
+        base_data["name"] = subtree_flushed_name(co_name, segment_count)
+        return ExecutionTreeNode(
+            type="subtree_flushed",
+            data={
+                "co_name": co_name or "<unknown>",
+                "flushed_trace_id": frame["flushed_trace_id"],
+                "flushed_bytes": frame["flushed_bytes"],
+                "flushed_segment_count": segment_count,
+                "timestamp": frame["timestamp"],
+            },
+            **base_data,
+        )
 
     else:
         raise ValueError(f"Unexpected frame type for node creation: {frame_type}")
@@ -703,8 +733,40 @@ def preprocess_frames_of_interest(frames: List[Dict[str, Any]]) -> List[Dict[str
     return frames
 
 
+def merge_duplicate_roots(nodes: List[ExecutionTreeNode]) -> List[ExecutionTreeNode]:
+    """Merge root nodes that share the same frame_id.
+
+    In trace point captures, both the CALL and RETURN frames for the root
+    function can appear as separate root-level entries.  The tree builder
+    creates two root nodes from them.  This function merges consecutive roots
+    that share the same ``frame_id`` into a single node, keeping the first
+    node's data and adopting the second node's children.
+    """
+    if len(nodes) <= 1:
+        return nodes
+
+    merged: List[ExecutionTreeNode] = []
+
+    for node in nodes:
+        # Only merge *consecutive* duplicate roots. Non-consecutive roots
+        # sharing a frame_id are distinct entries and must be preserved —
+        # only a placeholder-then-restore pair, which lands adjacent, is
+        # actually the same frame split in two by a flush.
+        if merged and merged[-1].frame_id == node.frame_id:
+            existing = merged[-1]
+            existing.children.extend(node.children)
+            for key, value in node.data.items():
+                if key not in existing.data:
+                    existing.data[key] = value
+        else:
+            merged.append(node)
+
+    return merged
+
+
 def postprocess_tree(nodes: List[ExecutionTreeNode]) -> List[ExecutionTreeNode]:
     """Apply postprocessing transformations to the tree."""
+    nodes = merge_duplicate_roots(nodes)
     nodes = remove_django_setup_subtrees(nodes)
     nodes = remove_module_frames(nodes)
     remove_superfluous_urllib3_frames(nodes)

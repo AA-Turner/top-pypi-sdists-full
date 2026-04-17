@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 import platform
 import sys
 import threading
@@ -26,6 +27,8 @@ logger = __import__("logging").getLogger("kolo")
 _auto_emit_lock = threading.Lock()
 _auto_emit_last_spawn: float = 0.0
 _AUTO_EMIT_COOLDOWN_SECONDS: float = 0.5  # Max one spawn per 500ms
+_auto_emit_followup_timer: threading.Timer | None = None
+_auto_emit_pending_db_paths: list[Path | None] = []
 
 # Lock to prevent TOCTOU race condition during activation.
 # Without this, two concurrent requests could both pass the _is_already_active()
@@ -55,6 +58,114 @@ def save_trace_in_thread(
         threading.Thread(target=save_then_emit, name=name, daemon=False).start()
 
 
+def _build_emit_subprocess_kwargs(db_path: Path | None) -> dict[str, Any]:
+    import os
+    import subprocess
+
+    env = os.environ.copy()
+    # Use the system local timezone in the subprocess. Django often sets
+    # TZ=UTC, which would otherwise leak into emitted folder timestamps.
+    env.pop("TZ", None)
+    # Prevent the auto-emit subprocess from tracing itself when KOLO=1 is set.
+    # Belt-and-suspenders: disable tracing and remove activation triggers.
+    env["KOLO_DISABLE"] = "1"
+    env.pop("KOLO", None)
+
+    # db_path is <parent>/.kolo/.internal/db.sqlite3, so KOLO_PATH is <parent>.
+    if db_path is not None:
+        env["KOLO_PATH"] = str(db_path.parent.parent.parent)
+
+    popen_kwargs: dict[str, Any] = {
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "env": env,
+    }
+
+    if sys.platform == "win32":  # pragma: no cover
+        DETACHED_PROCESS = 0x00000008
+        CREATE_NEW_PROCESS_GROUP = 0x00000200
+        popen_kwargs["creationflags"] = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+    else:
+        popen_kwargs["start_new_session"] = True
+        popen_kwargs["close_fds"] = True
+
+    return popen_kwargs
+
+
+def _spawn_auto_emit_subprocess(db_path: Path | None) -> None:
+    import subprocess
+
+    try:
+        subprocess.Popen(
+            [sys.executable, "-m", "kolo._emit_auto"],
+            **_build_emit_subprocess_kwargs(db_path),
+        )
+    except (OSError, ValueError) as e:
+        logger.debug("Failed to spawn auto-emit subprocess: %s", e)
+
+
+def _schedule_auto_emit_followup_locked(delay: float, db_path: Path | None) -> None:
+    global _auto_emit_followup_timer
+
+    if db_path not in _auto_emit_pending_db_paths:
+        _auto_emit_pending_db_paths.append(db_path)
+
+    if _auto_emit_followup_timer is not None and _auto_emit_followup_timer.is_alive():
+        return
+
+    timer = threading.Timer(delay, _run_auto_emit_followup)
+    timer.name = "kolo-auto-emit-followup"
+    # Do not inherit a daemon request thread here. A throttled follow-up still
+    # needs to survive shutdown long enough to run or be flushed synchronously.
+    timer.daemon = False
+    _auto_emit_followup_timer = timer
+    timer.start()
+
+
+def _drain_auto_emit_followup_locked() -> list[Path | None]:
+    global _auto_emit_followup_timer
+
+    pending_db_paths = list(_auto_emit_pending_db_paths)
+    _auto_emit_pending_db_paths.clear()
+    _auto_emit_followup_timer = None
+    return pending_db_paths
+
+
+def _run_auto_emit_followup() -> None:
+    import time
+
+    global _auto_emit_last_spawn
+
+    with _auto_emit_lock:
+        pending_db_paths = _drain_auto_emit_followup_locked()
+        if not pending_db_paths:
+            return
+        _auto_emit_last_spawn = time.monotonic()
+
+    for db_path in pending_db_paths:
+        _spawn_auto_emit_subprocess(db_path)
+
+
+def _flush_auto_emit_followup_on_shutdown() -> None:
+    timer: threading.Timer | None
+
+    with _auto_emit_lock:
+        timer = _auto_emit_followup_timer
+        if timer is not None:
+            timer.cancel()
+        pending_db_paths = _drain_auto_emit_followup_locked()
+
+    if timer is not None:
+        timer.join()
+
+    for db_path in pending_db_paths:
+        _spawn_auto_emit_subprocess(db_path)
+
+
+atexit.register(_flush_auto_emit_followup_on_shutdown)
+
+
 def _spawn_auto_emit(db_path: Path | None = None) -> None:
     """
     Spawn a subprocess to auto-emit the latest traces.
@@ -67,19 +178,25 @@ def _spawn_auto_emit(db_path: Path | None = None) -> None:
     (httpx, click, django) for faster subprocess startup.
 
     Throttled to max once per 500ms to prevent fork-bombing under high load.
+    Cooldown hits schedule one trailing follow-up so a burst still gets a
+    final reconciliation after the cooldown window closes.
 
     If db_path is provided, KOLO_PATH is set in the subprocess environment
     so setup_db() resolves to the same .kolo directory the trace was saved
     to (important when the caller passed an explicit _db_path override).
     """
-    import os
-    import subprocess
     import time
 
-    global _auto_emit_last_spawn
+    global _auto_emit_followup_timer, _auto_emit_last_spawn
 
     if platform.machine() == "wasm32":  # pragma: no cover
-        return  # Can't spawn subprocesses in wasm
+        from ._emit_auto import auto_emit
+
+        try:
+            auto_emit(db_path=db_path)
+        except Exception:
+            logger.debug("auto-emit failed", exc_info=True)
+        return
 
     if not sys.executable:
         logger.debug(
@@ -87,59 +204,32 @@ def _spawn_auto_emit(db_path: Path | None = None) -> None:
         )
         return
 
-    # Throttle: skip if we spawned recently
+    db_paths_to_spawn = [db_path]
+
     with _auto_emit_lock:
         now = time.monotonic()
-        if now - _auto_emit_last_spawn < _AUTO_EMIT_COOLDOWN_SECONDS:
-            logger.debug("Skipping auto-emit spawn: cooldown active")
+        elapsed = now - _auto_emit_last_spawn
+        if elapsed < _AUTO_EMIT_COOLDOWN_SECONDS:
+            logger.debug("Deferring auto-emit spawn: cooldown active")
+            _schedule_auto_emit_followup_locked(
+                _AUTO_EMIT_COOLDOWN_SECONDS - elapsed, db_path
+            )
             return
+
+        if _auto_emit_pending_db_paths:
+            db_paths_to_spawn = list(_auto_emit_pending_db_paths)
+            _auto_emit_pending_db_paths.clear()
+            if db_path not in db_paths_to_spawn:
+                db_paths_to_spawn.append(db_path)
+
+        if _auto_emit_followup_timer is not None:
+            _auto_emit_followup_timer.cancel()
+            _auto_emit_followup_timer = None
+
         _auto_emit_last_spawn = now
 
-    try:
-        # Copy environment but remove TZ so subprocess uses system local timezone
-        # (Django often sets TZ=UTC which would affect folder timestamps)
-        env = os.environ.copy()
-        env.pop("TZ", None)
-        # Prevent the auto-emit subprocess from being traced by Kolo
-        # (avoids infinite recursion when KOLO=1 is set in the environment)
-        # Belt-and-suspenders: both disable tracing AND remove activation triggers
-        env["KOLO_DISABLE"] = "1"
-        env.pop("KOLO", None)
-
-        # If caller provided an explicit db_path, point the subprocess at
-        # the same .kolo directory via KOLO_PATH. db_path is
-        # <parent>/.kolo/.internal/db.sqlite3, so KOLO_PATH is <parent>.
-        if db_path is not None:
-            env["KOLO_PATH"] = str(db_path.parent.parent.parent)
-
-        # Build Popen kwargs - platform-specific detachment
-        popen_kwargs: dict = {
-            "stdin": subprocess.DEVNULL,
-            "stdout": subprocess.DEVNULL,
-            "stderr": subprocess.DEVNULL,
-            "env": env,
-        }
-
-        if sys.platform == "win32":  # pragma: no cover
-            # Windows: use creation flags to fully detach
-            # These constants only exist on Windows
-            DETACHED_PROCESS = 0x00000008
-            CREATE_NEW_PROCESS_GROUP = 0x00000200
-            popen_kwargs["creationflags"] = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-        else:
-            # Unix: use new session and close file descriptors
-            popen_kwargs["start_new_session"] = True
-            popen_kwargs["close_fds"] = True
-
-        # Use the same Python interpreter that's running this code
-        # Use lightweight _emit_auto module instead of full CLI for faster startup
-        subprocess.Popen(
-            [sys.executable, "-m", "kolo._emit_auto"],
-            **popen_kwargs,
-        )
-    except (OSError, ValueError) as e:
-        # Best-effort - log failures for debugging but don't crash
-        logger.debug("Failed to spawn auto-emit subprocess: %s", e)
+    for pending_db_path in db_paths_to_spawn:
+        _spawn_auto_emit_subprocess(pending_db_path)
 
 
 def upload_trace_in_thread(profiler, upload_token):

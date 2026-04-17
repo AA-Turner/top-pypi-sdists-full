@@ -572,8 +572,11 @@ impl<'a> Parser<'a> {
                 "{context}() requires a non-negative integer, got {n}"
             )));
         }
-        #[allow(clippy::cast_sign_loss)]
-        Ok(n as usize)
+        usize::try_from(n).map_err(|_| {
+            self.error(&format!(
+                "{context}() value {n} exceeds maximum supported size"
+            ))
+        })
     }
 
     fn parse_has_args(&mut self) -> Result<HasStep> {
@@ -1194,9 +1197,14 @@ impl<'a> Parser<'a> {
     }
 
     fn advance_token(&mut self) -> Result<Token> {
-        self.advance()
+        let token = self
+            .advance()
             .cloned()
-            .ok_or_else(|| self.error("Unexpected end of input"))
+            .ok_or_else(|| self.error("Unexpected end of input"))?;
+        if let TokenKind::Error(msg) = &token.kind {
+            return Err(self.error(msg));
+        }
+        Ok(token)
     }
 
     fn expect(&mut self, kind: TokenKind) -> Result<Token> {

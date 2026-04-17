@@ -1,4 +1,4 @@
-# Copyright 2020 - 2025 Ternaris
+# Copyright 2020-2026 Ternaris
 # SPDX-License-Identifier: Apache-2.0
 """Mcap storage."""
 
@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import heapq
 import struct
-import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from importlib.metadata import version
@@ -15,11 +14,7 @@ from struct import iter_unpack, unpack_from
 from typing import TYPE_CHECKING, NamedTuple, cast
 
 import zstandard
-
-if sys.version_info >= (3, 14):  # pragma: no cover
-    from safelz4.frame import decompress as lz4_decompress
-else:  # pragma: no cover
-    from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
+from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
 
 from rosbags.interfaces import (
     Connection,
@@ -37,6 +32,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable
     from pathlib import Path
     from typing import BinaryIO
+
+    from rosbags.interfaces.typing import RPath
 
     Unpack = Callable[[bytes], 'tuple[int]']
     Unpack2 = Callable[[bytes], 'tuple[int, int]']
@@ -191,7 +188,7 @@ def msgsrc(
 class McapReader:
     """Mcap format reader."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: RPath) -> None:
         """Initialize."""
         self.path = path
         self.bio: BinaryIO | None = None
@@ -282,6 +279,8 @@ class McapReader:
             fmtmap = {
                 'ros2msg': MessageDefinitionFormat.MSG,
                 'ros2idl': MessageDefinitionFormat.IDL,
+                'omgidl': MessageDefinitionFormat.IDL,
+                '': MessageDefinitionFormat.NONE,
             }
             if msgtype := next((x for x in self.schemas.values() if x.name == name), None):
                 return MessageDefinition(fmtmap[msgtype.encoding], msgtype.data)

@@ -210,7 +210,7 @@ impl MergeOperator {
         if let Some(existing_id) = self.find_matching_node(&resolved_match) {
             let resolved_on_match =
                 Self::resolve_properties(&self.config.on_match_properties, chunk, row, store_ref);
-            self.apply_on_match(existing_id, &resolved_on_match);
+            self.apply_on_match(existing_id, &resolved_on_match)?;
             Ok(existing_id)
         } else {
             let resolved_on_create =
@@ -220,8 +220,15 @@ impl MergeOperator {
     }
 
     /// Applies ON MATCH properties to an existing node.
-    fn apply_on_match(&self, node_id: NodeId, resolved_on_match: &[(String, Value)]) {
+    fn apply_on_match(
+        &self,
+        node_id: NodeId,
+        resolved_on_match: &[(String, Value)],
+    ) -> Result<(), super::OperatorError> {
         for (key, value) in resolved_on_match {
+            if let Some(ref validator) = self.validator {
+                validator.validate_node_property(&self.config.labels, key, value)?;
+            }
             if let Some(tid) = self.transaction_id {
                 self.store
                     .set_node_property_versioned(node_id, key.as_str(), value.clone(), tid);
@@ -230,6 +237,7 @@ impl MergeOperator {
                     .set_node_property(node_id, key.as_str(), value.clone());
             }
         }
+        Ok(())
     }
 }
 
@@ -312,6 +320,10 @@ impl Operator for MergeOperator {
 
     fn name(&self) -> &'static str {
         "Merge"
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+        self
     }
 }
 
@@ -468,8 +480,15 @@ impl MergeRelationshipOperator {
     }
 
     /// Applies ON MATCH properties to an existing edge.
-    fn apply_on_match_edge(&self, edge_id: EdgeId, resolved_on_match: &[(String, Value)]) {
+    fn apply_on_match_edge(
+        &self,
+        edge_id: EdgeId,
+        resolved_on_match: &[(String, Value)],
+    ) -> Result<(), super::OperatorError> {
         for (key, value) in resolved_on_match {
+            if let Some(ref validator) = self.validator {
+                validator.validate_edge_property(&self.config.edge_type, key, value)?;
+            }
             if let Some(tid) = self.transaction_id {
                 self.store
                     .set_edge_property_versioned(edge_id, key.as_str(), value.clone(), tid);
@@ -478,6 +497,7 @@ impl MergeRelationshipOperator {
                     .set_edge_property(edge_id, key.as_str(), value.clone());
             }
         }
+        Ok(())
     }
 }
 
@@ -529,7 +549,7 @@ impl Operator for MergeRelationshipOperator {
                         row,
                         store_ref,
                     );
-                    self.apply_on_match_edge(existing, &resolved_on_match);
+                    self.apply_on_match_edge(existing, &resolved_on_match)?;
                     existing
                 } else {
                     let resolved_on_create = MergeOperator::resolve_properties(
@@ -570,6 +590,10 @@ impl Operator for MergeRelationshipOperator {
 
     fn name(&self) -> &'static str {
         "MergeRelationship"
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+        self
     }
 }
 
@@ -723,5 +747,26 @@ mod tests {
             node.properties.get(&PropertyKey::new("updated")),
             Some(&Value::Bool(true))
         );
+    }
+
+    #[test]
+    fn test_merge_into_any() {
+        let store: Arc<dyn GraphStoreMut> = Arc::new(LpgStore::new().unwrap());
+        let op = MergeOperator::new(
+            Arc::clone(&store),
+            None,
+            MergeConfig {
+                variable: "n".to_string(),
+                labels: vec!["Person".to_string()],
+                match_properties: vec![],
+                on_create_properties: vec![],
+                on_match_properties: vec![],
+                output_schema: vec![LogicalType::Node],
+                output_column: 0,
+                bound_variable_column: None,
+            },
+        );
+        let any = Box::new(op).into_any();
+        assert!(any.downcast::<MergeOperator>().is_ok());
     }
 }

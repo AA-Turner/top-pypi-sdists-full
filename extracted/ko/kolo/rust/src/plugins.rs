@@ -8,7 +8,7 @@ use std::sync::Mutex;
 use ulid::Ulid;
 
 use super::utils;
-use super::utils::Event;
+use super::utils::{Event, Serializer};
 
 /// This struct holds data for targetted profiling.
 ///
@@ -40,6 +40,8 @@ pub struct PluginProcessor {
     context: Py<PyDict>,
     /// A Rust dictionary mapping the Python `id` of a frame to the Kolo `frame_id`.
     frame_ids: Mutex<HashMap<usize, String>>,
+    /// Cached Python serializer functions used on the hot plugin path.
+    serializer: Serializer,
 }
 
 impl std::fmt::Debug for PluginProcessor {
@@ -140,6 +142,7 @@ impl PluginProcessor {
             // so Python knows we need `context` to continue to exist.
             context: context.clone().unbind(),
             frame_ids: Mutex::new(HashMap::new()),
+            serializer: Serializer::new(plugin_data.py())?,
         })
     }
 
@@ -175,7 +178,8 @@ impl PluginProcessor {
         let frame_id = Ulid::new();
         let frame_id = format!("frm_{}", frame_id.to_string());
         self.frame_ids
-            .lock_py_attached(py).expect("mutex poisoned")
+            .lock_py_attached(py)
+            .expect("mutex poisoned")
             .insert(pyframe_id, frame_id.clone());
         Ok(frame_id)
     }
@@ -187,7 +191,12 @@ impl PluginProcessor {
     fn get_frame_id(&self, pyframe: &Bound<'_, PyFrame>) -> PyResult<String> {
         let py = pyframe.py();
         let pyframe_id = pyframe.as_ptr() as usize;
-        match self.frame_ids.lock_py_attached(py).expect("mutex poisoned").get(&pyframe_id) {
+        match self
+            .frame_ids
+            .lock_py_attached(py)
+            .expect("mutex poisoned")
+            .get(&pyframe_id)
+        {
             Some(frame_id) => Ok(frame_id.clone()),
             None => {
                 let frame_id = Ulid::new();
@@ -236,7 +245,6 @@ impl PluginProcessor {
         data.set_item("timestamp", utils::timestamp())
             .expect(utils::STRING_KEY);
 
-
         let call_site = utils::user_code_call_site(call_frames, &frame_id)?
             .map(|call_site| call_site.into_pydict(py));
         data.set_item("user_code_call_site", call_site)
@@ -281,7 +289,7 @@ impl PluginProcessor {
             .expect("type is always set")
             .extract::<String>()?;
 
-        let data = utils::dump_msgpack(py, &data, lightweight_repr)?;
+        let data = self.serializer.dump_msgpack(py, &data, lightweight_repr)?;
         Ok(Some((frame_type, data)))
     }
 }
@@ -325,8 +333,8 @@ pub fn load_plugins(
     py: Python,
     config: &Bound<'_, PyDict>,
 ) -> Result<HashMap<String, Vec<PluginProcessor>>, PyErr> {
-    let kolo_plugins = PyModule::import(py, "kolo.plugins")
-        .expect("kolo.plugins should always be importable");
+    let kolo_plugins =
+        PyModule::import(py, "kolo.plugins").expect("kolo.plugins should always be importable");
     let load = kolo_plugins
         .getattr("load_plugin_data")
         .expect("load_plugin_data should exist");

@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "posthoganalytics"
-version = "7.11.2"
+version = "7.12.0"
 description = "Integrate PostHog into any python application."
 authors = [
     { name = "PostHog", email = "hey@posthog.com" },
@@ -48,6 +48,10 @@ Repository = "https://github.com/posthog/posthog-python"
 [project.optional-dependencies]
 langchain = [
     "langchain>=0.2.0",
+]
+otel = [
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.20.0",
 ]
 dev = [
     "django-stubs",
@@ -90,6 +94,8 @@ test = [
     "pydantic>=2.12.0",
     "parameterized>=0.8.1",
     "claude-agent-sdk",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.20.0",
 ]
 
 [tool.setuptools]
@@ -102,10 +108,12 @@ packages = [
     "posthoganalytics.ai.anthropic",
     "posthoganalytics.ai.gemini",
     "posthoganalytics.ai.claude_agent_sdk",
+    "posthoganalytics.ai.otel",
     "posthoganalytics.test",
     "posthoganalytics.test.ai",
     "posthoganalytics.test.ai.openai_agents",
     "posthoganalytics.test.ai.claude_agent_sdk",
+    "posthoganalytics.test.ai.otel",
     "posthoganalytics.integrations",
 ]
 

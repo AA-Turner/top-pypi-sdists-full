@@ -200,7 +200,7 @@ class PrimitiveFeatureConverter(FeatureConverter[_TPrim, _TRich], Generic[_TPrim
         if pa.types.is_float16(self._pyarrow_dtype):
             return pa.array(np.array([None if x is ... else x for x in value], np.dtype("float16")))
         if pa.types.is_fixed_size_list(self._pyarrow_dtype):
-            assert isinstance(self._pyarrow_dtype, pa.FixedSizeListType)
+            assert isinstance(self._pyarrow_dtype, pa.FixedSizeListType), f"Expected pa.FixedSizeListType, got {type(self._pyarrow_dtype)}"
             list_size: int = self._pyarrow_dtype.list_size
             value_type: pa.DataType = self._pyarrow_dtype.value_type
             if pa.types.is_float16(value_type):
@@ -434,19 +434,19 @@ class PrimitiveFeatureConverter(FeatureConverter[_TPrim, _TRich], Generic[_TPrim
             return pa.date64()
         elif dtype.HasField("time32"):
             unit = PROTOBUF_TO_UNIT[dtype.time32]
-            assert unit == "s" or unit == "ms"
+            assert unit == "s" or unit == "ms", f"Expected time32 unit 's' or 'ms', got {unit!r}"
             return pa.time32(unit)
         elif dtype.HasField("time64"):
             unit = PROTOBUF_TO_UNIT[dtype.time64]
-            assert unit == "us" or unit == "ns"
+            assert unit == "us" or unit == "ns", f"Expected time64 unit 'us' or 'ns', got {unit!r}"
             return pa.time64(unit)
         elif dtype.HasField("timestamp"):
             unit = PROTOBUF_TO_UNIT[dtype.timestamp.time_unit]
-            assert unit in ("s", "ms", "us", "ns")
+            assert unit in ("s", "ms", "us", "ns"), f"Expected timestamp unit in ('s', 'ms', 'us', 'ns'), got {unit!r}"
             return pa.timestamp(unit, tz=dtype.timestamp.timezone)
         elif dtype.HasField("duration"):
             unit = PROTOBUF_TO_UNIT[dtype.duration]
-            assert unit in ("s", "ms", "us", "ns")
+            assert unit in ("s", "ms", "us", "ns"), f"Expected duration unit in ('s', 'ms', 'us', 'ns'), got {unit!r}"
             return pa.duration(unit)
         elif dtype.HasField("decimal_128"):
             return pa.decimal128(dtype.decimal_128.precision, dtype.decimal_128.scale)
@@ -749,7 +749,7 @@ class PrimitiveFeatureConverter(FeatureConverter[_TPrim, _TRich], Generic[_TPrim
 
         # Validate precision
         _, digits, exponent = dec_val.as_tuple()
-        assert isinstance(exponent, int)
+        assert isinstance(exponent, int), f"Expected int exponent from Decimal.as_tuple(), got {type(exponent)}"
         actual_precision = max(len(digits), exponent * -1)
         if actual_precision != expected_precision:
             raise ValueError(f"Reconstructed Decimal has precision {expected_precision}; expected {actual_precision}")
@@ -937,7 +937,7 @@ def pa_scalar_to_proto(value: pa.Scalar) -> pb.ScalarValue:
         )
         if value.type == pa.time32("s"):
             return pb.ScalarValue(time32_value=pb.ScalarTime32Value(time32_second_value=ms_since_midnight // 1000))
-        assert value.type == pa.time32("ms")
+        assert value.type == pa.time32("ms"), f"Expected time32('ms'), got {value.type}"
         return pb.ScalarValue(time32_value=pb.ScalarTime32Value(time32_millisecond_value=ms_since_midnight))
     if pa.types.is_time64(value.type):
         time_val = value.as_py()
@@ -953,7 +953,7 @@ def pa_scalar_to_proto(value: pa.Scalar) -> pb.ScalarValue:
             return pb.ScalarValue(
                 time64_value=pb.ScalarTime64Value(time64_microsecond_value=ns_since_midnight // 1000)
             )
-        assert value.type == pa.time64("ns")
+        assert value.type == pa.time64("ns"), f"Expected time64('ns'), got {value.type}"
         return pb.ScalarValue(time64_value=pb.ScalarTime64Value(time64_nanosecond_value=ns_since_midnight))
     if isinstance(value.type, pa.TimestampType):
         dt_val = value.as_py()

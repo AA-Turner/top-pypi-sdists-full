@@ -1,4 +1,4 @@
-# Copyright 2020 - 2025 Ternaris
+# Copyright 2020-2026 Ternaris
 # SPDX-License-Identifier: Apache-2.0
 """MSG Parser.
 
@@ -154,7 +154,7 @@ def normalize_msgtype(name: str) -> str:
 
     """
     path = Path(name)
-    if path.parent.name != 'msg':
+    if path.parent.name not in ('msg', 'action'):
         path = path.parent / 'msg' / path.name
     return str(path)
 
@@ -188,7 +188,7 @@ def normalize_fieldtype(typename: str, field: FieldDesc) -> FieldDesc:
         name = 'std_msgs/msg/Header'
     elif '/' not in name:
         name = str(Path(typename).parent / name)
-    elif '/msg/' not in name:
+    elif '/msg/' not in name and '/action/' not in name:
         name = str((path := Path(name)).parent / 'msg' / path.name)
     ifield = Nodetype.NAME, name
 

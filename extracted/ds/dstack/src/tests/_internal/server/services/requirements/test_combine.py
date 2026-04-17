@@ -43,6 +43,15 @@ class TestCombineFleetAndRunProfiles:
         )
         assert combine_fleet_and_run_profiles(profile, profile) == profile
 
+    def test_prefers_finite_idle_duration_over_off(self):
+        combined_profile = combine_fleet_and_run_profiles(
+            Profile(idle_duration=300),
+            Profile(idle_duration=-1),
+        )
+
+        assert combined_profile is not None
+        assert combined_profile.idle_duration == 300
+
     @pytest.mark.parametrize(
         argnames=["fleet_profile", "run_profile", "expected_profile"],
         argvalues=[
@@ -155,6 +164,29 @@ class TestCombineFleetAndRunRequirements:
             == expected_requirements
         )
 
+    def test_unconstrained_fleet_resources_pass_through_run_requirements(self):
+        unconstrained_fleet = Requirements(
+            resources=ResourcesSpec.unconstrained(),
+        )
+        run = Requirements(
+            resources=ResourcesSpec(
+                cpu=CPUSpec(count=Range(min=2, max=None)),
+                memory=Range(min=Memory.parse("2GB"), max=None),
+                gpu=GPUSpec(count=Range(min=1, max=None)),
+                disk=DiskSpec(size=Range(min=Memory.parse("50GB"), max=None)),
+            ),
+        )
+        result = combine_fleet_and_run_requirements(unconstrained_fleet, run)
+        assert result is not None
+        combined_cpu = result.resources.cpu
+        assert isinstance(combined_cpu, CPUSpec)
+        assert combined_cpu.count.min == 2
+        assert result.resources.memory.min == Memory.parse("2GB")
+        assert result.resources.gpu is not None
+        assert result.resources.gpu.count.min == 1
+        assert result.resources.disk is not None
+        assert result.resources.disk.size.min == Memory.parse("50GB")
+
 
 class TestIntersectLists:
     def test_both_none_returns_none(self):
@@ -218,27 +250,19 @@ class TestCombineIdleDuration:
     def test_both_zero_returns_zero(self):
         assert _combine_idle_duration_optional(0, 0) == 0
 
-    def test_positive_and_negative_raises_error(self):
-        with pytest.raises(
-            CombineError, match="idle_duration values 3600 and -1 cannot be combined"
-        ):
-            _combine_idle_duration_optional(3600, -1)
+    def test_positive_and_negative_returns_positive(self):
+        assert _combine_idle_duration_optional(3600, -1) == 3600
 
-    def test_negative_and_positive_raises_error(self):
-        with pytest.raises(
-            CombineError, match="idle_duration values -1 and 3600 cannot be combined"
-        ):
-            _combine_idle_duration_optional(-1, 3600)
+    def test_negative_and_positive_returns_positive(self):
+        assert _combine_idle_duration_optional(-1, 3600) == 3600
 
     def test_zero_and_positive_returns_zero(self):
         assert _combine_idle_duration_optional(0, 3600) == 0
         assert _combine_idle_duration_optional(3600, 0) == 0
 
-    def test_zero_and_negative_raises_error(self):
-        with pytest.raises(CombineError, match="idle_duration values 0 and -1 cannot be combined"):
-            _combine_idle_duration_optional(0, -1)
-        with pytest.raises(CombineError, match="idle_duration values -1 and 0 cannot be combined"):
-            _combine_idle_duration_optional(-1, 0)
+    def test_zero_and_negative_returns_zero(self):
+        assert _combine_idle_duration_optional(0, -1) == 0
+        assert _combine_idle_duration_optional(-1, 0) == 0
 
 
 class TestCombineSpotPolicy:

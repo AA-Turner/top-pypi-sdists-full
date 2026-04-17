@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -189,16 +189,17 @@ Finally, this can be put together, showing the output OpenQASM 3.
 from __future__ import annotations
 
 import abc
-from typing import Literal, Iterator
+from typing import Literal
+from collections.abc import Iterator
 
 from qiskit._accelerate.circuit import Annotation
 
 
 __all__ = [
     "Annotation",  # Also exported in `qiskit.circuit`, but for convenience is here too.
-    "QPYSerializer",
     "OpenQASM3Serializer",
     "QPYFromOpenQASM3Serializer",
+    "QPYSerializer",
     "iter_namespaces",
 ]
 
@@ -327,7 +328,7 @@ class QPYSerializer(abc.ABC):
         """
         return b""
 
-    def load_state(self, namespace: str, payload: bytes):  # pylint: disable=unused-argument
+    def load_state(self, namespace: str, payload: bytes):
         """Initialize the state of the deserializer for a given ``namespace`` key.
 
         When in a QPY loading context, this method will be called exactly once, before all calls to
@@ -363,7 +364,6 @@ class QPYSerializer(abc.ABC):
             payload: the state payload that was dumped by the corresponding call to
                 :meth:`dump_state`.
         """
-        pass
 
 
 class OpenQASM3Serializer(abc.ABC):

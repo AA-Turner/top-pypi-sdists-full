@@ -44,17 +44,6 @@ class FeatureFlags:
     development. Feature flags are environment variables of the form DSTACK_FF_*
     """
 
-    AUTOCREATED_FLEETS_ENABLED = os.getenv("DSTACK_FF_AUTOCREATED_FLEETS_ENABLED") is not None
-    """DSTACK_FF_AUTOCREATED_FLEETS_ENABLED enables legacy autocreated fleets:
-    If there are no fleet suitable for the run, a new fleet is created automatically instead of an error.
-    """
-
-    PIPELINE_PROCESSING_DISABLED = os.getenv("DSTACK_FF_PIPELINE_PROCESSING_DISABLED") is not None
-    """DSTACK_FF_PIPELINE_PROCESSING_DISABLED disables pipeline-based processing tasks (background/pipeline_tasks/)
-    and enables legacy scheduler-based processing tasks (background/scheduled_tasks/).
-    """
-    PIPELINE_PROCESSING_ENABLED = not PIPELINE_PROCESSING_DISABLED
-
     CLI_PRINT_JOB_CONNECTION_INFO = (
         os.getenv("DSTACK_FF_CLI_PRINT_JOB_CONNECTION_INFO") is not None
     )

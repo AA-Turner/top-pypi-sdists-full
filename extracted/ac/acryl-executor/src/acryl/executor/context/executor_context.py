@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from acryl.executor.secret.secret_store import SecretStore
+from datahub.secret.secret_store import SecretStore
 
 """
 Context object for the executor, passed into a Task on creation

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arq
-Version: 0.27.0
+Version: 0.28.0
 Summary: Job queues in python with asyncio and redis
 Project-URL: Homepage, https://github.com/python-arq/arq
 Project-URL: Documentation, https://arq-docs.helpmanual.io
@@ -27,6 +27,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Clustering

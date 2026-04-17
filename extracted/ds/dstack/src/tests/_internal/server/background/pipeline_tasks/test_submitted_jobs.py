@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from datetime import timedelta
+from typing import cast
 from unittest.mock import Mock, patch
 
 import pytest
@@ -10,6 +11,7 @@ from sqlalchemy.orm import joinedload
 
 from dstack._internal.core.errors import BackendError
 from dstack._internal.core.models.backends.base import BackendType
+from dstack._internal.core.models.common import RegistryAuth
 from dstack._internal.core.models.configurations import TaskConfiguration
 from dstack._internal.core.models.fleets import FleetNodesSpec, InstanceGroupPlacement
 from dstack._internal.core.models.instances import InstanceStatus
@@ -22,6 +24,7 @@ from dstack._internal.core.models.volumes import (
     VolumeMountPoint,
     VolumeStatus,
 )
+from dstack._internal.server import settings as server_settings
 from dstack._internal.server.background.pipeline_tasks.jobs_submitted import (
     JobSubmittedFetcher,
     JobSubmittedPipeline,
@@ -31,6 +34,7 @@ from dstack._internal.server.background.pipeline_tasks.jobs_submitted import (
 )
 from dstack._internal.server.models import (
     ComputeGroupModel,
+    FleetModel,
     InstanceModel,
     JobModel,
     PlacementGroupModel,
@@ -57,7 +61,6 @@ from dstack._internal.server.testing.common import (
     get_ssh_fleet_configuration,
     get_volume_provisioning_data,
 )
-from dstack._internal.settings import FeatureFlags
 from dstack._internal.utils.common import get_current_datetime
 
 pytestmark = pytest.mark.usefixtures("image_config_mock")
@@ -431,7 +434,7 @@ class TestJobSubmittedWorker:
         fleet_spec.configuration.placement = InstanceGroupPlacement.CLUSTER
         fleet_spec.configuration.nodes = FleetNodesSpec(min=0, target=0, max=None)
         fleet = await create_fleet(session=session, project=project, spec=fleet_spec)
-        await create_instance(
+        instance = await create_instance(
             session=session,
             project=project,
             fleet=fleet,
@@ -439,6 +442,7 @@ class TestJobSubmittedWorker:
             backend=BackendType.AWS,
             job_provisioning_data=get_job_provisioning_data(region="eu-west-1"),
         )
+        fleet.current_master_instance_id = instance.id
         configuration = TaskConfiguration(image="debian", nodes=2)
         run_spec = get_run_spec(run_name="run", repo_id=repo.name, configuration=configuration)
         run = await create_run(
@@ -486,6 +490,58 @@ class TestJobSubmittedWorker:
         backend_mock.compute.return_value.run_job.assert_called_once()
         selected_offer = backend_mock.compute.return_value.run_job.call_args[0][2]
         assert selected_offer.region == "eu-west-1"
+
+    async def test_defers_new_capacity_provisioning_until_fleet_master_is_elected(
+        self, test_db, session: AsyncSession, worker: JobSubmittedWorker
+    ):
+        project = await create_project(session=session)
+        user = await create_user(session=session)
+        repo = await create_repo(session=session, project_id=project.id)
+        fleet_spec = get_fleet_spec()
+        fleet_spec.configuration.placement = InstanceGroupPlacement.CLUSTER
+        fleet_spec.configuration.nodes = FleetNodesSpec(min=0, target=0, max=None)
+        fleet = await create_fleet(session=session, project=project, spec=fleet_spec)
+        await create_instance(
+            session=session,
+            project=project,
+            fleet=fleet,
+            status=InstanceStatus.BUSY,
+            backend=BackendType.AWS,
+            job_provisioning_data=get_job_provisioning_data(region="eu-west-1"),
+        )
+        configuration = TaskConfiguration(image="debian", nodes=2)
+        run_spec = get_run_spec(run_name="run", repo_id=repo.name, configuration=configuration)
+        run = await create_run(
+            session=session,
+            run_name="run",
+            project=project,
+            repo=repo,
+            user=user,
+            run_spec=run_spec,
+            fleet=fleet,
+        )
+        job = await create_job(
+            session=session,
+            run=run,
+            instance_assigned=True,
+            waiting_master_job=False,
+        )
+        previous_last_processed_at = job.last_processed_at
+
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            await _process_job(session=session, worker=worker, job_model=job)
+            m.assert_not_called()
+
+        await session.refresh(job)
+        assert job.status == JobStatus.SUBMITTED
+        assert job.instance_assigned
+        assert job.instance is None
+        assert job.last_processed_at > previous_last_processed_at
+        assert job.lock_owner is None
+        assert job.lock_token is None
+        assert job.lock_expires_at is None
+        hint_fetch = cast(Mock, worker._pipeline_hinter.hint_fetch)
+        hint_fetch.assert_called_once_with(FleetModel.__name__)
 
     async def test_provisioning_non_master_job_ignores_cluster_master_fleet_lock(
         self, test_db, session: AsyncSession, worker: JobSubmittedWorker
@@ -1196,7 +1252,7 @@ class TestJobSubmittedWorker:
         assert job.termination_reason == JobTerminationReason.FAILED_TO_START_DUE_TO_NO_CAPACITY
         assert job.termination_reason_message == "Failed to use specified fleets"
 
-    async def test_terminates_job_when_no_matching_fleet_and_autocreated_disabled(
+    async def test_terminates_job_when_no_matching_fleet(
         self, test_db, session: AsyncSession, worker: JobSubmittedWorker
     ):
         project = await create_project(session=session)
@@ -1213,30 +1269,23 @@ class TestJobSubmittedWorker:
         assert job.termination_reason_message is not None
         assert "No matching fleet found" in job.termination_reason_message
 
-    async def test_marks_job_assigned_without_fleet_when_autocreated_enabled(
-        self,
-        test_db,
-        session: AsyncSession,
-        worker: JobSubmittedWorker,
-        monkeypatch: pytest.MonkeyPatch,
+    async def test_terminates_legacy_autocreated_job_with_no_fleet(
+        self, test_db, session: AsyncSession, worker: JobSubmittedWorker
     ):
-        monkeypatch.setattr(FeatureFlags, "AUTOCREATED_FLEETS_ENABLED", True)
         project = await create_project(session=session)
         user = await create_user(session=session)
         repo = await create_repo(session=session, project_id=project.id)
         run = await create_run(session=session, project=project, repo=repo, user=user)
-        job = await create_job(session=session, run=run)
+        # Simulate legacy in-flight state: instance_assigned=True but no fleet
+        job = await create_job(session=session, run=run, instance_assigned=True)
 
         await _process_job(session=session, worker=worker, job_model=job)
 
         await session.refresh(job)
-        assert job.status == JobStatus.SUBMITTED
-        assert job.instance_assigned
-        assert job.fleet_id is None
-        assert job.instance_id is None
-        assert job.lock_owner is None
-        assert job.lock_token is None
-        assert job.lock_expires_at is None
+        assert job.status == JobStatus.TERMINATING
+        assert job.termination_reason == JobTerminationReason.FAILED_TO_START_DUE_TO_NO_CAPACITY
+        assert job.termination_reason_message is not None
+        assert "No matching fleet found" in job.termination_reason_message
 
     async def test_resets_lock_for_retry_when_existing_instance_offer_cannot_be_locked(
         self, test_db, session: AsyncSession, worker: JobSubmittedWorker
@@ -1462,49 +1511,128 @@ class TestJobSubmittedWorker:
         assert volume.lock_expires_at is None
         backend_mock.compute.return_value.attach_volume.assert_called_once()
 
-    async def test_provisions_new_capacity_with_autocreated_fleet(
+    async def test_run_job_uses_server_default_registry(
         self,
+        monkeypatch: pytest.MonkeyPatch,
         test_db,
         session: AsyncSession,
         worker: JobSubmittedWorker,
-        monkeypatch: pytest.MonkeyPatch,
     ):
-        monkeypatch.setattr(FeatureFlags, "AUTOCREATED_FLEETS_ENABLED", True)
+        monkeypatch.setattr(server_settings, "SERVER_DEFAULT_DOCKER_REGISTRY", "registry.example")
+        monkeypatch.setattr(
+            server_settings, "SERVER_DEFAULT_DOCKER_REGISTRY_USERNAME", "server-user"
+        )
+        monkeypatch.setattr(
+            server_settings, "SERVER_DEFAULT_DOCKER_REGISTRY_PASSWORD", "server-pass"
+        )
         project = await create_project(session=session)
         user = await create_user(session=session)
         repo = await create_repo(session=session, project_id=project.id)
-        run = await create_run(session=session, project=project, repo=repo, user=user)
-        job = await create_job(session=session, run=run)
+        fleet = await create_fleet(session=session, project=project)
+        run_spec = get_run_spec(
+            run_name="test-run",
+            repo_id=repo.name,
+            configuration=TaskConfiguration(image="ubuntu"),
+        )
+        run = await create_run(
+            session=session,
+            project=project,
+            repo=repo,
+            user=user,
+            fleet=fleet,
+            run_spec=run_spec,
+        )
+        job = await create_job(session=session, run=run, instance_assigned=True)
 
-        # First pass: no fleet found, mark instance_assigned=True with no fleet
-        await _process_job(session=session, worker=worker, job_model=job)
-
-        job = await _get_job(session, job.id)
-        assert job.status == JobStatus.SUBMITTED
-        assert job.instance_assigned
-        assert job.fleet_id is None
-
-        # Second pass: provision new capacity and autocreate fleet
-        offer = get_instance_offer_with_availability(backend=BackendType.AWS)
+        offer = get_instance_offer_with_availability(backend=BackendType.RUNPOD)
         with patch("dstack._internal.server.services.backends.get_project_backends") as m:
             backend_mock = Mock()
             m.return_value = [backend_mock]
-            backend_mock.TYPE = BackendType.AWS
+            backend_mock.TYPE = BackendType.RUNPOD
             backend_mock.compute.return_value.get_offers.return_value = [offer]
             backend_mock.compute.return_value.run_job.return_value = get_job_provisioning_data(
-                dockerized=True,
-                backend=BackendType.AWS,
+                dockerized=False, backend=BackendType.RUNPOD
             )
 
             await _process_job(session=session, worker=worker, job_model=job)
 
-        job = await _get_job(session, job.id)
-        assert job.status == JobStatus.PROVISIONING
-        assert job.instance is not None
-        assert job.fleet_id is not None
-        assert job.lock_owner is None
-        assert job.lock_token is None
-        assert job.lock_expires_at is None
+        backend_mock.compute.return_value.run_job.assert_called_once()
+        submitted_job = backend_mock.compute.return_value.run_job.call_args[0][1]
+        assert submitted_job.job_spec.image_name == "registry.example/ubuntu"
+        assert submitted_job.job_spec.registry_auth == RegistryAuth(
+            username="server-user", password="server-pass"
+        )
+
+    async def test_run_jobs_uses_server_default_registry(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        test_db,
+        session: AsyncSession,
+        worker: JobSubmittedWorker,
+    ):
+        monkeypatch.setattr(server_settings, "SERVER_DEFAULT_DOCKER_REGISTRY", "registry.example")
+        monkeypatch.setattr(
+            server_settings, "SERVER_DEFAULT_DOCKER_REGISTRY_USERNAME", "server-user"
+        )
+        monkeypatch.setattr(
+            server_settings, "SERVER_DEFAULT_DOCKER_REGISTRY_PASSWORD", "server-pass"
+        )
+        project = await create_project(session=session)
+        user = await create_user(session=session)
+        repo = await create_repo(session=session, project_id=project.id)
+        fleet = await create_fleet(session=session, project=project)
+        run_spec = get_run_spec(
+            run_name="test-run",
+            repo_id=repo.name,
+            configuration=TaskConfiguration(image="ubuntu", nodes=2, commands=["echo"]),
+        )
+        run = await create_run(
+            session=session,
+            project=project,
+            repo=repo,
+            user=user,
+            fleet=fleet,
+            run_spec=run_spec,
+        )
+        job1 = await create_job(
+            session=session,
+            run=run,
+            instance_assigned=True,
+            job_num=0,
+            waiting_master_job=False,
+        )
+        await create_job(
+            session=session,
+            run=run,
+            instance_assigned=False,
+            job_num=1,
+            waiting_master_job=True,
+        )
+
+        offer = get_instance_offer_with_availability(backend=BackendType.RUNPOD)
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            backend_mock = Mock()
+            compute_mock = Mock(spec=ComputeMockSpec)
+            backend_mock.compute.return_value = compute_mock
+            m.return_value = [backend_mock]
+            backend_mock.TYPE = BackendType.RUNPOD
+            compute_mock.get_offers.return_value = [offer]
+            compute_mock.run_jobs.return_value = get_compute_group_provisioning_data(
+                job_provisioning_datas=[
+                    get_job_provisioning_data(dockerized=False, backend=BackendType.RUNPOD),
+                    get_job_provisioning_data(dockerized=False, backend=BackendType.RUNPOD),
+                ]
+            )
+
+            await _process_job(session=session, worker=worker, job_model=job1)
+
+        compute_mock.run_jobs.assert_called_once()
+        job_configurations = compute_mock.run_jobs.call_args[0][1]
+        for job_configuration in job_configurations:
+            assert job_configuration.job.job_spec.image_name == "registry.example/ubuntu"
+            assert job_configuration.job.job_spec.registry_auth == RegistryAuth(
+                username="server-user", password="server-pass"
+            )
 
 
 @pytest.mark.asyncio

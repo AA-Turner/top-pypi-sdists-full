@@ -1,4 +1,4 @@
-# Copyright 2020 - 2025 Ternaris
+# Copyright 2020-2026 Ternaris
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag1 v2.0 reader."""
 
@@ -23,10 +23,7 @@ if sys.version_info >= (3, 12):  # pragma: no cover
 else:  # pragma: no cover
     from typing_extensions import override
 
-if sys.version_info >= (3, 14):  # pragma: no cover
-    from safelz4.frame import decompress as lz4_decompress
-else:  # pragma: no cover
-    from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
+from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
 
 from rosbags.interfaces import (
     Connection,
@@ -46,6 +43,8 @@ if TYPE_CHECKING:
         from typing import Self
     else:
         from typing_extensions import Self
+
+    from rosbags.interfaces.typing import RPath
 
     Unpack = Callable[[bytes], 'tuple[int]']
     UnpackFrom = Callable[[bytes, int], 'tuple[int]']
@@ -380,7 +379,7 @@ class Reader:
 
     """
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | RPath) -> None:
         """Initialize.
 
         Args:
@@ -390,7 +389,7 @@ class Reader:
             ReaderError: Path does not exist.
 
         """
-        self.path = Path(path)
+        self.path: RPath = Path(path) if isinstance(path, str) else path
         if not self.path.exists():
             msg = f'File {str(self.path)!r} does not exist.'
             raise FileNotFoundError(msg)

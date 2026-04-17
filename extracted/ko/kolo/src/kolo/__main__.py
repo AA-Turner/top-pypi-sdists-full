@@ -47,7 +47,7 @@ from .db import (
     vacuum_db,
 )
 from ._kolotxt import update_kolotxt
-from .serialize import load_msgpack, monkeypatch_queryset_repr
+from .serialize import load_msgpack
 from .trace import Trace
 from .upload import upload_to_dashboard
 from .utils import (
@@ -217,7 +217,6 @@ def run(path, args, one_trace_per_test, noop, inline, returns):
         return
 
     config = load_config()
-    monkeypatch_queryset_repr()
     with enable(
         config,
         source="kolo run",
@@ -362,7 +361,19 @@ def list(count, reverse, pinned):
 @trace.command()
 @click.argument("trace_id")
 @click.argument("node_index", type=int)
-def node(trace_id: str, node_index: int):
+@click.option(
+    "-t",
+    "--thread_id",
+    "thread_id",
+    default=None,
+    help=(
+        "Look the node up in this thread's tree instead of the main thread. "
+        "Per-thread node indices restart at 0, so this is required to "
+        "disambiguate nodes from non-main threads. Omit to target the main "
+        "thread (the thread that was active when profiling started)."
+    ),
+)
+def node(trace_id: str, node_index: int, thread_id: Optional[str]):
     """Get detailed information about a specific node in a trace.
     This is useful when you need to deeply understand what happened at a specific
     point in the execution, like examining function arguments, local variables,
@@ -372,7 +383,7 @@ def node(trace_id: str, node_index: int):
 
     try:
         trace_data, _ = load_trace_from_db(db_path, trace_id)
-        node_data = get_node_data(trace_id, node_index, trace_data)
+        node_data = get_node_data(trace_id, node_index, trace_data, thread_id=thread_id)
         click.echo(json.dumps(node_data, indent=2))
     except TraceNotFoundError:
         raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=trace_id))
@@ -670,13 +681,14 @@ def emit(trace_id: Optional[str], output_dir: Optional[Path]):
     - request.txt/response.txt for HTTP (plain text)
     - .sql for SQL queries
     """
+    from ._emit_auto import write_manual_emit_marker
     from .emit import emit_trace
 
     db_path = setup_db()
 
-    # Default to .kolo/traces/ directory
+    # Default to .kolo/traces/ directory (db_path is .kolo/.internal/db.sqlite3)
     if output_dir is None:
-        output_dir = db_path.parent / "traces"
+        output_dir = db_path.parent.parent / "traces"
     output_dir = output_dir.resolve()
     if not output_dir.exists():
         output_dir.mkdir(parents=True)
@@ -691,6 +703,7 @@ def emit(trace_id: Optional[str], output_dir: Optional[Path]):
         data = load_msgpack(msgpack_data)
         trace = Trace(unprocessed_data=data, size=len(msgpack_data))
         trace_dir = emit_trace(trace, output_dir)
+        write_manual_emit_marker(trace_dir)
         click.echo(f"Browse: {trace_dir}/{trace_id}.txt")
         return
 
@@ -708,6 +721,7 @@ def emit(trace_id: Optional[str], output_dir: Optional[Path]):
             data = load_msgpack(msgpack_data)
             trace = Trace(unprocessed_data=data, size=len(msgpack_data))
             trace_dir = emit_trace(trace, output_dir)
+            write_manual_emit_marker(trace_dir)
             if first_trace_dir is None:
                 first_trace_dir = trace_dir
                 first_trace_id = tid

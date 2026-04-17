@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: uptrace
-Version: 1.40.0
+Version: 1.41.0
 Summary: OpenTelemetry Python distribution for Uptrace
-Home-page: https://uptrace.dev
-Author: Uptrace.dev
-Author-email: support@uptrace.dev
-License: BSD
-Platform: any
+Project-URL: Homepage, https://uptrace.dev
+Project-URL: Repository, https://github.com/uptrace/uptrace-python
+Author-email: "Uptrace.dev" <support@uptrace.dev>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
@@ -14,14 +14,12 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
+Requires-Dist: opentelemetry-api~=1.41.0
+Requires-Dist: opentelemetry-exporter-otlp~=1.41.0
+Requires-Dist: opentelemetry-instrumentation~=0.62b0
+Requires-Dist: opentelemetry-sdk~=1.41.0
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: opentelemetry-api~=1.40.0
-Requires-Dist: opentelemetry-sdk~=1.40.0
-Requires-Dist: opentelemetry-exporter-otlp~=1.40.0
-Requires-Dist: opentelemetry-instrumentation~=0.61b0
-Dynamic: license-file
 
 # Uptrace for Python
 

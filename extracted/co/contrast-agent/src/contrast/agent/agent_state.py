@@ -236,14 +236,6 @@ def _log_environment(settings: Settings):
         debug_info={"sys.argv": sys.argv} if log_level == "DEBUG" else None,
     )
 
-    # py39: remove
-    if sys.version_info[:2] == (3, 9):
-        _log_and_warn(
-            "Contrast Security support for Python 3.9 is deprecated "
-            "as this version reached its end-of-life in October 2025 (PEP 596). "
-            "A future version of the Contrast Python Agent may drop support for Python 3.9."
-        )
-
 
 def _warn_for_misleading_config(settings: Settings):
     protect_option = settings.config.get_option("protect.enable")

@@ -3442,6 +3442,62 @@ class CorpUserUrn(_SpecificUrn):
         return self._entity_ids[0]
 
 if TYPE_CHECKING:
+    from datahub.metadata.schema_classes import LifecycleStageTypeKeyClass
+
+class LifecycleStageTypeUrn(_SpecificUrn):
+    ENTITY_TYPE: ClassVar[Literal["lifecycleStageType"]] = "lifecycleStageType"
+    _URN_PARTS: ClassVar[int] = 1
+
+    def __init__(self, id: Union["LifecycleStageTypeUrn", str], *, _allow_coercion: bool = True) -> None:
+        if _allow_coercion:
+            # Field coercion logic (if any is required).
+            if isinstance(id, str):
+                if id.startswith('urn:li:'):
+                    try:
+                        id = LifecycleStageTypeUrn.from_string(id)
+                    except InvalidUrnError:
+                        raise InvalidUrnError(f'Expecting a LifecycleStageTypeUrn but got {id}')
+                else:
+                    id = UrnEncoder.encode_string(id)
+
+        # Validation logic.
+        if not id:
+            raise InvalidUrnError("LifecycleStageTypeUrn id cannot be empty")
+        if isinstance(id, LifecycleStageTypeUrn):
+            id = id.id
+        elif isinstance(id, Urn):
+            raise InvalidUrnError(f'Expecting a LifecycleStageTypeUrn but got {id}')
+        if UrnEncoder.contains_reserved_char(id):
+            raise InvalidUrnError(f'LifecycleStageTypeUrn id contains reserved characters')
+
+        super().__init__(self.ENTITY_TYPE, [id])
+
+    @classmethod
+    def _parse_ids(cls, entity_ids: List[str]) -> "LifecycleStageTypeUrn":
+        if len(entity_ids) != cls._URN_PARTS:
+            raise InvalidUrnError(f"LifecycleStageTypeUrn should have {cls._URN_PARTS} parts, got {len(entity_ids)}: {entity_ids}")
+        return cls(id=entity_ids[0], _allow_coercion=False)
+
+    @classmethod
+    def underlying_key_aspect_type(cls) -> Type["LifecycleStageTypeKeyClass"]:
+        from datahub.metadata.schema_classes import LifecycleStageTypeKeyClass
+
+        return LifecycleStageTypeKeyClass
+
+    def to_key_aspect(self) -> "LifecycleStageTypeKeyClass":
+        from datahub.metadata.schema_classes import LifecycleStageTypeKeyClass
+
+        return LifecycleStageTypeKeyClass(id=self.id)
+
+    @classmethod
+    def from_key_aspect(cls, key_aspect: "LifecycleStageTypeKeyClass") -> "LifecycleStageTypeUrn":
+        return cls(id=key_aspect.id)
+
+    @property
+    def id(self) -> str:
+        return self._entity_ids[0]
+
+if TYPE_CHECKING:
     from datahub.metadata.schema_classes import GlossaryTermKeyClass
 
 class GlossaryTermUrn(_SpecificUrn):

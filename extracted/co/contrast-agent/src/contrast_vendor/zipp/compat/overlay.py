@@ -4,13 +4,13 @@ Expose zipp.Path as .zipfile.Path.
 Includes everything else in ``zipfile`` to match future usage. Just
 use:
 
->>> from zipp.compat.overlay import zipfile
+>>> from contrast_vendor.zipp.compat.overlay import zipfile
 
 in place of ``import zipfile``.
 
 Relative imports are supported too.
 
->>> from zipp.compat.overlay.zipfile import ZipInfo
+>>> from contrast_vendor.zipp.compat.overlay.zipfile import ZipInfo
 
 The ``zipfile`` object added to ``sys.modules`` needs to be
 hashable (#126).

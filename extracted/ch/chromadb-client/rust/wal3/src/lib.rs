@@ -34,12 +34,14 @@ pub use interfaces::s3::{
     S3FragmentPuller, S3FragmentUploader, S3ManifestManagerFactory,
 };
 pub use interfaces::{
-    BatchManager, FragmentConsumer, FragmentManagerFactory, FragmentPointer, FragmentPublisher,
+    BatchManager, FaultInjectingFragmentManagerFactory, FragmentConsumer, FragmentManagerFactory,
+    FragmentPointer, FragmentPublisher, FragmentUploadFault, FragmentUploadFaultInjector,
     FragmentUploader, ManifestConsumer, ManifestManagerFactory, ManifestPublisher, ManifestWitness,
-    PositionWitness,
+    PositionWitness, FRAGMENT_UPLOAD_FAULT_LABEL,
 };
 pub use manifest::{
-    unprefixed_snapshot_path, Manifest, ManifestAndWitness, Snapshot, SnapshotPointer,
+    unprefixed_snapshot_path, Manifest, ManifestAndWitness, ManifestBounds,
+    ManifestBoundsAndWitness, Snapshot, SnapshotPointer,
 };
 pub use quorum_writer::write_quorum;
 pub use reader::{scan_from_manifest, Limits, LogReader};
@@ -1064,6 +1066,9 @@ pub trait LogReaderTrait: std::fmt::Debug + Send + Sync + 'static {
     /// Load and return the manifest with its witness.
     async fn manifest_and_witness(&self) -> Result<Option<ManifestAndWitness>, Error>;
 
+    /// Load and return manifest bounds with their witness.
+    async fn manifest_bounds_and_witness(&self) -> Result<Option<ManifestBoundsAndWitness>, Error>;
+
     /// Return the oldest timestamp in the log.
     async fn oldest_timestamp(&self) -> Result<LogPosition, Error>;
 
@@ -1073,6 +1078,13 @@ pub trait LogReaderTrait: std::fmt::Debug + Send + Sync + 'static {
     /// Scan fragments from a given position with limits.
     async fn scan(&self, from: LogPosition, limits: reader::Limits)
         -> Result<Vec<Fragment>, Error>;
+
+    /// Scan fragments from a given position using a backend-specific partial path when available.
+    async fn scan_partial(
+        &self,
+        from: LogPosition,
+        limits: reader::Limits,
+    ) -> Result<Option<Vec<Fragment>>, Error>;
 
     /// Scan fragments using a cached manifest.
     ///
@@ -1149,6 +1161,10 @@ impl<
         LogReader::manifest_and_witness(self).await
     }
 
+    async fn manifest_bounds_and_witness(&self) -> Result<Option<ManifestBoundsAndWitness>, Error> {
+        LogReader::manifest_bounds_and_witness(self).await
+    }
+
     async fn oldest_timestamp(&self) -> Result<LogPosition, Error> {
         LogReader::oldest_timestamp(self).await
     }
@@ -1163,6 +1179,14 @@ impl<
         limits: reader::Limits,
     ) -> Result<Vec<Fragment>, Error> {
         LogReader::scan(self, from, limits).await
+    }
+
+    async fn scan_partial(
+        &self,
+        from: LogPosition,
+        limits: reader::Limits,
+    ) -> Result<Option<Vec<Fragment>>, Error> {
+        LogReader::scan_partial(self, from, limits).await
     }
 
     async fn scan_with_cache(

@@ -1,5 +1,6 @@
 from typing import Union
 
+from agilicus import agilicus_api
 from agilicus.agilicus_api import (
     AuditDestination,
     AuditDestinationSpec,
@@ -16,6 +17,7 @@ from . import context
 from .input_helpers import build_updated_model_from_dict
 from .input_helpers import update_org_from_input_or_ctx
 from .input_helpers import strip_none
+from .pagination import normalize_page_args
 from .output.table import (
     column,
     spec_column,
@@ -28,6 +30,8 @@ DESTINATION_TYPES = ["file", "webhook", "graylog", "connector", "syslog"]
 FILTER_TYPES = ["subsystem", "audit_agent_type", "audit_agent_id", "hostname"]
 AUTH_TYPES = ["none", "http_basic", "http_bearer", "agilicus_bearer", "oauth2"]
 WEBHOOK_FORMATS = ["agilicus", "unified"]
+
+page_fields = ["id", "name", "org_id"]
 
 
 def _get_properties(property_names, properties) -> dict:
@@ -83,6 +87,20 @@ def _build_webhook_settings(existing, properties):
     return AuditDestinationWebhookSettings(**existing)
 
 
+def _build_routing(existing, properties):
+    if existing is None:
+        existing = {}
+    for key, value in properties.items():
+        parts = key.split("routing_", 2)
+        if len(parts) != 2 or value is None:
+            continue
+        existing[parts[1]] = value
+    if not existing:
+        return None
+
+    return agilicus_api.AuditDestinationRouting(**existing)
+
+
 def _build_authentication(properties):
     auth_type = properties.get("authentication_type", None)
     if not auth_type:
@@ -131,12 +149,23 @@ def _update_webhook_settings(
     return result
 
 
-def list_audit_destinations(ctx, **kwargs):
+def list_audit_destinations(ctx, get_all=False, limit=None, **kwargs):
     apiclient = context.get_apiclient_from_ctx(ctx)
     update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
     params = strip_none(kwargs)
-    query_results = apiclient.audits_api.list_audit_destinations(**params)
-    return query_results.audit_destinations
+    params = normalize_page_args(params)
+    if not get_all:
+        if limit is None:
+            limit = 500
+        return apiclient.audits_api.list_audit_destinations(
+            limit=limit, **params
+        ).audit_destinations
+    return [
+        x
+        for x in apiclient.audits_api.list_audit_destinations.auto_paging_iter(
+            limit=limit, **params
+        )
+    ]
 
 
 def add_audit_destination(ctx, **kwargs):
@@ -149,6 +178,10 @@ def add_audit_destination(ctx, **kwargs):
     webhook_settings = _build_webhook_settings({}, kwargs)
     if webhook_settings:
         spec.webhook_settings = webhook_settings
+
+    routing = _build_routing({}, kwargs)
+    if routing is not None:
+        spec.routing = routing
 
     model = AuditDestination(spec=spec)
     return apiclient.audits_api.create_audit_destination(model).to_dict()
@@ -193,6 +226,11 @@ def update_audit_destination(ctx, destination_id, **kwargs):
         mapping.spec.webhook_settings = webhook_settings
     if auth is not None:
         mapping.spec.authentication = auth
+
+    routing = _build_routing(mapping.spec.routing, kwargs)
+    if routing is not None:
+        mapping.spec.routing = routing
+
     return apiclient.audits_api.replace_audit_destination(
         destination_id, audit_destination=mapping
     ).to_dict()

@@ -6,7 +6,7 @@ import uuid
 import pathlib
 from os import path
 from contrast.reporting.teamserver_messages import BaseTsMessage
-from requests.models import Response
+from contrast_vendor.requests.models import Response
 
 from contrast_vendor import structlog as logging
 from contrast.utils.decorators import fail_quietly

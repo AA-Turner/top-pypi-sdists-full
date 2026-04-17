@@ -28,13 +28,25 @@ def output_summary(
     ignore_complexity: bool,
     max_complexity: int,
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
+    snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
+    plain: bool = False,
+    top: Optional[int] = None,
 ) -> bool:
     (
         file_entries,
         failing_functions,
         total_functions,
-    ) = build_output_rows(files, failed_only, sort, max_complexity)
+    ) = build_output_rows(
+        files, failed_only, sort, max_complexity, snapshot_map
+    )
     has_success = not failing_functions or ignore_complexity
+
+    if top is not None:
+        file_entries = truncate_top_n(file_entries, top)
+
+    if plain:
+        output_plain(console, file_entries)
+        return has_success
 
     if failed_only and not file_entries:
         console.print(
@@ -58,12 +70,61 @@ def output_summary(
     return has_success
 
 
+def output_plain(
+    console: Console,
+    file_entries: List[
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
+    ],
+) -> None:
+    for entry in file_entries:
+        for function in entry["functions"]:
+            if isinstance(function, str):
+                continue
+            path = normalize_path(
+                str(function["path"]), str(function["file_name"])
+            )
+            console.print(f"{path} {function['name']} {function['complexity']}")
+
+
+def truncate_top_n(
+    file_entries: List[
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
+    ],
+    n: int,
+) -> List[Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]]:
+    all_functions: List[
+        Tuple[str, Dict[str, str | int | bool | Tuple[str, str]]]
+    ] = []
+    for entry in file_entries:
+        for function in entry["functions"]:
+            if not isinstance(function, str):
+                all_functions.append((str(entry["path"]), function))
+
+    all_functions.sort(key=lambda x: int(x[1]["complexity"]), reverse=True)
+    top_functions = all_functions[:n]
+
+    # Preserve global descending order across files: emit a new entry whenever
+    # the path changes, rather than regrouping (which would collapse runs and
+    # lose the global rank order for multi-file results).
+    result: List[
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
+    ] = []
+    for path, function in top_functions:
+        if result and result[-1]["path"] == path:
+            functions_list = result[-1]["functions"]
+            if isinstance(functions_list, list):
+                functions_list.append(function)
+        else:
+            result.append({"path": path, "functions": [function]})
+    return result
+
+
 def output_file_entries(
     console: Console,
     file_entries: List[
-        dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
     ],
-    failing_functions: dict[str, List[str]],
+    failing_functions: Dict[str, List[str]],
     ignore_complexity: bool,
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
     max_complexity: int,
@@ -74,11 +135,7 @@ def output_file_entries(
             if isinstance(function, str):
                 continue
 
-            status_text = (
-                "[green]PASSED[/green]"
-                if function["passed"]
-                else "[red]FAILED[/red]"
-            )
+            status_text = format_status_text(bool(function["passed"]))
             delta_text = output_delta_text(
                 previous_functions, function, max_complexity
             )
@@ -101,9 +158,15 @@ def output_file_entries(
         )
 
 
+def format_status_text(passed: bool) -> str:
+    if passed:
+        return "[bold black on green] :white_heavy_check_mark: PASSED [/bold black on green]"
+    return "[bold white on red] :cross_mark: FAILED [/bold white on red]"
+
+
 def output_delta_text(
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
-    function: dict[str, str | int | bool | Tuple[str, str]],
+    function: Dict[str, str | int | bool | Tuple[str, str]],
     max_complexity: int,
 ) -> str:
     delta_text = ""
@@ -133,29 +196,53 @@ def output_delta_text(
     return delta_text
 
 
+def _is_function_passing(
+    function: FunctionComplexity,
+    file_path: str,
+    file_name: str,
+    max_complexity: int,
+    snapshot_map: Optional[Dict[Tuple[str, str, str], int]],
+) -> bool:
+    if function.complexity <= max_complexity:
+        return True
+    if snapshot_map is None:
+        return False
+    prev = snapshot_map.get((file_path, file_name, function.name))
+    return prev is not None and function.complexity <= prev
+
+
 def build_output_rows(
     files: List[FileComplexity],
     failed_only: bool,
     sort: Sort,
     max_complexity: int,
-) -> tuple[
-    List[dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]],
-    dict[str, List[str]],
+    snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
+) -> Tuple[
+    List[Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]],
+    Dict[str, List[str]],
     int,
 ]:
     file_entries: List[
-        dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
     ] = []
-    failing_functions: dict[str, List[str]] = {}
+    failing_functions: Dict[str, List[str]] = {}
     total_functions = 0
 
     for file in files:
         sorted_functions = sort_functions(file.functions, sort)
-        displayable_functions: List[dict[str, str | int | bool]] = []
+        displayable_functions: List[
+            Dict[str, str | int | bool | Tuple[str, str]]
+        ] = []
 
         for function in sorted_functions:
             total_functions += 1
-            passed = function.complexity <= max_complexity
+            passed = _is_function_passing(
+                function,
+                file.path,
+                file.file_name,
+                max_complexity,
+                snapshot_map,
+            )
 
             if failed_only and passed:
                 continue

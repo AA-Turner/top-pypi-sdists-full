@@ -26,6 +26,7 @@ class ProviderArgs:
                  context: Optional[pulumi.Input[_builtins.str]] = None,
                  delete_unreachable: Optional[pulumi.Input[_builtins.bool]] = None,
                  enable_config_map_mutable: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enable_patch_force: Optional[pulumi.Input[_builtins.bool]] = None,
                  enable_secret_mutable: Optional[pulumi.Input[_builtins.bool]] = None,
                  enable_server_side_apply: Optional[pulumi.Input[_builtins.bool]] = None,
                  helm_release_settings: Optional[pulumi.Input['HelmReleaseSettingsArgs']] = None,
@@ -35,7 +36,8 @@ class ProviderArgs:
                  render_yaml_to_directory: Optional[pulumi.Input[_builtins.str]] = None,
                  skip_update_unreachable: Optional[pulumi.Input[_builtins.bool]] = None,
                  suppress_deprecation_warnings: Optional[pulumi.Input[_builtins.bool]] = None,
-                 suppress_helm_hook_warnings: Optional[pulumi.Input[_builtins.bool]] = None):
+                 suppress_helm_hook_warnings: Optional[pulumi.Input[_builtins.bool]] = None,
+                 upsert_existing_objects: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a Provider resource.
 
@@ -54,6 +56,13 @@ class ProviderArgs:
                This config can be specified in the following ways using this precedence:
                1. This `enableConfigMapMutable` parameter.
                2. The `PULUMI_K8S_ENABLE_CONFIGMAP_MUTABLE` environment variable.
+        :param pulumi.Input[_builtins.bool] enable_patch_force: If present and set to true, enable patch force on all Server-Side Apply operations, overriding any field conflicts.
+               See https://github.com/pulumi/pulumi-kubernetes/issues/2280 for additional details.
+               
+               This config can be specified in the following ways using this precedence:
+               1. The `pulumi.com/patchForce` annotation on the resource.
+               2. This `enablePatchForce` parameter.
+               3. The `PULUMI_K8S_ENABLE_PATCH_FORCE` environment variable.
         :param pulumi.Input[_builtins.bool] enable_secret_mutable: BETA FEATURE - If present and set to true, allow Secrets to be mutated.
                This feature is in developer preview, and is disabled by default.
                
@@ -82,6 +91,13 @@ class ProviderArgs:
         :param pulumi.Input[_builtins.bool] skip_update_unreachable: If present and set to true, the provider will skip resources update associated with an unreachable Kubernetes cluster from Pulumi state
         :param pulumi.Input[_builtins.bool] suppress_deprecation_warnings: If present and set to true, suppress apiVersion deprecation warnings from the CLI.
         :param pulumi.Input[_builtins.bool] suppress_helm_hook_warnings: If present and set to true, suppress unsupported Helm hook warnings from the CLI.
+        :param pulumi.Input[_builtins.bool] upsert_existing_objects: If present and set to true, allow Pulumi to create resources that already exist in the cluster by updating them instead of returning an error.
+               By default, Pulumi will error if a resource already exists in the cluster to prevent accidental data loss. When a Pulumi resource is renamed without using aliases, the engine plans a create followed by a delete targeting the same cluster object. With server-side apply, the create silently updates the existing object, and the subsequent delete removes it — resulting in unexpected resource deletion.
+               Enabling this option restores the previous upsert behavior for users who intentionally adopt existing cluster resources into Pulumi.
+               
+               This config can be specified in the following ways using this precedence:
+               1. This `upsertExistingObjects` parameter.
+               2. The `PULUMI_K8S_UPSERT_EXISTING_OBJECTS` environment variable.
         """
         if always_render is not None:
             pulumi.set(__self__, "always_render", always_render)
@@ -99,6 +115,10 @@ class ProviderArgs:
             enable_config_map_mutable = _utilities.get_env_bool('PULUMI_K8S_ENABLE_CONFIGMAP_MUTABLE')
         if enable_config_map_mutable is not None:
             pulumi.set(__self__, "enable_config_map_mutable", enable_config_map_mutable)
+        if enable_patch_force is None:
+            enable_patch_force = _utilities.get_env_bool('PULUMI_K8S_ENABLE_PATCH_FORCE')
+        if enable_patch_force is not None:
+            pulumi.set(__self__, "enable_patch_force", enable_patch_force)
         if enable_secret_mutable is None:
             enable_secret_mutable = _utilities.get_env_bool('PULUMI_K8S_ENABLE_SECRET_MUTABLE')
         if enable_secret_mutable is not None:
@@ -131,6 +151,10 @@ class ProviderArgs:
             suppress_helm_hook_warnings = _utilities.get_env_bool('PULUMI_K8S_SUPPRESS_HELM_HOOK_WARNINGS')
         if suppress_helm_hook_warnings is not None:
             pulumi.set(__self__, "suppress_helm_hook_warnings", suppress_helm_hook_warnings)
+        if upsert_existing_objects is None:
+            upsert_existing_objects = _utilities.get_env_bool('PULUMI_K8S_UPSERT_EXISTING_OBJECTS')
+        if upsert_existing_objects is not None:
+            pulumi.set(__self__, "upsert_existing_objects", upsert_existing_objects)
 
     @_builtins.property
     @pulumi.getter(name="alwaysRender")
@@ -212,6 +236,24 @@ class ProviderArgs:
     @enable_config_map_mutable.setter
     def enable_config_map_mutable(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "enable_config_map_mutable", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enablePatchForce")
+    def enable_patch_force(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        If present and set to true, enable patch force on all Server-Side Apply operations, overriding any field conflicts.
+        See https://github.com/pulumi/pulumi-kubernetes/issues/2280 for additional details.
+
+        This config can be specified in the following ways using this precedence:
+        1. The `pulumi.com/patchForce` annotation on the resource.
+        2. This `enablePatchForce` parameter.
+        3. The `PULUMI_K8S_ENABLE_PATCH_FORCE` environment variable.
+        """
+        return pulumi.get(self, "enable_patch_force")
+
+    @enable_patch_force.setter
+    def enable_patch_force(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "enable_patch_force", value)
 
     @_builtins.property
     @pulumi.getter(name="enableSecretMutable")
@@ -351,6 +393,24 @@ class ProviderArgs:
     def suppress_helm_hook_warnings(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "suppress_helm_hook_warnings", value)
 
+    @_builtins.property
+    @pulumi.getter(name="upsertExistingObjects")
+    def upsert_existing_objects(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        If present and set to true, allow Pulumi to create resources that already exist in the cluster by updating them instead of returning an error.
+        By default, Pulumi will error if a resource already exists in the cluster to prevent accidental data loss. When a Pulumi resource is renamed without using aliases, the engine plans a create followed by a delete targeting the same cluster object. With server-side apply, the create silently updates the existing object, and the subsequent delete removes it — resulting in unexpected resource deletion.
+        Enabling this option restores the previous upsert behavior for users who intentionally adopt existing cluster resources into Pulumi.
+
+        This config can be specified in the following ways using this precedence:
+        1. This `upsertExistingObjects` parameter.
+        2. The `PULUMI_K8S_UPSERT_EXISTING_OBJECTS` environment variable.
+        """
+        return pulumi.get(self, "upsert_existing_objects")
+
+    @upsert_existing_objects.setter
+    def upsert_existing_objects(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "upsert_existing_objects", value)
+
 
 @pulumi.type_token("pulumi:providers:kubernetes")
 class Provider(pulumi.ProviderResource):
@@ -364,6 +424,7 @@ class Provider(pulumi.ProviderResource):
                  context: Optional[pulumi.Input[_builtins.str]] = None,
                  delete_unreachable: Optional[pulumi.Input[_builtins.bool]] = None,
                  enable_config_map_mutable: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enable_patch_force: Optional[pulumi.Input[_builtins.bool]] = None,
                  enable_secret_mutable: Optional[pulumi.Input[_builtins.bool]] = None,
                  enable_server_side_apply: Optional[pulumi.Input[_builtins.bool]] = None,
                  helm_release_settings: Optional[pulumi.Input[Union['HelmReleaseSettingsArgs', 'HelmReleaseSettingsArgsDict']]] = None,
@@ -374,6 +435,7 @@ class Provider(pulumi.ProviderResource):
                  skip_update_unreachable: Optional[pulumi.Input[_builtins.bool]] = None,
                  suppress_deprecation_warnings: Optional[pulumi.Input[_builtins.bool]] = None,
                  suppress_helm_hook_warnings: Optional[pulumi.Input[_builtins.bool]] = None,
+                 upsert_existing_objects: Optional[pulumi.Input[_builtins.bool]] = None,
                  __props__=None):
         """
         The provider type for the kubernetes package.
@@ -396,6 +458,13 @@ class Provider(pulumi.ProviderResource):
                This config can be specified in the following ways using this precedence:
                1. This `enableConfigMapMutable` parameter.
                2. The `PULUMI_K8S_ENABLE_CONFIGMAP_MUTABLE` environment variable.
+        :param pulumi.Input[_builtins.bool] enable_patch_force: If present and set to true, enable patch force on all Server-Side Apply operations, overriding any field conflicts.
+               See https://github.com/pulumi/pulumi-kubernetes/issues/2280 for additional details.
+               
+               This config can be specified in the following ways using this precedence:
+               1. The `pulumi.com/patchForce` annotation on the resource.
+               2. This `enablePatchForce` parameter.
+               3. The `PULUMI_K8S_ENABLE_PATCH_FORCE` environment variable.
         :param pulumi.Input[_builtins.bool] enable_secret_mutable: BETA FEATURE - If present and set to true, allow Secrets to be mutated.
                This feature is in developer preview, and is disabled by default.
                
@@ -424,6 +493,13 @@ class Provider(pulumi.ProviderResource):
         :param pulumi.Input[_builtins.bool] skip_update_unreachable: If present and set to true, the provider will skip resources update associated with an unreachable Kubernetes cluster from Pulumi state
         :param pulumi.Input[_builtins.bool] suppress_deprecation_warnings: If present and set to true, suppress apiVersion deprecation warnings from the CLI.
         :param pulumi.Input[_builtins.bool] suppress_helm_hook_warnings: If present and set to true, suppress unsupported Helm hook warnings from the CLI.
+        :param pulumi.Input[_builtins.bool] upsert_existing_objects: If present and set to true, allow Pulumi to create resources that already exist in the cluster by updating them instead of returning an error.
+               By default, Pulumi will error if a resource already exists in the cluster to prevent accidental data loss. When a Pulumi resource is renamed without using aliases, the engine plans a create followed by a delete targeting the same cluster object. With server-side apply, the create silently updates the existing object, and the subsequent delete removes it — resulting in unexpected resource deletion.
+               Enabling this option restores the previous upsert behavior for users who intentionally adopt existing cluster resources into Pulumi.
+               
+               This config can be specified in the following ways using this precedence:
+               1. This `upsertExistingObjects` parameter.
+               2. The `PULUMI_K8S_UPSERT_EXISTING_OBJECTS` environment variable.
         """
         ...
     @overload
@@ -456,6 +532,7 @@ class Provider(pulumi.ProviderResource):
                  context: Optional[pulumi.Input[_builtins.str]] = None,
                  delete_unreachable: Optional[pulumi.Input[_builtins.bool]] = None,
                  enable_config_map_mutable: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enable_patch_force: Optional[pulumi.Input[_builtins.bool]] = None,
                  enable_secret_mutable: Optional[pulumi.Input[_builtins.bool]] = None,
                  enable_server_side_apply: Optional[pulumi.Input[_builtins.bool]] = None,
                  helm_release_settings: Optional[pulumi.Input[Union['HelmReleaseSettingsArgs', 'HelmReleaseSettingsArgsDict']]] = None,
@@ -466,6 +543,7 @@ class Provider(pulumi.ProviderResource):
                  skip_update_unreachable: Optional[pulumi.Input[_builtins.bool]] = None,
                  suppress_deprecation_warnings: Optional[pulumi.Input[_builtins.bool]] = None,
                  suppress_helm_hook_warnings: Optional[pulumi.Input[_builtins.bool]] = None,
+                 upsert_existing_objects: Optional[pulumi.Input[_builtins.bool]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -485,6 +563,9 @@ class Provider(pulumi.ProviderResource):
             if enable_config_map_mutable is None:
                 enable_config_map_mutable = _utilities.get_env_bool('PULUMI_K8S_ENABLE_CONFIGMAP_MUTABLE')
             __props__.__dict__["enable_config_map_mutable"] = pulumi.Output.from_input(enable_config_map_mutable).apply(pulumi.runtime.to_json) if enable_config_map_mutable is not None else None
+            if enable_patch_force is None:
+                enable_patch_force = _utilities.get_env_bool('PULUMI_K8S_ENABLE_PATCH_FORCE')
+            __props__.__dict__["enable_patch_force"] = pulumi.Output.from_input(enable_patch_force).apply(pulumi.runtime.to_json) if enable_patch_force is not None else None
             if enable_secret_mutable is None:
                 enable_secret_mutable = _utilities.get_env_bool('PULUMI_K8S_ENABLE_SECRET_MUTABLE')
             __props__.__dict__["enable_secret_mutable"] = pulumi.Output.from_input(enable_secret_mutable).apply(pulumi.runtime.to_json) if enable_secret_mutable is not None else None
@@ -507,6 +588,9 @@ class Provider(pulumi.ProviderResource):
             if suppress_helm_hook_warnings is None:
                 suppress_helm_hook_warnings = _utilities.get_env_bool('PULUMI_K8S_SUPPRESS_HELM_HOOK_WARNINGS')
             __props__.__dict__["suppress_helm_hook_warnings"] = pulumi.Output.from_input(suppress_helm_hook_warnings).apply(pulumi.runtime.to_json) if suppress_helm_hook_warnings is not None else None
+            if upsert_existing_objects is None:
+                upsert_existing_objects = _utilities.get_env_bool('PULUMI_K8S_UPSERT_EXISTING_OBJECTS')
+            __props__.__dict__["upsert_existing_objects"] = pulumi.Output.from_input(upsert_existing_objects).apply(pulumi.runtime.to_json) if upsert_existing_objects is not None else None
         super(Provider, __self__).__init__(
             'kubernetes',
             resource_name,

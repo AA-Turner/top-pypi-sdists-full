@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cwltool
-Version: 3.2.20260411152607
+Version: 3.2.20260413085819
 Summary: Common workflow language reference implementation
 Home-page: https://github.com/common-workflow-language/cwltool
 Download-URL: https://github.com/common-workflow-language/cwltool

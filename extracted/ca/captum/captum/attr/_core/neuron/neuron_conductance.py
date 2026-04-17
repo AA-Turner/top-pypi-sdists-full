@@ -2,7 +2,7 @@
 
 # pyre-strict
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, cast, Dict, List, Optional, Tuple, Union
 
 import torch
 from captum._utils.common import (
@@ -94,7 +94,7 @@ class NeuronConductance(NeuronAttribution, GradientAttribution):
         GradientAttribution.__init__(self, forward_func)
         self._multiply_by_inputs = multiply_by_inputs
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def attribute(
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
@@ -254,6 +254,9 @@ class NeuronConductance(NeuronAttribution, GradientAttribution):
                         attribute to the input or output, is a single tensor.
                         Support for multiple tensors will be added later.
                         Default: False
+            grad_kwargs (dict[str, Any], optional): Additional keyword
+                        arguments for torch.autograd.grad.
+                        Default: None
 
         Returns:
             *Tensor* or *tuple[Tensor, ...]* of **attributions**:
@@ -328,9 +331,9 @@ class NeuronConductance(NeuronAttribution, GradientAttribution):
                 attribute_to_neuron_input=attribute_to_neuron_input,
                 grad_kwargs=grad_kwargs,
             )
-        # pyre-fixme[7]: Expected `TensorOrTupleOfTensorsGeneric` but got
-        #  `Tuple[Tensor, ...]`.
-        return _format_output(is_inputs_tuple, attrs)
+        return cast(
+            TensorOrTupleOfTensorsGeneric, _format_output(is_inputs_tuple, attrs)
+        )
 
     def _attribute(
         self,

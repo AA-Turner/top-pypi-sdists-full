@@ -52,7 +52,7 @@ from dstack._internal.server.routers import (
     volumes,
 )
 from dstack._internal.server.services.config import ServerConfigManager
-from dstack._internal.server.services.gateways import gateway_connections_pool, init_gateways
+from dstack._internal.server.services.gateways import gateway_connections_pool
 from dstack._internal.server.services.locking import advisory_lock_ctx
 from dstack._internal.server.services.projects import get_or_create_default_project
 from dstack._internal.server.services.proxy.deps import ServerProxyDependencyInjector
@@ -157,7 +157,7 @@ async def lifespan(app: FastAPI):
                         {"show_path": False},
                     )
                     await server_config_manager.apply_config(session=session, owner=admin)
-            await init_gateways(session=session)
+
     update_default_project(
         project_name=DEFAULT_PROJECT_NAME,
         url=SERVER_URL,
@@ -171,9 +171,8 @@ async def lifespan(app: FastAPI):
     pipeline_manager = None
     if settings.SERVER_BACKGROUND_PROCESSING_ENABLED:
         scheduler = start_scheduled_tasks()
-        if core_settings.FeatureFlags.PIPELINE_PROCESSING_ENABLED:
-            pipeline_manager = start_pipeline_tasks()
-            app.state.pipeline_manager = pipeline_manager
+        pipeline_manager = start_pipeline_tasks()
+        app.state.pipeline_manager = pipeline_manager
     else:
         logger.info("Background processing is disabled")
     PROBES_SCHEDULER.start()

@@ -24,7 +24,6 @@ def _get_kwargs(
     modified_atgte: Union[Unset, str] = UNSET,
     filename_includes: Union[Unset, str] = UNSET,
     connection_ids: Union[Unset, List[str]] = UNSET,
-    connection_schema_ids: Union[Unset, List[str]] = UNSET,
     data_type: Union[Unset, ListConnectFilesDataType] = UNSET,
 ) -> Dict[str, Any]:
     url = "{}/benchling-connect/connection-files".format(client.base_url)
@@ -38,10 +37,6 @@ def _get_kwargs(
     json_connection_ids: Union[Unset, List[Any]] = UNSET
     if not isinstance(connection_ids, Unset):
         json_connection_ids = connection_ids
-
-    json_connection_schema_ids: Union[Unset, List[Any]] = UNSET
-    if not isinstance(connection_schema_ids, Unset):
-        json_connection_schema_ids = connection_schema_ids
 
     json_data_type: Union[Unset, int] = UNSET
     if not isinstance(data_type, Unset):
@@ -72,8 +67,6 @@ def _get_kwargs(
         params["filenameIncludes"] = filename_includes
     if not isinstance(json_connection_ids, Unset) and json_connection_ids is not None:
         params["connectionIds"] = json_connection_ids
-    if not isinstance(json_connection_schema_ids, Unset) and json_connection_schema_ids is not None:
-        params["connectionSchemaIds"] = json_connection_schema_ids
     if not isinstance(json_data_type, Unset) and json_data_type is not None:
         params["dataType"] = json_data_type
 
@@ -126,7 +119,6 @@ def sync_detailed(
     modified_atgte: Union[Unset, str] = UNSET,
     filename_includes: Union[Unset, str] = UNSET,
     connection_ids: Union[Unset, List[str]] = UNSET,
-    connection_schema_ids: Union[Unset, List[str]] = UNSET,
     data_type: Union[Unset, ListConnectFilesDataType] = UNSET,
 ) -> Response[Union[ConnectionFilesPaginatedList, BadRequestError]]:
     kwargs = _get_kwargs(
@@ -143,7 +135,6 @@ def sync_detailed(
         modified_atgte=modified_atgte,
         filename_includes=filename_includes,
         connection_ids=connection_ids,
-        connection_schema_ids=connection_schema_ids,
         data_type=data_type,
     )
 
@@ -169,7 +160,6 @@ def sync(
     modified_atgte: Union[Unset, str] = UNSET,
     filename_includes: Union[Unset, str] = UNSET,
     connection_ids: Union[Unset, List[str]] = UNSET,
-    connection_schema_ids: Union[Unset, List[str]] = UNSET,
     data_type: Union[Unset, ListConnectFilesDataType] = UNSET,
 ) -> Optional[Union[ConnectionFilesPaginatedList, BadRequestError]]:
     """ List Benchling Connect files """
@@ -188,7 +178,6 @@ def sync(
         modified_atgte=modified_atgte,
         filename_includes=filename_includes,
         connection_ids=connection_ids,
-        connection_schema_ids=connection_schema_ids,
         data_type=data_type,
     ).parsed
 
@@ -208,7 +197,6 @@ async def asyncio_detailed(
     modified_atgte: Union[Unset, str] = UNSET,
     filename_includes: Union[Unset, str] = UNSET,
     connection_ids: Union[Unset, List[str]] = UNSET,
-    connection_schema_ids: Union[Unset, List[str]] = UNSET,
     data_type: Union[Unset, ListConnectFilesDataType] = UNSET,
 ) -> Response[Union[ConnectionFilesPaginatedList, BadRequestError]]:
     kwargs = _get_kwargs(
@@ -225,7 +213,6 @@ async def asyncio_detailed(
         modified_atgte=modified_atgte,
         filename_includes=filename_includes,
         connection_ids=connection_ids,
-        connection_schema_ids=connection_schema_ids,
         data_type=data_type,
     )
 
@@ -250,7 +237,6 @@ async def asyncio(
     modified_atgte: Union[Unset, str] = UNSET,
     filename_includes: Union[Unset, str] = UNSET,
     connection_ids: Union[Unset, List[str]] = UNSET,
-    connection_schema_ids: Union[Unset, List[str]] = UNSET,
     data_type: Union[Unset, ListConnectFilesDataType] = UNSET,
 ) -> Optional[Union[ConnectionFilesPaginatedList, BadRequestError]]:
     """ List Benchling Connect files """
@@ -270,7 +256,6 @@ async def asyncio(
             modified_atgte=modified_atgte,
             filename_includes=filename_includes,
             connection_ids=connection_ids,
-            connection_schema_ids=connection_schema_ids,
             data_type=data_type,
         )
     ).parsed

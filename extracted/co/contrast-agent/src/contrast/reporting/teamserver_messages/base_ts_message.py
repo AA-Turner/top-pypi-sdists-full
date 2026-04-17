@@ -3,13 +3,12 @@
 import base64
 from datetime import timedelta
 
-import requests.models
-
 from contrast.agent.disable_reaction import DisableReaction
 from contrast.agent.settings import Settings
 from contrast.utils.decorators import fail_loudly
 from contrast.utils.object_utils import NOTIMPLEMENTED_MSG
 from contrast.utils.timer import now_ms, sleep
+from contrast_vendor import requests
 from contrast_vendor import structlog as logging
 
 logger = logging.getLogger("contrast")
@@ -90,13 +89,11 @@ class BaseTsMessage:
         self._sent_count += 1
 
     @fail_loudly("Failed to process TS response")
-    def process_response(
-        self, response: requests.models.Response, reporting_client
-    ) -> None:
+    def process_response(self, response: requests.Response, reporting_client) -> None:
         del response, reporting_client
         raise NotImplementedError(NOTIMPLEMENTED_MSG)
 
-    def should_shutdown(self, response: requests.models.Response) -> bool:
+    def should_shutdown(self, response: requests.Response) -> bool:
         """
         Validate 404 NotFoundApplication or NotFoundServer response
 
@@ -121,7 +118,7 @@ class BaseTsMessage:
         """
         Return True if response code is expected response code
         """
-        if not isinstance(response, requests.models.Response):
+        if not isinstance(response, requests.Response):
             return False
 
         logger.debug(

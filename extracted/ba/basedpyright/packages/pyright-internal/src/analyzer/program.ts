@@ -8,7 +8,7 @@
  * and all of their recursive imports.
  */
 
-import { CancellationToken } from 'vscode-languageserver';
+import { CancellationToken, LSPErrorCodes } from 'vscode-languageserver';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -55,6 +55,12 @@ import { Type } from './types';
 import { BaselineHandler, BaselineMode } from '../baseline';
 
 const _maxImportDepth = 256;
+
+// Helper function to check if a diagnostic should be filtered due to disableTaggedHints.
+// Tagged hints include unreachable code, unused code, and deprecated symbols.
+function isTaggedHintDiagnostic(diag: Diagnostic): boolean {
+    return diag.category === DiagnosticCategory.Hint;
+}
 
 export interface MaxAnalysisTime {
     // Maximum number of ms to analyze when there are open files
@@ -201,8 +207,13 @@ export class Program {
     get isDisposed() {
         return this._disposed;
     }
+    get lookUpImport() {
+        return this._lookUpImport;
+    }
 
     dispose() {
+        this.disposeInternal(this._disposed);
+
         this._cacheManager.unregisterCacheOwner(this);
         this._disposed = true;
     }
@@ -346,6 +357,23 @@ export class Program {
             this.console.error(e instanceof Error ? e.message : String(e));
             return;
         }
+
+        // Detect py.typed status if not explicitly provided. This ensures that
+        // files from py.typed packages are correctly marked even when added
+        // directly to check paths (e.g., via command line).
+        let effectiveIsInPyTypedPackage = isInPyTypedPackage;
+        if (!isInPyTypedPackage) {
+            const moduleImportInfo = this._getModuleImportInfoForFile(fileUri);
+            effectiveIsInPyTypedPackage = moduleImportInfo.isThirdPartyPyTypedPresent;
+        }
+
+        // Set the initial diagnostic rule set from the execution environment
+        // so the file has config-level overrides (e.g. reportPrivateImportUsage:
+        // false) from the start. Without this, files added via positional args
+        // (which override configOptions.include) would use the basic defaults
+        // until parse() runs.
+        const execEnv = this._configOptions.findExecEnvironment(fileUri);
+
         const sourceFileInfos: SourceFileInfo[] = [];
         if (cells) {
             cells.forEach((_, index) => {
@@ -353,12 +381,13 @@ export class Program {
                 if (!this._checkAddNewSourceFile(cellUri)) {
                     return; // continue
                 }
+
                 const sourceFile = this._sourceFileFactory.createSourceFile(
                     this.serviceProvider,
                     cellUri,
                     (uri) => this._getModuleName(uri),
                     isThirdPartyImport,
-                    isInPyTypedPackage,
+                    effectiveIsInPyTypedPackage,
                     this._editModeTracker,
                     this._baselineHandler,
                     () => sourceFileInfo.cellIndex(),
@@ -366,11 +395,12 @@ export class Program {
                     this._logTracker,
                     IPythonMode.CellDocs
                 );
+                sourceFile.setInitialDiagnosticRuleSet(execEnv.diagnosticRuleSet);
                 const sourceFileInfo = new SourceFileInfo(
                     sourceFile,
                     isTypeshedFile ?? this._isNonUserTypeshedFile(sourceFile),
                     isThirdPartyImport,
-                    isInPyTypedPackage,
+                    effectiveIsInPyTypedPackage,
                     this._editModeTracker,
                     {
                         isTracked: true,
@@ -388,19 +418,20 @@ export class Program {
                 fileUri,
                 (uri) => this._getModuleName(uri),
                 isThirdPartyImport,
-                isInPyTypedPackage,
+                effectiveIsInPyTypedPackage,
                 this._editModeTracker,
                 this._baselineHandler,
                 () => undefined,
                 this._console,
                 this._logTracker
             );
+            sourceFile.setInitialDiagnosticRuleSet(execEnv.diagnosticRuleSet);
             sourceFileInfos.push(
                 new SourceFileInfo(
                     sourceFile,
                     isTypeshedFile ?? this._isNonUserTypeshedFile(sourceFile),
                     isThirdPartyImport,
-                    isInPyTypedPackage,
+                    effectiveIsInPyTypedPackage,
                     this._editModeTracker,
                     {
                         isTracked: true,
@@ -771,7 +802,12 @@ export class Program {
 
     // This will allow the callback to execute a type evaluator with an associated
     // cancellation token and provide a mutable program. Should already be in edit mode when called.
-    runEditMode(callback: (v: EditableProgram) => void, token: CancellationToken): void {
+    runEditMode(callback: (v: EditableProgram) => void, token: CancellationToken): void;
+    runEditMode(callback: (v: EditableProgram) => Promise<void>, token: CancellationToken): Promise<void>;
+    runEditMode(
+        callback: (v: EditableProgram) => void | Promise<void>,
+        token: CancellationToken
+    ): void | Promise<void> {
         if (this._editModeTracker.isEditMode) {
             return this._runEvaluatorWithCancellationToken(token, () => callback(this));
         }
@@ -988,7 +1024,7 @@ export class Program {
                 if (diagnostics !== undefined) {
                     // Filter out all categories that are translated to tagged hints?
                     if (options.disableTaggedHints) {
-                        diagnostics = diagnostics.filter((diag) => diag.category !== DiagnosticCategory.Hint);
+                        diagnostics = diagnostics.filter((diag) => !isTaggedHintDiagnostic(diag));
                     }
 
                     fileDiagnostics.push({
@@ -1036,7 +1072,16 @@ export class Program {
         }
 
         return unfilteredDiagnostics.filter((diag) => {
-            return doRangesIntersect(diag.range, range);
+            if (!doRangesIntersect(diag.range, range)) {
+                return false;
+            }
+
+            // Filter out all categories that are translated to tagged hints?
+            if (this._configOptions.disableTaggedHints && isTaggedHintDiagnostic(diag)) {
+                return false;
+            }
+
+            return true;
         });
     }
 
@@ -1122,6 +1167,14 @@ export class Program {
         return this.getBoundSourceFile(shadowFile);
     }
 
+    protected disposeInternal(disposed: boolean) {
+        // Empty
+    }
+
+    protected createNewEvaluatorInternal() {
+        // Empty
+    }
+
     private _isNonUserTypeshedFile = (sourceFile: SourceFile) =>
         sourceFile.isTypingStubFile() || sourceFile.isTypeshedStubFile() || sourceFile.isBuiltInStubFile();
 
@@ -1190,16 +1243,21 @@ export class Program {
             }
 
             return result.catch((e) => {
-                if (!OperationCanceledException.is(e) || e.isTypeCacheInvalid) {
+                if (
+                    !OperationCanceledException.is(e) ||
+                    e.isTypeCacheInvalid ||
+                    e.code === LSPErrorCodes.ServerCancelled
+                ) {
                     this._createNewEvaluator();
                 }
+
                 throw e;
             });
         } catch (e: any) {
             // An unexpected exception occurred, potentially leaving the current evaluator
             // in an inconsistent state. Discard it and replace it with a fresh one. It is
             // Cancellation exceptions are known to handle this correctly.
-            if (!OperationCanceledException.is(e) || e.isTypeCacheInvalid) {
+            if (!OperationCanceledException.is(e) || e.isTypeCacheInvalid || e.code === LSPErrorCodes.ServerCancelled) {
                 this._createNewEvaluator();
             }
             throw e;
@@ -1713,12 +1771,13 @@ export class Program {
     }
 
     private _createInterimFileInfo(fileUri: Uri) {
+        const moduleImportInfo = this._getModuleImportInfoForFile(fileUri);
         const sourceFile = this._sourceFileFactory.createSourceFile(
             this.serviceProvider,
             fileUri,
             (uri) => this._getModuleName(uri),
             /* isThirdPartyImport */ false,
-            /* isInPyTypedPackage */ false,
+            moduleImportInfo.isThirdPartyPyTypedPresent,
             this._editModeTracker,
             this._baselineHandler,
             () => sourceFileInfo.cellIndex(),
@@ -1727,9 +1786,9 @@ export class Program {
         );
         const sourceFileInfo = new SourceFileInfo(
             sourceFile,
-            /* isTypeshedFile */ false,
+            moduleImportInfo.isTypeshedFile,
             /* isThirdPartyImport */ false,
-            /* isThirdPartyPyTypedPresent */ false,
+            moduleImportInfo.isThirdPartyPyTypedPresent,
             this._editModeTracker
         );
 
@@ -1737,6 +1796,8 @@ export class Program {
     }
 
     private _createNewEvaluator() {
+        this.createNewEvaluatorInternal();
+
         if (this._evaluator) {
             // We shouldn't need to call this, but there appears to be a bug
             // in the v8 garbage collector where it's unable to resolve orphaned
@@ -1896,6 +1957,11 @@ export class Program {
             // the builtin module.
             builtinsScope =
                 getScopeIfAvailable(fileToBind.chainedSourceFile) ?? getScopeIfAvailable(fileToBind.builtinsImport);
+        }
+
+        if (fileToBind.sourceFile.isParseRequired()) {
+            // Ensure the file is parsed before binding.
+            this._parseFile(fileToBind, content, skipFileNeededCheck);
         }
 
         let futureImports = fileToBind.sourceFile.getParserOutput()!.futureImports;

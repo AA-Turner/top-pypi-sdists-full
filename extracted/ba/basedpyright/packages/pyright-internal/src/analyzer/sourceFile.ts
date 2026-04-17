@@ -13,6 +13,7 @@ import { OperationCanceledException } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import {
     ConfigOptions,
+    DiagnosticRuleSet,
     ExecutionEnvironment,
     getBasicDiagnosticRuleSet,
     unreachableDiagnosticRules,
@@ -376,6 +377,13 @@ export class SourceFile {
         // 'FG' or 'BG' based on current thread.
         this._logTracker = logTracker ?? new LogTracker(console, isMainThread() ? 'FG' : 'BG');
         this._ipythonMode = ipythonMode ?? IPythonMode.None;
+    }
+
+    // Sets the initial diagnostic rule set from the execution environment's
+    // config-level overrides. This should be called immediately after
+    // construction so the file has the correct rules before parse/bind.
+    setInitialDiagnosticRuleSet(ruleSet: DiagnosticRuleSet) {
+        this._diagnosticRuleSet = { ...ruleSet };
     }
 
     getIPythonMode(): IPythonMode {

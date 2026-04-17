@@ -37,7 +37,7 @@ from ._victron_enums import (
     TemperatureType,
 )
 from .constants import MetricKind, MetricNature, MetricType, RangeType, ValueType
-from .data_classes import TopicDescriptor
+from .data_classes import TopicDependency, TopicDescriptor
 
 # Good sources for topics is:
 # https://github.com/victronenergy/venus/wiki/dbus
@@ -863,6 +863,14 @@ topics: list[TopicDescriptor] = [
         metric_type=MetricType.POWER,
     ),
     TopicDescriptor(
+        topic="N/{installation_id}/evcharger/{device_id}/AutoStart",
+        message_type=MetricKind.SWITCH,
+        short_id="evcharger_auto_start",
+        name="Auto start",
+        value_type=ValueType.ENUM,
+        enum=GenericOnOff,
+    ),
+    TopicDescriptor(
         topic="N/{installation_id}/evcharger/{device_id}/Connected",
         message_type=MetricKind.BINARY_SENSOR,
         short_id="evcharger_connected",
@@ -1102,7 +1110,14 @@ topics: list[TopicDescriptor] = [
     ),
     TopicDescriptor(
         topic="$$func/gps/gps_location",
-        depends_on=["gps_latitude", "gps_longitude", "gps_fix", "gps_altitude", "gps_course", "gps_speed"],
+        depends_on=[
+            "gps_latitude",
+            "gps_longitude",
+            "gps_fix",
+            TopicDependency("gps_altitude", required=False),
+            TopicDependency("gps_course", required=False),
+            TopicDependency("gps_speed", required=False),
+        ],
         message_type=MetricKind.DEVICE_TRACKER,
         short_id="gps_location",
         name="Location",

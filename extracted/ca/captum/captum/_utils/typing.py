@@ -3,17 +3,7 @@
 # pyre-strict
 
 from collections import UserDict
-from typing import (
-    List,
-    Literal,
-    Optional,
-    overload,
-    Protocol,
-    Tuple,
-    TYPE_CHECKING,
-    TypeVar,
-    Union,
-)
+from typing import List, Literal, Optional, overload, Protocol, Tuple, TypeVar, Union
 
 from torch import Tensor
 from torch.nn import Module
@@ -24,6 +14,7 @@ TensorOrTupleOfTensorsGeneric = TypeVar(
 TupleOrTensorOrBoolGeneric = TypeVar(
     "TupleOrTensorOrBoolGeneric", Tuple[Tensor, ...], Tensor, bool
 )
+PassThroughOutputType = TypeVar("PassThroughOutputType")
 ModuleOrModuleList = TypeVar("ModuleOrModuleList", Module, List[Module])
 TargetType = Union[None, int, Tuple[int, ...], Tensor, List[Tuple[int, ...]], List[int]]
 BaselineTupleType = Union[None, Tuple[Union[Tensor, int, float], ...]]
@@ -50,11 +41,7 @@ except TypeError:
     # pyre-ignore[24]: Generic type `slice` expects 3 type parameters.
     SliceIntType = slice  # type: ignore
 
-# Necessary for Python >=3.7 and <3.9!
-if TYPE_CHECKING:
-    BatchEncodingType = UserDict[Union[int, str], object]
-else:
-    BatchEncodingType = UserDict
+BatchEncodingType = UserDict[Union[int, str], object]
 
 
 class TokenizerLike(Protocol):

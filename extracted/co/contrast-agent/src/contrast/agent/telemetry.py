@@ -20,7 +20,7 @@ from contrast.agent import scope
 from contrast import AGENT_CURR_WORKING_DIR
 from contrast.agent.settings import Settings
 from contrast_vendor import structlog as logging
-from requests import post as post_request, get as get_request
+from contrast_vendor.requests import post as post_request, get as get_request
 from contrast.agent.events import StartupMetricsTelemetryEvent, ErrorTelemetryEvent
 
 logger = logging.getLogger("contrast")

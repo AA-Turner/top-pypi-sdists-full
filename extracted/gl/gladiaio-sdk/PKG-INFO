@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gladiaio-sdk
-Version: 1.0.1
+Version: 1.0.2
 Summary: Gladia SDK for Python
 Requires-Python: <4,>=3.10
 Requires-Dist: anyio==4.11.0

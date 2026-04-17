@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arcade-tdk
-Version: 3.6.1
+Version: 3.7.0
 Summary: Arcade TDK - Toolkit Development Kit for building Arcade tools
 Author-email: Arcade <dev@arcade.dev>
 License: MIT
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
-Requires-Dist: arcade-core<5.0.0,>=4.4.0
+Requires-Dist: arcade-core<5.0.0,>=4.7.0
 Requires-Dist: pydantic>=2.7.0
 Provides-Extra: dev
 Requires-Dist: mypy>=1.5.1; extra == 'dev'

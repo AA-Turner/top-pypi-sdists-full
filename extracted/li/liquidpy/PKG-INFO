@@ -1,34 +1,21 @@
 Metadata-Version: 2.4
 Name: liquidpy
-Version: 0.8.6
+Version: 0.9.0
 Summary: A port of liquid template engine for python
-License: MIT
-License-File: LICENSE
-Author: pwwang
-Author-email: pwwang@pwwang.com
-Requires-Python: >=3.7,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Provides-Extra: extra
-Requires-Dist: jinja2 (>=3,<4)
-Requires-Dist: markdown (>=3.4,<4.0) ; (python_version < "3.8") and (extra == "extra")
-Requires-Dist: markdown (>=3.5,<4.0) ; (python_version >= "3.8") and (extra == "extra")
-Requires-Dist: python-dateutil (>=2.8,<3.0) ; extra == "extra"
-Requires-Dist: python-frontmatter (>=1.0,<2.0) ; extra == "extra"
-Requires-Dist: python-slugify (>=8,<9) ; extra == "extra"
-Requires-Dist: regex (>=2023.12,<2024.0) ; (python_version < "3.8") and (extra == "extra")
-Requires-Dist: regex (>=2024.11,<2025.0) ; (python_version >= "3.8") and (extra == "extra")
-Requires-Dist: toml (>=0.10,<0.11) ; extra == "extra"
 Project-URL: Homepage, https://github.com/pwwang/liquidpy
 Project-URL: Repository, https://github.com/pwwang/liquidpy
+Author-email: pwwang <pwwang@pwwang.com>
+License: MIT
+License-File: LICENSE
+Requires-Python: >=3.9
+Requires-Dist: jinja2<4,>=3
+Provides-Extra: extra
+Requires-Dist: markdown>=3.5; extra == 'extra'
+Requires-Dist: python-dateutil>=2.8; extra == 'extra'
+Requires-Dist: python-frontmatter>=1.0; extra == 'extra'
+Requires-Dist: python-slugify>=8; extra == 'extra'
+Requires-Dist: regex>=2024.11; extra == 'extra'
+Requires-Dist: toml>=0.10; extra == 'extra'
 Description-Content-Type: text/markdown
 
 # liquidpy
@@ -130,4 +117,3 @@ liq.render()
 [20]: https://jinja.palletsprojects.com/
 [21]: https://pyscript.net/
 [22]: https://pwwang.github.io/liquidpy/playground
-

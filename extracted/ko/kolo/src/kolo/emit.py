@@ -7,10 +7,14 @@ making it easy to browse and search trace data.
 
 from __future__ import annotations
 
+import logging
 import re
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+
+logger = logging.getLogger(__name__)
 
 # Header for emitted .py files - tells tools to ignore these auto-generated files
 PY_FILE_HEADER = """\
@@ -304,6 +308,11 @@ def get_node_name_for_path(node: ProcessedNode, max_name_length: int = 80) -> st
         else:
             name = test_name
         return f"{idx}_test_{sanitize_filename(name, max_length=name_budget - 10)}"
+
+    elif node.type == "subtree_flushed":
+        co_name = str(node.data.get("co_name") or "<unknown>")
+        name = sanitize_filename(co_name, max_length=name_budget - 15)
+        return f"{idx}_flushed_{name}"
 
     else:
         # Unknown type - use what we have
@@ -1222,6 +1231,72 @@ def generate_overview(trace: Trace, root_nodes: List[ProcessedNode]) -> str:
 
     add_tree_lines(root_nodes)
 
+    # Collect flushed-subtree placeholders so the user knows where chunks of
+    # the live trace were offloaded to separate child traces. Even when emit
+    # inlines them on disk, surfacing a summary here makes byte / segment
+    # counts greppable in the overview file.
+    flushed_entries: List[tuple[ProcessedNode, int]] = []
+
+    def collect_flushed(nodes: List[ProcessedNode]) -> None:
+        for node in nodes:
+            if node.type == "subtree_flushed":
+                flushed_entries.append((node, node.index))
+            collect_flushed(node.children)
+
+    collect_flushed(root_nodes)
+
+    if flushed_entries:
+        lines.append("")
+        lines.append("--- Flushed Subtrees ---")
+        total_bytes = 0
+        total_segments = 0
+        for node, idx in flushed_entries:
+            co_name = node.data.get("co_name", "<unknown>")
+            flushed_trace_id = node.data.get("flushed_trace_id", "<unknown>")
+            flushed_bytes = node.data.get("flushed_bytes", 0) or 0
+            segment_count = node.data.get("flushed_segment_count")
+            try:
+                total_bytes += int(flushed_bytes)
+            except (TypeError, ValueError):
+                # Malformed trace data — skip this entry's bytes from the
+                # rolled-up total but still emit the per-entry line below.
+                logger.debug(
+                    "non-numeric flushed_bytes %r on entry %s; skipping in total",
+                    flushed_bytes,
+                    flushed_trace_id,
+                )
+            # A single placeholder can stand in for multiple flushed segments,
+            # so the rolled-up "total segments" line must sum the per-entry
+            # `flushed_segment_count`, not just count placeholders. Use an
+            # explicit `is None` check (not truthiness) so a real
+            # ``flushed_segment_count == 0`` doesn't get silently rounded up
+            # to 1, masking malformed trace data.
+            if segment_count is None:
+                total_segments += 1
+            else:
+                try:
+                    total_segments += int(segment_count)
+                except (TypeError, ValueError):
+                    logger.debug(
+                        "non-numeric flushed_segment_count %r on entry %s;"
+                        " skipping in total",
+                        segment_count,
+                        flushed_trace_id,
+                    )
+            segment_str = (
+                f" segments={segment_count}" if segment_count is not None else ""
+            )
+            lines.append(
+                f"  {idx} {co_name} -> {flushed_trace_id}"
+                f" bytes={flushed_bytes} ({_pretty_byte_size(flushed_bytes)})"
+                f"{segment_str}"
+            )
+        lines.append(
+            f"  total: {total_segments} segment(s) across"
+            f" {len(flushed_entries)} placeholder(s),"
+            f" {total_bytes} bytes ({_pretty_byte_size(total_bytes)})"
+        )
+
     return "\n".join(lines)
 
 
@@ -1230,11 +1305,136 @@ def generate_overview(trace: Trace, root_nodes: List[ProcessedNode]) -> str:
 # =============================================================================
 
 
+def _load_flushed_subtree(flushed_trace_id: str) -> Optional[tuple[Any, Any]]:
+    """
+    Load a flushed subtree from the database and build its ProcessedTree.
+
+    Returns a (ProcessedTree, TraceNavigator) pair on success, or None if
+    the trace cannot be loaded for any reason (not found, decode failure,
+    unexpected shape). Failures are logged at debug level — callers should
+    fall back to rendering the placeholder metadata instead of raising.
+
+    The kolo db location is a process-wide singleton (``get_db_path()``
+    in ``kolo.db``), and trace msgpack bytes live on disk as
+    ``.kolo/.internal/raw/{trace_id}.msgpack`` — sqlite is just a
+    metadata index. ``load_trace_from_db`` checks the file first, so
+    a single global db path is all we need here.
+    """
+    from .db import TraceNotFoundError, get_db_path, load_trace_from_db
+    from .navigator import TraceNavigator
+    from .serialize import load_msgpack
+    from .trace import Trace
+
+    try:
+        msgpack_data, _ = load_trace_from_db(get_db_path(), flushed_trace_id)
+    except TraceNotFoundError:
+        logger.debug("Flushed subtree %s not found in db", flushed_trace_id)
+        return None
+    except Exception:  # pragma: no cover - defensive
+        logger.debug(
+            "Failed to load flushed subtree %s", flushed_trace_id, exc_info=True
+        )
+        return None
+
+    try:
+        data = load_msgpack(msgpack_data)
+        trace = Trace(unprocessed_data=data, size=len(msgpack_data))
+    except Exception:  # pragma: no cover - defensive
+        logger.debug(
+            "Failed to decode flushed subtree %s", flushed_trace_id, exc_info=True
+        )
+        return None
+
+    tree = trace.main_tree
+    navigator = TraceNavigator(tree)
+    return tree, navigator
+
+
+def _pretty_byte_size(num: int) -> str:
+    """Format a byte count as a short human-readable string."""
+    try:
+        n = float(num)
+    except (TypeError, ValueError):
+        return str(num)
+    for unit in ("B", "KB", "MB", "GB"):
+        if abs(n) < 1024.0:
+            if unit == "B":
+                return f"{int(n)} {unit}"
+            return f"{n:.1f} {unit}"
+        n /= 1024.0
+    return f"{n:.1f} TB"
+
+
+def _remove_legacy_flat_flushed_placeholder(parent_dir: Path, node_name: str) -> None:
+    """Drop a stale ``{node_name}.txt`` left by a pre-inlining emit.
+
+    Pre-inlining emits rendered flushed-subtree placeholders as a flat
+    ``.txt`` file. The inlining path now always writes a directory of
+    the same name. If a trace was rendered with the old code and then
+    re-emitted with the new code, both shapes would coexist on disk.
+    Wipe the legacy file so re-emit is idempotent.
+    """
+    legacy_file = parent_dir / f"{node_name}.txt"
+    try:
+        legacy_file.unlink()
+    except FileNotFoundError:
+        # The legacy flat placeholder is optional, so a missing file is fine.
+        pass
+    except OSError:
+        logger.debug(
+            "could not remove legacy flushed placeholder file %s",
+            legacy_file,
+            exc_info=True,
+        )
+
+
+def _write_flushed_segment_info(
+    node: ProcessedNode,
+    target_dir: Path,
+    *,
+    inlined: bool,
+    child_root_count: Optional[int] = None,
+    load_error: Optional[str] = None,
+) -> None:
+    """Write the metadata file describing an inlined flushed subtree."""
+    co_name = node.data.get("co_name", "<unknown>")
+    flushed_trace_id = node.data.get("flushed_trace_id", "<unknown>")
+    flushed_bytes = node.data.get("flushed_bytes", 0)
+    segment_count = node.data.get("flushed_segment_count")
+
+    lines = ["=== Flushed Segment ==="]
+    lines.append("")
+    lines.append(f"Function: {co_name}")
+    if segment_count is not None:
+        lines.append(f"Segments: {segment_count}")
+    lines.append(f"Flushed bytes: {flushed_bytes} ({_pretty_byte_size(flushed_bytes)})")
+    lines.append(f"Flushed trace ID: {flushed_trace_id}")
+    lines.append("")
+    if inlined:
+        lines.append(
+            "This subtree was flushed out of the live buffer during tracing to"
+        )
+        lines.append("free memory. The frames have been inlined below from the child")
+        lines.append("trace saved at the ID above.")
+        if child_root_count is not None:
+            lines.append("")
+            lines.append(f"Inlined root nodes: {child_root_count}")
+    else:
+        lines.append("This subtree was flushed out of the live buffer during tracing.")
+        if load_error:
+            lines.append("")
+            lines.append(f"Note: could not inline child trace ({load_error}).")
+
+    (target_dir / "_flushed_segment.txt").write_text("\n".join(lines) + "\n")
+
+
 def emit_node(
     node: ProcessedNode,
     parent_dir: Path,
     navigator: TraceNavigator,
     current_path_len: int = 0,
+    *,
+    visited_trace_ids: Optional[Set[str]] = None,
 ) -> None:
     """
     Recursively create directory/file structure for a node.
@@ -1246,28 +1446,79 @@ def emit_node(
         parent_dir: The parent directory to create this node in
         navigator: Navigation context for O(1) lookups
         current_path_len: Current accumulated path length (to avoid ENAMETOOLONG)
+        visited_trace_ids: Set of trace ids already inlined on the current
+            recursion path. Used to prevent infinite recursion when a flushed
+            subtree itself contains (cyclic) flushed references.
     """
-    # Calculate how much space we have for this node's name
-    # Leave room for potential children and file extensions
-    remaining_budget = (
-        MAX_PATH_LENGTH - current_path_len - 50
-    )  # 50 chars buffer for children
+    if visited_trace_ids is None:
+        visited_trace_ids = set()
 
-    # Determine max name length based on remaining budget
-    if remaining_budget > 80:
-        max_name_len = 80
-    elif remaining_budget > 40:
-        max_name_len = remaining_budget
-    else:
-        # Very constrained - use minimal names
-        max_name_len = 30
-
-    node_name = get_node_name_for_path(node, max_name_length=max_name_len)
+    node_name = _get_emit_node_name(node, current_path_len)
     new_path_len = current_path_len + len(node_name) + 1  # +1 for path separator
 
     def write_py(path: Path, content: str) -> None:
         """Write content as a .py file with header."""
         path.write_text(PY_FILE_HEADER + content)
+
+    # Special-case: inline flushed subtrees at emit time. This keeps the
+    # parent ProcessedTree untouched (so navigators / overview / path budgets
+    # see the original placeholder) but materializes the child frames under a
+    # directory so users can browse them as if they had never been flushed.
+    # ``_load_flushed_subtree`` resolves the single process-wide db path
+    # internally, so this branch doesn't need a db_path argument.
+    if node.type == "subtree_flushed" and not node.children:
+        flushed_trace_id = node.data.get("flushed_trace_id")
+        # Drop any legacy ``{node_name}.txt`` flat placeholder left by a
+        # pre-inlining emit, and reset the inline directory so stale child
+        # frames from a previous successful inline don't linger when this
+        # emission takes the load-failure or cycle path. One rule, no
+        # bidirectional stale-state reasoning needed.
+        _remove_legacy_flat_flushed_placeholder(parent_dir, node_name)
+        node_dir = parent_dir / node_name
+        if node_dir.exists():
+            try:
+                shutil.rmtree(node_dir)
+            except FileNotFoundError:
+                # Another process removed the stale dir after exists() passed.
+                pass
+            except OSError:
+                logger.warning(
+                    "could not remove stale flushed inline directory %s",
+                    node_dir,
+                )
+                raise
+        node_dir.mkdir(exist_ok=True)
+        if flushed_trace_id and flushed_trace_id in visited_trace_ids:
+            # Already inlined up-stack — just drop a summary to avoid recursion.
+            _write_flushed_segment_info(
+                node,
+                node_dir,
+                inlined=False,
+                load_error="already inlined in ancestor",
+            )
+            return
+        loaded = _load_flushed_subtree(flushed_trace_id) if flushed_trace_id else None
+        if loaded is None:
+            _write_flushed_segment_info(
+                node, node_dir, inlined=False, load_error="child trace unavailable"
+            )
+            return
+        child_tree, child_navigator = loaded
+        child_roots = list(child_tree.root_nodes)
+        _write_flushed_segment_info(
+            node, node_dir, inlined=True, child_root_count=len(child_roots)
+        )
+        assert isinstance(flushed_trace_id, str)
+        next_visited: set[str] = visited_trace_ids | {flushed_trace_id}
+        for child_root in child_roots:
+            emit_node(
+                child_root,
+                node_dir,
+                child_navigator,
+                new_path_len,
+                visited_trace_ids=next_visited,
+            )
+        return
 
     if node.children:
         # This node has children - create a directory
@@ -1307,7 +1558,13 @@ def emit_node(
 
         # Recursively process children
         for child in node.children:
-            emit_node(child, node_dir, navigator, new_path_len)
+            emit_node(
+                child,
+                node_dir,
+                navigator,
+                new_path_len,
+                visited_trace_ids=visited_trace_ids,
+            )
 
     else:
         # Leaf node - create a single file
@@ -1356,9 +1613,27 @@ def emit_node(
             )
 
 
+def _get_emit_node_name(node: ProcessedNode, current_path_len: int) -> str:
+    """Return the node basename using the same budget logic as emit_node."""
+    remaining_budget = MAX_PATH_LENGTH - current_path_len - 50
+    if remaining_budget > 80:
+        max_name_len = 80
+    elif remaining_budget > 40:
+        max_name_len = remaining_budget
+    else:
+        max_name_len = 30
+    return get_node_name_for_path(node, max_name_length=max_name_len)
+
+
 def emit_trace(trace: Trace, output_dir: Path) -> Path:
     """
     Emit a trace into a browsable directory structure.
+
+    ``subtree_flushed`` placeholder nodes are inlined by loading the
+    referenced child trace from the kolo db (a process-wide singleton)
+    and emitting its frames at the placeholder position. Inlining
+    recursion is cycle-guarded against re-entering the current trace
+    or any already-inlined ancestor.
 
     Args:
         trace: The Trace object to emit
@@ -1407,22 +1682,45 @@ def emit_trace(trace: Trace, output_dir: Path) -> Path:
             if node not in all_root_nodes:
                 all_root_nodes.append(node)
 
+    # Flatten trees_and_nodes into the de-duplicated set of nodes we
+    # will actually write to disk. ``all_root_nodes`` is kept for folder
+    # naming because it deliberately prioritizes ``trace.main_tree`` to
+    # ensure HTTP/test name detection picks the main thread first —
+    # ``emitted_root_nodes`` follows earliest-timestamp sort instead and
+    # is the list that matches the emitted directory shape.
+    emitted_root_nodes: List[ProcessedNode] = []
+    for _, nodes in trees_and_nodes:
+        emitted_root_nodes.extend(nodes)
+
     # Create the main trace directory with descriptive name
     folder_name = get_trace_folder_name(trace, all_root_nodes)
     trace_dir = output_dir / folder_name
     trace_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate root-level overview file
-    (trace_dir / f"{trace.id}.txt").write_text(generate_overview(trace, all_root_nodes))
+    # Generate root-level overview file. Use emitted_root_nodes so the
+    # overview agrees with the on-disk directory layout —
+    # all_root_nodes can double-count a single frame when trace.main_tree
+    # and the per-thread tree materialize separate ProcessedNode objects
+    # for it.
+    (trace_dir / f"{trace.id}.txt").write_text(
+        generate_overview(trace, emitted_root_nodes)
+    )
 
     # Calculate initial path length (trace_dir absolute path)
     initial_path_len = len(str(trace_dir))
 
     # Recursively create structure for each root node
     # Each tree gets its own navigator for O(1) frame lookups
+    visited_trace_ids: Set[str] = {trace.id}
     for tree, root_nodes in trees_and_nodes:
         navigator = TraceNavigator(tree)
         for root_node in root_nodes:
-            emit_node(root_node, trace_dir, navigator, initial_path_len)
+            emit_node(
+                root_node,
+                trace_dir,
+                navigator,
+                initial_path_len,
+                visited_trace_ids=visited_trace_ids,
+            )
 
     return trace_dir

@@ -244,6 +244,124 @@ def _extract_trial_mape(parser, experiment_name):
     return float(np.mean(ape_values)) if ape_values else float("inf")
 
 
+def _all_cid_types():
+    """Canonical list of CID category labels present in cid/definitions.py."""
+    from geocif.cid import definitions as di
+    types = set()
+    for d in (
+        di.dict_indices, di.dict_ndvi, di.dict_gcvi, di.dict_esi4wk,
+        di.dict_hindex, di.dict_aef, di.dict_fldas,
+    ):
+        for v in d.values():
+            types.add(v[0])
+    return sorted(types)
+
+
+def _all_cid_indices():
+    """Canonical list of individual CID index names from cid/definitions.py."""
+    from geocif.cid import definitions as di
+    keys = []
+    for d in (
+        di.dict_indices, di.dict_ndvi, di.dict_gcvi, di.dict_esi4wk,
+        di.dict_hindex, di.dict_aef, di.dict_fldas,
+    ):
+        keys.extend(d.keys())
+    return sorted(set(keys))
+
+
+def _optimize_cid_subset(mode, inputs, logger, parser, n_trials=30,
+                        min_size=1, max_size=None):
+    """Optuna TPE search over subsets of CID ``Type`` or ``Index`` values.
+
+    Each trial samples a binary inclusion flag per CID label.  The resulting
+    subset is written to ``ML.use_cids`` / ``ML.select_cid_by`` and the
+    pipeline runs once per trial; MAPE is extracted from the results DB via
+    ``_extract_trial_mape``.
+
+    Args:
+        mode: ``"Type"`` (category-level, ~12 flags) or ``"Index"``
+            (individual indices, ~100 flags).
+        min_size: trials with fewer than this many selected labels are
+            pruned (return inf) so Optuna learns to avoid empty subsets.
+        max_size: optional cap.  Leave None for ``Type`` (small space);
+            set e.g. 25 for ``Index`` to keep models trainable.
+    """
+    if mode not in ("Type", "Index"):
+        raise ValueError(f"mode must be 'Type' or 'Index', got {mode!r}")
+
+    labels = _all_cid_types() if mode == "Type" else _all_cid_indices()
+    logger.info(f"CID subset search ({mode}) over {len(labels)} labels, {n_trials} trials")
+
+    model_names = sorted(set(inp[4] for inp in inputs))
+    model_tag = "_".join(model_names)
+    tag = "cid_types" if mode == "Type" else "cid_indices"
+
+    # Snapshot original values so we can restore after the study.
+    originals = {
+        key: parser.get("ML", key)
+        for key in ("select_cid_by", "use_cids")
+        if parser.has_option("ML", key)
+    }
+    # select_cid_by / use_cids can also live on [DEFAULT]; snapshot those too.
+    default_originals = {
+        key: parser.get("DEFAULT", key)
+        for key in ("select_cid_by", "use_cids")
+        if parser.has_option("DEFAULT", key)
+    }
+
+    def objective(trial):
+        flags = [
+            trial.suggest_categorical(f"{tag}__{label}", [True, False])
+            for label in labels
+        ]
+        selected = [label for label, keep in zip(labels, flags) if keep]
+        n = len(selected)
+        if n < min_size or (max_size is not None and n > max_size):
+            # Invalid subset — tell Optuna this is a bad region.
+            return float("inf")
+
+        experiment_name = f"{tag}_{model_tag}_trial{trial.number + 1}"
+        parser.set("DEFAULT", "experiment_name", experiment_name)
+        # Write to DEFAULT so per-country sections inherit — mirrors how
+        # experiment_1_cid_ablation sets the subset.
+        parser.set("DEFAULT", "select_cid_by", mode)
+        parser.set("DEFAULT", "use_cids", str(selected))
+
+        try:
+            gc.execute_models(inputs, logger, parser)
+        except Exception as e:
+            logger.warning(f"Trial {trial.number} ({tag}, n={n}) failed: {e}")
+            return float("inf")
+
+        mape = _extract_trial_mape(parser, experiment_name)
+        logger.info(f"Trial {trial.number}: {tag} n={n} MAPE={mape:.2f}%")
+        return mape
+
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    study = optuna.create_study(
+        sampler=optuna.samplers.TPESampler(seed=42),
+        direction="minimize",
+        study_name=f"geocif_{tag}",
+    )
+    study.optimize(objective, n_trials=n_trials)
+
+    # Restore originals so subsequent stages see untouched config.
+    for key, value in originals.items():
+        parser.set("ML", key, value)
+    for key, value in default_originals.items():
+        parser.set("DEFAULT", key, value)
+
+    best = study.best_trial
+    logger.info(f"{tag} search complete — best trial {best.number}, MAPE {best.value:.2f}%")
+    best_selected = [
+        label for label in labels
+        if best.params.get(f"{tag}__{label}", False)
+    ]
+    logger.info(f"  Best {mode} subset ({len(best_selected)}): {best_selected}")
+
+    return study
+
+
 def optimize_hyperparameters(inputs, logger, parser, n_trials=30):
     """Use Optuna TPE to find the best ML hyperparameter combination."""
     # Build model tag from unique models in the inputs list
@@ -661,7 +779,10 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
     inputs = gc.gather_inputs(parser)
 
     # ----- Read [experiments] config with back-compat fallbacks -----
-    ALL_EXPS = ["model_comparison", "cid_ablation", "region_filter", "optuna"]
+    ALL_EXPS = [
+        "model_comparison", "cid_ablation", "region_filter",
+        "optuna", "optuna_cid_types", "optuna_cid_indices",
+    ]
 
     if parser.has_section("experiments") and parser.has_option("experiments", "run_experiments"):
         run_experiments = ast.literal_eval(parser.get("experiments", "run_experiments"))
@@ -675,6 +796,17 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
 
     if parser.has_section("experiments") and parser.has_option("experiments", "n_trials"):
         n_trials = parser.getint("experiments", "n_trials")
+
+    # CID-subset Optuna searches can run larger budgets — separate knobs.
+    n_trials_cid_types = parser.getint(
+        "experiments", "n_trials_cid_types", fallback=n_trials,
+    ) if parser.has_section("experiments") else n_trials
+    n_trials_cid_indices = parser.getint(
+        "experiments", "n_trials_cid_indices", fallback=n_trials,
+    ) if parser.has_section("experiments") else n_trials
+    max_cid_indices = parser.getint(
+        "experiments", "max_cid_indices", fallback=25,
+    ) if parser.has_section("experiments") else 25
 
     # Auto-promote model_comparison if any dependent stage is requested.
     if ("cid_ablation" in run_experiments or "region_filter" in run_experiments) \
@@ -722,6 +854,16 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
         for name, values in hp_space:
             params.append((f"  {name}", ", ".join(str(v) for v in values)))
         params.append(("Search space", f"{total_combos} combinations"))
+    if "optuna_cid_types" in run_experiments:
+        params.append(
+            ("Optuna CID Types", f"{len(_all_cid_types())} labels, {n_trials_cid_types} trials")
+        )
+    if "optuna_cid_indices" in run_experiments:
+        params.append((
+            "Optuna CID Indices",
+            f"{len(_all_cid_indices())} labels, {n_trials_cid_indices} trials, "
+            f"max {max_cid_indices} per subset",
+        ))
     ut.display_run_summary("GeoCIF Experiments Runner", params, wait=20)
 
     best_models = None  # set by model_comparison; reused by cid_ablation/region_filter
@@ -765,6 +907,27 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
 
         # Analyze optimization results
         analyze_optimization(parser, study, logger)
+
+    # Optuna: best subset of CID Types
+    if "optuna_cid_types" in run_experiments:
+        logger.info(f"Optuna CID Types search ({n_trials_cid_types} trials)...")
+        study_types = _optimize_cid_subset(
+            "Type", inputs, logger, parser,
+            n_trials=n_trials_cid_types,
+            min_size=1,
+        )
+        analyze_optimization(parser, study_types, logger)
+
+    # Optuna: best subset of CID Indices (individual indicators)
+    if "optuna_cid_indices" in run_experiments:
+        logger.info(f"Optuna CID Indices search ({n_trials_cid_indices} trials)...")
+        study_idx = _optimize_cid_subset(
+            "Index", inputs, logger, parser,
+            n_trials=n_trials_cid_indices,
+            min_size=3,
+            max_size=max_cid_indices,
+        )
+        analyze_optimization(parser, study_idx, logger)
 
 
 # ---------------------------------------------------------------------------

@@ -12,7 +12,7 @@ dependencies = [
     "rich>=13.7",
     "markdown>=3.5",
     "pyparsing>=3.0.0",
-    "praisonaiagents>=1.5.145",
+    "praisonaiagents>=1.6.9",
     "python-dotenv>=0.19.0",
     "litellm>=1.81.0,<=1.82.6",
     "PyYAML>=6.0",
@@ -45,6 +45,7 @@ os = [
 ]
 agentops = ["agentops>=0.3.12"]
 langfuse = ["langfuse>=3.0.0"]
+langextract = ["langextract>=1.0.0"]
 chat = [
     "chainlit>=2.8.5,<=2.9.4",
     "aiosqlite>=0.20.0",
@@ -66,6 +67,16 @@ code = [
 ]
 sandbox = [
     "sandlock>=0.1.0",
+]
+ssh = [
+    "asyncssh>=2.14.0",
+]
+modal = [
+    "modal>=0.64.0",
+]
+daytona = [
+    # Note: daytona package not yet available on PyPI
+    # Install via: pip install git+https://github.com/daytonaio/daytona-python
 ]
 realtime = [
     "chainlit>=2.8.5,<=2.9.4",
@@ -133,6 +144,8 @@ all = [
     "pymongo>=4.6.0", 
     "psycopg2-binary>=2.9.0",
     "boto3>=1.35.0",
+    # n8n integration
+    "httpx>=0.27.0",
 ]
 bot = [
     # Dependencies for Telegram, Discord, Slack, and WhatsApp bots
@@ -162,6 +175,19 @@ postgresql = [
 ]
 dynamodb = [
     "boto3>=1.35.0",
+]
+# Cloud-native serverless databases
+neon = [
+    "psycopg2-binary>=2.9.0",
+]
+turso = [
+    "libsql-experimental>=0.0.50",
+]
+cockroachdb = [
+    "psycopg2-binary>=2.9.0",
+]
+xata = [
+    "psycopg2-binary>=2.9.0",
 ]
 claw = [
     # PraisonAI 🦞 — Full dashboard + bots + memory + knowledge + gateway
@@ -200,6 +226,11 @@ claw = [
     "pymongo>=4.6.0", 
     "psycopg2-binary>=2.9.0",
     "boto3>=1.35.0",
+    # n8n integration
+    "httpx>=0.27.0",
+]
+n8n = [
+    "httpx>=0.27.0",
 ]
 dev = [
     "textual-dev>=1.0.0",

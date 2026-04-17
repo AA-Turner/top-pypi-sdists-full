@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-customer-profiles
-Version: 1.42.89
-Summary: Type annotations for boto3 CustomerProfiles 1.42.89 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.90
+Summary: Type annotations for boto3 CustomerProfiles 1.42.90 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 CustomerProfiles 1.42.89](https://pypi.org/project/boto3/) compatible
+[boto3 CustomerProfiles 1.42.90](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.89' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.90' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `CustomerProfiles` service.
 4. Use provided commands to install generated packages.
@@ -349,6 +349,7 @@ from mypy_boto3_customer_profiles.paginator import (
     ListObjectTypeAttributesPaginator,
     ListRecommenderFiltersPaginator,
     ListRecommenderRecipesPaginator,
+    ListRecommenderSchemasPaginator,
     ListRecommendersPaginator,
     ListRuleBasedMatchesPaginator,
     ListSegmentDefinitionsPaginator,
@@ -380,6 +381,9 @@ list_recommender_filters_paginator: ListRecommenderFiltersPaginator = client.get
 )
 list_recommender_recipes_paginator: ListRecommenderRecipesPaginator = client.get_paginator(
     "list_recommender_recipes"
+)
+list_recommender_schemas_paginator: ListRecommenderSchemasPaginator = client.get_paginator(
+    "list_recommender_schemas"
 )
 list_recommenders_paginator: ListRecommendersPaginator = client.get_paginator("list_recommenders")
 list_rule_based_matches_paginator: ListRuleBasedMatchesPaginator = client.get_paginator(

@@ -5,7 +5,7 @@ import sky
 
 from trainy.config import load_config
 from trainy.logging import get_logger
-from trainy.policy._pod_spec import merge_pod_spec_sections
+from trainy.policy._pod_spec import apply_pod_override
 
 logger = get_logger(__file__)
 
@@ -70,10 +70,7 @@ def set_oci_config(user_request: sky.UserRequest) -> sky.MutatedUserRequest:
         for accelerator, count in resource.accelerators.items():
             if accelerator == "H100":
                 k8s_override_config = load_config("oci.yaml")
-                merged_override = merge_pod_spec_sections(config, k8s_override_config)
-                new_config = sky.skypilot_config._recursive_update(
-                    config, merged_override
-                )
+                new_config = apply_pod_override(config, k8s_override_config)
                 return sky.MutatedUserRequest(task=task, skypilot_config=new_config)
 
     return sky.MutatedUserRequest(task=task, skypilot_config=config)

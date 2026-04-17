@@ -9,7 +9,6 @@ from contrast_fireball import AssessEventType
 from contrast.agent.assess.assess_exceptions import ContrastAssessException
 from contrast.agent.assess.policy.trigger_actions import (
     fromstring_action,
-    openai_action,
     pymongo_action,
     redos_action,
     ssrf_action,
@@ -29,7 +28,6 @@ class TriggerNode(PolicyNode):
         constants.TRIGGER_ACTION_STARLETTE_REDIRECT: unvalidated_redirect_action.StarletteRedirectAction(),
         constants.TRIGGER_ACTION_FROMSTRING: fromstring_action.FromstringAction(),
         constants.TRIGGER_ACTION_SUBPROCESS: subprocess_action.SubprocessAction(),
-        constants.TRIGGER_ACTION_OPENAI: openai_action.OpenAIAction(),
         constants.TRIGGER_ACTION_PYMONGO: pymongo_action.PyMongoAction(),
     }
 

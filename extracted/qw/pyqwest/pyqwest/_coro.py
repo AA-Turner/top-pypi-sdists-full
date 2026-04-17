@@ -9,6 +9,8 @@ from ._pyqwest import FullResponse, Headers, Response, Transport
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterable, Mapping
 
+    from ._pyqwest import _QueryParams, _RequestContent
+
 # We expose plain-Python wrappers for the async methods as the easiest way
 # of making them coroutines rather than methods that return Futures,
 # which is more Pythonic.
@@ -40,12 +42,15 @@ class Client:
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a GET HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -53,20 +58,23 @@ class Client:
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
-        return await self._client.get(url, headers=headers)
+        return await self._client.get(url, headers=headers, params=params)
 
     async def post(
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | AsyncIterator[bytes] | None = None,
+        content: _RequestContent | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a POST HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -74,18 +82,23 @@ class Client:
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
-        return await self._client.post(url, headers=headers, content=content)
+        return await self._client.post(
+            url, headers=headers, content=content, params=params
+        )
 
     async def delete(
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a DELETE HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -93,18 +106,21 @@ class Client:
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
-        return await self._client.delete(url, headers=headers)
+        return await self._client.delete(url, headers=headers, params=params)
 
     async def head(
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a HEAD HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -112,18 +128,21 @@ class Client:
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
-        return await self._client.head(url, headers=headers)
+        return await self._client.head(url, headers=headers, params=params)
 
     async def options(
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a OPTIONS HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -131,20 +150,23 @@ class Client:
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
-        return await self._client.options(url, headers=headers)
+        return await self._client.options(url, headers=headers, params=params)
 
     async def patch(
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | AsyncIterator[bytes] | None = None,
+        content: _RequestContent | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a PATCH HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -152,20 +174,25 @@ class Client:
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
-        return await self._client.patch(url, headers=headers, content=content)
+        return await self._client.patch(
+            url, headers=headers, content=content, params=params
+        )
 
     async def put(
         self,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | AsyncIterator[bytes] | None = None,
+        content: _RequestContent | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes a PUT HTTP request.
 
         Args:
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -173,14 +200,18 @@ class Client:
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
-        return await self._client.put(url, headers=headers, content=content)
+        return await self._client.put(
+            url, headers=headers, content=content, params=params
+        )
 
     async def execute(
         self,
         method: str,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | AsyncIterator[bytes] | None = None,
+        content: _RequestContent | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> FullResponse:
         """Executes an HTTP request, returning the full buffered response.
 
@@ -188,7 +219,8 @@ class Client:
             method: The HTTP method.
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -196,7 +228,9 @@ class Client:
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
-        return await self._client.execute(method, url, headers=headers, content=content)
+        return await self._client.execute(
+            method, url, headers=headers, content=content, params=params
+        )
 
     @asynccontextmanager
     async def stream(
@@ -204,7 +238,9 @@ class Client:
         method: str,
         url: str,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        content: bytes | AsyncIterator[bytes] | None = None,
+        content: _RequestContent | None = None,
+        *,
+        params: _QueryParams | None = None,
     ) -> AsyncIterator[Response]:
         """Executes an HTTP request, allowing the response content to be streamed.
 
@@ -212,7 +248,8 @@ class Client:
             method: The HTTP method.
             url: The unencoded request URL.
             headers: The request headers.
-            content: The request content.
+            content: The request content. A Python dictionary will be converted to JSON.
+            params: Query parameters to append to the URL. None values will be treated as key-only.
 
         Raises:
             ConnectionError: If the connection fails.
@@ -221,7 +258,7 @@ class Client:
             WriteError: If an error occurs writing the request.
         """
         response = await self._client.stream(
-            method, url, headers=headers, content=content
+            method, url, headers=headers, content=content, params=params
         )
         async with response:
             yield response

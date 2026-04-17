@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -263,7 +263,7 @@ class PauliList(BasePauli, LinearMixin, GroupMixin):
 
     @phase.setter
     def phase(self, value):
-        # Convert group phase convetion to internal ZX-phase convention
+        # Convert group phase convention to internal ZX-phase convention
         self._phase[:] = np.mod(value + self._count_y(dtype=self._phase.dtype), 4)
 
     @property
@@ -1124,7 +1124,7 @@ class PauliList(BasePauli, LinearMixin, GroupMixin):
         Args:
             z (np.ndarray): 2D boolean Numpy array.
             x (np.ndarray): 2D boolean Numpy array.
-            phase (np.ndarray or None): Optional, 1D integer array from Z_4.
+            phase (np.ndarray or None):  1D integer array from Z_4.
 
         Returns:
             PauliList: the constructed PauliList.

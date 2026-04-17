@@ -86,6 +86,8 @@ import huggingface_hub as _hf_hub
 _orig_get_session = _hf_hub.utils._http.get_session
 def _patched_get_session():
     session = _orig_get_session()
+    if not hasattr(session, "mount"):
+        return session
     retry = Retry(
         total=5,
         backoff_factor=2,

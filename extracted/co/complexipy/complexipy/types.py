@@ -1,9 +1,10 @@
+import sys
 from enum import Enum
-from typing import List, Mapping, TypeVar
+from typing import List, MutableMapping, TypeVar
 
-try:
+if sys.version_info >= (3, 10):
     from typing import TypeAlias
-except ImportError:
+else:
     from typing_extensions import TypeAlias
 
 
@@ -19,15 +20,24 @@ class Sort(str, Enum):
     file_name = "file_name"
 
 
+class OutputFormat(str, Enum):
+    csv = "csv"
+    json = "json"
+    gitlab = "gitlab"
+    sarif = "sarif"
+
+
 TOMLTypes = TypeVar(
     "TOMLTypes",
     int,
     bool,
+    str,
     List[str],
     ColorTypes,
+    OutputFormat,
     Sort,
 )
 
-TOMLType: TypeAlias = Mapping[str, TOMLTypes]
-TOMLConfig: TypeAlias = Mapping[str, TOMLTypes]
-TOMLBase = Mapping[str, TOMLConfig]
+TOMLType: TypeAlias = MutableMapping[str, TOMLTypes]
+TOMLConfig: TypeAlias = MutableMapping[str, TOMLTypes]
+TOMLBase = MutableMapping[str, TOMLConfig]

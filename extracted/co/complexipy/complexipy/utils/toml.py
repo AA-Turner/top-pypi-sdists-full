@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import os
+import sys
 from typing import (
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Literal,
+    Optional,
     Tuple,
+    cast,
     overload,
 )
 
@@ -12,6 +15,7 @@ from typer import Exit
 
 from complexipy.types import (
     ColorTypes,
+    OutputFormat,
     Sort,
     TOMLBase,
     TOMLConfig,
@@ -19,10 +23,10 @@ from complexipy.types import (
     TOMLTypes,
 )
 
-try:
-    import tomli as toml_library
-except ImportError:
+if sys.version_info >= (3, 11):
     import tomllib as toml_library
+else:
+    import tomli as toml_library
 
 
 @overload
@@ -35,18 +39,35 @@ def load_values_from_toml_key(
 ) -> Sort: ...
 @overload
 def load_values_from_toml_key(
-    key: Literal["paths", "exclude"], value: str | List[str]
+    key: Literal["paths", "exclude", "output-format"],
+    value: str | List[str],
 ) -> List[str]: ...
 @overload
 def load_values_from_toml_key(
     key: str,
-    value: int | bool | str | List[str] | Sort | ColorTypes | TOMLType,
-) -> int | bool | List[str] | ColorTypes | Sort | TOMLType: ...
+    value: int
+    | bool
+    | str
+    | List[str]
+    | Sort
+    | ColorTypes
+    | OutputFormat
+    | TOMLType,
+) -> (
+    int | bool | str | List[str] | ColorTypes | OutputFormat | Sort | TOMLType
+): ...
 
 
 def load_values_from_toml_key(
     key: str,
-    value: int | bool | str | List[str] | Sort | ColorTypes | TOMLType,
+    value: int
+    | bool
+    | str
+    | List[str]
+    | Sort
+    | ColorTypes
+    | OutputFormat
+    | TOMLType,
 ):
     """Normalize TOML values to expected runtime types.
 
@@ -65,7 +86,7 @@ def load_values_from_toml_key(
         elif isinstance(value, str):
             return Sort(value)
         return value
-    elif key in ("paths", "exclude"):
+    elif key in ("paths", "exclude", "output-format"):
         if isinstance(value, str):
             return [value]
         return value
@@ -180,9 +201,14 @@ def get_arguments_value(
     failed: bool | None,
     color: ColorTypes | None,
     sort_arg: Sort | None,
+    output_format: List[str] | None,
+    output: str | None,
     output_csv: bool | None,
     output_json: bool | None,
+    output_gitlab: bool | None,
+    output_sarif: bool | None,
     exclude: List[str] | None,
+    check_script: bool | None,
 ) -> Tuple[
     List[str],
     int,
@@ -193,23 +219,33 @@ def get_arguments_value(
     bool,
     ColorTypes,
     Sort,
-    bool,
-    bool,
     List[str],
+    str | None,
+    List[str],
+    bool,
 ]:
     paths = get_argument_value(toml_config, "paths", paths, [])
     max_complexity_allowed = get_argument_value(
         toml_config, "max-complexity-allowed", max_complexity_allowed, 15
     )
-    snapshot_create = get_argument_value(
-        toml_config, "snapshot-create", snapshot_create, False
+    snapshot_create = cast(
+        bool,
+        get_argument_value(
+            toml_config, "snapshot-create", snapshot_create, False
+        ),
     )
-    snapshot_ignore = get_argument_value(
-        toml_config, "snapshot-ignore", snapshot_ignore, False
+    snapshot_ignore = cast(
+        bool,
+        get_argument_value(
+            toml_config, "snapshot-ignore", snapshot_ignore, False
+        ),
     )
-    quiet = get_argument_value(toml_config, "quiet", quiet, False)
-    ignore_complexity = get_argument_value(
-        toml_config, "ignore-complexity", ignore_complexity, False
+    quiet = cast(bool, get_argument_value(toml_config, "quiet", quiet, False))
+    ignore_complexity = cast(
+        bool,
+        get_argument_value(
+            toml_config, "ignore-complexity", ignore_complexity, False
+        ),
     )
     if (
         failed is None
@@ -219,17 +255,51 @@ def get_arguments_value(
         legacy_details = toml_config.get("details")
         if legacy_details is not None:
             failed = str(legacy_details).lower() == "low"
-    failed = get_argument_value(toml_config, "failed", failed, False)
-    color = get_argument_value(toml_config, "color", color, ColorTypes.auto)
-    sort_arg = get_argument_value(toml_config, "sort", sort_arg, Sort.asc)
-    output_csv = get_argument_value(
-        toml_config, "output-csv", output_csv, False
+    failed = cast(
+        bool, get_argument_value(toml_config, "failed", failed, False)
     )
-    output_json = get_argument_value(
-        toml_config, "output-json", output_json, False
+    color = cast(
+        ColorTypes,
+        get_argument_value(toml_config, "color", color, ColorTypes.auto),
+    )
+    sort_arg = cast(
+        Sort,
+        get_argument_value(toml_config, "sort", sort_arg, Sort.asc),
+    )
+    if output_format is None:
+        if toml_config is None:
+            output_format = []
+        else:
+            output_format = cast(
+                List[str],
+                load_values_from_toml_key(
+                    "output-format",
+                    toml_config.get("output-format", []),
+                ),
+            )
+    if output is None and toml_config is not None:
+        output = cast(Optional[str], toml_config.get("output"))
+    output_csv = cast(
+        bool,
+        get_argument_value(toml_config, "output-csv", output_csv, False),
+    )
+    output_json = cast(
+        bool,
+        get_argument_value(toml_config, "output-json", output_json, False),
+    )
+    output_gitlab = cast(
+        bool,
+        get_argument_value(toml_config, "output-gitlab", output_gitlab, False),
+    )
+    output_sarif = cast(
+        bool,
+        get_argument_value(toml_config, "output-sarif", output_sarif, False),
     )
     exclude = get_argument_value(toml_config, "exclude", exclude, [])
-
+    check_script = cast(
+        bool,
+        get_argument_value(toml_config, "check-script", check_script, False),
+    )
     return (
         paths,
         max_complexity_allowed,
@@ -240,7 +310,8 @@ def get_arguments_value(
         failed,
         color,
         sort_arg,
-        output_csv,
-        output_json,
+        output_format,
+        output,
         exclude,
+        check_script,
     )

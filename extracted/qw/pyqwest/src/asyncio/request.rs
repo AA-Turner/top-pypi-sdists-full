@@ -20,7 +20,7 @@ use crate::{
     headers::Headers,
     shared::{
         constants::Constants,
-        request::{RequestHead, RequestStreamResult},
+        request::{maybe_encode_json_content, RequestHead, RequestStreamResult},
     },
 };
 
@@ -35,15 +35,24 @@ pub struct Request {
 #[pymethods]
 impl Request {
     #[new]
-    #[pyo3(signature = (method, url, headers=None, content=None))]
+    #[pyo3(signature = (method, url, headers=None, content=None, *, params=None))]
     pub(crate) fn py_new<'py>(
         py: Python<'py>,
         method: &str,
         url: &str,
         headers: Option<Bound<'py, Headers>>,
         content: Option<Bound<'py, PyAny>>,
+        params: Option<Bound<'py, PyAny>>,
     ) -> PyResult<Self> {
-        Request::new(py, method, url, headers, content, Constants::get(py)?)
+        Request::new(
+            py,
+            method,
+            url,
+            headers,
+            content,
+            params,
+            Constants::get(py)?,
+        )
     }
 
     #[getter]
@@ -72,6 +81,11 @@ impl Request {
             None => EmptyAsyncIterator.into_bound_py_any(py),
         }
     }
+
+    #[getter]
+    fn _json(&self) -> bool {
+        self.head.json()
+    }
 }
 
 impl Request {
@@ -81,15 +95,22 @@ impl Request {
         url: &str,
         headers: Option<Bound<'py, Headers>>,
         content: Option<Bound<'py, PyAny>>,
+        params: Option<Bound<'py, PyAny>>,
         constants: Constants,
     ) -> PyResult<Self> {
         let headers = Headers::from_option(py, headers)?;
+        let (content, json) =
+            if let Some(content) = maybe_encode_json_content(py, content.as_ref(), &constants)? {
+                (Some(content), true)
+            } else {
+                (content, false)
+            };
         let content: Option<Content> = match content {
             Some(content) => Some(Content::from_py(&content, &constants)?),
             None => None,
         };
         Ok(Self {
-            head: RequestHead::new(method, url, headers)?,
+            head: RequestHead::new(method, url, headers, params, json)?,
             content,
             constants,
         })

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistralai
-Version: 2.3.2
+Version: 2.4.0
 Summary: Python Client SDK for the Mistral AI API.
 Project-URL: Repository, https://github.com/mistralai/client-python.git
 Author: Mistral
@@ -23,6 +23,18 @@ Requires-Dist: google-auth>=2.27.0; extra == 'gcp'
 Requires-Dist: requests>=2.32.3; extra == 'gcp'
 Provides-Extra: realtime
 Requires-Dist: websockets>=13.0; extra == 'realtime'
+Provides-Extra: workflow-payload-encryption
+Requires-Dist: cryptography<47.0.0,>=41.0.0; extra == 'workflow-payload-encryption'
+Provides-Extra: workflow-payload-offloading
+Requires-Dist: aioboto3<13.0.0,>=12.4.0; extra == 'workflow-payload-offloading'
+Requires-Dist: azure-storage-blob[aio]<13.0.0,>=12.28.0; extra == 'workflow-payload-offloading'
+Requires-Dist: gcloud-aio-storage<10.0.0,>=9.3.0; extra == 'workflow-payload-offloading'
+Provides-Extra: workflow-payload-offloading-azure
+Requires-Dist: azure-storage-blob[aio]<13.0.0,>=12.28.0; extra == 'workflow-payload-offloading-azure'
+Provides-Extra: workflow-payload-offloading-gcs
+Requires-Dist: gcloud-aio-storage<10.0.0,>=9.3.0; extra == 'workflow-payload-offloading-gcs'
+Provides-Extra: workflow-payload-offloading-s3
+Requires-Dist: aioboto3<13.0.0,>=12.4.0; extra == 'workflow-payload-offloading-s3'
 Description-Content-Type: text/markdown
 
 # Mistral Python Client

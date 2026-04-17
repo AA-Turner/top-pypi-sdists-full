@@ -68,14 +68,18 @@ impl<'a> Parser<'a> {
             && self.current.text.eq_ignore_ascii_case("EXPLAIN")
         {
             self.advance(); // consume EXPLAIN
+            self.enter_nesting()?;
             let inner = self.parse()?;
+            self.exit_nesting();
             return Ok(Statement::Explain(Box::new(inner)));
         }
         if self.current.kind == TokenKind::Identifier
             && self.current.text.eq_ignore_ascii_case("PROFILE")
         {
             self.advance(); // consume PROFILE
+            self.enter_nesting()?;
             let inner = self.parse()?;
+            self.exit_nesting();
             return Ok(Statement::Profile(Box::new(inner)));
         }
 
@@ -1465,17 +1469,34 @@ impl<'a> Parser<'a> {
             TokenKind::Integer => {
                 let text = &self.current.text;
                 let value = if text.starts_with("0x") || text.starts_with("0X") {
-                    i64::from_str_radix(&text[2..], 16).unwrap_or(0)
+                    i64::from_str_radix(&text[2..], 16)
                 } else if text.starts_with("0o") || text.starts_with("0O") {
-                    i64::from_str_radix(&text[2..], 8).unwrap_or(0)
+                    i64::from_str_radix(&text[2..], 8)
                 } else {
-                    text.parse().unwrap_or(0)
-                };
+                    text.parse()
+                }
+                .map_err(|e: std::num::ParseIntError| {
+                    if *e.kind() == std::num::IntErrorKind::PosOverflow
+                        || *e.kind() == std::num::IntErrorKind::NegOverflow
+                    {
+                        self.error(&format!(
+                            "Integer literal '{}' overflows the valid range ({} to {})",
+                            text,
+                            i64::MIN,
+                            i64::MAX
+                        ))
+                    } else {
+                        self.error(&format!("Invalid integer literal: '{}'", text))
+                    }
+                })?;
                 self.advance();
                 Ok(Expression::Literal(Literal::Integer(value)))
             }
             TokenKind::Float => {
-                let value = self.current.text.parse().unwrap_or(0.0);
+                let text = &self.current.text;
+                let value = text.parse().map_err(|_: std::num::ParseFloatError| {
+                    self.error(&format!("Invalid float literal: '{}'", text))
+                })?;
                 self.advance();
                 Ok(Expression::Literal(Literal::Float(value)))
             }
@@ -4061,6 +4082,40 @@ mod tests {
         let mut parser = Parser::new(&query);
         let result = parser.parse();
         assert!(result.is_ok(), "50 levels of nesting should succeed");
+    }
+
+    #[test]
+    fn test_explain_recursion_depth_limit() {
+        let query = "EXPLAIN ".repeat(200) + "RETURN 1";
+        let mut parser = Parser::new(&query);
+        let result = parser.parse();
+        assert!(result.is_err(), "Deeply nested EXPLAIN should error");
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("nesting depth"),
+            "Expected nesting depth error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_profile_recursion_depth_limit() {
+        let query = "PROFILE ".repeat(200) + "RETURN 1";
+        let mut parser = Parser::new(&query);
+        let result = parser.parse();
+        assert!(result.is_err(), "Deeply nested PROFILE should error");
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("nesting depth"),
+            "Expected nesting depth error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_single_explain_succeeds() {
+        let query = "EXPLAIN RETURN 1";
+        let mut parser = Parser::new(query);
+        let result = parser.parse();
+        assert!(result.is_ok(), "Single EXPLAIN should succeed");
     }
 
     #[test]

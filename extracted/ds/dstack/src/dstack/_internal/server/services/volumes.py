@@ -16,6 +16,7 @@ from dstack._internal.core.errors import (
 )
 from dstack._internal.core.models.profiles import parse_duration
 from dstack._internal.core.models.volumes import (
+    AnyVolumeConfiguration,
     Volume,
     VolumeAttachment,
     VolumeAttachmentData,
@@ -44,7 +45,6 @@ from dstack._internal.server.services.locking import (
 from dstack._internal.server.services.pipelines import PipelineHinterProtocol
 from dstack._internal.server.services.plugins import apply_plugin_policies
 from dstack._internal.server.services.projects import list_user_project_models
-from dstack._internal.settings import FeatureFlags
 from dstack._internal.utils import common, random_names
 from dstack._internal.utils.logging import get_logger
 
@@ -260,7 +260,7 @@ async def create_volume(
     session: AsyncSession,
     project: ProjectModel,
     user: UserModel,
-    configuration: VolumeConfiguration,
+    configuration: AnyVolumeConfiguration,
     pipeline_hinter: PipelineHinterProtocol,
 ) -> Volume:
     spec = await apply_plugin_policies(
@@ -321,29 +321,6 @@ async def create_volume(
 async def delete_volumes(
     session: AsyncSession, project: ProjectModel, names: List[str], user: UserModel
 ):
-    # Keep both delete code paths while pipeline processing is behind a feature flag:
-    # - pipeline path marks volumes for async deletion by VolumePipeline
-    # - sync path deletes volume inline for non-pipeline processing
-    # TODO: Drop sync path after pipeline processing is enabled by default.
-    if FeatureFlags.PIPELINE_PROCESSING_ENABLED:
-        await _delete_volumes_pipeline(
-            session=session,
-            project=project,
-            names=names,
-            user=user,
-        )
-    else:
-        await _delete_volumes_sync(
-            session=session,
-            project=project,
-            names=names,
-            user=user,
-        )
-
-
-async def _delete_volumes_pipeline(
-    session: AsyncSession, project: ProjectModel, names: List[str], user: UserModel
-):
     res = await session.execute(
         select(VolumeModel).where(
             VolumeModel.project_id == project.id,
@@ -399,57 +376,6 @@ async def _delete_volumes_pipeline(
         await session.commit()
 
 
-async def _delete_volumes_sync(
-    session: AsyncSession, project: ProjectModel, names: List[str], user: UserModel
-):
-    res = await session.execute(
-        select(VolumeModel).where(
-            VolumeModel.project_id == project.id,
-            VolumeModel.name.in_(names),
-            VolumeModel.deleted == False,
-        )
-    )
-    volume_models = res.scalars().all()
-    volumes_ids = sorted([v.id for v in volume_models])
-    await session.commit()
-    logger.info("Deleting volumes: %s", [v.name for v in volume_models])
-    async with get_locker(get_db().dialect_name).lock_ctx(VolumeModel.__tablename__, volumes_ids):
-        # Refetch after lock
-        res = await session.execute(
-            select(VolumeModel)
-            .where(
-                VolumeModel.project_id == project.id,
-                VolumeModel.name.in_(names),
-                VolumeModel.deleted == False,
-            )
-            .options(selectinload(VolumeModel.user))
-            .options(selectinload(VolumeModel.attachments))
-            .execution_options(populate_existing=True)
-            .order_by(VolumeModel.id)  # take locks in order
-            .with_for_update(key_share=True)
-        )
-        volume_models = res.scalars().unique().all()
-        for volume_model in volume_models:
-            if len(volume_model.attachments) > 0:
-                raise ServerClientError(
-                    f"Failed to delete volume {volume_model.name}. Volume is in use."
-                )
-        for volume_model in volume_models:
-            try:
-                await _delete_volume(session=session, project=project, volume_model=volume_model)
-            except Exception:
-                logger.exception("Error when deleting volume %s", volume_model.name)
-            volume_model.deleted = True
-            volume_model.deleted_at = common.get_current_datetime()
-            events.emit(
-                session,
-                message="Volume deleted",
-                actor=events.UserActor.from_user(user),
-                targets=[events.Target.from_model(volume_model)],
-            )
-        await session.commit()
-
-
 def volume_model_to_volume(volume_model: VolumeModel) -> Volume:
     configuration = get_volume_configuration(volume_model)
     vpd = get_volume_provisioning_data(volume_model)
@@ -474,7 +400,7 @@ def volume_model_to_volume(volume_model: VolumeModel) -> Volume:
         project_name=volume_model.project.name,
         user=volume_model.user.name,
         configuration=configuration,
-        external=configuration.volume_id is not None,
+        external=configuration.is_external,
         created_at=volume_model.created_at,
         last_processed_at=volume_model.last_processed_at,
         status=volume_model.status,
@@ -491,8 +417,8 @@ def volume_model_to_volume(volume_model: VolumeModel) -> Volume:
     return volume
 
 
-def get_volume_configuration(volume_model: VolumeModel) -> VolumeConfiguration:
-    return VolumeConfiguration.__response__.parse_raw(volume_model.configuration)
+def get_volume_configuration(volume_model: VolumeModel) -> AnyVolumeConfiguration:
+    return VolumeConfiguration.__response__.parse_raw(volume_model.configuration).__root__
 
 
 def get_volume_provisioning_data(volume_model: VolumeModel) -> Optional[VolumeProvisioningData]:
@@ -542,9 +468,9 @@ async def generate_volume_name(session: AsyncSession, project: ProjectModel) -> 
             return name
 
 
-def _validate_volume_configuration(configuration: VolumeConfiguration):
-    if configuration.volume_id is None and configuration.size is None:
-        raise ServerClientError("Volume must specify either volume_id or size")
+def _validate_volume_configuration(configuration: AnyVolumeConfiguration):
+    if configuration.external_volume_id is None and configuration.size is None:
+        raise ServerClientError("Volume must specify either existing identifier or size")
     backends_services.check_backend_type_available(configuration.backend)
     if configuration.backend not in BACKENDS_WITH_VOLUMES_SUPPORT:
         raise ServerClientError(
@@ -554,7 +480,7 @@ def _validate_volume_configuration(configuration: VolumeConfiguration):
     if configuration.name is not None:
         validate_dstack_resource_name(configuration.name)
 
-    if configuration.volume_id is not None and configuration.auto_cleanup_duration is not None:
+    if configuration.is_external and configuration.auto_cleanup_duration is not None:
         if (
             isinstance(configuration.auto_cleanup_duration, int)
             and configuration.auto_cleanup_duration > 0
@@ -563,7 +489,7 @@ def _validate_volume_configuration(configuration: VolumeConfiguration):
             and configuration.auto_cleanup_duration not in ("off", "-1")
         ):
             raise ServerClientError(
-                "External volumes (with volume_id) do not support auto_cleanup_duration. "
+                "External volumes do not support auto_cleanup_duration. "
                 "Auto-cleanup only works for volumes created and managed by dstack."
             )
 
@@ -621,6 +547,6 @@ def _get_volume_cost(volume: Volume) -> float:
     )
 
 
-def _get_autocleanup_enabled(configuration: VolumeConfiguration) -> bool:
+def _get_autocleanup_enabled(configuration: AnyVolumeConfiguration) -> bool:
     auto_cleanup_duration = parse_duration(configuration.auto_cleanup_duration)
     return auto_cleanup_duration is not None and auto_cleanup_duration > 0

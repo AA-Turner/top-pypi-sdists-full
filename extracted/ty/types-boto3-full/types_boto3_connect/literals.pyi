@@ -437,6 +437,7 @@ EventSourceNameType = Literal[
     "OnCaseCreate",
     "OnCaseUpdate",
     "OnContactEvaluationSubmit",
+    "OnEmailAnalysisAvailable",
     "OnMetricDataUpdate",
     "OnPostCallAnalysisAvailable",
     "OnPostChatAnalysisAvailable",

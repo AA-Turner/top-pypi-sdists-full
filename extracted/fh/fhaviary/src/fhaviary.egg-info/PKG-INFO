@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhaviary
-Version: 0.34.0
+Version: 0.35.0
 Summary: Gymnasium framework for training language model agents on constructive tasks
 Author-email: FutureHouse technical staff <hello@futurehouse.org>
 License:                                  Apache License
@@ -223,15 +223,17 @@ License-File: LICENSE
 Requires-Dist: docstring_parser>=0.16
 Requires-Dist: httpx
 Requires-Dist: httpx-aiohttp
+Requires-Dist: pydantic-core
 Requires-Dist: pydantic~=2.0
 Provides-Extra: cloud
 Requires-Dist: boto3; extra == "cloud"
 Provides-Extra: dev
-Requires-Dist: aviary.gsm8k[typing]; extra == "dev"
-Requires-Dist: aviary.hotpotqa; extra == "dev"
+Requires-Dist: aviary.gsm8k[dev]; extra == "dev"
+Requires-Dist: aviary.hotpotqa[dev]; extra == "dev"
 Requires-Dist: aviary.labbench[dev]; extra == "dev"
 Requires-Dist: aviary.lfrqa[dev]; extra == "dev"
 Requires-Dist: aviary.notebook[dev]; extra == "dev"
+Requires-Dist: deptry; extra == "dev"
 Requires-Dist: fhaviary[image,llm,server,typing,xml]; extra == "dev"
 Requires-Dist: ipython>=8; extra == "dev"
 Requires-Dist: jupyter>=1.0.0; extra == "dev"
@@ -245,11 +247,10 @@ Requires-Dist: pylint>=4; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: pytest-recording; extra == "dev"
 Requires-Dist: pytest-rerunfailures; extra == "dev"
-Requires-Dist: pytest-subtests; extra == "dev"
 Requires-Dist: pytest-sugar; extra == "dev"
 Requires-Dist: pytest-timer[colorama]; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
-Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: pytest>=9; extra == "dev"
 Requires-Dist: refurb>=2; extra == "dev"
 Requires-Dist: tenacity; extra == "dev"
 Requires-Dist: typeguard; extra == "dev"

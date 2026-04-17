@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: fhirpathpy
-Version: 2.1.0
+Version: 2.2.0
 Summary: FHIRPath implementation in Python
 Keywords: fhir,fhirpath
 Author-email: "beda.software" <fhirpath@beda.software>
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
@@ -12,17 +12,19 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
 License-File: LICENSE.md
 Requires-Dist: antlr4-python3-runtime~=4.10
 Requires-Dist: python-dateutil~=2.8
 Requires-Dist: pytest==7.1.1 ; extra == "test"
 Requires-Dist: pyyaml==5.4 ; extra == "test"
+Requires-Dist: pydantic==2.13.1 ; extra == "test"
 Project-URL: Changelog, https://github.com/beda-software/fhirpath-py/blob/master/CHANGELOG.md
 Project-URL: Documentation, https://github.com/beda-software/fhirpath-py#readme
 Project-URL: Homepage, https://github.com/beda-software/fhirpath-py
@@ -35,7 +37,7 @@ fhirpath.py
 [![Build Status](https://github.com/beda-software/fhirpath-py/actions/workflows/build.yaml/badge.svg)](https://github.com/beda-software/fhirpath-py/actions)
 [![codecov](https://codecov.io/gh/beda-software/fhirpath-py/branch/master/graph/badge.svg)](https://codecov.io/gh/beda-software/fhirpath-py)
 [![pypi](https://img.shields.io/pypi/v/fhirpathpy.svg)](https://pypi.org/project/fhirpathpy/)
-[![Supported Python version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/release/python-380/)
+[![Supported Python version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 
 [FHIRPath](https://www.hl7.org/fhir/fhirpath.html) implementation in Python
 

@@ -1475,6 +1475,10 @@ function getSequencePatternInfo(
                     // If the tuple contains an indeterminate entry, expand or remove that
                     // entry to match the length of the pattern if possible.
                     let expandedIndeterminate = false;
+                    // Tracks whether the indeterminate entry was spliced out to contract the tuple
+                    // to fit a shorter pattern. This preserves "potential match" semantics after
+                    // the splice resets tupleIndeterminateIndex to -1.
+                    let removedIndeterminate = false;
                     if (tupleIndeterminateIndex >= 0) {
                         tupleDeterminateEntryCount--;
 
@@ -1487,7 +1491,9 @@ function getSequencePatternInfo(
 
                         if (typeArgs.length > patternEntryCount && patternStarEntryIndex === undefined) {
                             typeArgs.splice(tupleIndeterminateIndex, 1);
+                            removedIndeterminate = true;
                             tupleIndeterminateIndex = -1;
+                            removedIndeterminate = true;
                         }
                     }
 
@@ -1524,7 +1530,14 @@ function getSequencePatternInfo(
 
                     if (typeArgs.length === patternEntryCount) {
                         let isDefiniteNoMatch = false;
-                        let isPotentialNoMatch = tupleIndeterminateIndex >= 0;
+                        let isPotentialNoMatch = tupleIndeterminateIndex >= 0 || removedIndeterminate;
+
+                        // If we removed an unbounded entry to make the lengths match,
+                        // this is a potential match (not definite) because the original
+                        // tuple could have different lengths.
+                        if (removedIndeterminate) {
+                            isPotentialNoMatch = true;
+                        }
 
                         // If the pattern includes a "star entry" and the tuple includes an
                         // indeterminate-length entry that aligns to the star entry, we can
@@ -1559,7 +1572,7 @@ function getSequencePatternInfo(
                             entryTypes: isDefiniteNoMatch ? [] : typeArgs.map((t) => t.type),
                             isIndeterminateLength: false,
                             isTuple: true,
-                            isUnboundedTuple: tupleIndeterminateIndex >= 0,
+                            isUnboundedTuple: removedIndeterminate || tupleIndeterminateIndex >= 0,
                             isDefiniteNoMatch,
                             isPotentialNoMatch,
                         });

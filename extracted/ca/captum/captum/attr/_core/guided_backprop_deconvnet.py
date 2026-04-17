@@ -2,7 +2,7 @@
 
 # pyre-strict
 import warnings
-from typing import Callable, List, Optional, Tuple, Union
+from typing import cast, List, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
@@ -40,7 +40,7 @@ class ModifiedReluGradientAttribution(GradientAttribution):
             " ReLU layers."
         )
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def attribute(
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
@@ -78,12 +78,11 @@ class ModifiedReluGradientAttribution(GradientAttribution):
             self._remove_hooks()
 
         undo_gradient_requirements(inputs_tuple, gradient_mask)
-        # pyre-fixme[7]: Expected `TensorOrTupleOfTensorsGeneric` but got
-        #  `Tuple[Tensor, ...]`.
-        return _format_output(is_inputs_tuple, gradients)
+        return cast(
+            TensorOrTupleOfTensorsGeneric, _format_output(is_inputs_tuple, gradients)
+        )
 
-    # pyre-fixme[24] Generic type `Callable` expects 2 type parameters.
-    def attribute_future(self) -> Callable:
+    def attribute_future(self) -> None:
         r"""
         This method is not implemented for ModifiedReluGradientAttribution.
         """
@@ -141,7 +140,7 @@ class GuidedBackprop(ModifiedReluGradientAttribution):
             self, model, use_relu_grad_output=False
         )
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def attribute(
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
@@ -250,7 +249,7 @@ class Deconvolution(ModifiedReluGradientAttribution):
         """
         ModifiedReluGradientAttribution.__init__(self, model, use_relu_grad_output=True)
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def attribute(
         self,
         inputs: TensorOrTupleOfTensorsGeneric,

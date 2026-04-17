@@ -2,7 +2,7 @@
 
 # pyre-strict
 
-from typing import Callable, Optional
+from typing import Callable, cast, Optional
 
 import torch
 from captum._utils.common import _format_output, _format_tensor_into_tuples, _is_tuple
@@ -35,7 +35,7 @@ class Saliency(GradientAttribution):
         """
         GradientAttribution.__init__(self, forward_func)
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def attribute(
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
@@ -138,12 +138,12 @@ class Saliency(GradientAttribution):
         else:
             attributions = gradients
         undo_gradient_requirements(inputs_tuple, gradient_mask)
-        # pyre-fixme[7]: Expected `TensorOrTupleOfTensorsGeneric` but got
-        #  `Tuple[Tensor, ...]`.
-        return _format_output(is_inputs_tuple, attributions)
 
-    # pyre-fixme[24] Generic type `Callable` expects 2 type parameters.
-    def attribute_future(self) -> Callable:
+        return cast(
+            TensorOrTupleOfTensorsGeneric, _format_output(is_inputs_tuple, attributions)
+        )
+
+    def attribute_future(self) -> None:
         r"""
         This method is not implemented for Saliency.
         """

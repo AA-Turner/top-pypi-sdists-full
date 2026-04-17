@@ -442,12 +442,20 @@ async def get_plan(
 
     offers = []
     if effective_spec.configuration.ssh_config is None:
-        offers_with_backends = await get_create_instance_offers(
+        requirements = get_fleet_requirements(effective_spec)
+        nodes = effective_spec.configuration.nodes
+        include_only_create_instance_supported_backends = True
+        if nodes is not None:
+            include_only_create_instance_supported_backends = nodes.target != 0
+        offers_with_backends = await get_fleet_offers(
             project=project,
             profile=effective_spec.merged_profile,
-            requirements=get_fleet_requirements(effective_spec),
+            requirements=requirements,
             fleet_spec=effective_spec,
             blocks=effective_spec.configuration.blocks,
+            include_only_create_instance_supported_backends=(
+                include_only_create_instance_supported_backends
+            ),
         )
         offers = [offer for _, offer in offers_with_backends]
 
@@ -468,7 +476,7 @@ async def get_plan(
     return plan
 
 
-async def get_create_instance_offers(
+async def get_fleet_offers(
     project: ProjectModel,
     profile: Profile,
     requirements: Requirements,
@@ -479,7 +487,15 @@ async def get_create_instance_offers(
     exclude_not_available: bool = False,
     master_job_provisioning_data: Optional[JobProvisioningData] = None,
     infer_master_job_provisioning_data_from_fleet_instances: bool = True,
+    include_only_create_instance_supported_backends: bool = True,
 ) -> List[Tuple[Backend, InstanceOfferWithAvailability]]:
+    """
+    Return offers for fleet planning and provisioning.
+
+    By default, restricts to backends that support `create_instance`.
+    Set `include_only_create_instance_supported_backends=False` to include
+    all matching backends.
+    """
     multinode = False
     if fleet_spec is not None:
         multinode = fleet_spec.configuration.placement == InstanceGroupPlacement.CLUSTER
@@ -508,11 +524,12 @@ async def get_create_instance_offers(
         placement_group=placement_group,
         blocks=blocks,
     )
-    offers = [
-        (backend, offer)
-        for backend, offer in offers
-        if offer.backend in BACKENDS_WITH_CREATE_INSTANCE_SUPPORT
-    ]
+    if include_only_create_instance_supported_backends:
+        offers = [
+            (backend, offer)
+            for backend, offer in offers
+            if offer.backend in BACKENDS_WITH_CREATE_INSTANCE_SUPPORT
+        ]
     return offers
 
 
@@ -842,7 +859,7 @@ async def delete_fleets(
             _terminate_fleet_instances(
                 session=session, fleet_model=fleet_model, instance_nums=instance_nums, actor=user
             )
-            # TERMINATING fleets are deleted by process_fleets after instances are terminated
+            # TERMINATING fleets are deleted by FleetPipeline after instances are terminated
             if instance_nums is None:
                 switch_fleet_status(
                     session,
@@ -920,8 +937,11 @@ def is_cloud_cluster(fleet_model: FleetModel) -> bool:
 
 def get_fleet_requirements(fleet_spec: FleetSpec) -> Requirements:
     profile = fleet_spec.merged_profile
+    resources = fleet_spec.configuration.resources
+    if resources is None:
+        resources = ResourcesSpec.unconstrained()
     requirements = Requirements(
-        resources=fleet_spec.configuration.resources or ResourcesSpec(),
+        resources=resources,
         max_price=profile.max_price,
         spot=get_policy_map(profile.spot_policy, default=SpotPolicy.ONDEMAND),
         reservation=fleet_spec.configuration.reservation,
@@ -960,12 +980,6 @@ def get_fleet_master_instance_provisioning_data(
                 return JobProvisioningData.__response__.parse_raw(
                     instance_model.job_provisioning_data
                 )
-
-    # TODO: Drop the legacy instance-list fallback after scheduled tasks stop
-    # inferring cluster masters from loaded fleet instances.
-    for instance_model in fleet_model.instances:
-        if not instance_model.deleted and instance_model.job_provisioning_data is not None:
-            return JobProvisioningData.__response__.parse_raw(instance_model.job_provisioning_data)
 
     return None
 
@@ -1115,8 +1129,9 @@ async def _update_fleet(
 
     _check_can_update_fleet_spec(fleet_sensitive.spec, spec)
 
-    spec_json = spec.json()
-    fleet_model.spec = spec_json
+    fleet_model.spec = spec.json()
+    # Reset consolidation attempt so the next pipeline pass picks up the spec change promptly.
+    fleet_model.consolidation_attempt = 0
 
     if (
         fleet_sensitive.spec.configuration.ssh_config is not None
@@ -1208,26 +1223,51 @@ def _check_can_update_inner(current: M, new: M, updatable_fields: tuple[str, ...
     return diff
 
 
-@_check_can_update("configuration", "configuration_path")
+@_check_can_update("configuration", "configuration_path", "merged_profile")
 def _check_can_update_fleet_spec(current: FleetSpec, new: FleetSpec, diff: ModelDiff):
+    # Allow `merged_profile` only to absorb derived changes from supported configuration updates
+    # such as `configuration.reservation` and `configuration.tags`.
+    # Direct `profile` updates are still not in-place updatable.
     if "configuration" in diff:
         _check_can_update_fleet_configuration(current.configuration, new.configuration)
 
 
-@_check_can_update("ssh_config")
-def _check_can_update_fleet_configuration(
-    current: FleetConfiguration, new: FleetConfiguration, diff: ModelDiff
-):
+def _check_can_update_fleet_configuration(current: FleetConfiguration, new: FleetConfiguration):
+    diff = diff_models(current, new)
+    current_ssh_config = current.ssh_config
+    new_ssh_config = new.ssh_config
+    if current_ssh_config is None:
+        if new_ssh_config is not None:
+            raise ServerClientError("Fleet type changed from Cloud to SSH, cannot update")
+        # TODO: Support best-effort `nodes.target` apply semantics:
+        # create missing instances and terminate extra idle instances.
+        # Current in-place update only persists `target`; FleetPipeline reconciles `min`/`max`.
+        #
+        # For `reservation` and `tags`, update affects only future provisioning.
+        _check_can_update_inner(
+            current,
+            new,
+            (
+                "nodes",
+                "reservation",
+                "tags",
+                "resources",
+                "backends",
+                "regions",
+                "availability_zones",
+                "instance_types",
+                "spot_policy",
+                "max_price",
+            ),
+        )
+        return
+
+    if new_ssh_config is None:
+        raise ServerClientError("Fleet type changed from SSH to Cloud, cannot update")
+
+    _check_can_update_inner(current, new, ("ssh_config",))
     if "ssh_config" in diff:
-        current_ssh_config = current.ssh_config
-        new_ssh_config = new.ssh_config
-        if current_ssh_config is None:
-            if new_ssh_config is not None:
-                raise ServerClientError("Fleet type changed from Cloud to SSH, cannot update")
-        elif new_ssh_config is None:
-            raise ServerClientError("Fleet type changed from SSH to Cloud, cannot update")
-        else:
-            _check_can_update_ssh_config(current_ssh_config, new_ssh_config)
+        _check_can_update_ssh_config(current_ssh_config, new_ssh_config)
 
 
 @_check_can_update("hosts")

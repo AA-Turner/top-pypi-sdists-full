@@ -4,15 +4,18 @@ import pathlib
 import re
 import tempfile
 import time
-from collections.abc import Sequence
-from typing import Any, ClassVar
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
+from typing import Any, ClassVar, cast
+from unittest import mock
 
 import litellm
 import numpy as np
 import pytest
+import pytest_asyncio
+from fastapi import APIRouter, FastAPI
 from httpx import ASGITransport, AsyncClient
 from pydantic import BaseModel, ValidationError
-from pytest_subtests import SubTests
 
 from aviary.core import (
     DummyEnv,
@@ -403,7 +406,7 @@ class TestRendering:
         mutable_state[0].append("bar")
         assert deep_copy.model_dump()["state"] == [["foo"]]
 
-    def test_rendering(self, dummy_env: DummyEnv, subtests: SubTests) -> None:
+    def test_rendering(self, dummy_env: DummyEnv, subtests: pytest.Subtests) -> None:
         # Reset to add state
         asyncio.run(dummy_env.reset())
         frame_after_reset = dummy_env.export_frame()
@@ -588,7 +591,7 @@ class TestParallelism:
     @pytest.mark.parametrize("model_name", [CILLMModelNames.OPENAI.value])
     @pytest.mark.asyncio
     async def test_tool_selector_from_model_name(
-        self, subtests: SubTests, model_name: str
+        self, subtests: pytest.Subtests, model_name: str
     ) -> None:
         env = ParallelizedDummyEnv()
         obs, tools = await env.reset()
@@ -664,14 +667,47 @@ class TestParallelism:
         ]
 
 
-@pytest.fixture
-def server_async_client() -> AsyncClient:
-    dataset = TaskDataset.from_name("dummy")
-    server = TaskDatasetServer[DummyEnv](dataset)
+@asynccontextmanager
+async def _make_test_client(app: FastAPI) -> AsyncIterator[AsyncClient]:
     # Use httpx.AsyncClient over httpx_aiohttp.HttpxAiohttpClient in tests here,
     # as httpx_aiohttp.AiohttpTransport doesn't support an app argument
     # as of httpx-aiohttp==0.1.8
-    return AsyncClient(transport=ASGITransport(app=server.app), base_url="http://test")
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        yield client
+
+
+@pytest_asyncio.fixture
+async def server_async_client() -> AsyncIterator[AsyncClient]:
+    server = TaskDatasetServer[DummyEnv](dataset=TaskDataset.from_name("dummy"))
+    async with _make_test_client(app=cast(FastAPI, server.app)) as client:
+        yield client
+
+
+class StubArgsTaskDataset(TaskDataset[DummyEnv]):
+    """Stub task dataset to exercise get_new_env_by_args."""
+
+    def get_new_env_by_args(self, *, task: str) -> DummyEnv:  # type: ignore[override]
+        return DummyEnv(task=task)
+
+
+@pytest_asyncio.fixture
+async def args_async_client() -> AsyncIterator[AsyncClient]:
+    server = TaskDatasetServer[DummyEnv](dataset=StubArgsTaskDataset())
+    async with _make_test_client(app=cast(FastAPI, server.app)) as client:
+        yield client
+
+
+@pytest_asyncio.fixture
+async def mounted_async_client() -> AsyncIterator[AsyncClient]:
+    server = TaskDatasetServer[DummyEnv](
+        dataset=TaskDataset.from_name("dummy"), router=APIRouter(tags=["env"])
+    )
+    app = FastAPI()
+    app.include_router(server.router, prefix="/env")
+    async with _make_test_client(app=app) as client:
+        yield client
 
 
 class TestTaskDatasetServer:
@@ -736,6 +772,55 @@ class TestTaskDatasetServer:
         assert "closed_env_ids" in response.json()
 
     @pytest.mark.asyncio
+    async def test_close_old_envs_does_not_block_other_requests(self) -> None:
+        """Concurrent endpoints must not be blocked while env.close() awaits."""
+        server = TaskDatasetServer[DummyEnv](dataset=TaskDataset.from_name("dummy"))
+
+        # Seed an env whose close() hangs until we explicitly release it
+        started_event = asyncio.Event()
+        release_event = asyncio.Event()
+
+        async def slow_close(*_) -> None:
+            started_event.set()
+            await release_event.wait()
+
+        stale_env = DummyEnv()
+        # last_used=0 guarantees it's stale for any req.last_used >= 0
+        server.envs["stale"] = (stale_env, 0.0)
+
+        async with _make_test_client(app=cast(FastAPI, server.app)) as client:
+            with mock.patch.object(DummyEnv, "close", slow_close):
+                # Kick off /close_old_envs; env.close() will await release_event
+                close_task = asyncio.create_task(
+                    client.post("/close_old_envs", json={"last_used": 0})
+                )
+                # Wait until slow_close is actually suspended on release_event
+                await asyncio.wait_for(started_event.wait(), timeout=1.0)
+                assert not close_task.done(), (
+                    "test setup bug: slow_close did not actually suspend"
+                )
+
+                start_resp = await asyncio.wait_for(
+                    client.post("/start", json={}), timeout=1.0
+                )
+                assert start_resp.status_code == 200, (
+                    "Lock was held across the slow env.close(); concurrent /start"
+                    " could not acquire it"
+                )
+
+                # Stale env should also already be popped from self.envs under the lock,
+                # before the slow close() runs
+                info_resp = await client.get("/info")
+                assert info_resp.status_code == 200
+                assert "stale" not in info_resp.json()["running_env_ids"]
+
+                # Release slow_close and confirm /close_old_envs finishes cleanly
+                release_event.set()
+                close_resp = await asyncio.wait_for(close_task, timeout=1.0)
+                assert close_resp.status_code == 200
+                assert close_resp.json()["closed_env_ids"] == ["stale"]
+
+    @pytest.mark.asyncio
     async def test_info(self, server_async_client: AsyncClient):
         response = await server_async_client.get("/info")
         assert response.status_code == 200
@@ -782,6 +867,73 @@ class TestTaskDatasetServer:
         assert reward == 0.0
         assert not done
         assert not truncated
+
+    @pytest.mark.asyncio
+    async def test_start_raises_when_get_new_env_by_args_not_implemented(
+        self, server_async_client: AsyncClient
+    ) -> None:
+        # Dummy dataset doesn't implement get_new_env_by_args, so sending
+        # task_kwargs should surface as a 500 via handle_exc_as_http_exc
+        response = await server_async_client.post(
+            "/start", json={"task_kwargs": {"task": "anything"}}
+        )
+        assert response.status_code == 500
+        assert "get_new_env_by_args" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_start_with_task_kwargs(self, args_async_client: AsyncClient) -> None:
+        start_resp = await args_async_client.post(
+            "/start", json={"task_kwargs": {"task": "five-word-story topic"}}
+        )
+        assert start_resp.status_code == 200
+        env_id = start_resp.json()["env_id"]
+
+        # Reset and confirm the task made it into the initial observation.
+        reset_resp = await args_async_client.post("/reset", json={"env_id": env_id})
+        assert reset_resp.status_code == 200
+        (obs,), tools = reset_resp.json()
+        assert "five-word-story topic" in obs["content"]
+        assert tools
+
+    @pytest.mark.asyncio
+    async def test_start_rejects_both_task_idx_and_task_kwargs(
+        self, args_async_client: AsyncClient
+    ) -> None:
+        # Specifying both is ambiguous; server should reject at request validation
+        start_resp = await args_async_client.post(
+            "/start", json={"task_idx": 42, "task_kwargs": {"task": "kwargs-won"}}
+        )
+        assert start_resp.status_code == 422
+        assert "mutually exclusive" in start_resp.text
+
+    @pytest.mark.asyncio
+    async def test_start_reset_step_through_prefix(
+        self, mounted_async_client: AsyncClient
+    ) -> None:
+        """End-to-end smoke test for the mounted-router code path."""
+        start_resp = await mounted_async_client.post("/env/start", json={})
+        assert start_resp.status_code == 200, (
+            "Mounted router did not expose /env/start — route registration"
+            " against external APIRouter is broken"
+        )
+        env_id = start_resp.json()["env_id"]
+
+        reset_resp = await mounted_async_client.post(
+            "/env/reset", json={"env_id": env_id}
+        )
+        assert reset_resp.status_code == 200, (
+            "Mounted router cannot retrieve the env it just created"
+        )
+
+        action = ToolRequestMessage(
+            tool_calls=[
+                ToolCall.from_name("print_story", story="one two three four five")
+            ]
+        )
+        step_resp = await mounted_async_client.post(
+            "/env/step", json={"env_id": env_id, "action": action.model_dump()}
+        )
+        assert step_resp.status_code == 200
 
 
 class TestDefaultNoToolCallsResponse:

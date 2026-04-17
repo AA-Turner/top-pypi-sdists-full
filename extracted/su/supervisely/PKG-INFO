@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supervisely
-Version: 6.73.557
+Version: 6.73.560
 Summary: Supervisely Python SDK.
 Home-page: https://github.com/supervisely/supervisely
 Author: Supervisely
@@ -26,10 +26,11 @@ Requires-Dist: cachetools<=5.5.0,>=4.2.3
 Requires-Dist: numpy<=2.3.3,>=1.19
 Requires-Dist: opencv-python<5.0.0.0,>=4.6.0.66
 Requires-Dist: prettytable<4.0.0,>=3.8.0
-Requires-Dist: pillow<=12.1.1,>=5.4.1
+Requires-Dist: pillow<=12.2.0,>=5.4.1
 Requires-Dist: python-json-logger<=3.0.1,>=0.1.11
 Requires-Dist: packaging>=20.0
-Requires-Dist: requests<3.0.0,>=2.27.1
+Requires-Dist: requests<=2.34.0,>=2.33.0; python_version >= "3.10"
+Requires-Dist: requests>=2.27.1; python_version < "3.10"
 Requires-Dist: requests-toolbelt<2.0.0,>=1.0.0
 Requires-Dist: Shapely<=2.1.2,>=1.7.1
 Requires-Dist: bidict<1.0.0,>=0.21.2
@@ -61,7 +62,7 @@ Requires-Dist: distinctipy
 Requires-Dist: beautifulsoup4
 Requires-Dist: numerize
 Requires-Dist: ffmpeg-python==0.2.0
-Requires-Dist: python-multipart==0.0.22; python_version >= "3.10"
+Requires-Dist: python-multipart==0.0.26; python_version >= "3.10"
 Requires-Dist: python-multipart<=0.0.20; python_version < "3.10"
 Requires-Dist: GitPython
 Requires-Dist: giturlparse

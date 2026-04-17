@@ -7915,6 +7915,21 @@ def remove_launcher_extra_process(
     type=click.Choice(audit_destinations.DESTINATION_TYPES),
 )
 @click.option("--limit", default=500)
+@click.option("--get-all", is_flag=True, default=False)
+@click.option(
+    "--page-on",
+    multiple=True,
+    type=click.Choice(audit_destinations.page_fields),
+    default=None,
+)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--page-sort", multiple=True, type=click.Choice(page_sort_order_values), default=None
+)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
+)
+@click.option("--external", type=bool, default=None)
 @click.pass_context
 def list_audit_destinations(ctx, name=None, **kwargs):
     resources = audit_destinations.list_audit_destinations(ctx, name=name, **kwargs)
@@ -7947,6 +7962,7 @@ def list_audit_destinations(ctx, name=None, **kwargs):
 @click.option("--oauth2-client-secret", default=None, type=str)
 @click.option("--oauth2-scopes", default=None, multiple=True, type=str)
 @click.option("--oauth2-federated-audience", default=None, type=str)
+@click.option("--routing-external", default=None, type=bool)
 @click.option(
     "--webhook_format",
     default=None,
@@ -7982,6 +7998,7 @@ def add_audit_destination(ctx, **kwargs):
 @click.option("--oauth2-client-id", default=None, type=str)
 @click.option("--oauth2-client-secret", default=None, type=str)
 @click.option("--oauth2-federated-audience", default=None, type=str)
+@click.option("--routing-external", default=None, type=bool)
 @click.option(
     "--webhook_format",
     default=None,

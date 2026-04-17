@@ -13,8 +13,9 @@ import inspect
 import re
 from typing import Final
 
+from aiohomematic.ccu_translations import get_ui_label_translation
 from aiohomematic.const import ParameterData
-from aiohomematic.easymode_data import get_channel_metadata
+from aiohomematic.easymode_data import MASTER_SENDER_TYPE, get_channel_metadata
 
 from aiohomematic_config.const import DEFAULT_LOCALE
 
@@ -149,18 +150,15 @@ class ParameterGrouper:
 
         """
         # Try metadata-based grouping first
-        if (
-            channel_type
-            and sender_type
-            and (
-                result := self._groups_from_metadata(
+        if channel_type:
+            # Try explicit sender_type first, then fall back to _MASTER metadata
+            for st in (sender_type, MASTER_SENDER_TYPE) if sender_type else (MASTER_SENDER_TYPE,):
+                if result := self._groups_from_metadata(
                     descriptions=descriptions,
                     channel_type=channel_type,
-                    sender_type=sender_type,
-                )
-            )
-        ):
-            return result
+                    sender_type=st,
+                ):
+                    return result
 
         # Fallback: pattern-based grouping
         return self._groups_from_patterns(descriptions=descriptions)
@@ -192,7 +190,15 @@ class ParameterGrouper:
                 if not (params := tuple(p for p in group_def.parameters if p in available)):
                     continue
                 assigned.update(params)
-                label = group_def.label.get(self._locale) or group_def.label.get("en", group_def.id)
+                # Resolve label: try label_key via ui_label translations, then label dict
+                label: str | None = None
+                if group_def.label_key:
+                    label = get_ui_label_translation(
+                        label_key=group_def.label_key,
+                        locale=self._locale,
+                    )
+                if not label:
+                    label = group_def.label.get(self._locale) or group_def.label.get("en", group_def.id)
                 groups.append(
                     ParameterGroup(
                         id=group_def.id,

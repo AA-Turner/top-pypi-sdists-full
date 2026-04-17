@@ -70,6 +70,11 @@ class TaskCommandRouterStub:
         modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse,
     ]
     """Snapshot a directory with a mounted image, including any local changes, into a new image."""
+    TaskUnmountDirectory: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.TaskUnmountDirectoryRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
+    """Unmount an image previously mounted at a directory in the container."""
 
 class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
     @abc.abstractmethod
@@ -156,5 +161,12 @@ class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse:
         """Snapshot a directory with a mounted image, including any local changes, into a new image."""
+    @abc.abstractmethod
+    def TaskUnmountDirectory(
+        self,
+        request: modal_proto.task_command_router_pb2.TaskUnmountDirectoryRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty:
+        """Unmount an image previously mounted at a directory in the container."""
 
 def add_TaskCommandRouterServicer_to_server(servicer: TaskCommandRouterServicer, server: grpc.Server) -> None: ...

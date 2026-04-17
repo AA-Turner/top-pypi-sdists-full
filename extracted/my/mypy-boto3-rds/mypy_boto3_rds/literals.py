@@ -85,6 +85,7 @@ __all__ = (
     "DescribePendingMaintenanceActionsPaginatorName",
     "DescribeReservedDBInstancesOfferingsPaginatorName",
     "DescribeReservedDBInstancesPaginatorName",
+    "DescribeServerlessV2PlatformVersionsPaginatorName",
     "DescribeSourceRegionsPaginatorName",
     "DescribeTenantDatabasesPaginatorName",
     "DownloadDBLogFilePortionPaginatorName",
@@ -209,6 +210,9 @@ DescribeReservedDBInstancesOfferingsPaginatorName = Literal[
     "describe_reserved_db_instances_offerings"
 ]
 DescribeReservedDBInstancesPaginatorName = Literal["describe_reserved_db_instances"]
+DescribeServerlessV2PlatformVersionsPaginatorName = Literal[
+    "describe_serverless_v2_platform_versions"
+]
 DescribeSourceRegionsPaginatorName = Literal["describe_source_regions"]
 DescribeTenantDatabasesPaginatorName = Literal["describe_tenant_databases"]
 DownloadDBLogFilePortionPaginatorName = Literal["download_db_log_file_portion"]
@@ -388,6 +392,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -454,6 +459,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -510,6 +516,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -607,6 +614,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",
@@ -623,6 +631,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -658,6 +667,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -670,6 +680,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -730,6 +741,7 @@ PaginatorName = Literal[
     "describe_pending_maintenance_actions",
     "describe_reserved_db_instances",
     "describe_reserved_db_instances_offerings",
+    "describe_serverless_v2_platform_versions",
     "describe_source_regions",
     "describe_tenant_databases",
     "download_db_log_file_portion",

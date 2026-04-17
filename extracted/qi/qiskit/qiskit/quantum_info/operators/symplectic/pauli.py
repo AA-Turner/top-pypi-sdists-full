@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -461,7 +461,7 @@ class Pauli(BasePauli):
 
         Args:
             other (Pauli): a Pauli object.
-            qargs (list or None): Optional, qubits to apply dot product
+            qargs (list or None):  qubits to apply dot product
                                   on (default: None).
             front (bool): If True compose using right operator multiplication,
                           instead of left multiplication [default: False].
@@ -495,7 +495,7 @@ class Pauli(BasePauli):
 
         Args:
             other (Pauli): an operator object.
-            qargs (list or None): Optional, qubits to apply dot product
+            qargs (list or None):  qubits to apply dot product
                                   on (default: None).
             inplace (bool): If True update in-place (default: False).
 
@@ -597,7 +597,6 @@ class Pauli(BasePauli):
         if qargs is None:
             qargs = getattr(other, "qargs", None)
 
-        # pylint: disable=cyclic-import
         from qiskit.quantum_info.operators.symplectic.clifford import Clifford
 
         if not isinstance(other, (Pauli, Instruction, QuantumCircuit, Clifford)):

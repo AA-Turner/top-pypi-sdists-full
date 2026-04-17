@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agilicus"
-version = "1.414.2"
+version = "1.415.2"
 description = "Agilicus SDK"
 license = "MIT"
 homepage = "https://www.agilicus.com/"
@@ -10,7 +10,7 @@ readme = "README.md"
 include = [ "agilicus_README.md", "README-cli.md" ]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.12"
 certifi = "2026.2.25"
 python_dateutil = ">2.5.3"
 PyJWT = "2.12.1"

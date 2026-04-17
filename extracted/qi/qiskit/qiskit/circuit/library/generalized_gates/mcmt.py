@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -170,7 +170,7 @@ class MCMTVChain(MCMT):
         super().__init__(gate, num_ctrl_qubits, num_target_qubits)
 
     def _build(self):
-        # pylint: disable=cyclic-import
+
         from qiskit.synthesis.multi_controlled import synth_mcmt_vchain
 
         synthesized = synth_mcmt_vchain(self.gate, self.num_ctrl_qubits, self.num_target_qubits)
@@ -252,7 +252,7 @@ class MCMTGate(ControlledGate):
 
     def _define(self):
         """Default definition relying on gate.control. Control state is handled by superclass."""
-        # pylint: disable=cyclic-import
+
         from qiskit.transpiler.passes.synthesis.hls_plugins import MCMTSynthesisDefault
 
         self.definition = MCMTSynthesisDefault().run(self)
@@ -305,7 +305,7 @@ class MCMTGate(ControlledGate):
         value of ``annotated``.
 
         Args:
-            num_ctrl_qubits: Number of controls to add. Defauls to ``1``.
+            num_ctrl_qubits: Number of controls to add. Defaults to ``1``.
             label: Optional gate label. Defaults to ``None``.
             ctrl_state: The control state of the gate, specified either as an integer or a bitstring
                 (e.g. ``"110"``). If ``None``, defaults to the all-ones state ``2**num_ctrl_qubits - 1``

@@ -61,8 +61,6 @@ __all__ = (
     "AdditionalServiceDetailsTypeDef",
     "AdditionalServiceRegistrationStepTypeDef",
     "AgentSpaceTypeDef",
-    "AllowVendedLogDeliveryForResourceInputTypeDef",
-    "AllowVendedLogDeliveryForResourceOutputTypeDef",
     "AssistantMessageBlockTypeDef",
     "AssociateServiceInputTypeDef",
     "AssociateServiceOutputTypeDef",
@@ -321,18 +319,6 @@ class AgentSpaceTypeDef(TypedDict):
     locale: NotRequired[str]
     kmsKeyArn: NotRequired[str]
 
-class AllowVendedLogDeliveryForResourceInputTypeDef(TypedDict):
-    resourceArnBeingAuthorized: str
-    deliverySourceArn: str
-    logType: NotRequired[str]
-
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
 class AssistantMessageBlockTypeDef(TypedDict):
     text: NotRequired[str]
     toolUse: NotRequired[dict[str, Any]]
@@ -343,6 +329,13 @@ class GenericWebhookTypeDef(TypedDict):
     webhookType: NotRequired[WebhookTypeType]
     webhookSecret: NotRequired[str]
     apiKey: NotRequired[str]
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
 
 class AzureConfigurationTypeDef(TypedDict):
     subscriptionId: str
@@ -375,7 +368,7 @@ class ReferenceInputTypeDef(TypedDict):
 
 class CreateChatRequestTypeDef(TypedDict):
     agentSpaceId: str
-    userId: str
+    userId: NotRequired[str]
     userType: NotRequired[UserTypeType]
 
 class MCPServerAuthorizationDiscoveryConfigTypeDef(TypedDict):
@@ -539,7 +532,7 @@ class ListAssociationsInputTypeDef(TypedDict):
 
 class ListChatsRequestTypeDef(TypedDict):
     agentSpaceId: str
-    userId: str
+    userId: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -850,10 +843,6 @@ class AdditionalServiceDetailsTypeDef(TypedDict):
 class AdditionalServiceRegistrationStepTypeDef(TypedDict):
     oauth: NotRequired[OAuthAdditionalStepDetailsTypeDef]
 
-class AllowVendedLogDeliveryForResourceOutputTypeDef(TypedDict):
-    message: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class CreateAgentSpaceOutputTypeDef(TypedDict):
     agentSpace: AgentSpaceTypeDef
     tags: dict[str, str]
@@ -1124,8 +1113,8 @@ class SendMessageRequestTypeDef(TypedDict):
     agentSpaceId: str
     executionId: str
     content: str
-    userId: str
     context: NotRequired[SendMessageContextTypeDef]
+    userId: NotRequired[str]
 
 class SendMessageResponseCompletedEventTypeDef(TypedDict):
     responseId: NotRequired[str]

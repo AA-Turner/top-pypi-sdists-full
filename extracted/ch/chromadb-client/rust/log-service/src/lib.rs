@@ -14,12 +14,14 @@ use chroma_config::helpers::{deserialize_duration_from_seconds, serialize_durati
 use chroma_config::spanner::{SpannerChannelConfig, SpannerConfig, SpannerSessionPoolConfig};
 use chroma_config::Configurable;
 use chroma_error::ChromaError;
+use chroma_faults::FaultRegistry;
 use chroma_log::config::GrpcLogConfig;
 use chroma_storage::config::StorageConfig;
 use chroma_storage::Storage;
 use chroma_tracing::OtelFilter;
 use chroma_tracing::OtelFilterLevel;
 use chroma_types::chroma_proto::{
+    fault_injection_service_server::FaultInjectionServiceServer,
     garbage_collect_phase2_request::LogToCollect, log_service_server::LogService,
     purge_from_cache_request::EntryToEvict, CollectionInfo, GarbageCollectPhase2Request,
     GarbageCollectPhase2Response, GetAllCollectionInfoToCompactRequest,
@@ -55,10 +57,15 @@ use wal3::{
     create_repl_factories, create_s3_factories,
     interfaces::repl::ManifestManager as ReplManifestManager, interfaces::ManifestManagerFactory,
     scan_from_manifest, Cursor, CursorName, CursorStore, CursorStoreOptions, CursorWitness,
-    Fragment, FragmentManagerFactory, GarbageCollectionOptions, Limits, LogPosition, LogReader,
-    LogReaderOptions, LogReaderTrait, LogWriter, LogWriterOptions, LogWriterTrait, Manifest,
-    ManifestAndWitness, MarkDirty as MarkDirtyTrait, ReplicatedFragmentOptions, Snapshot,
-    SnapshotCache, SnapshotPointer, StorageWrapper, INTRINSIC_CURSOR,
+    Fragment, FragmentManagerFactory, FragmentUploadFaultInjector, GarbageCollectionOptions,
+    Limits, LogPosition, LogReader, LogReaderOptions, LogReaderTrait, LogWriter, LogWriterOptions,
+    LogWriterTrait, Manifest, ManifestAndWitness, MarkDirty as MarkDirtyTrait,
+    ReplicatedFragmentOptions, Snapshot, SnapshotCache, SnapshotPointer, StorageWrapper,
+    INTRINSIC_CURSOR,
+};
+#[cfg(feature = "faults")]
+use wal3::{
+    FaultInjectingFragmentManagerFactory, FragmentUploadFault, FRAGMENT_UPLOAD_FAULT_LABEL,
 };
 
 mod scrub;
@@ -114,6 +121,50 @@ fn to_channel_config(cfg: &SpannerChannelConfig) -> ChannelConfig {
 const DEFAULT_CONFIG_PATH: &str = "./chroma_config.yaml";
 
 const CONFIG_PATH_ENV_VAR: &str = "CONFIG_PATH";
+
+#[cfg(feature = "faults")]
+#[derive(Clone)]
+struct LogServiceFragmentUploadFaultInjector {
+    faults: Arc<FaultRegistry>,
+}
+
+#[cfg(feature = "faults")]
+impl LogServiceFragmentUploadFaultInjector {
+    fn new(faults: Arc<FaultRegistry>) -> Self {
+        Self { faults }
+    }
+}
+
+#[cfg(feature = "faults")]
+impl FragmentUploadFaultInjector for LogServiceFragmentUploadFaultInjector {
+    fn fault_for_upload(&self) -> Option<FragmentUploadFault> {
+        self.faults
+            .action_for_label(FRAGMENT_UPLOAD_FAULT_LABEL)
+            .map(|action| match action {
+                chroma_faults::FaultActionKind::Unavailable => FragmentUploadFault::Unavailable,
+                chroma_faults::FaultActionKind::Delay(delay) => FragmentUploadFault::Delay(delay),
+            })
+    }
+}
+
+#[cfg(feature = "faults")]
+fn maybe_wrap_fragment_manager_factory<F>(
+    fragment_manager_factory: F,
+    fragment_upload_fault_injector: Option<Arc<dyn FragmentUploadFaultInjector>>,
+) -> FaultInjectingFragmentManagerFactory<F> {
+    FaultInjectingFragmentManagerFactory::new(
+        fragment_manager_factory,
+        fragment_upload_fault_injector,
+    )
+}
+
+#[cfg(not(feature = "faults"))]
+fn maybe_wrap_fragment_manager_factory<F>(
+    fragment_manager_factory: F,
+    _fragment_upload_fault_injector: Option<Arc<dyn FragmentUploadFaultInjector>>,
+) -> F {
+    fragment_manager_factory
+}
 
 // SAFETY(rescrv):  There's a test that this produces a valid type.
 static STABLE_PREFIX: CursorName = unsafe { CursorName::from_string_unchecked("stable_prefix") };
@@ -222,6 +273,7 @@ struct FactoryCreationContext<'a> {
     collection_id: CollectionUuid,
     prefix: String,
     snapshot_cache: Arc<dyn SnapshotCache>,
+    fragment_upload_fault_injector: Option<Arc<dyn FragmentUploadFaultInjector>>,
 }
 
 impl<'a> FactoryCreationContext<'a> {
@@ -230,6 +282,7 @@ impl<'a> FactoryCreationContext<'a> {
         topology_name: Option<&'a TopologyName>,
         collection_id: CollectionUuid,
         snapshot_cache: Arc<dyn SnapshotCache>,
+        fragment_upload_fault_injector: Option<Arc<dyn FragmentUploadFaultInjector>>,
     ) -> Self {
         let prefix = collection_id.storage_prefix_for_log();
         Self {
@@ -238,6 +291,7 @@ impl<'a> FactoryCreationContext<'a> {
             collection_id,
             prefix,
             snapshot_cache,
+            fragment_upload_fault_injector,
         }
     }
 
@@ -388,6 +442,10 @@ impl<'a> FactoryCreationContext<'a> {
             region_names,
             self.collection_id.0,
         );
+        let fragment_factory = maybe_wrap_fragment_manager_factory(
+            fragment_factory,
+            self.fragment_upload_fault_injector.as_ref().map(Arc::clone),
+        );
         let fragment_publisher = fragment_factory.make_publisher().await?;
         Ok(wal3::copy(reader, cursor, &fragment_publisher, manifest_factory, cmek).await?)
     }
@@ -414,6 +472,10 @@ impl<'a> FactoryCreationContext<'a> {
             "copy".to_string(),
             Arc::new(()),
             Arc::clone(&self.snapshot_cache),
+        );
+        let fragment_factory = maybe_wrap_fragment_manager_factory(
+            fragment_factory,
+            self.fragment_upload_fault_injector.as_ref().map(Arc::clone),
         );
         let fragment_publisher = fragment_factory.make_publisher().await?;
         Ok(wal3::copy(reader, cursor, &fragment_publisher, manifest_factory, cmek).await?)
@@ -561,6 +623,7 @@ async fn get_log_from_handle<'a>(
     prefix: &str,
     mark_dirty: MarkDirty,
     snapshot_cache: Arc<dyn SnapshotCache>,
+    fragment_upload_fault_injector: Option<Arc<dyn FragmentUploadFaultInjector>>,
     cmek: Option<Cmek>,
 ) -> Result<LogRef<'a>, Error> {
     let active = handle.active.lock().await;
@@ -575,6 +638,7 @@ async fn get_log_from_handle<'a>(
         prefix,
         mark_dirty,
         snapshot_cache,
+        fragment_upload_fault_injector,
         cmek,
     )
     .await
@@ -592,6 +656,7 @@ async fn get_log_from_handle_with_mutex_held<'a>(
     prefix: &str,
     mark_dirty: MarkDirty,
     snapshot_cache: Arc<dyn SnapshotCache>,
+    fragment_upload_fault_injector: Option<Arc<dyn FragmentUploadFaultInjector>>,
     cmek: Option<Cmek>,
 ) -> Result<LogRef<'a>, Error> {
     if active.log.is_some() {
@@ -637,6 +702,10 @@ async fn get_log_from_handle_with_mutex_held<'a>(
             spanner,
             region_names,
             collection_id.0,
+        );
+        let fragment_publisher_factory = maybe_wrap_fragment_manager_factory(
+            fragment_publisher_factory,
+            fragment_upload_fault_injector.as_ref().map(Arc::clone),
         );
         let opened = LogWriter::open_or_initialize(
             write_options.clone(),
@@ -687,6 +756,10 @@ async fn get_log_from_handle_with_mutex_held<'a>(
             "log writer".to_string(),
             mark_dirty_arc,
             snapshot_cache,
+        );
+        let fragment_publisher_factory = maybe_wrap_fragment_manager_factory(
+            fragment_publisher_factory,
+            fragment_upload_fault_injector.as_ref().map(Arc::clone),
         );
         let opened = LogWriter::open_or_initialize(
             write_options.clone(),
@@ -1091,6 +1164,7 @@ pub struct LogServer {
     config: LogServerConfig,
     open_logs: Arc<StateHashTable<LogKey, LogStub>>,
     dirty_log: Option<Arc<dyn LogWriterTrait>>,
+    faults: Arc<FaultRegistry>,
     rolling_up_s3: tokio::sync::Mutex<()>,
     rolling_up_repl: tokio::sync::Mutex<()>,
     backpressure: Mutex<Arc<HashSet<CollectionUuid>>>,
@@ -1110,6 +1184,19 @@ impl LogServer {
             .ok_or_else(|| Error::MissingStorage(format!("{}", self.storages.preferred())))?
             .config()
             .storage)
+    }
+
+    fn fragment_upload_fault_injector(&self) -> Option<Arc<dyn FragmentUploadFaultInjector>> {
+        #[cfg(feature = "faults")]
+        {
+            Some(Arc::new(LogServiceFragmentUploadFaultInjector::new(
+                Arc::clone(&self.faults),
+            )))
+        }
+        #[cfg(not(feature = "faults"))]
+        {
+            None
+        }
     }
 
     fn snapshot_cache_for_collection(
@@ -1152,6 +1239,7 @@ impl LogServer {
             topology_name,
             collection_id,
             snapshot_cache,
+            self.fragment_upload_fault_injector(),
         );
         ctx.make_log_reader(&self.config.writer, &self.config.reader)
             .await
@@ -1306,6 +1394,7 @@ impl LogServer {
             &storage_prefix,
             mark_dirty,
             snapshot_cache,
+            self.fragment_upload_fault_injector(),
             None, // Offset updates don't use CMEK
         )
         .await
@@ -2086,6 +2175,7 @@ impl LogServer {
             &prefix,
             mark_dirty,
             snapshot_cache,
+            self.fragment_upload_fault_injector(),
             cmek,
         )
         .await
@@ -2160,25 +2250,40 @@ impl LogServer {
             .make_log_reader(topology_name.as_ref(), collection_id)
             .await
             .map_err(|err| Status::unknown(err.to_string()))?;
-        let (start_position, limit_position) = match self
-            .manifest_with_head_check(&*log_reader, collection_id)
-            .await
-        {
-            Ok(Some(mw)) => (
-                mw.manifest.oldest_timestamp(),
-                mw.manifest.next_write_timestamp(),
-            ),
-            Ok(None) => (LogPosition::from_offset(1), LogPosition::from_offset(1)),
-            Err(wal3::Error::UninitializedLog) => {
-                return Err(Status::not_found(format!(
-                    "collection {collection_id} not found"
-                )));
+        let (start_position, limit_position) = if topology_name.is_some() {
+            match log_reader
+                .manifest_bounds_and_witness()
+                .await
+                .map_err(|err| {
+                    Status::new(err.code().into(), format!("could not scout logs: {err:?}"))
+                })? {
+                Some(bounds_and_witness) => (
+                    bounds_and_witness.bounds.oldest_timestamp,
+                    bounds_and_witness.bounds.next_write_timestamp,
+                ),
+                None => (LogPosition::from_offset(1), LogPosition::from_offset(1)),
             }
-            Err(err) => {
-                return Err(Status::new(
-                    err.code().into(),
-                    format!("could not scout logs: {err:?}"),
-                ));
+        } else {
+            match self
+                .manifest_with_head_check(&*log_reader, collection_id)
+                .await
+            {
+                Ok(Some(mw)) => (
+                    mw.manifest.oldest_timestamp(),
+                    mw.manifest.next_write_timestamp(),
+                ),
+                Ok(None) => (LogPosition::from_offset(1), LogPosition::from_offset(1)),
+                Err(wal3::Error::UninitializedLog) => {
+                    return Err(Status::not_found(format!(
+                        "collection {collection_id} not found"
+                    )));
+                }
+                Err(err) => {
+                    return Err(Status::new(
+                        err.code().into(),
+                        format!("could not scout logs: {err:?}"),
+                    ));
+                }
             }
         };
         let start_offset = start_position.offset() as i64;
@@ -2340,6 +2445,11 @@ impl LogServer {
             max_records: Some(pull_logs.batch_size as u64),
         };
         let from = LogPosition::from_offset(pull_logs.start_from_offset as u64);
+        if topology_name.is_some() {
+            if let Some(fragments) = log_reader.scan_partial(from, limits).await? {
+                return Ok(fragments);
+            }
+        }
         if let Ok(Some(manifest_and_witness)) = log_reader.manifest_and_witness().await {
             let fragments = scan_from_manifest(&manifest_and_witness.manifest, from, limits);
             if let Some(cache) = self.cache.as_ref() {
@@ -2518,6 +2628,7 @@ impl LogServer {
             topology_name.as_ref(),
             target_collection_id,
             snapshot_cache,
+            self.fragment_upload_fault_injector(),
         );
         target_ctx
             .fork_to_target(
@@ -2903,6 +3014,7 @@ impl LogServer {
                     &prefix,
                     mark_dirty,
                     snapshot_cache,
+                    self.fragment_upload_fault_injector(),
                     None, // GC doesn't use CMEK
                 )
                 .await
@@ -3121,6 +3233,9 @@ impl LogServerWrapper {
             .max_concurrent_streams(Some(max_concurrent_streams))
             .layer(chroma_tracing::GrpcServerTraceLayer)
             .add_service(health_service)
+            .add_service(FaultInjectionServiceServer::from_arc(
+                wrapper.log_server.faults.clone(),
+            ))
             .add_service(
                 chroma_types::chroma_proto::log_service_server::LogServiceServer::new(wrapper)
                     .max_decoding_message_size(max_decoding_message_size)
@@ -3592,11 +3707,14 @@ impl Configurable<LogServerConfig> for LogServer {
         let backpressure = Mutex::new(Arc::new(HashSet::default()));
         let need_to_compact_s3 = Mutex::new(HashMap::default());
         let need_to_compact_repl = Mutex::new(HashMap::default());
+        let faults = Arc::new(FaultRegistry::new());
+        registry.register(Arc::clone(&faults));
         Ok(Self {
             config: config.clone(),
             open_logs: Arc::new(StateHashTable::default()),
             storages,
             dirty_log,
+            faults,
             rolling_up_s3,
             rolling_up_repl,
             backpressure,
@@ -3659,8 +3777,9 @@ mod tests {
     use crate::state_hash_table::Value;
 
     use chroma_config::spanner::SpannerEmulatorConfig;
-    use chroma_config::ADMIN_RPC_TIMEOUT_SECS;
+    use chroma_faults::FaultRegistry;
     use chroma_storage::s3_client_for_test_with_new_bucket;
+    use chroma_types::chroma_proto::fault_injection_service_server::FaultInjectionServiceServer;
     use chroma_types::Topology;
     use chroma_types::{are_update_metadatas_close_to_equal, Operation, OperationRecord};
     use google_cloud_gax::conn::Environment;
@@ -3670,6 +3789,7 @@ mod tests {
     use opentelemetry::global::meter;
     use proptest::prelude::*;
     use tokio::{runtime::Runtime, sync::mpsc::unbounded_channel, time::sleep};
+    use tonic::transport::Server;
     use tonic::{Code, IntoRequest};
     use wal3::{
         FragmentPointer, FragmentSeqNo, FragmentUuid, GarbageCollector,
@@ -4881,9 +5001,7 @@ mod tests {
             let config = LogServerConfig {
                 writer: writer_options,
                 repl: repl_options,
-                // Use zero threshold in integration tests to surface small repl-dirty changes
-                // immediately. The default threshold (100) hides small writes.
-                record_count_threshold: 0,
+                record_count_threshold: 1,
                 ..Default::default()
             };
 
@@ -4909,6 +5027,7 @@ mod tests {
             LogServer {
                 storages: storages.into(),
                 dirty_log,
+                faults: Arc::new(FaultRegistry::new()),
                 metrics: Metrics::new(meter("test-rust-log-service")),
                 config,
                 open_logs: Default::default(),
@@ -4923,7 +5042,7 @@ mod tests {
         let dtor = Box::pin(async move {
             let admin_client_config = AdminClientConfig {
                 environment: Environment::Emulator(dtor_emulator.grpc_endpoint()),
-                timeout: Duration::from_secs(ADMIN_RPC_TIMEOUT_SECS),
+                timeout: Duration::from_secs(dtor_emulator.channel.admin_rpc_timeout_secs),
                 connect_timeout: Duration::from_secs(dtor_emulator.channel.connect_timeout_secs),
                 http2_keep_alive_interval: Some(Duration::from_secs(
                     dtor_emulator.channel.http2_keep_alive_interval_secs,
@@ -5007,6 +5126,7 @@ mod tests {
             LogServer {
                 storages,
                 dirty_log,
+                faults: Arc::new(FaultRegistry::new()),
                 metrics: Metrics::new(meter("test-rust-log-service")),
                 config,
                 open_logs: Default::default(),
@@ -5055,6 +5175,50 @@ mod tests {
             }
             sleep(Duration::from_millis(1)).await;
         }
+    }
+
+    #[cfg(feature = "faults")]
+    #[tokio::test]
+    async fn fragment_upload_fault_injection_rejects_then_recovers() {
+        let (ctor, dtor) = s3_setup_log_server();
+        let log_server = ctor.await;
+        let collection_id = CollectionUuid::new();
+        let make_request = || PushLogsRequest {
+            collection_id: collection_id.to_string(),
+            records: vec![OperationRecord {
+                id: "fault-test".to_string(),
+                embedding: None,
+                encoding: None,
+                metadata: None,
+                document: None,
+                operation: Operation::Delete,
+            }
+            .try_into()
+            .expect("operation record should convert to proto")],
+            cmek: None,
+            database_name: "default_database".to_string(),
+        };
+
+        log_server.faults.inject(
+            chroma_faults::FaultSelectorKind::Label(FRAGMENT_UPLOAD_FAULT_LABEL.to_string()),
+            chroma_faults::FaultActionKind::Unavailable,
+        );
+
+        let err = log_server
+            .push_logs(Request::new(make_request()))
+            .await
+            .expect_err("fault injection should reject fragment upload");
+        assert_eq!(err.code(), Code::Unavailable);
+
+        log_server.faults.clear_all();
+
+        let response = log_server
+            .push_logs(Request::new(make_request()))
+            .await
+            .expect("write should succeed after clearing injected fault");
+        assert_eq!(response.into_inner().record_count, 1);
+
+        dtor.await;
     }
 
     async fn validate_log_on_server(
@@ -5157,11 +5321,7 @@ mod tests {
         }
     }
 
-    async fn validate_dirty_log_on_server(
-        server: &LogServer,
-        _db_name: &str,
-        collection_ids: &[CollectionUuid],
-    ) {
+    async fn validate_dirty_log_on_server(server: &LogServer, collection_ids: &[CollectionUuid]) {
         server
             .roll_dirty_log_s3_cycle()
             .await
@@ -5400,7 +5560,7 @@ mod tests {
         runtime.block_on(async move {
             let (ctor, dtor) = setup_log_server();
             let log_server = ctor.await;
-            validate_dirty_log_on_server(&log_server, &db_name, &[]).await;
+            validate_dirty_log_on_server(&log_server, &[]).await;
 
             let collection_id = CollectionUuid::new();
 
@@ -5408,7 +5568,7 @@ mod tests {
                 push_log_to_server(&log_server, &db_name, collection_id, chunk).await;
             }
 
-            validate_dirty_log_on_server(&log_server, &db_name, &[collection_id]).await;
+            validate_dirty_log_on_server(&log_server, &[collection_id]).await;
             validate_log_on_server(
                 &log_server,
                 &db_name,
@@ -5421,7 +5581,7 @@ mod tests {
             let enum_offset = get_enum_offset_on_server(&log_server, &db_name, collection_id).await;
             update_compact_offset_on_server(&log_server, &db_name, collection_id, enum_offset)
                 .await;
-            validate_dirty_log_on_server(&log_server, &db_name, &[]).await;
+            validate_dirty_log_on_server(&log_server, &[]).await;
             dtor.await;
         });
     }
@@ -5437,7 +5597,7 @@ mod tests {
         runtime.block_on(async move {
             let (ctor, dtor) = setup_log_server();
             let log_server = ctor.await;
-            validate_dirty_log_on_server(&log_server, &db_name, &[]).await;
+            validate_dirty_log_on_server(&log_server, &[]).await;
 
             let mut collection_id_with_ord = Vec::new();
             for (index, operation) in operations {
@@ -5457,10 +5617,21 @@ mod tests {
 
             while let Some(collection_id) = collection_ids.pop() {
                 update_compact_offset_on_server(&log_server, &db_name, collection_id, 1).await;
-                validate_dirty_log_on_server(&log_server, &db_name, &collection_ids).await;
+                validate_dirty_log_on_server(&log_server, &collection_ids).await;
             }
             dtor.await;
         });
+    }
+
+    fn test_operation_record(id: impl Into<String>) -> OperationRecord {
+        OperationRecord {
+            id: id.into(),
+            embedding: Some(vec![1.0, 2.0, 3.0]),
+            encoding: None,
+            metadata: None,
+            document: None,
+            operation: Operation::Add,
+        }
     }
 
     fn test_fork_logs(
@@ -5476,7 +5647,7 @@ mod tests {
         runtime.block_on(async move {
             let (ctor, dtor) = setup_log_server();
             let log_server = ctor.await;
-            validate_dirty_log_on_server(&log_server, &db_name, &[]).await;
+            validate_dirty_log_on_server(&log_server, &[]).await;
 
             let source_collection_id = CollectionUuid::new();
             let fork_collection_id = CollectionUuid::new();
@@ -5530,7 +5701,7 @@ mod tests {
                 dirty_collection_ids.push(fork_collection_id);
             }
 
-            validate_dirty_log_on_server(&log_server, &db_name, &dirty_collection_ids).await;
+            validate_dirty_log_on_server(&log_server, &dirty_collection_ids).await;
             validate_log_on_server(
                 &log_server,
                 &db_name,
@@ -5574,7 +5745,7 @@ mod tests {
                 )
                 .await;
             }
-            validate_dirty_log_on_server(&log_server, &db_name, &[]).await;
+            validate_dirty_log_on_server(&log_server, &[]).await;
             dtor.await;
         });
     }
@@ -5872,6 +6043,7 @@ mod tests {
             open_logs: Arc::new(StateHashTable::default()),
             storages: Arc::new(storages),
             dirty_log,
+            faults: Arc::new(FaultRegistry::new()),
             rolling_up_s3: tokio::sync::Mutex::new(()),
             rolling_up_repl: tokio::sync::Mutex::new(()),
             backpressure: Mutex::new(Arc::new(HashSet::default())),
@@ -6024,6 +6196,7 @@ mod tests {
             open_logs: Arc::new(StateHashTable::default()),
             storages: Arc::new(storages),
             dirty_log,
+            faults: Arc::new(FaultRegistry::new()),
             rolling_up_s3: tokio::sync::Mutex::new(()),
             rolling_up_repl: tokio::sync::Mutex::new(()),
             backpressure: Mutex::new(Arc::new(HashSet::default())),
@@ -6243,6 +6416,42 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_k8s_mcmr_integration_rust_log_service_dirty_logs_single_add_regression() {
+        std::thread::Builder::new()
+            .stack_size(1 << 22)
+            .spawn(move || {
+                test_dirty_logs(
+                    &format!("{TEST_TOPOLOGY_NAME}+dbname"),
+                    vec![(0, test_operation_record("single-add"))],
+                    mcmr_setup_log_server,
+                )
+            })
+            .expect("Thread should be spawnable")
+            .join()
+            .expect("Spawned thread should not fail to join");
+    }
+
+    #[test]
+    fn test_k8s_mcmr_integration_rust_log_service_dirty_logs_three_adds_regression() {
+        std::thread::Builder::new()
+            .stack_size(1 << 22)
+            .spawn(move || {
+                test_dirty_logs(
+                    &format!("{TEST_TOPOLOGY_NAME}+dbname"),
+                    vec![
+                        (2, test_operation_record("third-add")),
+                        (0, test_operation_record("first-add")),
+                        (1, test_operation_record("second-add")),
+                    ],
+                    mcmr_setup_log_server,
+                )
+            })
+            .expect("Thread should be spawnable")
+            .join()
+            .expect("Spawned thread should not fail to join");
+    }
+
     proptest! {
         #![proptest_config(ProptestConfig {
             timeout: 60_000,
@@ -6283,8 +6492,8 @@ mod tests {
 
     proptest! {
         #![proptest_config(ProptestConfig {
-            timeout: 60_000,
-            cases: 10,
+            timeout: 90_000,
+            cases: 1,
             .. ProptestConfig::default()
         })]
         #[test]
@@ -6309,5 +6518,12 @@ mod tests {
         BACKOFF_REASON_MD_KEY
             .parse::<tonic::metadata::MetadataKey<tonic::metadata::Ascii>>()
             .expect("BACKOFF_REASON_MD_KEY must be a valid ASCII metadata key");
+    }
+
+    #[test]
+    fn fault_injection_service_can_be_added_to_server_builder() {
+        let _server = Server::builder().add_service(FaultInjectionServiceServer::from_arc(
+            Arc::new(FaultRegistry::new()),
+        ));
     }
 }

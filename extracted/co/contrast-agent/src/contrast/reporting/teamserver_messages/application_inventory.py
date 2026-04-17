@@ -2,7 +2,7 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from dataclasses import asdict
 from contrast_fireball import DiscoveredRoute
-import requests
+from contrast_vendor import requests
 
 from .base_ts_message import BaseTsAppMessage
 from contrast.utils.decorators import fail_loudly

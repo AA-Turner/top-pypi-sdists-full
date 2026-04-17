@@ -54,13 +54,12 @@ rust-ext = ["neo4j-rust-ext >= 4.4.12, < 7.0"]
 
 
 [dependency-groups]
-# To install all development dependencies,
-# run `pip install --group dev -e .` inside repository root folder.#
 dev = [
     "tox>4.24",
     { include-group = "dev-base" },
     { include-group = "test" },
     { include-group = "docs-ci" },
+    { include-group = "notebook-base"}
 ]
 
 dev-base = [
@@ -79,6 +78,7 @@ dev-base = [
 ]
 test = [
     "pytest == 9.0.2",
+    "pytest-timeout",
     "requests_mock == 1.12.1",
     "pytest_mock == 3.15.1",
     "testcontainers == 4.14.0",
@@ -89,6 +89,7 @@ docs-ci = [
     "sphinx == 7.3.7",
     "enum-tools[sphinx]==0.13.0",
     "autodoc_pydantic",
+    "networkx >= 2.0, < 4.0"
 ]
 notebook-base = [
     "nbconvert==7.16.6",
@@ -110,6 +111,10 @@ notebook-ci = [
 ]
 
 publish = ["build", "twine"]
+
+[tool.uv.extra-build-dependencies]
+torch-sparse = ["torch"]
+torch-scatter = ["torch"]
 
 [tool.setuptools]
 include-package-data = true

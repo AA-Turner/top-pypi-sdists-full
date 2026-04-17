@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "daytona_toolbox_api_client_async"
-version = "0.166.0"
+version = "0.167.0"
 description = "Daytona Toolbox API"
 authors = ["OpenAPI Generator Community <team@openapitools.org>"]
 license = "Apache-2.0"

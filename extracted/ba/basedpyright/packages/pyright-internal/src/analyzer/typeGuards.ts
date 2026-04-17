@@ -82,6 +82,7 @@ import {
     isLiteralLikeType,
     isLiteralType,
     isLiteralTypeOrUnion,
+    isMaybeDescriptorClass,
     isMaybeDescriptorInstance,
     isMetaclassInstance,
     isNoneInstance,
@@ -98,6 +99,7 @@ import {
     MemberAccessFlags,
     shouldUseVarianceForSpecialization,
     specializeTupleClass,
+    someSubtypes,
     specializeWithUnknownTypeArgs,
     stripTypeForm,
     synthesizeTypeVarForSelfCls,
@@ -1100,8 +1102,13 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
         /* options */ undefined,
         (subtype, unexpandedSubtype) => {
             if (isAnyOrUnknown(subtype)) {
-                // Assume that "Any" is always both None and not None, so it matches
-                // regardless of whether the test is positive or negative.
+                // Narrow to None in positive tests, matching the behavior of other
+                // narrowing functions (narrowTypeForInstanceOrSubclass, narrowTypeForLiteralComparison).
+                if (isPositiveTest) {
+                    resultIncludesNoneSubtype = true;
+                    return addConditionToType(evaluator.getNoneType(), subtype.props?.condition);
+                }
+                // For negative tests, keep the original type.
                 return subtype;
             }
 
@@ -2547,17 +2554,39 @@ function narrowTypeForDiscriminatedFieldNoneComparison(
         }
 
         if (memberInfo && memberInfo.isTypeDeclared) {
+            // Check the declared type before narrowing, since the member type
+            // below will be concretized and lose descriptor identity.
+            const declaredType = evaluator.getDeclaredTypeOfSymbol(memberInfo.symbol)?.type;
+            if (!declaredType) {
+                // isTypeDeclared is true but the type couldn't be resolved (e.g. an
+                // unresolvable stub).  Conservatively skip narrowing rather than risk
+                // incorrectly eliminating a descriptor-typed member.
+                return subtype;
+            }
+            // Check if any subtype of the declared type is a descriptor or property.
+            // isMaybeDescriptorInstance handles declared types in instance form (ClassInstance),
+            // while isMaybeDescriptorClass handles declared types in instantiable form
+            // (InstantiableClass), which occurs when the annotation refers to the class object itself.
+            // This check applies to both positive and negative test paths: descriptor __get__
+            // return values don't reflect stored values regardless of test polarity.
+            const isDescriptorOrProperty = someSubtypes(
+                declaredType,
+                (declaredSubtype) =>
+                    isProperty(declaredSubtype) ||
+                    isMaybeDescriptorInstance(declaredSubtype) ||
+                    isMaybeDescriptorClass(declaredSubtype)
+            );
+
+            if (isDescriptorOrProperty) {
+                return subtype;
+            }
+
             const memberType = evaluator.makeTopLevelTypeVarsConcrete(evaluator.getTypeOfMember(memberInfo));
             let canNarrow = true;
 
             if (isPositiveTest) {
                 doForEachSubtype(memberType, (memberSubtype) => {
                     memberSubtype = evaluator.makeTopLevelTypeVarsConcrete(memberSubtype);
-
-                    // Don't attempt to narrow if the member is a descriptor or property.
-                    if (isProperty(memberSubtype) || isMaybeDescriptorInstance(memberSubtype)) {
-                        canNarrow = false;
-                    }
 
                     if (isAnyOrUnknown(memberSubtype) || isNoneInstance(memberSubtype) || isNever(memberSubtype)) {
                         canNarrow = false;

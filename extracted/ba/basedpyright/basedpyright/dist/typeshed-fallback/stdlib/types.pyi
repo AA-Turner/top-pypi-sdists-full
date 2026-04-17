@@ -1022,7 +1022,7 @@ if sys.version_info >= (3, 10):
             ...
         # you can only subscript a `UnionType` instance if at least one of the elements
         # in the union is a generic alias instance that has a non-empty `__parameters__`
-        def __getitem__(self, parameters: Any) -> object:
+        def __getitem__(self, parameters: Any, /) -> object:
             """Return self[key]."""
             ...
 

@@ -2,11 +2,12 @@
 
 import pytest
 
-from gxformat2.export import from_galaxy_native
-from gxformat2.model import (
+from gxformat2._comment_helpers import (
     flatten_comment_data,
     unflatten_comment_data,
 )
+from gxformat2.export import from_galaxy_native
+
 from ._helpers import (
     from_native,
     round_trip,

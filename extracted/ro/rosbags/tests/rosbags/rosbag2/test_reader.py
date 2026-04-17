@@ -1,4 +1,4 @@
-# Copyright 2020 - 2025 Ternaris
+# Copyright 2020-2026 Ternaris
 # SPDX-License-Identifier: Apache-2.0
 """Reader Tests."""
 
@@ -144,7 +144,7 @@ def bag_with_compression(
     )
 
     comp = zstandard.ZstdCompressor()
-    textcomp = comp.compress if request.param == 'message' else lambda x: bytes(x)
+    textcomp = comp.compress if request.param == 'message' else bytes
 
     db0 = tmp_path / 'db0.dat'
     db0.write_bytes(b'mockdata0')

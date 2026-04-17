@@ -167,6 +167,8 @@ impl UnwindOperator {
         let mut next_col = element_col_idx + 1;
         if self.emit_ordinality {
             if let Some(out_col) = builder.column_mut(next_col) {
+                // reason: list index fits i64 for practical sizes
+                #[allow(clippy::cast_possible_wrap)]
                 out_col.push_value(Value::Int64((self.current_list_idx + 1) as i64));
             }
             next_col += 1;
@@ -176,6 +178,8 @@ impl UnwindOperator {
         if self.emit_offset
             && let Some(out_col) = builder.column_mut(next_col)
         {
+            // reason: list index fits i64 for practical sizes
+            #[allow(clippy::cast_possible_wrap)]
             out_col.push_value(Value::Int64(self.current_list_idx as i64));
         }
 
@@ -207,6 +211,10 @@ impl Operator for UnwindOperator {
     fn name(&self) -> &'static str {
         "Unwind"
     }
+
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+        self
+    }
 }
 
 #[cfg(test)]
@@ -237,6 +245,10 @@ mod tests {
 
         fn name(&self) -> &'static str {
             "MockOperator"
+        }
+
+        fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+            self
         }
     }
 
@@ -513,5 +525,23 @@ mod tests {
 
         // OFFSET is 0-based
         assert_eq!(offsets, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn test_unwind_into_any() {
+        let mock = MockOperator {
+            chunks: vec![],
+            position: 0,
+        };
+        let op = UnwindOperator::new(
+            Box::new(mock),
+            0,
+            "items".to_string(),
+            vec![LogicalType::Any, LogicalType::Any],
+            false,
+            false,
+        );
+        let any = Box::new(op).into_any();
+        assert!(any.downcast::<UnwindOperator>().is_ok());
     }
 }

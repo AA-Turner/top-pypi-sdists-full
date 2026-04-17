@@ -8,7 +8,7 @@ use crate::comments::CommentPreservation;
 use crate::document::Document;
 use crate::item::Item;
 use crate::item_ops::{self, Key, unsupported_op};
-use crate::item_proxy::ItemProxy;
+use crate::item_proxy::{ItemProxy, with_proxy_item};
 use crate::py_pairs::extract_pair;
 
 // ---------------------------------------------------------------------------
@@ -189,6 +189,18 @@ pub(crate) fn for_each_key(item: &ItemRs, mut f: impl FnMut(&str) -> PyResult<()
     Ok(())
 }
 
+/// Iterate `(key, item)` pairs of a dict-like item, propagating errors.
+pub(crate) fn for_each_entry(
+    item: &ItemRs,
+    mut f: impl FnMut(&str, &ItemRs) -> PyResult<()>,
+) -> PyResult<()> {
+    let tbl = as_dict_like(item, "items()")?;
+    for (k, v) in tbl.iter() {
+        f(k, v)?;
+    }
+    Ok(())
+}
+
 pub(crate) fn item_keys(item: &ItemRs) -> PyResult<Vec<String>> {
     let mut keys = Vec::new();
     for_each_key(item, |k| {
@@ -199,18 +211,10 @@ pub(crate) fn item_keys(item: &ItemRs) -> PyResult<Vec<String>> {
 }
 
 pub(crate) fn item_has_key(item: &ItemRs, key: &str) -> PyResult<bool> {
-    if let Some(tbl) = item.as_table_like() {
-        return Ok(tbl.contains_key(key));
-    }
-    match item {
-        ItemRs::Value(ValueRs::Array(_)) | ItemRs::ArrayOfTables(_) => Err(PyTypeError::new_err(
-            "TOML array indices must be integers, not strings",
-        )),
-        _ => Err(PyTypeError::new_err(format!(
-            "TOML {} item is not subscriptable (use .value to get the Python object)",
-            item.type_name()
-        ))),
-    }
+    let tbl = item
+        .as_table_like()
+        .ok_or_else(|| unsupported_op(item, "key lookup"))?;
+    Ok(tbl.contains_key(key))
 }
 
 /// Remove and return the last `(key, Item)` pair from a table-like item.
@@ -348,97 +352,58 @@ pub(crate) fn merge_table_entries(target: &mut ItemRs, source: &ItemRs) -> PyRes
     Ok(replaced)
 }
 
-/// Pre-resolved update source, extracted before taking a mutable borrow
-/// on the target document.  This avoids double-borrow panics when the
+/// Pre-resolved update source, extracted before taking a write lock
+/// on the target document.  This avoids lock conflicts when the
 /// source contains proxies from the same document.
-pub(crate) enum ResolvedUpdate<'py> {
-    /// Source is a TOML-aware type (Document or DictItem).
-    Toml(TomlSource<'py>),
+pub(crate) enum ResolvedUpdate {
+    /// Source is a TOML-aware type (Document or DictItem), cloned at
+    /// resolve time so no lock is needed during application.
+    Toml(ItemRs),
     /// Source is a plain Python mapping or iterable of pairs.
     Pairs(Vec<(String, Item)>),
 }
 
-impl ResolvedUpdate<'_> {
+impl ResolvedUpdate {
     /// Apply this update to `target`, returning the keys that were replaced.
     pub(crate) fn apply(self, target: &mut ItemRs) -> PyResult<Vec<String>> {
         match self {
-            Self::Toml(src) => merge_table_entries(target, src.as_item()?),
+            Self::Toml(item) => merge_table_entries(target, &item),
             Self::Pairs(pairs) => apply_update_pairs(target, pairs),
         }
     }
 }
 
 /// Resolve `other` into a [`ResolvedUpdate`], doing all Python object
-/// access before the caller takes a mutable borrow on the target document.
-pub(crate) fn resolve_update<'py>(
-    other: &Bound<'py, PyAny>,
-    self_doc: &Bound<'py, Document>,
-) -> PyResult<ResolvedUpdate<'py>> {
-    match resolve_toml_source(other, self_doc)? {
-        Some(src) => Ok(ResolvedUpdate::Toml(src)),
-        None => Ok(ResolvedUpdate::Pairs(extract_update_pairs(other)?)),
-    }
-}
-
-/// A TOML source resolved for merging, holding any necessary borrow guards.
-///
-/// Callers obtain this via [`resolve_toml_source`], then call [`.as_item()`]
-/// to get the `&ItemRs` reference.  The `PyRef` guard keeps the source
-/// document borrowed so the reference remains valid while the caller mutates
-/// its own document.
-pub(crate) enum TomlSource<'py> {
-    /// Source is from a different document — borrow guard kept alive, path
-    /// navigated on demand (empty path = document root).
-    Borrowed {
-        doc_ref: PyRef<'py, Document>,
-        path: Vec<Key>,
-    },
-    /// Source is from the same document — had to clone.
-    Owned(ItemRs),
-}
-
-impl TomlSource<'_> {
-    pub(crate) fn as_item(&self) -> PyResult<&ItemRs> {
-        match self {
-            Self::Borrowed { doc_ref, path } => item_ops::navigate_path(&doc_ref.inner, path),
-            Self::Owned(item) => Ok(item),
-        }
+/// access and document reads before the caller takes a write lock on the
+/// target document.
+pub(crate) fn resolve_update(other: &Bound<'_, PyAny>) -> PyResult<ResolvedUpdate> {
+    if let Some(item) = resolve_toml_item(other)? {
+        Ok(ResolvedUpdate::Toml(item))
+    } else {
+        Ok(ResolvedUpdate::Pairs(extract_update_pairs(other)?))
     }
 }
 
 /// Resolve a TOML-aware source for merging.
 ///
-/// When `other` is an [`ItemProxy`] or [`Document`], returns a
-/// [`TomlSource`] that borrows the underlying item zero-copy — **unless**
-/// the source shares the same document as `self_doc`, in which case it
-/// clones to avoid a double-borrow.
+/// When `other` is an [`ItemProxy`] or [`Document`], clones the underlying
+/// item so the caller can merge it without holding any read lock.  This
+/// avoids both same-document aliasing conflicts and cross-document ABBA
+/// deadlocks.
 ///
 /// Returns `None` when `other` is a plain Python object.
-pub(crate) fn resolve_toml_source<'py>(
-    other: &Bound<'py, PyAny>,
-    self_doc: &Bound<'py, Document>,
-) -> PyResult<Option<TomlSource<'py>>> {
+fn resolve_toml_item(other: &Bound<'_, PyAny>) -> PyResult<Option<ItemRs>> {
     if let Ok(proxy) = other.cast::<ItemProxy>() {
-        let proxy_ref = proxy.borrow();
-        let doc_bound = proxy_ref.document.bind(other.py());
-        let doc_ref = doc_bound.borrow();
-        proxy_ref.check_fresh(&doc_ref)?;
-        if doc_bound.is(self_doc) {
-            let item = proxy_ref.navigate(&doc_ref.inner)?.clone();
-            return Ok(Some(TomlSource::Owned(item)));
-        }
-        let path = proxy_ref.path.clone();
-        return Ok(Some(TomlSource::Borrowed { doc_ref, path }));
+        let proxy_ref = proxy.get();
+        let (_doc, inner) = proxy_ref.read_checked(other.py())?;
+        let item = proxy_ref.navigate(&inner)?.clone();
+        return Ok(Some(item));
     }
     if let Ok(doc_bound) = other.cast::<Document>() {
-        if doc_bound.is(self_doc) {
-            let item = doc_bound.borrow().inner.as_item().clone();
-            return Ok(Some(TomlSource::Owned(item)));
-        }
-        return Ok(Some(TomlSource::Borrowed {
-            doc_ref: doc_bound.borrow(),
-            path: Vec::new(),
-        }));
+        let doc = doc_bound.get();
+        let inner = doc.inner.read();
+        let item = inner.as_item().clone();
+        return Ok(Some(item));
     }
     Ok(None)
 }
@@ -450,18 +415,16 @@ pub(crate) fn resolve_toml_source<'py>(
 pub(crate) fn merge_other_into(
     target: &mut ItemRs,
     other: &Bound<'_, PyAny>,
-    py: Python<'_>,
 ) -> PyResult<Vec<String>> {
-    if let Ok(proxy) = other.cast::<ItemProxy>() {
-        let proxy = proxy.borrow();
-        let other_doc = proxy.document.bind(py).borrow();
-        proxy.check_fresh(&other_doc)?;
-        let other_item = proxy.navigate(&other_doc.inner)?;
-        return merge_table_entries(target, other_item);
+    if let Some(result) =
+        with_proxy_item(other, |other_item| merge_table_entries(target, other_item))?
+    {
+        return result;
     }
     if let Ok(doc_bound) = other.cast::<Document>() {
-        let doc = doc_bound.borrow();
-        return merge_table_entries(target, doc.inner.as_item());
+        let doc = doc_bound.get();
+        let inner = doc.inner.read();
+        return merge_table_entries(target, inner.as_item());
     }
     // Plain mapping / iterable — no TOML decor to preserve.
     apply_update_pairs(target, extract_update_pairs(other)?)
@@ -530,4 +493,15 @@ pub(crate) fn table_pop(item: &mut ItemRs, key: &str) -> PyResult<(Item, Key)> {
         },
         _ => Err(unsupported_op(item, "pop()")),
     }
+}
+
+/// Set a string-keyed entry (table / inline table).
+/// Returns `Some(key)` if an existing value was replaced, `None` if a new key
+/// was added.
+///
+/// The caller must ensure `item` is a table or inline table.
+pub(crate) fn item_setitem_str(item: &mut ItemRs, key: String, value: Item) -> Option<Key> {
+    let replaced = item.get(key.as_str()).is_some();
+    set_with_decor_preservation(item, &key, value);
+    if replaced { Some(Key::Str(key)) } else { None }
 }

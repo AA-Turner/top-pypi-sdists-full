@@ -32,7 +32,7 @@ import aws_cdk._jsii
 import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "cdk-gitlab-runner", "2.4.18", __name__[0:-6], "cdk-gitlab-runner@2.4.18.jsii.tgz"
+    "cdk-gitlab-runner", "2.4.19", __name__[0:-6], "cdk-gitlab-runner@2.4.19.jsii.tgz"
 )
 
 __all__ = [

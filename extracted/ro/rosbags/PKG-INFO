@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rosbags
-Version: 0.11.0
+Version: 0.11.1
 Summary: Pure Python library to read, modify, convert, and write rosbag files.
 Author-email: Ternaris <team@ternaris.com>
 License-Expression: Apache-2.0
@@ -23,10 +23,10 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: lz4; python_version < "3.14"
+Requires-Dist: apsw
+Requires-Dist: lz4
 Requires-Dist: numpy
 Requires-Dist: ruamel.yaml
-Requires-Dist: safelz4; python_version >= "3.14"
 Requires-Dist: typing_extensions>=4.5
 Requires-Dist: zstandard
 Dynamic: license-file

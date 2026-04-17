@@ -1,22 +1,68 @@
+from __future__ import annotations
+
 import json
+import os.path as osp
 import shutil
 from pathlib import Path
 
+import imgviz
 import pytest
+from PyQt5.QtWidgets import QWidget
+from pytestqt.qtbot import QtBot
+
+import labelme.utils
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
-        "--show",
+        "--pause",
         action="store_true",
         default=False,
-        help="Show GUI widgets during tests for visual inspection.",
+        help="Pause after each GUI test until the window is closed manually.",
     )
 
 
 @pytest.fixture()
-def show(request: pytest.FixtureRequest) -> bool:
-    return request.config.getoption("--show", default=False)
+def pause(request: pytest.FixtureRequest) -> bool:
+    return request.config.getoption("--pause", default=False)
+
+
+def assert_labelfile_sanity(filename: str) -> None:
+    assert osp.exists(filename)
+
+    with open(filename) as f:
+        data = json.load(f)
+
+    assert "imagePath" in data
+    image_data = data.get("imageData", None)
+    if image_data is None:
+        parent_dir = osp.dirname(filename)
+        img_file = osp.join(parent_dir, data["imagePath"])
+        assert osp.exists(img_file)
+        img = imgviz.io.imread(img_file)
+    else:
+        img = labelme.utils.img_b64_to_arr(image_data)
+
+    height, width = img.shape[:2]
+    assert height == data["imageHeight"]
+    assert width == data["imageWidth"]
+
+    assert "shapes" in data
+    for shape in data["shapes"]:
+        assert "label" in shape
+        assert "points" in shape
+        for x, y in shape["points"]:
+            assert 0 <= x <= width
+            assert 0 <= y <= height
+
+
+def close_or_pause(
+    *, qtbot: QtBot, widget: QWidget, pause: bool, timeout: int = 60_000
+) -> None:
+    if pause:
+        qtbot.waitUntil(lambda: not widget.isVisible(), timeout=timeout)
+    else:
+        widget.close()
 
 
 def _create_annotated_nested(data_path: Path) -> None:

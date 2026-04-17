@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 import warnings
-from typing import Callable
+from collections.abc import Callable
 import numpy as np
 from numpy.polynomial.chebyshev import Chebyshev
 
@@ -59,7 +59,7 @@ class PiecewiseChebyshev(BlueprintCircuit):
 
     [1] Haener, T., Roetteler, M., & Svore, K. M. (2018).
     Optimizing Quantum Circuits for Arithmetic.
-    `arXiv:1805.12445 <http://arxiv.org/abs/1805.12445>`_
+    `arXiv:1805.12445 <https://arxiv.org/abs/1805.12445>`_
 
     [2] Carrera Vazquez, A., Hiptmair, H., & Woerner, S. (2022).
     Enhancing the Quantum Linear Systems Algorithm Using Richardson Extrapolation.
@@ -247,7 +247,7 @@ class PiecewiseChebyshev(BlueprintCircuit):
 
         # Calculate the polynomials
         polynomials = []
-        for i in range(0, num_intervals - 1):
+        for i in range(num_intervals - 1):
             # Calculate the polynomial approximating the function on the current interval
             try:
                 # If the function is constant don't call Chebyshev (not necessary and gives errors)
@@ -390,7 +390,7 @@ class PiecewiseChebyshevGate(Gate):
 
     [1] Haener, T., Roetteler, M., & Svore, K. M. (2018).
     Optimizing Quantum Circuits for Arithmetic.
-    `arXiv:1805.12445 <http://arxiv.org/abs/1805.12445>`_
+    `arXiv:1805.12445 <https://arxiv.org/abs/1805.12445>`_
 
     [2] Carrera Vazquez, A., Hiptmair, H., & Woerner, S. (2022).
     Enhancing the Quantum Linear Systems Algorithm Using Richardson Extrapolation.
@@ -466,7 +466,7 @@ class PiecewiseChebyshevGate(Gate):
 
         # Calculate the polynomials
         polynomials = []
-        for i in range(0, num_intervals - 1):
+        for i in range(num_intervals - 1):
             # Calculate the polynomial approximating the function on the current interval
             try:
                 # If the function is constant don't call Chebyshev (not necessary and gives errors)

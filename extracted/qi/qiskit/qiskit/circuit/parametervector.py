@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -72,7 +72,7 @@ class ParameterVector:
         return f"{self.name}, {[str(item) for item in self.params]}"
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(name={repr(self.name)}, length={len(self)})"
+        return f"{self.__class__.__name__}(name={self.name!r}, length={len(self)})"
 
     def __getnewargs__(self):
         return (self._name, len(self._params))

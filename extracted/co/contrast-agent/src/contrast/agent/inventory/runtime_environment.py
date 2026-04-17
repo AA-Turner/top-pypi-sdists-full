@@ -137,10 +137,10 @@ def extract_azure_resource_id() -> str | None:
     Returns None if not running in Azure (connection failures, 404s).
     Raises ResourceIdError for actual errors (bad status codes that indicate a problem).
     """
-    import requests
-    from requests.adapters import HTTPAdapter
-    from urllib3.exceptions import MaxRetryError
-    from urllib3.util import Retry
+    from contrast_vendor import requests
+    from contrast_vendor.requests.adapters import HTTPAdapter
+    from contrast_vendor.urllib3.exceptions import MaxRetryError
+    from contrast_vendor.urllib3.util import Retry
 
     # This endpoint comes from https://learn.microsoft.com/en-us/azure/virtual-machines/instance-metadata-service?tabs=linux#route-parameters
     RESOURCE_ID_ENDPOINT = f"http://{METADATA_ENDPOINT_ADDRESS}/metadata/instance/compute/resourceId?api-version=2023-07-01&format=text"
@@ -191,23 +191,21 @@ def extract_aws_resource_id() -> str | None:
     """
     logger.debug("Attempting to extract AWS resource ID")
 
-    import requests
-    import requests.adapters
-    import urllib3.exceptions
-    import urllib3.util
+    from contrast_vendor import requests
+    from contrast_vendor.requests.adapters import HTTPAdapter
+    from contrast_vendor.urllib3.exceptions import MaxRetryError
+    from contrast_vendor.urllib3.util import Retry
 
-    retry_config = urllib3.util.Retry(
+    retry_config = Retry(
         total=TOTAL_RETRIES,
         backoff_factor=RETRY_BACKOFF_FACTOR,
         # force a retry for status codes supporting Retry-After, even if the header is
         # missing
-        status_forcelist=urllib3.util.Retry.RETRY_AFTER_STATUS_CODES,
+        status_forcelist=Retry.RETRY_AFTER_STATUS_CODES,
     )
 
     with requests.Session() as session:
-        session.mount(
-            "http://", requests.adapters.HTTPAdapter(max_retries=retry_config)
-        )
+        session.mount("http://", HTTPAdapter(max_retries=retry_config))
         token = _get_aws_token(session)
         # a token is required for IMDSv2, but if we can't get one, still try IMDSv1 (no
         # token)
@@ -221,7 +219,7 @@ def extract_aws_resource_id() -> str | None:
             )
             response.raise_for_status()
             identity_doc = response.json()
-        except urllib3.exceptions.MaxRetryError:
+        except MaxRetryError:
             # Connection failed - not running in AWS
             return None
         except requests.HTTPError as e:
@@ -263,8 +261,8 @@ def extract_aws_resource_id() -> str | None:
 def _get_aws_token(session) -> str | None:
     logger.debug("Retrieving AWS token")
 
-    import requests
-    import urllib3.exceptions
+    from contrast_vendor import requests
+    from contrast_vendor.urllib3.exceptions import MaxRetryError
 
     try:
         token_response = session.put(
@@ -278,7 +276,7 @@ def _get_aws_token(session) -> str | None:
         token_response.raise_for_status()
         return token_response.text
     except (
-        urllib3.exceptions.MaxRetryError,
+        MaxRetryError,
         requests.RequestException,
     ):
         logger.debug("Unable to retrieve token for AWS IMDSv2 - proceeding without it")

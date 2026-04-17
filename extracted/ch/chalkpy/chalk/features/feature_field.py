@@ -639,9 +639,14 @@ class Feature(Generic[_TPrim, _TRich]):
 
             def feature_class_encoder(rich: Features) -> Dict[str, Any]:
                 # @features class -> Dict[root_fqn, primitive_value]
+                # Always emit ALL fields (unset ones become None) so the struct schema is complete.
+                set_fields = dict(rich.items())
                 encoded_fields = {}
-                for fqn, rich_value in rich.items():
-                    encoded_fields[fqn] = field_features[fqn].converter.from_rich_to_primitive(rich_value)
+                for fqn, field in field_features.items():
+                    if fqn in set_fields:
+                        encoded_fields[fqn] = field.converter.from_rich_to_primitive(set_fields[fqn])
+                    else:
+                        encoded_fields[fqn] = None
                 return encoded_fields
 
             encoder = cast(TEncoder[_TPrim, _TRich], feature_class_encoder)

@@ -47,6 +47,7 @@ from ......schema_classes import GlossaryNodeKeyClass
 from ......schema_classes import GlossaryTermKeyClass
 from ......schema_classes import IncidentKeyClass
 from ......schema_classes import InviteTokenKeyClass
+from ......schema_classes import LifecycleStageTypeKeyClass
 from ......schema_classes import MLFeatureKeyClass
 from ......schema_classes import MLFeatureTableKeyClass
 from ......schema_classes import MLModelDeploymentKeyClass
@@ -105,6 +106,7 @@ GlossaryNodeKey = GlossaryNodeKeyClass
 GlossaryTermKey = GlossaryTermKeyClass
 IncidentKey = IncidentKeyClass
 InviteTokenKey = InviteTokenKeyClass
+LifecycleStageTypeKey = LifecycleStageTypeKeyClass
 MLFeatureKey = MLFeatureKeyClass
 MLFeatureTableKey = MLFeatureTableKeyClass
 MLModelDeploymentKey = MLModelDeploymentKeyClass

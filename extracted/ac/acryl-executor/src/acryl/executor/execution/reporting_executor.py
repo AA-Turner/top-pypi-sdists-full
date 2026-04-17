@@ -26,6 +26,7 @@ from datahub.metadata.schema_classes import (
     StructuredExecutionReportClass,
     SystemMetadataClass,
 )
+from datahub.secret.secret_store import SecretStoreConfig
 from pydantic import ConfigDict, field_validator
 
 from acryl.executor.cloud_utils.env_utils import get_payload_max_length
@@ -40,7 +41,6 @@ from acryl.executor.request.execution_request import (
 )
 from acryl.executor.request.signal_request import SignalRequest
 from acryl.executor.result.execution_result import ExecutionResult, Type
-from acryl.executor.secret.secret_store import SecretStoreConfig
 
 DATAHUB_EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest"
 DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult"

@@ -1,9 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: pydantic-function-models
-Version: 0.1.11
+Version: 0.1.12
 Summary: Migrating v1 Pydantic ValidatedFunction to v2.
 Keywords: pydantic,serialization,deserialization,parsing
-Author-Email: Louis Maddox <louismmx@gmail.com>
+Author: Louis Maddox
+Author-email: Louis Maddox <louismmx@gmail.com>
 License: MIT
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
@@ -17,17 +18,16 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: pydantic>=2.10
+Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/lmmx/pydantic-function-models
 Project-URL: Repository, https://github.com/lmmx/pydantic-function-models
 Project-URL: Issues, https://github.com/lmmx/pydantic-function-models/issues
-Requires-Python: >=3.10
-Requires-Dist: pydantic>=2.1
 Description-Content-Type: text/markdown
 
 # Pydantic Function Models
 
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
-[![pdm-managed](https://img.shields.io/badge/pdm-managed-blueviolet)](https://pdm.fming.dev)
 [![PyPI](https://img.shields.io/pypi/v/pydantic-function-models.svg)](https://pypi.org/project/pydantic-function-models)
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/pydantic-function-models.svg)](https://pypi.org/project/pydantic-function-models)
 [![License](https://img.shields.io/pypi/l/pydantic-function-models.svg)](https://pypi.python.org/pypi/pydantic-function-models)
@@ -50,11 +50,7 @@ pip install pydantic-function-models
 
 ## Usage
 
-Below is a general overview of how to use **pydantic-function-models** in your own code. There is no built-in command-line interface; usage is purely through Python imports.
-
-### Command-Line Interface
-
-This library does **not** provide a CLI. All functionality is accessed by importing and using its classes in Python code. The remaining “Examples” section demonstrates typical usage patterns.
+Below is a general overview of how to use **pydantic-function-models** in your own code.
 
 #### Example: Basic Validated Function
 

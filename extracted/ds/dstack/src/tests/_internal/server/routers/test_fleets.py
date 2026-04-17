@@ -14,6 +14,7 @@ from dstack._internal.core.models.backends.base import BackendType
 from dstack._internal.core.models.common import EntityReference
 from dstack._internal.core.models.fleets import (
     FleetConfiguration,
+    FleetNodesSpec,
     FleetStatus,
     InstanceGroupPlacement,
     SSHHostParams,
@@ -59,10 +60,7 @@ pytestmark = pytest.mark.usefixtures("image_config_mock")
 
 class TestListFleets:
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_returns_40x_if_not_authenticated(
-        self, test_db, session: AsyncSession, client: AsyncClient
-    ):
+    async def test_returns_40x_if_not_authenticated(self, client: AsyncClient):
         response = await client.post("/api/fleets/list")
         assert response.status_code in [401, 403]
 
@@ -365,10 +363,7 @@ class TestListFleets:
 
 class TestListProjectFleets:
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_returns_40x_if_not_authenticated(
-        self, test_db, session: AsyncSession, client: AsyncClient
-    ):
+    async def test_returns_40x_if_not_authenticated(self, client: AsyncClient):
         response = await client.post("/api/project/main/fleets/list")
         assert response.status_code in [401, 403]
 
@@ -555,10 +550,7 @@ class TestListProjectFleets:
 
 class TestGetFleet:
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_returns_40x_if_not_authenticated(
-        self, test_db, session: AsyncSession, client: AsyncClient
-    ):
+    async def test_returns_40x_if_not_authenticated(self, client: AsyncClient):
         response = await client.post("/api/project/main/fleets/get")
         assert response.status_code in [401, 403]
 
@@ -913,10 +905,7 @@ class TestGetFleet:
 
 class TestApplyFleetPlan:
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_returns_40x_if_not_authenticated(
-        self, test_db, session: AsyncSession, client: AsyncClient
-    ):
+    async def test_returns_40x_if_not_authenticated(self, client: AsyncClient):
         response = await client.post("/api/project/main/fleets/apply")
         assert response.status_code in [401, 403]
 
@@ -947,20 +936,7 @@ class TestApplyFleetPlan:
                     "placement": None,
                     "env": {},
                     "ssh_config": None,
-                    "resources": {
-                        "cpu": {"min": 2, "max": None},
-                        "memory": {"min": 8.0, "max": None},
-                        "shm_size": None,
-                        "gpu": {
-                            "vendor": None,
-                            "name": None,
-                            "count": {"min": 0, "max": None},
-                            "memory": None,
-                            "total_memory": None,
-                            "compute_capability": None,
-                        },
-                        "disk": {"size": {"min": 100.0, "max": None}},
-                    },
+                    "resources": None,
                     "backends": None,
                     "regions": None,
                     "availability_zones": None,
@@ -1078,20 +1054,7 @@ class TestApplyFleetPlan:
                     },
                     "nodes": None,
                     "placement": None,
-                    "resources": {
-                        "cpu": {"min": 2, "max": None},
-                        "memory": {"min": 8.0, "max": None},
-                        "shm_size": None,
-                        "gpu": {
-                            "vendor": None,
-                            "name": None,
-                            "count": {"min": 0, "max": None},
-                            "memory": None,
-                            "total_memory": None,
-                            "compute_capability": None,
-                        },
-                        "disk": {"size": {"min": 100.0, "max": None}},
-                    },
+                    "resources": None,
                     "backends": None,
                     "regions": None,
                     "availability_zones": None,
@@ -1308,20 +1271,7 @@ class TestApplyFleetPlan:
                     },
                     "nodes": None,
                     "placement": None,
-                    "resources": {
-                        "cpu": {"min": 2, "max": None},
-                        "memory": {"min": 8.0, "max": None},
-                        "shm_size": None,
-                        "gpu": {
-                            "vendor": None,
-                            "name": None,
-                            "count": {"min": 0, "max": None},
-                            "memory": None,
-                            "total_memory": None,
-                            "compute_capability": None,
-                        },
-                        "disk": {"size": {"min": 100.0, "max": None}},
-                    },
+                    "resources": None,
                     "backends": None,
                     "regions": None,
                     "availability_zones": None,
@@ -1449,6 +1399,108 @@ class TestApplyFleetPlan:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_updates_cloud_fleet_nodes_in_place_when_fleet_in_use(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session, global_role=GlobalRole.USER)
+        project = await create_project(session)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        current_spec = get_fleet_spec(
+            conf=get_fleet_configuration(nodes=FleetNodesSpec(min=0, target=0, max=2))
+        )
+        fleet = await create_fleet(session=session, project=project, spec=current_spec)
+        repo = await create_repo(session=session, project_id=project.id)
+        run = await create_run(session=session, project=project, repo=repo, user=user, fleet=fleet)
+        job = await create_job(session=session, run=run, fleet=fleet)
+        instance = await create_instance(
+            session=session,
+            project=project,
+            fleet=fleet,
+            job=job,
+            status=InstanceStatus.BUSY,
+            instance_num=0,
+        )
+        spec = current_spec.copy(deep=True)
+        spec.configuration.nodes = FleetNodesSpec(min=1, target=1, max=3)
+
+        response = await client.post(
+            f"/api/project/{project.name}/fleets/apply",
+            headers=get_auth_headers(user.token),
+            json={
+                "plan": {
+                    "spec": spec.dict(),
+                    "current_resource": _fleet_model_to_json_dict(fleet),
+                },
+                "force": False,
+            },
+        )
+
+        response_json = response.json()
+        assert response.status_code == 200, response_json
+        assert response_json["id"] == str(fleet.id)
+        assert response_json["spec"]["configuration"]["nodes"] == {"min": 1, "max": 3}
+
+        await session.refresh(fleet)
+        await session.refresh(instance)
+        assert json.loads(fleet.spec)["configuration"]["nodes"] == {"min": 1, "max": 3}
+        assert instance.status == InstanceStatus.BUSY
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_updates_cloud_fleet_nodes_target_without_changing_instance_count(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session, global_role=GlobalRole.USER)
+        project = await create_project(session)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        current_spec = get_fleet_spec(
+            conf=get_fleet_configuration(nodes=FleetNodesSpec(min=0, target=0, max=1))
+        )
+        fleet = await create_fleet(session=session, project=project, spec=current_spec)
+        spec = current_spec.copy(deep=True)
+        spec.configuration.nodes = FleetNodesSpec(min=0, target=1, max=1)
+
+        response = await client.post(
+            f"/api/project/{project.name}/fleets/apply",
+            headers=get_auth_headers(user.token),
+            json={
+                "plan": {
+                    "spec": spec.dict(),
+                    "current_resource": _fleet_model_to_json_dict(fleet),
+                },
+                "force": False,
+            },
+        )
+
+        response_json = response.json()
+        assert response.status_code == 200, response_json
+        assert response_json["id"] == str(fleet.id)
+        assert response_json["spec"]["configuration"]["nodes"] == {
+            "min": 0,
+            "target": 1,
+            "max": 1,
+        }
+
+        await session.refresh(fleet)
+        assert json.loads(fleet.spec)["configuration"]["nodes"] == {
+            "min": 0,
+            "target": 1,
+            "max": 1,
+        }
+        res = await session.execute(
+            select(InstanceModel).where(
+                InstanceModel.fleet_id == fleet.id,
+                InstanceModel.deleted == False,
+            )
+        )
+        assert list(res.scalars().all()) == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
     @freeze_time(datetime(2023, 1, 2, 3, 4, tzinfo=timezone.utc))
     async def test_errors_if_ssh_key_is_bad(
         self, test_db, session: AsyncSession, client: AsyncClient
@@ -1547,10 +1599,7 @@ class TestApplyFleetPlan:
 
 class TestDeleteFleets:
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_returns_40x_if_not_authenticated(
-        self, test_db, session: AsyncSession, client: AsyncClient
-    ):
+    async def test_returns_40x_if_not_authenticated(self, client: AsyncClient):
         response = await client.post("/api/project/main/fleets/delete")
         assert response.status_code in [401, 403]
 
@@ -1727,10 +1776,7 @@ class TestDeleteFleets:
 
 class TestDeleteFleetInstances:
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_returns_40x_if_not_authenticated(
-        self, test_db, session: AsyncSession, client: AsyncClient
-    ):
+    async def test_returns_40x_if_not_authenticated(self, client: AsyncClient):
         response = await client.post("/api/project/main/fleets/delete_instances")
         assert response.status_code in [401, 403]
 
@@ -1973,10 +2019,7 @@ class TestDeleteFleetInstances:
 
 class TestGetPlan:
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_returns_40x_if_not_authenticated(
-        self, test_db, session: AsyncSession, client: AsyncClient
-    ):
+    async def test_returns_40x_if_not_authenticated(self, client: AsyncClient):
         response = await client.post("/api/project/main/fleets/get_plan")
         assert response.status_code in [401, 403]
 
@@ -2030,6 +2073,78 @@ class TestGetPlan:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_returns_offers_for_elastic_container_backend_fleet(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        offer = get_instance_offer_with_availability(
+            backend=BackendType.RUNPOD,
+            region="US-OR-1",
+            price=0.7185,
+        )
+        spec = get_fleet_spec(
+            conf=get_fleet_configuration(nodes=FleetNodesSpec(min=0, target=0, max=1))
+        )
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            backend_mock = Mock()
+            m.return_value = [backend_mock]
+            backend_mock.TYPE = BackendType.RUNPOD
+            backend_mock.compute.return_value.get_offers.return_value = [offer]
+            response = await client.post(
+                f"/api/project/{project.name}/fleets/get_plan",
+                headers=get_auth_headers(user.token),
+                json={"spec": spec.dict()},
+            )
+            backend_mock.compute.return_value.get_offers.assert_called_once()
+
+        response_json = response.json()
+        assert response.status_code == 200, response_json
+        assert response_json["offers"] == [json.loads(offer.json())]
+        assert response_json["total_offers"] == 1
+        assert response_json["max_offer_price"] == offer.price
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_returns_no_offers_for_non_elastic_container_backend_fleet(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        offer = get_instance_offer_with_availability(
+            backend=BackendType.RUNPOD,
+            region="US-OR-1",
+            price=0.7185,
+        )
+        spec = get_fleet_spec(
+            conf=get_fleet_configuration(nodes=FleetNodesSpec(min=0, target=1, max=1))
+        )
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            backend_mock = Mock()
+            m.return_value = [backend_mock]
+            backend_mock.TYPE = BackendType.RUNPOD
+            backend_mock.compute.return_value.get_offers.return_value = [offer]
+            response = await client.post(
+                f"/api/project/{project.name}/fleets/get_plan",
+                headers=get_auth_headers(user.token),
+                json={"spec": spec.dict()},
+            )
+            backend_mock.compute.return_value.get_offers.assert_called_once()
+
+        response_json = response.json()
+        assert response.status_code == 200, response_json
+        assert response_json["offers"] == []
+        assert response_json["total_offers"] == 0
+        assert response_json["max_offer_price"] is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
     async def test_returns_update_plan_for_existing_fleet(
         self, test_db, session: AsyncSession, client: AsyncClient
     ):
@@ -2065,6 +2180,91 @@ class TestGetPlan:
             "max_offer_price": None,
             "action": "update",
         }
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_returns_update_plan_for_existing_cloud_fleet_nodes_update(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        current_spec = get_fleet_spec(
+            conf=get_fleet_configuration(nodes=FleetNodesSpec(min=0, target=0, max=1))
+        )
+        spec = current_spec.copy(deep=True)
+        spec.configuration.nodes = FleetNodesSpec(min=1, target=1, max=1)
+        fleet = await create_fleet(session=session, project=project, spec=current_spec)
+
+        response = await client.post(
+            f"/api/project/{project.name}/fleets/get_plan",
+            headers=get_auth_headers(user.token),
+            json={"spec": spec.dict()},
+        )
+
+        response_json = response.json()
+        assert response.status_code == 200, response_json
+        assert response_json["current_resource"]["id"] == str(fleet.id)
+        assert response_json["action"] == "update"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_returns_create_plan_for_existing_cloud_fleet_blocks_update(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        current_spec = get_fleet_spec(
+            conf=get_fleet_configuration(nodes=FleetNodesSpec(min=0, target=0, max=1))
+        )
+        spec = current_spec.copy(deep=True)
+        spec.configuration.blocks = 2
+        fleet = await create_fleet(session=session, project=project, spec=current_spec)
+
+        response = await client.post(
+            f"/api/project/{project.name}/fleets/get_plan",
+            headers=get_auth_headers(user.token),
+            json={"spec": spec.dict()},
+        )
+
+        response_json = response.json()
+        assert response.status_code == 200, response_json
+        assert response_json["current_resource"]["id"] == str(fleet.id)
+        assert response_json["action"] == "create"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_returns_update_plan_for_existing_cloud_fleet_provisioning_fields_update(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        current_spec = get_fleet_spec(
+            conf=get_fleet_configuration(nodes=FleetNodesSpec(min=0, target=0, max=1))
+        )
+        spec = current_spec.copy(deep=True)
+        spec.configuration.backends = [BackendType.AWS]
+        spec.configuration.regions = ["us-east-1"]
+        fleet = await create_fleet(session=session, project=project, spec=current_spec)
+
+        response = await client.post(
+            f"/api/project/{project.name}/fleets/get_plan",
+            headers=get_auth_headers(user.token),
+            json={"spec": spec.dict()},
+        )
+
+        response_json = response.json()
+        assert response.status_code == 200, response_json
+        assert response_json["current_resource"]["id"] == str(fleet.id)
+        assert response_json["action"] == "update"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import contrast_fireball
-import requests
+from contrast_vendor import requests
 
 from contrast.utils.decorators import fail_loudly
 

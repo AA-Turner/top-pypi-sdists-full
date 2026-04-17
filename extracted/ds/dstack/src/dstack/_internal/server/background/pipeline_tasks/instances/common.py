@@ -20,7 +20,7 @@ from dstack._internal.server.background.pipeline_tasks.base import (
     ItemUpdateMap,
     UpdateMapDateTime,
 )
-from dstack._internal.server.background.scheduled_tasks.common import get_provisioning_timeout
+from dstack._internal.server.background.pipeline_tasks.common import get_provisioning_timeout
 from dstack._internal.server.models import FleetModel, InstanceModel, PlacementGroupModel
 from dstack._internal.server.services.fleets import get_fleet_spec
 from dstack._internal.utils.common import UNSET, Unset, get_current_datetime
@@ -77,6 +77,7 @@ async def can_terminate_fleet_instances_on_idle_duration(
     fleet_model: FleetModel,
 ) -> bool:
     fleet_spec = get_fleet_spec(fleet_model)
+    # TODO: Drop fleet_spec.autocreated check after existing autocreated fleets no longer supported
     if fleet_spec.configuration.nodes is None or fleet_spec.autocreated:
         return True
     res = await session.execute(

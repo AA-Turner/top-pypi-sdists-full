@@ -123,6 +123,12 @@ class SimilarityInfluence(DataInfluence):
                     For example, `similarity_metric(av_test, av_src)` should return a
                     tensor of shape (3, 16).
 
+            similarity_direction (str): Specifies the direction for selecting
+                    top-k similar examples. If set to "max", the examples with
+                    highest similarity scores are selected (most similar). If
+                    set to "min", the examples with lowest similarity scores
+                    are selected (least similar / most distant).
+                    Default: "max"
             batch_size (int): Batch size for iterating through `influence_src_dataset`.
             **kwargs: Additional key-value arguments that are necessary for specific
                     implementation of `DataInfluence` abstract class.
@@ -163,7 +169,6 @@ class SimilarityInfluence(DataInfluence):
         self,
         inputs: Union[Tensor, Tuple[Tensor, ...]],
         top_k: int = 1,
-        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         additional_forward_args: Optional[Any] = None,
         load_src_from_disk: bool = True,
         **kwargs: Any,

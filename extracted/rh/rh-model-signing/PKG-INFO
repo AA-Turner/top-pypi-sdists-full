@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rh-model-signing
-Version: 0.1.0
+Version: 1.0.0
 Summary: A tool for signing and verifying ML models (Red Hat Tech Preview)
 Project-URL: Homepage, https://pypi.org/project/rh-model-signing/
 Project-URL: Changelog, https://github.com/securesign/model-transparency/blob/main/CHANGELOG.md
@@ -13,7 +13,7 @@ Maintainer-email: Aleksy Siek <asiek@redhat.com>, Kevin Conner <kconner@redhat.c
 License-Expression: Apache-2.0
 License-File: LICENSE
 Keywords: AI security,AI supply chain security,ML security,ML supply chain security,artificial intelligence,machine learning,model signing
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only

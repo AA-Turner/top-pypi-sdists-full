@@ -3,12 +3,12 @@ use pyo3::exceptions::PyAttributeError;
 use pyo3::exceptions::PyKeyError;
 use pyo3::intern;
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyFrame, PyTuple, PyType, PyModule, PyAny};
+use pyo3::types::{PyAny, PyBytes, PyDict, PyFrame, PyModule, PyType};
+use rmpv::Value as RmpvValue;
 use std::env::current_dir;
 use std::path::Path;
 use std::time::SystemTime;
 use ulid::Ulid;
-use rmpv::Value as RmpvValue;
 
 use super::config;
 
@@ -16,6 +16,36 @@ pub const STRING_KEY: &str = "a string is always a valid dict key";
 
 /// A serialized frame is a sequence of msgpack-encoded bytes.
 pub type SerializedFrame = Vec<u8>;
+
+pub struct Serializer {
+    dump_msgpack: Py<PyAny>,
+    dump_msgpack_lightweight_repr: Py<PyAny>,
+}
+
+impl Serializer {
+    pub fn new(py: Python) -> Result<Self, PyErr> {
+        let serialize = PyModule::import(py, "kolo.serialize")?;
+        Ok(Self {
+            dump_msgpack: serialize.getattr(intern!(py, "dump_msgpack"))?.unbind(),
+            dump_msgpack_lightweight_repr: serialize
+                .getattr(intern!(py, "dump_msgpack_lightweight_repr"))?
+                .unbind(),
+        })
+    }
+
+    pub fn dump_msgpack(
+        &self,
+        py: Python,
+        data: &Bound<'_, PyAny>,
+        lightweight_repr: bool,
+    ) -> Result<Vec<u8>, PyErr> {
+        let serializer = match lightweight_repr {
+            false => self.dump_msgpack.bind(py),
+            true => self.dump_msgpack_lightweight_repr.bind(py),
+        };
+        serializer.call1((data,))?.extract::<Vec<u8>>()
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Event {
@@ -157,6 +187,7 @@ impl LineFrame {
     }
     pub fn write_msgpack(
         self,
+        serializer: &Serializer,
         assign: (&str, Bound<'_, PyAny>),
         lightweight_repr: bool,
     ) -> Result<SerializedFrame, PyErr> {
@@ -170,7 +201,7 @@ impl LineFrame {
         write_str_pair(&mut buf, "frame_id", self.frame_id.as_deref());
         write_f64_pair(&mut buf, "timestamp", self.timestamp);
         write_str_pair(&mut buf, "type", Some("frame"));
-        write_assign_tuple(&mut buf, assign, lightweight_repr)?;
+        write_assign_tuple(&mut buf, serializer, assign, lightweight_repr)?;
 
         Ok(buf)
     }
@@ -333,22 +364,6 @@ fn _get_qualname_inner(
     }
 }
 
-/// Serialize an arbitrary Python object as msgpack by delegating to `kolo.serialize.dump_msgpack`
-/// or `kolo.serialize.dump_msgpack_lightweight_repr`.
-pub fn dump_msgpack(
-    py: Python,
-    data: &Bound<'_, PyAny>,
-    lightweight_repr: bool,
-) -> Result<Vec<u8>, PyErr> {
-    let serialize = PyModule::import(py, "kolo.serialize")?;
-    let args = PyTuple::new(py, [&data])?;
-    let data = match lightweight_repr {
-        false => serialize.call_method1("dump_msgpack", args)?,
-        true => serialize.call_method1("dump_msgpack_lightweight_repr", args)?,
-    };
-    data.extract::<Vec<u8>>()
-}
-
 /// Write a key, value pair of a msgpack map where the value is a string or None.
 fn write_str_pair(buf: &mut Vec<u8>, key: &str, value: Option<&str>) {
     rmp::encode::write_str(buf, key).expect("Writing to memory, not I/O");
@@ -383,17 +398,21 @@ fn write_f64_pair(buf: &mut Vec<u8>, key: &str, value: f64) {
     rmp::encode::write_f64(buf, value).expect("Writing to memory, not I/O");
 }
 
-
 fn write_bool_pair(buf: &mut Vec<u8>, key: &str, value: bool) {
     rmp::encode::write_str(buf, key).expect("Writing to memory, not I/O");
     rmp::encode::write_bool(buf, value).expect("Writing to memory, not I/O");
 }
 
-
 /// Write a msgpack array from a vector of already valid msgpack frames.
-fn write_raw_frames(buf: &mut Vec<u8>, frames: Vec<SerializedFrame>) {
+fn write_raw_frame_slice(buf: &mut Vec<u8>, frames: &[SerializedFrame]) {
     rmp::encode::write_array_len(buf, frames.len() as u32).expect("Writing to memory, not I/O");
-    buf.append(&mut frames.into_iter().flatten().collect());
+    for frame in frames {
+        buf.extend_from_slice(frame);
+    }
+}
+
+fn write_raw_frames(buf: &mut Vec<u8>, frames: Vec<SerializedFrame>) {
+    write_raw_frame_slice(buf, &frames);
 }
 
 /// Serialize the `user_code_call_site` of the trace as msgpack.
@@ -466,7 +485,8 @@ fn write_threads(
         rmp::encode::write_map_len(buf, 6).expect("Writing to memory, not I/O");
 
         // Retrieve thread attributes
-        let name: String = thread.getattr(py, "name")
+        let name: String = thread
+            .getattr(py, "name")
             .expect("Failed to get 'name' attribute")
             .extract(py)
             .expect("Failed to extract 'name' as String");
@@ -478,31 +498,33 @@ fn write_threads(
             Err(_) => None,
         };
         write_int_pair(buf, "ident", ident);
-        
+
         // Safely access 'native_id' attribute
         let native_id: Option<usize> = match thread.getattr(py, "native_id") {
             Ok(id) => id.extract(py).unwrap_or(None),
             Err(_) => None,
         };
         write_int_pair(buf, "native_id", native_id);
-        
-        let daemon: bool = thread.getattr(py, "daemon")
+
+        let daemon: bool = thread
+            .getattr(py, "daemon")
             .expect("Failed to get 'daemon' attribute")
             .extract(py)
             .expect("Failed to extract 'daemon' as bool");
         write_bool_pair(buf, "daemon", daemon);
-        
-        let is_alive: bool = thread.call_method0(py, "is_alive")
+
+        let is_alive: bool = thread
+            .call_method0(py, "is_alive")
             .expect("Failed to call 'is_alive' method")
             .extract(py)
             .expect("Failed to extract 'is_alive' as bool");
         write_bool_pair(buf, "is_alive", is_alive);
 
         rmp::encode::write_str(buf, "frames").expect("Writing to memory, not I/O");
-        if let Some(frames) = frames_by_thread.get(&thread_id.clone()) {            
-            write_raw_frames(buf, frames.to_vec());
+        if let Some(frames) = frames_by_thread.get(&thread_id.clone()) {
+            write_raw_frame_slice(buf, frames);
         } else {
-            write_raw_frames(buf, vec![]);
+            write_raw_frame_slice(buf, &[]);
         }
     }
 }
@@ -535,16 +557,14 @@ fn write_meta(
 
     // Serialize 'environment' as a nested map
     rmp::encode::write_str(buf, "environment").expect("Writing to memory, not I/O");
-    rmp::encode::write_map_len(buf, environment.len() as u32)
-        .expect("Writing to memory, not I/O");
+    rmp::encode::write_map_len(buf, environment.len() as u32).expect("Writing to memory, not I/O");
     for (key, value) in environment {
         write_str_pair(buf, key, Some(value));
     }
 
     // Serialize 'config' as a nested map with `RmpvValue` types
     rmp::encode::write_str(buf, "config").expect("Writing to memory, not I/O");
-    rmp::encode::write_map_len(buf, config.len() as u32)
-        .expect("Writing to memory, not I/O");
+    rmp::encode::write_map_len(buf, config.len() as u32).expect("Writing to memory, not I/O");
     for (key, value) in config {
         write_rmpv_pair(buf, key, value);
     }
@@ -552,6 +572,7 @@ fn write_meta(
 
 fn write_assign_tuple(
     buf: &mut Vec<u8>,
+    serializer: &Serializer,
     assign: (&str, Bound<'_, PyAny>),
     lightweight_repr: bool,
 ) -> Result<(), PyErr> {
@@ -562,7 +583,7 @@ fn write_assign_tuple(
     let mut inner: Vec<u8> = vec![];
     rmp::encode::write_array_len(&mut inner, 2).expect("Writing to memory, not I/O");
     rmp::encode::write_str(&mut inner, variable).expect("Writing to memory, not I/O");
-    let mut assigned = dump_msgpack(py, &assigned, lightweight_repr)?;
+    let mut assigned = serializer.dump_msgpack(py, &assigned, lightweight_repr)?;
     inner.append(&mut assigned);
 
     rmp::encode::write_str(buf, "assign").expect("Writing to memory, not I/O");
@@ -587,6 +608,36 @@ pub fn build_trace(
     timestamp: f64,
     config: &config::Config,
     use_monitoring: bool,
+    root_trace_id: Option<&str>,
+) -> Result<Py<PyBytes>, PyErr> {
+    build_trace_from_parts(
+        py,
+        &frames_by_thread,
+        &threads,
+        trace_id,
+        trace_name,
+        source,
+        current_thread_id,
+        timestamp,
+        config,
+        use_monitoring,
+        root_trace_id,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn build_trace_from_parts(
+    py: Python,
+    frames_by_thread: &HashMap<String, Vec<SerializedFrame>>,
+    threads: &HashMap<String, Py<PyAny>>,
+    trace_id: &str,
+    trace_name: Option<String>,
+    source: &str,
+    current_thread_id: String,
+    timestamp: f64,
+    config: &config::Config,
+    use_monitoring: bool,
+    root_trace_id: Option<&str>,
 ) -> Result<Py<PyBytes>, PyErr> {
     let version = kolo_version(py)?;
     let commit_sha = git_commit_sha(py)?;
@@ -600,23 +651,26 @@ pub fn build_trace(
 
     let mut buf: Vec<u8> = vec![];
 
-    // Start writing the top-level msgpack map. The following entries are key, value pairs.
-    // Total top level key-value pairs: 9
-    rmp::encode::write_map_len(&mut buf, 10).expect("Writing to memory, not I/O");
+    // Start writing the top-level msgpack map.
+    let map_len = if root_trace_id.is_some() { 11 } else { 10 };
+    rmp::encode::write_map_len(&mut buf, map_len).expect("Writing to memory, not I/O");
 
     write_str_pair(&mut buf, "trace_id", Some(trace_id));
     write_str_pair(&mut buf, "trace_name", trace_name.as_deref());
     write_str_pair(&mut buf, "current_thread_id", Some(&current_thread_id));
     write_f64_pair(&mut buf, "timestamp", timestamp);
     write_str_pair(&mut buf, "current_commit_sha", commit_sha.as_deref());
-    
+    if let Some(root_id) = root_trace_id {
+        write_str_pair(&mut buf, "root_trace_id", Some(root_id));
+    }
+
     // Write 'meta' containing 'version', 'source', 'environment', and 'config'
     write_meta(&mut buf, &version, source, &environment, &filtered_config);
     write_argv(&mut buf, argv);
 
-    write_threads(py, &mut buf, &threads, &frames_by_thread);
+    write_threads(py, &mut buf, threads, frames_by_thread);
     write_frames_of_interest(&mut buf, vec![]); // empty frames_of_interest list
-    write_frames(&mut buf, HashMap::new()); // empty frames dictionary 
+    write_frames(&mut buf, HashMap::new()); // empty frames dictionary
 
     Ok(PyBytes::new(py, &buf).unbind())
 }
@@ -626,12 +680,16 @@ pub fn collect_environment(py: Python) -> Result<HashMap<String, String>, PyErr>
     let sys = PyModule::import(py, "sys")?;
     let platform_mod = PyModule::import(py, "platform")?;
 
-    let py_version = platform_mod.call_method0("python_version")?.extract::<String>()?;
+    let py_version = platform_mod
+        .call_method0("python_version")?
+        .extract::<String>()?;
     let py_version_full = sys.getattr(intern!(py, "version"))?.extract::<String>()?;
     let platform_info = platform_mod.call_method0("platform")?.extract::<String>()?;
     let system = platform_mod.call_method0("system")?.extract::<String>()?;
     let machine = platform_mod.call_method0("machine")?.extract::<String>()?;
-    let processor = platform_mod.call_method0("processor")?.extract::<String>()?;
+    let processor = platform_mod
+        .call_method0("processor")?
+        .extract::<String>()?;
 
     let mut environment = HashMap::new();
     environment.insert("py_version".to_string(), py_version);
@@ -644,7 +702,11 @@ pub fn collect_environment(py: Python) -> Result<HashMap<String, String>, PyErr>
     Ok(environment)
 }
 
-pub fn collect_config(py: Python, config: &config::Config, use_monitoring: bool) -> Result<HashMap<String, RmpvValue>, PyErr> {
+pub fn collect_config(
+    py: Python,
+    config: &config::Config,
+    use_monitoring: bool,
+) -> Result<HashMap<String, RmpvValue>, PyErr> {
     let raw_config = config.to_dict(py)?;
     let mut filtered_config = HashMap::new();
 
@@ -652,16 +714,20 @@ pub fn collect_config(py: Python, config: &config::Config, use_monitoring: bool)
         filtered_config.insert(key, value.into()); // Convert PyAny to RmpvValue
     }
 
-    filtered_config.insert("use_monitoring".to_string(), RmpvValue::Boolean(use_monitoring));
+    filtered_config.insert(
+        "use_monitoring".to_string(),
+        RmpvValue::Boolean(use_monitoring),
+    );
     filtered_config.insert("use_rust".to_string(), RmpvValue::Boolean(true));
 
     Ok(filtered_config)
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn write_frame(
+pub fn write_frame_with_serializer(
     buf: &mut Vec<u8>,
     pyframe: &Bound<'_, PyFrame>,
+    serializer: &Serializer,
     user_code_call_site: Option<UserCodeCallSite>,
     arg: Arg,
     event: Event,
@@ -683,8 +749,8 @@ pub fn write_frame(
     let locals = get_locals(pyframe, event, omit_return_locals)?;
 
     // Serialize frame data as msgpack
-    let mut arg = dump_msgpack(py, arg, lightweight_repr)?;
-    let mut locals = dump_msgpack(py, &locals, lightweight_repr)?;
+    let mut arg = serializer.dump_msgpack(py, arg, lightweight_repr)?;
+    let mut locals = serializer.dump_msgpack(py, &locals, lightweight_repr)?;
 
     // The map length must match the number of key, value pairs written next exactly.
     rmp::encode::write_map_len(buf, 10).expect("Writing to memory, not I/O");
@@ -701,7 +767,6 @@ pub fn write_frame(
     write_user_code_call_site(buf, user_code_call_site);
     Ok(())
 }
-
 
 pub struct UserCodeCallSite {
     pub call_frame_id: String,
@@ -844,21 +909,11 @@ pub fn get_thread_id(thread: &Bound<'_, PyAny>, py: Python) -> Result<String, Py
             Ok(name) => name.extract()?,
             Err(_) => "<unknown>".to_string(),
         };
-        println!(
-            "Kolo warning: thread has no id: {}",
-            thread_name
-        );
+        println!("Kolo warning: thread has no id: {}", thread_name);
         "no_thread_id".to_string()
     };
 
     Ok(thread_id)
-}
-
-pub fn get_current_thread_id(py: Python) -> Result<String, PyErr> {
-    let threading = PyModule::import(py, "threading")?;
-    let thread = threading.call_method0("current_thread")?;
-
-    get_thread_id(thread.as_ref(), py)
 }
 
 #[cfg(test)]
@@ -875,9 +930,12 @@ mod tests {
 
 /// Extract HTTP request/response information from frames to set a trace name.
 /// Looks for django_request and django_response frame types from the Django filter.
-pub fn extract_http_trace_name(frames_by_thread: &HashMap<String, Vec<SerializedFrame>>, current_thread_id: &str) -> Option<String> {
+pub fn extract_http_trace_name(
+    frames_by_thread: &HashMap<String, Vec<SerializedFrame>>,
+    current_thread_id: &str,
+) -> Option<String> {
     let frames = frames_by_thread.get(current_thread_id)?;
-    
+
     // Get first three and last three frames since request/response pairs are typically at the start/end
     let first_three = frames.iter().take(3);
     let last_three = frames.iter().rev().take(3);
@@ -891,11 +949,12 @@ pub fn extract_http_trace_name(frames_by_thread: &HashMap<String, Vec<Serialized
         if let Ok(frame) = rmpv::decode::read_value(&mut &frame_bytes[..]) {
             if let rmpv::Value::Map(frame_map) = frame {
                 // Extract frame type
-                let frame_type = frame_map.iter()
+                let frame_type = frame_map
+                    .iter()
                     .find(|(k, _)| k == &rmpv::Value::String("type".into()))
                     .and_then(|(_, v)| match v {
                         rmpv::Value::String(s) => s.as_str(),
-                        _ => None
+                        _ => None,
                     });
 
                 match frame_type {
@@ -915,25 +974,28 @@ pub fn extract_http_trace_name(frames_by_thread: &HashMap<String, Vec<Serialized
 
     // Extract trace name components if we have both frames
     if let (Some(req), Some(res)) = (&request_frame, &response_frame) {
-        let method = req.iter()
+        let method = req
+            .iter()
             .find(|(k, _)| k == &rmpv::Value::String("method".into()))
             .and_then(|(_, v)| match v {
                 rmpv::Value::String(s) => s.as_str(),
-                _ => None
+                _ => None,
             });
 
-        let path = req.iter()
+        let path = req
+            .iter()
             .find(|(k, _)| k == &rmpv::Value::String("path_info".into()))
             .and_then(|(_, v)| match v {
                 rmpv::Value::String(s) => s.as_str(),
-                _ => None
+                _ => None,
             });
 
-        let status_code = res.iter()
+        let status_code = res
+            .iter()
             .find(|(k, _)| k == &rmpv::Value::String("status_code".into()))
             .and_then(|(_, v)| match v {
                 rmpv::Value::Integer(n) => Some(n.to_string()),
-                _ => None
+                _ => None,
             });
 
         if let (Some(method), Some(path), Some(status)) = (method, path, status_code) {
@@ -944,7 +1006,10 @@ pub fn extract_http_trace_name(frames_by_thread: &HashMap<String, Vec<Serialized
     None
 }
 
-pub fn extract_test_trace_name(frames_by_thread: &HashMap<String, Vec<SerializedFrame>>, current_thread_id: &str) -> Option<String> {
+pub fn extract_test_trace_name(
+    frames_by_thread: &HashMap<String, Vec<SerializedFrame>>,
+    current_thread_id: &str,
+) -> Option<String> {
     let frames = frames_by_thread.get(current_thread_id)?;
     if frames.is_empty() {
         return None;
@@ -956,7 +1021,7 @@ pub fn extract_test_trace_name(frames_by_thread: &HashMap<String, Vec<Serialized
     let relevant_frames: Vec<_> = first_three.chain(last_three).collect();
 
     let mut start_test_frame = None;
-     // we don't actually need anything stored under _end_test_frame yet
+    // we don't actually need anything stored under _end_test_frame yet
     let mut _end_test_frame = None;
 
     // Look for start_test and end_test frames
@@ -964,11 +1029,12 @@ pub fn extract_test_trace_name(frames_by_thread: &HashMap<String, Vec<Serialized
         if let Ok(frame) = rmpv::decode::read_value(&mut &frame_bytes[..]) {
             if let rmpv::Value::Map(frame_map) = frame {
                 // Extract frame type
-                let frame_type = frame_map.iter()
+                let frame_type = frame_map
+                    .iter()
                     .find(|(k, _)| k == &rmpv::Value::String("type".into()))
                     .and_then(|(_, v)| match v {
                         rmpv::Value::String(s) => s.as_str(),
-                        _ => None
+                        _ => None,
                     });
 
                 match frame_type {
@@ -988,18 +1054,20 @@ pub fn extract_test_trace_name(frames_by_thread: &HashMap<String, Vec<Serialized
 
     // Extract trace name components if we have both frames
     if let Some(start) = start_test_frame {
-        let test_name = start.iter()
+        let test_name = start
+            .iter()
             .find(|(k, _)| k == &rmpv::Value::String("test_name".into()))
             .and_then(|(_, v)| match v {
                 rmpv::Value::String(s) => s.as_str(),
-                _ => None
+                _ => None,
             })?;
 
-        let test_class = start.iter()
+        let test_class = start
+            .iter()
             .find(|(k, _)| k == &rmpv::Value::String("test_class".into()))
             .and_then(|(_, v)| match v {
                 rmpv::Value::String(s) => s.as_str(),
-                _ => None
+                _ => None,
             });
 
         return Some(match test_class {
@@ -1011,3 +1079,103 @@ pub fn extract_test_trace_name(frames_by_thread: &HashMap<String, Vec<Serialized
     None
 }
 
+pub fn extract_trace_name(
+    frames_by_thread: &HashMap<String, Vec<SerializedFrame>>,
+    current_thread_id: &str,
+) -> Option<String> {
+    extract_test_trace_name(frames_by_thread, current_thread_id)
+        .or_else(|| extract_http_trace_name(frames_by_thread, current_thread_id))
+}
+
+pub fn resolve_trace_name(
+    cached_trace_name: &mut Option<String>,
+    frames_by_thread: &HashMap<String, Vec<SerializedFrame>>,
+    current_thread_id: &str,
+    should_cache: bool,
+) -> Option<String> {
+    if let Some(trace_name) = cached_trace_name.clone() {
+        return Some(trace_name);
+    }
+
+    let trace_name = extract_trace_name(frames_by_thread, current_thread_id);
+    if should_cache {
+        *cached_trace_name = trace_name.clone();
+    }
+    trace_name
+}
+
+#[cfg(test)]
+mod trace_name_tests {
+    use super::*;
+    use rmpv::Value;
+
+    fn pack_frame(entries: Vec<(&str, Value)>) -> SerializedFrame {
+        let value = Value::Map(
+            entries
+                .into_iter()
+                .map(|(key, value)| (Value::String(key.into()), value))
+                .collect(),
+        );
+        let mut frame = Vec::new();
+        rmpv::encode::write_value(&mut frame, &value).unwrap();
+        frame
+    }
+
+    #[test]
+    fn test_resolve_trace_name_caches_test_name() {
+        let mut frames_by_thread = HashMap::new();
+        frames_by_thread.insert(
+            "thread".to_string(),
+            vec![pack_frame(vec![
+                ("type", Value::String("start_test".into())),
+                ("test_name", Value::String("test_example".into())),
+                ("test_class", Value::String("Suite".into())),
+            ])],
+        );
+
+        let mut trace_name = None;
+        assert_eq!(
+            resolve_trace_name(&mut trace_name, &frames_by_thread, "thread", true),
+            Some("Suite.test_example".to_string())
+        );
+        assert_eq!(trace_name.as_deref(), Some("Suite.test_example"));
+    }
+
+    #[test]
+    fn test_resolve_trace_name_preserves_existing_name() {
+        let mut frames_by_thread = HashMap::new();
+        frames_by_thread.insert(
+            "thread".to_string(),
+            vec![pack_frame(vec![
+                ("type", Value::String("start_test".into())),
+                ("test_name", Value::String("test_example".into())),
+            ])],
+        );
+
+        let mut trace_name = Some("existing".to_string());
+        assert_eq!(
+            resolve_trace_name(&mut trace_name, &frames_by_thread, "thread", true),
+            Some("existing".to_string())
+        );
+        assert_eq!(trace_name.as_deref(), Some("existing"));
+    }
+
+    #[test]
+    fn test_resolve_trace_name_can_skip_caching() {
+        let mut frames_by_thread = HashMap::new();
+        frames_by_thread.insert(
+            "thread".to_string(),
+            vec![pack_frame(vec![
+                ("type", Value::String("start_test".into())),
+                ("test_name", Value::String("test_example".into())),
+            ])],
+        );
+
+        let mut trace_name = None;
+        assert_eq!(
+            resolve_trace_name(&mut trace_name, &frames_by_thread, "thread", false),
+            Some("test_example".to_string())
+        );
+        assert_eq!(trace_name, None);
+    }
+}

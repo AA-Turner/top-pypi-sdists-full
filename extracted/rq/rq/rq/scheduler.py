@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import signal
@@ -6,8 +8,8 @@ import traceback
 from collections.abc import Iterable
 from datetime import datetime
 from enum import Enum
-from multiprocessing import get_context
-from typing import Optional, Union
+from multiprocessing import Process, get_context
+from multiprocessing.process import BaseProcess
 
 from redis import ConnectionPool, Redis
 
@@ -20,7 +22,11 @@ from .registry import ScheduledJobRegistry
 from .serializers import resolve_serializer
 from .utils import current_timestamp, parse_names
 
-ForkProcess = get_context('fork').Process
+ForkProcess: type[BaseProcess]
+try:
+    ForkProcess = get_context('fork').Process
+except ValueError:
+    ForkProcess = Process
 
 SCHEDULER_KEY_TEMPLATE = 'rq:scheduler:%s'
 SCHEDULER_LOCKING_KEY_TEMPLATE = 'rq:scheduler-lock:%s'
@@ -44,7 +50,7 @@ class RQScheduler:
         queues,
         connection: Redis,
         interval=1,
-        logging_level: Union[str, int] = logging.INFO,
+        logging_level: str | int = logging.INFO,
         date_format=DEFAULT_LOGGING_DATE_FORMAT,
         log_format=DEFAULT_LOGGING_FORMAT,
         serializer=None,
@@ -118,7 +124,7 @@ class RQScheduler:
 
         return successful_locks
 
-    def prepare_registries(self, queue_names: Optional[Iterable[str]] = None):
+    def prepare_registries(self, queue_names: Iterable[str] | None = None):
         """Prepare scheduled job registries for use"""
         self._scheduled_job_registries = []
         if not queue_names:
@@ -156,7 +162,7 @@ class RQScheduler:
                 jobs = Job.fetch_many(job_ids, connection=self.connection, serializer=self.serializer)
                 for job in jobs:
                     if job is not None:
-                        queue._enqueue_job(job, pipeline=pipeline, at_front=bool(job.enqueue_at_front))
+                        queue._enqueue_job(job, pipeline=pipeline, at_front=job.should_enqueue_at_front())
                 for job_id in job_ids:
                     registry.remove(job_id, pipeline=pipeline)
                 pipeline.execute()

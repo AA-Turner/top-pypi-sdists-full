@@ -71,14 +71,13 @@ class PGD(Perturbation):
         # pyre-fixme[4]: Attribute must be annotated.
         self.bound = lambda x: torch.clamp(x, min=lower_bound, max=upper_bound)
 
-    @log_usage()
+    @log_usage(part_of_slo=False)
     def perturb(
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
         radius: float,
         step_size: float,
         step_num: int,
-        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         target: Any,
         additional_forward_args: Optional[object] = None,
         targeted: bool = False,
@@ -168,8 +167,6 @@ class PGD(Perturbation):
             else:
                 raise AssertionError("Norm constraint must be L2 or Linf.")
 
-        # pyre-fixme[6]: For 1st argument expected `Tensor` but got
-        #  `TensorOrTupleOfTensorsGeneric`.
         is_inputs_tuple = _is_tuple(inputs)
         formatted_inputs = _format_tensor_into_tuples(inputs)
         # pyre-fixme[9]: formatted_masks has type `Union[typing.Tuple[int, ...],

@@ -69,8 +69,7 @@ class CompositeNode:
         for node in self.nodes:
             # NOTE: the order of composition matters here in order to allow
             # more specific nodes to override the common kwargs
-            # Once we support only >=3.9 we can use the | operator for dicts
-            kwargs = {**self.common_kwargs, **node}
+            kwargs = self.common_kwargs | node
             yield from _generate_nodes(node_cls, kwargs, dataflow=dataflow)
 
 

@@ -135,6 +135,11 @@ impl ProjectOperator {
         self
     }
 
+    /// Decomposes this operator into its child and projections for push-based conversion.
+    pub fn into_parts(self) -> (Box<dyn Operator>, Vec<ProjectExpr>, Vec<LogicalType>) {
+        (self.child, self.projections, self.output_types)
+    }
+
     /// Creates a project operator that selects specific columns.
     pub fn select_columns(
         child: Box<dyn Operator>,
@@ -411,6 +416,10 @@ impl Operator for ProjectOperator {
     fn name(&self) -> &'static str {
         "Project"
     }
+
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+        self
+    }
 }
 
 /// Converts a [`Node`] to a `Value::Map` with metadata and properties.
@@ -419,10 +428,10 @@ impl Operator for ProjectOperator {
 /// all node properties at the top level.
 fn node_to_map(node: &Node) -> Value {
     let mut map = BTreeMap::new();
-    map.insert(
-        PropertyKey::new("_id"),
-        Value::Int64(node.id.as_u64() as i64),
-    );
+    // reason: entity IDs stored as i64, standard encoding
+    #[allow(clippy::cast_possible_wrap)]
+    let node_id_i64 = node.id.as_u64() as i64;
+    map.insert(PropertyKey::new("_id"), Value::Int64(node_id_i64));
     let labels: Vec<Value> = node
         .labels
         .iter()
@@ -441,22 +450,22 @@ fn node_to_map(node: &Node) -> Value {
 /// properties at the top level.
 fn edge_to_map(edge: &Edge) -> Value {
     let mut map = BTreeMap::new();
-    map.insert(
-        PropertyKey::new("_id"),
-        Value::Int64(edge.id.as_u64() as i64),
-    );
+    // reason: entity IDs stored as i64, standard encoding
+    #[allow(clippy::cast_possible_wrap)]
+    let edge_id_i64 = edge.id.as_u64() as i64;
+    // reason: entity IDs stored as i64, standard encoding
+    #[allow(clippy::cast_possible_wrap)]
+    let src_id_i64 = edge.src.as_u64() as i64;
+    // reason: entity IDs stored as i64, standard encoding
+    #[allow(clippy::cast_possible_wrap)]
+    let dst_id_i64 = edge.dst.as_u64() as i64;
+    map.insert(PropertyKey::new("_id"), Value::Int64(edge_id_i64));
     map.insert(
         PropertyKey::new("_type"),
         Value::String(edge.edge_type.clone()),
     );
-    map.insert(
-        PropertyKey::new("_source"),
-        Value::Int64(edge.src.as_u64() as i64),
-    );
-    map.insert(
-        PropertyKey::new("_target"),
-        Value::Int64(edge.dst.as_u64() as i64),
-    );
+    map.insert(PropertyKey::new("_source"), Value::Int64(src_id_i64));
+    map.insert(PropertyKey::new("_target"), Value::Int64(dst_id_i64));
     for (key, value) in &edge.properties {
         map.insert(key.clone(), value.clone());
     }
@@ -492,6 +501,10 @@ mod tests {
 
         fn name(&self) -> &'static str {
             "MockScan"
+        }
+
+        fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+            self
         }
     }
 
@@ -672,6 +685,8 @@ mod tests {
     }
 
     #[test]
+    // reason: test IDs are small sequential counters
+    #[allow(clippy::cast_possible_wrap)]
     fn test_project_node_resolve() {
         // Create a store with a test node
         let store = LpgStore::new().unwrap();
@@ -718,6 +733,8 @@ mod tests {
     }
 
     #[test]
+    // reason: test IDs are small sequential counters
+    #[allow(clippy::cast_possible_wrap)]
     fn test_project_edge_resolve() {
         let store = LpgStore::new().unwrap();
         let src = store.create_node(&["Person"]);
@@ -800,5 +817,38 @@ mod tests {
 
         let result = project.next().unwrap().unwrap();
         assert_eq!(result.column(0).unwrap().get_value(0), Some(Value::Null));
+    }
+
+    #[test]
+    fn test_project_into_any() {
+        let mock = MockScanOperator {
+            chunks: vec![],
+            position: 0,
+        };
+        let op = ProjectOperator::select_columns(Box::new(mock), vec![0], vec![LogicalType::Int64]);
+        let any = Box::new(op).into_any();
+        assert!(any.downcast::<ProjectOperator>().is_ok());
+    }
+
+    #[test]
+    fn test_project_into_parts() {
+        let mock = MockScanOperator {
+            chunks: vec![],
+            position: 0,
+        };
+        let op = ProjectOperator::new(
+            Box::new(mock),
+            vec![
+                ProjectExpr::Column(0),
+                ProjectExpr::Constant(Value::Int64(1)),
+            ],
+            vec![LogicalType::Int64, LogicalType::Int64],
+        );
+        let (child, projections, output_types) = op.into_parts();
+        assert_eq!(projections.len(), 2);
+        assert_eq!(output_types.len(), 2);
+        // Verify child is still functional
+        let mut child = child;
+        assert!(child.next().unwrap().is_none());
     }
 }

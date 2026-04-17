@@ -47,7 +47,8 @@ interaction in a more concise manner:
 pact = Pact("consumer", "provider")
 
 (
-    pact.upon_receiving("a basic request")
+    pact
+    .upon_receiving("a basic request")
     .given("user 123 exists")
     .with_request("GET", "/user/123")
     .will_respond_with(200)
@@ -221,7 +222,12 @@ class Pact:
         pact_ffi.with_specification(self._handle, version)
         return self
 
-    def using_plugin(self, name: str, version: str | None = None) -> Self:
+    def using_plugin(
+        self,
+        name: str,
+        version: str | None = None,
+        delay: int | None = None,
+    ) -> Self:
         """
         Add a plugin to be used by the test.
 
@@ -233,8 +239,15 @@ class Pact:
 
             version:
                 Version of the plugin. This is optional and can be `None`.
+
+            delay:
+                An arbitrary delay in milliseconds to add before the function
+                returns to allow asynchronous tasks to complete.
         """
-        pact_ffi.using_plugin(self._handle, name, version)
+        if delay is not None:
+            pact_ffi.using_plugin_with_delay(self._handle, name, version, delay)
+        else:
+            pact_ffi.using_plugin(self._handle, name, version)
         return self
 
     def with_metadata(
@@ -389,13 +402,28 @@ class Pact:
         kind: Literal["Async"],
     ) -> Generator[pact_ffi.AsynchronousMessage, None, None]: ...
 
+    @overload
     def interactions(
         self,
-        kind: Literal["HTTP", "Sync", "Async"] = "HTTP",
+        kind: Literal["All"],
+    ) -> Generator[
+        pact_ffi.PactInteraction,
+        None,
+        None,
+    ]: ...
+
+    def interactions(
+        self,
+        kind: Literal["HTTP", "Sync", "Async", "All"] = "HTTP",
     ) -> (
         Generator[pact_ffi.SynchronousHttp, None, None]
         | Generator[pact_ffi.SynchronousMessage, None, None]
         | Generator[pact_ffi.AsynchronousMessage, None, None]
+        | Generator[
+            pact_ffi.PactInteraction,
+            None,
+            None,
+        ]
     ):
         """
         Return an iterator over the Pact's interactions.
@@ -407,18 +435,21 @@ class Pact:
             ValueError:
                 If the kind is unknown.
         """
-        # TODO: Add an iterator for `All` interactions.
-        # https://github.com/pact-foundation/pact-python/issues/451
+        if kind == "All":
+            yield from pact_ffi.pact_model_interaction_iterator(self._handle.pointer())
+            return
         if kind == "HTTP":
             yield from pact_ffi.pact_handle_get_sync_http_iter(self._handle)
-        elif kind == "Sync":
+            return
+        if kind == "Sync":
             yield from pact_ffi.pact_handle_get_sync_message_iter(self._handle)
-        elif kind == "Async":
+            return
+        if kind == "Async":
             yield from pact_ffi.pact_handle_get_async_message_iter(self._handle)
-        else:
-            msg = f"Unknown interaction type: {kind}"
-            raise ValueError(msg)
-        return  # Ensures that the parent object outlives the generator
+            return
+
+        msg = f"Unknown interaction kind: {kind}"
+        raise ValueError(msg)
 
     @overload
     def verify(

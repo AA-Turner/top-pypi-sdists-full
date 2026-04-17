@@ -1,4 +1,4 @@
-# Copyright 2020 - 2025 Ternaris
+# Copyright 2020-2026 Ternaris
 # SPDX-License-Identifier: Apache-2.0
 """MSG Message Definition Parser Tests."""
 
@@ -101,6 +101,11 @@ float32 integer_only 0.
 float32 fraction_only .0
 float32 scientific_pos 1e1
 float32 scientific_neg 1e-1
+"""
+
+ACTION_DEFINITION = """
+unique_identifier_msgs/msg/UUID goal_id
+control_msgs/action/FollowJointTrajectory_Feedback feedback
 """
 
 
@@ -258,3 +263,25 @@ def test_literal_notations() -> None:
     get_typestore(Stores.EMPTY).register(ret)
 
     assert len(ret['literals_msgs/msg/Foo'][1]) == 5
+
+
+def test_actions_definitions() -> None:
+    """Test msg parser action definitions."""
+    ret = get_types_from_msg(
+        ACTION_DEFINITION, 'control_msgs/action/FollowJointTrajectory_FeedbackMessage'
+    )
+    assert ret == {
+        'control_msgs/action/FollowJointTrajectory_FeedbackMessage': (
+            [],
+            [
+                ('goal_id', (Nodetype.NAME, 'unique_identifier_msgs/msg/UUID')),
+                (
+                    'feedback',
+                    (
+                        Nodetype.NAME,
+                        'control_msgs/action/FollowJointTrajectory_Feedback',
+                    ),
+                ),
+            ],
+        )
+    }

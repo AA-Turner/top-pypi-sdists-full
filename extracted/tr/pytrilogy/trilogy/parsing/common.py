@@ -2,8 +2,6 @@ from dataclasses import replace as dc_replace
 from datetime import date, datetime
 from typing import Iterable, List, Mapping, Sequence, Tuple
 
-from lark.tree import Meta
-
 from trilogy.constants import DEFAULT_NAMESPACE, VIRTUAL_CONCEPT_PREFIX
 from trilogy.core.constants import ALL_ROWS_CONCEPT
 from trilogy.core.enums import (
@@ -53,6 +51,7 @@ from trilogy.core.models.author import (
 from trilogy.core.models.core import DataType, arg_to_datatype
 from trilogy.core.models.environment import Environment
 from trilogy.core.statements.author import RowsetDerivationStatement, SelectStatement
+from trilogy.parsing.helpers import Meta
 from trilogy.utility import string_to_hash, unique
 
 ARBITRARY_INPUTS = (
@@ -714,11 +713,30 @@ def window_item_to_concept(
     metadata: Metadata | None = None,
 ) -> Concept:
     fmetadata = metadata or Metadata()
-    if not isinstance(parent.content, ConceptRef):
-        raise NotImplementedError(
-            f"Window function with non ref content {parent.content} not yet supported"
+    if isinstance(
+        parent.content,
+        (
+            FilterItem,
+            AggregateWrapper,
+            FunctionCallWrapper,
+            WindowItem,
+            Function,
+            ListWrapper,
+            MapWrapper,
+            int,
+            str,
+            float,
+        ),
+    ):
+        bcontent = arbitrary_to_concept(
+            parent.content, environment, namespace=namespace
         )
-    bcontent = environment.concepts[parent.content.address]
+    elif isinstance(parent.content, ConceptRef):
+        bcontent = environment.concepts[parent.content.address]
+    else:
+        raise NotImplementedError(
+            f"Window function with content type {type(parent.content)} not yet supported"
+        )
     if isinstance(bcontent, UndefinedConcept):
         return UndefinedConcept(address=f"{namespace}.{name}", metadata=fmetadata)
     if bcontent.purpose == Purpose.METRIC:
@@ -741,7 +759,7 @@ def window_item_to_concept(
 
     final_grain = Grain.from_concepts(grain_components, environment)
     modifiers = get_upstream_modifiers(bcontent.concept_arguments, environment)
-    datatype = parent.content.datatype
+    datatype = bcontent.datatype
     if parent.type in (
         # WindowType.RANK,
         WindowType.ROW_NUMBER,

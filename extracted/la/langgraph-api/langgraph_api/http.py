@@ -123,6 +123,37 @@ def get_loopback_client() -> JsonHttpClient:
     return _loopback_client
 
 
+_webhook_http_client: JsonHttpClient | None = None
+
+
+async def ensure_webhook_http_client() -> JsonHttpClient:
+    """Return (or create) an SSRF-safe HTTP client for webhook dispatch."""
+    global _webhook_http_client
+    if _webhook_http_client is not None:
+        return _webhook_http_client
+
+    from langgraph_api.lc_security import ssrf_safe_async_client  # noqa: PLC0415
+    from langgraph_api.webhook import _get_webhook_config  # noqa: PLC0415
+
+    inner = ssrf_safe_async_client(
+        policy=_get_webhook_config().base_ssrf_policy,
+        retries=2,
+        limits=httpx.Limits(max_keepalive_connections=10, keepalive_expiry=60.0),
+        follow_redirects=True,
+        max_redirects=5,
+    )
+    _webhook_http_client = JsonHttpClient(client=inner)
+    return _webhook_http_client
+
+
+async def stop_webhook_http_client() -> None:
+    global _webhook_http_client
+    if _webhook_http_client is None:
+        return
+    await _webhook_http_client.client.aclose()
+    _webhook_http_client = None
+
+
 def is_retriable_error(exception: BaseException) -> bool:
     # httpx error hierarchy: https://www.python-httpx.org/exceptions/
     # Retry all timeout related errors

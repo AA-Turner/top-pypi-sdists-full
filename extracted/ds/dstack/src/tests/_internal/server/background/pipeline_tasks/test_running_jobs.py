@@ -20,6 +20,7 @@ from dstack._internal.core.models.configurations import (
     DevEnvironmentConfiguration,
     ProbeConfig,
     ServiceConfiguration,
+    TaskConfiguration,
 )
 from dstack._internal.core.models.gateways import GatewayStatus
 from dstack._internal.core.models.instances import InstanceStatus
@@ -55,6 +56,7 @@ from dstack._internal.server.services.runner.ssh import SSHTunnel
 from dstack._internal.server.services.volumes import volume_model_to_volume
 from dstack._internal.server.testing.common import (
     create_backend,
+    create_code,
     create_export,
     create_fleet,
     create_gateway,
@@ -494,13 +496,44 @@ class TestJobRunningWorker:
         assert job.lock_token is None
         assert job.lock_owner is None
 
+    @pytest.mark.parametrize(
+        ["has_repo_code", "runner_version", "upload_code_call_expected"],
+        [
+            pytest.param(False, "0.20.17", False, id="without-repo-code-new-runner"),
+            pytest.param(True, "0.20.17", True, id="with-repo-code-new-runner"),
+            pytest.param(False, "0.20.16", True, id="without-repo-code-old-runner"),
+            pytest.param(True, "0.20.16", True, id="with-repo-code-old-runner"),
+        ],
+    )
     async def test_runs_provisioning_job(
-        self, test_db, session: AsyncSession, worker: JobRunningWorker
+        self,
+        test_db,
+        session: AsyncSession,
+        worker: JobRunningWorker,
+        runner_version: str,
+        has_repo_code: bool,
+        upload_code_call_expected: bool,
     ):
         project = await create_project(session=session)
         user = await create_user(session=session)
         repo = await create_repo(session=session, project_id=project.id)
-        run = await create_run(session=session, project=project, repo=repo, user=user)
+        repo_code_hash: Optional[str] = None
+        if has_repo_code:
+            repo_code_hash = "blob_hash"
+            await create_code(session=session, repo=repo, blob_hash=repo_code_hash, blob=b"blob")
+        run_spec = get_run_spec(
+            run_name="test-run",
+            repo_id=repo.name,
+            repo_code_hash=repo_code_hash,
+        )
+        run = await create_run(
+            session=session,
+            project=project,
+            repo=repo,
+            user=user,
+            run_name=run_spec.run_name,
+            run_spec=run_spec,
+        )
         instance = await create_instance(
             session=session, project=project, status=InstanceStatus.BUSY
         )
@@ -518,23 +551,26 @@ class TestJobRunningWorker:
 
         with (
             patch("dstack._internal.server.services.runner.ssh.SSHTunnel") as ssh_tunnel_cls,
-            patch(
-                "dstack._internal.server.services.runner.client.RunnerClient"
-            ) as runner_client_cls,
+            patch.object(RunnerClient, "_healthcheck") as healthcheck_mock,
+            patch.object(RunnerClient, "submit_job") as submit_job_mock,
+            patch.object(RunnerClient, "upload_code") as upload_code_mock,
+            patch.object(RunnerClient, "run_job") as run_job_mock,
         ):
-            runner_client_mock = runner_client_cls.return_value
-            runner_client_mock.healthcheck.return_value = HealthcheckResponse(
-                service="dstack-runner", version="0.0.1.dev2"
+            healthcheck_mock.return_value = HealthcheckResponse(
+                service="dstack-runner", version=runner_version
             )
-            runner_client_mock.run_job.return_value = JobInfoResponse(
+            run_job_mock.return_value = JobInfoResponse(
                 working_dir="/dstack/run", username="dstack"
             )
             await _process_job(session, worker, job)
             assert ssh_tunnel_cls.call_count == 2
-            assert runner_client_mock.healthcheck.call_count == 2
-            runner_client_mock.submit_job.assert_called_once()
-            runner_client_mock.upload_code.assert_called_once()
-            runner_client_mock.run_job.assert_called_once()
+            assert healthcheck_mock.call_count == 2
+            submit_job_mock.assert_called_once()
+            if upload_code_call_expected:
+                upload_code_mock.assert_called_once()
+            else:
+                upload_code_mock.assert_not_called()
+            run_job_mock.assert_called_once()
 
         await session.refresh(job)
         assert job.status == JobStatus.RUNNING
@@ -730,7 +766,21 @@ class TestJobRunningWorker:
         project = await create_project(session=session)
         user = await create_user(session=session)
         repo = await create_repo(session=session, project_id=project.id)
-        run = await create_run(session=session, project=project, repo=repo, user=user)
+        repo_code_hash = "blob_hash"
+        await create_code(session=session, repo=repo, blob_hash=repo_code_hash, blob=b"blob")
+        run_spec = get_run_spec(
+            run_name="test-run",
+            repo_id=repo.name,
+            repo_code_hash=repo_code_hash,
+        )
+        run = await create_run(
+            session=session,
+            project=project,
+            repo=repo,
+            user=user,
+            run_name=run_spec.run_name,
+            run_spec=run_spec,
+        )
         instance = await create_instance(
             session=session, project=project, status=InstanceStatus.BUSY
         )
@@ -1945,6 +1995,105 @@ class TestJobRunningWorker:
             ssh_head_proxy_private_key=None,
         )
 
+    @pytest.mark.parametrize("job_status", [JobStatus.RUNNING, JobStatus.PULLING])
+    async def test_terminates_job_when_instance_access_revoked(
+        self,
+        test_db,
+        session: AsyncSession,
+        worker: JobRunningWorker,
+        job_status: JobStatus,
+    ):
+        user = await create_user(session=session)
+        exporter_project = await create_project(session=session, name="exporter", owner=user)
+        importer_project = await create_project(session=session, name="importer", owner=user)
+        fleet = await create_fleet(session=session, project=exporter_project)
+        instance = await create_instance(
+            session=session,
+            project=exporter_project,
+            status=InstanceStatus.BUSY,
+            fleet=fleet,
+        )
+        repo = await create_repo(session=session, project_id=importer_project.id)
+        run = await create_run(
+            session=session,
+            project=importer_project,
+            repo=repo,
+            user=user,
+        )
+        job = await create_job(
+            session=session,
+            run=run,
+            status=job_status,
+            job_provisioning_data=get_job_provisioning_data(dockerized=True),
+            instance=instance,
+            instance_assigned=True,
+        )
+        # No export created -> the import link no longer exists -> access revoked
+
+        await _process_job(session, worker, job)
+
+        await session.refresh(job)
+        assert job.status == JobStatus.TERMINATING
+        assert job.termination_reason == JobTerminationReason.INSTANCE_ACCESS_REVOKED
+        events = await list_events(session)
+        assert len(events) == 1
+        assert events[0].message == (
+            f"Job status changed {job_status.upper()} -> TERMINATING."
+            " Termination reason: INSTANCE_ACCESS_REVOKED"
+            " (The instance is no longer imported into the job's project)"
+        )
+
+    @pytest.mark.parametrize("job_status", [JobStatus.RUNNING, JobStatus.PULLING])
+    async def test_does_not_terminate_job_when_instance_access_is_valid(
+        self,
+        test_db,
+        session: AsyncSession,
+        worker: JobRunningWorker,
+        ssh_tunnel_mock: Mock,
+        runner_client_mock: Mock,
+        job_status: JobStatus,
+    ):
+        user = await create_user(session=session)
+        exporter_project = await create_project(session=session, name="exporter", owner=user)
+        importer_project = await create_project(session=session, name="importer", owner=user)
+        fleet = await create_fleet(session=session, project=exporter_project)
+        instance = await create_instance(
+            session=session,
+            project=exporter_project,
+            status=InstanceStatus.BUSY,
+            fleet=fleet,
+        )
+        await create_export(
+            session=session,
+            exporter_project=exporter_project,
+            importer_projects=[importer_project],
+            exported_fleets=[fleet],
+        )
+        repo = await create_repo(session=session, project_id=importer_project.id)
+        run = await create_run(
+            session=session,
+            project=importer_project,
+            repo=repo,
+            user=user,
+        )
+        job = await create_job(
+            session=session,
+            run=run,
+            status=job_status,
+            job_provisioning_data=get_job_provisioning_data(dockerized=False),
+            instance=instance,
+            instance_assigned=True,
+        )
+        runner_client_mock.pull.return_value = PullResponse(
+            job_states=[], job_logs=[], runner_logs=[], last_updated=0
+        )
+
+        await _process_job(session, worker, job)
+
+        await session.refresh(job)
+        assert job.status == job_status
+        assert job.termination_reason is None
+
     async def test_apply_skips_probe_insert_when_lock_token_changes_after_processing(
         self,
         test_db,
@@ -2023,3 +2172,53 @@ class TestJobRunningWorker:
             .all()
         )
         assert probes == []
+
+    async def test_provisioning_shim_uses_server_default_registry(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        test_db,
+        session: AsyncSession,
+        worker: JobRunningWorker,
+        ssh_tunnel_mock: Mock,
+        shim_client_mock: Mock,
+    ):
+        monkeypatch.setattr(server_settings, "SERVER_DEFAULT_DOCKER_REGISTRY", "registry.example")
+        monkeypatch.setattr(
+            server_settings, "SERVER_DEFAULT_DOCKER_REGISTRY_USERNAME", "server-user"
+        )
+        monkeypatch.setattr(
+            server_settings, "SERVER_DEFAULT_DOCKER_REGISTRY_PASSWORD", "server-pass"
+        )
+        project = await create_project(session=session)
+        user = await create_user(session=session)
+        repo = await create_repo(session=session, project_id=project.id)
+        run_spec = get_run_spec(
+            repo_id=repo.name,
+            configuration=TaskConfiguration(image="ubuntu"),
+        )
+        run = await create_run(
+            session=session,
+            project=project,
+            repo=repo,
+            user=user,
+            run_spec=run_spec,
+        )
+        instance = await create_instance(
+            session=session, project=project, status=InstanceStatus.BUSY
+        )
+        job = await create_job(
+            session=session,
+            run=run,
+            status=JobStatus.PROVISIONING,
+            job_provisioning_data=get_job_provisioning_data(dockerized=True),
+            instance=instance,
+            instance_assigned=True,
+        )
+
+        await _process_job(session, worker, job)
+
+        shim_client_mock.submit_task.assert_called_once()
+        call_kwargs = shim_client_mock.submit_task.call_args[1]
+        assert call_kwargs["image_name"] == "registry.example/ubuntu"
+        assert call_kwargs["registry_username"] == "server-user"
+        assert call_kwargs["registry_password"] == "server-pass"

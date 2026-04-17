@@ -21,6 +21,8 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
+from datahub.secret.datahub_secret_store import DataHubSecretStoreConfig
+from datahub.secret.secret_store import SecretStoreConfig
 
 from acryl.executor.dispatcher.default_dispatcher import DefaultDispatcher
 from acryl.executor.execution.reporting_executor import (
@@ -29,8 +31,6 @@ from acryl.executor.execution.reporting_executor import (
 )
 from acryl.executor.execution.task import TaskConfig
 from acryl.executor.request.execution_request import ExecutionRequest
-from acryl.executor.secret.datahub_secret_store import DataHubSecretStoreConfig
-from acryl.executor.secret.secret_store import SecretStoreConfig
 
 
 class FakeDataHubGraph(DataHubGraph):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker-core
-Version: 2.7.1
+Version: 2.8.0
 Summary: An python package for sagemaker core functionalities
 Author-email: AWS <sagemaker-interests@amazon.com>
 Project-URL: Homepage, https://github.com/aws/sagemaker-python-sdk
@@ -33,11 +33,15 @@ Requires-Dist: numpy>=1.9.0
 Requires-Dist: smdebug_rulesconfig>=1.0.1
 Requires-Dist: schema>=0.7.5
 Requires-Dist: omegaconf>=2.1.0
-Requires-Dist: torch>=1.9.0
 Requires-Dist: scipy>=1.5.0
 Requires-Dist: cloudpickle>=2.0.0
 Requires-Dist: paramiko>=2.11.0
 Requires-Dist: tblib>=1.7.0
+Requires-Dist: cryptography>=46.0.0
+Provides-Extra: torch
+Requires-Dist: torch>=1.9.0; extra == "torch"
+Provides-Extra: all
+Requires-Dist: sagemaker-core[torch]; extra == "all"
 Provides-Extra: codegen
 Requires-Dist: black<25.0.0,>=24.3.0; extra == "codegen"
 Requires-Dist: pandas<3.0.0,>=2.0.0; extra == "codegen"
@@ -47,6 +51,7 @@ Provides-Extra: test
 Requires-Dist: pytest<9.0.0,>=8.0.0; extra == "test"
 Requires-Dist: pytest-cov>=4.0.0; extra == "test"
 Requires-Dist: pytest-xdist>=3.0.0; extra == "test"
+Requires-Dist: sagemaker-core[torch]; extra == "test"
 Dynamic: license-file
 
 .. image:: https://github.com/aws/sagemaker-python-sdk/raw/master/branding/icon/sagemaker-banner.png

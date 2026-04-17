@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sax
-Version: 0.16.14
+Version: 0.17.0
 Summary: Autograd and XLA for S-parameters
 Author-email: Floris Laporte <floris.laporte@gmail.com>
 License: Apache Software License
@@ -18,31 +18,30 @@ Classifier: Topic :: Scientific/Engineering :: Physics
 Requires-Python: >=3.11.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: jax
-Requires-Dist: jaxtyping>=0.2.38
-Requires-Dist: klujax<0.5.0,>=0.4.1
-Requires-Dist: lark>=1.2.2
-Requires-Dist: matplotlib>=3.0.0
-Requires-Dist: natsort>=8.0.0
-Requires-Dist: networkx>=3.0.0
-Requires-Dist: numpy>=2.2.0
-Requires-Dist: optax>=0.2.0
-Requires-Dist: orjson>=3.0.0
-Requires-Dist: pandas>=2.0.0
-Requires-Dist: pydantic>=2.10.0
-Requires-Dist: pyyaml>=6.0.0
-Requires-Dist: scikit-rf>=1.8.0
-Requires-Dist: sympy>=1.14.0
-Requires-Dist: tqdm>=4.60.0
-Requires-Dist: typing-extensions>=4.13.2
-Requires-Dist: xarray>=2025.1.2
-Provides-Extra: rf
-Requires-Dist: jaxellip>=0.0.1; extra == "rf"
+Requires-Dist: jax<0.10.0,>=0.6.0
+Requires-Dist: jaxellip<0.1.0,>=0.0.1
+Requires-Dist: jaxtyping<0.4.0,>=0.2.0
+Requires-Dist: klujax<0.6.0,>=0.5.0
+Requires-Dist: lark<2.0.0,>=1.2.2
+Requires-Dist: matplotlib<4.0.0,>=3.0.0
+Requires-Dist: natsort<9.0.0,>=8.0.0
+Requires-Dist: networkx<4.0.0,>=3.0.0
+Requires-Dist: numpy<3.0.0,>=2.2.0
+Requires-Dist: optax<0.3.0,>=0.2.0
+Requires-Dist: orjson<4.0.0,>=3.0.0
+Requires-Dist: pandas<4.0.0,>=2.0.0
+Requires-Dist: pydantic<3.0.0,>=2.10.0
+Requires-Dist: pyyaml<7.0.0,>=6.0.0
+Requires-Dist: scikit-rf<2.0.0,>=1.8.0
+Requires-Dist: sympy<2.0.0,>=1.14.0
+Requires-Dist: tqdm<5.0.0,>=4.60.0
+Requires-Dist: typing-extensions<5.0.0,>=4.13.2
+Requires-Dist: xarray<2027.0.0,>=2025.1.2
 Dynamic: license-file
 
 # SAX
 
-> 0.16.14
+> 0.17.0
 
 ![SAX LOGO](docs/assets/logo.svg)
 

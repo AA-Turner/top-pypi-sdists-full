@@ -357,6 +357,44 @@ def get_instance_ssh_private_keys(instance_model: InstanceModel) -> tuple[str, O
     return host_private_key, proxy_private_keys[0]
 
 
+def instance_matches_constraints(
+    instance: InstanceModel,
+    *,
+    backend_types: Optional[List[BackendType]] = None,
+    regions: Optional[List[str]] = None,
+    instance_types: Optional[List[str]] = None,
+    zones: Optional[List[str]] = None,
+    requirements: Optional[Requirements] = None,
+) -> bool:
+    """Check if an instance matches the given provisioning constraints."""
+    jpd = get_instance_provisioning_data(instance)
+    if jpd is not None:
+        if backend_types is not None and jpd.get_base_backend() not in backend_types:
+            return False
+        if regions is not None and jpd.region.lower() not in [r.lower() for r in regions]:
+            return False
+        if instance_types is not None and jpd.instance_type.name.lower() not in [
+            i.lower() for i in instance_types
+        ]:
+            return False
+        if (
+            jpd.availability_zone is not None
+            and zones is not None
+            and jpd.availability_zone not in zones
+        ):
+            return False
+
+    if requirements is not None:
+        if instance.offer is None:
+            return False
+        offer = InstanceOffer.__response__.parse_raw(instance.offer)
+        catalog_item = offer_to_catalog_item(offer)
+        if not gpuhunt.matches(catalog_item, q=requirements_to_query_filter(requirements)):
+            return False
+
+    return True
+
+
 def filter_instances(
     instances: List[InstanceModel],
     profile: Profile,
@@ -368,25 +406,25 @@ def filter_instances(
     volumes: Optional[List[List[Volume]]] = None,
     shared: bool = False,
 ) -> List[InstanceModel]:
-    filtered_instances: List[InstanceModel] = []
-    candidates: List[InstanceModel] = []
-
-    backend_types = profile.backends
-    regions = profile.regions
-    zones = profile.availability_zones
+    backend_types: Optional[list[BackendType]] = profile.backends
+    regions: Optional[list[str]] = profile.regions
+    zones: Optional[list[str]] = profile.availability_zones
+    # (BackendType, region.lower() | "", availability_zone.lower() | None)
+    volumes_locations: Optional[set[tuple[BackendType, str, Optional[str]]]] = None
 
     if volumes:
-        mount_point_volumes = volumes[0]
-        backend_types = [v.configuration.backend for v in mount_point_volumes]
-        regions = [v.configuration.region for v in mount_point_volumes]
-        volume_zones = [
-            v.provisioning_data.availability_zone
-            for v in mount_point_volumes
-            if v.provisioning_data is not None
-        ]
-        if zones is None:
-            zones = volume_zones
-        zones = [z for z in zones if z in volume_zones]
+        volumes_locations = set()
+        for volume in volumes[0]:
+            volume_backend = volume.get_backend()
+            volume_region = volume.get_region().lower()
+            # If the volume has an AZ, it's added twice -- with and without an AZ.
+            # When the instance location is checked against the available volumes locations (see
+            # below) the instance with an AZ matches only the volume with the same AZ, while
+            # the instance without an AZ matches any volume with the same region regardless of AZs.
+            # This reflects the logic used before this stricter volumes_locations check was added.
+            volumes_locations.add((volume_backend, volume_region, None))
+            if (volume_zone := volume.get_availability_zone()) is not None:
+                volumes_locations.add((volume_backend, volume_region, volume_zone.lower()))
 
     if multinode:
         if backend_types is None:
@@ -405,12 +443,9 @@ def filter_instances(
             regions = [master_job_provisioning_data.region]
         regions = [r for r in regions if r == master_job_provisioning_data.region]
 
-    if regions is not None:
-        regions = [r.lower() for r in regions]
     instance_types = profile.instance_types
-    if instance_types is not None:
-        instance_types = [i.lower() for i in instance_types]
 
+    filtered_instances: List[InstanceModel] = []
     for instance in instances:
         if instance.unreachable:
             continue
@@ -418,39 +453,32 @@ def filter_instances(
             continue
         if status is not None and instance.status != status:
             continue
-        jpd = get_instance_provisioning_data(instance)
-        if jpd is not None:
-            if backend_types is not None and jpd.get_base_backend() not in backend_types:
-                continue
-            if regions is not None and jpd.region.lower() not in regions:
-                continue
-            if instance_types is not None and jpd.instance_type.name.lower() not in instance_types:
-                continue
-            if (
-                jpd.availability_zone is not None
-                and zones is not None
-                and jpd.availability_zone not in zones
-            ):
-                continue
         if instance.total_blocks is None:
             # Still provisioning, we don't know yet if it shared or not
             continue
         if (instance.total_blocks > 1) != shared:
             continue
-
-        candidates.append(instance)
-
-    if requirements is None:
-        return candidates
-
-    query_filter = requirements_to_query_filter(requirements)
-    for instance in candidates:
-        if instance.offer is None:
+        if not instance_matches_constraints(
+            instance,
+            backend_types=backend_types,
+            regions=regions,
+            instance_types=instance_types,
+            zones=zones,
+            requirements=requirements,
+        ):
             continue
-        offer = InstanceOffer.__response__.parse_raw(instance.offer)
-        catalog_item = offer_to_catalog_item(offer)
-        if gpuhunt.matches(catalog_item, query_filter):
-            filtered_instances.append(instance)
+        if volumes_locations is not None:
+            jpd = get_instance_provisioning_data(instance)
+            # instance_matches_constraints() also skips filtering if JPD is not set
+            if jpd is not None:
+                instance_backend = jpd.get_base_backend()
+                instance_region = jpd.region.lower()
+                instance_zone = jpd.availability_zone
+                if instance_zone is not None:
+                    instance_zone = instance_zone.lower()
+                if (instance_backend, instance_region, instance_zone) not in volumes_locations:
+                    continue
+        filtered_instances.append(instance)
     return filtered_instances
 
 

@@ -73,10 +73,13 @@ def _get_translation_fields(
     yield from filter(_is_translated_field, fields)  # type: ignore
 
 
-def translate_string(content: str, language: str) -> str:
+def translate_string(content: str, language: str) -> str | None:
     prompt = get_base_prompt(settings.LANGUAGE_CODE, language)
     prompt.append(HumanMessage(content))
-    return str(run_llm(prompt)[0])
+    llm_response_model = run_llm(prompt)[0]
+    if llm_response_model:
+        return str(llm_response_model)
+    return None
 
 
 def translate_dict(content: dict, language: str) -> dict:

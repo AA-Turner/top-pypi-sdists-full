@@ -123,24 +123,25 @@ class SandboxConnectCredentials:
 class Probe:
     """Probe configuration for the Sandbox Readiness Probe.
 
-    Usage:
-        ```py notest
-        # Wait until a file exists.
-        readiness_probe = modal.Probe.with_exec(
-            "sh", "-c", "test -f /tmp/ready",
-        )
+    **Usage**
 
-        # Wait until a TCP port is accepting connections.
-        readiness_probe = modal.Probe.with_tcp(8080)
+    ```python notest
+    # Wait until a file exists.
+    readiness_probe = modal.Probe.with_exec(
+        "sh", "-c", "test -f /tmp/ready",
+    )
 
-        app = modal.App.lookup('sandbox-readiness-probe', create_if_missing=True)
-        sandbox = modal.Sandbox.create(
-            "python3", "-m", "http.server", "8080",
-            readiness_probe=readiness_probe,
-            app=app,
-        )
-        sandbox.wait_until_ready()
-        ```
+    # Wait until a TCP port is accepting connections.
+    readiness_probe = modal.Probe.with_tcp(8080)
+
+    app = modal.App.lookup('sandbox-readiness-probe', create_if_missing=True)
+    sandbox = modal.Sandbox.create(
+        "python3", "-m", "http.server", "8080",
+        readiness_probe=readiness_probe,
+        app=app,
+    )
+    sandbox.wait_until_ready()
+    ```
     """
 
     tcp_port: Optional[int] = None
@@ -922,14 +923,15 @@ class _Sandbox(_Object, type_prefix="sb"):
     async def mount_image(self, path: Union[PurePosixPath, str], image: _Image):
         """Mount an Image at a specified path in a running Sandbox.
 
-        `path` should be a directory. If it doesn't exist it will be created. If it exists and contains
-        data, the previous directory will be replaced by the mount.
+        `path` should be a directory that is **not** the root path (`/`). If the path doesn't exist
+        it will be created. If it exists and contains data, the previous directory will be replaced
+        by the mount.
 
-        The `image` argument currently only supports Images that are either:
-        - prebuilt using `image.build()`
-        - referenced by image id, e.g. `Image.from_id(...)`
-        - filesystem/directory snapshots e.g. created by `.snapshot_directory()`
-        or `.snapshot_filesystem()`"
+        The `image` argument supports any Image that has an object ID, including:
+        - Images built using `image.build()`
+        - Images referenced by ID, e.g. `Image.from_id(...)`
+        - Filesystem/directory snapshots, e.g. created by `.snapshot_directory()` or `.snapshot_filesystem()`
+        - Empty images created with `Image.from_scratch()`
 
         Usage:
         ```py notest
@@ -981,6 +983,27 @@ class _Sandbox(_Object, type_prefix="sb"):
         req = sr_pb2.TaskMountDirectoryRequest(task_id=task_id, path=path_bytes, image_id=image_id)
         await command_router_client.mount_image(req)
 
+    async def unmount_image(self, path: Union[PurePosixPath, str]):
+        """Unmount a previously mounted Image from a running Sandbox.
+
+        `path` must be the exact mount point that was passed to `.mount_image()`.
+        After unmounting, the underlying Sandbox filesystem at that path becomes
+        visible again.
+        """
+        self._ensure_v1("unmount_image")
+
+        task_id = await self._get_task_id()
+        if (command_router_client := await self._get_command_router_client(task_id)) is None:
+            raise InvalidError("Unmounting directories requires direct Sandbox control - please contact Modal support.")
+
+        posix_path = PurePosixPath(path)
+        if not posix_path.is_absolute():
+            raise InvalidError(f"Unmount path must be absolute; got: {posix_path}")
+        path_bytes = posix_path.as_posix().encode("utf8")
+
+        req = sr_pb2.TaskUnmountDirectoryRequest(task_id=task_id, path=path_bytes)
+        await command_router_client.unmount_image(req)
+
     async def snapshot_directory(self, path: Union[PurePosixPath, str]) -> _Image:
         """Snapshot a directory in a running Sandbox, creating a new Image with its content.
 
@@ -1022,7 +1045,12 @@ class _Sandbox(_Object, type_prefix="sb"):
             req = api_pb2.SandboxWaitRequest(sandbox_id=self.object_id, timeout=10)
             # Use the private __client to allow `wait` to work with a detached sandbox
             stub = self.__client.stub
-            resp = await (stub.SandboxWaitV2(req) if self._is_v2 else stub.SandboxWait(req))
+            if self._is_v2:
+                assert self.__client._auth_token_manager
+                auth_token = await self.__client._auth_token_manager.get_token()
+                resp = await stub.SandboxWaitV2(req, metadata=[("x-modal-auth-token", auth_token)])
+            else:
+                resp = await stub.SandboxWait(req)
             if resp.result.status:
                 logger.debug(f"Sandbox {self.object_id} wait completed with status {resp.result.status}")
                 self._result = resp.result
@@ -1082,7 +1110,12 @@ class _Sandbox(_Object, type_prefix="sb"):
 
         req = api_pb2.SandboxGetTunnelsRequest(sandbox_id=self.object_id, timeout=timeout)
         stub = self._client.stub
-        resp = await (stub.SandboxGetTunnelsV2(req) if self._is_v2 else stub.SandboxGetTunnels(req))
+        if self._is_v2:
+            assert self._client._auth_token_manager
+            auth_token = await self._client._auth_token_manager.get_token()
+            resp = await stub.SandboxGetTunnelsV2(req, metadata=[("x-modal-auth-token", auth_token)])
+        else:
+            resp = await stub.SandboxGetTunnels(req)
 
         # If we couldn't get the tunnels in time, report the timeout.
         if resp.result.status == api_pb2.GenericResult.GENERIC_STATUS_TIMEOUT:
@@ -1151,7 +1184,12 @@ class _Sandbox(_Object, type_prefix="sb"):
         This is a no-op if the Sandbox has already finished running."""
         req = api_pb2.SandboxTerminateRequest(sandbox_id=self.object_id)
         stub = self._client.stub
-        await (stub.SandboxTerminateV2(req) if self._is_v2 else stub.SandboxTerminate(req))
+        if self._is_v2:
+            assert self._client._auth_token_manager
+            auth_token = await self._client._auth_token_manager.get_token()
+            await stub.SandboxTerminateV2(req, metadata=[("x-modal-auth-token", auth_token)])
+        else:
+            await stub.SandboxTerminate(req)
         if wait:
             await self.wait(raise_on_termination=False)
             return self.returncode
@@ -1164,7 +1202,12 @@ class _Sandbox(_Object, type_prefix="sb"):
 
         req = api_pb2.SandboxWaitRequest(sandbox_id=self.object_id, timeout=0)
         stub = self._client.stub
-        resp = await (stub.SandboxWaitV2(req) if self._is_v2 else stub.SandboxWait(req))
+        if self._is_v2:
+            assert self._client._auth_token_manager
+            auth_token = await self._client._auth_token_manager.get_token()
+            resp = await stub.SandboxWaitV2(req, metadata=[("x-modal-auth-token", auth_token)])
+        else:
+            resp = await stub.SandboxWait(req)
 
         if resp.result.status:
             self._result = resp.result
@@ -1175,7 +1218,12 @@ class _Sandbox(_Object, type_prefix="sb"):
         while not self._task_id:
             req = api_pb2.SandboxGetTaskIdRequest(sandbox_id=self.object_id)
             stub = self._client.stub
-            resp = await (stub.SandboxGetTaskIdV2(req) if self._is_v2 else stub.SandboxGetTaskId(req))
+            if self._is_v2:
+                assert self._client._auth_token_manager
+                auth_token = await self._client._auth_token_manager.get_token()
+                resp = await stub.SandboxGetTaskIdV2(req, metadata=[("x-modal-auth-token", auth_token)])
+            else:
+                resp = await stub.SandboxGetTaskId(req)
             if not resp.task_id and raise_if_task_complete and resp.HasField("task_result"):
                 msg = resp.task_result.exception or "Sandbox already finished"
                 raise Error(msg)
@@ -1186,9 +1234,13 @@ class _Sandbox(_Object, type_prefix="sb"):
 
     async def _get_command_router_client(self, task_id: str) -> Optional[TaskCommandRouterClient]:
         if self._command_router_client is None:
-            # Attempt to initialize a router client. Returns None if the new exec path not enabled
-            # for this sandbox.
-            self._command_router_client = await TaskCommandRouterClient.try_init(self._client, task_id)
+            if self._is_v2:
+                self._command_router_client = await TaskCommandRouterClient.init_v2(
+                    self._client, self.object_id, task_id
+                )
+            else:
+                # Returns None if command router access is not enabled for this sandbox.
+                self._command_router_client = await TaskCommandRouterClient.try_init(self._client, task_id)
         return self._command_router_client
 
     @property
@@ -1266,7 +1318,6 @@ class _Sandbox(_Object, type_prefix="sb"):
             print(line)
         ```
         """
-        self._ensure_v1("exec")
         if pty_info is not None or _pty_info is not None:
             deprecation_warning(
                 (2025, 9, 12),
@@ -1312,11 +1363,10 @@ class _Sandbox(_Object, type_prefix="sb"):
             raise InvalidError(f"workdir must be an absolute path, got: {workdir}")
         _validate_exec_args(args)
 
-        secrets = secrets or []
-        if env:
-            secrets = [*secrets, _Secret.from_dict(env)]
+        secrets = list(secrets or [])
+        env_dict = {k: v for k, v in (env or {}).items() if v is not None}
 
-        # Force secret resolution so we can pass the secret IDs to the backend.
+        # Force explicit secret resolution so we can pass the secret IDs to the backend.
         secret_coros = [secret.hydrate(client=self._client) for secret in secrets]
         await TaskContext.gather(*secret_coros)
 
@@ -1329,6 +1379,7 @@ class _Sandbox(_Object, type_prefix="sb"):
             "timeout": timeout,
             "workdir": workdir,
             "secret_ids": [secret.object_id for secret in secrets],
+            "env": env_dict,
             "text": text,
             "bufsize": bufsize,
             "runtime_debug": config.get("function_runtime_debug"),
@@ -1340,6 +1391,11 @@ class _Sandbox(_Object, type_prefix="sb"):
             kwargs["command_router_client"] = command_router_client
             return await self._exec_through_command_router(*args, **kwargs)
         else:
+            if env_dict:
+                env_secret = _Secret.from_dict(env)
+                await env_secret.hydrate(client=self._client)
+                kwargs["secret_ids"] = [*kwargs["secret_ids"], env_secret.object_id]
+            kwargs.pop("env", None)
             return await self._exec_through_server(*args, **kwargs)
 
     async def _exec_through_server(
@@ -1395,6 +1451,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         timeout: Optional[int] = None,
         workdir: Optional[str] = None,
         secret_ids: Optional[Collection[str]] = None,
+        env: Optional[dict[str, str]] = None,
         text: bool = True,
         bufsize: Literal[-1, 1] = -1,
         runtime_debug: bool = False,
@@ -1437,6 +1494,7 @@ class _Sandbox(_Object, type_prefix="sb"):
             pty_info=pty_info,
             runtime_debug=runtime_debug,
             container_id=container_id or "",
+            env=env or {},
         )
         _ = await command_router_client.exec_start(start_req)
 
@@ -1589,14 +1647,32 @@ class _Sandbox(_Object, type_prefix="sb"):
         return await ls(path, self._client, task_id)
 
     async def mkdir(self, path: str, parents: bool = False) -> None:
-        """[Alpha] Create a new directory in the Sandbox."""
+        """[Alpha] Create a new directory in the Sandbox.
+
+        .. deprecated:: 2026-04-15
+            Use `Sandbox.filesystem.make_directory()` instead.
+        """
         self._ensure_v1("mkdir")
+        deprecation_warning(
+            (2026, 4, 15),
+            "`Sandbox.mkdir()` is deprecated. Use `Sandbox.filesystem.make_directory()` instead.",
+            pending=True,
+        )
         task_id = await self._get_task_id()
         return await mkdir(path, self._client, task_id, parents)
 
     async def rm(self, path: str, recursive: bool = False) -> None:
-        """[Alpha] Remove a file or directory in the Sandbox."""
+        """[Alpha] Remove a file or directory in the Sandbox.
+
+        .. deprecated:: 2026-04-15
+            Use `Sandbox.filesystem.remove()` instead.
+        """
         self._ensure_v1("rm")
+        deprecation_warning(
+            (2026, 4, 15),
+            "`Sandbox.rm()` is deprecated. Use `Sandbox.filesystem.remove()` instead.",
+            pending=True,
+        )
         task_id = await self._get_task_id()
         return await rm(path, self._client, task_id, recursive)
 

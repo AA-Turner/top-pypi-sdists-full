@@ -27,7 +27,7 @@ class KernelShap(Lime):
     https://arxiv.org/abs/1705.07874
     """
 
-    def __init__(self, forward_func: Callable[..., Tensor]) -> None:
+    def __init__(self, forward_func: Callable[..., Union[int, float, Tensor]]) -> None:
         r"""
         Args:
 
@@ -43,7 +43,7 @@ class KernelShap(Lime):
         )
         self.inf_weight = 1000000.0
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def attribute(  # type: ignore
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
@@ -292,8 +292,7 @@ class KernelShap(Lime):
             show_progress=show_progress,
         )
 
-    # pyre-fixme[24] Generic type `Callable` expects 2 type parameters.
-    def attribute_future(self) -> Callable:
+    def attribute_future(self) -> None:
         r"""
         This method is not implemented for KernelShap.
         """

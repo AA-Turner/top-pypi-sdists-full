@@ -16,7 +16,6 @@ import re
 import datetime
 import warnings
 import platform
-from collections.abc import Sequence
 
 from .types import (
     MoveEvaluation,
@@ -372,12 +371,12 @@ class Stockfish:
             )
         self._put(f"position fen {' '.join(fen_position.split())}")
 
-    def make_moves_from_start(self, moves: Sequence[str] | None = None) -> None:
+    def make_moves_from_start(self, moves: list[str] | None = None) -> None:
         """Sets the position by making a sequence of moves from the starting position of chess.
 
         `moves`
 
-        - A sequence of moves to set this position on the board. Must be in pure algebraic coordinate notation.
+        - A list of moves to set this position on the board. Must be in pure algebraic coordinate notation.
 
         Example:
 
@@ -388,12 +387,12 @@ class Stockfish:
         )
         self.make_moves_from_current_position(moves)
 
-    def make_moves_from_current_position(self, moves: Sequence[str] | None) -> None:
+    def make_moves_from_current_position(self, moves: list[str] | None) -> None:
         """Sets a new position by playing the moves from the current position.
 
         `moves`
 
-        - A sequence of moves to play in the current position, in order to reach a new position. Must be in
+        - A list of moves to play in the current position, in order to reach a new position. Must be in
           pure algebraic coordinate notation.
 
         Example:
@@ -406,17 +405,31 @@ class Stockfish:
             raise ValueError(
                 "Each move should be a string, and should not contain any whitespace"
             )
-        curr_fullmove_count = self._full_move_count()
-        expected_increase = self._expected_full_move_increase(len(moves))
-        self._put(f"position fen {self.get_fen_position()} moves {' '.join(moves)}")
-        if self._full_move_count() != curr_fullmove_count + expected_increase:
-            # todo - reset position to previous one, and then mention in error msg.
-            raise ValueError("Incorrect move sequence sent to Stockfish")
+        fen = self.get_fen_position()
+        expected_new_fullmove_count = (
+            self._full_move_count() + self._expected_full_move_increase(len(moves))
+        )
+        should_be_whites_turn_after = self._will_be_whites_turn_after_moves(len(moves))
+        self._put(f"position fen {fen} moves {' '.join(moves)}")
+        if (
+            self._full_move_count() != expected_new_fullmove_count
+            or self._is_whites_turn() != should_be_whites_turn_after
+        ):
+            self.set_fen_position(fen)
+            raise ValueError(
+                f"Incorrect move sequence sent to Stockfish. The wrapper has reset the position to {fen}."
+            )
 
     def _expected_full_move_increase(self, num_moves: int) -> int:
         return int(num_moves / 2) + (
-            1 if num_moves % 2 != 0 and " b " in self.get_fen_position() else 0
+            0 if num_moves % 2 == 0 or self._is_whites_turn() else 1
         )
+
+    def _is_whites_turn(self) -> bool:
+        return " w " in self.get_fen_position()
+
+    def _will_be_whites_turn_after_moves(self, num_moves: int) -> bool:
+        return self._is_whites_turn() == (num_moves % 2 == 0)
 
     def _full_move_count(self) -> int:
         return int(self.get_fen_position().split(" ")[-1])
@@ -866,7 +879,7 @@ class Stockfish:
                 + """ get_evaluation will still return full strength Stockfish's evaluation of the position."""
             )
         compare: int = (
-            1 if self.get_turn_perspective() or ("w" in self.get_fen_position()) else -1
+            1 if self.get_turn_perspective() or self._is_whites_turn() else -1
         )
         # If the user wants the evaluation specified relative to who is to move, this will be done.
         # Otherwise, the evaluation will be in terms of white's side (positive meaning advantage white,
@@ -891,9 +904,7 @@ class Stockfish:
 
         # Stockfish gives the static eval from white's perspective:
         compare: int = (
-            1
-            if not self.get_turn_perspective() or ("w" in self.get_fen_position())
-            else -1
+            1 if not self.get_turn_perspective() or self._is_whites_turn() else -1
         )
         self._put("eval")
         while True:
@@ -980,7 +991,7 @@ class Stockfish:
         # Set perspective of evaluations. If get_turn_perspective() is True, or white to move,
         # use Stockfish's values -- otherwise, invert values.
         perspective: int = (
-            1 if self.get_turn_perspective() or ("w" in self.get_fen_position()) else -1
+            1 if self.get_turn_perspective() or self._is_whites_turn() else -1
         )
 
         # loop through Stockfish output lines in reverse order
@@ -1089,12 +1100,12 @@ class Stockfish:
         """Flip the side to move"""
         self._put("flip")
 
-    def _pick(self, line: Sequence[str], value: str, offset: int = 1) -> str:
+    def _pick(self, line: list[str], value: str, offset: int = 1) -> str:
         return self._pick_range(line, value, offset, 1)[0]
 
     def _pick_range(
-        self, line: Sequence[str], value: str, offset: int = 1, count: int | None = None
-    ) -> Sequence[str]:
+        self, line: list[str], value: str, offset: int = 1, count: int | None = None
+    ) -> list[str]:
         start = line.index(value) + offset
         return line[start:] if count is None else line[start : start + count]
 

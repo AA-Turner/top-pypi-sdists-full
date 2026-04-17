@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: teradatamodelops
-Version: 7.2.6
+Version: 7.2.7
 Summary: Python client for Teradata ModelOps (TMO)
 Author-email: Christian Axel Schmidt Dick <christianaxel.schmidt@teradata.com>, Anton Zadorozhniy <anton.zadorozhniy@teradata.com>, Sheheryar Ali Bhatti <sheheryar.bhatti@teradata.com>, Will Fleury <will.fleury@teradata.com>, Mengyu Mo <mengyu.mo@teradata.com>, Hiya Devli <hiya.devli@teradata.com>
 Maintainer-email: Christian Axel Schmidt Dick <christianaxel.schmidt@teradata.com>, Anton Zadorozhniy <anton.zadorozhniy@teradata.com>, Mengyu Mo <mengyu.mo@teradata.com>, Hiya Devli <hiya.devli@teradata.com>
@@ -668,8 +668,11 @@ artefacts = client.trained_model_artefacts().list_artefacts(trained_model_id)
 
 ## Release Notes<a id="release-notes"></a>
 
+### 7.2.7
+- Bug: Fix `save_plot` cropping the title.
+
 ### 7.2.6
-- Feature: user-friendly user_attribute().get_default_connection().
+- Feature: User-friendly user_attribute().get_default_connection().
 
 ### 7.2.5
 - Chore: bumped dependencies to fix transient vulnerabilities.

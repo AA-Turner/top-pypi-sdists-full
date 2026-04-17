@@ -1,31 +1,170 @@
-use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::PyIterator;
 use toml_edit::DocumentMut as DocumentRs;
 use toml_edit::Item as ItemRs;
 use toml_edit::Value as ValueRs;
 
 use crate::comments;
-use crate::dict_ops;
 use crate::dict_proxy::DictProxy;
 use crate::document::Document;
 use crate::equality;
 use crate::item::Item;
 use crate::item_ops::{self, Affected, Key};
-use crate::list_ops;
 use crate::list_proxy::ListProxy;
 use crate::scalar_proxy::ScalarProxy;
 
 /// If `value` is an [`ItemProxy`] (or subclass such as `ScalarItem`), resolve
 /// it to its underlying Python value so that subsequent operations can compare
-/// plain Python objects without re-borrowing the document through dunder
-/// methods. Returns `None` when `value` is not a proxy.
+/// plain Python objects without locking the document through dunder methods.
+/// Returns `None` when `value` is not a proxy.
 pub(crate) fn resolve_proxy(value: &Bound<'_, PyAny>) -> PyResult<Option<Py<PyAny>>> {
     if let Ok(proxy) = value.cast::<ItemProxy>() {
-        Ok(Some(proxy.borrow().value(value.py())?))
+        Ok(Some(proxy.get().value(value.py())?))
     } else {
         Ok(None)
     }
+}
+
+/// If `other` is an [`ItemProxy`], resolve it to the underlying `toml_edit::Item`
+/// and call `f` with a reference to it.  Returns `None` when `other` is not a
+/// proxy.  This avoids repeating the cast → get → check_fresh → read → navigate
+/// sequence at every call site.
+pub(crate) fn with_proxy_item<R>(
+    other: &Bound<'_, PyAny>,
+    f: impl FnOnce(&toml_edit::Item) -> R,
+) -> PyResult<Option<R>> {
+    resolve_proxy_item(other, None, f)
+}
+
+/// Read context that carries an existing `inner` read guard reference.
+///
+/// When a method holds `doc.inner.read()` (or `.write()`) and needs to compare
+/// against a value that may be a proxy or `Document` from the same document,
+/// this context allows [`resolve_other_item`] to reuse the guard instead of
+/// acquiring a nested read lock (which would deadlock under a write guard).
+pub(crate) struct ReadCtx<'a> {
+    doc: &'a Document,
+    inner: &'a DocumentRs,
+}
+
+impl<'a> ReadCtx<'a> {
+    pub(crate) fn new(doc: &'a Document, inner: &'a DocumentRs) -> Self {
+        Self { doc, inner }
+    }
+}
+
+/// Resolve `other` as either an [`ItemProxy`] or a [`Document`], calling `f`
+/// with the underlying `toml_edit::Item`.  Returns `None` when `other` is
+/// neither.
+///
+/// Same-document guards are reused via `ctx` to avoid nested locking.
+pub(crate) fn resolve_other_item<R>(
+    other: &Bound<'_, PyAny>,
+    ctx: &ReadCtx<'_>,
+    f: impl Fn(&toml_edit::Item) -> R,
+) -> PyResult<Option<R>> {
+    if let Some(r) = resolve_proxy_item(other, Some(ctx), &f)? {
+        return Ok(Some(r));
+    }
+    resolve_doc_item(other, ctx, f)
+}
+
+/// Resolve a [`Document`] to its root item, reusing the guard from `ctx`
+/// when it is the same document.
+fn resolve_doc_item<R>(
+    other: &Bound<'_, PyAny>,
+    ctx: &ReadCtx<'_>,
+    f: impl FnOnce(&toml_edit::Item) -> R,
+) -> PyResult<Option<R>> {
+    let Ok(doc_bound) = other.cast::<Document>() else {
+        return Ok(None);
+    };
+    let doc = doc_bound.get();
+    if std::ptr::eq(ctx.doc, doc) {
+        Ok(Some(f(ctx.inner.as_item())))
+    } else {
+        let inner = doc.inner.read();
+        Ok(Some(f(inner.as_item())))
+    }
+}
+
+/// Shared implementation for [`with_proxy_item`] and [`resolve_other_item`].
+///
+/// When `ctx` is `Some` and the proxy targets the same document, the existing
+/// guard is reused.  Otherwise a fresh read lock is acquired.
+fn resolve_proxy_item<R>(
+    other: &Bound<'_, PyAny>,
+    ctx: Option<&ReadCtx<'_>>,
+    f: impl FnOnce(&toml_edit::Item) -> R,
+) -> PyResult<Option<R>> {
+    let Ok(proxy) = other.cast::<ItemProxy>() else {
+        return Ok(None);
+    };
+    let proxy = proxy.get();
+    let doc = proxy.document.bind(other.py()).get();
+    if let Some(ctx) = ctx.filter(|c| std::ptr::eq(c.doc, doc)) {
+        // Reuse the caller's guard: any invalidating mutation was stamped
+        // into the trie before the guard was taken, so `check_fresh` is
+        // coherent.  Also avoids a nested read that would deadlock if the
+        // caller holds a write guard.
+        proxy.check_fresh(doc)?;
+        let item = proxy.navigate(ctx.inner)?;
+        return Ok(Some(f(item)));
+    }
+    let (_doc, inner) = proxy.read_checked(other.py())?;
+    let item = proxy.navigate(&inner)?;
+    Ok(Some(f(item)))
+}
+
+/// Try to extract a Python object as a `toml_edit::Item` for equality
+/// comparison.
+///
+/// Returns `None` for objects that are not representable as TOML values
+/// (the caller should treat this as "not equal").
+///
+/// Only `TypeError` is caught — other exceptions from the extraction
+/// (e.g. a mapping whose `items()` raises) propagate to the caller.
+fn extract_for_eq(other: &Bound<'_, PyAny>) -> PyResult<Option<Item>> {
+    match other.extract::<Item>() {
+        Ok(item) => Ok(Some(item)),
+        Err(e) if e.is_instance_of::<PyTypeError>(other.py()) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+/// Resolve a Python value to a `toml_edit::Item` and call `f` with it.
+///
+/// Fast path: if `value` is a proxy or `Document`, `f` runs under the
+/// existing read lock — zero cloning.  Slow path: the value is extracted
+/// to an owned `Item` (no lock held), then `f` runs under a fresh lock.
+///
+/// The `proxy` freshness check is performed **under** each read lock this
+/// function takes, closing the TOCTOU window between check and read.
+///
+/// Returns `None` when the value is not representable as a TOML item
+/// (the caller should treat this as "not found" / "not equal").
+pub(crate) fn with_resolved_item<R>(
+    value: &Bound<'_, PyAny>,
+    doc: &Document,
+    check_fresh: impl Fn(&Document) -> PyResult<()>,
+    f: impl Fn(&DocumentRs, &ItemRs) -> PyResult<R>,
+) -> PyResult<Option<R>> {
+    {
+        let inner = doc.inner.read();
+        check_fresh(doc)?;
+        let ctx = ReadCtx::new(doc, &inner);
+        if let Some(result) = resolve_other_item(value, &ctx, |item| f(&inner, item))? {
+            return result.map(Some);
+        }
+    }
+    let Some(extracted) = extract_for_eq(value)? else {
+        return Ok(None);
+    };
+    let inner = doc.inner.read();
+    check_fresh(doc)?;
+    f(&inner, &extracted.0).map(Some)
 }
 
 /// A live reference to a TOML value inside a Document.
@@ -44,11 +183,11 @@ pub(crate) fn resolve_proxy(value: &Bound<'_, PyAny>) -> PyResult<Option<Py<PyAn
 /// Under the hood, an Item is really a path into the Document. An Item can
 /// become stale when a mutation to the Document changes the value that the
 /// Item points at.  Using a stale Item raises a ``RuntimeError``.
-#[pyclass(name = "Item", module = "tomledit", subclass)]
+#[pyclass(frozen, name = "Item", module = "tomledit", subclass)]
 pub(crate) struct ItemProxy {
     pub(crate) document: Py<Document>,
     pub(crate) path: Vec<Key>,
-    revision: u64,
+    revision: AtomicU64,
 }
 
 impl ItemProxy {
@@ -56,39 +195,75 @@ impl ItemProxy {
         Self {
             document,
             path,
-            revision,
+            revision: AtomicU64::new(revision),
         }
     }
 
     /// Check that no mutation has occurred along this proxy's path since
     /// it was created.
     pub(crate) fn check_fresh(&self, doc: &Document) -> PyResult<()> {
-        doc.check_fresh(&self.path, self.revision)
+        doc.check_fresh(&self.path, self.revision.load(Ordering::Relaxed))
+    }
+
+    /// Bind the owning document.  Prefer [`read_checked`] / [`write_checked`]
+    /// when a lock is about to be taken — they perform the freshness check
+    /// **after** acquiring the lock, eliminating a TOCTOU window between
+    /// check and read.
+    ///
+    /// [`read_checked`]: Self::read_checked
+    /// [`write_checked`]: Self::write_checked
+    pub(crate) fn doc<'py>(&'py self, py: Python<'py>) -> &'py Document {
+        self.document.bind(py).get()
+    }
+
+    /// Acquire `inner.read()` on the owning document, then verify this
+    /// proxy is still fresh.  Returns both for use under the guard.
+    pub(crate) fn read_checked<'py>(
+        &'py self,
+        py: Python<'py>,
+    ) -> PyResult<(&'py Document, parking_lot::RwLockReadGuard<'py, DocumentRs>)> {
+        let doc = self.doc(py);
+        let guard = doc.read_checked(&self.path, self.revision.load(Ordering::Relaxed))?;
+        Ok((doc, guard))
+    }
+
+    /// Acquire `inner.write()` on the owning document, then verify this
+    /// proxy is still fresh.
+    pub(crate) fn write_checked<'py>(
+        &'py self,
+        py: Python<'py>,
+    ) -> PyResult<(
+        &'py Document,
+        parking_lot::RwLockWriteGuard<'py, DocumentRs>,
+    )> {
+        let doc = self.doc(py);
+        let guard = doc.write_checked(&self.path, self.revision.load(Ordering::Relaxed))?;
+        Ok((doc, guard))
     }
 
     /// Record a mutation at a child key under this proxy's path.
     /// The proxy itself stays valid (only the child node is bumped).
-    pub(crate) fn bump_child(&self, doc: &mut Document, child_key: Key) {
+    pub(crate) fn bump_child(&self, doc: &Document, child_key: Key) {
         doc.bump_at_child(&self.path, &child_key);
     }
 
     /// Record a structural mutation at this proxy's own path (e.g. clear).
     /// The proxy self-updates to stay valid.
-    pub(crate) fn bump_self(&mut self, doc: &mut Document) {
-        doc.bump_at(&self.path);
-        self.revision = doc.revision;
+    pub(crate) fn bump_self(&self, doc: &Document) {
+        let rev = doc.bump_at(&self.path);
+        self.revision.store(rev, Ordering::Relaxed);
     }
 
     /// Stamp each index in `from..to` as changed. The proxy (the array
     /// itself) stays valid.
-    pub(crate) fn bump_range(&mut self, doc: &mut Document, from: usize, to: usize) {
-        doc.bump_range(&self.path, from, to);
-        self.revision = doc.revision;
+    pub(crate) fn bump_range(&self, doc: &Document, from: usize, to: usize) {
+        let rev = doc.bump_range(&self.path, from, to);
+        self.revision.store(rev, Ordering::Relaxed);
     }
 
     /// Invalidation dispatch based on the `Affected` descriptor returned
     /// by list mutation helpers.
-    pub(crate) fn bump_affected(&mut self, doc: &mut Document, affected: Affected) {
+    pub(crate) fn bump_affected(&self, doc: &Document, affected: Affected) {
         match affected {
             Affected::Child(k) => self.bump_child(doc, k),
             Affected::Range { from, to } => self.bump_range(doc, from, to),
@@ -101,11 +276,10 @@ impl ItemProxy {
     /// externally (in the next element's prefix).  It is embedded into the
     /// cloned value's decor suffix so that it travels with the value.
     pub(crate) fn clone_item(&self, py: Python<'_>) -> PyResult<ItemRs> {
-        let doc = self.document.borrow(py);
-        self.check_fresh(&doc)?;
-        let item = self.navigate(&doc.inner)?;
+        let (_doc, inner) = self.read_checked(py)?;
+        let item = self.navigate(&inner)?;
         let mut cloned = item.clone();
-        if let Some(comment) = self.element_inline_comment(&doc.inner)?
+        if let Some(comment) = self.element_inline_comment(&inner)?
             && let Some(v) = cloned.as_value_mut()
         {
             v.decor_mut().set_suffix(format!(" {comment}"));
@@ -124,15 +298,26 @@ impl ItemProxy {
     /// Build a child proxy as the correct Python subclass (DictItem,
     /// ListItem, or ScalarItem) by inspecting the TOML node type.
     /// Returns `Py<PyAny>` since the concrete type varies.
+    ///
+    /// Takes `inner.read()` once and performs the parent freshness check,
+    /// the revision sample and the kind lookup under that single guard —
+    /// so child-proxy minting is atomic w.r.t. mutations.
     pub(crate) fn child_proxy_typed(&self, py: Python<'_>, key: Key) -> PyResult<Py<PyAny>> {
-        let revision = {
-            let doc = self.document.bind(py).borrow();
-            doc.revision
+        let mut child_path = self.path.clone();
+        child_path.push(key);
+        let (revision, kind) = {
+            let (doc, inner) = self.read_checked(py)?;
+            let kind = item_kind(item_ops::navigate_path(&inner, &child_path)?);
+            (doc.revision(), kind)
         };
-        Self::make_child_typed(&self.document, &self.path, revision, py, key)
+        let base = ItemProxy::new(self.document.clone_ref(py), child_path, revision);
+        into_typed_proxy(py, base, kind)
     }
 
-    /// Build a typed child proxy from constituent parts.
+    /// Build a typed child proxy from constituent parts, without a freshness
+    /// check on the parent (caller must have verified the context is safe).
+    /// Used by views that have already taken `inner.read()` and sampled a
+    /// coherent revision.
     pub(crate) fn make_child_typed(
         document: &Py<Document>,
         path: &[Key],
@@ -150,8 +335,9 @@ impl ItemProxy {
     /// subclass.  Used by Document::__getitem__ and friends.
     pub(crate) fn into_typed(py: Python<'_>, base: ItemProxy) -> PyResult<Py<PyAny>> {
         let kind = {
-            let doc = base.document.borrow(py);
-            let item = base.navigate(&doc.inner)?;
+            let doc = base.document.bind(py).get();
+            let inner = doc.inner.read();
+            let item = base.navigate(&inner)?;
             item_kind(item)
         };
         into_typed_proxy(py, base, kind)
@@ -179,10 +365,6 @@ impl ItemProxy {
         };
         let parent = self.navigate_parent(doc)?;
         match last {
-            // Plain array elements store their inline comment in the
-            // element's decor prefix.  AoT entries are tables whose own
-            // decor suffix holds the comment — fall through to the
-            // item-level handler for those.
             Key::Int(idx) if parent.is_value() => {
                 Ok(comments::get_array_inline_comment(parent, *idx))
             }
@@ -267,220 +449,50 @@ fn into_typed_proxy(py: Python<'_>, base: ItemProxy, kind: ItemKind) -> PyResult
 impl ItemProxy {
     // ---- core protocol ----
 
-    pub fn __getitem__(&self, key: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        use item_ops::SubscriptKey;
-        let py = key.py();
-        let resolved = item_ops::resolve_subscript_key(py, key)?;
-        let doc = self.document.bind(py).borrow();
-        self.check_fresh(&doc)?;
-        let item = self.navigate(&doc.inner)?;
-
-        match resolved {
-            SubscriptKey::Slice(slice) => {
-                let target = list_ops::as_array_like(item, "slicing")?;
-                let si = slice.indices(target.len() as isize)?;
-                let indices = list_ops::collect_slice_indices(si.start, si.stop, si.step);
-                let proxies: PyResult<Vec<Py<PyAny>>> = indices
-                    .into_iter()
-                    .map(|i| self.child_proxy_typed(py, Key::Int(i)))
-                    .collect();
-                Ok(proxies?.into_pyobject(py)?.into_any().unbind())
-            }
-            SubscriptKey::Str(k) => {
-                if !dict_ops::item_has_key(item, &k)? {
-                    return Err(PyKeyError::new_err(k));
-                }
-                self.child_proxy_typed(py, Key::Str(k))
-            }
-            SubscriptKey::Int(i) => {
-                let idx = list_ops::require_array_index(item, i)?;
-                self.child_proxy_typed(py, Key::Int(idx))
-            }
-            SubscriptKey::Other(bad_key) => Err(item_ops::invalid_subscript(&bad_key, item)),
-        }
-    }
-
-    pub fn __setitem__(
-        self_: &Bound<'_, Self>,
-        key: &Bound<'_, PyAny>,
-        value: &Bound<'_, PyAny>,
-    ) -> PyResult<()> {
-        use item_ops::SubscriptKey;
-        let py = key.py();
-        let resolved = item_ops::resolve_subscript_key(py, key)?;
-
-        match resolved {
-            SubscriptKey::Slice(slice) => {
-                // Collect items BEFORE borrowing the cell — value may be
-                // the same proxy, and collect_items invokes __iter__.
-                let values = crate::list_proxy::collect_items(value)?;
-                let mut self_mut = self_.borrow_mut();
-                let mut doc = self_mut.document.bind(py).borrow_mut();
-                self_mut.check_fresh(&doc)?;
-                let item = self_mut.navigate_mut(&mut doc.inner)?;
-                let target = list_ops::as_array_like_mut(item, "slice assignment")?;
-                let si = slice.indices(target.len() as isize)?;
-                let old_len = target.len();
-                let indices = list_ops::collect_slice_indices(si.start, si.stop, si.step);
-                let new_count = values.len();
-                list_ops::item_setitem_slice(target, si.start, si.stop, si.step, values)?;
-                if new_count == indices.len() {
-                    // Same-length: stamp only the replaced indices.
-                    for &i in &indices {
-                        self_mut.bump_child(&mut doc, Key::Int(i));
-                    }
-                } else {
-                    // Different length: everything from first affected onward may have shifted.
-                    let from = indices.iter().min().copied().unwrap_or(si.start as usize);
-                    self_mut.bump_range(&mut doc, from, old_len);
-                }
-                Ok(())
-            }
-            SubscriptKey::Str(k) => {
-                // Extract before borrowing — value may be a proxy from the
-                // same cell, and Item::extract borrows proxy cells.
-                let value: Item = value.extract()?;
-                let self_mut = self_.borrow_mut();
-                let mut doc = self_mut.document.bind(py).borrow_mut();
-                self_mut.check_fresh(&doc)?;
-                let item = self_mut.navigate_mut(&mut doc.inner)?;
-                if let Some(replaced_key) = item_ops::item_setitem_str(item, k, value)? {
-                    self_mut.bump_child(&mut doc, replaced_key);
-                }
-                Ok(())
-            }
-            SubscriptKey::Int(i) => {
-                // Extract before borrowing — same reason as Str branch.
-                let value: Item = value.extract()?;
-                let self_mut = self_.borrow_mut();
-                let mut doc = self_mut.document.bind(py).borrow_mut();
-                self_mut.check_fresh(&doc)?;
-                let item = self_mut.navigate_mut(&mut doc.inner)?;
-                let replaced_key = item_ops::item_setitem_int(item, i, value)?;
-                self_mut.bump_child(&mut doc, replaced_key);
-                Ok(())
-            }
-            SubscriptKey::Other(bad_key) => Err(item_ops::invalid_subscript_type(&bad_key)),
-        }
-    }
-
-    pub fn __delitem__(&mut self, key: &Bound<'_, PyAny>) -> PyResult<()> {
-        use item_ops::SubscriptKey;
-        let py = key.py();
-        let resolved = item_ops::resolve_subscript_key(py, key)?;
-        let mut doc = self.document.bind(py).borrow_mut();
-        self.check_fresh(&doc)?;
-        let item = self.navigate_mut(&mut doc.inner)?;
-
-        match resolved {
-            SubscriptKey::Slice(slice) => {
-                let target = list_ops::as_array_like_mut(item, "slice deletion")?;
-                let si = slice.indices(target.len() as isize)?;
-                let indices = list_ops::collect_slice_indices(si.start, si.stop, si.step);
-                if let Some(&min_idx) = indices.iter().min() {
-                    let old_len = target.len();
-                    list_ops::item_delitem_slice(target, &indices)?;
-                    self.bump_range(&mut doc, min_idx, old_len);
-                }
-                Ok(())
-            }
-            SubscriptKey::Str(k) => {
-                let deleted = item_ops::item_delitem_str(item, &k)?;
-                self.bump_affected(&mut doc, deleted);
-                Ok(())
-            }
-            SubscriptKey::Int(i) => {
-                let deleted = item_ops::item_delitem_int(item, i)?;
-                self.bump_affected(&mut doc, deleted);
-                Ok(())
-            }
-            SubscriptKey::Other(bad_key) => Err(item_ops::invalid_subscript(&bad_key, item)),
-        }
-    }
-
-    pub fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
-        let doc = self.document.bind(py).borrow();
-        self.check_fresh(&doc)?;
-        let item = self.navigate(&doc.inner)?;
-        item_ops::item_len(item).ok_or_else(|| {
-            PyTypeError::new_err(format!(
-                "TOML {} item has no len() (use .value to get the Python object)",
-                item.type_name()
-            ))
-        })
-    }
-
-    pub fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyIterator>> {
-        let doc = self.document.bind(py).borrow();
-        self.check_fresh(&doc)?;
-        let item = self.navigate(&doc.inner)?;
-
-        match item_ops::item_iter_kind(item)? {
-            item_ops::IterKind::TableKeys(keys) => {
-                let list = keys.into_pyobject(py)?;
-                Ok(list.try_iter()?.unbind())
-            }
-            item_ops::IterKind::ArrayLen(len) => {
-                let proxies: PyResult<Vec<Py<PyAny>>> = (0..len)
-                    .map(|i| self.child_proxy_typed(py, Key::Int(i)))
-                    .collect();
-                let list = proxies?.into_pyobject(py)?;
-                Ok(list.try_iter()?.unbind())
-            }
-        }
-    }
-
-    pub fn __contains__(&self, value: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let py = value.py();
-        let doc = self.document.bind(py).borrow();
-        self.check_fresh(&doc)?;
-        let item = self.navigate(&doc.inner)?;
-        item_ops::item_contains(item, value)
-    }
-
     pub fn __bool__(&self, py: Python<'_>) -> PyResult<bool> {
-        let doc = self.document.bind(py).borrow();
-        self.check_fresh(&doc)?;
-        let item = self.navigate(&doc.inner)?;
+        let (_doc, inner) = self.read_checked(py)?;
+        let item = self.navigate(&inner)?;
         Ok(item_ops::item_bool(item))
     }
 
     pub fn __str__(&self, py: Python<'_>) -> PyResult<String> {
-        let doc = self.document.bind(py).borrow();
-        self.check_fresh(&doc)?;
-        let item = self.navigate(&doc.inner)?;
+        let (_doc, inner) = self.read_checked(py)?;
+        let item = self.navigate(&inner)?;
         item_ops::item_str(item, py)
     }
 
     pub fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
-        let doc = self.document.bind(py).borrow();
-        self.check_fresh(&doc)?;
-        let item = self.navigate(&doc.inner)?;
+        let (_doc, inner) = self.read_checked(py)?;
+        let item = self.navigate(&inner)?;
         Ok(item_ops::item_repr(item))
     }
 
     /// Return the TOML representation of this item.
     pub fn as_toml(&self, py: Python<'_>) -> PyResult<String> {
-        let doc = self.document.bind(py).borrow();
-        self.check_fresh(&doc)?;
-        let item = self.navigate(&doc.inner)?;
+        let (_doc, inner) = self.read_checked(py)?;
+        let item = self.navigate(&inner)?;
         Ok(item.to_string().trim().to_owned())
     }
 
     pub fn __eq__(&self, other: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let py = other.py();
-        let doc = self.document.bind(py).borrow();
-        self.check_fresh(&doc)?;
-        let item = self.navigate(&doc.inner)?;
-        equality::item_eq(item, other)
+        let doc = self.doc(other.py());
+        Ok(with_resolved_item(
+            other,
+            doc,
+            |d| self.check_fresh(d),
+            |inner, needle| {
+                let item = self.navigate(inner)?;
+                Ok(equality::items_structural_eq(item, needle))
+            },
+        )?
+        .unwrap_or(false))
     }
 
     /// The underlying data as a native Python object (int, str, list, dict, etc).
     #[getter]
     pub fn value(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let doc = self.document.bind(py).borrow();
-        self.check_fresh(&doc)?;
-        let item = self.navigate(&doc.inner)?;
+        let (_doc, inner) = self.read_checked(py)?;
+        let item = self.navigate(&inner)?;
         item_ops::item_to_py(item, py)
     }
 
@@ -492,13 +504,12 @@ impl ItemProxy {
         if self.path.is_empty() {
             return Ok(None);
         }
-        let doc = self.document.bind(py).borrow();
-        self.check_fresh(&doc)?;
-        if let Some((ancestor_path, key)) = self.block_comment_target(&doc.inner)? {
-            let ancestor = item_ops::navigate_path(&doc.inner, ancestor_path)?;
+        let (_doc, inner) = self.read_checked(py)?;
+        if let Some((ancestor_path, key)) = self.block_comment_target(&inner)? {
+            let ancestor = item_ops::navigate_path(&inner, ancestor_path)?;
             Ok(comments::get_block_comment(ancestor, key))
         } else {
-            let item = self.navigate(&doc.inner)?;
+            let item = self.navigate(&inner)?;
             let decor = item
                 .as_value()
                 .map(|v| v.decor())
@@ -517,14 +528,13 @@ impl ItemProxy {
         if self.path.is_empty() {
             return Err(PyTypeError::new_err("cannot set comment on root"));
         }
-        let mut doc = self.document.bind(py).borrow_mut();
-        self.check_fresh(&doc)?;
-        if let Some((ancestor_path, key)) = self.block_comment_target(&doc.inner)? {
+        let (_doc, mut inner) = self.write_checked(py)?;
+        if let Some((ancestor_path, key)) = self.block_comment_target(&inner)? {
             let key = key.to_owned();
-            let ancestor = item_ops::navigate_path_mut(&mut doc.inner, ancestor_path)?;
+            let ancestor = item_ops::navigate_path_mut(&mut inner, ancestor_path)?;
             comments::set_block_comment(ancestor, &key, value)?;
         } else {
-            let item = self.navigate_mut(&mut doc.inner)?;
+            let item = self.navigate_mut(&mut inner)?;
             let decor = match item {
                 ItemRs::Value(v) => v.decor_mut(),
                 ItemRs::Table(t) => t.decor_mut(),
@@ -538,12 +548,11 @@ impl ItemProxy {
     /// The inline comment after this value (e.g. `key = 1 # this part`), or None.
     #[getter]
     pub fn inline_comment(&self, py: Python<'_>) -> PyResult<Option<String>> {
-        let doc = self.document.bind(py).borrow();
-        self.check_fresh(&doc)?;
-        if let Some(comment) = self.element_inline_comment(&doc.inner)? {
+        let (_doc, inner) = self.read_checked(py)?;
+        if let Some(comment) = self.element_inline_comment(&inner)? {
             return Ok(Some(comment));
         }
-        let item = self.navigate(&doc.inner)?;
+        let item = self.navigate(&inner)?;
         Ok(comments::get_inline_comment(item))
     }
 
@@ -553,43 +562,39 @@ impl ItemProxy {
     /// Pass ``None`` to remove the comment.
     #[setter]
     pub fn set_inline_comment(&self, py: Python<'_>, value: Option<&str>) -> PyResult<()> {
-        let mut doc = self.document.bind(py).borrow_mut();
-        self.check_fresh(&doc)?;
-        // Element-based paths (arrays, inline tables) need pre-validated raw format.
+        let (_doc, mut inner) = self.write_checked(py)?;
         let raw = match value {
             Some(text) => comments::validate_inline_comment(text)?,
             None => String::new(),
         };
         if let Some(Key::Int(idx)) = self.path.last() {
-            let parent = self.navigate_parent_mut(&mut doc.inner)?;
+            let parent = self.navigate_parent_mut(&mut inner)?;
             if let Some(array) = parent.as_value_mut().and_then(|v| v.as_array_mut()) {
                 comments::set_array_inline_comment(array, *idx, &raw);
                 return Ok(());
             }
-            // AoT entries are tables — fall through to item-level handler.
         }
         if let Some(Key::Str(key)) = self.path.last()
             && self.path.len() >= 2
         {
-            let parent = self.navigate_parent_mut(&mut doc.inner)?;
+            let parent = self.navigate_parent_mut(&mut inner)?;
             if let Some(it) = parent.as_value_mut().and_then(|v| v.as_inline_table_mut()) {
                 comments::set_inline_table_inline_comment(it, key, &raw);
                 return Ok(());
             }
         }
-        let item = self.navigate_mut(&mut doc.inner)?;
+        let item = self.navigate_mut(&mut inner)?;
         comments::set_inline_comment(item, value)?;
         Ok(())
     }
 
     // ---- shared methods ----
 
-    pub fn clear(&mut self, py: Python<'_>) -> PyResult<()> {
-        let mut doc = self.document.bind(py).borrow_mut();
-        self.check_fresh(&doc)?;
-        let item = self.navigate_mut(&mut doc.inner)?;
+    pub fn clear(&self, py: Python<'_>) -> PyResult<()> {
+        let (doc, mut inner) = self.write_checked(py)?;
+        let item = self.navigate_mut(&mut inner)?;
         item_ops::item_clear(item)?;
-        self.bump_self(&mut doc);
+        self.bump_self(doc);
         Ok(())
     }
 
@@ -599,9 +604,8 @@ impl ItemProxy {
     /// This is shallow - it formats the item itself, not nested sub-tables.
     /// Note: any comments on the formatted item will be removed.
     pub fn fmt(&self, py: Python<'_>) -> PyResult<()> {
-        let mut doc = self.document.bind(py).borrow_mut();
-        self.check_fresh(&doc)?;
-        let item = self.navigate_mut(&mut doc.inner)?;
+        let (_doc, mut inner) = self.write_checked(py)?;
+        let item = self.navigate_mut(&mut inner)?;
         item_ops::item_fmt(item);
         Ok(())
     }
@@ -624,7 +628,7 @@ impl ItemProxy {
         let base = Self {
             document: doc,
             path: vec![Key::Str("_".to_owned())],
-            revision: 0,
+            revision: AtomicU64::new(0),
         };
         Self::into_typed(py, base)
     }

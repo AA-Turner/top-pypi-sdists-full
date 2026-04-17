@@ -8,7 +8,13 @@
 # fmt: off
 # isort: skip_file
 from .....schema_classes import IncidentAssigneeClass
+from .....schema_classes import IncidentExternalLinkClass
+from .....schema_classes import IncidentExternalLinksClass
 from .....schema_classes import IncidentInfoClass
+from .....schema_classes import IncidentNoteClass
+from .....schema_classes import IncidentNoteSourceClass
+from .....schema_classes import IncidentNoteSourceTypeClass
+from .....schema_classes import IncidentNotesClass
 from .....schema_classes import IncidentSourceClass
 from .....schema_classes import IncidentSourceTypeClass
 from .....schema_classes import IncidentStageClass
@@ -18,7 +24,13 @@ from .....schema_classes import IncidentTypeClass
 
 
 IncidentAssignee = IncidentAssigneeClass
+IncidentExternalLink = IncidentExternalLinkClass
+IncidentExternalLinks = IncidentExternalLinksClass
 IncidentInfo = IncidentInfoClass
+IncidentNote = IncidentNoteClass
+IncidentNoteSource = IncidentNoteSourceClass
+IncidentNoteSourceType = IncidentNoteSourceTypeClass
+IncidentNotes = IncidentNotesClass
 IncidentSource = IncidentSourceClass
 IncidentSourceType = IncidentSourceTypeClass
 IncidentStage = IncidentStageClass

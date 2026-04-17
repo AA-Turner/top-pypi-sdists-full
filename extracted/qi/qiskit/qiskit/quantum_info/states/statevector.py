@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -259,7 +259,7 @@ class Statevector(QuantumState, TolerancesMixin):
                 sv.draw(output='hinton')
 
         """
-        # pylint: disable=cyclic-import
+
         from qiskit.visualization.state_visualization import state_drawer
 
         return state_drawer(self, output=output, **drawer_args)
@@ -267,7 +267,7 @@ class Statevector(QuantumState, TolerancesMixin):
     def _ipython_display_(self):
         out = self.draw()
         if isinstance(out, str):
-            print(out)  # pylint: disable=bad-builtin
+            print(out)  # noqa: T201
         else:
             from IPython.display import display
 
@@ -974,7 +974,7 @@ class Statevector(QuantumState, TolerancesMixin):
         # pylint complains about a cyclic import since the following Initialize file
         # imports the StatePreparation, which again requires the Statevector (this file),
         # but as this is a local import, it's not actually an issue and can be ignored
-        # pylint: disable=cyclic-import
+
         from qiskit.circuit.library.data_preparation.initializer import Initialize
 
         mat = Operator._instruction_to_matrix(obj)

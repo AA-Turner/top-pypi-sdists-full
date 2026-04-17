@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import uuid
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
@@ -26,10 +27,7 @@ from dstack._internal.core.models.compute_groups import (
     ComputeGroupStatus,
 )
 from dstack._internal.core.models.fleets import (
-    FleetConfiguration,
-    FleetNodesSpec,
     FleetSpec,
-    FleetStatus,
     InstanceGroupPlacement,
 )
 from dstack._internal.core.models.instances import (
@@ -85,9 +83,9 @@ from dstack._internal.server.models import (
 )
 from dstack._internal.server.services import events
 from dstack._internal.server.services.backends import get_project_backend_by_type_or_error
+from dstack._internal.server.services.docker import apply_server_docker_defaults
 from dstack._internal.server.services.fleets import (
     check_can_create_new_cloud_instance_in_fleet,
-    generate_fleet_name,
     get_fleet_master_instance_provisioning_data,
     get_fleet_spec,
     get_next_instance_num,
@@ -134,11 +132,9 @@ from dstack._internal.server.services.runs.plan import (
 )
 from dstack._internal.server.services.runs.spec import (
     check_run_spec_requires_instance_mounts,
-    get_nodes_required_num,
 )
 from dstack._internal.server.services.volumes import volume_model_to_volume
 from dstack._internal.server.utils import sentry_utils
-from dstack._internal.settings import FeatureFlags
 from dstack._internal.utils.common import get_current_datetime, get_or_error, run_async
 from dstack._internal.utils.logging import get_logger
 
@@ -319,6 +315,10 @@ class JobSubmittedWorker(Worker[JobSubmittedPipelineItem]):
         if context.job_model.instance_assigned:
             logger.debug("%s: provisioning has started", fmt(context.job_model))
             provisioning = await _process_provisioning(item=item, context=context)
+            _hint_pipelines_fetch(
+                pipeline_hinter=self._pipeline_hinter,
+                result=provisioning,
+            )
             await _apply_provisioning_result(
                 item=item,
                 provisioning=provisioning,
@@ -327,6 +327,10 @@ class JobSubmittedWorker(Worker[JobSubmittedPipelineItem]):
 
         logger.debug("%s: assignment has started", fmt(context.job_model))
         assignment = await _process_assignment(context=context)
+        _hint_pipelines_fetch(
+            pipeline_hinter=self._pipeline_hinter,
+            result=assignment,
+        )
         await _apply_assignment_result(
             item=item,
             context=context,
@@ -365,6 +369,7 @@ class _DeferSubmittedJobResult:
     """The job is not ready yet, so apply should just mark it processed and unlock it."""
 
     log_message: str
+    hint_fleet_pipeline: bool = False
 
 
 @dataclass
@@ -452,7 +457,6 @@ class _NewCapacityProvisioning:
     provisioning_data: Union[JobProvisioningData, ComputeGroupProvisioningData]
     offer: InstanceOfferWithAvailability
     effective_profile: Profile
-    created_fleet_model: Optional[FleetModel]
     placement_group_cleanup: Optional[_PlacementGroupCleanup]
     volume_attachment_result: Optional[_VolumeAttachmentResult]
     locked_fleet_id: Optional[uuid.UUID]
@@ -855,21 +859,16 @@ async def _apply_no_fleet_selection(
         )
         return
 
-    if not FeatureFlags.AUTOCREATED_FLEETS_ENABLED:
-        logger.debug("%s: no fleet found", fmt(job_model))
-        await _terminate_submitted_job(
-            session=session,
-            job_model=job_model,
-            reason=JobTerminationReason.FAILED_TO_START_DUE_TO_NO_CAPACITY,
-            message=(
-                "No matching fleet found. Possible reasons: "
-                "https://dstack.ai/docs/guides/troubleshooting/#no-fleets"
-            ),
-        )
-        return
-
-    job_model.instance_assigned = True
-    await _mark_job_processed(session=session, job_model=job_model)
+    logger.debug("%s: no fleet found", fmt(job_model))
+    await _terminate_submitted_job(
+        session=session,
+        job_model=job_model,
+        reason=JobTerminationReason.FAILED_TO_START_DUE_TO_NO_CAPACITY,
+        message=(
+            "No matching fleet found. Possible reasons: "
+            "https://dstack.ai/docs/guides/troubleshooting/#no-fleets"
+        ),
+    )
 
 
 async def _lock_assignment_fleet_for_existing_instance_assignment(
@@ -1159,6 +1158,16 @@ async def _process_new_capacity_provisioning(
     preconditions: _ProcessedPreconditions,
 ) -> _ProvisioningResult:
     fleet_model = context.fleet_model
+    if fleet_model is None:
+        # Legacy in-flight job from autocreated fleets path (instance_assigned=True, no fleet).
+        # Autocreated fleets are no longer supported; terminate the job.
+        return _TerminateSubmittedJobResult(
+            reason=JobTerminationReason.FAILED_TO_START_DUE_TO_NO_CAPACITY,
+            message=(
+                "No matching fleet found. Possible reasons: "
+                "https://dstack.ai/docs/guides/troubleshooting/#no-fleets"
+            ),
+        )
     locked_fleet_id = None
     if _should_refresh_related_cluster_master_fleet(context=context):
         assert fleet_model is not None
@@ -1179,6 +1188,17 @@ async def _process_new_capacity_provisioning(
             job=context.job,
         )
     )
+    if (
+        is_master_job(context.job)
+        and fleet_model is not None
+        and _get_cluster_fleet_spec(fleet_model) is not None
+        and any(not instance.deleted for instance in fleet_model.instances)
+        and master_provisioning_data is None
+    ):
+        return _DeferSubmittedJobResult(
+            log_message="waiting for fleet master instance election",
+            hint_fleet_pipeline=True,
+        )
     provision_new_capacity_result = await _provision_new_capacity(
         project=context.project,
         fleet_model=fleet_model,
@@ -1198,14 +1218,6 @@ async def _process_new_capacity_provisioning(
             placement_group_cleanup=provision_new_capacity_result.placement_group_cleanup,
         )
 
-    created_fleet_model = None
-    if context.fleet_model is None:
-        # TODO: Drop once autocreated fleets are dropped.
-        created_fleet_model = await _create_fleet_model_for_job(
-            project=context.project,
-            run=context.run,
-        )
-
     volume_attachment_result = None
     # TODO: Volume attachment for compute groups is not yet supported since
     # currently supported compute groups don't require explicit volume attachment.
@@ -1222,7 +1234,6 @@ async def _process_new_capacity_provisioning(
         provisioning_data=provision_new_capacity_result.provisioning_data,
         offer=provision_new_capacity_result.offer,
         effective_profile=provision_new_capacity_result.effective_profile,
-        created_fleet_model=created_fleet_model,
         placement_group_cleanup=provision_new_capacity_result.placement_group_cleanup,
         volume_attachment_result=volume_attachment_result,
         locked_fleet_id=locked_fleet_id,
@@ -1237,23 +1248,6 @@ async def _apply_new_capacity_provisioning(
 ) -> None:
     fresh_context = await _load_submitted_job_context(session=session, job_model=job_model)
     fleet_model = fresh_context.fleet_model
-    if provisioning.created_fleet_model is not None:
-        fleet_model = provisioning.created_fleet_model
-        # Replace the project loaded in the processing session with the one
-        # bound to this apply session to avoid a duplicate-identity conflict.
-        fleet_model.project = fresh_context.project
-        session.add(fleet_model)
-        fresh_context.job_model.fleet = fleet_model
-        events.emit(
-            session,
-            f"Fleet created for job. Fleet status: {fleet_model.status.upper()}",
-            actor=events.SystemActor(),
-            targets=[
-                events.Target.from_model(fleet_model),
-                events.Target.from_model(fresh_context.job_model),
-            ],
-        )
-
     assert fleet_model is not None
     await _persist_placement_group_cleanup(
         session=session,
@@ -1516,8 +1510,8 @@ async def _process_volume_attachments(
                 ):
                     raise ServerClientError("Cannot attach a volume locked for processing")
                 if (
-                    job_provisioning_data.get_base_backend() != volume.configuration.backend
-                    or job_provisioning_data.region.lower() != volume.configuration.region.lower()
+                    job_provisioning_data.get_base_backend() != volume.get_backend()
+                    or job_provisioning_data.region.lower() != volume.get_region().lower()
                 ):
                     continue
                 if volume.provisioning_data is None or not volume.provisioning_data.attachable:
@@ -1834,6 +1828,17 @@ def _get_fleet_master_provisioning_data(
     )
 
 
+def _hint_pipelines_fetch(
+    pipeline_hinter: PipelineHinterProtocol,
+    result: Union[_AssignmentResult, _ProvisioningResult],
+) -> None:
+    if not isinstance(result, _DeferSubmittedJobResult):
+        return
+
+    if result.hint_fleet_pipeline:
+        pipeline_hinter.hint_fetch(FleetModel.__name__)
+
+
 def _select_jobs_to_provision(job: Job, replica_jobs: list[Job], job_model: JobModel) -> list[Job]:
     jobs_to_provision = [job]
     if is_multinode_job(job) and is_master_job(job) and job_model.waiting_master_job is not None:
@@ -1863,6 +1868,11 @@ async def _provision_new_capacity(
     volumes: Optional[list[list[Volume]]] = None,
     fleet_model: Optional[FleetModel] = None,
 ) -> Union[_FailedNewCapacityProvisioning, _ProvisionNewCapacityResult]:
+    jobs = copy.deepcopy(jobs)
+    for job in jobs:
+        job.job_spec.image_name, job.job_spec.registry_auth = apply_server_docker_defaults(
+            job.job_spec.image_name, job.job_spec.registry_auth
+        )
     job = jobs[0]
     if volumes is None:
         volumes = []
@@ -2127,42 +2137,6 @@ def _get_effective_profile_and_requirements(
     return effective_profile, requirements
 
 
-async def _create_fleet_model_for_job(
-    project: ProjectModel,
-    run: Run,
-) -> FleetModel:
-    placement = InstanceGroupPlacement.ANY
-    if run.run_spec.configuration.type == "task" and run.run_spec.configuration.nodes > 1:
-        placement = InstanceGroupPlacement.CLUSTER
-    nodes = get_nodes_required_num(run.run_spec)
-    async with get_session_ctx() as session:
-        # Duplicate fleet names are possible because of the missing fleet lock.
-        # Unfixed since autocreated are to be dropped anyway.
-        fleet_name = await generate_fleet_name(session=session, project=project)
-    spec = FleetSpec(
-        configuration=FleetConfiguration(
-            name=fleet_name,
-            placement=placement,
-            reservation=run.run_spec.configuration.reservation,
-            nodes=FleetNodesSpec(
-                min=nodes,
-                target=nodes,
-                max=None,
-            ),
-        ),
-        profile=run.run_spec.merged_profile,
-        autocreated=True,
-    )
-    return FleetModel(
-        id=uuid.uuid4(),
-        name=fleet_name,
-        project=project,
-        status=FleetStatus.ACTIVE,
-        spec=spec.json(),
-        instances=[],
-    )
-
-
 def _get_offer_volumes(
     volumes: list[list[Volume]],
     offer: InstanceOfferWithAvailability,
@@ -2179,8 +2153,8 @@ def _get_offer_mount_point_volume(
 ) -> Volume:
     for volume in volumes:
         if (
-            volume.configuration.backend != offer.backend
-            or volume.configuration.region.lower() != offer.region.lower()
+            volume.get_backend() != offer.backend
+            or volume.get_region().lower() != offer.region.lower()
         ):
             continue
         return volume

@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -32,7 +32,7 @@ from qiskit.quantum_info import Operator, Pauli
 from qiskit.providers.fake_provider import GenericBackendV2
 from qiskit.providers.basic_provider import BasicSimulator
 from qiskit.utils import parallel_map
-from test import QiskitTestCase, combine  # pylint: disable=wrong-import-order
+from test import QiskitTestCase, combine
 from ..legacy_cmaps import BOGOTA_CMAP
 
 
@@ -968,7 +968,7 @@ class TestParameters(QiskitTestCase):
         for qc in results:
             circuit.compose(qc, inplace=True)
 
-        parameter_values = {x: 1.0 for x in parameters}
+        parameter_values = dict.fromkeys(parameters, 1.0)
 
         bind_circuit = circuit.assign_parameters(parameter_values)
 
@@ -1447,7 +1447,6 @@ def _paramvec_names(prefix, length):
 
 @ddt
 class TestParameterExpressions(QiskitTestCase):
-    # pylint: disable=possibly-used-before-assignment
     """Test expressions of Parameters."""
 
     # supported operations dictionary operation : accuracy (0=exact match)
@@ -2153,7 +2152,7 @@ class TestParameterExpressions(QiskitTestCase):
 
         t_param = Parameter("t")
 
-        # Create a quantum circuit with 2 paramterized gates.
+        # Create a quantum circuit with 2 parameterized gates.
         circuit = QuantumCircuit(5)
         circuit.append(PauliEvolutionGate(Pauli("XZXZX"), time=t_param), [0, 1, 2, 3, 4])
         circuit.append(PauliEvolutionGate(Pauli("IIIXX"), time=t_param / 2), [0, 1, 2, 3, 4])

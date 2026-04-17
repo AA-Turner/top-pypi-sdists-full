@@ -83,15 +83,17 @@ _inverse_registry = {
     jax.lax.erf_p: jax.lax.erf_inv_p,
     jax.lax.erf_inv_p: jax.lax.erf_p,
     jax.lax.conj_p: jax.lax.conj_p,
-
     # binary ops; tuple values represent the variable-left/variable-right side
     # case for non-commutatively invertible ops like div
-    jax.lax.mul_p: (jax.lax.div_p.bind, lambda x, y: jax.lax.div_p.bind(y, x)),
+    jax.lax.mul_p: (
+        jax.lax.div_p.bind,
+        lambda x, y, **_: jax.lax.div_p.bind(y, x),
+    ),
     jax.lax.div_p: (jax.lax.mul_p.bind, jax.lax.div_p.bind),
     jax.lax.add_p: (jax.lax.sub_p.bind, lambda x, y: jax.lax.sub_p.bind(y, x)),
     jax.lax.sub_p: (jax.lax.add_p.bind, jax.lax.sub_p.bind),
-    jax.lax.pow_p: lambda x, y: jax.lax.pow_p.bind(x, 1.0/y),
-    jax.lax.integer_pow_p: lambda x, y: jax.lax.pow_p.bind(x, 1.0/y)
+    jax.lax.pow_p: lambda x, y: jax.lax.pow_p.bind(x, 1.0 / y),
+    jax.lax.integer_pow_p: lambda x, y: jax.lax.pow_p.bind(x, 1.0 / y),
 }
 
 if hasattr(jax.lax, "square_p"):
@@ -331,7 +333,9 @@ def _interpret_inverse(jaxpr, consts, *args):
 
 
 def _extract_call_jaxpr(primitive, params):
-  if not (primitive.call_primitive or primitive.map_primitive):
+  if not (
+      primitive.call_primitive or getattr(primitive, "map_primitive", False)
+  ):
     return None, params
   else:
     params = dict(params)

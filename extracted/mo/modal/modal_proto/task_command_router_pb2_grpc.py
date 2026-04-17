@@ -75,6 +75,11 @@ class TaskCommandRouterStub(object):
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryResponse.FromString,
                 )
+        self.TaskUnmountDirectory = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/TaskUnmountDirectory',
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskUnmountDirectoryRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
 
 
 class TaskCommandRouterServicer(object):
@@ -164,6 +169,13 @@ class TaskCommandRouterServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def TaskUnmountDirectory(self, request, context):
+        """Unmount an image previously mounted at a directory in the container.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_TaskCommandRouterServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -226,6 +238,11 @@ def add_TaskCommandRouterServicer_to_server(servicer, server):
                     servicer.TaskSnapshotDirectory,
                     request_deserializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryRequest.FromString,
                     response_serializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryResponse.SerializeToString,
+            ),
+            'TaskUnmountDirectory': grpc.unary_unary_rpc_method_handler(
+                    servicer.TaskUnmountDirectory,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskUnmountDirectoryRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -438,5 +455,22 @@ class TaskCommandRouter(object):
         return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskSnapshotDirectory',
             modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryRequest.SerializeToString,
             modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TaskUnmountDirectory(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskUnmountDirectory',
+            modal__proto_dot_task__command__router__pb2.TaskUnmountDirectoryRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

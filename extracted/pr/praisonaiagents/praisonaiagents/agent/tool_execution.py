@@ -12,8 +12,10 @@ import json
 import logging
 import asyncio
 import inspect
+import contextvars
 import concurrent.futures
 from typing import List, Optional, Any, Dict, Union, TYPE_CHECKING
+from ..errors import ToolExecutionError
 
 if TYPE_CHECKING:
     pass
@@ -190,18 +192,37 @@ class ToolExecutionMixin:
                 if res.output and res.output.modified_data:
                     arguments.update(res.output.modified_data)
 
-            with with_injection_context(state):
-                # P8/G11: Apply tool timeout if configured
-                tool_timeout = getattr(self, '_tool_timeout', None)
-                if tool_timeout and tool_timeout > 0:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                        future = executor.submit(self._execute_tool_impl, function_name, arguments)
-                        try:
-                            result = future.result(timeout=tool_timeout)
-                        except concurrent.futures.TimeoutError:
-                            logging.warning(f"Tool {function_name} timed out after {tool_timeout}s")
-                            result = {"error": f"Tool timed out after {tool_timeout}s", "timeout": True}
-                else:
+            # P8/G11: Apply tool timeout if configured
+            tool_timeout = getattr(self, '_tool_timeout', None)
+            if tool_timeout and tool_timeout > 0:
+                # Use copy_context to preserve injection context in executor thread
+                ctx = contextvars.copy_context()
+                
+                def execute_with_context():
+                    with with_injection_context(state):
+                        return self._execute_tool_impl(function_name, arguments)
+                
+                # Use explicit executor lifecycle to actually bound execution time
+                executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+                try:
+                    future = executor.submit(ctx.run, execute_with_context)
+                    try:
+                        result = future.result(timeout=tool_timeout)
+                    except concurrent.futures.TimeoutError:
+                        # Cancel and shutdown immediately to avoid blocking
+                        future.cancel()
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        logging.warning(f"Tool {function_name} timed out after {tool_timeout}s")
+                        result = {"error": f"Tool timed out after {tool_timeout}s", "timeout": True}
+                    else:
+                        # Normal completion - shutdown gracefully
+                        executor.shutdown(wait=False)
+                finally:
+                    # Ensure executor is always cleaned up
+                    if not executor._shutdown:
+                        executor.shutdown(wait=False)
+            else:
+                with with_injection_context(state):
                     result = self._execute_tool_impl(function_name, arguments)
             
             # Apply tool output truncation to prevent context overflow
@@ -290,8 +311,14 @@ class ToolExecutionMixin:
             _duration_ms = (_time.time() - _tool_start_time) * 1000
             _trace_emitter.tool_call_end(self.name, function_name, None, _duration_ms, str(e))
             
-            # Trigger OnError hook if needed (optional future step)
-            raise
+            # Gap 3a fix: Wrap exceptions in ToolExecutionError for better observability
+            is_retryable = not isinstance(e, (ValueError, TypeError, AttributeError))
+            raise ToolExecutionError(
+                f"Tool '{function_name}' failed: {e}",
+                tool_name=function_name,
+                agent_id=self.name,
+                is_retryable=is_retryable,
+            ) from e
 
     def _trigger_after_agent_hook(self, prompt, response, start_time, tools_used=None):
         """Trigger AFTER_AGENT hook and return response."""

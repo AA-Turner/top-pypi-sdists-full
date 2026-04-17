@@ -112,6 +112,7 @@ class DeepLift(GradientAttribution):
         self._multiply_by_inputs = multiply_by_inputs
 
     @typing.overload
+    @log_usage(part_of_slo=True)
     def attribute(
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
@@ -124,6 +125,7 @@ class DeepLift(GradientAttribution):
     ) -> Tuple[TensorOrTupleOfTensorsGeneric, Tensor]: ...
 
     @typing.overload
+    @log_usage(part_of_slo=True)
     def attribute(
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
@@ -134,7 +136,7 @@ class DeepLift(GradientAttribution):
         custom_attribution_func: Union[None, Callable[..., Tuple[Tensor, ...]]] = None,
     ) -> TensorOrTupleOfTensorsGeneric: ...
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def attribute(  # type: ignore
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
@@ -346,20 +348,21 @@ class DeepLift(GradientAttribution):
             self._remove_hooks(main_model_hooks)
 
         undo_gradient_requirements(inputs_tuple, gradient_mask)
-        # pyre-fixme[7]: Expected `Union[Tuple[Variable[TensorOrTupleOfTensorsGeneric...
-        return _compute_conv_delta_and_format_attrs(
-            self,
-            return_convergence_delta,
-            attributions,
-            baselines,
-            inputs_tuple,
-            additional_forward_args,
-            target,
-            is_inputs_tuple,
+        return cast(
+            TensorOrTupleOfTensorsGeneric,
+            _compute_conv_delta_and_format_attrs(
+                self,
+                return_convergence_delta,
+                attributions,
+                baselines,
+                inputs_tuple,
+                additional_forward_args,
+                target,
+                is_inputs_tuple,
+            ),
         )
 
-    # pyre-fixme[24] Generic type `Callable` expects 2 type parameters.
-    def attribute_future(self) -> Callable:
+    def attribute_future(self) -> None:
         r"""
         This method is not implemented for DeepLift.
         """
@@ -407,8 +410,7 @@ class DeepLift(GradientAttribution):
         set necessary hooks on inputs there.
         """
         inputs = _format_tensor_into_tuples(inputs)
-        # pyre-fixme[16]: `Module` has no attribute `input`.
-        module.input = inputs[0].clone().detach()
+        module.input = inputs[0].clone().detach()  # type: ignore
 
     def _forward_hook(
         self,
@@ -421,8 +423,7 @@ class DeepLift(GradientAttribution):
         outputs of a neuron
         """
         outputs = _format_tensor_into_tuples(outputs)
-        # pyre-fixme[16]: `Module` has no attribute `output`.
-        module.output = outputs[0].clone().detach()
+        module.output = outputs[0].clone().detach()  # type: ignore
 
     def _backward_hook(
         self,
@@ -536,9 +537,7 @@ class DeepLift(GradientAttribution):
         ):
             return [
                 self.model.module.register_forward_pre_hook(pre_hook),  # type: ignore
-                # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no
-                #  attribute `register_forward_hook`.
-                self.model.module.register_forward_hook(forward_hook),
+                self.model.module.register_forward_hook(forward_hook),  # type: ignore
             ]  # type: ignore
         else:
             return [
@@ -599,6 +598,7 @@ class DeepLiftShap(DeepLift):
     # There's a mismatch between the signatures of DeepLift.attribute and
     # DeepLiftShap.attribute, so we ignore typing here
     @typing.overload  # type: ignore
+    @log_usage(part_of_slo=True)
     def attribute(
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
@@ -613,6 +613,7 @@ class DeepLiftShap(DeepLift):
     ) -> Tuple[TensorOrTupleOfTensorsGeneric, Tensor]: ...
 
     @typing.overload
+    @log_usage(part_of_slo=True)
     def attribute(
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
@@ -625,7 +626,7 @@ class DeepLiftShap(DeepLift):
         custom_attribution_func: Union[None, Callable[..., Tuple[Tensor, ...]]] = None,
     ) -> TensorOrTupleOfTensorsGeneric: ...
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def attribute(  # type: ignore
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
@@ -831,11 +832,18 @@ class DeepLiftShap(DeepLift):
         )
 
         if return_convergence_delta:
-            # pyre-fixme[7]: Expected `Union[Tuple[Variable[TensorOrTupleOfTensorsGen...
-            return _format_output(is_inputs_tuple, attributions), delta
+            return (
+                cast(
+                    TensorOrTupleOfTensorsGeneric,
+                    _format_output(is_inputs_tuple, attributions),
+                ),
+                delta,
+            )
         else:
-            # pyre-fixme[7]: Expected `Union[Tuple[Variable[TensorOrTupleOfTensorsGen...
-            return _format_output(is_inputs_tuple, attributions)
+            return cast(
+                TensorOrTupleOfTensorsGeneric,
+                _format_output(is_inputs_tuple, attributions),
+            )
 
     def _expand_inputs_baselines_targets(
         self,
@@ -995,10 +1003,8 @@ def maxpool3d(
 
 def maxpool(
     module: Module,
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
-    pool_func: Callable,
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
-    unpool_func: Callable,
+    pool_func: Callable[..., Tuple[Tensor, Tensor]],
+    unpool_func: Callable[..., Tensor],
     inputs: Tensor,
     outputs: Tensor,
     grad_input: Tensor,

@@ -25,6 +25,7 @@ from ._victron_topics import topics
 from .constants import TOPIC_INSTALLATION_ID, MetricKind, OperationMode
 from .data_classes import ParsedTopic, TopicDescriptor, topic_to_device_type
 from .device import Device, FallbackPlaceholder, MetricPlaceholder
+from .formula_metric import FormulaMetric
 from .id_utils import reraise_same_exception
 from .metric import Metric
 from .writable_metric import WritableMetric
@@ -533,10 +534,13 @@ class Hub:
             return True, []
         dependencies: list[Metric] = []
         for dependency in topic.depends_on:
-            metric_unique_id = ParsedTopic.make_unique_id(relevant_device.unique_id, dependency)
+            dependency_short_id, required = TopicDescriptor.dependency_parts(dependency)
+            metric_unique_id = ParsedTopic.make_unique_id(relevant_device.unique_id, dependency_short_id)
             metric_unique_id = ParsedTopic.replace_ids(metric_unique_id, key_values)
             dependency_metric = self._all_metrics.get(metric_unique_id)
             if dependency_metric is None:
+                if not required:
+                    continue
                 _LOGGER.debug("Formula topic %s is missing dependency metric: %s", topic.topic, metric_unique_id)
                 return False, []
             dependencies.append(dependency_metric)
@@ -546,7 +550,8 @@ class Hub:
         if not metric_placeholder.topic_descriptor.depends_on:
             return True
         for dependency in metric_placeholder.topic_descriptor.depends_on:
-            metric_id = ParsedTopic.replace_ids(dependency, metric_placeholder.parsed_topic.key_values)
+            dependency_short_id, _required = TopicDescriptor.dependency_parts(dependency)
+            metric_id = ParsedTopic.replace_ids(dependency_short_id, metric_placeholder.parsed_topic.key_values)
             dependency_metric = self._all_metrics.get(metric_id)
             dependency_placeholder = self._metrics_placeholders.get(metric_id)
             if dependency_metric is None and dependency_placeholder is None:
@@ -597,22 +602,38 @@ class Hub:
                 relevant_devices: list[Device] = [
                     device for device in self._devices.values() if device.device_type.code == topic.topic.split("/")[1]
                 ]
+                dependency_short_ids = {TopicDescriptor.dependency_parts(dep)[0] for dep in topic.depends_on}
+                if len(dependency_short_ids) == 0:
+                    _LOGGER.debug("Skipping formula topic without dependencies: %s", topic)
+                    continue
                 for device in relevant_devices:
                     # We need all depends_on metric to get the key_values associated with it to be able to generate new metrics per moniker.
-                    all_new_metrics_with_same_depends_on_generic_id = [
+                    all_new_dependency_metrics = [
                         t[1]
                         for t in new_metrics
-                        if t[1]._device == device and t[1].generic_short_id == topic.depends_on[0]
+                        if t[1]._device == device and t[1].generic_short_id in dependency_short_ids
                     ]
-                    for depends_on_metric in all_new_metrics_with_same_depends_on_generic_id:
+                    for depends_on_metric in all_new_dependency_metrics:
                         metric_unique_id = ParsedTopic.make_unique_id(device.unique_id, topic.short_id)
                         metric_unique_id = ParsedTopic.replace_ids(metric_unique_id, depends_on_metric.key_values)
-                        if self._all_metrics.get(metric_unique_id) is not None:
-                            continue
                         is_met, dependencies = self._is_formula_dependency_met(
                             topic, device, depends_on_metric.key_values
                         )
                         if not is_met:
+                            continue
+                        existing_metric = self._all_metrics.get(metric_unique_id)
+                        if existing_metric is not None:
+                            # Optional dependencies may arrive after the formula metric was created.
+                            # If so, attach newly available dependencies and recompute once.
+                            if isinstance(existing_metric, FormulaMetric):
+                                new_dependency_added = False
+                                for dependency_metric in dependencies:
+                                    if dependency_metric.unique_id not in existing_metric._depends_on:
+                                        dependency_metric.add_dependency(existing_metric)
+                                        existing_metric._depends_on[dependency_metric.unique_id] = dependency_metric
+                                        new_dependency_added = True
+                                if new_dependency_added:
+                                    existing_metric._handle_formula(_LOGGER.debug)
                             continue
                         _LOGGER.info("Formula topic resolved: %s", topic)
                         metric = device._add_formula_metric(topic, self, depends_on_metric.key_values)
@@ -634,11 +655,13 @@ class Hub:
 
         # Topologically sort: parent devices before their children.
         # Collect devices that have new metrics in this batch.
+        # device.parent_device skips empty intermediate parents (e.g. a
+        # switch device that only groups SwitchableOutput sub-devices).
         new_device_set: dict[str, Device] = {}
         for device, _metric in new_metrics:
             if device.unique_id not in new_device_set:
                 new_device_set[device.unique_id] = device
-                # Also include parent if not already notified
+                # Also include parent chain if not already notified
                 parent = device.parent_device
                 while parent is not None and parent.unique_id not in new_device_set:
                     new_device_set[parent.unique_id] = parent
@@ -649,7 +672,7 @@ class Hub:
             """Check if a device has visible metrics or children with visible metrics."""
             if dev.metrics:  # Has visible (non-hidden) metrics
                 return True
-            # Check if any device in the set is a child of this device
+            # Check if any device in the set considers this device its parent
             return any(d.parent_device is dev for d in new_device_set.values() if d is not dev)
 
         new_device_set = {uid: dev for uid, dev in new_device_set.items() if _has_visible_content(dev)}

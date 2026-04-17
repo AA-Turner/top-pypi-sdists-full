@@ -168,6 +168,28 @@ class TestProxyListMethods:
         with pytest.raises(ValueError, match="not in array"):
             doc["items"].remove("not a dict")
 
+    # -- cross-type numeric equality in remove ----------------------------------
+
+    def test_remove_float_finds_integer(self) -> None:
+        doc = Document.parse("arr = [1, 2, 3]\n")
+        doc["arr"].remove(2.0)
+        assert doc["arr"] == [1, 3]
+
+    def test_remove_integer_finds_float(self) -> None:
+        doc = Document.parse("arr = [1.0, 2.0, 3.0]\n")
+        doc["arr"].remove(2)
+        assert doc["arr"] == [1.0, 3.0]
+
+    def test_remove_float_proxy_finds_integer(self) -> None:
+        doc = Document.parse("arr = [1, 2, 3]\nx = 2.0\n")
+        doc["arr"].remove(doc["x"])
+        assert doc["arr"] == [1, 3]
+
+    def test_remove_integer_proxy_finds_float(self) -> None:
+        doc = Document.parse("arr = [1.0, 2.0, 3.0]\nx = 2\n")
+        doc["arr"].remove(doc["x"])
+        assert doc["arr"] == [1.0, 3.0]
+
     # -- boundary-decoration preservation on removal --------------------------
 
     def test_remove_first_preserves_padded_prefix(self) -> None:
@@ -376,6 +398,30 @@ class TestProxyListMethods:
             name = "c"
         """)
 
+    def test_append_aot_entry_from_other_document(self) -> None:
+        """Appending an AoT entry from another document renders in push order."""
+        doc = Document.parse(
+            toml_literal("""
+            [[items]]
+            name = "a"
+
+            [[items]]
+            name = "b"
+            """)
+        )
+        other = Document.parse('[[src]]\nname = "c"\n')
+        doc["items"].append(other["src"][0])
+        assert doc.as_toml() == toml_literal("""
+            [[items]]
+            name = "a"
+
+            [[items]]
+            name = "b"
+
+            [[items]]
+            name = "c"
+        """)
+
     def test_append_aot_compact(self) -> None:
         doc = Document.parse(
             toml_literal("""
@@ -519,6 +565,117 @@ class TestIadd:
         assert doc["items"][1] == {"name": "b"}
         assert doc["items"][2] == {"name": "c"}
 
+    def test_iadd_proxy_preserves_inline_comments(self) -> None:
+        """`a += b` must preserve b's formatting when b is a proxy, matching `a + b`."""
+        doc = Document.parse(
+            toml_literal("""
+            a = [
+                1,  # one
+                2,  # two
+            ]
+            b = [
+                3,  # three
+                4,  # four
+            ]
+        """)
+        )
+        doc["a"] += doc["b"]
+        assert doc["a"].as_toml() + "\n" == toml_literal("""
+            [
+                1,  # one
+                2,  # two
+                3,  # three
+                4,  # four
+            ]
+        """)
+
+    def test_iadd_dict_proxy_yields_keys(self) -> None:
+        """`array += dict_proxy` yields table keys, matching `list += dict`."""
+        doc = Document.parse("a = []\n[t]\nx = 1\ny = 2\n")
+        doc["a"] += doc["t"]
+        assert list(doc["a"]) == ["x", "y"]
+
+    def test_extend_aot_proxy_converts_to_inline_tables(self) -> None:
+        """`array.extend(aot_proxy)` falls back to per-element conversion."""
+        doc = Document.parse("a = []\n[[t]]\nx = 1\n[[t]]\nx = 2\n")
+        doc["a"].extend(doc["t"])
+        assert doc["a"] == [{"x": 1}, {"x": 2}]
+
+    def test_extend_array_proxy_into_aot_raises(self) -> None:
+        """`aot.extend(array_proxy)` raises TypeError — scalars can't be AoT tables."""
+        doc = Document.parse("b = [1, 2, 3]\n[[a]]\nx = 1\n")
+        with pytest.raises(TypeError):
+            doc["a"].extend(doc["b"])
+
+    def test_extend_aot_from_other_document_preserves_order(self) -> None:
+        """Extending an AoT with an AoT from another document appends in order.
+
+        Without clearing source positions, toml_edit renders AoT entries in
+        span-position order, which interleaves entries cloned from another
+        document.
+        """
+        text = toml_literal("""
+            [[a]]
+            x = 1
+
+            [[a]]
+            x = 2
+        """)
+        doc = Document.parse(text)
+        doc2 = Document.parse(text)
+        doc["a"].extend(doc2["a"])
+        assert [dict(t) for t in doc["a"]] == [
+            {"x": 1},
+            {"x": 2},
+            {"x": 1},
+            {"x": 2},
+        ]
+        assert doc.as_toml() == toml_literal("""
+            [[a]]
+            x = 1
+
+            [[a]]
+            x = 2
+
+            [[a]]
+            x = 1
+
+            [[a]]
+            x = 2
+        """)
+
+    def test_iadd_aot_from_other_document_preserves_order(self) -> None:
+        """`aot += other_aot` from a different document appends in order."""
+        text = toml_literal("""
+            [[a]]
+            x = 1
+
+            [[a]]
+            x = 2
+        """)
+        doc = Document.parse(text)
+        doc2 = Document.parse(text)
+        doc["a"] += doc2["a"]
+        assert [dict(t) for t in doc["a"]] == [
+            {"x": 1},
+            {"x": 2},
+            {"x": 1},
+            {"x": 2},
+        ]
+        assert doc.as_toml() == toml_literal("""
+            [[a]]
+            x = 1
+
+            [[a]]
+            x = 2
+
+            [[a]]
+            x = 1
+
+            [[a]]
+            x = 2
+        """)
+
 
 class TestAdd:
     """list + list returns a new ListItem (non-mutating, format-preserving)."""
@@ -623,6 +780,19 @@ class TestAdd:
         assert len(result) == 2
         assert result[1] == {"name": "b"}
 
+    def test_radd_aot(self) -> None:
+        """__radd__ on an AoT exercises empty_array_like for AoT kind."""
+        doc = Document.parse(
+            toml_literal("""
+            [[items]]
+            name = "a"
+        """)
+        )
+        result = [{"name": "z"}] + doc["items"]
+        assert len(result) == 2
+        assert result[0] == {"name": "z"}
+        assert result[1] == {"name": "a"}
+
     def test_add_array_plus_aot(self) -> None:
         """Cross-kind: plain array + AoT works (falls back to value extraction)."""
         doc = Document.parse(
@@ -682,6 +852,10 @@ class TestMul:
         doc = Document({"a": [1, 2]})
         assert doc["a"] * 0 == []
 
+    def test_mul_one(self) -> None:
+        doc = Document({"a": [1, 2]})
+        assert doc["a"] * 1 == [1, 2]
+
     def test_mul_does_not_mutate_document(self) -> None:
         doc = Document({"a": [1, 2]})
         _ = doc["a"] * 3
@@ -701,6 +875,54 @@ class TestMul:
         doc = Document({"a": [1, 2]})
         doc["a"] *= 1
         assert doc["a"] == [1, 2]
+
+    def test_imul_aot_preserves_blank_line_spacing(self) -> None:
+        """Repeating a blank-line-style AoT keeps blank lines at the seam."""
+        doc = Document.parse(
+            toml_literal("""
+            [[a]]
+            x = 1
+
+            [[a]]
+            x = 2
+            """)
+        )
+        doc["a"] *= 2
+        assert doc.as_toml() == toml_literal("""
+            [[a]]
+            x = 1
+
+            [[a]]
+            x = 2
+
+            [[a]]
+            x = 1
+
+            [[a]]
+            x = 2
+        """)
+
+    def test_imul_aot_preserves_compact_style(self) -> None:
+        """Repeating a compact-style AoT stays compact."""
+        doc = Document.parse(
+            toml_literal("""
+            [[a]]
+            x = 1
+            [[a]]
+            x = 2
+            """)
+        )
+        doc["a"] *= 2
+        assert doc.as_toml() == toml_literal("""
+            [[a]]
+            x = 1
+            [[a]]
+            x = 2
+            [[a]]
+            x = 1
+            [[a]]
+            x = 2
+        """)
 
     def test_imul_preserves_formatting(self) -> None:
         doc = Document.parse(
@@ -751,6 +973,93 @@ class TestMul:
                 2,
             ]
         """)
+
+    def test_mul_preserves_inline_comments(self) -> None:
+        """Inline comments on every element survive __mul__ at the seam."""
+        doc = Document.parse(
+            toml_literal("""
+            arr = [
+                1,  # one
+                2,  # two
+            ]
+        """)
+        )
+        result = doc["arr"] * 2
+        assert result.as_toml() + "\n" == toml_literal("""
+            [
+                1,  # one
+                2,  # two
+                1,  # one
+                2,  # two
+            ]
+        """)
+
+    def test_add_preserves_inline_comments(self) -> None:
+        """Inline comments on every element survive __add__ at the seam."""
+        doc = Document.parse(
+            toml_literal("""
+            a = [
+                1,  # one
+                2,  # two
+            ]
+            b = [
+                3,  # three
+                4,  # four
+            ]
+        """)
+        )
+        result = doc["a"] + doc["b"]
+        assert result.as_toml() + "\n" == toml_literal("""
+            [
+                1,  # one
+                2,  # two
+                3,  # three
+                4,  # four
+            ]
+        """)
+
+    def test_mul_single_line_spacing(self) -> None:
+        """Repeated single-line arrays keep the ', ' separator at every seam."""
+        doc = Document.parse("arr = [1, 2, 3]\n")
+        assert (doc["arr"] * 2).as_toml() == "[1, 2, 3, 1, 2, 3]"
+        assert (3 * doc["arr"]).as_toml() == "[1, 2, 3, 1, 2, 3, 1, 2, 3]"
+
+    def test_mul_no_space_style_preserved(self) -> None:
+        """A no-space source stays no-space when repeated."""
+        doc = Document.parse("arr = [1,2,3]\n")
+        assert (doc["arr"] * 2).as_toml() == "[1,2,3,1,2,3]"
+        assert (3 * doc["arr"]).as_toml() == "[1,2,3,1,2,3,1,2,3]"
+
+    def test_add_single_line_spacing(self) -> None:
+        """Concatenating single-line arrays keeps the ', ' separator at the seam."""
+        doc = Document({"a": [1, 2], "b": [3, 4]})
+        assert (doc["a"] + doc["b"]).as_toml() == "[1, 2, 3, 4]"
+        assert (doc["a"] + [5, 6]).as_toml() == "[1, 2, 5, 6]"
+        assert ([0] + doc["a"]).as_toml() == "[0, 1, 2]"
+
+    def test_add_no_space_style_preserved(self) -> None:
+        """Concatenation onto a no-space array stays no-space."""
+        doc = Document.parse("a = [1,2]\nb = [3,4]\n")
+        assert (doc["a"] + doc["b"]).as_toml() == "[1,2,3,4]"
+        assert (doc["a"] + [5, 6]).as_toml() == "[1,2,5,6]"
+
+    def test_append_no_space_style_preserved(self) -> None:
+        """append() on a no-space array stays no-space."""
+        doc = Document.parse("arr = [1,2,3]\n")
+        doc["arr"].append(4)
+        assert doc.as_toml() == "arr = [1,2,3,4]\n"
+
+    def test_extend_no_space_style_preserved(self) -> None:
+        """extend() on a no-space array stays no-space."""
+        doc = Document.parse("arr = [1,2,3]\n")
+        doc["arr"].extend([4, 5])
+        assert doc.as_toml() == "arr = [1,2,3,4,5]\n"
+
+    def test_insert_no_space_style_preserved(self) -> None:
+        """insert() at the end of a no-space array stays no-space."""
+        doc = Document.parse("arr = [1,2,3]\n")
+        doc["arr"].insert(3, 4)
+        assert doc.as_toml() == "arr = [1,2,3,4]\n"
 
 
 # ---------------------------------------------------------------------------
@@ -982,12 +1291,12 @@ class TestIntKeyOnTable:
 
     def test_getitem_int_on_inline_table(self) -> None:
         doc = Document.parse("t = {a = 1}")
-        with pytest.raises(KeyError):
+        with pytest.raises(TypeError, match="keys must be strings"):
             doc["t"][0]
 
     def test_getitem_int_on_empty_table(self) -> None:
         doc = Document.parse("[t]")
-        with pytest.raises(KeyError):
+        with pytest.raises(TypeError, match="keys must be strings"):
             doc["t"][0]
 
 
@@ -1101,6 +1410,16 @@ class TestSliceIndexing:
         del doc["arr"][::2]
         assert doc["arr"] == [2, 4]
 
+    def test_delitem_negative_step(self) -> None:
+        doc = Document.parse(self.TOML)
+        del doc["arr"][::-2]
+        assert doc["arr"] == [2, 4]
+
+    def test_delitem_negative_step_range(self) -> None:
+        doc = Document.parse(self.TOML)
+        del doc["arr"][3:0:-1]
+        assert doc["arr"] == [1, 5]
+
     def test_delitem_empty_slice_noop(self) -> None:
         doc = Document.parse(self.TOML)
         del doc["arr"][2:2]
@@ -1120,12 +1439,12 @@ class TestSliceIndexing:
             x = 1
         """)
         )
-        with pytest.raises(TypeError, match="does not support slicing"):
+        with pytest.raises(TypeError, match="keys must be strings"):
             doc["t"][1:3]
 
     def test_slice_on_scalar_raises(self) -> None:
         doc = Document.parse("x = 'hello'\n")
-        with pytest.raises(TypeError, match="does not support slicing"):
+        with pytest.raises(TypeError):
             doc["x"][1:3]
 
     # ---- mutation visible in document ----
@@ -1205,7 +1524,7 @@ class TestSliceIndexing:
             x = 1
         """)
         )
-        with pytest.raises(TypeError, match="does not support slic"):
+        with pytest.raises(TypeError, match="keys must be strings"):
             doc["t"][0:1] = [1]
 
     def test_slice_delete_on_table_raises(self) -> None:
@@ -1215,7 +1534,7 @@ class TestSliceIndexing:
             x = 1
         """)
         )
-        with pytest.raises(TypeError, match="does not support slic"):
+        with pytest.raises(TypeError, match="keys must be strings"):
             del doc["t"][0:1]
 
     def test_aot_slice_read(self) -> None:
@@ -1555,3 +1874,55 @@ class TestEmptySliceDeletion:
         doc = Document.parse("arr = []\n")
         del doc["arr"][::2]
         assert list(doc["arr"]) == []
+
+
+# ---------------------------------------------------------------------------
+# Write-lock deadlock regression tests
+#
+# These verify that list operations do not deadlock when Python callbacks
+# (__eq__, __index__) access the same document.
+# Each test should complete instantly; a hang means a deadlock.
+# ---------------------------------------------------------------------------
+
+
+class TestWriteLockDeadlocks:
+    """Python callbacks (__eq__, __index__) that read the document must not
+    deadlock when called from list operations that hold a write lock.
+    """
+
+    def test_remove_custom_eq_reads_document(self) -> None:
+        """remove() must not deadlock when __eq__ reads the same document.
+
+        Non-TOML objects are not found in the array, so remove() raises
+        ValueError rather than searching via Python __eq__.
+        """
+
+        class Tricky:
+            def __init__(self, doc: Document) -> None:
+                self.doc = doc
+
+            def __eq__(self, other: object) -> bool:  # type: ignore[explicit-override]
+                return len(self.doc) > 0
+
+            __hash__ = None  # type: ignore[assignment]
+
+        doc = Document.parse("arr = [1, 2, 3]\n")
+        tricky = Tricky(doc)
+        with pytest.raises(ValueError, match="not in array"):
+            doc["arr"].remove(tricky)
+
+    def test_pop_custom_index_reads_document(self) -> None:
+        """pop() must not deadlock when __index__ reads the same document."""
+
+        class Tricky:
+            def __init__(self, doc: Document) -> None:
+                self.doc = doc
+
+            def __index__(self) -> int:
+                return len(self.doc["arr"]) - 1
+
+        doc = Document.parse("arr = [1, 2, 3]\n")
+        tricky = Tricky(doc)
+        val = doc["arr"].pop(tricky)
+        assert val == 3
+        assert doc["arr"] == [1, 2]

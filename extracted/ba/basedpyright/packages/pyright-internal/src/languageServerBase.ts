@@ -811,16 +811,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         // not send config updates before this point.
         this._initialized = true;
 
-        if (!this.client.hasWorkspaceFoldersCapability) {
-            // If folder capability is not supported, initialize ones given by onInitialize.
-            this.updateSettingsForAllWorkspaces();
-            return;
+        if (this.client.hasWorkspaceFoldersCapability) {
+            this._workspaceFoldersChangedDisposable =
+                this.connection.workspace.onDidChangeWorkspaceFolders(changeWorkspaceFolderHandler);
         }
 
-        this._workspaceFoldersChangedDisposable =
-            this.connection.workspace.onDidChangeWorkspaceFolders(changeWorkspaceFolderHandler);
-
         this.dynamicFeatures.register();
+        this.updateSettingsForAllWorkspaces();
     }
 
     protected onDidChangeConfiguration(params: DidChangeConfigurationParams) {
@@ -1126,8 +1123,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             return null;
         }
 
-        return workspace.service.run((program) => {
-            const completions = new CompletionProvider(
+        return await workspace.service.run(async (program) => {
+            const completions = await new CompletionProvider(
                 program,
                 uri,
                 params.position,

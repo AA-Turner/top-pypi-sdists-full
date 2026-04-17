@@ -1624,22 +1624,6 @@ class DescribeUsageReportSubscriptionsResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class UpdateStackRequestTypeDef(TypedDict):
-    Name: str
-    DisplayName: NotRequired[str]
-    Description: NotRequired[str]
-    StorageConnectors: NotRequired[Sequence[StorageConnectorUnionTypeDef]]
-    DeleteStorageConnectors: NotRequired[bool]
-    RedirectURL: NotRequired[str]
-    FeedbackURL: NotRequired[str]
-    AttributesToDelete: NotRequired[Sequence[StackAttributeType]]
-    UserSettings: NotRequired[Sequence[UserSettingTypeDef]]
-    ApplicationSettings: NotRequired[ApplicationSettingsTypeDef]
-    AccessEndpoints: NotRequired[Sequence[AccessEndpointTypeDef]]
-    EmbedHostDomains: NotRequired[Sequence[str]]
-    StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
-
-
 class CreateAppBlockBuilderRequestTypeDef(TypedDict):
     Name: str
     Platform: Literal["WINDOWS_SERVER_2019"]
@@ -1801,6 +1785,23 @@ class CreateStackRequestTypeDef(TypedDict):
     UserSettings: NotRequired[Sequence[UserSettingTypeDef]]
     ApplicationSettings: NotRequired[ApplicationSettingsTypeDef]
     Tags: NotRequired[Mapping[str, str]]
+    AccessEndpoints: NotRequired[Sequence[AccessEndpointTypeDef]]
+    EmbedHostDomains: NotRequired[Sequence[str]]
+    StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
+    ContentRedirection: NotRequired[ContentRedirectionUnionTypeDef]
+
+
+class UpdateStackRequestTypeDef(TypedDict):
+    Name: str
+    DisplayName: NotRequired[str]
+    Description: NotRequired[str]
+    StorageConnectors: NotRequired[Sequence[StorageConnectorUnionTypeDef]]
+    DeleteStorageConnectors: NotRequired[bool]
+    RedirectURL: NotRequired[str]
+    FeedbackURL: NotRequired[str]
+    AttributesToDelete: NotRequired[Sequence[StackAttributeType]]
+    UserSettings: NotRequired[Sequence[UserSettingTypeDef]]
+    ApplicationSettings: NotRequired[ApplicationSettingsTypeDef]
     AccessEndpoints: NotRequired[Sequence[AccessEndpointTypeDef]]
     EmbedHostDomains: NotRequired[Sequence[str]]
     StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]

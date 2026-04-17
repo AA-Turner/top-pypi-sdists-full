@@ -289,6 +289,13 @@ class TCAV(ConceptInterpreter):
                     If `layer_attr_method` is None, we default it to gradients
                     for the layers using `LayerGradientXActivation` layer
                     attribution algorithm.
+            attribute_to_layer_input (bool, optional): Indicates whether to
+                    compute the attributions with respect to the layer input
+                    or output. If `attribute_to_layer_input` is set to True
+                    then the attributions will be computed with respect to
+                    layer inputs, otherwise it will be computed with respect
+                    to layer outputs.
+                    Default: False
             save_path (str, optional): The path for storing CAVs and
                     Activation Vectors (AVs).
             classifier_kwargs (Any, optional): Additional arguments such as
@@ -315,8 +322,6 @@ class TCAV(ConceptInterpreter):
         self.model_id = model_id
         self.concepts: Set[Concept] = set()
         self.classifier = classifier
-        # pyre-fixme[4]: Attribute `classifier_kwargs` of class `TCAV`
-        # must have a type other than `Any`.
         self.classifier_kwargs: Any = classifier_kwargs
         # pyre-fixme[8]: Attribute has type `Dict[str, Dict[str, CAV]]`; used as
         #  `DefaultDict[Variable[_KT], DefaultDict[Variable[_KT], Variable[_VT]]]`.
@@ -583,7 +588,7 @@ class TCAV(ConceptInterpreter):
 
         return self.cavs
 
-    @log_usage()
+    @log_usage(part_of_slo=True)
     def interpret(
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
@@ -740,7 +745,6 @@ class TCAV(ConceptInterpreter):
             classes = []
             for concepts in experimental_sets:
                 concepts_key = concepts_to_str(concepts)
-                # pyre-fixme[33]: Given annotation cannot contain `Any`.
                 cavs_stats = cast(Dict[str, Any], self.cavs[concepts_key][layer].stats)
                 cavs.append(cavs_stats["weights"].float().detach().tolist())
                 classes.append(cavs_stats["classes"])

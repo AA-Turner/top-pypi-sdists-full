@@ -1,7 +1,7 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 
-import requests
+from contrast_vendor import requests
 
 from contrast.api.utils import as_camel_dict
 from contrast.utils.decorators import fail_loudly

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nemo-evaluator
-Version: 0.2.5
+Version: 0.2.6
 Summary: Common utilities for NVIDIA evaluation frameworks
 Author: NVIDIA
 Author-email: nemo-toolkit@nvidia.com
@@ -228,6 +228,7 @@ Requires-Dist: requests
 Requires-Dist: structlog
 Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: pyyaml
+Requires-Dist: waitress
 Requires-Dist: werkzeug
 Requires-Dist: yq
 Dynamic: license-file

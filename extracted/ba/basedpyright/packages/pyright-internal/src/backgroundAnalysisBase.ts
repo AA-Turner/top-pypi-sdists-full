@@ -44,6 +44,7 @@ import { ServiceProvider } from './common/serviceProvider';
 import { Range } from './common/textRange';
 import { createMessageChannel, MessagePort, threadId, MessageChannel, Worker } from './common/workersHost';
 import { Uri } from './common/uri/uri';
+import { UriMap } from './common/uri/uriMap';
 import { ProgramView } from './common/extensibility';
 import { TestFileSystem } from './tests/harness/vfs/filesystem';
 import { BaselineMode } from './baseline';
@@ -997,4 +998,7 @@ export interface BackgroundResponse {
 export interface RefreshOptions {
     // No files/folders are added or removed. only changes.
     changesOnly: boolean;
+    // Specific files that changed (if known). When provided, only these files should be marked dirty.
+    // Using UriMap for O(1) lookup instead of O(n) with array.
+    changedFileUris?: UriMap<boolean>;
 }

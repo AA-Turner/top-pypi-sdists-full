@@ -386,7 +386,13 @@ class WebhookUrlPolicy(TypedDict, total=False):
     max_url_length: int
     """Maximum permitted URL length in characters; longer inputs are rejected early."""
     disable_loopback: bool
-    """Disallow relative URLs (internal loopback calls) when true."""
+    """Disallow relative URLs (internal loopback calls) and localhost hostnames when true."""
+    disable_private_ips: bool
+    """Block RFC 1918 / CGN private IP ranges as webhook targets when true.
+
+    Defaults to false (private IPs allowed). Set to true to block private
+    IP ranges for stricter SSRF protection.
+    """
 
 
 # Matches things like "${{ env.LG_WEBHOOK_FOO_BAR }}"
@@ -421,6 +427,8 @@ def _validate_url_policy(
         policy["max_url_length"] = 2048
     if "disable_loopback" not in policy:
         policy["disable_loopback"] = False
+    if "disable_private_ips" not in policy:
+        policy["disable_private_ips"] = False
     return policy
 
 

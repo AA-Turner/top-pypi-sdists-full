@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 from sagemaker_studio.connections.connection import Connection
 from sagemaker_studio.connections.sql_helper.sql_helper import SqlHelper
+from sagemaker_studio.sql_engine.snowflake_transformer import SnowflakeAuthType
 
 HOST_PATTERN = r"^[a-zA-Z0-9._-]+[.]snowflakecomputing[.](com|cn)$"
 
@@ -47,16 +48,27 @@ class SnowflakeSqlHelper(SqlHelper):
             + region
         )
 
+        if "sfUser" in secret and "pem_private_key" in secret:
+            auth_type = SnowflakeAuthType.PEM_PRIVATE_KEY
+        else:
+            auth_type = SnowflakeAuthType.USERNAME_PASSWORD
+
         config = {
             "account": account,
             "host": host,
             "port": int(SqlHelper.get_glue_connection_property(connection_data, "PORT")),
-            "user": secret.get("username"),
             "region": region,
             "database": SqlHelper.get_glue_connection_property(connection_data, "DATABASE"),
-            "password": secret.get("password"),
             "warehouse": SqlHelper.get_glue_connection_property(connection_data, "WAREHOUSE"),
+            "auth_type": auth_type,
         }
+
+        if auth_type == SnowflakeAuthType.PEM_PRIVATE_KEY:
+            config["user"] = secret.get("sfUser")
+            config["private_key"] = secret.get("pem_private_key")
+        else:
+            config["user"] = secret.get("username")
+            config["password"] = secret.get("password")
 
         return config
 

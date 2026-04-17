@@ -28,10 +28,17 @@ from dstack._internal.core.models.profiles import (
     parse_off_duration,
 )
 from dstack._internal.core.models.resources import Range, ResourcesSpec
-from dstack._internal.core.models.routers import AnyServiceRouterConfig
+from dstack._internal.core.models.routers import AnyServiceRouterConfig, ReplicaGroupRouterConfig
 from dstack._internal.core.models.services import AnyModel, OpenAIChatModel
 from dstack._internal.core.models.unix import UnixUser
-from dstack._internal.core.models.volumes import MountPoint, VolumeConfiguration, parse_mount_point
+from dstack._internal.core.models.volumes import (
+    AnyVolumeConfiguration,
+    BaseVolumeConfiguration,
+    MountPoint,
+    VolumeConfiguration,
+    parse_mount_point,
+    parse_volume_configuration,
+)
 from dstack._internal.core.services import is_valid_replica_group_name
 from dstack._internal.utils.common import has_duplicates, list_enum_values_for_annotation
 from dstack._internal.utils.json_schema import add_extra_schema_types
@@ -801,6 +808,12 @@ class ReplicaGroup(CoreModel):
         CommandsList,
         Field(description="The shell commands to run for replicas in this group"),
     ] = []
+    router: Annotated[
+        Optional[ReplicaGroupRouterConfig],
+        Field(
+            description="When set, replicas in this group run the in-service HTTP router (e.g. SGLang).",
+        ),
+    ] = None
 
     @validator("name")
     def validate_name(cls, v: Optional[str]) -> Optional[str]:
@@ -1032,6 +1045,37 @@ class ServiceConfigurationParams(CoreModel):
 
         return values
 
+    @root_validator()
+    def validate_at_most_one_router_replica_group(cls, values):
+        replicas = values.get("replicas")
+        if not isinstance(replicas, list):
+            return values
+        router_groups = [g for g in replicas if g.router is not None]
+        if len(router_groups) > 1:
+            raise ValueError("At most one replica group may specify `router`.")
+        if router_groups:
+            router_group = router_groups[0]
+            if router_group.count.min != 1 or router_group.count.max != 1:
+                raise ValueError("For now replica group with `router` must have `count: 1`.")
+        return values
+
+    @root_validator()
+    def validate_replica_group_router_mutex(cls, values):
+        """
+        When a replica group sets `router:`, service-level `router` must be omitted.
+        (Gateway-level SGLang is rejected at service registration when a gateway is selected.)
+        """
+        replicas = values.get("replicas")
+        if not isinstance(replicas, list):
+            return values
+        if not any(g.router is not None for g in replicas):
+            return values
+        if values.get("router") is not None:
+            raise ValueError(
+                "Service-Level router configuration is not allowed together with replica-group `router`."
+            )
+        return values
+
 
 class ServiceConfigurationConfig(
     ProfileParamsConfig,
@@ -1114,26 +1158,55 @@ AnyApplyConfiguration = Union[
     AnyRunConfiguration,
     FleetConfiguration,
     GatewayConfiguration,
-    VolumeConfiguration,
+    AnyVolumeConfiguration,
 ]
 
 
-class ApplyConfiguration(CoreModel):
+class BaseApplyConfiguration(CoreModel):
+    """
+    `BaseApplyConfiguration` parses the configuration based on the `type` discriminator field,
+    but further dispatching (reparsing) may be required if there is another discriminator field,
+    e.g., `BaseVolumeConfiguration` should be parsed again to get a backend-specific configuration
+    based on the `backend` discriminator field.
+
+    Don't use this model directly, use `parse_apply_configuration()` instead.
+    """
+
     __root__: Annotated[
-        AnyApplyConfiguration,
+        Union[
+            # Final configurations
+            AnyRunConfiguration,
+            FleetConfiguration,
+            GatewayConfiguration,
+            # Base configurations (further parsing required to get a concrete AnyApplyConfiguration)
+            BaseVolumeConfiguration,
+        ],
         Field(discriminator="type"),
     ]
 
 
 def parse_apply_configuration(data: dict) -> AnyApplyConfiguration:
     try:
-        conf = ApplyConfiguration.parse_obj(data).__root__
+        # First-pass parsing ignoring extra fields, to get the base (or final) configuration
+        conf = BaseApplyConfiguration.__response__.parse_obj(data).__root__
+        if not isinstance(conf, BaseVolumeConfiguration):
+            # If it's a final configuration (currently, any configuration other than
+            # BaseVolumeConfiguration), parse again rejecting extra fields
+            # for validation purposes only and return the final configuration
+            _ = BaseApplyConfiguration.parse_obj(data).__root__
+            return conf
     except ValidationError as e:
         raise ConfigurationError(e)
-    return conf
+    # Otherwise, delegate further parsing to more specific parser
+    return parse_volume_configuration(data)
 
 
-AnyDstackConfiguration = AnyApplyConfiguration
+AnyDstackConfiguration = Union[
+    AnyRunConfiguration,
+    FleetConfiguration,
+    GatewayConfiguration,
+    VolumeConfiguration,
+]
 
 
 class DstackConfiguration(CoreModel):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: modelsearch
-Version: 1.2
+Version: 1.2.1
 Summary: A library for indexing Django models with Elasicsearch, OpenSearch or database and searching them with the Django ORM.
 Author-email: Wagtail core team + contributors <hello@wagtail.org>
 License-Expression: BSD-3-Clause

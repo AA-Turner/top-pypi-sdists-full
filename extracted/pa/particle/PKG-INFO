@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: particle
-Version: 0.26.1
+Version: 0.26.2
 Summary: Extended PDG particle data and MC identification codes
 Project-URL: Homepage, https://github.com/scikit-hep/particle
 Author-email: Eduardo Rodrigues <eduardo.rodrigues@cern.ch>, Henry Schreiner <henryfs@princeton.edu>
@@ -31,19 +31,19 @@ Requires-Dist: pandas; extra == 'all'
 Requires-Dist: pre-commit; extra == 'all'
 Requires-Dist: pytest-benchmark; extra == 'all'
 Requires-Dist: pytest-cov; extra == 'all'
-Requires-Dist: pytest>=6; extra == 'all'
+Requires-Dist: pytest>=7; extra == 'all'
 Requires-Dist: tabulate; extra == 'all'
 Provides-Extra: dev
 Requires-Dist: pandas; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: pytest-benchmark; extra == 'dev'
-Requires-Dist: pytest>=6; extra == 'dev'
+Requires-Dist: pytest>=7; extra == 'dev'
 Requires-Dist: tabulate; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: pandas; extra == 'test'
 Requires-Dist: pytest-benchmark; extra == 'test'
 Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: pytest>=6; extra == 'test'
+Requires-Dist: pytest>=7; extra == 'test'
 Requires-Dist: tabulate; extra == 'test'
 Description-Content-Type: text/markdown
 

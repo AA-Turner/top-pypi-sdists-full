@@ -1,4 +1,5 @@
 import shutil
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from rich.markup import escape
@@ -49,6 +50,17 @@ from dstack._internal.utils.common import (
 from dstack.api import Run
 
 
+class RunWaitStatus(str, Enum):
+    WAITING_FOR_REQUESTS = "waiting for requests"
+    WAITING_FOR_SCHEDULE = "waiting for schedule"
+
+
+_OFFER_FLEET_HINT = (
+    "Hint: Existing fleets are ignored, and all available offers are shown."
+    " To filter by fleet, pass --fleet NAME."
+)
+
+
 def print_offers_json(run_plan: RunPlan, run_spec):
     """Print offers information in JSON format."""
     job_plan = run_plan.job_plans[0]
@@ -86,6 +98,7 @@ def print_run_plan(
     include_run_properties: bool = True,
     no_fleets: bool = False,
     verbose: bool = False,
+    show_offer_fleet_hint: bool = False,
 ):
     run_spec = run_plan.get_effective_run_spec()
     job_plan = run_plan.job_plans[0]
@@ -165,39 +178,89 @@ def print_run_plan(
     offers.add_column("PRICE", style="grey58", ratio=1)
     offers.add_column()
 
-    job_plan.offers = job_plan.offers[:max_offers] if max_offers else job_plan.offers
+    displayed_offers = job_plan.offers[:max_offers] if max_offers else job_plan.offers
 
-    for i, offer in enumerate(job_plan.offers, start=1):
+    for i, offer in enumerate(displayed_offers, start=1):
         r = offer.instance.resources
 
         instance = offer.instance.name
         if offer.total_blocks > 1:
             instance += f" ({offer.blocks}/{offer.total_blocks})"
+        offer_backend = offer.backend.replace("remote", "ssh")
+        if offer.region:
+            offer_backend = f"{offer_backend} ({offer.region})"
         offers.add_row(
             f"{i}",
-            offer.backend.replace("remote", "ssh") + " (" + offer.region + ")",
+            offer_backend,
             r.pretty_format(include_spot=True),
             instance,
             f"${offer.price:.4f}".rstrip("0").rstrip("."),
             format_instance_availability(offer.availability),
             style=None if i == 1 or not include_run_properties else "secondary",
         )
-    if job_plan.total_offers > len(job_plan.offers):
+    if job_plan.total_offers > len(displayed_offers):
         offers.add_row("", "...", style="secondary")
 
     console.print(props)
     console.print()
-    if len(job_plan.offers) > 0:
+    if len(displayed_offers) > 0:
+        show_offer_fleet_hint_before_table = (
+            show_offer_fleet_hint
+            and job_plan.total_offers <= len(displayed_offers)
+            and len(displayed_offers) < 3
+        )
+        show_offer_fleet_hint_after_table = (
+            show_offer_fleet_hint and not show_offer_fleet_hint_before_table
+        )
+        if show_offer_fleet_hint_before_table:
+            console.print(f"[secondary]{_OFFER_FLEET_HINT}[/]")
+            console.print()
         console.print(offers)
-        if job_plan.total_offers > len(job_plan.offers):
+        if job_plan.total_offers > len(displayed_offers):
             console.print(
-                f"[secondary] Shown {len(job_plan.offers)} of {job_plan.total_offers} offers, "
+                f"[secondary] Shown {len(displayed_offers)} of {job_plan.total_offers} offers, "
                 f"${job_plan.max_price:3f}".rstrip("0").rstrip(".")
                 + "max[/]"
             )
+        if show_offer_fleet_hint_after_table:
+            console.print(f"[secondary]{_OFFER_FLEET_HINT}[/]")
         console.print()
     else:
         console.print(NO_FLEETS_WARNING if no_fleets else NO_OFFERS_WARNING)
+
+
+def get_run_wait_status(run: CoreRun) -> Optional[RunWaitStatus]:
+    # Only synthesize a CLI-specific waiting state when the server did not provide
+    # a more specific run-level message such as "retrying".
+    if run.status_message not in ("", run.status.value):
+        return None
+
+    if run.status == RunStatus.PENDING and run.next_triggered_at is not None:
+        return RunWaitStatus.WAITING_FOR_SCHEDULE
+
+    if _is_waiting_for_requests(run):
+        return RunWaitStatus.WAITING_FOR_REQUESTS
+
+    return None
+
+
+def _is_waiting_for_requests(run: CoreRun) -> bool:
+    if run.run_spec.configuration.type != "service":
+        return False
+    if run.service is None or run.next_triggered_at is not None:
+        return False
+    if run.status not in (RunStatus.SUBMITTED, RunStatus.PENDING):
+        return False
+    return not any(_is_job_active(job.job_submissions[-1].status) for job in run.jobs)
+
+
+def _is_job_active(status: JobStatus) -> bool:
+    return status in (
+        JobStatus.SUBMITTED,
+        JobStatus.PROVISIONING,
+        JobStatus.PULLING,
+        JobStatus.RUNNING,
+    )
 
 
 def _format_run_status(run) -> str:
@@ -334,6 +397,8 @@ def _format_backend(backend_type: BackendType, region: str) -> str:
     backend_str = backend_type.value
     if backend_type == BackendType.REMOTE:
         backend_str = "ssh"
+    if not region:
+        return backend_str
     return f"{backend_str} ({region})"
 
 

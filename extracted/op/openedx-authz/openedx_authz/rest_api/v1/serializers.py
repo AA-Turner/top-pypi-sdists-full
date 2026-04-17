@@ -1,11 +1,19 @@
 """Serializers for the Open edX AuthZ REST API."""
 
 from django.contrib.auth import get_user_model
+from opaque_keys.edx.locator import LibraryLocatorV2
+from organizations.serializers import OrganizationSerializer
 from rest_framework import serializers
 
 from openedx_authz import api
 from openedx_authz.api.data import UserAssignments
-from openedx_authz.rest_api.data import AssignmentSortField, SortField, SortOrder
+from openedx_authz.rest_api.data import (
+    AssignmentSortField,
+    ScopesTypeField,
+    SortField,
+    SortOrder,
+    UserAssignmentSortField,
+)
 from openedx_authz.rest_api.utils import get_generic_scope
 from openedx_authz.rest_api.v1.fields import (
     CaseSensitiveCommaSeparatedListField,
@@ -49,6 +57,12 @@ class OrderMixin(serializers.Serializer):  # pylint: disable=abstract-method
     )
 
 
+class OrgMixin(serializers.Serializer):  # pylint: disable=abstract-method
+    """Mixin providing org field functionality."""
+
+    org = serializers.CharField(required=False, max_length=255)
+
+
 class PermissionValidationSerializer(ActionMixin, ScopeMixin):  # pylint: disable=abstract-method
     """Serializer for permission validation request."""
 
@@ -61,6 +75,32 @@ class PermissionValidationResponseSerializer(PermissionValidationSerializer):  #
 
 class RoleScopeValidationMixin(serializers.Serializer):  # pylint: disable=abstract-method
     """Mixin providing role and scope validation logic."""
+
+    def _validate_scope_and_role(self, scope_value: str, role_value: str) -> None:
+        """Validate that a single scope exists and the role is defined in it.
+
+        Args:
+            scope_value: The scope string to validate.
+            role_value: The role string to validate against the scope.
+
+        Raises:
+            serializers.ValidationError: If the scope is not registered, doesn't exist,
+                or if the role is not defined in the scope.
+        """
+        try:
+            scope = api.ScopeData(external_key=scope_value)
+        except ValueError as exc:
+            raise serializers.ValidationError({"scope": str(exc)}) from exc
+
+        if not scope.exists():
+            raise serializers.ValidationError({"scope": f"Scope '{scope_value}' does not exist"})
+
+        role = api.RoleData(external_key=role_value)
+        generic_scope = get_generic_scope(scope)
+        role_definitions = api.get_role_definitions_in_scope(generic_scope)
+
+        if role not in role_definitions:
+            raise serializers.ValidationError({"role": f"Role '{role_value}' does not exist in scope '{scope_value}'"})
 
     def validate(self, attrs) -> dict:
         """Validate that the specified role and scope are valid and that the role exists in the scope.
@@ -81,24 +121,7 @@ class RoleScopeValidationMixin(serializers.Serializer):  # pylint: disable=abstr
                 or if the role is not defined in the scope.
         """
         validated_data = super().validate(attrs)
-        scope_value = validated_data["scope"]
-        role_value = validated_data["role"]
-
-        try:
-            scope = api.ScopeData(external_key=scope_value)
-        except ValueError as exc:
-            raise serializers.ValidationError({"scope": str(exc)}) from exc
-
-        if not scope.exists():
-            raise serializers.ValidationError({"scope": f"Scope '{scope_value}' does not exist"})
-
-        role = api.RoleData(external_key=role_value)
-        generic_scope = get_generic_scope(scope)
-        role_definitions = api.get_role_definitions_in_scope(generic_scope)
-
-        if role not in role_definitions:
-            raise serializers.ValidationError({"role": f"Role '{role_value}' does not exist in scope '{scope_value}'"})
-
+        self._validate_scope_and_role(validated_data["scope"], validated_data["role"])
         return validated_data
 
 
@@ -107,13 +130,52 @@ class AddUsersToRoleWithScopeSerializer(
     RoleMixin,
     ScopeMixin,
 ):  # pylint: disable=abstract-method
-    """Serializer for adding users to a role with a scope."""
+    """Serializer for adding users to a role with one or more scopes.
 
+    Accepts either a single ``scope`` string (backward-compatible) or a
+    ``scopes`` list for bulk assignment.  Exactly one of the two must be
+    provided per request.
+    """
+
+    scope = serializers.CharField(max_length=255, required=False, default=None, allow_null=True)
+    scopes = serializers.ListField(
+        child=serializers.CharField(max_length=255),
+        required=False,
+        default=None,
+    )
     users = serializers.ListField(child=serializers.CharField(max_length=255), allow_empty=False)
 
     def validate_users(self, value) -> list[str]:
-        """Eliminate duplicates preserving order"""
+        """Eliminate duplicates preserving order."""
         return list(dict.fromkeys(value))
+
+    def validate(self, attrs) -> dict:
+        """Validate that exactly one of 'scope'/'scopes' is provided and that every
+        scope exists in the registry, exists in the system, and supports the role.
+        Returns validated data with a unified ``scopes`` list of strings.
+        """
+        validated_data = super(RoleScopeValidationMixin, self).validate(attrs)
+        scope = validated_data.get("scope")
+        scopes = validated_data.get("scopes")
+        role_value = validated_data["role"]
+
+        if scope and scopes is not None:
+            raise serializers.ValidationError(
+                "Provide either 'scope' or 'scopes', not both."
+            )
+
+        scopes_list = scopes if scopes is not None else ([scope] if scope else None)
+        if not scopes_list:
+            raise serializers.ValidationError(
+                "Either 'scope' or 'scopes' must be provided."
+            )
+
+        for scope_value in scopes_list:
+            self._validate_scope_and_role(scope_value, role_value)
+
+        validated_data.pop("scope", None)
+        validated_data["scopes"] = scopes_list
+        return validated_data
 
 
 class RemoveUsersFromRoleWithScopeSerializer(
@@ -213,6 +275,16 @@ class UserRoleAssignmentSerializer(serializers.Serializer):  # pylint: disable=a
     def get_roles(self, obj: api.RoleAssignmentData) -> list[str]:
         """Get the roles for the given role assignment."""
         return [role.external_key for role in obj.roles]
+
+
+class ListScopesQuerySerializer(OrgMixin):  # pylint: disable=abstract-method
+    """Serializer for validating query parameters in ScopesAPIView."""
+
+    management_permission_only = serializers.BooleanField(required=False, default=False)
+    scope_type = serializers.ChoiceField(
+        choices=[(e.value, e.name) for e in ScopesTypeField], required=False, default=None, allow_null=True
+    )
+    search = serializers.CharField(required=False, default="", allow_blank=True)
 
 
 class ListTeamMembersSerializer(OrderMixin):  # pylint: disable=abstract-method
@@ -346,3 +418,61 @@ class TeamMemberAssignmentSerializer(serializers.Serializer):  # pylint: disable
                 return None
             case api.RoleAssignmentData():
                 return len(obj.roles[0].permissions) if obj.roles else 0
+
+
+class TeamMemberUserAssignmentSerializer(TeamMemberAssignmentSerializer):  # pylint: disable=abstract-method
+    """Serializer for team member assignments with user information."""
+
+    full_name = serializers.SerializerMethodField()
+    username = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+
+    def get_full_name(self, obj: api.UserAssignmentData | api.SuperAdminAssignmentData) -> str:
+        """Get user full name."""
+        return obj.user.get_full_name() if obj.user else ""
+
+    def get_username(self, obj: api.UserAssignmentData | api.SuperAdminAssignmentData) -> str:
+        """Get username."""
+        return obj.user.username if obj.user else ""
+
+    def get_email(self, obj: api.UserAssignmentData | api.SuperAdminAssignmentData) -> str:
+        """Get user email."""
+        return obj.user.email if obj.user else ""
+
+
+class ListAssignmentsQuerySerializer(ListTeamMemberAssignmentsQuerySerializer):  # pylint: disable=abstract-method
+    """Serializer for query params for the list all team member assignments endpoint."""
+
+    search = LowercaseCharField(required=False, default=None)
+    scopes = CaseSensitiveCommaSeparatedListField(required=False, default=[])
+    # Overriding sort_by from OrderMixin due to different choices and default value
+    sort_by = serializers.ChoiceField(
+        required=False,
+        choices=[(e.value, e.name) for e in UserAssignmentSortField],
+        default=UserAssignmentSortField.FULL_NAME,
+    )
+
+
+class ScopeSerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer for scope.
+    """
+
+    external_key = serializers.SerializerMethodField()
+    display_name = serializers.SerializerMethodField()
+    org = serializers.SerializerMethodField()
+
+    def get_external_key(self, obj: dict) -> str:
+        """Get the external key for the given scope."""
+        if obj["scope_type"] == ScopesTypeField.LIBRARY:
+            return str(LibraryLocatorV2(org=obj["org_name"], slug=obj["scope_id"]))
+        return obj["scope_id"]
+
+    def get_display_name(self, obj: dict) -> str:
+        """Get the display name for the given scope."""
+        return str(obj.get("display_name_col") or "")
+
+    def get_org(self, obj: dict) -> dict | None:
+        """Get the org for the given scope."""
+        org = self.context.get("org_map", {}).get(obj["org_name"])
+        return OrganizationSerializer(org).data if org else None

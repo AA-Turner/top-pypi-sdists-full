@@ -4,14 +4,15 @@ Classes for .param and .cell files
 import os
 import tempfile
 import re
-from collections import OrderedDict
+from collections import UserDict
+from monty.json import MSONable
 
 import numpy as np
 from .parser import Parser, PlainParser
 from .common import Block, cell_abcs_to_vec
 
 
-class CastepInput(OrderedDict):
+class CastepInput(MSONable, UserDict):
     """
     Class for storing key - values pairs of CASTEP inputs
     This class can be used for .param, .cell and also other CASTEP style
@@ -28,11 +29,17 @@ class CastepInput(OrderedDict):
     * ``units`` a dictionary of the units
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, header=None, units=None, **kwargs):
         """Instantiate the object"""
-        super().__init__(*args, **kwargs)
-        self.header = []
-        self.units = {}
+        if args and isinstance(args[0], dict):
+            super().__init__(args[0], **kwargs)
+        else:
+            super().__init__(*args, **kwargs)
+        self.header = list(header) if header else []
+        self.units = dict(units) if units else {}
+        # This makes Monty's default as_dict() work as it looks for this attribute
+        # which now stores the actual data in UserDict
+        self._kwargs = self.data
 
     def get_file_lines(self):
         """
@@ -126,17 +133,24 @@ class CellInput(CastepInput):
         """Return cell vectors"""
 
         cell = []
+
         if "lattice_cart" in self:
             cell_lines = self["lattice_cart"]
 
-            for line in cell_lines:
+            for i, line in enumerate(cell_lines):
+                # Skip the unit line
+                if i == 0 and len(line.split()) == 1:
+                    continue
                 cell.append([float(val) for val in line.split()])
 
         elif "lattice_abc" in self:
             abc_lines = self["lattice_abc"]
 
             abc = []
-            for line in abc_lines:
+            for i, line in enumerate(abc_lines):
+                # Skip the unit line
+                if i == 0 and len(line.split()) == 1:
+                    continue
                 abc.extend([float(val) for val in line.split()])
             assert len(abc) == 6, "Problem in lattice_abc block"
 
@@ -163,7 +177,11 @@ class CellInput(CastepInput):
         elems = []
         pos = []
         tags = []
-        for line in pos_lines:
+
+        for i, line in enumerate(pos_lines):
+            # Skip the unit line
+            if i == 0 and len(line.split()) == 1:
+                continue
             elem, parser, tag = parse_pos_line(line)
             elems.append(elem)
             pos.append(parser)
@@ -193,6 +211,9 @@ class CellInput(CastepInput):
             cell_lines.append(f"{coord[0]:.10f}  {coord[1]:.10f}  {coord[2]:.10f}")
 
         self["lattice_cart"] = Block(cell_lines)
+        # Delete the other type of cell block if it exists
+        if "lattice_abc" in self:
+            del self["lattice_abc"]
 
     def set_positions(self, elements, positions, tags=None, frac=False):
         """
@@ -210,6 +231,12 @@ class CellInput(CastepInput):
             pos_lines.append(construct_pos_line(elem, parser, tag))
 
         self[bname] = Block(pos_lines)
+
+        # Delete the other type of positions block if it exists
+        if bname == "positions_frac" and "positions_abs" in self:
+            del self["positions_abs"]
+        if bname == "positions_abs" and "positions_frac" in self:
+            del self["positions_frac"]
 
 
 def parse_pos_line(cell_line):

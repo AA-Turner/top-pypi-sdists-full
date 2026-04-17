@@ -44,7 +44,9 @@ class ConfigDict(TypedDict, total=False):
         ee_system_packages: List of system packages for execution environment.
         ee_name: Name/tag for the execution environment image.
         ee_file_name: Name of the EE definition file.
+        ee_build_arg_defaults: EE build ARG defaults as KEY=VALUE strings (CLI).
         registry_tls_verify: Whether to verify TLS for container registries.
+        scm_provider: SCM provider for EE CI (github or gitlab).
     """
 
     creator_version: str
@@ -64,7 +66,9 @@ class ConfigDict(TypedDict, total=False):
     ee_system_packages: list[str]
     ee_name: str
     ee_file_name: str
+    ee_build_arg_defaults: list[str]
     registry_tls_verify: bool | None
+    scm_provider: str
 
 
 @pytest.fixture(name="output")
@@ -105,6 +109,7 @@ def fixture_cli_args(tmp_path: Path, output: Output) -> ConfigDict:
         "force": False,
         "overwrite": False,
         "no_overwrite": False,
+        "scm_provider": "github",
     }
 
 
@@ -124,6 +129,29 @@ def has_differences(dcmp: dircmp[str], errors: list[str]) -> list[str]:
     for subdcmp in dcmp.subdirs.values():
         has_differences(subdcmp, errors)
     return errors
+
+
+def _galaxy_server_ini_section(ansible_cfg: str, server_id: str) -> str:
+    """Return the body of a ``[galaxy_server.<server_id>]`` INI section.
+
+    The slice starts immediately after the header line and ends before the next
+    ``[`` at the beginning of a line (next section) or EOF.
+
+    Args:
+        ansible_cfg: Full ``ansible.cfg`` file contents.
+        server_id: Galaxy server id matching the section name.
+
+    Returns:
+        Text after ``[galaxy_server.<server_id>]`` through the line before the
+        next section header.
+    """
+    header = f"[galaxy_server.{server_id}]"
+    start = ansible_cfg.index(header) + len(header)
+    tail = ansible_cfg[start:]
+    next_idx = tail.find("\n[")
+    if next_idx == -1:
+        return tail
+    return tail[:next_idx]
 
 
 def test_run_success_ee_project(
@@ -152,6 +180,36 @@ def test_run_success_ee_project(
         str(FIXTURES_DIR / "project" / "ee_project"),
     )
     diff = has_differences(dcmp=cmp, errors=[])
+    assert not diff, diff
+
+
+def test_run_success_ee_project_gitlab(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    cli_args: ConfigDict,
+) -> None:
+    """Init scaffolds GitLab CI when ``scm_provider`` is gitlab.
+
+    Args:
+        capsys: Pytest fixture to capture stdout and stderr.
+        tmp_path: Temporary directory path.
+        cli_args: Dictionary, partial Init class object.
+    """
+    cli_args["project"] = "execution_env"
+    cli_args["init_path"] = str(tmp_path / "gitlab_ee")
+    cli_args["scm_provider"] = "gitlab"
+    init = Init(Config(**cli_args))
+    init.run()
+    result = capsys.readouterr().out
+    assert r"Note: execution_env project created" in result
+
+    assert not (tmp_path / "gitlab_ee" / ".github").exists()
+
+    cmp_result = dircmp(
+        str(tmp_path / "gitlab_ee"),
+        str(FIXTURES_DIR / "project" / "ee_project_gitlab"),
+    )
+    diff = has_differences(dcmp=cmp_result, errors=[])
     assert not diff, diff
 
 
@@ -204,6 +262,106 @@ def test_run_success_ee_project_with_params(
     assert "git" in ee_content
     assert "openssh-clients" in ee_content
     assert "my-custom-ee" in ee_content
+
+
+def test_run_success_ee_project_with_build_arg_defaults_cli(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    cli_args: ConfigDict,
+) -> None:
+    """Test Init.run() writes build_arg_defaults from CLI.
+
+    Args:
+        capsys: Pytest fixture to capture stdout and stderr.
+        tmp_path: Temporary directory path.
+        cli_args: Dictionary, partial Init class object.
+    """
+    cli_args["project"] = "execution_env"
+    cli_args["init_path"] = str(tmp_path / "ee_pre")
+    cli_args["ee_build_arg_defaults"] = ["ANSIBLE_GALAXY_CLI_COLLECTION_OPTS=--pre"]
+
+    init = Init(Config(**cli_args))
+    init.run()
+    result = capsys.readouterr().out
+
+    assert r"Note: execution_env project created" in result
+
+    ee_file = tmp_path / "ee_pre" / "execution-environment.yml"
+    ee_content = ee_file.read_text()
+    assert "build_arg_defaults:" in ee_content
+    assert "ANSIBLE_GALAXY_CLI_COLLECTION_OPTS" in ee_content
+    assert "--pre" in ee_content
+
+
+def test_ee_project_build_arg_defaults_cli_invalid(
+    tmp_path: Path,
+    cli_args: ConfigDict,
+) -> None:
+    """Test Init rejects malformed ee_build_arg_defaults entries.
+
+    Args:
+        tmp_path: Temporary directory path.
+        cli_args: Dictionary, partial Init class object.
+    """
+    cli_args["project"] = "execution_env"
+    cli_args["init_path"] = str(tmp_path / "ee_bad_arg")
+    cli_args["ee_build_arg_defaults"] = ["not-key-value"]
+
+    with pytest.raises(CreatorError, match="Invalid --ee-build-arg-default"):
+        Init(Config(**cli_args))
+
+
+def test_ee_project_build_arg_defaults_cli_empty_key(
+    tmp_path: Path,
+    cli_args: ConfigDict,
+) -> None:
+    """Test Init rejects KEY=VALUE when KEY is empty (e.g. ``=value``).
+
+    Args:
+        tmp_path: Temporary directory path.
+        cli_args: Dictionary, partial Init class object.
+    """
+    cli_args["project"] = "execution_env"
+    cli_args["init_path"] = str(tmp_path / "ee_empty_key")
+    cli_args["ee_build_arg_defaults"] = ["=only-a-value"]
+
+    with pytest.raises(CreatorError, match="empty key"):
+        Init(Config(**cli_args))
+
+
+def test_ee_project_build_arg_defaults_merge_config_and_cli(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    cli_args: ConfigDict,
+) -> None:
+    """CLI build_arg_defaults overlay values from --ee-config.
+
+    Args:
+        capsys: Pytest fixture to capture stdout and stderr.
+        tmp_path: Temporary directory path.
+        cli_args: Dictionary, partial Init class object.
+    """
+    cli_args["project"] = "execution_env"
+    cli_args["init_path"] = str(tmp_path / "ee_merge")
+    cli_args["ee_config"] = json.dumps(
+        {
+            "build_arg_defaults": {
+                "ANSIBLE_GALAXY_CLI_COLLECTION_OPTS": "--stable",
+                "OTHER_ARG": "x",
+            },
+        },
+    )
+    cli_args["ee_build_arg_defaults"] = ["ANSIBLE_GALAXY_CLI_COLLECTION_OPTS=--pre"]
+
+    init = Init(Config(**cli_args))
+    init.run()
+    assert r"Note: execution_env project created" in capsys.readouterr().out
+
+    ee_content = (tmp_path / "ee_merge" / "execution-environment.yml").read_text()
+    assert "--pre" in ee_content
+    assert "OTHER_ARG" in ee_content
+    assert "x" in ee_content
+    assert "--stable" not in ee_content
 
 
 def test_ee_project_invalid_collection_name(
@@ -760,6 +918,7 @@ def test_ee_project_with_galaxy_servers(
                 "id": "private_hub",
                 "url": "https://pah.corp.example.com/api/galaxy/content/published/",
                 "token_required": True,
+                "validate_certs": False,
             },
             {
                 "id": "galaxy",
@@ -786,6 +945,12 @@ def test_ee_project_with_galaxy_servers(
     assert "auth_url = https://sso.redhat.com/" in cfg
     assert "[galaxy_server.private_hub]" in cfg
     assert "pah.corp.example.com" in cfg
+    private_hub_section = _galaxy_server_ini_section(cfg, "private_hub")
+    assert "validate_certs = false" in private_hub_section
+    assert private_hub_section.count("validate_certs = false") == 1
+    assert "validate_certs = false" not in _galaxy_server_ini_section(cfg, "automation_hub")
+    assert "validate_certs = false" not in _galaxy_server_ini_section(cfg, "galaxy")
+    assert cfg.count("validate_certs = false") == 1
     assert "[galaxy_server.galaxy]" in cfg
     assert "galaxy.ansible.com" in cfg
     # Token comments for servers with token_required
@@ -1298,6 +1463,7 @@ def test_ee_config_from_dict_full() -> None:
         "additional_build_steps": {"prepend_base": ["RUN echo hi"]},
         "options": {"package_manager_path": "/usr/bin/dnf"},
         "ansible_cfg": "[galaxy]\nserver_list = hub\n",
+        "build_arg_defaults": {"ANSIBLE_GALAXY_CLI_COLLECTION_OPTS": "--pre"},
     }
     cfg = EEConfig.from_dict(data)
 
@@ -1311,6 +1477,7 @@ def test_ee_config_from_dict_full() -> None:
     assert cfg.additional_build_files == ({"src": "a.cfg", "dest": "configs"},)
     assert cfg.additional_build_steps == {"prepend_base": ["RUN echo hi"]}
     assert cfg.options == {"package_manager_path": "/usr/bin/dnf"}
+    assert cfg.build_arg_defaults == {"ANSIBLE_GALAXY_CLI_COLLECTION_OPTS": "--pre"}
     assert "server_list" in cfg.ansible_cfg
     assert not cfg.galaxy_servers
 
@@ -1329,6 +1496,7 @@ def test_ee_config_from_dict_galaxy_servers() -> None:
                 "id": "private_hub",
                 "url": "https://pah.corp.example.com/api/galaxy/content/published/",
                 "token_required": True,
+                "validate_certs": False,
             },
             {
                 "id": "galaxy",
@@ -1343,10 +1511,13 @@ def test_ee_config_from_dict_galaxy_servers() -> None:
     assert "console.redhat.com" in cfg.galaxy_servers[0].url
     assert "sso.redhat.com" in cfg.galaxy_servers[0].auth_url
     assert cfg.galaxy_servers[0].token_required is True
+    assert cfg.galaxy_servers[0].validate_certs is True
     assert cfg.galaxy_servers[1].id == "private_hub"
     assert cfg.galaxy_servers[1].token_required is True
+    assert cfg.galaxy_servers[1].validate_certs is False
     assert cfg.galaxy_servers[2].id == "galaxy"
     assert cfg.galaxy_servers[2].token_required is False
+    assert cfg.galaxy_servers[2].validate_certs is True
 
 
 def test_ee_config_from_dict_registry_and_image_name() -> None:
@@ -1411,6 +1582,16 @@ def test_ee_config_from_dict_defaults() -> None:
     assert not cfg.python_deps
     assert not cfg.galaxy_servers
     assert not cfg.scm_servers
+    assert not cfg.build_arg_defaults
+
+
+def test_ee_config_from_dict_build_arg_defaults_invalid() -> None:
+    """Test EEConfig.from_dict rejects non-string build_arg_defaults values."""
+    with pytest.raises(CreatorError, match="build_arg_defaults"):
+        EEConfig.from_dict({"build_arg_defaults": "not-a-mapping"})
+
+    with pytest.raises(CreatorError, match="build_arg_defaults"):
+        EEConfig.from_dict({"build_arg_defaults": {"FOO": 1}})
 
 
 def test_ee_collection_from_dict_invalid_name() -> None:
@@ -1472,6 +1653,7 @@ def test_ee_config_to_schema_shape() -> None:
     assert "scm_servers" in props
     assert props["scm_servers"]["type"] == "array"
     assert "ee_file_name" in props
+    assert "build_arg_defaults" in props
 
 
 def test_ee_config_schema_in_cli_schema() -> None:
@@ -1484,6 +1666,14 @@ def test_ee_config_schema_in_cli_schema() -> None:
     assert "ee_name" in ee_config_schema["properties"]
     assert "base_image" in ee_config_schema["properties"]
     assert "collections" in ee_config_schema["properties"]
+
+
+def test_init_execution_env_scm_provider_schema() -> None:
+    """CLI schema lists scm_provider for init execution_env."""
+    schema = for_command("init", "execution_env")
+    scm = schema["parameters"]["properties"]["scm_provider"]
+    assert scm["enum"] == ["github", "gitlab"]
+    assert scm["default"] == "github"
 
 
 def test_extract_action_info_schema_class_no_option_strings() -> None:
@@ -1579,6 +1769,20 @@ def test_galaxy_server_from_dict_full() -> None:
     assert "console.redhat.com" in server.url
     assert "sso.redhat.com" in server.auth_url
     assert server.token_required is True
+    assert server.validate_certs is True
+
+
+def test_galaxy_server_from_dict_validate_certs_false() -> None:
+    """Test GalaxyServer.from_dict with validate_certs false."""
+    server = GalaxyServer.from_dict(
+        {
+            "id": "internal_hub",
+            "url": "https://10.0.0.1/api/galaxy/content/published/",
+            "validate_certs": False,
+        },
+    )
+    assert server.id == "internal_hub"
+    assert server.validate_certs is False
 
 
 def test_galaxy_server_from_dict_minimal() -> None:
@@ -1589,6 +1793,7 @@ def test_galaxy_server_from_dict_minimal() -> None:
     assert server.url == "https://galaxy.ansible.com/"
     assert server.auth_url == ""
     assert server.token_required is False
+    assert server.validate_certs is True
 
 
 def test_galaxy_server_from_dict_missing_id() -> None:
@@ -1619,6 +1824,7 @@ def test_galaxy_server_as_dict() -> None:
         url="https://example.com/",
         auth_url="https://sso.example.com/token",
         token_required=True,
+        validate_certs=True,
     )
     result = server.as_dict()
 
@@ -1626,6 +1832,7 @@ def test_galaxy_server_as_dict() -> None:
     assert result["url"] == "https://example.com/"
     assert result["auth_url"] == "https://sso.example.com/token"
     assert result["token_required"] is True
+    assert result["validate_certs"] is True
     expected_var = "ANSIBLE_GALAXY_SERVER_AUTOMATION_HUB_TOKEN"
     assert result["token_env_var"] == expected_var
 
@@ -1636,6 +1843,7 @@ def test_galaxy_server_as_dict_no_auth_url() -> None:
     result = server.as_dict()
 
     assert "auth_url" not in result
+    assert result["validate_certs"] is True
     expected_var = "ANSIBLE_GALAXY_SERVER_GALAXY_TOKEN"
     assert result["token_env_var"] == expected_var
 
@@ -1652,6 +1860,7 @@ def test_galaxy_server_to_schema() -> None:
     assert "url" in props
     assert "auth_url" in props
     assert "token_required" in props
+    assert "validate_certs" in props
 
 
 # ---------------------------------------------------------------------------
@@ -1843,3 +2052,56 @@ def test_ee_project_with_scm_servers(
     ns_content = next_steps.read_text()
     assert "GITHUB_ORG1_TOKEN" in ns_content
     assert "github.com" in ns_content
+
+
+def test_ee_project_with_scm_servers_gitlab(
+    output: Output,
+    tmp_path: Path,
+) -> None:
+    """EE project with scm_servers and GitLab CI includes envsubst (no git-credentials).
+
+    Args:
+        output: Output object for logging.
+        tmp_path: Temporary directory path.
+    """
+    dest = tmp_path / "scm-ee-gl"
+    config = Config(
+        creator_version="0.0.1",
+        output=output,
+        subcommand="init",
+        project="execution_env",
+        init_path=str(dest),
+        scm_provider="gitlab",
+        ee_config=json.dumps(
+            {
+                "collections": [
+                    {
+                        "name": "https://${GITHUB_ORG1_TOKEN}@github.com/org1/my-collection",
+                        "type": "git",
+                    },
+                    {"name": "cisco.ios"},
+                ],
+                "scm_servers": [
+                    {
+                        "id": "github_org1",
+                        "hostname": "github.com",
+                        "token_env_var": "GITHUB_ORG1_TOKEN",
+                    },
+                ],
+            }
+        ),
+    )
+    Init(config=config).run()
+
+    gl = dest / ".gitlab-ci.yml"
+    assert gl.exists()
+    wf_content = gl.read_text()
+    assert "GITHUB_ORG1_TOKEN" in wf_content
+    assert "envsubst" in wf_content
+    assert "context/_build/requirements.yml" in wf_content
+    assert "git-credentials" not in wf_content.lower()
+
+    next_steps = dest / "NEXT_STEPS.md"
+    ns = next_steps.read_text()
+    assert "CI/CD" in ns
+    assert "Actions" not in ns

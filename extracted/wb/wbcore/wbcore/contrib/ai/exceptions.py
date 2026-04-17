@@ -1,40 +1,12 @@
-from langchain_core.exceptions import LangChainException, OutputParserException
-
-APIStatusErrors = [LangChainException, OutputParserException]
-BadRequestErrors = []
-
-try:
-    from openai._exceptions import (
-        AuthenticationError,
-        BadRequestError,
-        ConflictError,
-        InternalServerError,
-        NotFoundError,
-        PermissionDeniedError,
-        RateLimitError,
-        UnprocessableEntityError,
-    )
-
-    APIStatusErrors.extend(
-        [
-            AuthenticationError,
-            PermissionDeniedError,
-            NotFoundError,
-            ConflictError,
-            UnprocessableEntityError,
-            RateLimitError,
-            InternalServerError,
-        ]
-    )
-    BadRequestErrors.append(BadRequestError)
-except ImportError:
-    pass
+class LLMCallError(Exception):
+    def __init__(self, original_exc, llm_name: str, model: str):
+        self.original_exc = original_exc
+        self.llm_name = llm_name
+        self.model = model
+        super().__init__(str(original_exc))
 
 
-try:
-    from anthropic._exceptions import APIConnectionError, APIResponseValidationError, APIStatusError, BadRequestError
-
-    APIStatusErrors.extend([APIResponseValidationError, APIStatusError, APIConnectionError])
-    BadRequestErrors.append(BadRequestError)
-except ImportError:
-    pass
+def is_bad_request(exception: Exception) -> bool:
+    if hasattr(exception, "status_code"):
+        return 400 <= int(exception.status_code) < 500
+    return False

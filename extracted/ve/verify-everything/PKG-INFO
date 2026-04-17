@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: verify-everything
-Version: 0.2.9
+Version: 0.2.10
 Summary: LLM-based code review tool that finds issues tests and linters miss
 Author: Imbue
 License-Expression: AGPL-3.0-only

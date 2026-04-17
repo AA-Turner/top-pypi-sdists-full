@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/grafeo-common", "crates/grafeo-core", "crates/grafeo-adapters", "crates/grafeo-storage", "crates/grafeo-engine", "crates/bindings/python", "crates/bindings/common"]
 
 [workspace.package]
-version = "0.5.38"
+version = "0.5.39"
 edition = "2024"
 rust-version = "1.91.1"
 license = "Apache-2.0"
@@ -13,13 +13,13 @@ description = "A high-performance, embeddable graph database with support for LP
 
 [workspace.dependencies]
 # Internal crates (default-features = false to allow per-crate control)
-grafeo-common = { path = "crates/grafeo-common", version = "0.5.38" }
-grafeo-core = { path = "crates/grafeo-core", version = "0.5.38", default-features = false }
-grafeo-adapters = { path = "crates/grafeo-adapters", version = "0.5.38", default-features = false }
-grafeo-storage = { path = "crates/grafeo-storage", version = "0.5.38", default-features = false }
-grafeo-engine = { path = "crates/grafeo-engine", version = "0.5.38", default-features = false }
-grafeo = { path = "crates/grafeo", version = "0.5.38" }
-grafeo-bindings-common = { path = "crates/bindings/common", version = "0.5.38", default-features = false }
+grafeo-common = { path = "crates/grafeo-common", version = "0.5.39" }
+grafeo-core = { path = "crates/grafeo-core", version = "0.5.39", default-features = false }
+grafeo-adapters = { path = "crates/grafeo-adapters", version = "0.5.39", default-features = false }
+grafeo-storage = { path = "crates/grafeo-storage", version = "0.5.39", default-features = false }
+grafeo-engine = { path = "crates/grafeo-engine", version = "0.5.39", default-features = false }
+grafeo = { path = "crates/grafeo", version = "0.5.39" }
+grafeo-bindings-common = { path = "crates/bindings/common", version = "0.5.39", default-features = false }
 
 # Error handling
 thiserror = "2.0"
@@ -50,6 +50,12 @@ foldhash = "0.2"
 md5 = "0.8"
 sha1 = "0.11"
 sha2 = "0.11"
+
+# Encryption (optional, behind `encryption` feature flag)
+aes-gcm = "0.10"
+hkdf = "0.13"
+argon2 = "0.5"
+zeroize = { version = "1", features = ["derive"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive", "rc"] }
@@ -92,7 +98,7 @@ ordered-float = "5"
 rand = "0.10.1"
 
 [workspace.lints.rust]
-unsafe_code = "warn"
+unsafe_code = "deny"
 missing_docs = "warn"
 
 [workspace.lints.clippy]
@@ -103,11 +109,11 @@ module_name_repetitions = "allow"
 must_use_candidate = "allow"
 missing_errors_doc = "warn"
 missing_panics_doc = "warn"
-# Casting is common and intentional in low-level database code
-cast_possible_truncation = "allow"
-cast_sign_loss = "allow"
+# Cast lints: warn to catch real truncation bugs, allow per-site where safe
+cast_possible_truncation = "warn"
+cast_sign_loss = "warn"
 cast_precision_loss = "allow"
-cast_possible_wrap = "allow"
+cast_possible_wrap = "warn"
 cast_lossless = "allow"
 # Style preferences
 uninlined_format_args = "allow"

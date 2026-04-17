@@ -27,6 +27,7 @@ from captum.attr._core.llm_attr import (
     LLMAttribution,
     LLMAttributionResult,
     LLMGradientAttribution,
+    RemoteLLMAttribution,
 )
 from captum.attr._core.lrp import LRP
 from captum.attr._core.neuron.neuron_conductance import NeuronConductance
@@ -43,6 +44,7 @@ from captum.attr._core.neuron.neuron_integrated_gradients import (
 )
 from captum.attr._core.noise_tunnel import NoiseTunnel
 from captum.attr._core.occlusion import Occlusion
+from captum.attr._core.remote_provider import RemoteLLMProvider, VLLMProvider
 from captum.attr._core.saliency import Saliency
 from captum.attr._core.shapley_value import ShapleyValues, ShapleyValueSampling
 from captum.attr._models.base import (
@@ -62,6 +64,7 @@ from captum.attr._utils.attribution import (
 from captum.attr._utils.baselines import ProductBaselines
 from captum.attr._utils.class_summarizer import ClassSummarizer
 from captum.attr._utils.interpretable_input import (
+    ImageMaskInput,
     InterpretableInput,
     TextTemplateInput,
     TextTokenInput,
@@ -73,6 +76,7 @@ from captum.attr._utils.stat import (
     Mean,
     Min,
     MSE,
+    StatValue,
     StdDev,
     Sum,
     Var,
@@ -111,6 +115,9 @@ __all__ = [
     "LLMAttribution",
     "LLMAttributionResult",
     "LLMGradientAttribution",
+    "RemoteLLMAttribution",
+    "RemoteLLMProvider",
+    "VLLMProvider",
     "InternalInfluence",
     "InterpretableInput",
     "LayerGradCam",
@@ -131,6 +138,7 @@ __all__ = [
     "NoiseTunnel",
     "ProductBaselines",
     "GradientShap",
+    "ImageMaskInput",
     "InterpretableEmbeddingBase",
     "TextTemplateInput",
     "TextTokenInput",
@@ -149,5 +157,6 @@ __all__ = [
     "Max",
     "Sum",
     "Count",
+    "StatValue",
     "SummarizerSingleTensor",
 ]

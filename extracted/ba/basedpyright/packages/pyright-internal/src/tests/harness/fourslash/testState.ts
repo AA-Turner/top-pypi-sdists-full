@@ -1038,7 +1038,7 @@ export class TestState {
                 useTypingExtensions,
                 abbrMap
             );
-            const results = provider.getCompletions();
+            const results = await provider.getCompletions();
             if (results) {
                 if (verifyMode === 'exact') {
                     if (results.items.length !== expectedCompletions.length) {

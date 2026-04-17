@@ -36,9 +36,16 @@ class ToolBar(QtWidgets.QToolBar):
         self.setObjectName(f"{title}ToolBar")
         self.setOrientation(orientation)
         self.setToolButtonStyle(button_style)
+        if orientation == Qt.Vertical:
+            self.setStyleSheet(
+                "QToolBar::separator { height: 1px; margin: 4px 2px;"
+                " background: palette(mid); }"
+            )
         utils.addActions(widget=self, actions=actions)
+        if orientation == Qt.Vertical:
+            self._equalize_button_widths()
 
-    def addAction(self, action):  # type: ignore[override]
+    def addAction(self, action: QtWidgets.QAction) -> None:  # type: ignore[override]
         if isinstance(action, QtWidgets.QWidgetAction):
             return super().addAction(action)
         btn = QtWidgets.QToolButton()
@@ -50,3 +57,19 @@ class ToolBar(QtWidgets.QToolBar):
         for i in range(self.layout().count()):
             if isinstance(self.layout().itemAt(i).widget(), QtWidgets.QToolButton):
                 self.layout().itemAt(i).setAlignment(QtCore.Qt.AlignCenter)
+
+    def _equalize_button_widths(self) -> None:
+        layout = self.layout()
+        buttons: list[QtWidgets.QToolButton] = []
+        for i in range(layout.count()):
+            widget = layout.itemAt(i).widget()
+            if isinstance(widget, QtWidgets.QToolButton):
+                buttons.append(widget)
+        if not buttons:
+            return
+        max_width = 0
+        for btn in buttons:
+            btn.ensurePolished()
+            max_width = max(max_width, btn.sizeHint().width())
+        for btn in buttons:
+            btn.setMinimumWidth(max_width)

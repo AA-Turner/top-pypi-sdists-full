@@ -25,83 +25,26 @@ from chalk.features._encoding.json import (
 )
 from chalk.features._encoding.missing_value import MissingValueStrategy
 from chalk.features._encoding.pyarrow import (
+    coerce_map_pylist_to_dict,
     is_map_in_dtype_tree,
     pyarrow_to_polars,
     pyarrow_to_primitive,
     rich_to_pyarrow,
 )
-from chalk.features._encoding.rich import structure_primitive_to_rich
 from chalk.utils.collections import unwrap_optional_and_annotated_if_needed
 from chalk.utils.json import TJSON
-from typing_extensions import get_args, get_origin
 
 from ._base import (
     _DEFAULT_FEATURE_ENCODING_OPTIONS,
     _FROM_NEW,
-    _SCALAR_COERCIBLE_TYPES,
-    _scalar_coerce_fn,
     FeatureConverter,
     MissingValueError,
     _raise_unsupported_missing_value_strategy,
 )
 
+from ._struct_coerce import _build_to_primitive_converter, _build_to_rich_converter
+
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportMissingSuperCall=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false, reportImplicitStringConcatenation=false
-
-
-def _build_to_primitive_converter(typ: type) -> "Callable[[Any], Any] | None":
-    """Return a closure that converts a value of *typ* to its primitive form, or ``None`` if
-    the type is already primitive (no conversion needed).
-
-    Handles arbitrary nesting: dataclasses, ``list[T]``, and combinations thereof.
-    ``Optional[T]`` / ``Annotated[T, ...]`` wrappers are stripped before dispatch.
-    """
-    inner = unwrap_optional_and_annotated_if_needed(typ)
-
-    if _dataclasses.is_dataclass(inner) and isinstance(inner, type):
-        return _build_dc_to_dict(inner)
-
-    origin = get_origin(inner)
-    if origin in (list, List):
-        args = get_args(inner)
-        if args:
-            item_conv = _build_to_primitive_converter(args[0])
-            if item_conv is not None:
-                return lambda lst, _c=item_conv: None if lst is None else [_c(x) for x in lst]
-
-    # For scalar types that need coercion (e.g. date → datetime), delegate to the
-    # appropriate FeatureConverter's coerce function via the shared helper.
-    # Called only at construction time (DataclassFeatureConverter instances are
-    # cached) so the lazy import is fine.
-    if inner in _SCALAR_COERCIBLE_TYPES:
-        from ._factory import make_feature_converter as _make_fc
-        fc = _make_fc(name="", is_nullable=True, rich_type=typ)
-        closure = _scalar_coerce_fn(fc)
-        if closure is not None:
-            return closure
-
-    return None
-
-
-def _build_to_rich_converter(typ: type) -> "Callable[[Any], Any] | None":
-    """Return a closure that converts a primitive value back to *typ*, or ``None`` if
-    the type is already primitive (no conversion needed).
-
-    Mirrors :func:`_build_to_primitive_converter` in the reverse direction.
-    """
-    inner = unwrap_optional_and_annotated_if_needed(typ)
-
-    if _dataclasses.is_dataclass(inner) and isinstance(inner, type):
-        return _build_dict_to_dc(inner)
-
-    origin = get_origin(inner)
-    if origin in (list, List):
-        args = get_args(inner)
-        if args:
-            item_conv = _build_to_rich_converter(args[0])
-            if item_conv is not None:
-                return lambda lst, _c=item_conv: None if lst is None else [_c(x) for x in lst]
-
-    return None
 
 
 def _build_dc_to_dict(dc_class: type) -> "Callable[[Any], Any]":
@@ -129,9 +72,11 @@ def _build_dc_to_dict(dc_class: type) -> "Callable[[Any], Any]":
                 return null_prim
             if v is ...:
                 return v
-            # Assume v is a dataclass or dict
-            d = getattr(v, "__dict__", v)
-            return {f: d[f] for f in field_names}
+            if isinstance(v, dict):
+                return {f: v.get(f) for f in field_names}
+            if isinstance(v, (list, tuple)):
+                return dict(zip(field_names, v))
+            return {f: getattr(v, f, None) for f in field_names}
 
         return _convert_flat
     else:
@@ -139,9 +84,12 @@ def _build_dc_to_dict(dc_class: type) -> "Callable[[Any], Any]":
         def _convert_nested(v: Any) -> Any:
             if v is None:
                 return {f: sub[f](None) if f in sub else None for f in field_names}
-            # Assume v is a dataclass or dict
-            d = getattr(v, "__dict__", v)
-            return {f: sub[f](d[f]) if f in sub else d[f] for f in field_names}
+            if isinstance(v, dict):
+                return {f: sub[f](v.get(f)) if f in sub else v.get(f) for f in field_names}
+            if isinstance(v, (list, tuple)):
+                raw = dict(zip(field_names, v))
+                return {f: sub[f](raw.get(f)) if f in sub else raw.get(f) for f in field_names}
+            return {f: sub[f](getattr(v, f, None)) if f in sub else getattr(v, f, None) for f in field_names}
 
         return _convert_nested
 
@@ -196,7 +144,7 @@ class DataclassFeatureConverter(
     :meth:`for_class` to get a cached instance suitable for that purpose.
     """
 
-    _cache: ClassVar[Dict[Tuple[type, Any, bool], "DataclassFeatureConverter"]] = {}
+    _cache: ClassVar[Dict[Tuple[type, Any, bool, pa.DataType | None], "DataclassFeatureConverter"]] = {}
 
     @classmethod
     def for_class(cls, dc_class: type) -> "DataclassFeatureConverter":
@@ -213,23 +161,33 @@ class DataclassFeatureConverter(
         default: "Any | ellipsis",
         is_nullable: bool,
         field_converters: "Dict[str, FeatureConverter] | None" = None,
+        pa_struct_type: "pa.DataType | None" = None,
     ) -> "DataclassFeatureConverter":
-        """Factory with caching for simple defaults (``None`` / ``...``)."""
+        """Factory with caching for simple defaults (``None`` / ``...``).
+
+        Parameters
+        ----------
+        pa_struct_type:
+            When provided, used as the PyArrow struct type directly instead of
+            recomputing it from type hints. Required for generic dataclasses
+            (e.g. ``HttpResponse[bytes]``) where type hints contain unresolved
+            TypeVars.
+        """
         if default is None or default is ...:
-            key = (dc_class, default, is_nullable)
+            key = (dc_class, default, is_nullable, pa_struct_type)
             cached = cls._cache.get(key)
             if cached is not None:
                 return cached
             if field_converters is None:
-                from ._factory import make_field_converters as _make_field_converters
+                from ._factory import make_field_converters_for_dataclass as _make_field_converters
                 field_converters = _make_field_converters(dc_class)
-            inst = cls(dc_class, default, is_nullable, field_converters=field_converters, _from_new=_FROM_NEW)
+            inst = cls(dc_class, default, is_nullable, field_converters=field_converters, pa_struct_type=pa_struct_type, _from_new=_FROM_NEW)
             cls._cache[key] = inst
             return inst
         if field_converters is None:
-            from ._factory import make_field_converters as _make_field_converters
+            from ._factory import make_field_converters_for_dataclass as _make_field_converters
             field_converters = _make_field_converters(dc_class)
-        return cls(dc_class, default, is_nullable, field_converters=field_converters, _from_new=_FROM_NEW)
+        return cls(dc_class, default, is_nullable, field_converters=field_converters, pa_struct_type=pa_struct_type, _from_new=_FROM_NEW)
 
     def __init__(
         self,
@@ -238,6 +196,7 @@ class DataclassFeatureConverter(
         is_nullable: bool,
         *,
         field_converters: "Dict[str, FeatureConverter]",
+        pa_struct_type: "pa.DataType | None" = None,
         _from_new: object = None,
     ) -> None:
         super().__init__()
@@ -250,15 +209,22 @@ class DataclassFeatureConverter(
 
         field_names: tuple[str, ...] = tuple(f.name for f in _dataclasses.fields(dc_class))
         hints = _typing_mod.get_type_hints(dc_class)
-        struct_fields = [pa.field(name, rich_to_pyarrow(hints[name], name)) for name in field_names]
-        self._pa_struct_type: pa.DataType = pa.struct(struct_fields)
+        if pa_struct_type is not None:
+            # Caller provided the struct type directly (e.g. for generic aliases like
+            # HttpResponse[bytes] where type hints contain unresolved TypeVars).
+            assert isinstance(pa_struct_type, pa.StructType), f"Expected pa.StructType, got {type(pa_struct_type)}"
+            struct_fields = [pa_struct_type.field(i) for i in range(pa_struct_type.num_fields)]
+            self._pa_struct_type: pa.DataType = pa_struct_type
+        else:
+            struct_fields = [pa.field(name, rich_to_pyarrow(hints[name], name, in_struct=True)) for name in field_names]
+            self._pa_struct_type: pa.DataType = pa.struct(struct_fields)
         self._primitive_type = pyarrow_to_primitive(self._pa_struct_type, "")
         self._rich_to_prim: Callable[[Any], Any] = _build_dc_to_dict(dc_class)
         self._prim_to_rich: Callable[[Any], Any] = _build_dict_to_dc(dc_class)
         # Null primitive: a dict with every field set to None — used when a None rich value
         # is received.  GenericFeatureConverter converts None to this form for struct types
         # (None is never "missing" for structs), and we must match that behaviour.
-        self._null_prim: dict = {name: None for name in field_names}
+        self._null_prim: dict = self._rich_to_prim(None)
 
         # Columnar PyArrow path: per-field sub-converters used by _to_pyarrow_flat /
         # _from_pyarrow_flat to avoid building intermediate Python dicts per element.
@@ -279,6 +245,7 @@ class DataclassFeatureConverter(
                     self._field_prim_convs[_fname] = _to_prim
                 if _to_rich is not None:
                     self._field_rich_convs[_fname] = _to_rich
+        self._has_map_fields: bool = any(is_map_in_dtype_tree(f.type) for f in struct_fields)
 
         # Precompute proto arrow types for each field by serializing a null scalar.
         # Used by from_pyarrow_to_protobuf to build pb.Field descriptors without
@@ -333,13 +300,18 @@ class DataclassFeatureConverter(
         """
         if not dicts:
             return pa.array([], type=self._pa_struct_type)
+        if not self._struct_fields_list:
+            return pa.array(dicts, type=self._pa_struct_type)
         arrays: list = []
         for pa_field in self._struct_fields_list:
             fname = pa_field.name
             col = [None if d is None else (d.get(fname) if isinstance(d, dict) else d[fname]) for d in dicts]
             if fname in self._sub_dc_converters:
                 arrays.append(self._sub_dc_converters[fname]._to_pyarrow_flat_from_dicts(col))
-            elif fname in self._field_prim_convs:
+            elif fname in self._field_prim_convs and not pa.types.is_struct(pa_field.type):
+                # For struct-typed fields the col is already in primitive (dict/None) form;
+                # applying prim_conv would expand None to an all-null dict and lose the
+                # null validity bit.  Use the fast pa.array path for structs.
                 prim_conv = self._field_prim_convs[fname]
                 arrays.append(pa.array([None if x is None else prim_conv(x) for x in col], type=pa_field.type))
             else:
@@ -396,6 +368,8 @@ class DataclassFeatureConverter(
             elif fname in self._field_rich_convs:
                 rich_conv = self._field_rich_convs[fname]
                 field_data.append([rich_conv(x) for x in col.to_pylist()])
+            elif is_map_in_dtype_tree(pa_field.type):
+                field_data.append([coerce_map_pylist_to_dict(x, pa_field.type) for x in col.to_pylist()])
             else:
                 field_data.append(col.to_pylist())
         dc = self._dc_class
@@ -506,10 +480,6 @@ class DataclassFeatureConverter(
         if value is None:
             # None → all-null struct dict, matching GenericFeatureConverter semantics.
             return self._null_prim
-        if not isinstance(value, self._dc_class):
-            # Coerce non-dataclass inputs (e.g. tuples, dicts) to the rich type first,
-            # matching GenericFeatureConverter which calls from_primitive_to_rich before encoding.
-            value = structure_primitive_to_rich(value, self._dc_class)
         return self._rich_to_prim(value)
 
     def from_primitive_to_rich(self, value: "dict | None") -> Any:
@@ -520,7 +490,21 @@ class DataclassFeatureConverter(
     # ── primitive ↔ pyarrow ───────────────────────────────────────────────────
 
     def from_pyarrow_to_primitive(self, values: "pa.Array | pa.ChunkedArray") -> "Sequence[dict | None]":
-        return values.to_pylist()
+        if not self._has_map_fields:
+            return values.to_pylist()
+        if isinstance(values, pa.ChunkedArray):
+            values = values.combine_chunks()
+        result: list[dict | None] = []
+        for row in values.to_pylist():
+            if row is None:
+                result.append(None)
+            else:
+                fixed: dict[str, Any] = {}
+                for pa_field in self._struct_fields_list:
+                    v = row[pa_field.name]
+                    fixed[pa_field.name] = coerce_map_pylist_to_dict(v, pa_field.type) if is_map_in_dtype_tree(pa_field.type) else v
+                result.append(fixed)
+        return result
 
     def from_primitive_to_pyarrow(self, values: "Iterable[dict | None]") -> "pa.Array | pa.ChunkedArray":
         values_list = [None if v is ... else v for v in values]
@@ -531,7 +515,25 @@ class DataclassFeatureConverter(
         return pa.array(values_list, type=self._pa_struct_type)
 
     def from_pyarrow_to_rich(self, values: "pa.Array | pa.ChunkedArray", /) -> "Sequence[Any]":
-        return [self._prim_to_rich(v) for v in values.to_pylist()]
+        if isinstance(values, pa.ChunkedArray):
+            values = values.combine_chunks()
+        # Use the full columnar path when field conversions are needed.
+        if self._has_map_fields or self._field_rich_convs or self._sub_dc_converters:
+            return self._from_pyarrow_flat(values)
+        # Fast columnar path: extract per-field lists directly, avoiding the per-row
+        # Python dict that struct to_pylist() would materialise for each row.
+        n = len(values)
+        if n == 0:
+            return []
+        dc = self._dc_class
+        field_names = [f.name for f in self._struct_fields_list]
+        cols = [values.field(name).to_pylist() for name in field_names]
+        if values.null_count > 0:
+            # Null struct rows → dc(None, None, ...) to match existing row-based semantics.
+            valid = values.is_valid().to_pylist()
+            _null_dc = dc(*([None] * len(field_names)))
+            return [_null_dc if not valid[i] else dc(*[col[i] for col in cols]) for i in range(n)]
+        return [dc(*row) for row in zip(*cols)]
 
     def from_rich_to_pyarrow(
         self,
@@ -549,8 +551,6 @@ class DataclassFeatureConverter(
                 # None → all-null struct dict, matching GenericFeatureConverter semantics.
                 converted.append(self._null_prim)
             else:
-                if not isinstance(v, self._dc_class):
-                    v = structure_primitive_to_rich(v, self._dc_class)
                 converted.append(self._rich_to_prim(v))
         return pa.array(converted, type=self._pa_struct_type)
 

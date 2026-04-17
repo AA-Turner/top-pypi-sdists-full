@@ -4,7 +4,9 @@ from datetime import date, datetime, time
 from typing import (
     Any,
     ClassVar,
+    Dict,
     Sequence,
+    Tuple,
     Type,
     cast,
 )
@@ -37,6 +39,26 @@ _DATETIME_PA_TYPE = pa.timestamp("us", "UTC")
 _DATETIME_NULL_PROTO = pb.ArrowType(
     timestamp=pb.Timestamp(time_unit=pb.TIME_UNIT_MICROSECOND, timezone="UTC")
 )
+_NAIVE_DATETIME_PA_TYPE = pa.timestamp("us")
+_NAIVE_DATETIME_NULL_PROTO = pb.ArrowType(
+    timestamp=pb.Timestamp(time_unit=pb.TIME_UNIT_MICROSECOND)
+)
+
+_UNIT_TO_PB: dict[str, Any] = {
+    "s": pb.TIME_UNIT_SECOND,
+    "ms": pb.TIME_UNIT_MILLISECOND,
+    "us": pb.TIME_UNIT_MICROSECOND,
+    "ns": pb.TIME_UNIT_NANOSECOND,
+}
+
+
+def _pa_type_to_proto(pa_type: pa.TimestampType) -> pb.ArrowType:
+    return pb.ArrowType(
+        timestamp=pb.Timestamp(
+            time_unit=_UNIT_TO_PB[pa_type.unit],
+            timezone=pa_type.tz or "",
+        )
+    )
 
 
 def _coerce_datetime(x: Any) -> datetime:
@@ -62,6 +84,48 @@ class DatetimeFeatureConverter(
 
     _coerce_fn = staticmethod(_coerce_datetime)
     _use_fast_path = False
+
+    # Cache keyed on (pa_type, default, is_nullable) to support non-standard timestamp types.
+    _cache: ClassVar[Dict[Tuple[pa.DataType, Any, bool], "DatetimeFeatureConverter"]] = {}
+
+    # Instance-level overrides set in new() to support non-standard timestamp types.
+    _instance_pa_type: pa.DataType
+    _instance_proto_arrow_type: pb.ArrowType
+    _instance_polars_dtype: Any
+
+    @classmethod
+    def new(cls, default: Any = ..., is_nullable: bool = False, *, pa_type: "pa.DataType | None" = None) -> "DatetimeFeatureConverter":  # type: ignore[override]
+        if pa_type is None:
+            pa_type = cls._pyarrow_dtype_value
+        key = (pa_type, default, is_nullable)
+        cached = cls._cache.get(key)
+        if cached is not None:
+            return cached
+        from ._base import _FROM_NEW
+        inst = cls.__new__(cls)
+        super(DatetimeFeatureConverter, inst).__init__(default, is_nullable, pa_type=pa_type, _from_new=_FROM_NEW)
+        ts_pa_type = cast(pa.TimestampType, pa_type)
+        inst._instance_pa_type = pa_type
+        inst._instance_proto_arrow_type = _pa_type_to_proto(ts_pa_type)
+        from chalk.features._encoding.pyarrow import pyarrow_to_polars
+        try:
+            inst._instance_polars_dtype = pyarrow_to_polars(pa_type)
+        except (AssertionError, Exception):
+            inst._instance_polars_dtype = None
+        cls._cache[key] = inst
+        return inst
+
+    @property
+    def pyarrow_dtype(self) -> pa.DataType:
+        return self._instance_pa_type
+
+    @property
+    def protobuf_dtype(self) -> pb.ArrowType:
+        return self._instance_proto_arrow_type
+
+    @property
+    def polars_dtype(self) -> Any:
+        return self._instance_polars_dtype
 
     def _serialize_to_json(self, x: Any) -> TJSON:
         return cast(datetime, x).isoformat()
@@ -92,8 +156,8 @@ class DatetimeFeatureConverter(
     def from_primitive_to_protobuf(self, value: datetime | pa.Scalar) -> pb.ScalarValue:
         scalar_value = _unwrap_scalar_value(value)
         if scalar_value is None or scalar_value is ...:
-            return pb.ScalarValue(null_value=_DATETIME_NULL_PROTO)
-        return self.from_pyarrow_to_protobuf(pa.scalar(cast(datetime, scalar_value), type=_DATETIME_PA_TYPE))
+            return pb.ScalarValue(null_value=self.protobuf_dtype)
+        return self.from_pyarrow_to_protobuf(pa.scalar(cast(datetime, scalar_value), type=self.pyarrow_dtype))
 
     def from_rich_to_protobuf(
         self,
@@ -102,18 +166,19 @@ class DatetimeFeatureConverter(
     ) -> pb.ScalarValue:
         prim = cast(datetime | None, self.from_rich_to_primitive(value, missing_value_strategy))
         if prim is None or prim is ...:
-            return pb.ScalarValue(null_value=_DATETIME_NULL_PROTO)
-        return self.from_pyarrow_to_protobuf(pa.scalar(prim, type=_DATETIME_PA_TYPE))
+            return pb.ScalarValue(null_value=self.protobuf_dtype)
+        return self.from_pyarrow_to_protobuf(pa.scalar(prim, type=self.pyarrow_dtype))
 
     def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
         dt_val = value.as_py()
         if dt_val is None:
-            return pb.ScalarValue(null_value=_DATETIME_NULL_PROTO)
+            return pb.ScalarValue(null_value=self.protobuf_dtype)
         if not isinstance(dt_val, datetime):
             raise TypeError(f"Expected Python `datetime`, but got `{type(dt_val).__name__}`")
         float_s = dt_val.timestamp()
-        timezone = None if dt_val.tzinfo is None else dt_val.tzinfo.tzname(dt_val)
-        # _DATETIME_PA_TYPE is always "us"; handle other units for completeness
+        # Use the IANA timezone name from the Arrow type rather than tzname(dt_val),
+        # which returns DST abbreviations like "EDT" or "BST" that cannot be round-tripped.
+        timezone = value.type.tz if isinstance(value.type, pa.TimestampType) else None
         unit = value.type.unit if isinstance(value.type, pa.TimestampType) else "us"
         if unit == "ms":
             return pb.ScalarValue(
@@ -134,7 +199,7 @@ class DatetimeFeatureConverter(
 
     def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
         if pb_value.HasField("null_value"):
-            return pa.nulls(1, type=_DATETIME_PA_TYPE)[0]
+            return pa.nulls(1, type=self.pyarrow_dtype)[0]
         if pb_value.HasField("timestamp_value"):
             tz_str = pb_value.timestamp_value.timezone
             tz = dateutil.tz.gettz(tz_str) if tz_str else None
@@ -155,3 +220,5 @@ class DatetimeFeatureConverter(
                 + "`time_millisecond_value`, `time_microsecond_value`, and `time_nanosecond_value`"
             )
         raise ValueError(f"Unsupported Protobuf type for datetime: {pb_value}")
+
+

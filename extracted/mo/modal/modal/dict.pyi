@@ -44,8 +44,8 @@ class DictInfo:
 
 class _DictManager:
     """Namespace with methods for managing named Dict objects."""
-    @staticmethod
     async def create(
+        self,
         name: str,
         *,
         allow_existing: bool = False,
@@ -80,8 +80,8 @@ class _DictManager:
         """
         ...
 
-    @staticmethod
     async def list(
+        self,
         *,
         max_objects: typing.Optional[int] = None,
         created_before: typing.Union[datetime.datetime, str, None] = None,
@@ -114,8 +114,8 @@ class _DictManager:
         """
         ...
 
-    @staticmethod
     async def delete(
+        self,
         name: str,
         *,
         allow_missing: bool = False,
@@ -224,7 +224,7 @@ class DictManager:
             """
             ...
 
-    create: typing.ClassVar[__create_spec]
+    create: __create_spec
 
     class __list_spec(typing_extensions.Protocol):
         def __call__(
@@ -297,7 +297,7 @@ class DictManager:
             """
             ...
 
-    list: typing.ClassVar[__list_spec]
+    list: __list_spec
 
     class __delete_spec(typing_extensions.Protocol):
         def __call__(
@@ -360,7 +360,7 @@ class DictManager:
             """
             ...
 
-    delete: typing.ClassVar[__delete_spec]
+    delete: __delete_spec
 
 class _Dict(modal._object._Object):
     """Distributed dictionary for storage in Modal apps.
@@ -413,7 +413,7 @@ class _Dict(modal._object._Object):
 
     @synchronicity.classproperty
     @classmethod
-    def objects(cls) -> type[_DictManager]: ...
+    def objects(cls) -> _DictManager: ...
     @property
     def name(self) -> typing.Optional[str]: ...
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
@@ -655,7 +655,7 @@ class Dict(modal.object.Object):
 
     @synchronicity.classproperty
     @classmethod
-    def objects(cls) -> type[DictManager]: ...
+    def objects(cls) -> DictManager: ...
     @property
     def name(self) -> typing.Optional[str]: ...
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...

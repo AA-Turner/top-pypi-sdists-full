@@ -1,6 +1,16 @@
 from collections import defaultdict
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Union,
+    cast,
+)
 
 if TYPE_CHECKING:
     from trilogy.dialect.config import DialectConfig
@@ -39,6 +49,7 @@ from trilogy.core.models.build import (
     BuildComparison,
     BuildConcept,
     BuildConditional,
+    BuildExpr,
     BuildFilterItem,
     BuildFunction,
     BuildMultiSelectLineage,
@@ -130,6 +141,41 @@ LOGGER_PREFIX = "[RENDERING]"
 
 WINDOW_ITEMS = (BuildWindowItem,)
 FILTER_ITEMS = (BuildFilterItem,)
+
+
+ARITHMETIC_OPERATORS = (
+    FunctionType.ADD,
+    FunctionType.SUBTRACT,
+    FunctionType.DIVIDE,
+    FunctionType.MULTIPLY,
+)
+# Infix parents that render as binary operators; arithmetic args must be
+# parenthesized for precedence. Non-infix function calls (abs, cast, sum)
+# already delimit their args with call parens and don't need extra wrapping.
+INFIX_PARENTS_REQUIRING_PARENS = ARITHMETIC_OPERATORS + (
+    FunctionType.MOD,
+    FunctionType.POWER,
+)
+
+
+def _needs_arithmetic_parentheses(
+    expr: Any, parent_operator: FunctionType | None = None
+) -> bool:
+    if (
+        parent_operator is not None
+        and parent_operator not in INFIX_PARENTS_REQUIRING_PARENS
+    ):
+        return False
+    if isinstance(expr, BuildFunction):
+        return expr.operator in ARITHMETIC_OPERATORS
+    return (
+        isinstance(expr, BuildConcept)
+        and expr.lineage is not None
+        and isinstance(expr.lineage, BuildFunction)
+        and expr.lineage.operator in ARITHMETIC_OPERATORS
+    )
+
+
 AGGREGATE_ITEMS = (BuildAggregateWrapper,)
 FUNCTION_ITEMS = (BuildFunction,)
 PARENTHETICAL_ITEMS = (BuildParenthetical,)
@@ -622,6 +668,8 @@ class BaseDialect:
         raise_invalid: bool = False,
     ) -> str:
         result = None
+        if not isinstance(c, BuildConcept):
+            raise SyntaxError(f"Expected BuildConcept, got {type(c)} {c}")
         if c.pseudonyms:
             candidates = [y for y in [cte.get_concept(x) for x in c.pseudonyms] if y]
             logger.debug(
@@ -680,10 +728,9 @@ class BaseDialect:
                 ]
 
                 rval = self.WINDOW_FUNCTION_MAP[c.lineage.type](
-                    concept=self.render_concept_sql(
+                    concept=self.render_expr(
                         c.lineage.content,
                         cte=cte,
-                        alias=False,
                         raise_invalid=raise_invalid,
                     ),
                     window=",".join(rendered_over_components),
@@ -756,21 +803,10 @@ class BaseDialect:
                 args = []
                 types = []
                 for arg in c.lineage.arguments:
-                    if (
-                        isinstance(arg, BuildConcept)
-                        and arg.lineage
-                        and isinstance(arg.lineage, FUNCTION_ITEMS)
-                        and arg.lineage.operator
-                        in (
-                            FunctionType.ADD,
-                            FunctionType.SUBTRACT,
-                            FunctionType.DIVIDE,
-                            FunctionType.MULTIPLY,
-                        )
-                    ):
+                    if _needs_arithmetic_parentheses(arg, c.lineage.operator):
                         args.append(
                             self.render_expr(
-                                BuildParenthetical(content=arg),
+                                BuildParenthetical(content=cast(BuildExpr, arg)),
                                 cte=cte,
                                 raise_invalid=raise_invalid,
                             )
@@ -1043,21 +1079,10 @@ class BaseDialect:
         elif isinstance(e, FUNCTION_ITEMS):
             arguments = []
             for arg in e.arguments:
-                if (
-                    isinstance(arg, BuildConcept)
-                    and arg.lineage
-                    and isinstance(arg.lineage, FUNCTION_ITEMS)
-                    and arg.lineage.operator
-                    in (
-                        FunctionType.ADD,
-                        FunctionType.SUBTRACT,
-                        FunctionType.DIVIDE,
-                        FunctionType.MULTIPLY,
-                    )
-                ):
+                if _needs_arithmetic_parentheses(arg, e.operator):
                     arguments.append(
                         self.render_expr(
-                            BuildParenthetical(content=arg),
+                            BuildParenthetical(content=cast(BuildExpr, arg)),
                             cte=cte,
                             cte_map=cte_map,
                             raise_invalid=raise_invalid,

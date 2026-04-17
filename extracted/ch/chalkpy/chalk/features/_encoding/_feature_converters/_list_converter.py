@@ -59,7 +59,7 @@ class ListFeatureConverter(
     features, pair with :class:`DataclassConverter` as the ``item_converter``.
     """
 
-    _cache: ClassVar[Dict[Tuple[Any, Any, bool, Any], "ListFeatureConverter"]] = {}
+    _cache: ClassVar[Dict[Tuple[Any, Any, bool, Any, Any], "ListFeatureConverter"]] = {}
 
     @classmethod
     def new(
@@ -68,19 +68,20 @@ class ListFeatureConverter(
         default: "list | None | ellipsis",
         is_nullable: bool,
         list_rich_type: "Type | None" = None,
+        pa_list_type: "pa.DataType | None" = None,
     ) -> "ListFeatureConverter":
         # Cache only for simple defaults since lists are not hashable.
         # item_converter instances are cached themselves (e.g. DataclassConverter.for_class),
         # so using object identity as the key is stable.
         if default is None or default is ...:
-            key = (item_converter, default, is_nullable, list_rich_type)
+            key = (item_converter, default, is_nullable, list_rich_type, pa_list_type)
             cached = cls._cache.get(key)
             if cached is not None:
                 return cached
-            inst = cls(item_converter, default, is_nullable, list_rich_type)
+            inst = cls(item_converter, default, is_nullable, list_rich_type, pa_list_type)
             cls._cache[key] = inst
             return inst
-        return cls(item_converter, default, is_nullable, list_rich_type)
+        return cls(item_converter, default, is_nullable, list_rich_type, pa_list_type)
 
     def __init__(
         self,
@@ -88,12 +89,16 @@ class ListFeatureConverter(
         default: "list | None | ellipsis",
         is_nullable: bool,
         list_rich_type: "Type | None" = None,
+        pa_list_type: "pa.DataType | None" = None,
     ) -> None:
         super().__init__()
         self._item = item_converter
         self._is_nullable = is_nullable
         self._list_rich_type = list_rich_type
-        self._pa_list_type: pa.DataType = pa.large_list(item_converter.pyarrow_dtype)
+        if pa_list_type is not None:
+            self._pa_list_type: pa.DataType = pa_list_type
+        else:
+            self._pa_list_type = pa.large_list(item_converter.pyarrow_dtype)
         # Store the element-level closures directly to avoid method-dispatch overhead
         # in _to_primitive / _to_rich.  ListConverter guarantees it only calls these
         # with non-None, non-... values (missing values are handled at the list level).
@@ -123,12 +128,16 @@ class ListFeatureConverter(
         # in the null_value field, which we reuse to build the list-level schema.
         _item_null_pb = item_converter.from_pyarrow_to_protobuf(pa.nulls(1, item_converter.pyarrow_dtype)[0])
         self._item_arrow_proto_type: pb.ArrowType = _item_null_pb.null_value
-        self._null_proto: pb.ArrowType = pb.ArrowType(
-            large_list=pb.List(field_type=pb.Field(
-                name=self._pa_list_type.value_field.name,
-                nullable=self._pa_list_type.value_field.nullable,
-                arrow_type=self._item_arrow_proto_type,
-            ))
+        self._is_large_list: bool = pa.types.is_large_list(self._pa_list_type)
+        _list_field = pb.List(field_type=pb.Field(
+            name=self._pa_list_type.value_field.name,
+            nullable=self._pa_list_type.value_field.nullable,
+            arrow_type=self._item_arrow_proto_type,
+        ))
+        self._null_proto: pb.ArrowType = (
+            pb.ArrowType(large_list=_list_field)
+            if self._is_large_list
+            else pb.ArrowType(list=_list_field)
         )
         self._pb_schema: pb.Schema = pb.Schema(
             columns=[pb.Field(nullable=False, arrow_type=self._item_arrow_proto_type)]
@@ -461,13 +470,14 @@ class ListFeatureConverter(
         table = pa.Table.from_arrays([values], names=["values"])
         buf = BytesIO()
         pf.write_feather(table, dest=buf, compression=None)
-        return pb.ScalarValue(
-            large_list_value=pb.ScalarListValue(arrow_data=buf.getvalue(), schema=self._pb_schema)
-        )
+        list_val = pb.ScalarListValue(arrow_data=buf.getvalue(), schema=self._pb_schema)
+        if self._is_large_list:
+            return pb.ScalarValue(large_list_value=list_val)
+        return pb.ScalarValue(list_value=list_val)
 
     def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
         if pb_value.HasField("null_value"):
             return pa.nulls(1, type=self._pa_list_type)[0]
-        value = pb_value.large_list_value
+        value = pb_value.large_list_value if self._is_large_list else pb_value.list_value
         arr = pf.read_table(BytesIO(value.arrow_data)).column(0).combine_chunks()
         return pa.scalar(arr.to_pylist(), self._pa_list_type)

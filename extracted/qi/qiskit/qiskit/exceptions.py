@@ -4,7 +4,7 @@
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
-# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+# of this source tree or at https://www.apache.org/licenses/LICENSE-2.0.
 #
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
@@ -86,8 +86,6 @@ features and are comfortable that they may break in later versions, you can sile
     warnings.filterwarnings("ignore", category=ExperimentalWarning)
 """
 
-from typing import Optional
-
 
 class QiskitError(Exception):
     """Base class for errors raised by Qiskit."""
@@ -112,7 +110,7 @@ class MissingOptionalLibraryError(QiskitError, ImportError):
     """Raised when an optional library is missing."""
 
     def __init__(
-        self, libname: str, name: str, pip_install: Optional[str] = None, msg: Optional[str] = None
+        self, libname: str, name: str, pip_install: str | None = None, msg: str | None = None
     ) -> None:
         """Set the error message.
         Args:

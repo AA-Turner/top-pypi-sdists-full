@@ -58,6 +58,7 @@ Usage::
         DescribePendingMaintenanceActionsPaginator,
         DescribeReservedDBInstancesOfferingsPaginator,
         DescribeReservedDBInstancesPaginator,
+        DescribeServerlessV2PlatformVersionsPaginator,
         DescribeSourceRegionsPaginator,
         DescribeTenantDatabasesPaginator,
         DownloadDBLogFilePortionPaginator,
@@ -119,6 +120,7 @@ Usage::
     describe_pending_maintenance_actions_paginator: DescribePendingMaintenanceActionsPaginator = client.get_paginator("describe_pending_maintenance_actions")
     describe_reserved_db_instances_offerings_paginator: DescribeReservedDBInstancesOfferingsPaginator = client.get_paginator("describe_reserved_db_instances_offerings")
     describe_reserved_db_instances_paginator: DescribeReservedDBInstancesPaginator = client.get_paginator("describe_reserved_db_instances")
+    describe_serverless_v2_platform_versions_paginator: DescribeServerlessV2PlatformVersionsPaginator = client.get_paginator("describe_serverless_v2_platform_versions")
     describe_source_regions_paginator: DescribeSourceRegionsPaginator = client.get_paginator("describe_source_regions")
     describe_tenant_databases_paginator: DescribeTenantDatabasesPaginator = client.get_paginator("describe_tenant_databases")
     download_db_log_file_portion_paginator: DownloadDBLogFilePortionPaginator = client.get_paginator("download_db_log_file_portion")
@@ -165,6 +167,7 @@ from .paginator import (
     DescribePendingMaintenanceActionsPaginator,
     DescribeReservedDBInstancesOfferingsPaginator,
     DescribeReservedDBInstancesPaginator,
+    DescribeServerlessV2PlatformVersionsPaginator,
     DescribeSourceRegionsPaginator,
     DescribeTenantDatabasesPaginator,
     DownloadDBLogFilePortionPaginator,
@@ -234,6 +237,7 @@ __all__ = (
     "DescribePendingMaintenanceActionsPaginator",
     "DescribeReservedDBInstancesOfferingsPaginator",
     "DescribeReservedDBInstancesPaginator",
+    "DescribeServerlessV2PlatformVersionsPaginator",
     "DescribeSourceRegionsPaginator",
     "DescribeTenantDatabasesPaginator",
     "DownloadDBLogFilePortionPaginator",

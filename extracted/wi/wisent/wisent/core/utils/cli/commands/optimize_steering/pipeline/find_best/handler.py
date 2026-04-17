@@ -42,9 +42,9 @@ def execute_find_best_method(args):
     all_methods = SteeringMethodRegistry.list_methods()
     if method_filter:
         all_methods = [m for m in all_methods if m.upper() == method_filter.upper()]
-    train_file, test_file, n_train, n_test = _load_pairs_from_hf(
-        benchmark, output_dir,
-    )
+    train_file, test_file, n_train, n_test = _load_pairs_from_hf(benchmark, output_dir)
+    from wisent.core.primitives.models.wisent_model import WisentModel
+    cached_model = WisentModel(model_name, device=None)
     sep = "=" * SEPARATOR_WIDTH_WIDE
     print(f"\n{sep}\nFIND BEST STEERING METHOD\n{sep}")
     print(f"   Model:         {model_name}")
@@ -59,9 +59,7 @@ def execute_find_best_method(args):
         print(f"   {method_name.upper()}: {len(space)} dims, "
               f"{len(space) * trials_mult} trials")
     print(f"{sep}\n")
-    baseline_score = _run_baseline(
-        model_name, benchmark, test_file, output_dir,
-    )
+    baseline_score = _run_baseline(model_name, benchmark, test_file, output_dir, cached_model)
     print(f"   Baseline:      {baseline_score:.4f}")
     method_results = {}
     overall_start = time.time()
@@ -72,6 +70,7 @@ def execute_find_best_method(args):
             trials_mult, backend, method_results, output_dir,
             train_file, test_file, n_train,
             baseline_score=baseline_score, n_test=n_test,
+            cached_model=cached_model,
         )
     _save_final_report(
         method_results, model_name, benchmark, output_dir,
@@ -80,33 +79,33 @@ def execute_find_best_method(args):
 
 
 def _load_pairs_from_hf(benchmark, output_dir):
-    """Load pairs from HF. Train = cached activation pairs, test = extra pairs."""
-    from wisent.core.reading.modules.utilities.data.sources.hf.hf_loaders import (
-        load_pair_texts_from_hf,
+    """Load pairs via cascade (local cache -> HF -> Supabase -> extract+upload)."""
+    from wisent.extractors.lm_eval.lm_task_pairs_generation import (
+        build_contrastive_pairs,
     )
-    print(f"Loading cached pairs for {benchmark} from HF...", flush=True)
+    print(f"Loading pairs for {benchmark} (cache cascade)...", flush=True)
     n_train = OPTIMIZATION_TRIAL_PAIRS_CAP
     n_test = math.ceil(n_train / SPLIT_RATIO_TRAIN_DEFAULT) - n_train
     total_needed = n_train + n_test
-    hf_pairs = load_pair_texts_from_hf(
-        benchmark, limit=total_needed,
+    pairs = build_contrastive_pairs(
+        task_name=benchmark,
+        limit=total_needed,
+        train_ratio=SPLIT_RATIO_TRAIN_DEFAULT,
     )
-    if not hf_pairs:
-        print(f"ERROR: No cached pairs on HF for {benchmark}")
+    if not pairs:
+        print(f"ERROR: Could not obtain pairs for {benchmark}")
         sys.exit(EXIT_CODE_ERROR)
-    sorted_ids = sorted(hf_pairs.keys())
 
-    def _to_pair(pid):
-        p = hf_pairs[pid]
-        d = {"prompt": p["prompt"],
-             "positive_response": {"model_response": p["positive"]},
-             "negative_response": {"model_response": p["negative"]}}
-        if p.get("metadata"):
-            d["metadata"] = p["metadata"]
+    def _to_pair(p):
+        d = {"prompt": p.prompt,
+             "positive_response": {"model_response": p.positive_response.model_response},
+             "negative_response": {"model_response": p.negative_response.model_response}}
+        if p.metadata:
+            d["metadata"] = p.metadata
         return d
 
-    train_pairs = [_to_pair(pid) for pid in sorted_ids[:n_train]]
-    test_pairs = [_to_pair(pid) for pid in sorted_ids[n_train:total_needed]]
+    train_pairs = [_to_pair(p) for p in pairs[:n_train]]
+    test_pairs = [_to_pair(p) for p in pairs[n_train:total_needed]]
 
     def _save(pair_list, path):
         with open(path, "w") as f:
@@ -126,7 +125,7 @@ def _run_method(
     method_idx, total, method_name, model_name, benchmark,
     num_layers, trials_mult, backend, method_results, output_dir,
     train_pairs_file, test_pairs_file, n_train,
-    baseline_score=None, n_test=None,
+    baseline_score=None, n_test=None, cached_model=None,
 ):
     """Run optimization for a single method."""
     method_upper = method_name.upper()
@@ -143,7 +142,7 @@ def _run_method(
         method=method_upper, model=model_name, task=benchmark,
         num_layers=num_layers, limit=n_train, device=None,
         work_dir=workspace, train_pairs_file=train_pairs_file,
-        test_pairs_file=test_pairs_file,
+        test_pairs_file=test_pairs_file, cached_model=cached_model,
     )
     trial_counter = []
 
@@ -200,11 +199,11 @@ def _run_method(
     print(f"   Saved: {incremental_path}")
 
 
-def _run_baseline(model_name, benchmark, test_file, output_dir):
+def _run_baseline(model_name, benchmark, test_file, output_dir, cached_model=None):
     """Evaluate unsteered model, using per-pair HF cache."""
     print("   Evaluating baseline (with per-pair HF cache)...")
     acc, _, _ = baseline_cache.generate_baseline_with_cache(
-        model_name, benchmark, test_file, device=None,
+        model_name, benchmark, test_file, device=None, cached_model=cached_model,
     )
     return acc
 

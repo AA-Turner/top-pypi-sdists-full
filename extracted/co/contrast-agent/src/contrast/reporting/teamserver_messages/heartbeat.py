@@ -1,6 +1,6 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-import requests
+from contrast_vendor import requests
 
 from .base_ts_message import BaseTsAppMessage
 from contrast.utils.decorators import fail_loudly
