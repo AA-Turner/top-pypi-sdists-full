@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 0.11.5
+Version: 0.12.0
 Summary: A programming framework for agentic AI
 Project-URL: Homepage, https://ag2.ai/
 Project-URL: Documentation, https://docs.ag2.ai
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
@@ -32,13 +33,13 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: anyio<5.0.0,>=4.0.0
-Requires-Dist: diskcache
 Requires-Dist: docker
 Requires-Dist: fast-depends[pydantic]<4.0.0,>=3.0.8
 Requires-Dist: httpx<1,>=0.28.1
 Requires-Dist: packaging
 Requires-Dist: pydantic<3,>=2.6.1
 Requires-Dist: python-dotenv
+Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: termcolor
 Requires-Dist: tiktoken
 Provides-Extra: a2a
@@ -58,7 +59,7 @@ Requires-Dist: boto3>=1.34.149; extra == 'bedrock'
 Provides-Extra: blendsearch
 Requires-Dist: flaml[blendsearch]; extra == 'blendsearch'
 Provides-Extra: browser-use
-Requires-Dist: browser-use==0.1.37; extra == 'browser-use'
+Requires-Dist: browser-use<1.0,>=0.3.1; extra == 'browser-use'
 Provides-Extra: captainagent
 Requires-Dist: chromadb<1.4,>=1.3.0; extra == 'captainagent'
 Requires-Dist: huggingface-hub; extra == 'captainagent'
@@ -80,6 +81,8 @@ Provides-Extra: crawl4ai
 Requires-Dist: crawl4ai<0.9,>=0.5.0; extra == 'crawl4ai'
 Provides-Extra: dashscope
 Requires-Dist: dashscope>=1.25.13; extra == 'dashscope'
+Provides-Extra: daytona
+Requires-Dist: daytona>=0.1.0; extra == 'daytona'
 Provides-Extra: deepseek
 Requires-Dist: openai<2,>=1.99.3; extra == 'deepseek'
 Provides-Extra: dev
@@ -120,7 +123,7 @@ Requires-Dist: nbformat==5.10.4; extra == 'dev'
 Requires-Dist: ollama>=0.4.7; extra == 'dev'
 Requires-Dist: openai<2,>=1.99.3; extra == 'dev'
 Requires-Dist: opentelemetry-sdk>=1.20; extra == 'dev'
-Requires-Dist: pandas==2.3.2; extra == 'dev'
+Requires-Dist: pandas==2.3.3; extra == 'dev'
 Requires-Dist: pdoc3==0.11.6; extra == 'dev'
 Requires-Dist: pillow; extra == 'dev'
 Requires-Dist: prek==0.3.8; extra == 'dev'
@@ -142,6 +145,9 @@ Requires-Dist: types-pyyaml; extra == 'dev'
 Requires-Dist: types-requests; extra == 'dev'
 Requires-Dist: types-ujson; extra == 'dev'
 Requires-Dist: uv==0.8.15; extra == 'dev'
+Requires-Dist: zizmor==1.11.0; extra == 'dev'
+Provides-Extra: diskcache
+Requires-Dist: diskcache; extra == 'diskcache'
 Provides-Extra: docs
 Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'docs'
 Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'docs'
@@ -238,6 +244,7 @@ Requires-Dist: websocket-client; extra == 'jupyter-executor'
 Provides-Extra: lint
 Requires-Dist: codespell==2.4.1; extra == 'lint'
 Requires-Dist: ruff==0.14.14; extra == 'lint'
+Requires-Dist: zizmor==1.11.0; extra == 'lint'
 Provides-Extra: lmm
 Requires-Dist: pillow; extra == 'lmm'
 Requires-Dist: replicate; extra == 'lmm'
@@ -255,13 +262,16 @@ Requires-Dist: pyyaml; extra == 'mcp-proxy-gen'
 Requires-Dist: requests; extra == 'mcp-proxy-gen'
 Requires-Dist: typer; extra == 'mcp-proxy-gen'
 Provides-Extra: mistral
-Requires-Dist: mistralai>=2.0.0; extra == 'mistral'
+Requires-Dist: mistralai<3.0.0,>=2.0.0; extra == 'mistral'
 Provides-Extra: neo4j
 Requires-Dist: docx2txt==0.9; extra == 'neo4j'
 Requires-Dist: llama-index-core<0.14,>=0.12; extra == 'neo4j'
 Requires-Dist: llama-index-graph-stores-neo4j<0.6,>=0.4; extra == 'neo4j'
 Requires-Dist: llama-index-readers-web<0.6,>=0.4; extra == 'neo4j'
 Requires-Dist: llama-index<0.14,>=0.12; extra == 'neo4j'
+Provides-Extra: nlip
+Requires-Dist: nlip-sdk<1,>=0.1.0; extra == 'nlip'
+Requires-Dist: nlip-server<1,>=0.1.0; extra == 'nlip'
 Provides-Extra: ollama
 Requires-Dist: fix-busted-json>=0.0.18; extra == 'ollama'
 Requires-Dist: ollama>=0.4.7; extra == 'ollama'
@@ -357,7 +367,7 @@ Requires-Dist: ipykernel==7.1.0; extra == 'test'
 Requires-Dist: mcp>=1.11.0; extra == 'test'
 Requires-Dist: nbconvert==7.16.6; extra == 'test'
 Requires-Dist: nbformat==5.10.4; extra == 'test'
-Requires-Dist: pandas==2.3.2; extra == 'test'
+Requires-Dist: pandas==2.3.3; extra == 'test'
 Requires-Dist: pytest-asyncio==1.3.0; extra == 'test'
 Requires-Dist: pytest-cov==6.3.0; extra == 'test'
 Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'test'
@@ -392,7 +402,7 @@ Requires-Dist: mypy==1.17.1; extra == 'types'
 Requires-Dist: nbconvert==7.16.6; extra == 'types'
 Requires-Dist: nbformat==5.10.4; extra == 'types'
 Requires-Dist: openai<2,>=1.99.3; extra == 'types'
-Requires-Dist: pandas==2.3.2; extra == 'types'
+Requires-Dist: pandas==2.3.3; extra == 'types'
 Requires-Dist: pytest-asyncio==1.3.0; extra == 'types'
 Requires-Dist: pytest-cov==6.3.0; extra == 'types'
 Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'types'

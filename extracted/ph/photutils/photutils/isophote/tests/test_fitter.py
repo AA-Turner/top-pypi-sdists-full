@@ -8,7 +8,7 @@ import pytest
 from astropy.io import fits
 from numpy.testing import assert_allclose
 
-from photutils.datasets import get_path
+from photutils.datasets.load import _get_path
 from photutils.isophote.fitter import CentralEllipseFitter, EllipseFitter
 from photutils.isophote.geometry import EllipseGeometry
 from photutils.isophote.harmonics import fit_first_and_second_harmonics
@@ -25,12 +25,12 @@ DEFAULT_FIX = np.array([False, False, False, False])
 
 def test_gradient():
     sample = EllipseSample(DATA, 40.0)
-    sample.update(DEFAULT_FIX)
+    sample.update(fixed_parameters=DEFAULT_FIX)
 
     assert_allclose(sample.mean, 200.02, atol=0.01)
     assert_allclose(sample.gradient, -4.222, atol=0.001)
-    assert_allclose(sample.gradient_error, 0.0003, atol=0.0001)
-    assert_allclose(sample.gradient_relative_error, 7.45e-05, atol=1.0e-5)
+    assert_allclose(sample.gradient_err, 0.0003, atol=0.0001)
+    assert_allclose(sample.gradient_rel_err, 7.45e-05, atol=1.0e-5)
     assert_allclose(sample.sector_area, 2.00, atol=0.01)
 
 
@@ -42,7 +42,7 @@ def test_fitting_raw():
     # pick first guess ellipse that is off in just
     # one of the parameters (eps).
     sample = EllipseSample(DATA, 40.0, eps=2 * 0.2)
-    sample.update(DEFAULT_FIX)
+    sample.update(fixed_parameters=DEFAULT_FIX)
     s = sample.extract()
 
     harmonics = fit_first_and_second_harmonics(s[0], s[2])
@@ -67,7 +67,7 @@ def test_fitting_small_radii():
     isophote = fitter.fit()
 
     assert isinstance(isophote, Isophote)
-    assert isophote.ndata == 13
+    assert isophote.n_data == 13
 
 
 def test_fitting_eps():
@@ -150,8 +150,8 @@ def test_fitting_all():
 @pytest.mark.remote_data
 class TestM51:
     def setup_class(self):
-        path = get_path('isophote/M51.fits', location='photutils-datasets',
-                        cache=True)
+        path = _get_path('isophote/M51.fits', location='photutils-datasets',
+                         cache=True)
         hdu = fits.open(path)
         self.data = hdu[0].data
         hdu.close()
@@ -165,20 +165,20 @@ class TestM51:
 
         # sample taken in high SNR region
         sample = EllipseSample(self.data, 21.44, eps=0.18,
-                               position_angle=(36.0 / 180.0 * np.pi))
+                               position_angle=np.deg2rad(36.0))
         fitter = EllipseFitter(sample)
         isophote = fitter.fit()
 
-        assert isophote.ndata == 119
+        assert isophote.n_data == 119
         assert_allclose(isophote.intens, 685.4, atol=0.1)
 
         # last sample taken by the original code, before turning inwards.
         sample = EllipseSample(self.data, 61.16, eps=0.219,
-                               position_angle=((77.5 + 90) / 180 * np.pi))
+                               position_angle=np.deg2rad(77.5 + 90))
         fitter = EllipseFitter(sample)
         isophote = fitter.fit()
 
-        assert isophote.ndata == 382
+        assert isophote.n_data == 382
         assert_allclose(isophote.intens, 155.0, atol=0.1)
 
     def test_m51_outer(self):
@@ -186,7 +186,7 @@ class TestM51:
         # data points lay outside the image frame. This checks
         # for the presence of gaps in the sample arrays.
         sample = EllipseSample(self.data, 330.0, eps=0.2,
-                               position_angle=((90) / 180 * np.pi),
+                               position_angle=np.deg2rad(90),
                                integrmode='median')
         fitter = EllipseFitter(sample)
         isophote = fitter.fit()
@@ -197,7 +197,7 @@ class TestM51:
         # this code finds central x and y offset by about 0.1 pixel wrt the
         # spp code. In here we use as input the position computed by this
         # code, thus this test is checking just the extraction algorithm.
-        g = EllipseGeometry(257.02, 258.1, 0.0, 0.0, 0.0, 0.1,
+        g = EllipseGeometry(257.02, 258.1, 0.0, 0.0, 0.0, astep=0.1,
                             linear_growth=False)
         sample = CentralEllipseSample(self.data, 0.0, geometry=g)
         fitter = CentralEllipseFitter(sample)
@@ -205,6 +205,6 @@ class TestM51:
 
         # the central pixel intensity is about 3% larger than
         # found by the spp code.
-        assert isophote.ndata == 1
+        assert isophote.n_data == 1
         assert isophote.intens <= 7560.0
         assert isophote.intens >= 7550.0

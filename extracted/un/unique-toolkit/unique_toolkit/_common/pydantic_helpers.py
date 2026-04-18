@@ -1,0 +1,187 @@
+import logging
+import warnings
+from typing import Any, TypeVar, Unpack
+
+import humps
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, create_model
+from pydantic.alias_generators import to_camel
+from pydantic.fields import ComputedFieldInfo, FieldInfo
+from pydantic_core import PydanticUseDefault
+
+logger = logging.getLogger(__name__)
+
+
+def field_title_generator(
+    title: str,
+    info: FieldInfo | ComputedFieldInfo,
+) -> str:
+    return humps.decamelize(title).replace("_", " ").title()
+
+
+def model_title_generator(model: type) -> str:
+    return humps.decamelize(model.__name__).replace("_", " ").title()
+
+
+def _none_to_default(v: Any) -> Any:
+    if v is None:
+        raise PydanticUseDefault()
+    return v
+
+
+"""
+BeforeValidator to replace an incoming None with the field's declared default.
+"""
+NoneToDefault = BeforeValidator(_none_to_default)
+
+
+def get_configuration_dict(**kwargs: Unpack[ConfigDict]) -> ConfigDict:
+    config = {
+        "alias_generator": to_camel,
+        "field_title_generator": field_title_generator,
+        "model_title_generator": model_title_generator,
+        "populate_by_name": True,
+        # protected_namespaces=(),
+    }
+    config.update(kwargs)
+    return ConfigDict(**config)
+
+
+ModelTypeA = TypeVar("ModelTypeA", bound=BaseModel)
+ModelTypeB = TypeVar("ModelTypeB", bound=BaseModel)
+
+
+def _name_intersection(
+    model_type_a: type[ModelTypeA], model_type_b: type[ModelTypeB]
+) -> set[str]:
+    field_names_a = set(model_type_a.model_fields.keys())
+    field_names_b = set(model_type_b.model_fields.keys())
+    return field_names_a.intersection(field_names_b)
+
+
+def create_union_model_from_models(
+    model_types: list[type[ModelTypeA]],
+    model_name: str = "UnionModel",
+    config_dict: ConfigDict = ConfigDict(),
+) -> type[BaseModel]:
+    if len(model_types) == 0:
+        raise ValueError("At least one model type is required")
+
+    if len(model_types) == 1:
+        return model_types[0]
+
+    fields = {}
+    for model_type in model_types:
+        for name, field in model_type.model_fields.items():
+            fields[name] = (field.annotation, field)
+
+    UnionModel = create_model(model_name, __config__=config_dict, **fields)
+    return UnionModel
+
+
+def create_union_model(
+    model_type_a: type[ModelTypeA],
+    model_type_b: type[ModelTypeB],
+    model_name: str = "UnionModel",
+    config_dict: ConfigDict = ConfigDict(),
+) -> type[BaseModel]:
+    """
+    Creates a model that is the union of the two input models.
+    Prefers fields from model_type_a.
+    """
+
+    if len(_name_intersection(model_type_a, model_type_b)) > 0:
+        warnings.warn(
+            f"The two input models have common field names: {_name_intersection(model_type_a, model_type_b)}"
+        )
+
+    fields = {}
+    for name, field in model_type_b.model_fields.items():
+        fields[name] = (field.annotation, field)
+    for name, field in model_type_a.model_fields.items():
+        fields[name] = (field.annotation, field)
+
+    CombinedModel = create_model(model_name, __config__=config_dict, **fields)
+    return CombinedModel
+
+
+def create_intersection_model(
+    model_type_a: type[ModelTypeA],
+    model_type_b: type[ModelTypeB],
+    model_name: str = "IntersectionModel",
+    config_dict: ConfigDict = ConfigDict(),
+) -> type[BaseModel]:
+    """
+    Creates a model that is the intersection of the two input models.
+    Prefers fields from model_type_a.
+    """
+
+    if len(_name_intersection(model_type_a, model_type_b)) == 0:
+        warnings.warn(
+            f"The two input models have no common field names: {_name_intersection(model_type_a, model_type_b)}"
+        )
+
+    fields = {}
+    field_names1 = set(model_type_a.model_fields.keys())
+    field_names2 = set(model_type_b.model_fields.keys())
+    common_field_names = field_names1.intersection(field_names2)
+
+    for name in common_field_names:
+        if name in field_names1.intersection(field_names2):
+            fields[name] = (
+                model_type_a.model_fields[name].annotation,
+                model_type_a.model_fields[name],
+            )
+
+    IntersectionModel = create_model(model_name, __config__=config_dict, **fields)
+    return IntersectionModel
+
+
+def create_complement_model(
+    model_type_a: type[ModelTypeA],
+    model_type_b: type[ModelTypeB],
+    model_name: str = "ComplementModel",
+    config_dict: ConfigDict = ConfigDict(),
+) -> type[BaseModel]:
+    """
+    Creates a model that is the complement of the two input models
+    i.e all fields from model_type_a that are not in model_type_b
+    """
+
+    if len(_name_intersection(model_type_a, model_type_b)) == 0:
+        warnings.warn(
+            f"The two input models have no common field names: {_name_intersection(model_type_a, model_type_b)}"
+        )
+
+    fields = {}
+    field_names_a = set(model_type_a.model_fields.keys())
+    field_names_b = set(model_type_b.model_fields.keys())
+    complement_field_names = field_names_a.difference(field_names_b)
+
+    for name in complement_field_names:
+        fields[name] = (
+            model_type_a.model_fields[name].annotation,
+            model_type_a.model_fields[name],
+        )
+
+    ComplementModel = create_model(model_name, __config__=config_dict, **fields)
+
+    return ComplementModel
+
+
+if __name__ == "__main__":
+
+    class ModelType1(BaseModel):
+        field1: int = Field(default=1, description="Field 1")
+        field2: str = Field(
+            default="test",
+            description="Field 2",
+            json_schema_extra={"title": "Field 2"},
+        )
+
+    class ModelType2(BaseModel):
+        field3: float
+        field4: bool
+
+    combined_model = create_union_model(ModelType1, ModelType2)
+
+    print(combined_model.model_fields)

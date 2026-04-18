@@ -55,7 +55,7 @@ try:
 
             # Only construct URL if host is not None
             if kvs.get("host") and kvs.get("path"):
-                url = f'{kvs["host"]}:{kvs["port"]}{kvs["path"]}'
+                url = f"{kvs['host']}:{kvs['port']}{kvs['path']}"
                 if isinstance(instance, urllib3.connectionpool.HTTPSConnectionPool):
                     kvs["url"] = f"https://{url}"
                 else:
@@ -74,7 +74,7 @@ try:
 
             extract_custom_headers(span, response.headers)
 
-            if 500 <= response.status:
+            if response.status >= 500:
                 span.mark_as_errored()
         except Exception:
             logger.debug("urllib3 collect_response error: ", exc_info=True)
@@ -91,7 +91,7 @@ try:
         args: Tuple[int, str, Tuple[Any, ...]],
         kwargs: Dict[str, Any],
     ) -> urllib3.response.HTTPResponse:
-        tracer, parent_span, span_name = get_tracer_tuple()
+        tracer, _, span_name = get_tracer_tuple()
 
         # If we're not tracing, just return; boto3 has it's own visibility
         if not tracer or span_name == "boto3":

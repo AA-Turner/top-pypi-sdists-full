@@ -14,8 +14,10 @@ from pika.exceptions import AMQPConnectionError
 from abstra_internals.controllers.execution.connection_protocol import (
     ConnectionProtocol,
 )
-from abstra_internals.entities.execution_context import ClientContext
+from abstra_internals.entities.execution_context import ClientContext, FormContext
 from abstra_internals.environment import (
+    NATS_CREDS,
+    NATS_URL,
     PROCESS_TIMEOUT_SECONDS,
     RABBITMQ_CONNECTION_TIMEOUT_SECONDS,
     RABBITMQ_DEFAUT_EXCHANGE,
@@ -33,6 +35,7 @@ from abstra_internals.repositories.models import (
     StopExecutionMessage,
 )
 from abstra_internals.utils import serialize
+from abstra_internals.utils.nats_connection import NATSConnection
 from abstra_internals.utils.rabbitmq_connection import RabbitMQConnection
 
 CONSUMER_INACTIVITY_TIMEOUT = 600  # 10 minutes
@@ -202,16 +205,36 @@ class RabbitMQProducerRepository(ProducerRepository):
             user_jwt=user_jwt,
         )
 
-        with self._connect_with_retry() as connection:
-            with connection.channel() as channel:
-                channel: BlockingChannel
-                channel.queue_declare(queue=self.queue_name, durable=True)
-                channel.basic_publish(
-                    body=preexecution.dump_json(),
-                    routing_key=self.queue_name,
-                    exchange=RABBITMQ_DEFAUT_EXCHANGE,
-                    properties=self.props,
-                )
+        is_form = isinstance(context, FormContext)
+
+        nats_conn = None
+        if NATS_URL and NATS_CREDS and not is_form:
+            nats_conn = NATSConnection(
+                nats_url=NATS_URL,
+                nats_creds=NATS_CREDS,
+                send_subject=f"{execution_id}.s2w",
+                recv_subject=f"{execution_id}.w2s",
+                execution_id=execution_id,
+            )
+
+        try:
+            with self._connect_with_retry() as connection:
+                with connection.channel() as channel:
+                    channel: BlockingChannel
+                    channel.queue_declare(queue=self.queue_name, durable=True)
+                    channel.basic_publish(
+                        body=preexecution.dump_json(),
+                        routing_key=self.queue_name,
+                        exchange=RABBITMQ_DEFAUT_EXCHANGE,
+                        properties=self.props,
+                    )
+        except Exception:
+            if nats_conn:
+                nats_conn.close()
+            raise
+
+        if nats_conn:
+            return nats_conn
 
         rabbitmq_connection = RabbitMQConnection(
             connection_uri=self.connection_uri,
@@ -304,31 +327,32 @@ class RabbitMQProducerRepository(ProducerRepository):
                         msg = conn.recv()
                         last_message_time = time.time()
 
+                        # Normalize: parse string messages to dict
+                        if isinstance(msg, str):
+                            try:
+                                msg = json.loads(msg)
+                            except (json.JSONDecodeError, AttributeError):
+                                continue
+
                         if isinstance(msg, dict):
                             msg_type = msg.get("type")
                             if msg_type in ("stdio", "stdio_batch", "task"):
                                 # Fanout consumer handles broadcast
                                 continue
-
-                        if isinstance(msg, str):
-                            try:
-                                parsed = json.loads(msg)
-                                if parsed.get("type") == "execution:ended":
-                                    execution_id = parsed.get("execution_id")
-                                    if execution_id:
-                                        BroadcastController.broadcast(
-                                            msg=serialize(
-                                                {
-                                                    "type": "execution:update",
-                                                    "payload": {
-                                                        "execution_id": execution_id,
-                                                    },
-                                                }
-                                            )
+                            if msg_type == "execution:ended":
+                                execution_id = msg.get("execution_id")
+                                if execution_id:
+                                    BroadcastController.broadcast(
+                                        msg=serialize(
+                                            {
+                                                "type": "execution:update",
+                                                "payload": {
+                                                    "execution_id": execution_id,
+                                                },
+                                            }
                                         )
-                                        break
-                            except (json.JSONDecodeError, AttributeError):
-                                pass
+                                    )
+                                    break
 
                     if hasattr(conn, "closed") and conn.closed:
                         break

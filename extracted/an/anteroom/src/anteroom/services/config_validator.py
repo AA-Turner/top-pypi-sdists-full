@@ -88,6 +88,7 @@ _KNOWN_TOP_LEVEL = {
     "session",
     "rate_limit",
     "audit",
+    "memory",
     "compliance",
     "trusted_proxy",
     "workflow",
@@ -309,6 +310,7 @@ _KNOWN_KEYS: dict[str, set[str]] = {
         "events",
     },
     "compliance": {"rules"},
+    "memory": {"promotion"},
     "trusted_proxy": {"enabled", "trusted_cidrs", "header"},
 }
 
@@ -479,6 +481,7 @@ def validate_config(raw: dict[str, Any]) -> ValidationResult:
     _check_section_type(raw, "codebase_index", dict, result)
     _check_section_type(raw, "session", dict, result)
     _check_section_type(raw, "audit", dict, result)
+    _check_section_type(raw, "memory", dict, result)
     _check_section_type(raw, "compliance", dict, result)
     _check_section_type(raw, "trusted_proxy", dict, result)
     _check_section_type(raw, "mcp_servers", list, result)

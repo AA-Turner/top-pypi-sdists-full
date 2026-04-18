@@ -12,7 +12,6 @@ import System.Collections
 import System.Collections.Generic
 import System.Collections.ObjectModel
 import System.ComponentModel
-import System.Configuration.Assemblies
 import System.Globalization
 import System.IO
 import System.Numerics
@@ -210,10 +209,6 @@ class Exception(System.Object, System.Runtime.Serialization.ISerializable):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def get_base_exception(self) -> System.Exception:
         ...
 
@@ -242,10 +237,6 @@ class SystemException(System.Exception):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class ArithmeticException(System.SystemException):
     """This class has no documentation."""
@@ -260,10 +251,6 @@ class ArithmeticException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -282,10 +269,6 @@ class DivideByZeroException(System.ArithmeticException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class UnauthorizedAccessException(System.SystemException):
     """This class has no documentation."""
@@ -300,10 +283,6 @@ class UnauthorizedAccessException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -778,14 +757,6 @@ class Enum(System.Object, System.IComparable, System.ISpanFormattable, System.IC
 
     @overload
     def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
         ...
 
     @staticmethod
@@ -5502,10 +5473,6 @@ class AppDomainUnloadedException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class LocalDataStoreSlot(System.Object):
     """This class has no documentation."""
@@ -5526,10 +5493,6 @@ class NotSupportedException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class PlatformNotSupportedException(System.NotSupportedException):
     """This class has no documentation."""
@@ -5544,10 +5507,6 @@ class PlatformNotSupportedException(System.NotSupportedException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -5906,10 +5865,6 @@ class NotFiniteNumberException(System.ArithmeticException):
     def __init__(self, message: str, offending_number: float, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
@@ -5927,10 +5882,6 @@ class NullReferenceException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -6574,10 +6525,6 @@ class TypeLoadException(System.SystemException):
     def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
@@ -6595,10 +6542,6 @@ class TypeAccessException(System.TypeLoadException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -7784,10 +7727,6 @@ class InvalidOperationException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class ObjectDisposedException(System.InvalidOperationException):
     """This class has no documentation."""
@@ -7810,10 +7749,6 @@ class ObjectDisposedException(System.InvalidOperationException):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
@@ -7861,10 +7796,6 @@ class ArgumentException(System.SystemException):
     def __init__(self, message: str, param_name: str) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
@@ -7896,10 +7827,6 @@ class ArgumentNullException(System.ArgumentException):
     def __init__(self, param_name: str, message: str) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     @staticmethod
     def throw_if_null(argument: typing.Any, param_name: str = None) -> None:
         ...
@@ -7925,10 +7852,6 @@ class AccessViolationException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -7965,10 +7888,6 @@ class InvalidTimeZoneException(System.Exception):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -8611,10 +8530,6 @@ class MemberAccessException(System.SystemException):
     def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class MissingMemberException(System.MemberAccessException):
     """This class has no documentation."""
@@ -8663,10 +8578,6 @@ class MissingMemberException(System.MemberAccessException):
     def __init__(self, class_name: str, member_name: str) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
@@ -8692,10 +8603,6 @@ class MissingMethodException(System.MissingMemberException):
 
     @overload
     def __init__(self, class_name: str, method_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -8730,10 +8637,6 @@ class OperationCanceledException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception, token: System.Threading.CancellationToken) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class OutOfMemoryException(System.SystemException):
     """This class has no documentation."""
@@ -8748,10 +8651,6 @@ class OutOfMemoryException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -10875,10 +10774,6 @@ class ArrayTypeMismatchException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class MethodAccessException(System.MemberAccessException):
     """This class has no documentation."""
@@ -10893,10 +10788,6 @@ class MethodAccessException(System.MemberAccessException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -11188,10 +11079,6 @@ class WeakReference(typing.Generic[System_WeakReference_T], System.Object, Syste
 
     @overload
     def __init__(self, target: System_WeakReference_T, track_resurrection: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
@@ -11537,10 +11424,6 @@ class AppDomain(System.MarshalByRefObject):
         ...
 
     @overload
-    def execute_assembly(self, assembly_file: str, args: typing.List[str], hash_value: typing.List[int], hash_algorithm: System.Configuration.Assemblies.AssemblyHashAlgorithm) -> int:
-        ...
-
-    @overload
     def execute_assembly_by_name(self, assembly_name: System.Reflection.AssemblyName, *args: typing.Union[str, typing.Iterable[str]]) -> int:
         ...
 
@@ -11662,10 +11545,6 @@ class DllNotFoundException(System.TypeLoadException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -12298,10 +12177,6 @@ class EntryPointNotFoundException(System.TypeLoadException):
     def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class FlagsAttribute(System.Attribute):
     """This class has no documentation."""
@@ -12365,10 +12240,6 @@ class NotImplementedException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -13249,10 +13120,6 @@ class FormatException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class TimeZoneNotFoundException(System.Exception):
     """This class has no documentation."""
@@ -13267,10 +13134,6 @@ class TimeZoneNotFoundException(System.Exception):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -13364,10 +13227,6 @@ class BadImageFormatException(System.SystemException):
 
     @overload
     def __init__(self, message: str, file_name: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
@@ -13888,10 +13747,6 @@ class MissingFieldException(System.MissingMemberException, System.Runtime.Serial
     def __init__(self, class_name: str, field_name: str) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class Buffer(System.Object):
     """This class has no documentation."""
@@ -13937,10 +13792,6 @@ class ContextMarshalException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -14197,10 +14048,6 @@ class CannotUnloadAppDomainException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class FieldAccessException(System.MemberAccessException):
     """This class has no documentation."""
@@ -14217,10 +14064,6 @@ class FieldAccessException(System.MemberAccessException):
     def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class TypeUnloadedException(System.SystemException):
     """This class has no documentation."""
@@ -14235,10 +14078,6 @@ class TypeUnloadedException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -14543,10 +14382,6 @@ class TimeoutException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class Activator(System.Object):
     """This class has no documentation."""
@@ -14754,10 +14589,6 @@ class ApplicationException(System.Exception):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -15296,10 +15127,6 @@ class OverflowException(System.ArithmeticException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class IUtf8SpanParsable(typing.Generic[System_IUtf8SpanParsable_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
@@ -15714,10 +15541,6 @@ class ArgumentOutOfRangeException(System.ArgumentException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
@@ -16084,10 +15907,6 @@ class DuplicateWaitObjectException(System.ArgumentException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class AggregateException(System.Exception):
     """This class has no documentation."""
@@ -16128,10 +15947,6 @@ class AggregateException(System.Exception):
     def __init__(self, message: str, *inner_exceptions: typing.Union[System.Exception, typing.Iterable[System.Exception]]) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def flatten(self) -> System.AggregateException:
         ...
 
@@ -16167,10 +15982,6 @@ class InvalidCastException(System.SystemException):
     def __init__(self, message: str, error_code: int) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class IProgress(typing.Generic[System_IProgress_T], metaclass=abc.ABCMeta):
     """This class has no documentation."""
@@ -16192,10 +16003,6 @@ class RankException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 

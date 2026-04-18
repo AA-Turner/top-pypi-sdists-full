@@ -13,7 +13,7 @@ import System
 class IOptionExerciseModel(metaclass=abc.ABCMeta):
     """Represents a model that simulates option exercise and lapse events"""
 
-    def option_exercise(self, option: QuantConnect.Securities.Option.Option, order: QuantConnect.Orders.OptionExerciseOrder) -> typing.Iterable[QuantConnect.Orders.OrderEvent]:
+    def option_exercise(self, option: QuantConnect.Securities.Option.Option, order: QuantConnect.Orders.OptionExerciseOrder) -> typing.Sequence[QuantConnect.Orders.OrderEvent]:
         """
         Model the option exercise
         
@@ -27,7 +27,7 @@ class IOptionExerciseModel(metaclass=abc.ABCMeta):
 class DefaultExerciseModel(System.Object, QuantConnect.Orders.OptionExercise.IOptionExerciseModel):
     """Represents the default option exercise model (physical, cash settlement)"""
 
-    def option_exercise(self, option: QuantConnect.Securities.Option.Option, order: QuantConnect.Orders.OptionExerciseOrder) -> typing.Iterable[QuantConnect.Orders.OrderEvent]:
+    def option_exercise(self, option: QuantConnect.Securities.Option.Option, order: QuantConnect.Orders.OptionExerciseOrder) -> typing.Sequence[QuantConnect.Orders.OrderEvent]:
         """
         Default option exercise model for the basic equity/index option security class.
         
@@ -48,7 +48,7 @@ class OptionExerciseModelPythonWrapper(QuantConnect.Python.BasePythonWrapper[Qua
         """
         ...
 
-    def option_exercise(self, option: QuantConnect.Securities.Option.Option, order: QuantConnect.Orders.OptionExerciseOrder) -> typing.Iterable[QuantConnect.Orders.OrderEvent]:
+    def option_exercise(self, option: QuantConnect.Securities.Option.Option, order: QuantConnect.Orders.OptionExerciseOrder) -> typing.Sequence[QuantConnect.Orders.OrderEvent]:
         """
         Performs option exercise for the option security class.
         

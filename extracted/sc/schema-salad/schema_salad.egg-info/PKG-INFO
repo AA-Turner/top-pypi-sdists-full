@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schema-salad
-Version: 8.9.20260327095315
+Version: 8.9.20260417192335
 Summary: Schema Annotations for Linked Avro Data (SALAD)
 Home-page: https://schema-salad.readthedocs.io/
 Download-URL: https://github.com/common-workflow-language/schema_salad/releases

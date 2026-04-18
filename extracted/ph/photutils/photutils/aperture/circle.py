@@ -1,11 +1,14 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define circular and circular-annulus apertures in both pixel and sky
+Circular and circular-annulus apertures in both pixel and sky
 coordinates.
 """
 
 import math
 
+import astropy.units as u
+import numpy as np
+from astropy.coordinates import Angle
 from astropy.utils import lazyproperty
 
 from photutils.aperture.attributes import (PixelPositions, PositiveScalar,
@@ -14,6 +17,9 @@ from photutils.aperture.attributes import (PixelPositions, PositiveScalar,
 from photutils.aperture.core import PixelAperture, SkyAperture
 from photutils.aperture.mask import ApertureMask
 from photutils.geometry import circular_overlap_grid
+from photutils.utils._deprecation import deprecated
+from photutils.utils._wcs_helpers import (pixel_to_sky_mean_scale,
+                                          sky_to_pixel_mean_scale)
 
 __all__ = [
     'CircularAnnulus',
@@ -24,10 +30,13 @@ __all__ = [
 ]
 
 
-class CircularMaskMixin:
+@deprecated('3.0')
+class CircularMaskMixin:  # pragma: no cover
     """
     Mixin class to create masks for circular and circular-annulus
     aperture objects.
+
+    .. deprecated:: 3.0
     """
 
     def to_mask(self, method='exact', subpixels=5):
@@ -76,7 +85,7 @@ class CircularMaskMixin:
             otherwise a list of `~photutils.aperture.ApertureMask` is
             returned.
         """
-        use_exact, subpixels = self._translate_mask_mode(method, subpixels)
+        use_exact, subpixels = self._translate_mask_method(method, subpixels)
 
         if hasattr(self, 'r'):
             radius = self.r
@@ -93,7 +102,7 @@ class CircularMaskMixin:
                                          edges[3], nx, ny, radius, use_exact,
                                          subpixels)
 
-            # subtract the inner circle for an annulus
+            # Subtract the inner circle for an annulus
             if hasattr(self, 'r_in'):
                 mask -= circular_overlap_grid(edges[0], edges[1], edges[2],
                                               edges[3], nx, ny, self.r_in,
@@ -107,7 +116,7 @@ class CircularMaskMixin:
         return masks
 
 
-class CircularAperture(CircularMaskMixin, PixelAperture):
+class CircularAperture(PixelAperture):
     """
     A circular aperture defined in pixel coordinates.
 
@@ -163,7 +172,7 @@ class CircularAperture(CircularMaskMixin, PixelAperture):
         """
         return math.pi * self.r**2
 
-    def _to_patch(self, origin=(0, 0), **kwargs):
+    def _to_patch(self, *, origin=(0, 0), **kwargs):
         """
         Return a `~matplotlib.patches.Patch` for the aperture.
 
@@ -198,9 +207,36 @@ class CircularAperture(CircularMaskMixin, PixelAperture):
 
         return patches
 
-    def to_mask(self, method='exact', subpixels=5):
-        return CircularMaskMixin.to_mask(self, method=method,
-                                         subpixels=subpixels)
+    def _compute_overlap(self, edges, nx, ny, use_exact, subpixels):
+        """
+        Compute the overlap of the aperture on the pixel grid.
+
+        Parameters
+        ----------
+        edges : list of 4 1D `~numpy.ndarray`
+            The edges of the pixel grid in the form of
+            ``[x_edges, y_edges, x_centers, y_centers]``.
+
+        nx, ny : int
+            The number of pixels in the x and y directions.
+
+        use_exact : bool
+            Whether to use the exact method for calculating the overlap.
+
+        subpixels : int
+            The number of subpixels to use in each dimension for the
+            subpixel method.
+
+        Returns
+        -------
+        overlap : 2D `~numpy.ndarray`
+            The overlap of the aperture on the pixel grid. The values
+            will be between 0 and 1, where 0 means no overlap and 1
+            means full overlap.
+        """
+        return circular_overlap_grid(edges[0], edges[1], edges[2],
+                                     edges[3], nx, ny, self.r,
+                                     use_exact, subpixels)
 
     def to_sky(self, wcs):
         """
@@ -219,11 +255,29 @@ class CircularAperture(CircularMaskMixin, PixelAperture):
         -------
         aperture : `SkyCircularAperture` object
             A `SkyCircularAperture` object.
+
+        Notes
+        -----
+        The aperture shape parameters are converted using the local
+        WCS pixel scale evaluated at the first aperture position.
+        Because aperture objects require scalar shape parameters, only
+        a single reference position is used for the conversion. For
+        apertures with multiple positions used with a WCS that has
+        spatially-varying distortions, this may produce inaccurate
+        results for positions far from the first position.
         """
-        return SkyCircularAperture(**self._to_sky_params(wcs))
+        xpos, ypos = np.transpose(self.positions)
+        positions = wcs.pixel_to_world(xpos, ypos)
+
+        first_pos = np.atleast_2d(self.positions)[0]
+        _, mean_scale = pixel_to_sky_mean_scale(
+            (float(first_pos[0]), float(first_pos[1])), wcs)
+
+        r = Angle(self.r * mean_scale, 'arcsec')
+        return SkyCircularAperture(positions=positions, r=r)
 
 
-class CircularAnnulus(CircularMaskMixin, PixelAperture):
+class CircularAnnulus(PixelAperture):
     """
     A circular annulus aperture defined in pixel coordinates.
 
@@ -274,7 +328,7 @@ class CircularAnnulus(CircularMaskMixin, PixelAperture):
 
     def __init__(self, positions, r_in, r_out):
         if not r_out > r_in:
-            msg = 'r_out must be greater than r_in'
+            msg = "'r_out' must be greater than 'r_in'"
             raise ValueError(msg)
 
         self.positions = positions
@@ -292,7 +346,7 @@ class CircularAnnulus(CircularMaskMixin, PixelAperture):
         """
         return math.pi * (self.r_out**2 - self.r_in**2)
 
-    def _to_patch(self, origin=(0, 0), **kwargs):
+    def _to_patch(self, *, origin=(0, 0), **kwargs):
         """
         Return a `~matplotlib.patches.Patch` for the aperture.
 
@@ -331,9 +385,40 @@ class CircularAnnulus(CircularMaskMixin, PixelAperture):
 
         return patches
 
-    def to_mask(self, method='exact', subpixels=5):
-        return CircularMaskMixin.to_mask(self, method=method,
-                                         subpixels=subpixels)
+    def _compute_overlap(self, edges, nx, ny, use_exact, subpixels):
+        """
+        Compute the overlap of the aperture on the pixel grid.
+
+        Parameters
+        ----------
+        edges : list of 4 1D `~numpy.ndarray`
+            The edges of the pixel grid in the form of
+            ``[x_edges, y_edges, x_centers, y_centers]``.
+
+        nx, ny : int
+            The number of pixels in the x and y directions.
+
+        use_exact : bool
+            Whether to use the exact method for calculating the overlap.
+
+        subpixels : int
+            The number of subpixels to use in each dimension for the
+            subpixel method.
+
+        Returns
+        -------
+        overlap : 2D `~numpy.ndarray`
+            The overlap of the aperture on the pixel grid. The values
+            will be between 0 and 1, where 0 means no overlap and 1
+            means full overlap.
+        """
+        overlap = circular_overlap_grid(edges[0], edges[1], edges[2],
+                                        edges[3], nx, ny, self.r_out,
+                                        use_exact, subpixels)
+        overlap -= circular_overlap_grid(edges[0], edges[1], edges[2],
+                                         edges[3], nx, ny, self.r_in,
+                                         use_exact, subpixels)
+        return overlap
 
     def to_sky(self, wcs):
         """
@@ -352,8 +437,27 @@ class CircularAnnulus(CircularMaskMixin, PixelAperture):
         -------
         aperture : `SkyCircularAnnulus` object
             A `SkyCircularAnnulus` object.
+
+        Notes
+        -----
+        The aperture shape parameters are converted using the local
+        WCS pixel scale evaluated at the first aperture position.
+        Because aperture objects require scalar shape parameters, only
+        a single reference position is used for the conversion. For
+        apertures with multiple positions used with a WCS that has
+        spatially-varying distortions, this may produce inaccurate
+        results for positions far from the first position.
         """
-        return SkyCircularAnnulus(**self._to_sky_params(wcs))
+        xpos, ypos = np.transpose(self.positions)
+        positions = wcs.pixel_to_world(xpos, ypos)
+
+        first_pos = np.atleast_2d(self.positions)[0]
+        _, mean_scale = pixel_to_sky_mean_scale(
+            (float(first_pos[0]), float(first_pos[1])), wcs)
+
+        r_in = Angle(self.r_in * mean_scale, 'arcsec')
+        r_out = Angle(self.r_out * mean_scale, 'arcsec')
+        return SkyCircularAnnulus(positions=positions, r_in=r_in, r_out=r_out)
 
 
 class SkyCircularAperture(SkyAperture):
@@ -406,8 +510,25 @@ class SkyCircularAperture(SkyAperture):
         -------
         aperture : `CircularAperture` object
             A `CircularAperture` object.
+
+        Notes
+        -----
+        The aperture shape parameters are converted using the local
+        WCS pixel scale evaluated at the first aperture position.
+        Because aperture objects require scalar shape parameters, only
+        a single reference position is used for the conversion. For
+        apertures with multiple positions used with a WCS that has
+        spatially-varying distortions, this may produce inaccurate
+        results for positions far from the first position.
         """
-        return CircularAperture(**self._to_pixel_params(wcs))
+        xpos, ypos = wcs.world_to_pixel(self.positions)
+        positions = np.transpose((xpos, ypos))
+
+        skypos = self.positions if self.isscalar else self.positions[0]
+        _, mean_scale = sky_to_pixel_mean_scale(skypos, wcs)
+
+        r = self.r.to(u.arcsec).value * mean_scale
+        return CircularAperture(positions=positions, r=r)
 
 
 class SkyCircularAnnulus(SkyAperture):
@@ -444,8 +565,8 @@ class SkyCircularAnnulus(SkyAperture):
     r_out = PositiveScalarAngle('The outer radius in angular units.')
 
     def __init__(self, positions, r_in, r_out):
-        if r_in.unit.physical_type != r_out.unit.physical_type:
-            msg = 'r_in and r_out should either both be angles or in pixels'
+        if not r_out > r_in:
+            msg = "'r_out' must be greater than 'r_in'"
             raise ValueError(msg)
 
         self.positions = positions
@@ -469,5 +590,23 @@ class SkyCircularAnnulus(SkyAperture):
         -------
         aperture : `CircularAnnulus` object
             A `CircularAnnulus` object.
+
+        Notes
+        -----
+        The aperture shape parameters are converted using the local
+        WCS pixel scale evaluated at the first aperture position.
+        Because aperture objects require scalar shape parameters, only
+        a single reference position is used for the conversion. For
+        apertures with multiple positions used with a WCS that has
+        spatially-varying distortions, this may produce inaccurate
+        results for positions far from the first position.
         """
-        return CircularAnnulus(**self._to_pixel_params(wcs))
+        xpos, ypos = wcs.world_to_pixel(self.positions)
+        positions = np.transpose((xpos, ypos))
+
+        skypos = self.positions if self.isscalar else self.positions[0]
+        _, mean_scale = sky_to_pixel_mean_scale(skypos, wcs)
+
+        r_in = self.r_in.to(u.arcsec).value * mean_scale
+        r_out = self.r_out.to(u.arcsec).value * mean_scale
+        return CircularAnnulus(positions=positions, r_in=r_in, r_out=r_out)

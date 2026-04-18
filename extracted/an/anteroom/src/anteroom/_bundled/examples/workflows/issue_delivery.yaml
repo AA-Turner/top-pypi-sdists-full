@@ -8,7 +8,12 @@ inputs:
     required: true
 
 policies:
-  max_review_rounds: 2
+  inject_rules: true
+  inject_conventions: true
+  budget:
+    max_duration_seconds: 3600
+    max_steps: 30
+    max_tokens: 150000
 
 steps:
   - id: gate_issue_current
@@ -25,50 +30,170 @@ steps:
     type: runner
     runner: cli_claude
     prompt: |
-      Implement the changes described in the approved plan for issue #{issue_number}.
-      Create or recover a worktree, make the changes, and run basic validation.
-    timeout: 600
+      Implement the approved plan for issue #{issue_number} in the current checkout.
+      Keep the diff focused, leave the branch ready for automated checks and PR creation,
+      and summarize any residual risk or follow-up work.
+    timeout: 900
+    retry:
+      max_attempts: 2
+      backoff: exponential
+      initial_delay: 15
 
-  - id: fast_checks
+  - id: fast_checks_loop
+    type: loop
+    max_rounds: 2
+    until:
+      step: run_checks
+      field: result_status
+      equals: success
+    fail_if_not_met: true
+    stop_after_unchanged: 2
+    steps:
+      - id: run_checks
+        type: runner
+        runner: shell
+        command: "ruff check src/ tests/ && ruff format --check src/ tests/ && python -m pytest tests/unit/ -x -q --tb=short"
+        timeout: 300
+        continue_on:
+          - failed
+
+      - id: fix_checks
+        type: runner
+        runner: cli_claude
+        when:
+          step: run_checks
+          field: result_status
+          equals: failed
+        prompt: |
+          Fix the failing lint, formatting, or unit-test issues from the prior checks step.
+          Make the smallest set of changes needed to get the branch clean.
+        context_from:
+          - step: run_checks
+            field: result_summary
+          - step: run_checks
+            field: result_findings
+        timeout: 900
+        retry:
+          max_attempts: 2
+          backoff: exponential
+          initial_delay: 10
+
+  - id: sync_for_pr
     type: runner
     runner: shell
-    command: "ruff check src/ && ruff format --check src/ && python -m pytest tests/unit/ -x -q --tb=short"
-    timeout: 120
+    command: |
+      branch="$(git branch --show-current)"
+      if [ -z "$branch" ]; then
+        echo "No current branch to push" >&2
+        exit 1
+      fi
+      if [ -n "$(git status --porcelain)" ]; then
+        git add -A
+        git commit -m "feat: implement issue #{issue_number}" || true
+      fi
+      git push --set-upstream origin "$branch"
+    timeout: 180
+    retry:
+      max_attempts: 2
+      backoff: fixed
+      initial_delay: 5
 
   - id: open_pr
     type: runner
     runner: shell
-    command: "gh pr create --title 'feat: implement issue #{issue_number}' --body 'Implements #{issue_number}' --draft"
-    timeout: 60
+    command: "gh pr view --json url -q .url || gh pr create --title 'feat: implement issue #{issue_number}' --body 'Implements #{issue_number}' --draft"
+    timeout: 120
+    retry:
+      max_attempts: 2
+      backoff: fixed
+      initial_delay: 10
+    outputs:
+      - name: pr_url
+        from: result_summary
 
   - id: review_loop
     type: loop
-    max_rounds: 2
+    max_rounds: 3
+    until:
+      step: review
+      field: result_findings
+      is_empty: true
+    fail_if_not_met: true
+    stop_after_unchanged: 2
     steps:
       - id: review
         type: runner
         runner: cli_codex
         prompt: |
-          Review the PR diff for issue #{issue_number}. Report only blockers.
-          Focus on correctness, security, and test coverage.
+          Review the PR for issue #{issue_number}. Report only blocking issues.
+          Focus on correctness, security, regression risk, and missing tests.
+          Return no findings when the PR is ready.
         context_from:
           - step: open_pr
-            field: result_summary
-        timeout: 300
+            field: result_outputs.pr_url
+        timeout: 360
+        retry:
+          max_attempts: 2
+          backoff: fixed
+          initial_delay: 15
 
       - id: fix_findings
         type: runner
         runner: cli_claude
+        when:
+          step: review
+          field: result_findings
+          is_not_empty: true
         prompt: |
-          Fix the blockers found in the review. One pass only.
-          Do not introduce new features or refactor beyond what's needed.
+          Fix only the blocking review findings from the prior step.
+          Do not add features or perform unrelated refactors.
         context_from:
           - step: review
             field: result_findings
-        timeout: 300
+        timeout: 900
+        retry:
+          max_attempts: 2
+          backoff: exponential
+          initial_delay: 15
+
+      - id: sync_review_fixes
+        type: runner
+        runner: shell
+        when:
+          step: fix_findings
+          field: result_status
+          equals: success
+        command: |
+          branch="$(git branch --show-current)"
+          if [ -z "$branch" ]; then
+            echo "No current branch to push" >&2
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "fix: address review blockers for issue #{issue_number}" || true
+          fi
+          git push --set-upstream origin "$branch"
+        timeout: 180
+        retry:
+          max_attempts: 2
+          backoff: fixed
+          initial_delay: 5
 
   - id: final_checks
     type: runner
     runner: shell
-    command: "ruff check src/ && python -m pytest tests/unit/ -x -q --tb=short"
-    timeout: 120
+    command: "ruff check src/ tests/ && ruff format --check src/ tests/ && python -m pytest tests/unit/ -x -q --tb=short"
+    timeout: 300
+    on_failure:
+      - id: capture_final_state
+        type: runner
+        runner: shell
+        command: |
+          echo "=== git status ==="
+          git status --short
+          echo "=== git diff --stat ==="
+          git diff --stat
+          echo "=== recent commits ==="
+          git log --oneline -5
+        timeout: 30

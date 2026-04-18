@@ -2806,6 +2806,134 @@ def _resolve_chunk_results(
     return results
 
 
+# --- Memory Artifact Embeddings ---
+
+
+def get_unembedded_memory_artifacts(db: ThreadSafeConnection, limit: int = 100) -> list[dict[str, Any]]:
+    """Get memory artifacts that don't have embeddings yet, or that need re-embedding."""
+    rows = db.execute_fetchall(
+        """
+        SELECT a.id, a.fqn, a.content, a.content_hash
+        FROM artifacts a
+        LEFT JOIN memory_artifact_embeddings mae ON mae.artifact_id = a.id
+        WHERE a.type = 'memory'
+          AND (mae.artifact_id IS NULL OR mae.status = 'pending')
+        ORDER BY a.created_at
+        LIMIT ?
+        """,
+        (limit,),
+    )
+    return [dict(r) for r in rows]
+
+
+def mark_memory_artifact_embedding_skipped(
+    db: ThreadSafeConnection,
+    artifact_id: str,
+    content_hash: str,
+    status: str = "skipped",
+) -> None:
+    """Write a sentinel row so the artifact is excluded from future queries."""
+    if status not in _VALID_EMBEDDING_STATUSES:
+        raise ValueError(f"Invalid embedding status: {status!r}")
+    now = _now()
+    db.execute(
+        "INSERT OR IGNORE INTO memory_artifact_embeddings"
+        " (artifact_id, content_hash, status, created_at)"
+        " VALUES (?, ?, ?, ?)",
+        (artifact_id, content_hash, status, now),
+    )
+    db.commit()
+
+
+def store_memory_artifact_embedding(
+    db: ThreadSafeConnection,
+    artifact_id: str,
+    embedding: list[float],
+    content_hash: str,
+    *,
+    vec_index: Any | None = None,
+) -> None:
+    """Store a memory artifact embedding in metadata table and usearch index.
+
+    The *vec_index* parameter should be a ``VectorIndex`` instance (the memories
+    index from ``VectorIndexManager``).
+    """
+    _validate_embedding(embedding)
+
+    now = _now()
+
+    with db.transaction() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO memory_artifact_embeddings (artifact_id, content_hash, status, created_at)"
+            " VALUES (?, ?, 'embedded', ?)",
+            (artifact_id, content_hash, now),
+        )
+
+    if vec_index is not None:
+        try:
+            vec_index.add(artifact_id, embedding)
+        except Exception:
+            logger.warning(
+                "Failed to add artifact %s to usearch index; resetting to pending", artifact_id, exc_info=True
+            )
+            db.execute(
+                "UPDATE memory_artifact_embeddings SET status = 'pending' WHERE artifact_id = ?",
+                (artifact_id,),
+            )
+            db.commit()
+
+
+def search_similar_memory_artifacts(
+    db: ThreadSafeConnection,
+    embedding: list[float],
+    limit: int = 20,
+    *,
+    vec_index: Any | None = None,
+    namespaces: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Search for semantically similar memory artifacts using usearch cosine similarity.
+
+    When *namespaces* is given, results are filtered to artifacts whose namespace
+    is in that set — enforcing scope-based visibility.
+    """
+    if vec_index is None:
+        return []
+    _validate_embedding(embedding)
+
+    raw = vec_index.search(embedding, limit=max(limit * 3, limit + 5))
+    if not raw:
+        return []
+
+    # ``VectorIndex.search()`` returns a list of ``{"key", "distance"}`` dicts.
+    ids = [r["key"] for r in raw]
+    distance_map = {r["key"]: r["distance"] for r in raw}
+
+    placeholders = ",".join("?" * len(ids))
+    sql = (
+        "SELECT id, fqn, namespace, name, content, metadata FROM artifacts "
+        f"WHERE type = 'memory' AND id IN ({placeholders})"
+    )
+    params: list[Any] = list(ids)
+    if namespaces is not None:
+        ns_placeholders = ",".join("?" * len(namespaces))
+        sql += f" AND namespace IN ({ns_placeholders})"
+        params.extend(namespaces)
+
+    rows = db.execute_fetchall(sql, tuple(params))
+    results: list[dict[str, Any]] = []
+    # Preserve similarity ranking returned by usearch
+    row_map = {r["id"]: dict(r) for r in rows}
+    for aid in ids:
+        if aid not in row_map:
+            continue
+        d = row_map[aid]
+        d["distance"] = distance_map[aid]
+        results.append(d)
+        if len(results) >= limit:
+            break
+    return results
+
+
 def reprocess_source(
     db: ThreadSafeConnection,
     source_id: str,

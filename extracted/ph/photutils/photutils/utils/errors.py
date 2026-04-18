@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define tools for calculating total error arrays.
+Tools for calculating total error arrays.
 """
 
 import astropy.units as u
@@ -147,7 +147,11 @@ def calc_total_error(data, bkg_error, effective_gain):
     use_units = all(has_unit)
     if any(has_unit) and not use_units:
         msg = ('If any of data, bkg_error, or effective_gain has units, '
-               'then they all must all have units.')
+               'then they all must have units.')
+        raise ValueError(msg)
+
+    if bkg_error.shape != data.shape:
+        msg = ('bkg_error must have the same shape as the input data.')
         raise ValueError(msg)
 
     if use_units:
@@ -159,7 +163,7 @@ def calc_total_error(data, bkg_error, effective_gain):
         datagain_unit = data.unit * effective_gain.unit
         if datagain_unit not in count_units:
             msg = ('(data * effective_gain) has units of '
-                   '{datagain_unit}, but it must have count units '
+                   f'{datagain_unit}, but it must have count units '
                    '(e.g., u.electron or u.photon).')
             raise u.UnitsError(msg)
 
@@ -172,7 +176,7 @@ def calc_total_error(data, bkg_error, effective_gain):
                    'the same shape as the input data.')
             raise ValueError(msg)
     if np.any(effective_gain < 0):
-        msg = 'effective_gain must be non-zero everywhere'
+        msg = 'effective_gain must be non-negative everywhere'
         raise ValueError(msg)
 
     if use_units:
@@ -180,13 +184,13 @@ def calc_total_error(data, bkg_error, effective_gain):
         data = data.value
         effective_gain = effective_gain.value
 
-    # do not include source variance where effective_gain = 0
+    # Do not include source variance where effective_gain = 0
     source_variance = data.copy()
     mask = effective_gain != 0
     source_variance[mask] /= effective_gain[mask]
     source_variance[~mask] = 0.0
 
-    # do not include source variance where data is negative (note that
+    # Do not include source variance where data is negative (note that
     # effective_gain cannot be negative)
     source_variance = np.maximum(source_variance, 0)
 

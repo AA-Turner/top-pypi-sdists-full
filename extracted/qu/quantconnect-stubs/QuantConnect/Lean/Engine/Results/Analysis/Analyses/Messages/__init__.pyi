@@ -21,7 +21,7 @@ class MessageAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseRes
         """This codeEntityType is protected."""
         ...
 
-    def match(self, messages: typing.Sequence[str], expected_messages: typing.List[str]) -> typing.Iterable[str]:
+    def match(self, messages: typing.Sequence[str], expected_messages: typing.List[str]) -> typing.Sequence[str]:
         """
         Returns messages from messages that contain all strings in expected_messages
         (case-insensitive).

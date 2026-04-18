@@ -132,14 +132,6 @@ def configure_snowpark_session(session: snowpark.Session):
         "QUERY_TAG": f"'{query_tag}'",
     }
 
-    # SNOW-3316643: Enable SCOS feature flag on CI (Jenkins sfctest0/qa6/preprod6) only.
-    # Phase 2: enable by default once the GS-side public session parameter fix lands.
-    _conn_param_file = os.environ.get("CONN_PARAM_FILE", "")
-    if "SAS_DAILY_JENKINS" in os.environ or any(
-        env in _conn_param_file for env in ("sfctest0", "preprod", "qa")
-    ):
-        session_params["ENABLE_SCOS_FEATURE"] = "true"
-
     # SNOW-2245971: Stored procedures inside Native Apps run as Execute As Owner and hence cannot set session params.
     if not SKIP_SESSION_CONFIGURATION:
         session.sql(
@@ -160,6 +152,20 @@ def configure_snowpark_session(session: snowpark.Session):
             # If the query failed, that means the parameter is not available, and we cannot use TRY_CAST
             # in JSON casting operations.
             pass
+        # TODO(SNOW-3316643): Once ENABLE_SCOS_FEATURE is available on all
+        # deployments, move this to the `session_params` dict and remove the
+        # try block.
+        try:
+            result = session.sql(
+                "ALTER SESSION SET ENABLE_SCOS_FEATURE = true"
+            ).collect()
+            session._enable_scos_feature = (
+                len(result) == 1
+                and hasattr(result[0], "status")
+                and result[0].status == "Statement executed successfully."
+            )
+        except SnowparkSQLException:
+            session._enable_scos_feature = False
     else:
         session_param_names = ", ".join(session_params.keys())
         logger.info(

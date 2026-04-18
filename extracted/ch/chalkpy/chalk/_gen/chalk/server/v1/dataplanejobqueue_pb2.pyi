@@ -383,10 +383,19 @@ class GetJobQueueOperationSummaryRequest(_message.Message):
     ) -> None: ...
 
 class GetJobQueueOperationSummaryResponse(_message.Message):
-    __slots__ = ("summary",)
+    __slots__ = ("managed_by_job_queue", "summary", "referencing_workflow_execution_id")
+    MANAGED_BY_JOB_QUEUE_FIELD_NUMBER: _ClassVar[int]
     SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    REFERENCING_WORKFLOW_EXECUTION_ID_FIELD_NUMBER: _ClassVar[int]
+    managed_by_job_queue: bool
     summary: JobQueueOperationSummary
-    def __init__(self, summary: _Optional[_Union[JobQueueOperationSummary, _Mapping]] = ...) -> None: ...
+    referencing_workflow_execution_id: str
+    def __init__(
+        self,
+        managed_by_job_queue: bool = ...,
+        summary: _Optional[_Union[JobQueueOperationSummary, _Mapping]] = ...,
+        referencing_workflow_execution_id: _Optional[str] = ...,
+    ) -> None: ...
 
 class JobQueueAttempt(_message.Message):
     __slots__ = (

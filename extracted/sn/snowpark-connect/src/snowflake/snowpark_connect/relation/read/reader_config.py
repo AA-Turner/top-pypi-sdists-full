@@ -126,7 +126,7 @@ CSV_READ_SUPPORTED_OPTIONS = lowercase_set(
         # "maxColumns",
         # "maxCharsPerColumn",
         # "maxMalformedLogPerPartition",
-        # "mode",
+        "mode",
         # "columnNameOfCorruptRecord",
         "multiLine",
         # "charToEscapeQuoteEscaping",
@@ -191,6 +191,16 @@ CSV_READ_DEFAULT_CONFIG = lowercase_dict_keys(
         "rowsToInferSchema": DEFAULT_ROWS_TO_INFER_SCHEMA,
     }
 )
+
+
+def apply_drop_malformed_on_error(options: dict[str, Any]) -> None:
+    """Set ON_ERROR=CONTINUE in both INFER_SCHEMA_OPTIONS and top-level options.
+
+    Called when mode=DROPMALFORMED. Maps to Snowflake's ON_ERROR=CONTINUE
+    which silently drops rows that fail to parse (SNOW-3308282).
+    """
+    options.setdefault("INFER_SCHEMA_OPTIONS", {})["ON_ERROR"] = "CONTINUE"
+    options["ON_ERROR"] = "CONTINUE"
 
 
 def apply_infer_schema_options(snowpark_config: dict[str, Any]) -> None:
@@ -304,6 +314,10 @@ def csv_convert_to_snowpark_args(snowpark_config: dict[str, Any]) -> dict[str, A
         snowpark_config["TRIM_SPACE"] = True
 
     apply_infer_schema_options(snowpark_config)
+
+    # Pop Spark's 'mode' option so it doesn't pass through as a Snowflake option.
+    # Actual handling happens in map_read_csv.py (same pattern as JSON).
+    snowpark_config.pop("mode", None)
 
     # Convert Java/Spark date and timestamp format strings to Snowflake equivalents.
     # Spark uses Java SimpleDateFormat patterns (e.g. dd/MM/yyyy HH:mm) while
@@ -582,9 +596,10 @@ class ParquetReaderConfig(ReaderWriterConfig):
             _Config(
                 default_config={
                     "rowsToInferSchema": DEFAULT_ROWS_TO_INFER_SCHEMA,
+                    "mergeSchema": "false",
                 },
                 supported_options={
-                    # "mergeSchema",
+                    "mergeSchema",  # SCOS: union schema across multiple parquet paths (not passed to Snowflake)
                     "pathGlobFilter",
                     # "recursiveFileLookup",
                     # "modifiedBefore",
@@ -595,7 +610,7 @@ class ParquetReaderConfig(ReaderWriterConfig):
                     "compression",
                     "rowsToInferSchema",
                 },
-                boolean_config_list=[],
+                boolean_config_list=["mergeSchema"],
                 int_config_list=["rowsToInferSchema"],
                 float_config_list=[],
             ),

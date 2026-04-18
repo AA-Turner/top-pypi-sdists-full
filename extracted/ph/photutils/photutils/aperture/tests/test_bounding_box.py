@@ -47,7 +47,6 @@ def test_bounding_box_inputs():
 
 
 def test_bounding_box_from_float():
-    # This is the example from the method docstring
     bbox = BoundingBox.from_float(xmin=1.0, xmax=10.0, ymin=2.0, ymax=20.0)
     assert bbox == BoundingBox(ixmin=1, ixmax=11, iymin=2, iymax=21)
 
@@ -96,6 +95,17 @@ def test_bounding_box_get_overlap_slices():
     slc = ((slice(0, 20, None), slice(0, 10, None)),
            (slice(10, 30, None), slice(10, 20, None)))
     assert bbox.get_overlap_slices((50, 50)) == slc
+
+
+def test_bounding_box_get_overlap_slices_invalid_shape():
+    """
+    Test that get_overlap_slices raises ValueError when shape does not
+    have exactly 2 elements.
+    """
+    bbox = BoundingBox(1, 10, 2, 20)
+    match = 'input shape must have 2 elements'
+    with pytest.raises(ValueError, match=match):
+        bbox.get_overlap_slices((50,))
 
 
 def test_bounding_box_extent():

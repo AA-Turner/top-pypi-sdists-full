@@ -110,7 +110,7 @@ def _build_authentication(properties):
 
     basic_auth = _get_basic_auth(properties)
     bearer_auth = _get_bearer_auth(properties)
-    oauth2_auth = get_oauth2_auth(properties)
+    oauth2_auth = get_oauth2_auth({}, properties)
 
     if basic_auth is not None:
         auth.http_basic = basic_auth

@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define the base aperture classes.
+Base aperture classes.
 """
 
 import abc
@@ -8,13 +8,13 @@ import inspect
 import warnings
 from copy import deepcopy
 
-import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.utils import lazyproperty
 
 from photutils.aperture.bounding_box import BoundingBox
-from photutils.utils._wcs_helpers import _pixel_scale_angle_at_skycoord
+from photutils.aperture.mask import ApertureMask
+from photutils.utils._deprecation import deprecated_positional_kwargs
 
 __all__ = ['Aperture', 'PixelAperture', 'SkyAperture']
 
@@ -41,7 +41,7 @@ class Aperture(metaclass=abc.ABCMeta):
         kwargs = {}
         for param in self._params:
             if param == 'positions':
-                # slice the positions array
+                # Slice the positions array
                 kwargs[param] = getattr(self, param)[index]
             else:
                 kwargs[param] = getattr(self, param)
@@ -51,7 +51,7 @@ class Aperture(metaclass=abc.ABCMeta):
         for i in range(len(self)):
             yield self.__getitem__(i)
 
-    def _positions_str(self, prefix=None):
+    def _positions_str(self, *, prefix=None):
         if isinstance(self, PixelAperture):
             return np.array2string(self.positions, separator=', ',
                                    prefix=prefix)
@@ -67,7 +67,7 @@ class Aperture(metaclass=abc.ABCMeta):
         cls_info = []
         for param in self._params:
             if param == 'positions':
-                cls_info.append(self._positions_str(prefix))
+                cls_info.append(self._positions_str(prefix=prefix))
             else:
                 cls_info.append(f'{param}={getattr(self, param)}')
         cls_info = ', '.join(cls_info)
@@ -78,7 +78,8 @@ class Aperture(metaclass=abc.ABCMeta):
         for param in self._params:
             if param == 'positions':
                 prefix = 'positions'
-                cls_info.append((prefix, self._positions_str(prefix + ': ')))
+                cls_info.append((prefix,
+                                 self._positions_str(prefix=prefix + ': ')))
             else:
                 cls_info.append((param, getattr(self, param)))
         fmt = [f'{key}: {val}' for key, val in cls_info]
@@ -98,11 +99,11 @@ class Aperture(metaclass=abc.ABCMeta):
         self_params = list(self._params)
         other_params = list(other._params)
 
-        # check that both have identical parameters
+        # Check that both have identical parameters
         if self_params != other_params:
             return False
 
-        # now check the parameter values
+        # Now check the parameter values.
         # Note that Quantity comparisons allow for different units if they
         # are directly convertible (e.g., 1.0 * u.deg == 60.0 * u.arcmin)
         try:
@@ -137,7 +138,7 @@ class Aperture(metaclass=abc.ABCMeta):
 
     def copy(self):
         """
-        Make an deep copy of this object.
+        Make a deep copy of this object.
 
         Returns
         -------
@@ -155,8 +156,6 @@ class Aperture(metaclass=abc.ABCMeta):
         The aperture positions, as an array of (x, y) coordinates or a
         `~astropy.coordinates.SkyCoord`.
         """
-        msg = 'Needs to be implemented in a subclass'
-        raise NotImplementedError(msg)
 
     @lazyproperty
     def shape(self):
@@ -194,26 +193,53 @@ class PixelAperture(Aperture):
         return mpl_params
 
     @staticmethod
-    def _translate_mask_mode(mode, subpixels, rectangle=False):
-        if mode not in ('center', 'subpixel', 'exact'):
-            msg = f'Invalid mask mode: {mode}'
+    def _translate_mask_method(method, subpixels, *, rectangle=False):
+        """
+        Translate the mask method and subpixels parameters to the values
+        used by the low-level `photutils.geometry` functions.
+
+        Parameters
+        ----------
+        method : {'exact', 'center', 'subpixel'}
+            The mask method.
+
+        subpixels : int
+            The number of subpixels for subpixel method.
+
+        rectangle : bool, optional
+            Whether the aperture is a rectangular aperture. This is
+            used to approximate the "exact" method for rectangular
+            apertures, which is not currently supported by the low-level
+            `photutils.geometry` functions.
+
+        Returns
+        -------
+        use_exact : int
+            Whether to use exact method (1) or not (0).
+
+        subpixels : int
+            The number of subpixels for subpixel method.
+        """
+        if method not in ('center', 'subpixel', 'exact'):
+            msg = f'Invalid mask method: {method}'
             raise ValueError(msg)
 
-        if rectangle and mode == 'exact':
-            mode = 'subpixel'
+        # Remove when rectangular apertures support "exact" method
+        if rectangle and method == 'exact':
+            method = 'subpixel'
             subpixels = 32
 
-        if ((mode == 'subpixel')
+        if ((method == 'subpixel')
                 and (not isinstance(subpixels, int) or subpixels <= 0)):
             msg = 'subpixels must be a strictly positive integer'
             raise ValueError(msg)
 
-        if mode == 'center':
+        if method == 'center':
             use_exact = 0
             subpixels = 1
-        elif mode == 'subpixel':
+        elif method == 'subpixel':
             use_exact = 0
-        elif mode == 'exact':
+        elif method == 'exact':
             use_exact = 1
             subpixels = 1
 
@@ -229,8 +255,6 @@ class PixelAperture(Aperture):
         In other words, the (x, y) extents are half of the aperture
         minimal bounding box size in each dimension.
         """
-        msg = 'Needs to be implemented in a subclass'
-        raise NotImplementedError(msg)
 
     @lazyproperty
     def _positions(self):
@@ -308,8 +332,6 @@ class PixelAperture(Aperture):
         --------
         area_overlap
         """
-        msg = 'Needs to be implemented in a subclass'
-        raise NotImplementedError(msg)
 
     def area_overlap(self, data, *, mask=None, method='exact', subpixels=5):
         """
@@ -388,7 +410,7 @@ class PixelAperture(Aperture):
         for apermask in apermasks:
             slc_large, slc_small = apermask.get_overlap_slices(data.shape)
 
-            # if the aperture does not overlap the data return np.nan
+            # If the aperture does not overlap the data, return np.nan
             if slc_large is None:
                 area = np.nan
             else:
@@ -405,7 +427,7 @@ class PixelAperture(Aperture):
 
         return areas
 
-    @abc.abstractmethod
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def to_mask(self, method='exact', subpixels=5):
         """
         Return a mask for the aperture.
@@ -452,9 +474,48 @@ class PixelAperture(Aperture):
             otherwise a list of `~photutils.aperture.ApertureMask` is
             returned.
         """
-        msg = 'Needs to be implemented in a subclass'
-        raise NotImplementedError(msg)
+        use_exact, subpixels = self._translate_mask_method(
+            method, subpixels, rectangle=getattr(self, '_is_rectangle', False))
 
+        masks = []
+        for bbox, edges in zip(self._bbox, self._centered_edges, strict=True):
+            ny, nx = bbox.shape
+            overlap = self._compute_overlap(
+                edges, nx, ny, use_exact, subpixels)
+            masks.append(ApertureMask(overlap, bbox))
+
+        if self.isscalar:
+            return masks[0]
+
+        return masks
+
+    @abc.abstractmethod
+    def _compute_overlap(self, edges, nx, ny, use_exact, subpixels):
+        """
+        Compute the overlap of the aperture for a single position.
+
+        Parameters
+        ----------
+        edges : tuple of float
+            The ``(xmin, xmax, ymin, ymax)`` pixel edges centered at
+            the origin.
+
+        nx, ny : int
+            The number of pixels in x and y.
+
+        use_exact : int
+            Whether to use exact method (1) or not (0).
+
+        subpixels : int
+            The number of subpixels for subpixel method.
+
+        Returns
+        -------
+        overlap : 2D `~numpy.ndarray`
+            The overlap array.
+        """
+
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def do_photometry(self, data, error=None, mask=None, method='exact',
                       subpixels=5):
         """
@@ -470,7 +531,7 @@ class PixelAperture(Aperture):
             The pixel-wise Gaussian 1-sigma errors of the input
             ``data``. ``error`` is assumed to include *all* sources
             of error, including the Poisson error of the sources (see
-            `~photutils.utils.calc_total_error`) . ``error`` must have
+            `~photutils.utils.calc_total_error`). ``error`` must have
             the same shape as the input ``data``.
 
         mask : array_like (bool), optional
@@ -512,10 +573,10 @@ class PixelAperture(Aperture):
         Returns
         -------
         aperture_sums : `~numpy.ndarray` or `~astropy.units.Quantity`
-            The sums within each aperture.
+            The sum within each aperture.
 
         aperture_sum_errs : `~numpy.ndarray` or `~astropy.units.Quantity`
-            The errors on the sums within each aperture.
+            The errors on the sum within each aperture.
 
         Notes
         -----
@@ -527,7 +588,7 @@ class PixelAperture(Aperture):
         typically within 0.001 percent or better of the exact value.
         The differences can be larger for smaller apertures (e.g.,
         aperture sizes of one pixel or smaller). For such small sizes,
-        it is recommend to set ``method='subpixel'`` with a larger
+        it is recommended to set ``method='subpixel'`` with a larger
         ``subpixels`` size.
         """
         data = np.asanyarray(data)
@@ -541,7 +602,7 @@ class PixelAperture(Aperture):
                 msg = 'error and data must have the same shape'
                 raise ValueError(msg)
 
-        # check Quantity inputs
+        # Check Quantity inputs
         unit = {getattr(arr, 'unit', None) for arr in (data, error)
                 if arr is not None}
         if len(unit) > 1:
@@ -549,7 +610,7 @@ class PixelAperture(Aperture):
                    'the same units')
             raise ValueError(msg)
 
-        # strip data and error units for performance
+        # Strip data and error units for performance
         unit = unit.pop()
         if unit is not None:
             unit = data.unit
@@ -569,14 +630,14 @@ class PixelAperture(Aperture):
              aper_weights,
              pixel_mask) = apermask._get_overlap_cutouts(data.shape, mask=mask)
 
-            # no overlap of the aperture with the data
+            # No overlap of the aperture with the data
             if slc_large is None:
                 aperture_sums.append(np.nan)
                 aperture_sum_errs.append(np.nan)
                 continue
 
             with warnings.catch_warnings():
-                # ignore multiplication with non-finite data values
+                # Ignore multiplication with non-finite data values
                 warnings.simplefilter('ignore', RuntimeWarning)
 
                 values = (data[slc_large] * aper_weights)[pixel_mask]
@@ -589,7 +650,7 @@ class PixelAperture(Aperture):
         aperture_sums = np.array(aperture_sums)
         aperture_sum_errs = np.array(aperture_sum_errs)
 
-        # apply units
+        # Apply units
         if unit is not None:
             aperture_sums <<= unit
             aperture_sum_errs <<= unit
@@ -601,7 +662,7 @@ class PixelAperture(Aperture):
         """
         Define a matplotlib annulus path from two patches.
 
-        This preserves the cubic Bezier curves (CURVE4) of the aperture
+        This preserves the cubic Bézier curves (CURVE4) of the aperture
         paths.
         """
         import matplotlib.path as mpath
@@ -622,7 +683,7 @@ class PixelAperture(Aperture):
 
         return mpath.Path(verts, codes)
 
-    def _define_patch_params(self, origin=(0, 0), **kwargs):
+    def _define_patch_params(self, *, origin=(0, 0), **kwargs):
         """
         Define the aperture patch position and set any default
         matplotlib patch keywords (e.g., ``fill=False``).
@@ -656,7 +717,7 @@ class PixelAperture(Aperture):
         return xy_positions, patch_params
 
     @abc.abstractmethod
-    def _to_patch(self, origin=(0, 0), **kwargs):
+    def _to_patch(self, *, origin=(0, 0), **kwargs):
         """
         Return a `~matplotlib.patches.Patch` for the aperture.
 
@@ -678,9 +739,8 @@ class PixelAperture(Aperture):
             single `~matplotlib.patches.Patch` is returned, otherwise a
             list of `~matplotlib.patches.Patch` is returned.
         """
-        msg = 'Needs to be implemented in a subclass'
-        raise NotImplementedError(msg)
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def plot(self, ax=None, origin=(0, 0), **kwargs):
         """
         Plot the aperture on a matplotlib `~matplotlib.axes.Axes`
@@ -720,59 +780,6 @@ class PixelAperture(Aperture):
 
         return patches
 
-    def _to_sky_params(self, wcs):
-        """
-        Convert the pixel aperture parameters to those for a sky
-        aperture.
-
-        Parameters
-        ----------
-        wcs : WCS object
-            A world coordinate system (WCS) transformation that
-            supports the `astropy shared interface for WCS
-            <https://docs.astropy.org/en/stable/wcs/wcsapi.html>`_
-            (e.g., `astropy.wcs.WCS`, `gwcs.wcs.WCS`).
-
-        Returns
-        -------
-        sky_params : dict
-            A dictionary of parameters for an equivalent sky aperture.
-        """
-        sky_params = {}
-        xpos, ypos = np.transpose(self.positions)
-        sky_params['positions'] = skypos = wcs.pixel_to_world(xpos, ypos)
-
-        # Aperture objects require scalar shape parameters (e.g.,
-        # radius, a, b, theta, etc.), therefore we must calculate the
-        # pixel scale and angle at only a single sky position, which
-        # we take as the first aperture position. For apertures with
-        # multiple positions used with a WCS that contains distortions
-        # (e.g., a spatially-dependent pixel scale), this may lead to
-        # unexpected results (e.g., results that are dependent of the
-        # order of the positions). There is no good way to fix this with
-        # the current Aperture API allowing multiple positions.
-        if not self.isscalar:
-            skypos = skypos[0]
-        _, pixscale, angle = _pixel_scale_angle_at_skycoord(skypos, wcs)
-
-        for param in self._params:
-            value = getattr(self, param)
-            if param == 'positions':
-                continue
-
-            if param == 'theta':
-                # photutils aperture sky angles are defined as the PA of
-                # the semimajor axis (i.e., relative to the WCS latitude
-                # axis). region sky angles are defined relative to the WCS
-                # longitude axis.
-                value = value - angle.to(u.rad)
-            else:
-                value = (value * u.pix * pixscale).to(u.arcsec)
-
-            sky_params[param] = value
-
-        return sky_params
-
     @abc.abstractmethod
     def to_sky(self, wcs):
         """
@@ -792,8 +799,6 @@ class PixelAperture(Aperture):
         aperture : `SkyAperture` object
             A `SkyAperture` object.
         """
-        msg = 'Needs to be implemented in a subclass'
-        raise NotImplementedError(msg)
 
 
 class SkyAperture(Aperture):
@@ -801,61 +806,6 @@ class SkyAperture(Aperture):
     Abstract base class for all apertures defined in celestial
     coordinates.
     """
-
-    def _to_pixel_params(self, wcs):
-        """
-        Convert the sky aperture parameters to those for a pixel
-        aperture.
-
-        Parameters
-        ----------
-        wcs : WCS object
-            A world coordinate system (WCS) transformation that
-            supports the `astropy shared interface for WCS
-            <https://docs.astropy.org/en/stable/wcs/wcsapi.html>`_
-            (e.g., `astropy.wcs.WCS`, `gwcs.wcs.WCS`).
-
-        Returns
-        -------
-        pixel_params : dict
-            A dictionary of parameters for an equivalent pixel aperture.
-        """
-        pixel_params = {}
-
-        xpos, ypos = wcs.world_to_pixel(self.positions)
-        pixel_params['positions'] = np.transpose((xpos, ypos))
-
-        # Aperture objects require scalar shape parameters (e.g.,
-        # radius, a, b, theta, etc.), therefore we must calculate the
-        # pixel scale and angle at only a single sky position, which
-        # we take as the first aperture position. For apertures with
-        # multiple positions used with a WCS that contains distortions
-        # (e.g., a spatially-dependent pixel scale), this may lead to
-        # unexpected results (e.g., results that are dependent of the
-        # order of the positions). There is no good way to fix this with
-        # the current Aperture API allowing multiple positions.
-        skypos = self.positions if self.isscalar else self.positions[0]
-        _, pixscale, angle = _pixel_scale_angle_at_skycoord(skypos, wcs)
-
-        for param in self._params:
-            value = getattr(self, param)
-            if param == 'positions':
-                continue
-
-            if param == 'theta':
-                # photutils aperture sky angles are defined as the PA of
-                # the semimajor axis (i.e., relative to the WCS latitude
-                # axis). region sky angles are defined relative to the WCS
-                # longitude axis.
-                value = (value + angle).to(u.radian)
-            elif value.unit.physical_type == 'angle':
-                value = (value / pixscale).to(u.pixel).value
-            else:
-                value = value.value
-
-            pixel_params[param] = value
-
-        return pixel_params
 
     @abc.abstractmethod
     def to_pixel(self, wcs):
@@ -876,11 +826,9 @@ class SkyAperture(Aperture):
         aperture : `PixelAperture` object
             A `PixelAperture` object.
         """
-        msg = 'Needs to be implemented in a subclass'
-        raise NotImplementedError(msg)
 
 
-def _aperture_metadata(aperture, index=''):
+def _aperture_metadata(aperture, *, index=''):
     """
     Return a dictionary of aperture metadata.
 
@@ -899,8 +847,8 @@ def _aperture_metadata(aperture, index=''):
     """
     params = aperture._params
     meta = {}
+    meta[f'aperture{index}'] = aperture.__class__.__name__
     for param in params:
         if param != 'positions':
-            meta[f'aperture{index}'] = aperture.__class__.__name__
             meta[f'aperture{index}_{param}'] = getattr(aperture, param)
     return meta

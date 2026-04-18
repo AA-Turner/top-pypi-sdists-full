@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: paddlex
-Version: 3.4.3
+Version: 3.5.0
 Summary: Low-code development tool based on PaddlePaddle.
 Author: PaddlePaddle Authors
 Author-email: 
@@ -32,7 +32,7 @@ Requires-Dist: filelock
 Requires-Dist: huggingface-hub
 Requires-Dist: modelscope<1.30,>=1.28.0; python_version == "3.8"
 Requires-Dist: modelscope>=1.28.0; python_version >= "3.9"
-Requires-Dist: numpy>=1.24
+Requires-Dist: numpy<2.4,>=1.24
 Requires-Dist: packaging
 Requires-Dist: pandas>=1.3
 Requires-Dist: pillow
@@ -69,6 +69,7 @@ Requires-Dist: langchain<1.0,>=0.2; extra == "ie"
 Requires-Dist: langchain-community<1.0,>=0.2; extra == "ie"
 Requires-Dist: langchain-core; extra == "ie"
 Requires-Dist: langchain-openai<1.0,>=0.1; extra == "ie"
+Requires-Dist: langchain-text-splitters<1.0,>=0.2; extra == "ie"
 Requires-Dist: lxml; extra == "ie"
 Requires-Dist: openai>=1.63; extra == "ie"
 Requires-Dist: opencv-contrib-python==4.10.0.84; extra == "ie"
@@ -109,6 +110,7 @@ Requires-Dist: einops; extra == "ocr"
 Requires-Dist: ftfy; extra == "ocr"
 Requires-Dist: imagesize; extra == "ocr"
 Requires-Dist: Jinja2; extra == "ocr"
+Requires-Dist: latex2mathml; extra == "ocr"
 Requires-Dist: lxml; extra == "ocr"
 Requires-Dist: opencv-contrib-python==4.10.0.84; extra == "ocr"
 Requires-Dist: openpyxl; extra == "ocr"
@@ -157,6 +159,8 @@ Requires-Dist: langchain<1.0,>=0.2; extra == "base"
 Requires-Dist: langchain-community<1.0,>=0.2; extra == "base"
 Requires-Dist: langchain-core; extra == "base"
 Requires-Dist: langchain-openai<1.0,>=0.1; extra == "base"
+Requires-Dist: langchain-text-splitters<1.0,>=0.2; extra == "base"
+Requires-Dist: latex2mathml; extra == "base"
 Requires-Dist: lxml; extra == "base"
 Requires-Dist: matplotlib; extra == "base"
 Requires-Dist: openai>=1.63; extra == "base"
@@ -195,7 +199,7 @@ Requires-Dist: transformers<5.0.0; extra == "genai-vllm-server"
 Requires-Dist: uvloop; extra == "genai-vllm-server"
 Requires-Dist: vllm==0.10.2; extra == "genai-vllm-server"
 Provides-Extra: paddle2onnx
-Requires-Dist: paddle2onnx==2.0.2rc3; extra == "paddle2onnx"
+Requires-Dist: paddle2onnx==2.1.0; extra == "paddle2onnx"
 Provides-Extra: serving
 Requires-Dist: aiohttp>=3.9; extra == "serving"
 Requires-Dist: bce-python-sdk>=0.9; extra == "serving"

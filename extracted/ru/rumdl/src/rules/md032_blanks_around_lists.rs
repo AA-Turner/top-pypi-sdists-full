@@ -9,7 +9,7 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 mod md032_config;
-pub use md032_config::MD032Config;
+pub(super) use md032_config::MD032Config;
 
 // Detects ordered list items starting with a number other than 1
 static ORDERED_LIST_NON_ONE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*([2-9]|\d{2,})\.\s").unwrap());
@@ -174,8 +174,7 @@ impl MD032BlanksAroundLists {
     fn should_apply_lazy_fix(ctx: &crate::lint_context::LintContext, line_num: usize) -> bool {
         ctx.lines
             .get(line_num.saturating_sub(1))
-            .map(|li| !li.in_code_block && !li.in_front_matter && !li.in_html_comment && !li.in_mdx_comment)
-            .unwrap_or(false)
+            .is_some_and(|li| !li.in_code_block && !li.in_front_matter && !li.in_html_comment && !li.in_mdx_comment)
     }
 
     /// Calculate the fix for a lazy continuation line.
@@ -329,8 +328,7 @@ impl MD032BlanksAroundLists {
                 let line_content = ctx.lines[line_num - 1].content(ctx.content);
                 BLOCKQUOTE_PREFIX_RE
                     .find(line_content)
-                    .map(|m| m.as_str().chars().filter(|&c| c == '>').count())
-                    .unwrap_or(0)
+                    .map_or(0, |m| m.as_str().chars().filter(|&c| c == '>').count())
             };
 
             let mut prev_bq_level = 0;
@@ -417,7 +415,7 @@ impl MD032BlanksAroundLists {
             };
 
             // Convert segments to blocks
-            for (start, end) in segments.iter() {
+            for (start, end) in &segments {
                 // Extend the end to include any continuation lines immediately after the last item
                 let mut actual_end = *end;
 
@@ -440,8 +438,7 @@ impl MD032BlanksAroundLists {
                         ctx.lines
                             .get(*end - 1)
                             .and_then(|line_info| line_info.list_item.as_ref())
-                            .map(|item| item.content_column)
-                            .unwrap_or(2)
+                            .map_or(2, |item| item.content_column)
                     };
 
                     for check_line in (*end + 1)..=block.end_line {
@@ -508,7 +505,7 @@ impl MD032BlanksAroundLists {
         lines: &[&str],
         list_blocks: &[(usize, usize, String)],
         line_index: &LineIndex,
-    ) -> LintResult {
+    ) -> Vec<LintWarning> {
         let mut warnings = Vec::new();
         let num_lines = lines.len();
 
@@ -729,7 +726,7 @@ impl MD032BlanksAroundLists {
                 }
             }
         }
-        Ok(warnings)
+        warnings
     }
 }
 
@@ -757,7 +754,7 @@ impl Rule for MD032BlanksAroundLists {
             return Ok(Vec::new());
         }
 
-        let mut warnings = self.perform_checks(ctx, lines, &list_blocks, line_index)?;
+        let mut warnings = self.perform_checks(ctx, lines, &list_blocks, line_index);
 
         // When lazy continuation is not allowed, detect and warn about lazy continuation
         // lines WITHIN list blocks (text that continues a list item but with less
@@ -808,7 +805,7 @@ impl Rule for MD032BlanksAroundLists {
     }
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
-        self.fix_with_structure_impl(ctx)
+        Ok(self.fix_with_structure_impl(ctx))
     }
 
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
@@ -853,16 +850,16 @@ impl Rule for MD032BlanksAroundLists {
 
 impl MD032BlanksAroundLists {
     /// Helper method for fixing implementation
-    fn fix_with_structure_impl(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
+    fn fix_with_structure_impl(&self, ctx: &crate::lint_context::LintContext) -> String {
         let lines = ctx.raw_lines();
         let num_lines = lines.len();
         if num_lines == 0 {
-            return Ok(String::new());
+            return String::new();
         }
 
         let list_blocks = self.convert_list_blocks(ctx);
         if list_blocks.is_empty() {
-            return Ok(ctx.content.to_string());
+            return ctx.content.to_string();
         }
 
         // Phase 0: Collect lazy continuation line fixes (if not allowed)
@@ -1002,7 +999,7 @@ impl MD032BlanksAroundLists {
         if ctx.content.ends_with('\n') {
             result.push('\n');
         }
-        Ok(result)
+        result
     }
 }
 

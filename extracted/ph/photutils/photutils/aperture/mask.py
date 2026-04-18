@@ -1,17 +1,16 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define a class for aperture masks.
+Class for aperture masks.
 """
 
 import warnings
 
 import astropy.units as u
 import numpy as np
-from astropy.utils import minversion
+
+from photutils.utils._deprecation import deprecated_positional_kwargs
 
 __all__ = ['ApertureMask']
-
-COPY_IF_NEEDED = False if not minversion(np, '2.0') else None
 
 
 class ApertureMask:
@@ -39,7 +38,10 @@ class ApertureMask:
         self.bbox = bbox
         self._mask = (self.data == 0)
 
-    def __array__(self, dtype=None, copy=COPY_IF_NEEDED):
+    # NumPy calls `obj.__array__(dtype)` positionally with
+    # `np.asarray(obj, dtype=int)`, so dtype must remain a positional
+    # argument.
+    def __array__(self, dtype=None, *, copy=None):
         """
         Array representation of the mask data array (e.g., for
         matplotlib).
@@ -81,6 +83,7 @@ class ApertureMask:
         """
         return self.bbox.get_overlap_slices(shape)
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def to_image(self, shape, dtype=float):
         """
         Return an image of the mask in a 2D array of the given shape,
@@ -94,10 +97,10 @@ class ApertureMask:
         dtype : data-type, optional
             The desired data type for the array. This should be a
             floating data type if the `ApertureMask` was created with
-            the "exact" or "subpixel" mode, otherwise the fractional
-            mask weights will be altered. A integer data type may be
+            the "exact" or "subpixel" method, otherwise the fractional
+            mask weights will be altered. An integer data type may be
             used if the `ApertureMask` was created with the "center"
-            mode.
+            method.
 
         Returns
         -------
@@ -108,17 +111,18 @@ class ApertureMask:
             msg = 'input shape must have 2 elements'
             raise ValueError(msg)
 
-        # find the overlap of the mask on the output image shape
+        # Find the overlap of the mask on the output image shape
         slices_large, slices_small = self.get_overlap_slices(shape)
 
         if slices_small is None:
             return None  # no overlap
 
-        # insert the mask into the output image
+        # Insert the mask into the output image
         image = np.zeros(shape, dtype=dtype)
         image[slices_large] = self.data[slices_small]
         return image
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def cutout(self, data, fill_value=0.0, copy=False):
         """
         Create a cutout from the input data over the mask bounding box,
@@ -146,18 +150,18 @@ class ApertureMask:
         -------
         result : `~numpy.ndarray` or `None`
             A 2D array cut out from the input ``data`` representing
-            the same cutout region as the aperture mask. If there is
-            a partial overlap of the aperture mask with the input
-            data, pixels outside of the data will be assigned to
-            ``fill_value``. `None` is returned if there is no overlap of
-            the aperture with the input ``data``.
+            the same cutout region as the aperture mask. If there is a
+            partial overlap of the aperture mask with the input data,
+            pixels outside the data will be assigned to ``fill_value``.
+            `None` is returned if there is no overlap of the aperture
+            with the input ``data``.
         """
         data = np.asanyarray(data)
         if data.ndim != 2:
             msg = 'data must be a 2D array'
             raise ValueError(msg)
 
-        # find the overlap of the mask on the output image shape
+        # Find the overlap of the mask on the output image shape
         slices_large, slices_small = self.get_overlap_slices(data.shape)
 
         if slices_small is None:
@@ -172,7 +176,7 @@ class ApertureMask:
                 cutout = np.copy(cutout)
             return cutout
 
-        # cutout is always a copy for partial overlap
+        # Cutout is always a copy for partial overlap
         dtype = float if ~np.isfinite(fill_value) else data.dtype
         cutout = np.zeros(self.shape, dtype=dtype)
         cutout[:] = fill_value
@@ -183,6 +187,7 @@ class ApertureMask:
 
         return cutout
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def multiply(self, data, fill_value=0.0):
         """
         Multiply the aperture mask with the input data, taking any edge
@@ -204,7 +209,7 @@ class ApertureMask:
         result : `~numpy.ndarray` or `None`
             A 2D mask-weighted cutout from the input ``data``. If
             there is a partial overlap of the aperture mask with the
-            input data, pixels outside of the data will be assigned to
+            input data, pixels outside the data will be assigned to
             ``fill_value`` before being multiplied with the mask. `None`
             is returned if there is no overlap of the aperture with the
             input ``data``.
@@ -213,17 +218,17 @@ class ApertureMask:
         if cutout is None:
             return None
 
-        # ignore multiplication with non-finite data values
+        # Ignore multiplication with non-finite data values
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             weighted_cutout = cutout * self.data
 
-        # fill values outside of the mask but within the bounding box
+        # Fill values outside the mask but within the bounding box
         weighted_cutout[self._mask] = fill_value
 
         return weighted_cutout
 
-    def _get_overlap_cutouts(self, shape, mask=None):
+    def _get_overlap_cutouts(self, shape, *, mask=None):
         """
         Get the aperture mask weights, pixel mask, and slice for the
         overlap with the input shape.
@@ -278,6 +283,7 @@ class ApertureMask:
 
         return slc_large, aper_weights, pixel_mask
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def get_values(self, data, mask=None):
         """
         Get the mask-weighted pixel values from the data as a 1D array.
@@ -310,7 +316,7 @@ class ApertureMask:
         if slc_large is None:
             return np.array([])
 
-        # ignore multiplication with non-finite data values
+        # Ignore multiplication with non-finite data values
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             # pixel_mask is used so that pixels value where data = 0 and

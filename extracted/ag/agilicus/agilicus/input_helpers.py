@@ -277,3 +277,35 @@ class EnumType(click.Choice):
 
 def is_tz_aware(dt: datetime.datetime):
     return dt.tzinfo is not None and dt.tzinfo.utcoffset(dt) is not None
+
+
+def build_object_prefix(original, properties, prefix, klass, pop=False):
+    existing = original
+    if existing is None:
+        existing = {}
+    if not isinstance(existing, dict):
+        existing = existing.to_dict()
+
+    matched = []
+    for key, value in properties.items():
+        parts = key.split(prefix, 2)
+        if len(parts) != 2:
+            continue
+        matched.append(key)
+        if value is None:
+            continue
+        if isinstance(value, tuple):
+            value = list(value)
+        existing[parts[1]] = value
+
+    if matched and pop:
+        for key in matched:
+            properties.pop(key)
+
+    if not matched and original:
+        return original
+
+    if not existing:
+        return None
+
+    return klass(**existing)

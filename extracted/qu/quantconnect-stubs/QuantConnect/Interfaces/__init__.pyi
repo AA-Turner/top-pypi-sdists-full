@@ -1471,7 +1471,7 @@ class IBusyCollection(typing.Generic[QuantConnect_Interfaces_IBusyCollection_T],
         ...
 
     @overload
-    def get_consuming_enumerable(self) -> typing.Iterable[QuantConnect_Interfaces_IBusyCollection_T]:
+    def get_consuming_enumerable(self) -> typing.Sequence[QuantConnect_Interfaces_IBusyCollection_T]:
         """
         Provides a consuming enumerable for items in this collection.
         
@@ -1480,7 +1480,7 @@ class IBusyCollection(typing.Generic[QuantConnect_Interfaces_IBusyCollection_T],
         ...
 
     @overload
-    def get_consuming_enumerable(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect_Interfaces_IBusyCollection_T]:
+    def get_consuming_enumerable(self, cancellation_token: System.Threading.CancellationToken) -> typing.Sequence[QuantConnect_Interfaces_IBusyCollection_T]:
         """
         Provides a consuming enumerable for items in this collection.
         
@@ -1571,7 +1571,7 @@ class IHistoryProvider(QuantConnect.Interfaces.IDataProviderEvents, metaclass=ab
         """Gets the total number of data points emitted by this history provider"""
         ...
 
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Sequence[QuantConnect.Data.Slice]:
         """
         Gets the history for the requested securities
         
@@ -1978,7 +1978,7 @@ class IAlgorithmSettings(metaclass=abc.ABCMeta):
 class IOptionChainProvider(metaclass=abc.ABCMeta):
     """Provides the full option chain for a given underlying."""
 
-    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Gets the list of option contracts for a given underlying symbol
         
@@ -1993,7 +1993,7 @@ class IOptionChainProvider(metaclass=abc.ABCMeta):
 class IFutureChainProvider(metaclass=abc.ABCMeta):
     """Provides the full future chain for a given underlying."""
 
-    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Gets the list of future contracts for a given underlying symbol
         
@@ -2434,7 +2434,7 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
         """
         ...
 
-    def get_chart_updates(self, clear_chart_data: bool = False) -> typing.Iterable[QuantConnect.Chart]:
+    def get_chart_updates(self, clear_chart_data: bool = False) -> typing.Sequence[QuantConnect.Chart]:
         """
         Get the chart updates since the last request:
         
@@ -2454,7 +2454,7 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
         ...
 
     @overload
-    def get_last_known_prices(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_last_known_prices(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Yields data to warmup a security for all it's subscribed data types
         
@@ -2464,7 +2464,7 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
         ...
 
     @overload
-    def get_last_known_prices(self, symbols: typing.List[QuantConnect.Symbol]) -> QuantConnect.Data.Market.DataDictionary[typing.Iterable[QuantConnect.Data.BaseData]]:
+    def get_last_known_prices(self, symbols: typing.List[QuantConnect.Symbol]) -> QuantConnect.Data.Market.DataDictionary[typing.Sequence[QuantConnect.Data.BaseData]]:
         """
         Yields data to warm up multiple securities for all their subscribed data types
         
@@ -3171,7 +3171,7 @@ class IBrokerage(QuantConnect.Interfaces.IBrokerageCashSynchronizer, System.IDis
         """
         ...
 
-    def get_history(self, request: QuantConnect.Data.HistoryRequest) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_history(self, request: QuantConnect.Data.HistoryRequest) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Gets the history for the requested security
         
@@ -3261,7 +3261,7 @@ class IDataQueueUniverseProvider(metaclass=abc.ABCMeta):
         """
         ...
 
-    def lookup_symbols(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], include_expired: bool, security_currency: str = None) -> typing.Iterable[QuantConnect.Symbol]:
+    def lookup_symbols(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], include_expired: bool, security_currency: str = None) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Method returns a collection of Symbols that are available at the data source.
         

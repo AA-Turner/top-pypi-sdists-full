@@ -7,6 +7,15 @@ class AG2Error(Exception):
     """Base exception for all AG2 beta errors."""
 
 
+class ToolResolutionError(AG2Error):
+    """Raised when one or more tools in an AgentSpec cannot be resolved from the available tools pool."""
+
+    def __init__(self, missing: list[str], available: list[str]) -> None:
+        self.missing = missing
+        self.available = available
+        super().__init__(f"Could not resolve tool(s): {missing}. Available: {sorted(available)}")
+
+
 class ToolExecutionError(AG2Error):
     """Base exception for tool-related errors."""
 
@@ -23,6 +32,13 @@ class UnsupportedToolError(ToolExecutionError):
 
     def __init__(self, tool_type: str, provider: str):
         super().__init__(f"Unsupported tool type `{tool_type}` for provider `{provider}`")
+
+
+class UnsupportedInputError(AG2Error):
+    """Raised when an input type is not supported by a provider."""
+
+    def __init__(self, input_type: str, provider: str):
+        super().__init__(f"Unsupported input type `{input_type}` for provider `{provider}`")
 
 
 class HumanInputNotProvidedError(AG2Error):
@@ -46,3 +62,27 @@ class ConfigNotProvidedError(AG2Error):
             message
             or "No model config provided. Set config on the `Agent(config=...)` creation or pass it to call `ask(config=...)`."
         )
+
+
+class SkillError(AG2Error):
+    """Base exception for local skills loading (agentskills.io convention)."""
+
+
+class SkillNotFoundError(SkillError, KeyError):
+    """Raised when a skill cannot be found in configured paths."""
+
+
+class InvalidSkillNameError(SkillError, ValueError):
+    """Raised when a skill name is empty or malformed."""
+
+
+class InvalidSkillError(SkillError, ValueError):
+    """Raised when skill metadata violates the specification."""
+
+
+class SkillDownloadError(SkillError):
+    """Raised when a skill cannot be downloaded from the remote registry."""
+
+
+class SkillInstallError(SkillError):
+    """Raised when a downloaded skill archive cannot be extracted or validated."""

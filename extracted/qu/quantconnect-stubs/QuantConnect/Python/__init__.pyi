@@ -899,7 +899,7 @@ class SettlementModelPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantCo
 class CommandPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.Commands.Command]):
     """Python wrapper for a python defined command type"""
 
-    def __init__(self, type: typing.Any, data: str = None) -> None:
+    def __init__(self, type: typing.Type, data: str = None) -> None:
         """
         Constructor for initialising the CommandPythonWrapper class with wrapped PyObject object
         
@@ -1265,7 +1265,7 @@ class BrokerageModelPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantCon
         ...
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -1333,27 +1333,12 @@ class BrokerageModelPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantCon
         """
         ...
 
-    @overload
     def get_buying_power_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Securities.IBuyingPowerModel:
         """
         Gets a new buying power model for the security, returning the default model with the security's configured leverage.
         For cash accounts, leverage = 1 is used.
         
         :param security: The security to get a buying power model for
-        :returns: The buying power model for this brokerage/security.
-        """
-        ...
-
-    @overload
-    def get_buying_power_model(self, security: QuantConnect.Securities.Security, account_type: QuantConnect.AccountType) -> QuantConnect.Securities.IBuyingPowerModel:
-        """
-        Gets a new buying power model for the security
-        
-        
-        Flagged deprecated and will remove December 1st 2018
-        
-        :param security: The security to get a buying power model for
-        :param account_type: The account type
         :returns: The buying power model for this brokerage/security.
         """
         ...
@@ -1402,26 +1387,11 @@ class BrokerageModelPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantCon
         """
         ...
 
-    @overload
     def get_settlement_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Securities.ISettlementModel:
         """
         Gets a new settlement model for the security
         
         :param security: The security to get a settlement model for
-        :returns: The settlement model for this brokerage.
-        """
-        ...
-
-    @overload
-    def get_settlement_model(self, security: QuantConnect.Securities.Security, account_type: QuantConnect.AccountType) -> QuantConnect.Securities.ISettlementModel:
-        """
-        Gets a new settlement model for the security
-        
-        
-        Flagged deprecated and will remove December 1st 2018
-        
-        :param security: The security to get a settlement model for
-        :param account_type: The account type
         :returns: The settlement model for this brokerage.
         """
         ...
@@ -1492,7 +1462,7 @@ class VolatilityModelPythonWrapper(QuantConnect.Securities.Volatility.BaseVolati
         """
         ...
 
-    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.HistoryRequest]:
+    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Data.HistoryRequest]:
         """
         Returns history requirements for the volatility model expressed in the form of history request
         

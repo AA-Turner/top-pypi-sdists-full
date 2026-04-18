@@ -1,13 +1,14 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Provide tools for making tables of model parameters or making models
-from a table of model parameters.
+Tools for making tables of model parameters or making models from a
+table of model parameters.
 """
 
 import numpy as np
 from astropy.table import QTable
 
 from photutils.utils._coords import make_random_xycoords
+from photutils.utils._deprecation import deprecated_positional_kwargs
 from photutils.utils._misc import _get_meta
 from photutils.utils._parameters import as_pair
 
@@ -120,8 +121,8 @@ def make_model_params(shape, n_sources, *, x_name='x_0', y_name='y_0',
       4 11.322 14.685 469.41 1.0405 0.015992
       5 75.062 36.889 206.45  1.732  0.75795
     """
-    shape = as_pair('shape', shape, lower_bound=(0, 1))
-    border_size = as_pair('border_size', border_size, lower_bound=(0, 0))
+    shape = as_pair('shape', shape, lower_bound=(0, 0))
+    border_size = as_pair('border_size', border_size, lower_bound=(0, 1))
 
     xrange = (border_size[1], shape[1] - border_size[1])
     yrange = (border_size[0], shape[0] - border_size[0])
@@ -151,6 +152,7 @@ def make_model_params(shape, n_sources, *, x_name='x_0', y_name='y_0',
     return model_params
 
 
+@deprecated_positional_kwargs(since='3.0', until='4.0')
 def make_random_models_table(n_sources, param_ranges, seed=None):
     """
     Make a `~astropy.table.QTable` containing randomly generated
@@ -165,7 +167,7 @@ def make_random_models_table(n_sources, param_ranges, seed=None):
 
     Parameters
     ----------
-    n_sources : float
+    n_sources : int
         The number of random model sources to generate.
 
     param_ranges : dict

@@ -150,7 +150,7 @@ class TimeSlice(System.Object):
 class ISynchronizer(metaclass=abc.ABCMeta):
     """Interface which provides the data to stream to the algorithm"""
 
-    def stream_data(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
+    def stream_data(self, cancellation_token: System.Threading.CancellationToken) -> typing.Sequence[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
         """Returns an enumerable which provides the data to stream to the algorithm"""
         ...
 
@@ -596,7 +596,7 @@ class ISubscriptionSynchronizer(metaclass=abc.ABCMeta):
     def subscription_finished(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]) -> None:
         ...
 
-    def sync(self, subscriptions: typing.List[QuantConnect.Lean.Engine.DataFeeds.Subscription], cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
+    def sync(self, subscriptions: typing.List[QuantConnect.Lean.Engine.DataFeeds.Subscription], cancellation_token: System.Threading.CancellationToken) -> typing.Sequence[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
         """
         Syncs the specified subscriptions. The frontier time used for synchronization is
         managed internally and dependent upon previous synchronization operations.
@@ -691,7 +691,7 @@ class SubscriptionSynchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds
         """
         ...
 
-    def sync(self, subscriptions: typing.List[QuantConnect.Lean.Engine.DataFeeds.Subscription], cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
+    def sync(self, subscriptions: typing.List[QuantConnect.Lean.Engine.DataFeeds.Subscription], cancellation_token: System.Threading.CancellationToken) -> typing.Sequence[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
         """
         Syncs the specified subscriptions. The frontier time used for synchronization is
         managed internally and dependent upon previous synchronization operations.
@@ -799,7 +799,7 @@ class Synchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds.ISynchroniz
         """
         ...
 
-    def stream_data(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
+    def stream_data(self, cancellation_token: System.Threading.CancellationToken) -> typing.Sequence[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
         """Returns an enumerable which provides the data to stream to the algorithm"""
         ...
 
@@ -864,7 +864,7 @@ class LiveSynchronizer(QuantConnect.Lean.Engine.DataFeeds.Synchronizer):
         """
         ...
 
-    def stream_data(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
+    def stream_data(self, cancellation_token: System.Threading.CancellationToken) -> typing.Sequence[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
         """Returns an enumerable which provides the data to stream to the algorithm"""
         ...
 
@@ -1105,7 +1105,7 @@ class BacktestingChainProvider(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
-    def get_symbols(self, canonical_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_symbols(self, canonical_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Get the contract symbols associated with the given canonical symbol and date
         
@@ -1139,7 +1139,7 @@ class BacktestingChainProvider(System.Object, metaclass=abc.ABCMeta):
 class BacktestingOptionChainProvider(QuantConnect.Lean.Engine.DataFeeds.BacktestingChainProvider, QuantConnect.Interfaces.IOptionChainProvider):
     """An implementation of IOptionChainProvider that reads the list of contracts from open interest zip data files"""
 
-    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Gets the list of option contracts for a given underlying symbol
         
@@ -1157,7 +1157,7 @@ class LiveOptionChainProvider(QuantConnect.Lean.Engine.DataFeeds.BacktestingOpti
     from the Options Clearing Corporation (OCC) website
     """
 
-    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Gets the option chain associated with the underlying Symbol
         
@@ -1267,7 +1267,7 @@ class DataQueueHandlerManager(System.Object, QuantConnect.Interfaces.IDataQueueH
         """
         ...
 
-    def lookup_symbols(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], include_expired: bool, security_currency: str = None) -> typing.Iterable[QuantConnect.Symbol]:
+    def lookup_symbols(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], include_expired: bool, security_currency: str = None) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Method returns a collection of Symbols that are available at the data source.
         
@@ -1308,7 +1308,7 @@ class DataQueueHandlerManager(System.Object, QuantConnect.Interfaces.IDataQueueH
 class BacktestingFutureChainProvider(QuantConnect.Lean.Engine.DataFeeds.BacktestingChainProvider, QuantConnect.Interfaces.IFutureChainProvider):
     """An implementation of IFutureChainProvider that reads the list of contracts from open interest zip data files"""
 
-    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Gets the list of future contracts for a given underlying symbol
         
@@ -1335,7 +1335,7 @@ class LiveFutureChainProvider(QuantConnect.Lean.Engine.DataFeeds.BacktestingFutu
     from an external source
     """
 
-    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Gets the list of future contracts for a given underlying symbol
         
@@ -1474,7 +1474,7 @@ class ISubscriptionDataSourceReader(metaclass=abc.ABCMeta):
     def invalid_source(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Reads the specified source
         
@@ -1561,7 +1561,7 @@ class BaseSubscriptionDataSourceReader(System.Object, QuantConnect.Lean.Engine.D
         """
         ...
 
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Reads the specified source
         
@@ -1585,7 +1585,7 @@ class ZipEntryNameSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeed
         """
         ...
 
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Reads the specified source
         
@@ -1616,7 +1616,7 @@ class CachingOptionChainProvider(System.Object, QuantConnect.Interfaces.IOptionC
         """
         ...
 
-    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Gets the list of option contracts for a given underlying symbol
         
@@ -1993,7 +1993,7 @@ class TextSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.BaseSu
         """
         ...
 
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Reads the specified source
         
@@ -2023,7 +2023,7 @@ class BaseDataCollectionAggregatorReader(QuantConnect.Lean.Engine.DataFeeds.Text
         """
         ...
 
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Reads the specified source
         
@@ -2668,7 +2668,7 @@ class CurrencySubscriptionDataConfigManager(System.Object):
         """Checks the current SubscriptionDataConfig and adds new necessary currency pair feeds to provide real time conversion data"""
         ...
 
-    def get_pending_subscription_data_configs(self) -> typing.Iterable[QuantConnect.Data.SubscriptionDataConfig]:
+    def get_pending_subscription_data_configs(self) -> typing.Sequence[QuantConnect.Data.SubscriptionDataConfig]:
         """
         Will return any pending internal currency SubscriptionDataConfig and remove them as pending.
         
@@ -2706,7 +2706,7 @@ class CachingFutureChainProvider(System.Object, QuantConnect.Interfaces.IFutureC
         """
         ...
 
-    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Gets the list of future contracts for a given underlying symbol
         
@@ -2891,7 +2891,7 @@ class IndexSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.BaseS
         """Creates a new instance of this ISubscriptionDataSourceReader"""
         ...
 
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Reads the specified source
         
@@ -2924,7 +2924,7 @@ class DownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.BaseDownloaderDa
         ...
 
     @staticmethod
-    def filter_and_group_download_data_by_symbol(download_data: typing.List[QuantConnect.Data.BaseData], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], data_type: typing.Type, exchange_time_zone: typing.Any, data_time_zone: typing.Any, downloader_start_time_utc: typing.Union[datetime.datetime, datetime.date], downloader_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[System.Linq.IGrouping[QuantConnect.Symbol, QuantConnect.Data.BaseData]]:
+    def filter_and_group_download_data_by_symbol(download_data: typing.List[QuantConnect.Data.BaseData], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], data_type: typing.Type, exchange_time_zone: typing.Any, data_time_zone: typing.Any, downloader_start_time_utc: typing.Union[datetime.datetime, datetime.date], downloader_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[System.Linq.IGrouping[QuantConnect.Symbol, QuantConnect.Data.BaseData]]:
         """
         Filters and groups the provided download data by symbol, based on specified criteria.
         
@@ -2939,7 +2939,7 @@ class DownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.BaseDownloaderDa
         """
         ...
 
-    def get_downloaded_data(self, downloader_data_parameters: typing.List[QuantConnect.DataDownloaderGetParameters], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_time_zone: typing.Any, data_time_zone: typing.Any, data_type: typing.Type) -> typing.Iterable[System.Linq.IGrouping[QuantConnect.Symbol, QuantConnect.Data.BaseData]]:
+    def get_downloaded_data(self, downloader_data_parameters: typing.List[QuantConnect.DataDownloaderGetParameters], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_time_zone: typing.Any, data_time_zone: typing.Any, data_type: typing.Type) -> typing.Sequence[System.Linq.IGrouping[QuantConnect.Symbol, QuantConnect.Data.BaseData]]:
         """
         Retrieves downloaded data grouped by symbol based on IDownloadProvider.
         
@@ -3000,7 +3000,7 @@ class PendingRemovalsManager(System.Object):
             ...
 
     @property
-    def pending_removals(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.Data.UniverseSelection.Universe, typing.List[QuantConnect.Data.UniverseSelection.Universe.Member]]:
+    def pending_removals(self) -> typing.Dict[QuantConnect.Data.UniverseSelection.Universe, typing.List[QuantConnect.Data.UniverseSelection.Universe.Member]]:
         """Current pending removals"""
         ...
 
@@ -3084,7 +3084,7 @@ class CollectionSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.
         """
         ...
 
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Reads the specified source
         

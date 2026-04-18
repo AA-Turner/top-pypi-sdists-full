@@ -6,10 +6,11 @@ from datetime import datetime
 from typing import Iterable, Mapping, Sequence
 
 from nominal.core import NominalClient
-from nominal.core._utils.api_tools import Link, LinkDict
+from nominal.core._utils.api_tools import Link, LinkDict, rid_from_instance_or_string
 from nominal.core.asset import Asset
 from nominal.core.attachment import Attachment
 from nominal.core.run import Run
+from nominal.experimental.migration.migrator.attachment_migrator import AttachmentMigrator
 from nominal.experimental.migration.migrator.base import Migrator, ResourceCopyOptions
 from nominal.experimental.migration.resource_type import ResourceType
 from nominal.ts import IntegralNanosecondsUTC
@@ -44,9 +45,17 @@ class RunMigrator(Migrator[Run, RunCopyOptions]):
     def _copy_from_impl(self, source: Run, options: RunCopyOptions) -> Run:
         existing_run = self.get_existing_destination_resource(source)
         if existing_run is not None:
+            if options.new_assets is not None:
+                return self._ensure_assets_added(existing_run, options.new_assets)
             return existing_run
 
         destination_client = self.destination_client_for(source)
+
+        attachments = options.new_attachments
+        if attachments is None:
+            attachment_migrator = AttachmentMigrator(self.ctx)
+            attachments = [attachment_migrator.copy_from(a) for a in source.list_attachments()]
+
         new_run = destination_client.create_run(
             name=options.new_name if options.new_name is not None else source.name,
             start=options.new_start if options.new_start is not None else source.start,
@@ -56,10 +65,27 @@ class RunMigrator(Migrator[Run, RunCopyOptions]):
             labels=options.new_labels if options.new_labels is not None else source.labels,
             assets=options.new_assets if options.new_assets is not None else source.assets,
             links=options.new_links if options.new_links is not None else source.links,
-            attachments=options.new_attachments if options.new_attachments is not None else source.list_attachments(),
+            attachments=attachments,
         )
         self.ctx.migration_state.record_mapping(self.resource_type, source.rid, new_run.rid)
         return new_run
+
+    def _ensure_assets_added(self, run: Run, new_assets: Sequence[Asset | str]) -> Run:
+        """Add any assets from new_assets that are not already on run. Returns the (possibly updated) run.
+
+        Raises:
+            ValueError: if new_assets is empty, since runs must always have at least one asset.
+        """
+        if not new_assets:
+            raise ValueError("new_assets must be non-empty; runs must have at least one asset.")
+        existing_rids = set(run.assets)
+        missing_rids = [
+            rid_from_instance_or_string(a) for a in new_assets if rid_from_instance_or_string(a) not in existing_rids
+        ]
+        if not missing_rids:
+            return run
+        logger.debug("Adding %d missing asset(s) to existing run %s", len(missing_rids), run.rid)
+        return run.update(assets=[*existing_rids, *missing_rids])
 
     def _get_resource_name(self, resource: Run) -> str:
         return resource.name

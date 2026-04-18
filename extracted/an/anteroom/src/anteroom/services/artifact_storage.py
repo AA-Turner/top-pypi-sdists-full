@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -22,6 +23,9 @@ _ARTIFACT_COLUMNS = (
     "(SELECT COALESCE(MAX(version), 1) FROM artifact_versions WHERE artifact_id = artifacts.id) AS version"
 )
 _VERSION_COLUMNS = "id, artifact_id, version, content, content_hash, created_at"
+
+# Allowlist for metadata_filter keys — prevents JSON path injection. Only top-level keys supported.
+_METADATA_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _now() -> str:
@@ -130,6 +134,7 @@ def list_artifacts(
     attached_only: bool = False,
     space_id: str | None = None,
     project_path: str | None = None,
+    metadata_filter: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """List artifacts with optional filtering.
 
@@ -140,6 +145,11 @@ def list_artifacts(
 
     Config overlay artifacts are always excluded when *attached_only* is True
     because they have their own loading path via ``collect_pack_overlays()``.
+
+    When *metadata_filter* is provided, each ``(key, value)`` becomes a
+    ``json_extract(metadata, '$.<key>') = ?`` clause. Keys must match
+    ``^[A-Za-z_][A-Za-z0-9_]*$`` to prevent JSON path injection; values are
+    bound as parameters. Nested keys are not supported.
     """
     # When joining, prefix columns with table alias "a." to avoid ambiguity
     pfx = "a." if attached_only else ""
@@ -154,6 +164,12 @@ def list_artifacts(
     if source is not None:
         clauses.append(f"{pfx}source = ?")
         params.append(ArtifactSource(source).value)
+    if metadata_filter:
+        for key, value in metadata_filter.items():
+            if not _METADATA_KEY_RE.match(key):
+                raise ValueError(f"Invalid metadata filter key: {key!r} — must match {_METADATA_KEY_RE.pattern}")
+            clauses.append(f"json_extract({pfx}metadata, '$.{key}') = ?")
+            params.append(value)
 
     if attached_only:
         cols = (

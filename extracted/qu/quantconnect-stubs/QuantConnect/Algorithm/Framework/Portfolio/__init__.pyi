@@ -50,7 +50,7 @@ class IPortfolioTarget(metaclass=abc.ABCMeta):
 class IPortfolioConstructionModel(QuantConnect.Algorithm.Framework.INotifiedSecurityChanges, metaclass=abc.ABCMeta):
     """Algorithm framework model that"""
 
-    def create_targets(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def create_targets(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Create portfolio targets from the specified insights
         
@@ -64,7 +64,7 @@ class IPortfolioConstructionModel(QuantConnect.Algorithm.Framework.INotifiedSecu
 class AlphaStreamsPortfolioConstructionModel(System.Object, QuantConnect.Algorithm.Framework.Portfolio.IPortfolioConstructionModel):
     """Base alpha streams portfolio construction model"""
 
-    def create_targets(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def create_targets(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Create portfolio targets from the specified insights
         
@@ -161,7 +161,7 @@ class PortfolioConstructionModel(System.Object, QuantConnect.Algorithm.Framework
         """
         ...
 
-    def create_targets(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def create_targets(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Create portfolio targets from the specified insights
         
@@ -1132,7 +1132,7 @@ class MaximumSharpeRatioPortfolioOptimizer(System.Object, QuantConnect.Algorithm
         """
         ...
 
-    def get_boundary_conditions(self, size: int) -> typing.Iterable[LinearConstraint]:
+    def get_boundary_conditions(self, size: int) -> typing.Sequence[LinearConstraint]:
         """
         Boundary constraints on weights: lw ≤ w ≤ up
         
@@ -1373,7 +1373,7 @@ class MeanReversionPortfolioConstructionModel(QuantConnect.Algorithm.Framework.P
         ...
 
     @staticmethod
-    def cumulative_sum(sequence: typing.List[float]) -> typing.Iterable[float]:
+    def cumulative_sum(sequence: typing.List[float]) -> typing.Sequence[float]:
         """
         Cumulative Sum of a given sequence
         
@@ -1440,7 +1440,7 @@ class MinimumVariancePortfolioOptimizer(System.Object, QuantConnect.Algorithm.Fr
         """
         ...
 
-    def get_boundary_conditions(self, size: int) -> typing.Iterable[LinearConstraint]:
+    def get_boundary_conditions(self, size: int) -> typing.Sequence[LinearConstraint]:
         """
         Boundary constraints on weights: lw ≤ w ≤ up
         
@@ -1737,7 +1737,7 @@ class PortfolioConstructionModelPythonWrapper(QuantConnect.Algorithm.Framework.P
         """
         ...
 
-    def create_targets(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def create_targets(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Create portfolio targets from the specified insights
         
@@ -1811,7 +1811,7 @@ class PortfolioConstructionModelPythonWrapper(QuantConnect.Algorithm.Framework.P
 class NullPortfolioConstructionModel(QuantConnect.Algorithm.Framework.Portfolio.PortfolioConstructionModel):
     """Provides an implementation of IPortfolioConstructionModel that does nothing"""
 
-    def create_targets(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def create_targets(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Create Targets; Does nothing in this implementation and returns an empty IEnumerable
         
@@ -2108,7 +2108,7 @@ class PortfolioTargetCollection(System.Object, System.Collections.Generic.IDicti
         """
         ...
 
-    def order_by_margin_impact(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def order_by_margin_impact(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Returned an ordered enumerable where position reducing orders are executed first
         and the remaining orders are executed in decreasing order value.

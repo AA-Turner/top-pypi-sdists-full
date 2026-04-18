@@ -682,6 +682,21 @@ const Chat = (() => {
                 });
             });
             actions.appendChild(copyMdBtn);
+
+            // Save-as-memory affordance (#920). Only rendered once we know
+            // the assistant message's persisted id — otherwise we can't
+            // attach a message_id to the candidate's provenance.
+            if (msgData && typeof msgData.id === 'string') {
+                const saveMemBtn = document.createElement('button');
+                saveMemBtn.className = 'btn-action-icon btn-save-memory';
+                saveMemBtn.title = 'Save as memory';
+                saveMemBtn.setAttribute('aria-label', 'Save as memory');
+                saveMemBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 017 7c0 3-2 5-3 6-.5.5-1 1-1 2v1H9v-1c0-1-.5-1.5-1-2-1-1-3-3-3-6a7 7 0 017-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>';
+                saveMemBtn.addEventListener('click', () => {
+                    openSaveMemoryForm(msgEl, content, msgData.id);
+                });
+                actions.appendChild(saveMemBtn);
+            }
         }
 
         if (role === 'user' && msgData) {
@@ -715,6 +730,118 @@ const Chat = (() => {
         }
 
         msgEl.appendChild(actions);
+    }
+
+    function openSaveMemoryForm(msgEl, content, messageId) {
+        // Remove any open form from a prior click so we don't stack them.
+        const existing = msgEl.querySelector('.save-memory-form');
+        if (existing) { existing.remove(); return; }
+
+        const form = document.createElement('div');
+        form.className = 'save-memory-form';
+
+        const heading = document.createElement('div');
+        heading.className = 'save-memory-heading';
+        heading.textContent = 'Save as memory candidate';
+        form.appendChild(heading);
+
+        const scopeRow = document.createElement('label');
+        scopeRow.className = 'save-memory-row';
+        const scopeLbl = document.createElement('span');
+        scopeLbl.textContent = 'Scope';
+        scopeRow.appendChild(scopeLbl);
+        const scopeSel = document.createElement('select');
+        scopeSel.className = 'save-memory-scope';
+        ['user', 'project', 'local'].forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            scopeSel.appendChild(opt);
+        });
+        scopeRow.appendChild(scopeSel);
+        form.appendChild(scopeRow);
+
+        const catRow = document.createElement('label');
+        catRow.className = 'save-memory-row';
+        const catLbl = document.createElement('span');
+        catLbl.textContent = 'Category';
+        catRow.appendChild(catLbl);
+        const catSel = document.createElement('select');
+        catSel.className = 'save-memory-category';
+        ['preference', 'project_fact', 'decision', 'workflow_hint'].forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            catSel.appendChild(opt);
+        });
+        catRow.appendChild(catSel);
+        form.appendChild(catRow);
+
+        const contentRow = document.createElement('label');
+        contentRow.className = 'save-memory-row';
+        const contentLbl = document.createElement('span');
+        contentLbl.textContent = 'Content';
+        contentRow.appendChild(contentLbl);
+        const contentTa = document.createElement('textarea');
+        contentTa.className = 'save-memory-content';
+        contentTa.value = content || '';
+        contentRow.appendChild(contentTa);
+        form.appendChild(contentRow);
+
+        const errBox = document.createElement('div');
+        errBox.className = 'save-memory-error';
+        errBox.style.display = 'none';
+        form.appendChild(errBox);
+
+        const submitBtn = document.createElement('button');
+        submitBtn.type = 'button';
+        submitBtn.className = 'save-memory-submit';
+        submitBtn.textContent = 'Submit for review';
+        submitBtn.addEventListener('click', async () => {
+            errBox.style.display = 'none';
+            errBox.textContent = '';
+            const body = contentTa.value.trim();
+            if (!body) {
+                errBox.textContent = 'Content cannot be empty.';
+                errBox.style.display = '';
+                return;
+            }
+            const payload = {
+                content: body,
+                scope: scopeSel.value,
+                category: catSel.value,
+                proposer: 'user',
+                provenance: {
+                    conversation_id: App.state.currentConversationId || null,
+                    message_id: messageId,
+                },
+            };
+            try {
+                await App.api('/api/memory/candidates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                form.remove();
+                if (typeof showToast === 'function') {
+                    showToast('Saved as candidate — review it in the Memory panel.');
+                }
+            } catch (err) {
+                errBox.textContent = (err && err.message) || String(err);
+                errBox.style.display = '';
+            }
+        });
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'save-memory-cancel';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', () => form.remove());
+
+        form.appendChild(submitBtn);
+        form.appendChild(cancelBtn);
+
+        msgEl.appendChild(form);
     }
 
     async function forkConversation(position) {
@@ -2562,5 +2689,7 @@ const Chat = (() => {
         renderTaskOutputChip,
         showCompletionToast,
         updateBgIndicator,
+        // Exposed for Vitest (#920 save-as-memory affordance).
+        _openSaveMemoryForm: openSaveMemoryForm,
     };
 })();

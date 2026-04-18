@@ -179,6 +179,8 @@ class TestRepairStaleEmbeddings:
         # c1, c2 are present; c3 is missing
         source_chunks_index.contains = MagicMock(side_effect=lambda k: k != "c3")
         vec_manager.source_chunks = source_chunks_index
+        # Exercise only the source_chunks sweep in this test — disable memory sweep.
+        vec_manager.memories = None
 
         worker = _make_worker(db=db, vec_manager=vec_manager)
 
@@ -202,6 +204,7 @@ class TestRepairStaleEmbeddings:
         db.execute_fetchall = MagicMock(return_value=[])
         vec_manager = MagicMock()
         vec_manager.source_chunks = MagicMock()
+        vec_manager.memories = None
 
         worker = _make_worker(db=db, vec_manager=vec_manager)
         worker._repair_offset = 200  # simulate mid-sweep
@@ -217,12 +220,15 @@ class TestRepairStaleEmbeddings:
         db.execute_fetchall = MagicMock(return_value=[])
         vec_manager = MagicMock()
         vec_manager.source_chunks = MagicMock()
+        # Isolate to a single sweep target; memories sweep is exercised in test_embedding_worker.
+        vec_manager.memories = None
 
         worker = _make_worker(db=db, vec_manager=vec_manager)
 
         with patch("anteroom.services.embedding_worker.storage") as mock_storage:
             mock_storage.get_unembedded_messages = MagicMock(return_value=[])
             mock_storage.get_unembedded_source_chunks = MagicMock(return_value=[])
+            mock_storage.get_unembedded_memory_artifacts = MagicMock(return_value=[])
 
             # Run 9 cycles — repair should NOT fire
             for _ in range(9):

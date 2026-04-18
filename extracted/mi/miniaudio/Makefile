@@ -1,47 +1,49 @@
-.PHONY:  all win_dist dist upload
+.PHONY: all build test clean docs dist win_wheels linux_wheel upload check_upload
 PYTHON?=python3
 
 all:
-	@echo "Targets:  clean, test, docs, dist, win_wheels, linux_wheel, check_upload, upload"
+	@echo "Targets:  build, test, clean, docs, dist, win_wheels, linux_wheel, check_upload, upload"
 
-clean:
-	rm -f dist/* *.so *.pyd a.out
-	${PYTHON} setup.py clean --all
+check_venv:
+	@if [ -z "$$VIRTUAL_ENV" ]; then \
+		echo "Error: No virtual environment is active."; \
+		echo "Please create and activate one first:"; \
+		echo "  python3 -m venv venv"; \
+		echo "  source venv/bin/activate"; \
+		echo "Then run: make $@"; \
+		exit 1; \
+	fi
+
+build: check_venv
+	${PYTHON} -m pip install setuptools cffi
+	${PYTHON} -m pip install --editable .
 
 test:
-	rm -f *.so *.pyd
-	${PYTHON} setup.py clean
-	${PYTHON} setup.py build
-	${PYTHON} setup.py test
 	${PYTHON} -m pytest -v tests
-	# mypy --follow-imports skip miniaudio.py
 
-docs:
+clean:
+	rm -rf build/ dist/* *.so *.pyd a.out
+
+docs: check_venv
+	${PYTHON} -m pip install setuptools cffi
 	@${PYTHON} -c 'import setup; setup.make_md_docs("miniaudio")'
 
-win_wheels: test
-	cmd /C del /q dist\*
-	py -3.7-64 setup.py clean --all
-	py -3.7-64 setup.py bdist_wheel
-	py -3.8-64 setup.py clean --all
-	py -3.8-64 setup.py bdist_wheel
-	py -3.9-64 setup.py clean --all
-	py -3.9-64 setup.py bdist_wheel
-	py -3.10-64 setup.py clean --all
-	py -3.10-64 setup.py bdist_wheel
+dist:
+	rm -rf build/ dist/*
+	${PYTHON} -m pip install build
+	${PYTHON} -m build --sdist
 
-linux_wheel: test
-	rm -f dist/* *.so
-	${PYTHON} setup.py bdist_wheel
-	@echo
-	@echo
-	@echo "REMEMBER: the Linux wheel may be very system/cpu dependent so should you really use this? Beware."
-	@echo
+win_wheels: build
+	rm -rf build/ dist/*
+	${PYTHON} -m pip install build
+	for py in 3.10 3.11 3.12 3.13 3.14; do \
+		py -$$py -m build; \
+	done
 
-dist: test
-	rm -f dist/* *.so
-	${PYTHON} setup.py clean
-	${PYTHON} setup.py sdist
+linux_wheel: build
+	rm -rf build/ dist/*
+	${PYTHON} -m pip install build
+	${PYTHON} -m build
 
 upload: check_upload
 	twine upload dist/*

@@ -6,7 +6,6 @@ Tests for the mask module.
 import astropy.units as u
 import numpy as np
 import pytest
-from astropy.utils import minversion
 from numpy.testing import assert_allclose, assert_almost_equal
 
 from photutils.aperture.bounding_box import BoundingBox
@@ -14,8 +13,6 @@ from photutils.aperture.circle import CircularAnnulus, CircularAperture
 from photutils.aperture.mask import ApertureMask
 from photutils.aperture.rectangle import RectangularAnnulus
 
-NUMPY_LT_2_0 = not minversion(np, '2.0')
-COPY_IF_NEEDED = False if NUMPY_LT_2_0 else None
 POSITIONS = [(-20, -20), (-20, 20), (20, -20), (60, 60)]
 
 
@@ -48,20 +45,20 @@ def test_mask_copy():
     mask_copy[0, 0] = 100.0
     assert mask.data[0, 0] == 100.0
 
-    # no copy; copy=None returns a copy only if __array__ returns a copy
-    # copy=None was introduced in NumPy 2.0
+    # No copy: copy=None returns a copy only if __array__ returns a
+    # copy; copy=None was introduced in NumPy 2.0
     mask = ApertureMask(np.ones((10, 10)), bbox)
-    mask_copy = np.array(mask, copy=COPY_IF_NEEDED)
+    mask_copy = np.array(mask, copy=None)
     mask_copy[0, 0] = 100.0
     assert mask.data[0, 0] == 100.0
 
-    # no copy
+    # No copy
     mask = ApertureMask(np.ones((10, 10)), bbox)
     mask_copy = np.asarray(mask)
     mask_copy[0, 0] = 100.0
     assert mask.data[0, 0] == 100.0
 
-    # needs to copy because of the dtype change
+    # Needs to copy because of the dtype change
     mask = ApertureMask(np.ones((10, 10)), bbox)
     mask_copy = np.asarray(mask, dtype=int)
     mask_copy[0, 0] = 100.0
@@ -98,7 +95,7 @@ def test_mask_cutout_copy():
     data[25, 25] = 100.0
     assert cutout[10, 10] == 1.0
 
-    # test quantity data
+    # Test quantity data
     data2 = np.ones((50, 50)) * u.adu
     cutout2 = mask.cutout(data2, copy=True)
     assert cutout2.unit == data2.unit
@@ -138,6 +135,20 @@ def test_mask_cutout_partial_overlap(position):
     assert image.shape == data.shape
 
 
+def test_mask_cutout_partial_overlap_quantity():
+    """
+    Test that cutout with a Quantity array and partial overlap applies
+    the data unit to the output cutout (covers the `cutout <<=
+    data.unit` branch).
+    """
+    aper = CircularAperture((-20, -20), r=30.0)
+    mask = aper.to_mask()
+    data = np.ones((50, 50)) * u.adu
+    cutout = mask.cutout(data)
+    assert isinstance(cutout, u.Quantity)
+    assert cutout.unit == u.adu
+
+
 def test_mask_multiply():
     radius = 10.0
     data = np.ones((50, 50))
@@ -146,7 +157,7 @@ def test_mask_multiply():
     data_weighted = mask.multiply(data)
     assert_almost_equal(np.sum(data_weighted), np.pi * radius**2)
 
-    # test that multiply() returns a copy
+    # Test that multiply() returns a copy
     data[25, 25] = 100.0
     assert data_weighted[10, 10] == 1.0
 
@@ -160,7 +171,7 @@ def test_mask_multiply_quantity():
     assert data_weighted.unit == u.adu
     assert_almost_equal(np.sum(data_weighted.value), np.pi * radius**2)
 
-    # test that multiply() returns a copy
+    # Test that multiply() returns a copy
     data[25, 25] = 100.0 * u.adu
     assert data_weighted[10, 10].value == 1.0
 
@@ -184,7 +195,7 @@ def test_mask_multiply_fill_value():
 
 def test_mask_nonfinite_in_bbox():
     """
-    Regression test that non-finite data values outside of the mask but
+    Regression test that non-finite data values outside the mask but
     within the bounding box are set to zero.
     """
     data = np.ones((101, 101))

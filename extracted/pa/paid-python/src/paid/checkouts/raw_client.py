@@ -128,6 +128,7 @@ class RawCheckoutsClient:
         collect_address: typing.Optional[bool] = OMIT,
         collect_phone: typing.Optional[bool] = OMIT,
         single_use: typing.Optional[bool] = OMIT,
+        currency: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Checkout]:
         """
@@ -156,6 +157,9 @@ class RawCheckoutsClient:
 
         single_use : typing.Optional[bool]
 
+        currency : typing.Optional[str]
+            Lock checkout to a specific currency. Omit to allow all currencies supported by the selected plans.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -180,6 +184,7 @@ class RawCheckoutsClient:
                 "collectAddress": collect_address,
                 "collectPhone": collect_phone,
                 "singleUse": single_use,
+                "currency": currency,
             },
             headers={
                 "content-type": "application/json",
@@ -491,6 +496,7 @@ class AsyncRawCheckoutsClient:
         collect_address: typing.Optional[bool] = OMIT,
         collect_phone: typing.Optional[bool] = OMIT,
         single_use: typing.Optional[bool] = OMIT,
+        currency: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Checkout]:
         """
@@ -519,6 +525,9 @@ class AsyncRawCheckoutsClient:
 
         single_use : typing.Optional[bool]
 
+        currency : typing.Optional[str]
+            Lock checkout to a specific currency. Omit to allow all currencies supported by the selected plans.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -543,6 +552,7 @@ class AsyncRawCheckoutsClient:
                 "collectAddress": collect_address,
                 "collectPhone": collect_phone,
                 "singleUse": single_use,
+                "currency": currency,
             },
             headers={
                 "content-type": "application/json",

@@ -320,6 +320,7 @@ __all__ = (
     "PutImagePolicyResponseTypeDef",
     "PutImageRecipePolicyRequestTypeDef",
     "PutImageRecipePolicyResponseTypeDef",
+    "RegisterImageOptionsTypeDef",
     "RemediationRecommendationTypeDef",
     "RemediationTypeDef",
     "ResourceStateTypeDef",
@@ -354,6 +355,7 @@ __all__ = (
     "UpdateLifecyclePolicyResponseTypeDef",
     "VulnerabilityIdAggregationTypeDef",
     "VulnerablePackageTypeDef",
+    "WindowsConfigurationTypeDef",
     "WorkflowConfigurationOutputTypeDef",
     "WorkflowConfigurationTypeDef",
     "WorkflowConfigurationUnionTypeDef",
@@ -712,6 +714,13 @@ ImportComponentRequestTypeDef = TypedDict(
         "tags": NotRequired[Mapping[str, str]],
     },
 )
+
+class RegisterImageOptionsTypeDef(TypedDict):
+    secureBootEnabled: NotRequired[bool]
+    uefiData: NotRequired[str]
+
+class WindowsConfigurationTypeDef(TypedDict):
+    imageIndex: int
 
 class LaunchPermissionConfigurationTypeDef(TypedDict):
     userIds: NotRequired[Sequence[str]]
@@ -1361,19 +1370,6 @@ class DistributeImageRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     loggingConfiguration: NotRequired[ImageLoggingConfigurationTypeDef]
 
-class ImportDiskImageRequestTypeDef(TypedDict):
-    name: str
-    semanticVersion: str
-    platform: str
-    osVersion: str
-    infrastructureConfigurationArn: str
-    uri: str
-    clientToken: str
-    description: NotRequired[str]
-    executionRole: NotRequired[str]
-    loggingConfiguration: NotRequired[ImageLoggingConfigurationTypeDef]
-    tags: NotRequired[Mapping[str, str]]
-
 class ImportVmImageRequestTypeDef(TypedDict):
     name: str
     semanticVersion: str
@@ -1528,6 +1524,21 @@ class ListImagesResponseTypeDef(TypedDict):
     imageVersionList: list[ImageVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class ImportDiskImageRequestTypeDef(TypedDict):
+    name: str
+    semanticVersion: str
+    platform: str
+    osVersion: str
+    infrastructureConfigurationArn: str
+    uri: str
+    clientToken: str
+    description: NotRequired[str]
+    executionRole: NotRequired[str]
+    loggingConfiguration: NotRequired[ImageLoggingConfigurationTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+    registerImageOptions: NotRequired[RegisterImageOptionsTypeDef]
+    windowsConfiguration: NotRequired[WindowsConfigurationTypeDef]
 
 LaunchPermissionConfigurationUnionTypeDef = Union[
     LaunchPermissionConfigurationTypeDef, LaunchPermissionConfigurationOutputTypeDef

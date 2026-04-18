@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import data_designer.lazy_heavy_imports as lazy
+from data_designer.config.base import SkipConfig
 from data_designer.config.column_configs import (
     CustomColumnConfig,
     ExpressionColumnConfig,
@@ -1432,6 +1433,51 @@ async def test_scheduler_rg_semaphore_deadlock_with_transient_failures() -> None
     assert tracker.is_row_group_complete(1, 2, ["seed", "col"])
 
 
+def test_side_effect_columns_separated_from_completion_tracking() -> None:
+    """Side-effect columns must appear in _gen_instance_to_columns_including_side_effects
+    (buffer writes) but NOT in _gen_instance_to_columns (completion tracking), because
+    they are not registered in the execution graph and would cause KeyError in
+    CompletionTracker.
+    """
+    graph = ExecutionGraph()
+    graph.add_column("seed", GenerationStrategy.FULL_COLUMN)
+    graph.add_column("primary", GenerationStrategy.CELL_BY_CELL)
+    graph.add_edge(upstream="seed", downstream="primary")
+
+    row_groups = [(0, 2)]
+    tracker = CompletionTracker.with_graph(graph, row_groups)
+
+    provider = _mock_provider()
+    seed_gen = MockSeedGenerator(config=_expr_config("seed"), resource_provider=provider)
+    cell_gen = MockCellGenerator(config=_expr_config("primary"), resource_provider=provider)
+    # Replace the config with a mock that reports side-effect columns.
+    mock_config = MagicMock()
+    mock_config.side_effect_columns = ["side_a", "side_b"]
+    object.__setattr__(cell_gen, "_config", mock_config)
+
+    generators: dict[str, ColumnGenerator] = {"seed": seed_gen, "primary": cell_gen}
+
+    scheduler = AsyncTaskScheduler(
+        generators=generators,
+        graph=graph,
+        tracker=tracker,
+        row_groups=row_groups,
+    )
+
+    cell_id = id(cell_gen)
+
+    # Completion tracking dict: only real columns
+    assert "side_a" not in scheduler._gen_instance_to_columns.get(cell_id, [])
+    assert "side_b" not in scheduler._gen_instance_to_columns.get(cell_id, [])
+    assert "primary" in scheduler._gen_instance_to_columns.get(cell_id, [])
+
+    # Buffer write dict: includes side-effect columns
+    write_cols = scheduler._gen_instance_to_columns_including_side_effects.get(cell_id, [])
+    assert "primary" in write_cols
+    assert "side_a" in write_cols
+    assert "side_b" in write_cols
+
+
 # -- TrackingSemaphore tests ---------------------------------------------------
 
 
@@ -1551,3 +1597,244 @@ async def test_scheduler_downstream_interleaves_with_upstream() -> None:
         f"First judge dispatched at {first_judge_dispatched:.4f}, "
         f"last gen dispatched at {last_gen_dispatched:.4f}."
     )
+
+
+# -- Skip / conditional generation tests (async engine) -----------------------
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_scheduler_skip_cell_by_cell_with_propagation() -> None:
+    """Cell-by-cell column skips rows via expression gate, downstream propagates.
+
+    Pipeline: seed(sampler) -> review(cell, skip.when seed<2) -> complaint(cell, propagate_skip)
+    Rows with seed < 2 should be skipped for review and propagated to complaint.
+    """
+    provider = _mock_provider()
+    num_records = 4
+
+    configs = [
+        SamplerColumnConfig(name="seed", sampler_type=SamplerType.CATEGORY, params={"values": ["A"]}),
+        LLMTextColumnConfig(
+            name="review",
+            prompt="{{ seed }}",
+            model_alias=MODEL_ALIAS,
+            skip=SkipConfig(when="{{ seed < 2 }}"),
+        ),
+        LLMTextColumnConfig(
+            name="complaint",
+            prompt="{{ review }}",
+            model_alias=MODEL_ALIAS,
+            propagate_skip=True,
+        ),
+    ]
+    strategies = {
+        "seed": GenerationStrategy.FULL_COLUMN,
+        "review": GenerationStrategy.CELL_BY_CELL,
+        "complaint": GenerationStrategy.CELL_BY_CELL,
+    }
+
+    class IntSeedGenerator(FromScratchColumnGenerator[ExpressionColumnConfig]):
+        @staticmethod
+        def get_generation_strategy() -> GenerationStrategy:
+            return GenerationStrategy.FULL_COLUMN
+
+        def generate(self, data: lazy.pd.DataFrame) -> lazy.pd.DataFrame:
+            return data
+
+        def generate_from_scratch(self, num_records: int) -> lazy.pd.DataFrame:
+            return lazy.pd.DataFrame({"seed": list(range(num_records))})
+
+    generators: dict[str, ColumnGenerator] = {
+        "seed": IntSeedGenerator(config=_expr_config("seed"), resource_provider=provider),
+        "review": MockCellGenerator(config=_expr_config("review"), resource_provider=provider),
+        "complaint": MockCellGenerator(config=_expr_config("complaint"), resource_provider=provider),
+    }
+
+    storage = MagicMock()
+    storage.dataset_name = "test"
+    storage.get_file_paths.return_value = {}
+    buffer_mgr = RowGroupBufferManager(storage)
+
+    graph = ExecutionGraph.create(configs, strategies)
+    row_groups = [(0, num_records)]
+    tracker = CompletionTracker.with_graph(graph, row_groups)
+
+    scheduler = AsyncTaskScheduler(
+        generators=generators,
+        graph=graph,
+        tracker=tracker,
+        row_groups=row_groups,
+        buffer_manager=buffer_mgr,
+        trace=True,
+        num_records=num_records,
+        buffer_size=num_records,
+    )
+    await asyncio.wait_for(scheduler.run(), timeout=10.0)
+
+    assert tracker.is_row_group_complete(0, num_records, ["seed", "review", "complaint"])
+
+    for ri in range(num_records):
+        row = buffer_mgr.get_row(0, ri)
+        seed_val = row["seed"]
+        if seed_val < 2:
+            assert row.get("review") is None, f"row {ri}: review should be skipped (seed={seed_val})"
+            assert row.get("complaint") is None, f"row {ri}: complaint should propagate skip (seed={seed_val})"
+        else:
+            assert row.get("review") is not None, f"row {ri}: review should be generated (seed={seed_val})"
+            assert row.get("complaint") is not None, f"row {ri}: complaint should be generated (seed={seed_val})"
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_scheduler_skip_propagates_through_side_effect_dependency() -> None:
+    """A downstream dependency on a skipped side-effect should auto-skip.
+
+    Pipeline: seed(sampler) -> review(cell, skip.when seed<2, produces
+    review__trace) -> complaint(cell, depends on review__trace,
+    propagate_skip=True).
+    """
+    provider = _mock_provider()
+    num_records = 4
+
+    configs = [
+        SamplerColumnConfig(name="seed", sampler_type=SamplerType.CATEGORY, params={"values": ["A"]}),
+        LLMTextColumnConfig(
+            name="review",
+            prompt="{{ seed }}",
+            model_alias=MODEL_ALIAS,
+            with_trace="last_message",
+            skip=SkipConfig(when="{{ seed < 2 }}"),
+        ),
+        LLMTextColumnConfig(
+            name="complaint",
+            prompt="{{ review__trace }}",
+            model_alias=MODEL_ALIAS,
+            propagate_skip=True,
+        ),
+    ]
+    strategies = {
+        "seed": GenerationStrategy.FULL_COLUMN,
+        "review": GenerationStrategy.CELL_BY_CELL,
+        "complaint": GenerationStrategy.CELL_BY_CELL,
+    }
+
+    class IntSeedGenerator(FromScratchColumnGenerator[ExpressionColumnConfig]):
+        @staticmethod
+        def get_generation_strategy() -> GenerationStrategy:
+            return GenerationStrategy.FULL_COLUMN
+
+        def generate(self, data: lazy.pd.DataFrame) -> lazy.pd.DataFrame:
+            return data
+
+        def generate_from_scratch(self, num_records: int) -> lazy.pd.DataFrame:
+            return lazy.pd.DataFrame({"seed": list(range(num_records))})
+
+    generators: dict[str, ColumnGenerator] = {
+        "seed": IntSeedGenerator(config=_expr_config("seed"), resource_provider=provider),
+        "review": MockCellGenerator(config=_expr_config("review"), resource_provider=provider),
+        "complaint": MockCellGenerator(config=_expr_config("complaint"), resource_provider=provider),
+    }
+
+    storage = MagicMock()
+    storage.dataset_name = "test"
+    storage.get_file_paths.return_value = {}
+    buffer_mgr = RowGroupBufferManager(storage)
+
+    graph = ExecutionGraph.create(configs, strategies)
+    row_groups = [(0, num_records)]
+    tracker = CompletionTracker.with_graph(graph, row_groups)
+
+    scheduler = AsyncTaskScheduler(
+        generators=generators,
+        graph=graph,
+        tracker=tracker,
+        row_groups=row_groups,
+        buffer_manager=buffer_mgr,
+        trace=True,
+        num_records=num_records,
+        buffer_size=num_records,
+    )
+    await asyncio.wait_for(scheduler.run(), timeout=10.0)
+
+    assert tracker.is_row_group_complete(0, num_records, ["seed", "review", "complaint"])
+
+    for ri in range(num_records):
+        row = buffer_mgr.get_row(0, ri)
+        seed_val = row["seed"]
+        if seed_val < 2:
+            assert row.get("review") is None, f"row {ri}: review should be skipped (seed={seed_val})"
+            assert row.get("review__trace") is None, f"row {ri}: review__trace should be cleared on skip"
+            assert row.get("complaint") is None, f"row {ri}: complaint should propagate skip (seed={seed_val})"
+        else:
+            assert row.get("complaint") is not None, f"row {ri}: complaint should be generated (seed={seed_val})"
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_scheduler_skip_full_column_batch() -> None:
+    """Full-column (batch) generator skips rows via expression gate.
+
+    Pipeline: seed(sampler) -> review(full_column, skip.when seed<2)
+    Only active (non-skipped) rows should be passed to the generator.
+    """
+    provider = _mock_provider()
+    num_records = 4
+
+    configs = [
+        SamplerColumnConfig(name="seed", sampler_type=SamplerType.CATEGORY, params={"values": ["A"]}),
+        LLMTextColumnConfig(
+            name="review",
+            prompt="{{ seed }}",
+            model_alias=MODEL_ALIAS,
+            skip=SkipConfig(when="{{ seed < 2 }}"),
+        ),
+    ]
+    strategies = {
+        "seed": GenerationStrategy.FULL_COLUMN,
+        "review": GenerationStrategy.FULL_COLUMN,
+    }
+
+    class IntSeedGenerator(FromScratchColumnGenerator[ExpressionColumnConfig]):
+        @staticmethod
+        def get_generation_strategy() -> GenerationStrategy:
+            return GenerationStrategy.FULL_COLUMN
+
+        def generate(self, data: lazy.pd.DataFrame) -> lazy.pd.DataFrame:
+            return data
+
+        def generate_from_scratch(self, num_records: int) -> lazy.pd.DataFrame:
+            return lazy.pd.DataFrame({"seed": list(range(num_records))})
+
+    generators: dict[str, ColumnGenerator] = {
+        "seed": IntSeedGenerator(config=_expr_config("seed"), resource_provider=provider),
+        "review": MockFullColumnGenerator(config=_expr_config("review"), resource_provider=provider),
+    }
+
+    storage = MagicMock()
+    storage.dataset_name = "test"
+    storage.get_file_paths.return_value = {}
+    buffer_mgr = RowGroupBufferManager(storage)
+
+    graph = ExecutionGraph.create(configs, strategies)
+    row_groups = [(0, num_records)]
+    tracker = CompletionTracker.with_graph(graph, row_groups)
+
+    scheduler = AsyncTaskScheduler(
+        generators=generators,
+        graph=graph,
+        tracker=tracker,
+        row_groups=row_groups,
+        buffer_manager=buffer_mgr,
+        trace=True,
+        num_records=num_records,
+        buffer_size=num_records,
+    )
+    await asyncio.wait_for(scheduler.run(), timeout=10.0)
+
+    assert tracker.is_row_group_complete(0, num_records, ["seed", "review"])
+
+    for ri in range(num_records):
+        row = buffer_mgr.get_row(0, ri)
+        seed_val = row["seed"]
+        if seed_val < 2:
+            assert row.get("review") is None, f"row {ri}: review should be skipped (seed={seed_val})"
+        else:
+            assert row["review"] == "batch_val", f"row {ri}: review should be generated (seed={seed_val})"

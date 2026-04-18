@@ -5,6 +5,12 @@ from plato.v2.async_.chronos import AsyncChronos
 from plato.v2.async_.chronos import ChronosSession as AsyncChronosSession
 from plato.v2.async_.client import AsyncPlato as Plato
 from plato.v2.async_.environment import Environment
+from plato.v2.async_.flow_backends import (
+    AgentBrowserBackend,
+    FlowBackend,
+    PlaywrightBackend,
+    make_ssh_run_cmd,
+)
 from plato.v2.async_.flow_executor import FlowExecutionError, FlowExecutor
 from plato.v2.async_.session import LoginResult, Session
 
@@ -16,6 +22,10 @@ __all__ = [
     "LoginResult",
     "FlowExecutor",
     "FlowExecutionError",
+    "FlowBackend",
+    "PlaywrightBackend",
+    "AgentBrowserBackend",
+    "make_ssh_run_cmd",
     "AsyncChronos",
     "AsyncChronosSession",
 ]

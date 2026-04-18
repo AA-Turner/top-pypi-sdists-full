@@ -3,12 +3,16 @@
 Tests for the stats module.
 """
 
+import sys
+from unittest.mock import patch
+
 import astropy.units as u
 import numpy as np
 import pytest
 from astropy.nddata import NDData, StdDevUncertainty
 from astropy.stats import SigmaClip
-from astropy.utils.exceptions import AstropyUserWarning
+from astropy.utils.exceptions import (AstropyDeprecationWarning,
+                                      AstropyUserWarning)
 from numpy.testing import assert_allclose, assert_equal
 
 from photutils.aperture.circle import CircularAnnulus, CircularAperture
@@ -56,7 +60,7 @@ class TestApertureStats:
 
         scalar_props = ('isscalar', 'n_apertures')
 
-        # evaluate (cache) properties before slice
+        # Evaluate (cache) properties before slice
         for prop in apstats1.properties:
             _ = getattr(apstats1, prop)
         apstats3 = apstats1[idx]
@@ -65,7 +69,7 @@ class TestApertureStats:
                 continue
             assert_equal(getattr(apstats1, prop)[idx], getattr(apstats3, prop))
 
-        # slice catalog before evaluating catalog properties
+        # Slice catalog before evaluating catalog properties
         apstats4 = apstats2[idx]
         for prop in apstats1.properties:
             if prop in scalar_props:
@@ -77,7 +81,7 @@ class TestApertureStats:
         skyaper = self.aperture.to_sky(self.wcs)
         sky_apstats = ApertureStats(self.data, skyaper, wcs=self.wcs)
 
-        exclude_props = ('bbox', 'error_sumcutout', 'sum_error',
+        exclude_props = ('bbox', 'error_sum_cutout', 'sum_error',
                          'sky_centroid', 'sky_centroid_icrs')
         for prop in pix_apstats.properties:
             if prop in exclude_props:
@@ -89,9 +93,19 @@ class TestApertureStats:
         with pytest.raises(ValueError, match=match):
             _ = ApertureStats(self.data, skyaper)
 
+    def test_lazyproperties_class_cache(self):
+        """
+        Test that _lazyproperties is cached on the class and shared
+        across instances.
+        """
+        apstats2 = ApertureStats(self.data, self.aperture)
+        result1 = self.apstats1._lazyproperties
+        result2 = apstats2._lazyproperties
+        assert result1 is result2
+
     def test_minimal_inputs(self):
         apstats = ApertureStats(self.data, self.aperture)
-        props = ('sky_centroid', 'sky_centroid_icrs', 'error_sumcutout')
+        props = ('sky_centroid', 'sky_centroid_icrs', 'error_sum_cutout')
         for prop in props:
             assert set(getattr(apstats, prop)) == {None}
         assert np.all(np.isnan(apstats.sum_err))
@@ -109,12 +123,12 @@ class TestApertureStats:
 
         scalar_props = ('isscalar', 'n_apertures')
 
-        # evaluate (cache) properties before slice
+        # Evaluate (cache) properties before slice
         for prop in apstats1.properties:
             if prop in scalar_props:
                 continue
             if 'sum' in prop:
-                # test that these properties are not equal
+                # Test that these properties are not equal
                 with pytest.raises(AssertionError):
                     assert_equal(getattr(apstats1, prop),
                                  getattr(apstats2, prop))
@@ -128,7 +142,7 @@ class TestApertureStats:
                                     error=self.error, sum_method=method,
                                     subpixels=subpixels)
             apsum, apsum_err = self.aperture.do_photometry(self.data,
-                                                           self.error,
+                                                           error=self.error,
                                                            method=method,
                                                            subpixels=subpixels)
             assert_allclose(apstats.sum, apsum)
@@ -155,7 +169,7 @@ class TestApertureStats:
                 continue
             assert np.all(np.isnan(getattr(apstats1, prop)))
 
-        # test that mask=None is the same as mask=np.ma.nomask
+        # Test that mask=None is the same as mask=np.ma.nomask
         apstats1 = ApertureStats(self.data, self.aperture, mask=None)
         apstats2 = ApertureStats(self.data, self.aperture, mask=np.ma.nomask)
         assert_equal(apstats1.centroid, apstats2.centroid)
@@ -172,7 +186,7 @@ class TestApertureStats:
                 assert_equal(getattr(apstats[i], prop),
                              getattr(apstats0, prop))
 
-        # test broadcasting
+        # Test broadcasting
         local_bkg = (12, 12, 12)
         apstats1 = ApertureStats(data, self.aperture, local_bkg=local_bkg)
         apstats2 = ApertureStats(data, self.aperture, local_bkg=local_bkg[0])
@@ -218,13 +232,17 @@ class TestApertureStats:
         assert tbl.colnames == columns
         assert len(tbl) == len(self.apstats1) == 3
 
+        tbl = self.apstats1.to_table(columns='sum')
+        assert tbl.colnames == ['sum']
+        assert len(tbl) == len(self.apstats1) == 3
+
     def test_slicing(self):
         apstats = self.apstats1
         _ = apstats.to_table()
         apstat0 = apstats[1]
         assert apstat0.n_apertures == 1
         assert apstat0.ids == np.array([2])
-        apstat1 = apstats.get_id(2)
+        apstat1 = apstats.select_id(2)
         assert apstat1.n_apertures == 1
         assert apstat0.sum_aper_area == apstat1.sum_aper_area
 
@@ -238,22 +256,22 @@ class TestApertureStats:
         assert len(apstat0) == 3
 
         apstat0 = apstats[1:]
-        apstat1 = apstats.get_ids([1, 2])
+        apstat1 = apstats.select_ids([1, 2])
         assert len(apstat0) == len(apstat1) == 2
 
         apstat0 = apstats[1:]
-        apstat1 = apstats.get_ids([1, 2])
+        apstat1 = apstats.select_ids([1, 2])
         assert len(apstat0) == len(apstat1) == 2
 
         apstat0 = apstats[[2, 1, 0]]
-        apstat1 = apstats.get_ids([3, 2, 1])
+        apstat1 = apstats.select_ids([3, 2, 1])
         assert len(apstat0) == len(apstat1) == 3
         assert_equal(apstat0.ids, [3, 2, 1])
         assert_equal(apstat1.ids, [3, 2, 1])
 
-        # test get_ids when ids are not sorted
+        # Test select_ids when ids are not sorted
         apstat0 = apstats[[2, 1, 0]]
-        apstat1 = apstat0.get_ids(2)
+        apstat1 = apstat0.select_ids(2)
         assert apstat1.ids == 2
 
         mask = apstats.id >= 2
@@ -261,7 +279,7 @@ class TestApertureStats:
         assert len(apstat0) == 2
         assert_equal(apstat0.ids, [2, 3])
 
-        # test iter
+        # Test iter
         for (i, apstat) in enumerate(apstats):
             assert apstat.isscalar
             assert apstat.id == (i + 1)
@@ -280,7 +298,7 @@ class TestApertureStats:
 
         match = '-1 is not a valid source ID number'
         with pytest.raises(ValueError, match=match):
-            apstat0 = apstats.get_ids([-1, 0])
+            apstat0 = apstats.select_ids([-1, 0])
 
     def test_scalar_aperture_stats(self):
         apstats = self.apstats1[0]
@@ -289,9 +307,43 @@ class TestApertureStats:
         tbl = apstats.to_table()
         assert len(tbl) == 1
 
+    def test_deprecated_attributes(self):
+        """
+        Test that deprecated attributes are still available and
+        give the same value as the new attributes, but raise an
+        AstropyDeprecationWarning.
+        """
+        apstats = ApertureStats(self.data, self.aperture, error=self.error)
+        match = 'attribute was deprecated'
+        deprecated_map = {
+            'covar_sigx2': 'covariance_xx',
+            'covar_sigxy': 'covariance_xy',
+            'covar_sigy2': 'covariance_yy',
+            'cxx': 'ellipse_cxx',
+            'cxy': 'ellipse_cxy',
+            'cyy': 'ellipse_cyy',
+            'data_sumcutout': 'data_sum_cutout',
+            'error_sumcutout': 'error_sum_cutout',
+            'get_id': 'select_id',
+            'get_ids': 'select_ids',
+            'semimajor_sigma': 'semimajor_axis',
+            'semiminor_sigma': 'semiminor_axis',
+            'xcentroid': 'x_centroid',
+            'ycentroid': 'y_centroid',
+        }
+        for old_name, new_name in deprecated_map.items():
+            with pytest.warns(AstropyDeprecationWarning, match=match):
+                old_val = getattr(apstats, old_name)
+            new_val = getattr(apstats, new_name)
+            assert_equal(old_val, new_val)
+
     def test_invalid_inputs(self):
         match = 'aperture must be an Aperture or Region object'
         with pytest.raises(TypeError, match=match):
+            ApertureStats(self.data, 10.0)
+
+        with (patch.dict(sys.modules, {'regions': None}),
+              pytest.raises(TypeError, match=match)):
             ApertureStats(self.data, 10.0)
 
         match = 'sigma_clip must be a SigmaClip instance'
@@ -326,8 +378,8 @@ class TestApertureStats:
         assert apstats.min == 1.0
         assert apstats.max == 1.0
         assert apstats.mean == 1.0
-        assert apstats.xcentroid == 12.0
-        assert apstats.ycentroid == 12.0
+        assert apstats.x_centroid == 12.0
+        assert apstats.y_centroid == 12.0
 
     @pytest.mark.parametrize('with_units', [True, False])
     def test_nddata_input(self, with_units):
@@ -351,8 +403,8 @@ class TestApertureStats:
                         wcs=self.wcs, unit=unit)
         apstats2 = ApertureStats(nddata, self.aperture, sigma_clip=None)
 
-        assert_allclose(apstats1.xcentroid, apstats2.xcentroid)
-        assert_allclose(apstats1.ycentroid, apstats2.ycentroid)
+        assert_allclose(apstats1.x_centroid, apstats2.x_centroid)
+        assert_allclose(apstats1.y_centroid, apstats2.y_centroid)
         assert_allclose(apstats1.sum, apstats2.sum)
 
         if with_units:

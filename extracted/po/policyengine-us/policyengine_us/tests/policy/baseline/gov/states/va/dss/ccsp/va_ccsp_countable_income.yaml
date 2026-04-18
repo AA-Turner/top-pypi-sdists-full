@@ -1,0 +1,114 @@
+# Virginia CCSP countable income tests
+# va_ccsp_countable_income uses adds/subtracts pattern:
+#   adds: employment_income, self_employment_income, child_support_received,
+#         social_security, pension_income, unemployment_compensation,
+#         workers_compensation, veterans_benefits, disability_benefits,
+#         interest_income, dividend_income, rental_income, alimony_income
+#   subtracts: child_support_expense
+#
+# Variable is SPMUnit, MONTH. Income sources are Person, YEAR.
+# In MONTH test: input annual amounts, output = monthly (annual / 12).
+
+- name: Case 1, employment income only.
+  period: 2024-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        employment_income: 36_000
+      person2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: VA
+  output:
+    # 36,000 / 12 = 3,000
+    va_ccsp_countable_income: 3_000
+
+- name: Case 2, multiple income sources.
+  period: 2024-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        employment_income: 24_000
+        self_employment_income: 6_000
+        child_support_received: 3_600
+      person2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: VA
+  output:
+    # (24,000 + 6,000 + 3,600) / 12 = 2,800
+    va_ccsp_countable_income: 2_800
+
+- name: Case 3, income with child support deduction.
+  period: 2024-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        employment_income: 48_000
+        child_support_expense: 6_000
+      person2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: VA
+  output:
+    # (48,000 - 6,000) / 12 = 3,500
+    va_ccsp_countable_income: 3_500
+
+- name: Case 4, zero income.
+  period: 2024-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        age: 30
+      person2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: VA
+  output:
+    va_ccsp_countable_income: 0
+
+- name: Case 5, two-parent household with combined income.
+  period: 2024-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        employment_income: 30_000
+      person2:
+        employment_income: 24_000
+      person3:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2, person3]
+    households:
+      household:
+        members: [person1, person2, person3]
+        state_code: VA
+  output:
+    # (30,000 + 24,000) / 12 = 4,500
+    va_ccsp_countable_income: 4_500

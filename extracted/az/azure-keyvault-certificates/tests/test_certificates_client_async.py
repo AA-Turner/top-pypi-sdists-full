@@ -10,12 +10,13 @@ from unittest.mock import Mock, patch
 
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.core.pipeline.policies import SansIOHTTPPolicy
-from devtools_testutils import set_bodiless_matcher
+from devtools_testutils import set_bodiless_matcher, set_custom_default_matcher
 from devtools_testutils.aio import recorded_by_proxy_async
 from azure.keyvault.certificates import (
     AdministratorContact,
     ApiVersion,
     CertificateContact,
+    CertificateOperation,
     CertificatePolicyAction,
     CertificatePolicy,
     KeyType,
@@ -34,7 +35,8 @@ from azure.keyvault.certificates._shared.client_base import DEFAULT_VERSION
 import pytest
 
 from _shared.test_case_async import KeyVaultTestCase
-from _async_test_case import get_decorator, AsyncCertificatesClientPreparer
+from _async_test_case import AsyncCertificatesClientPreparer
+from _test_case import get_decorator
 from certs import CERT_CONTENT_PASSWORD_ENCODED, CERT_CONTENT_NOT_PASSWORD_ENCODED
 
 
@@ -339,7 +341,7 @@ class TestCertificateClient(KeyVaultTestCase):
     @AsyncCertificatesClientPreparer()
     @recorded_by_proxy_async
     async def test_recover_and_purge(self, client, **kwargs):
-        set_bodiless_matcher()
+        set_custom_default_matcher(compare_bodies=False, ignored_headers="Accept")
         certs = {}
         # create certificates to recover
         for i in range(LIST_TEST_SIZE):
@@ -784,6 +786,32 @@ class TestCertificateClient(KeyVaultTestCase):
             with pytest.raises(ResourceExistsError):
                 await client.create_certificate("...", CertificatePolicy.get_default())
         await client.close()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("api_version", only_latest)
+    @AsyncCertificatesClientPreparer()
+    @recorded_by_proxy_async
+    async def test_unknown_issuer_response(self, client, **kwargs):
+        """When a certificate is created with an unknown issuer, the poller result should be a CertificateOperation"""
+        cert_name = self.get_resource_name("unknownIssuer")
+
+        # create certificate with unknown issuer
+        cert_policy = CertificatePolicy(
+            issuer_name=WellKnownIssuerNames.unknown,
+            subject="CN=*.microsoft.com",
+            san_dns_names=["sdk.azure-int.net"],
+            exportable=True,
+            key_type="RSA",
+            key_size=2048,
+            reuse_key=False,
+            content_type=CertificateContentType.pkcs12,
+            validity_in_months=24,
+        )
+        result = await client.create_certificate(certificate_name=cert_name, policy=cert_policy)
+        # The operation should indicate that certificate creation is in progress and requires a merge to complete
+        assert isinstance(result, CertificateOperation)
+        assert result.status and result.status.lower() == "inprogress"
+        assert result.status_details and "merge" in result.status_details.lower()
 
 
 @pytest.mark.asyncio

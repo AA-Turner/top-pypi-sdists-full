@@ -2,12 +2,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import base64
 from collections.abc import Iterable, Sequence
 from typing import Any
 
-from autogen.beta.events import BaseEvent, ModelRequest, ModelResponse, ToolResultsEvent
+from openai.types import CompletionUsage
+from openai.types.responses import ResponseUsage
+
+from autogen.beta.events import (
+    BaseEvent,
+    BinaryInput,
+    BinaryType,
+    FileIdInput,
+    ModelRequest,
+    ModelResponse,
+    TextInput,
+    ToolResultsEvent,
+    UrlInput,
+)
 from autogen.beta.events.types import Usage
-from autogen.beta.exceptions import UnsupportedToolError
+from autogen.beta.exceptions import UnsupportedInputError, UnsupportedToolError
 from autogen.beta.response import ResponseProto
 from autogen.beta.tools.builtin.code_execution import CodeExecutionToolSchema
 from autogen.beta.tools.builtin.image_generation import ImageGenerationToolSchema
@@ -17,6 +31,7 @@ from autogen.beta.tools.builtin.shell import (
     ContainerReferenceEnvironment,
     ShellToolSchema,
 )
+from autogen.beta.tools.builtin.skills import SkillsToolSchema
 from autogen.beta.tools.builtin.web_search import WebSearchToolSchema
 from autogen.beta.tools.final import FunctionToolSchema
 from autogen.beta.tools.schemas import ToolSchema
@@ -98,22 +113,13 @@ def events_to_responses_input(messages: Sequence[BaseEvent]) -> list[dict[str, A
     result: list[dict[str, Any]] = []
 
     for message in messages:
-        if isinstance(message, ModelRequest):
-            result.append({
-                "role": "user",
-                "content": [{"type": "input_text", "text": message.content}],
-            })
-
-        elif isinstance(message, ModelResponse):
+        if isinstance(message, ModelResponse):
             # Reconstruct assistant message
             content: list[dict[str, Any]] = []
             if message.message:
                 content.append({"type": "output_text", "text": message.message.content})
             if content:
-                result.append({
-                    "role": "assistant",
-                    "content": content,
-                })
+                result.append({"role": "assistant", "content": content})
             # Add function call items from the response
             for call in message.tool_calls.calls:
                 result.append({
@@ -131,6 +137,39 @@ def events_to_responses_input(messages: Sequence[BaseEvent]) -> list[dict[str, A
                     "output": r.content,
                 })
 
+        elif isinstance(message, ModelRequest):
+            for inp in message.inputs:
+                if isinstance(inp, TextInput):
+                    result.append({"role": "user", "content": [{"type": "input_text", "text": inp.content}]})
+
+                elif isinstance(inp, FileIdInput):
+                    item: dict[str, Any] = {"type": "input_file", "file_id": inp.file_id}
+                    if inp.filename is not None:
+                        item["filename"] = inp.filename
+                    result.append({"role": "user", "content": [item]})
+
+                elif isinstance(inp, BinaryInput):
+                    b64 = base64.b64encode(inp.data).decode()
+                    item: dict[str, Any] = {
+                        "type": "input_file",
+                        "file_data": f"data:{inp.media_type};base64,{b64}",
+                        **inp.vendor_metadata,
+                    }
+                    result.append({"role": "user", "content": [item]})
+
+                elif isinstance(inp, UrlInput):
+                    if inp.kind is BinaryType.IMAGE:
+                        result.append({"role": "user", "content": [{"type": "input_image", "image_url": inp.url}]})
+
+                    elif inp.kind in (BinaryType.DOCUMENT, BinaryType.BINARY):
+                        result.append({"role": "user", "content": [{"type": "input_file", "file_url": inp.url}]})
+
+                    else:
+                        raise UnsupportedInputError(f"UrlInput({inp.kind.value})", "openai-responses")
+
+                else:
+                    raise UnsupportedInputError(type(inp).__name__, "openai-responses")
+
     return result
 
 
@@ -142,11 +181,48 @@ def convert_messages(
     result: list[dict[str, str]] = [{"content": "\n".join(system_prompt), "role": "system"}]
 
     for message in messages:
-        if isinstance(message, (ModelRequest, ModelResponse)):
+        if isinstance(message, ModelResponse):
             result.append(message.to_api())
+
         elif isinstance(message, ToolResultsEvent):
             for r in message.results:
                 result.append(r.to_api())
+
+        elif isinstance(message, ModelRequest):
+            parts: list[dict[str, Any]] = []
+            for inp in message.inputs:
+                if isinstance(inp, TextInput):
+                    parts.append({"type": "text", "text": inp.content})
+
+                elif isinstance(inp, UrlInput):
+                    if inp.kind is BinaryType.IMAGE:
+                        parts.append({"type": "image_url", "image_url": {"url": inp.url}})
+
+                    else:
+                        raise UnsupportedInputError(f"UrlInput({inp.kind.value})", "openai-completions")
+
+                elif isinstance(inp, BinaryInput):
+                    if inp.kind is BinaryType.AUDIO:
+                        b64 = base64.b64encode(inp.data).decode()
+                        fmt = _MIME_TO_AUDIO_FORMAT.get(inp.media_type, inp.media_type.split("/", 1)[1])
+                        parts.append({"type": "input_audio", "input_audio": {"data": b64, "format": fmt}})
+
+                    elif inp.kind is BinaryType.IMAGE:
+                        b64 = base64.b64encode(inp.data).decode()
+                        data_url = f"data:{inp.media_type};base64,{b64}"
+                        parts.append({"type": "image_url", "image_url": {"url": data_url}, **inp.vendor_metadata})
+
+                    else:
+                        raise UnsupportedInputError(f"BinaryInput({inp.kind.value})", "openai-completions")
+
+                else:
+                    raise UnsupportedInputError(type(inp).__name__, "openai-completions")
+
+            # Simple string content for a single plain-text turn (most common case)
+            if len(parts) == 1 and parts[0]["type"] == "text":
+                result.append({"role": "user", "content": parts[0]["text"]})
+            else:
+                result.append({"role": "user", "content": parts})
 
     return result
 
@@ -266,32 +342,40 @@ def tool_to_responses_api(t: ToolSchema) -> dict[str, Any]:
             result["headers"] = {"Authorization": f"Bearer {t.authorization_token}"}
         return result
 
+    elif isinstance(t, SkillsToolSchema):
+        # https://developers.openai.com/api/docs/guides/tools-skills
+        raise UnsupportedToolError(t.type, "openai-responses")
+
     raise UnsupportedToolError(t.type, "openai-responses")
 
 
-def normalize_usage(usage: dict[str, Any]) -> Usage:
-    """Lift OpenAI's nested cache token counts to top-level keys."""
+def normalize_usage(usage: CompletionUsage) -> Usage:
     return Usage(
-        prompt_tokens=_usage_float(usage.get("prompt_tokens")),
-        completion_tokens=_usage_float(usage.get("completion_tokens")),
-        total_tokens=_usage_float(usage.get("total_tokens")),
-        cache_read_input_tokens=(usage.get("prompt_tokens_details") or {}).get("cached_tokens") or None,
-        cache_creation_input_tokens=_usage_float(usage.get("cache_creation_input_tokens")),
+        prompt_tokens=usage.prompt_tokens,
+        completion_tokens=usage.completion_tokens,
+        total_tokens=usage.total_tokens,
+        cache_read_input_tokens=usage.prompt_tokens_details.cached_tokens if usage.prompt_tokens_details else None,
+        cache_creation_input_tokens=usage.completion_tokens_details.reasoning_tokens
+        if usage.completion_tokens_details
+        else None,
     )
 
 
-def normalize_responses_usage(usage: dict[str, Any]) -> Usage:
-    """Normalize Responses API usage keys and lift nested cache tokens."""
+def normalize_responses_usage(usage: ResponseUsage) -> Usage:
     return Usage(
-        prompt_tokens=_usage_float(usage.get("prompt_tokens") or usage.get("input_tokens")),
-        completion_tokens=_usage_float(usage.get("completion_tokens") or usage.get("output_tokens")),
-        total_tokens=_usage_float(usage.get("total_tokens")),
-        cache_read_input_tokens=(usage.get("input_tokens_details") or {}).get("cached_tokens") or None,
-        cache_creation_input_tokens=_usage_float(usage.get("cache_creation_input_tokens")),
+        prompt_tokens=usage.input_tokens,
+        completion_tokens=usage.output_tokens,
+        total_tokens=usage.total_tokens,
+        cache_read_input_tokens=usage.input_tokens_details.cached_tokens,
+        cache_creation_input_tokens=usage.output_tokens_details.reasoning_tokens,
     )
 
 
-def _usage_float(value: Any) -> float | None:
-    if value is None:
-        return None
-    return float(value)
+_MIME_TO_AUDIO_FORMAT: dict[str, str] = {
+    "audio/wav": "wav",
+    "audio/mpeg": "mp3",
+    "audio/ogg": "ogg",
+    "audio/flac": "flac",
+    "audio/aiff": "aiff",
+    "audio/aac": "aac",
+}

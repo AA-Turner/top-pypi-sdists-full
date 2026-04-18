@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lizard
-Version: 1.21.3
+Version: 1.21.6
 Summary: A code analyzer without caring the C/C++ header files. It works with Java, C/C++, JavaScript, Python, Ruby, Swift, Objective C. Metrics includes cyclomatic complexity number etc.
 Home-page: http://www.lizard.ws
 Download-URL: https://pypi.python.org/lizard/
@@ -28,6 +28,20 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 License-File: LICENSE.txt
+Requires-Dist: pygments
+Requires-Dist: pathspec
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: summary
 
 |Web Site| Lizard
 =================
@@ -431,6 +445,4 @@ Contributions are welcome. Please refer to the rules and development workflow in
 - https://github.com/terryyin/lizard/tree/master/.cursor/rules
 
 These guidelines are usable by both AI assistants and human contributors — what works for AI works for "I" as well — to keep changes cohesive, simple, and well-tested.
-
-
 

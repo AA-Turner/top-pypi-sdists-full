@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anteroom
-Version: 1.164.0
+Version: 1.165.0
 Summary: Anteroom - your gateway to AI conversation
 License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3
@@ -410,6 +410,7 @@ JPMorgan built a private AI gateway for 250,000 employees. Goldman Sachs built o
 | **Security** | OWASP ASVS L2, CSRF, CSP, HSTS, SRI, rate limiting, DLP, prompt injection defense |
 | **Audit** | HMAC-SHA256 chained JSONL, daily rotation, content redaction, SIEM integration |
 | **Storage** | SQLite + FTS5 + optional vector search, fully local, optional SQLCipher encryption |
+| **Knowledge** | RAG over sources and conversations, scoped memory recall, cross-encoder reranker, untrusted-content envelopes |
 | **Config** | YAML + env vars, ANTEROOM.md conventions, team enforcement, dynamic API key refresh |
 
 <br>

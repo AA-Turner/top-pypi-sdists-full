@@ -122,15 +122,21 @@ def mock_api_client_fixture():
 
 @pytest.fixture
 def mock_eval_dependencies(mock_api_client_fixture):
-    with mock.patch("google.cloud.storage.Client") as mock_storage_client, mock.patch(
-        "google.cloud.bigquery.Client"
-    ) as mock_bq_client, mock.patch(
-        "vertexai._genai.evals.Evals.evaluate_instances"
-    ) as mock_evaluate_instances, mock.patch(
-        "vertexai._genai._gcs_utils.GcsUtils.upload_json_to_prefix"
-    ) as mock_upload_to_gcs, mock.patch(
-        "vertexai._genai._evals_metric_loaders.LazyLoadedPrebuiltMetric._fetch_and_parse"
-    ) as mock_fetch_prebuilt_metric:
+    # fmt: off
+    with (
+        mock.patch("google.cloud.storage.Client") as mock_storage_client,
+        mock.patch("google.cloud.bigquery.Client") as mock_bq_client,
+        mock.patch(
+            "vertexai._genai.evals.Evals.evaluate_instances"
+        ) as mock_evaluate_instances,
+        mock.patch(
+            "vertexai._genai._gcs_utils.GcsUtils.upload_json_to_prefix"
+        ) as mock_upload_to_gcs,
+        mock.patch(
+            "vertexai._genai._evals_metric_loaders.LazyLoadedPrebuiltMetric._fetch_and_parse"
+        ) as mock_fetch_prebuilt_metric,
+    ):
+        # fmt: on
 
         def mock_evaluate_instances_side_effect(*args, **kwargs):
             metric_config = kwargs.get("metric_config", {})
@@ -440,6 +446,86 @@ class TestTransformers:
         sanitized = _transformers._sanitize_agent_data(error_data)
         assert "error" not in sanitized
         assert sanitized == {}
+
+    def test_t_inline_results_strips_none_tool_fields(self):
+        """Tests that t_inline_results strips None tool fields like file_search."""
+        eval_result = common_types.EvaluationResult(
+            eval_case_results=[
+                common_types.EvalCaseResult(
+                    eval_case_index=0,
+                    response_candidate_results=[
+                        common_types.ResponseCandidateResult(
+                            response_index=0,
+                            metric_results={
+                                "multi_turn_task_success_v1": common_types.EvalCaseMetricResult(
+                                    score=0.0,
+                                    explanation="Failed",
+                                )
+                            },
+                        )
+                    ],
+                )
+            ],
+            evaluation_dataset=[
+                common_types.EvaluationDataset(
+                    eval_cases=[
+                        common_types.EvalCase(
+                            agent_data=vertexai_genai_types.evals.AgentData(
+                                agents={
+                                    "agent_0": vertexai_genai_types.evals.AgentConfig(
+                                        agent_id="agent_0",
+                                        agent_type="LlmAgent",
+                                        instruction="You are a helper.",
+                                        tools=[
+                                            genai_types.Tool(
+                                                function_declarations=[
+                                                    genai_types.FunctionDeclaration(
+                                                        name="search",
+                                                        description="Searches the web.",
+                                                    )
+                                                ]
+                                            )
+                                        ],
+                                    )
+                                },
+                                turns=[
+                                    vertexai_genai_types.evals.ConversationTurn(
+                                        turn_index=0,
+                                        events=[
+                                            vertexai_genai_types.evals.AgentEvent(
+                                                author="user",
+                                                content=genai_types.Content(
+                                                    parts=[genai_types.Part(text="Hi")],
+                                                ),
+                                            ),
+                                        ],
+                                    )
+                                ],
+                            )
+                        )
+                    ]
+                )
+            ],
+            metadata=common_types.EvaluationRunMetadata(
+                candidate_names=["candidate-1"]
+            ),
+        )
+
+        payload = _transformers.t_inline_results([eval_result])
+        assert len(payload) == 1
+
+        agent_data = payload[0]["request"]["prompt"]["agent_data"]
+        agent_config = agent_data["agents"]["agent_0"]
+        assert "tools" in agent_config
+        tool = agent_config["tools"][0]
+        # function_declarations should be preserved
+        assert "function_declarations" in tool
+        assert tool["function_declarations"][0]["name"] == "search"
+        # Gemini-API-only fields must NOT be present (they would be None)
+        assert "file_search" not in tool
+        assert "mcp_servers" not in tool
+        assert "google_search" not in tool
+        assert "code_execution" not in tool
 
     def test_t_inline_results_skips_error_agent_data_in_df(self):
         """Tests that t_inline_results skips error agent_data from DataFrame."""
@@ -2241,6 +2327,79 @@ class TestEvalsRunInference:
         assert inference_result.candidate_name == "mock_model_fn"
         assert inference_result.gcs_source is None
 
+    @mock.patch.object(_evals_utils, "EvalDatasetLoader")
+    def test_inference_overwrites_existing_response_column_with_callable(
+        self, mock_eval_dataset_loader
+    ):
+        """Tests that run_inference overwrites an existing 'response' column."""
+        mock_df = pd.DataFrame(
+            {
+                "prompt": ["test prompt"],
+                "response": ["old response"],
+            }
+        )
+        mock_eval_dataset_loader.return_value.load.return_value = mock_df.to_dict(
+            orient="records"
+        )
+
+        def mock_model_fn(contents):
+            return "new response"
+
+        inference_result = self.client.evals.run_inference(
+            model=mock_model_fn,
+            src=mock_df,
+        )
+
+        result_df = inference_result.eval_dataset_df
+        # Assert there is exactly one 'response' column (no duplicates).
+        assert list(result_df.columns).count("response") == 1
+        # Assert the 'response' column contains the new inference result.
+        assert result_df["response"][0] == "new response"
+        assert "prompt" in result_df.columns
+
+    @mock.patch.object(_evals_common, "Models")
+    @mock.patch.object(_evals_utils, "EvalDatasetLoader")
+    def test_inference_overwrites_existing_response_column_with_gemini(
+        self, mock_eval_dataset_loader, mock_models
+    ):
+        """Tests that run_inference with Gemini overwrites an existing 'response' column."""
+        mock_df = pd.DataFrame(
+            {
+                "prompt": ["test prompt"],
+                "response": ["old response"],
+            }
+        )
+        mock_eval_dataset_loader.return_value.load.return_value = mock_df.to_dict(
+            orient="records"
+        )
+
+        mock_generate_content_response = genai_types.GenerateContentResponse(
+            candidates=[
+                genai_types.Candidate(
+                    content=genai_types.Content(
+                        parts=[genai_types.Part(text="new gemini response")]
+                    ),
+                    finish_reason=genai_types.FinishReason.STOP,
+                )
+            ],
+            prompt_feedback=None,
+        )
+        mock_models.return_value.generate_content.return_value = (
+            mock_generate_content_response
+        )
+
+        inference_result = self.client.evals.run_inference(
+            model="gemini-pro",
+            src=mock_df,
+        )
+
+        result_df = inference_result.eval_dataset_df
+        # Assert there is exactly one 'response' column (no duplicates).
+        assert list(result_df.columns).count("response") == 1
+        # Assert the 'response' column contains the new inference result.
+        assert result_df["response"][0] == "new gemini response"
+        assert "prompt" in result_df.columns
+
     @mock.patch.object(_evals_common, "Models")
     @mock.patch.object(_evals_utils, "EvalDatasetLoader")
     def test_inference_with_prompt_template(
@@ -3145,14 +3304,96 @@ class TestEvalsRunInference:
         ) in str(excinfo.value)
 
     @mock.patch.object(_evals_utils, "EvalDatasetLoader")
-    @mock.patch("vertexai._genai._evals_common.InMemorySessionService")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.Runner")
-    @mock.patch("vertexai._genai._evals_common.LlmAgent")
+    @mock.patch("vertexai._genai._evals_common.vertexai.Client")
+    def test_run_inference_with_agent_engine_falls_back_to_managed_sessions_api(
+        self,
+        mock_vertexai_client,
+        mock_eval_dataset_loader,
+    ):
+        """Tests that run_inference falls back to the managed Sessions API
+        when the agent engine does not have create_session registered."""
+        mock_df = pd.DataFrame(
+            {
+                "prompt": ["agent prompt"],
+                "session_inputs": [
+                    {
+                        "user_id": "123",
+                        "state": {"a": "1"},
+                    }
+                ],
+            }
+        )
+        mock_eval_dataset_loader.return_value.load.return_value = mock_df.to_dict(
+            orient="records"
+        )
+
+        # Create a mock agent engine WITHOUT create_session (simulates agents
+        # deployed via Console, gcloud, or source code deployment).
+        mock_agent_engine = mock.Mock(
+            spec=["api_client", "api_resource", "stream_query"],
+        )
+        mock_agent_engine.api_resource.name = (
+            "projects/test-project/locations/us-central1/reasoningEngines/123"
+        )
+
+        # Mock the managed Sessions API to return a session.
+        mock_session_operation = mock.Mock()
+        mock_session_operation.response.name = (
+            "projects/test-project/locations/us-central1"
+            "/reasoningEngines/123/sessions/managed-session-1"
+        )
+        mock_agent_engine.api_client.sessions.create.return_value = (
+            mock_session_operation
+        )
+
+        stream_query_return_value = [
+            {
+                "id": "1",
+                "content": {"parts": [{"text": "intermediate1"}]},
+                "timestamp": 123,
+                "author": "model",
+            },
+            {
+                "id": "2",
+                "content": {"parts": [{"text": "agent response"}]},
+                "timestamp": 124,
+                "author": "model",
+            },
+        ]
+        mock_agent_engine.stream_query.return_value = iter(stream_query_return_value)
+        mock_vertexai_client.return_value.agent_engines.get.return_value = (
+            mock_agent_engine
+        )
+
+        inference_result = self.client.evals.run_inference(
+            agent="projects/test-project/locations/us-central1/reasoningEngines/123",
+            src=mock_df,
+        )
+
+        # Verify the managed Sessions API was called as fallback.
+        mock_agent_engine.api_client.sessions.create.assert_called_once_with(
+            name="projects/test-project/locations/us-central1/reasoningEngines/123",
+            user_id="123",
+            config=vertexai_genai_types.CreateAgentEngineSessionConfig(
+                session_state={"a": "1"},
+            ),
+        )
+
+        # Verify stream_query was called with the session ID extracted from
+        # the managed session's resource name.
+        mock_agent_engine.stream_query.assert_called_once_with(
+            user_id="123",
+            session_id="managed-session-1",
+            message="agent prompt",
+        )
+
+        # Verify the inference results are correct.
+        assert inference_result.eval_dataset_df["response"].iloc[0] == "agent response"
+        assert inference_result.candidate_name == "agent_engine_0"
+
+    @mock.patch.object(_evals_utils, "EvalDatasetLoader")
     def test_run_inference_with_local_agent(
         self,
-        mock_llm_agent,
-        mock_runner,
-        mock_session_service,
         mock_eval_dataset_loader,
     ):
         mock_df = pd.DataFrame(
@@ -3180,8 +3421,15 @@ class TestEvalsRunInference:
         mock_agent_instance.instruction = "mock instruction"
         mock_agent_instance.tools = []
         mock_agent_instance.sub_agents = []
-        mock_llm_agent.return_value = mock_agent_instance
+
+        # Mock ADK modules for lazy imports in _execute_local_agent_run_with_retry_async
+        mock_session_service = mock.MagicMock()
         mock_session_service.return_value.create_session = mock.AsyncMock()
+        mock_runner = mock.MagicMock()
+        mock_adk_sessions_module = mock.MagicMock()
+        mock_adk_sessions_module.InMemorySessionService = mock_session_service
+        mock_adk_runners_module = mock.MagicMock()
+        mock_adk_runners_module.Runner = mock_runner
         mock_runner_instance = mock_runner.return_value
         stream_run_return_value_1 = [
             mock.Mock(
@@ -3232,10 +3480,19 @@ class TestEvalsRunInference:
 
         mock_runner_instance.run_async.side_effect = run_async_side_effect
 
-        inference_result = self.client.evals.run_inference(
-            agent=mock_agent_instance,
-            src=mock_df,
-        )
+        with mock.patch.dict(
+            sys.modules,
+            {
+                "google.adk": mock.MagicMock(),
+                "google.adk.sessions": mock_adk_sessions_module,
+                "google.adk.runners": mock_adk_runners_module,
+                "google.adk.agents": mock.MagicMock(),
+            },
+        ):
+            inference_result = self.client.evals.run_inference(
+                agent=mock_agent_instance,
+                src=mock_df,
+            )
 
         mock_eval_dataset_loader.return_value.load.assert_called_once_with(mock_df)
         assert mock_session_service.call_count == 2
@@ -3361,11 +3618,13 @@ class TestEvalsRunInference:
         mock_api_client_fixture,
     ):
         """Tests inference with LiteLLM using a simple prompt string."""
+        # fmt: off
         with mock.patch(
             "vertexai._genai._evals_common.litellm"
         ) as mock_litellm, mock.patch(
             "vertexai._genai._evals_common._call_litellm_completion"
         ) as mock_call_litellm_completion:
+            # fmt: on
             mock_litellm.utils.get_valid_models.return_value = ["gpt-4o"]
             prompt_df = pd.DataFrame([{"prompt": "What is LiteLLM?"}])
             expected_messages = [{"role": "user", "content": "What is LiteLLM?"}]
@@ -3417,11 +3676,16 @@ class TestEvalsRunInference:
         mock_api_client_fixture,
     ):
         """Tests inference with LiteLLM where the row contains a chat completion request body."""
-        with mock.patch(
-            "vertexai._genai._evals_common.litellm"
-        ) as mock_litellm, mock.patch(
-            "vertexai._genai._evals_common._call_litellm_completion"
-        ) as mock_call_litellm_completion:
+        # fmt: off
+        with (
+            mock.patch(
+                "vertexai._genai._evals_common.litellm"
+            ) as mock_litellm,
+            mock.patch(
+                "vertexai._genai._evals_common._call_litellm_completion"
+            ) as mock_call_litellm_completion,
+        ):
+            # fmt: on
             mock_litellm.utils.get_valid_models.return_value = ["gpt-4o"]
             prompt_df = pd.DataFrame(
                 [
@@ -3937,21 +4201,23 @@ class TestRunAgentInternal:
         ]
         assert "mock_agent" in agent_data["agents"]
 
-    @mock.patch("vertexai._genai._evals_common.ADK_SessionInput")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.EvaluationGenerator")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.LlmBackedUserSimulator")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.ConversationScenario")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.LlmBackedUserSimulatorConfig")  # fmt: skip
     @pytest.mark.asyncio
-    async def test_run_adk_user_simulation_with_intermediate_events(
-        self,
-        mock_config,
-        mock_scenario,
-        mock_simulator,
-        mock_generator,
-        mock_session_input,
-    ):
+    async def test_run_adk_user_simulation_with_intermediate_events(self):
         """Tests that intermediate invocation events (e.g. tool calls) are parsed successfully."""
+        mock_scenario = mock.MagicMock()
+        mock_config = mock.MagicMock()
+        mock_simulator = mock.MagicMock()
+        mock_generator = mock.MagicMock()
+        mock_session_input = mock.MagicMock()
+        mock_adk_eval_scenarios = mock.MagicMock()
+        mock_adk_eval_scenarios.ConversationScenario = mock_scenario
+        mock_adk_eval_case = mock.MagicMock()
+        mock_adk_eval_case.SessionInput = mock_session_input
+        mock_adk_eval_generator = mock.MagicMock()
+        mock_adk_eval_generator.EvaluationGenerator = mock_generator
+        mock_adk_simulator_module = mock.MagicMock()
+        mock_adk_simulator_module.LlmBackedUserSimulator = mock_simulator
+        mock_adk_simulator_module.LlmBackedUserSimulatorConfig = mock_config
         row = pd.Series(
             {
                 "starting_prompt": "I want a laptop.",
@@ -4004,7 +4270,19 @@ class TestRunAgentInternal:
         mock_generator._generate_inferences_from_root_agent = mock.AsyncMock(
             return_value=[mock_invocation]
         )
-        turns = await _evals_common._run_adk_user_simulation(row, mock_agent)
+        with mock.patch.dict(
+            sys.modules,
+            {
+                "google.adk": mock.MagicMock(),
+                "google.adk.evaluation": mock.MagicMock(),
+                "google.adk.evaluation.conversation_scenarios": mock_adk_eval_scenarios,
+                "google.adk.evaluation.eval_case": mock_adk_eval_case,
+                "google.adk.evaluation.evaluation_generator": mock_adk_eval_generator,
+                "google.adk.evaluation.simulation": mock.MagicMock(),
+                "google.adk.evaluation.simulation.llm_backed_user_simulator": mock_adk_simulator_module,
+            },
+        ):
+            turns = await _evals_common._run_adk_user_simulation(row, mock_agent)
 
         assert len(turns) == 1
         turn = turns[0]
@@ -4691,6 +4969,34 @@ class TestFlattenEvalDataConverter:
             eval_case.conversation_history[1].content.parts[0].text == "Old model msg"
         )
 
+    def test_convert_with_conversation_history_column_name(self):
+        """Tests that 'conversation_history' is accepted as a column name alias for 'history'."""
+        raw_data_df = pd.DataFrame(
+            {
+                "prompt": ["Current prompt"],
+                "response": ["A response"],
+                "conversation_history": [
+                    [
+                        {"role": "user", "parts": [{"text": "Old user msg"}]},
+                        {"role": "model", "parts": [{"text": "Old model msg"}]},
+                    ]
+                ],
+            }
+        )
+        raw_data = raw_data_df.to_dict(orient="records")
+        result_dataset = self.converter.convert(raw_data)
+        eval_case = result_dataset.eval_cases[0]
+
+        assert eval_case.prompt == genai_types.Content(
+            parts=[genai_types.Part(text="Current prompt")]
+        )
+        assert eval_case.reference is None
+        assert len(eval_case.conversation_history) == 2
+        assert eval_case.conversation_history[0].content.parts[0].text == "Old user msg"
+        assert (
+            eval_case.conversation_history[1].content.parts[0].text == "Old model msg"
+        )
+
     def test_convert_missing_response_raises_value_error(self):
         raw_data_df = pd.DataFrame({"prompt": ["Hello"]})  # Missing response
         raw_data = raw_data_df.to_dict(orient="records")
@@ -5287,6 +5593,101 @@ class TestAgentInfo:
             mock_function_declaration
         ]
         mock_from_callable.assert_called_once_with(callable=my_search_tool)
+
+    def test_load_from_agent_with_get_declaration_tool(self):
+        """Tests that tools with _get_declaration() use it instead of from_callable."""
+        mock_declaration = mock.Mock(spec=genai_types.FunctionDeclaration)
+
+        mock_tool = mock.Mock()
+        mock_tool._get_declaration = mock.Mock(return_value=mock_declaration)
+
+        mock_agent = mock.Mock()
+        mock_agent.name = "mock_agent"
+        mock_agent.instruction = "mock instruction"
+        mock_agent.description = "mock description"
+        mock_agent.tools = [mock_tool]
+        mock_agent.sub_agents = []
+
+        agent_info = vertexai_genai_types.evals.AgentInfo.load_from_agent(
+            agent=mock_agent,
+        )
+
+        assert agent_info.name == "mock_agent"
+        assert len(agent_info.agents["mock_agent"].tools) == 1
+        assert isinstance(agent_info.agents["mock_agent"].tools[0], genai_types.Tool)
+        assert agent_info.agents["mock_agent"].tools[0].function_declarations == [
+            mock_declaration
+        ]
+        mock_tool._get_declaration.assert_called_once()
+
+    @mock.patch.object(genai_types.FunctionDeclaration, "from_callable_with_api_option")
+    def test_load_from_agent_with_mixed_tools(self, mock_from_callable):
+        """Tests agents with both _get_declaration tools and plain callables."""
+
+        def my_plain_tool(query: str) -> str:
+            """A plain callable tool."""
+            return query
+
+        mock_adk_declaration = mock.Mock(spec=genai_types.FunctionDeclaration)
+        mock_adk_tool = mock.Mock()
+        mock_adk_tool._get_declaration = mock.Mock(return_value=mock_adk_declaration)
+
+        mock_callable_declaration = mock.Mock(spec=genai_types.FunctionDeclaration)
+        mock_from_callable.return_value = mock_callable_declaration
+
+        mock_agent = mock.Mock()
+        mock_agent.name = "mock_agent"
+        mock_agent.instruction = "mock instruction"
+        mock_agent.description = "mock description"
+        mock_agent.tools = [mock_adk_tool, my_plain_tool]
+        mock_agent.sub_agents = []
+
+        agent_info = vertexai_genai_types.evals.AgentInfo.load_from_agent(
+            agent=mock_agent,
+        )
+
+        assert len(agent_info.agents["mock_agent"].tools) == 2
+        # First tool: ADK tool with _get_declaration
+        assert agent_info.agents["mock_agent"].tools[0].function_declarations == [
+            mock_adk_declaration
+        ]
+        mock_adk_tool._get_declaration.assert_called_once()
+        # Second tool: plain callable via from_callable_with_api_option
+        assert agent_info.agents["mock_agent"].tools[1].function_declarations == [
+            mock_callable_declaration
+        ]
+        mock_from_callable.assert_called_once_with(callable=my_plain_tool)
+
+    def test_load_from_agent_with_none_declaration_falls_back(self):
+        """Tests that tools returning None from _get_declaration fall back to from_callable."""
+        mock_tool = mock.Mock()
+        mock_tool._get_declaration = mock.Mock(return_value=None)
+        mock_tool.__name__ = "mock_tool"
+        mock_tool.__doc__ = "A mock tool."
+
+        mock_agent = mock.Mock()
+        mock_agent.name = "mock_agent"
+        mock_agent.instruction = "mock instruction"
+        mock_agent.description = "mock description"
+        mock_agent.tools = [mock_tool]
+        mock_agent.sub_agents = []
+
+        with mock.patch.object(
+            genai_types.FunctionDeclaration, "from_callable_with_api_option"
+        ) as mock_from_callable:
+            mock_callable_declaration = mock.Mock(spec=genai_types.FunctionDeclaration)
+            mock_from_callable.return_value = mock_callable_declaration
+
+            agent_info = vertexai_genai_types.evals.AgentInfo.load_from_agent(
+                agent=mock_agent,
+            )
+
+            assert len(agent_info.agents["mock_agent"].tools) == 1
+            assert agent_info.agents["mock_agent"].tools[0].function_declarations == [
+                mock_callable_declaration
+            ]
+            mock_tool._get_declaration.assert_called_once()
+            mock_from_callable.assert_called_once_with(callable=mock_tool)
 
 
 class TestValidateDatasetAgentData:
@@ -6722,20 +7123,50 @@ class TestPredefinedMetricHandler:
 class TestRunAdkUserSimulation:
     """Unit tests for the _run_adk_user_simulation function."""
 
-    @mock.patch("vertexai._genai._evals_common.ADK_SessionInput")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.EvaluationGenerator")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.LlmBackedUserSimulator")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.ConversationScenario")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.LlmBackedUserSimulatorConfig")  # fmt: skip
+    def _build_adk_mock_modules(self):
+        """Builds mock ADK modules for lazy imports in _run_adk_user_simulation."""
+        mock_scenario_cls = mock.MagicMock()
+        mock_config_cls = mock.MagicMock()
+        mock_simulator_cls = mock.MagicMock()
+        mock_generator_cls = mock.MagicMock()
+        mock_session_input_cls = mock.MagicMock()
+        mock_modules = {
+            "google.adk": mock.MagicMock(),
+            "google.adk.evaluation": mock.MagicMock(),
+            "google.adk.evaluation.conversation_scenarios": mock.MagicMock(
+                ConversationScenario=mock_scenario_cls
+            ),
+            "google.adk.evaluation.eval_case": mock.MagicMock(
+                SessionInput=mock_session_input_cls
+            ),
+            "google.adk.evaluation.evaluation_generator": mock.MagicMock(
+                EvaluationGenerator=mock_generator_cls
+            ),
+            "google.adk.evaluation.simulation": mock.MagicMock(),
+            "google.adk.evaluation.simulation.llm_backed_user_simulator": mock.MagicMock(
+                LlmBackedUserSimulator=mock_simulator_cls,
+                LlmBackedUserSimulatorConfig=mock_config_cls,
+            ),
+        }
+        return (
+            mock_modules,
+            mock_scenario_cls,
+            mock_config_cls,
+            mock_simulator_cls,
+            mock_generator_cls,
+            mock_session_input_cls,
+        )
+
     @pytest.mark.asyncio
-    async def test_run_adk_user_simulation_success(
-        self,
-        mock_config_cls,
-        mock_scenario_cls,
-        mock_simulator_cls,
-        mock_generator_cls,
-        mock_session_input_cls,
-    ):
+    async def test_run_adk_user_simulation_success(self):
+        (
+            mock_modules,
+            mock_scenario_cls,
+            _,
+            _,
+            mock_generator_cls,
+            mock_session_input_cls,
+        ) = self._build_adk_mock_modules()
         row = pd.Series(
             {
                 "starting_prompt": "start",
@@ -6755,7 +7186,8 @@ class TestRunAdkUserSimulation:
             return_value=[mock_invocation]
         )
 
-        turns = await _evals_common._run_adk_user_simulation(row, mock_agent)
+        with mock.patch.dict(sys.modules, mock_modules):
+            turns = await _evals_common._run_adk_user_simulation(row, mock_agent)
 
         assert len(turns) == 1
         turn = turns[0]
@@ -6774,40 +7206,26 @@ class TestRunAdkUserSimulation:
         )
         mock_session_input_cls.assert_called_once()
 
-    @mock.patch("vertexai._genai._evals_common.ADK_SessionInput")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.EvaluationGenerator")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.LlmBackedUserSimulator")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.ConversationScenario")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.LlmBackedUserSimulatorConfig")  # fmt: skip
     @pytest.mark.asyncio
-    async def test_run_adk_user_simulation_missing_columns(
-        self,
-        mock_config_cls,
-        mock_scenario_cls,
-        mock_simulator_cls,
-        mock_generator_cls,
-        mock_session_input_cls,
-    ):
+    async def test_run_adk_user_simulation_missing_columns(self):
+        mock_modules, _, _, _, _, _ = self._build_adk_mock_modules()
         row = pd.Series({"conversation_plan": "plan"})
         mock_agent = mock.Mock()
 
-        with pytest.raises(ValueError, match="User simulation requires"):
-            await _evals_common._run_adk_user_simulation(row, mock_agent)
+        with mock.patch.dict(sys.modules, mock_modules):
+            with pytest.raises(ValueError, match="User simulation requires"):
+                await _evals_common._run_adk_user_simulation(row, mock_agent)
 
-    @mock.patch("vertexai._genai._evals_common.ADK_SessionInput")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.EvaluationGenerator")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.LlmBackedUserSimulator")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.ConversationScenario")  # fmt: skip
-    @mock.patch("vertexai._genai._evals_common.LlmBackedUserSimulatorConfig")  # fmt: skip
     @pytest.mark.asyncio
-    async def test_run_adk_user_simulation_missing_session_inputs(
-        self,
-        mock_config_cls,
-        mock_scenario_cls,
-        mock_simulator_cls,
-        mock_generator_cls,
-        mock_session_input_cls,
-    ):
+    async def test_run_adk_user_simulation_missing_session_inputs(self):
+        (
+            mock_modules,
+            mock_scenario_cls,
+            _,
+            _,
+            mock_generator_cls,
+            mock_session_input_cls,
+        ) = self._build_adk_mock_modules()
         row = pd.Series(
             {
                 "starting_prompt": "start",
@@ -6826,7 +7244,8 @@ class TestRunAdkUserSimulation:
             return_value=[mock_invocation]
         )
 
-        await _evals_common._run_adk_user_simulation(row, mock_agent)
+        with mock.patch.dict(sys.modules, mock_modules):
+            await _evals_common._run_adk_user_simulation(row, mock_agent)
 
         mock_scenario_cls.assert_called_once_with(
             starting_prompt="start",
@@ -8354,6 +8773,176 @@ class TestCreateEvaluationSetFromDataFrame:
         candidate_response = candidate_responses[0]
         assert candidate_response["candidate"] == "test-candidate"
         assert candidate_response["agent_data"] == agent_data
+
+    @mock.patch.object(_evals_common, "evals")
+    @mock.patch.object(_evals_common, "_gcs_utils")
+    def test_create_evaluation_set_with_history_column(
+        self, mock_gcs_utils, mock_evals_module
+    ):
+        """Tests that 'history' column is accepted and mapped to prompt_template_data."""
+        eval_df = pd.DataFrame(
+            [
+                {
+                    "prompt": "test prompt",
+                    "response": "test response",
+                    "history": "previous conversation",
+                }
+            ]
+        )
+
+        mock_gcs_instance = mock_gcs_utils.GcsUtils.return_value
+        mock_gcs_instance.upload_json_to_prefix.return_value = (
+            "gs://bucket/path/request.json"
+        )
+
+        mock_evals_instance = mock_evals_module.Evals.return_value
+        mock_eval_item = mock.Mock()
+        mock_eval_item.name = "eval_item_1"
+        mock_evals_instance.create_evaluation_item.return_value = mock_eval_item
+
+        mock_eval_set = mock.Mock()
+        mock_evals_instance.create_evaluation_set.return_value = mock_eval_set
+
+        result = _evals_common._create_evaluation_set_from_dataframe(
+            api_client=self.mock_api_client,
+            gcs_dest_prefix="gs://bucket/prefix",
+            eval_df=eval_df,
+            candidate_name="test-candidate",
+        )
+
+        assert result == mock_eval_set
+
+        mock_gcs_instance.upload_json_to_prefix.assert_called_once()
+        call_args = mock_gcs_instance.upload_json_to_prefix.call_args
+        uploaded_data = call_args.kwargs["data"]
+
+        assert "prompt_template_data" in uploaded_data["prompt"]
+        ptd_values = uploaded_data["prompt"]["prompt_template_data"]["values"]
+        assert "conversation_history" in ptd_values
+
+    @mock.patch.object(_evals_common, "evals")
+    @mock.patch.object(_evals_common, "_gcs_utils")
+    def test_create_evaluation_set_with_conversation_history_column(
+        self, mock_gcs_utils, mock_evals_module
+    ):
+        """Tests that 'conversation_history' column is accepted and mapped to prompt_template_data."""
+        eval_df = pd.DataFrame(
+            [
+                {
+                    "prompt": "test prompt",
+                    "response": "test response",
+                    "conversation_history": "previous conversation",
+                }
+            ]
+        )
+
+        mock_gcs_instance = mock_gcs_utils.GcsUtils.return_value
+        mock_gcs_instance.upload_json_to_prefix.return_value = (
+            "gs://bucket/path/request.json"
+        )
+
+        mock_evals_instance = mock_evals_module.Evals.return_value
+        mock_eval_item = mock.Mock()
+        mock_eval_item.name = "eval_item_1"
+        mock_evals_instance.create_evaluation_item.return_value = mock_eval_item
+
+        mock_eval_set = mock.Mock()
+        mock_evals_instance.create_evaluation_set.return_value = mock_eval_set
+
+        result = _evals_common._create_evaluation_set_from_dataframe(
+            api_client=self.mock_api_client,
+            gcs_dest_prefix="gs://bucket/prefix",
+            eval_df=eval_df,
+            candidate_name="test-candidate",
+        )
+
+        assert result == mock_eval_set
+
+        mock_gcs_instance.upload_json_to_prefix.assert_called_once()
+        call_args = mock_gcs_instance.upload_json_to_prefix.call_args
+        uploaded_data = call_args.kwargs["data"]
+
+        assert "prompt_template_data" in uploaded_data["prompt"]
+        ptd_values = uploaded_data["prompt"]["prompt_template_data"]["values"]
+        assert "conversation_history" in ptd_values
+
+
+class TestResolveDataset:
+    """Unit tests for the _resolve_dataset function."""
+
+    def setup_method(self):
+        self.mock_api_client = mock.Mock(spec=client.Client)
+        self.mock_api_client.project = "test-project"
+        self.mock_api_client.location = "us-central1"
+
+    @mock.patch.object(_evals_common, "evals")
+    @mock.patch.object(_evals_common, "_gcs_utils")
+    def test_resolve_dataset_preserves_conversation_history(
+        self, mock_gcs_utils, mock_evals_module
+    ):
+        """Tests that conversation_history from EvalCase is included in the DataFrame."""
+        mock_gcs_instance = mock_gcs_utils.GcsUtils.return_value
+        mock_gcs_instance.upload_json_to_prefix.return_value = (
+            "gs://bucket/path/request.json"
+        )
+
+        mock_evals_instance = mock_evals_module.Evals.return_value
+        mock_eval_item = mock.Mock()
+        mock_eval_item.name = "eval_item_1"
+        mock_evals_instance.create_evaluation_item.return_value = mock_eval_item
+
+        mock_eval_set = mock.Mock()
+        mock_eval_set.name = "eval_set_1"
+        mock_evals_instance.create_evaluation_set.return_value = mock_eval_set
+
+        history_content_1 = genai_types.Content(
+            role="user", parts=[genai_types.Part(text="Old user msg")]
+        )
+        history_content_2 = genai_types.Content(
+            role="model", parts=[genai_types.Part(text="Old model msg")]
+        )
+
+        dataset = vertexai_genai_types.EvaluationDataset(
+            eval_cases=[
+                vertexai_genai_types.EvalCase(
+                    prompt=genai_types.Content(
+                        parts=[genai_types.Part(text="test prompt")]
+                    ),
+                    responses=[
+                        vertexai_genai_types.ResponseCandidate(
+                            response=genai_types.Content(
+                                parts=[genai_types.Part(text="test response")]
+                            )
+                        )
+                    ],
+                    conversation_history=[
+                        vertexai_genai_types.evals.Message(
+                            turn_id="0", content=history_content_1
+                        ),
+                        vertexai_genai_types.evals.Message(
+                            turn_id="1", content=history_content_2
+                        ),
+                    ],
+                )
+            ]
+        )
+
+        result = _evals_common._resolve_dataset(
+            api_client=self.mock_api_client,
+            dataset=dataset,
+            dest="gs://bucket/prefix",
+        )
+
+        assert result.evaluation_set == "eval_set_1"
+
+        # Verify that conversation_history was passed through to the GCS upload
+        mock_gcs_instance.upload_json_to_prefix.assert_called_once()
+        call_args = mock_gcs_instance.upload_json_to_prefix.call_args
+        uploaded_data = call_args.kwargs["data"]
+
+        assert "prompt_template_data" in uploaded_data["prompt"]
+        ptd_values = uploaded_data["prompt"]["prompt_template_data"]["values"]
+        assert "conversation_history" in ptd_values
 
 
 class TestRateLimiter:

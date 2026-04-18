@@ -58,7 +58,7 @@ try:
 
             status_code = response.status_code
             span.set_attribute(SpanAttributes.HTTP_STATUS_CODE, status_code)
-            if 500 <= status_code:
+            if status_code >= 500:
                 span.mark_as_errored()
         except Exception:
             logger.debug("httpx _set_request_span_attributes error: ", exc_info=True)
@@ -70,7 +70,7 @@ try:
         args: Tuple[int, str, Tuple[Any, ...]],
         kwargs: Dict[str, Any],
     ) -> httpx.Response:
-        tracer, parent_span, _ = get_tracer_tuple()
+        tracer, _, _ = get_tracer_tuple()
         # If we're not tracing, just return
         if not tracer:
             return wrapped(*args, **kwargs)
@@ -99,7 +99,7 @@ try:
         args: Tuple[int, str, Tuple[Any, ...]],
         kwargs: Dict[str, Any],
     ) -> httpx.Response:
-        tracer, parent_span, _ = get_tracer_tuple()
+        tracer, _, _ = get_tracer_tuple()
         # If we're not tracing, just return
         if not tracer:
             return await wrapped(*args, **kwargs)

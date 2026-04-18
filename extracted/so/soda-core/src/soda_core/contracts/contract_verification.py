@@ -50,10 +50,16 @@ class ContractVerificationSession:
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
         check_paths: Optional[list[str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
+        check_selectors: Optional[list["CheckSelector"]] = None,
     ) -> ContractVerificationSessionResult:
+        from soda_core.contracts.impl.check_selector import CheckSelector
         from soda_core.contracts.impl.contract_verification_impl import (
             ContractVerificationSessionImpl,
         )
+
+        # Merge check_paths into check_selectors for backward compatibility
+        merged_selectors = list(check_selectors) if check_selectors else []
+        merged_selectors.extend(CheckSelector.from_check_paths(check_paths))
 
         return ContractVerificationSessionImpl.execute(
             contract_yaml_sources=contract_yaml_sources,
@@ -67,7 +73,7 @@ class ContractVerificationSession:
             soda_cloud_use_agent=soda_cloud_use_agent,
             soda_cloud_verbose=soda_cloud_verbose,
             soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
-            check_paths=check_paths,
+            check_selectors=merged_selectors,
             dwh_data_source_file_path=dwh_data_source_file_path,
         )
 
@@ -450,6 +456,15 @@ class ContractVerificationStatus(Enum):
     ERROR = "ERROR"
 
 
+@dataclass
+class ScanTokenUsage:
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    model: Optional[str] = None
+    operation: Optional[str] = None  # "autopilot" or "llmCheck" (matches server Gson @SerializedName)
+
+
 class PostProcessingStageState(Enum):
     ONGOING = "ongoing"
     COMPLETED = "completed"
@@ -457,9 +472,10 @@ class PostProcessingStageState(Enum):
 
 
 class PostProcessingStage:
-    def __init__(self, name: str, stage: PostProcessingStageState):
+    def __init__(self, name: str, stage: PostProcessingStageState, records_written: Optional[int] = None):
         self.name: str = name
         self.stage: PostProcessingStageState = stage
+        self.records_written: Optional[int] = records_written
 
 
 class ContractVerificationResult:
@@ -493,6 +509,7 @@ class ContractVerificationResult:
         sending_results_to_soda_cloud_failed: bool,
         log_records: Optional[list[LogRecord]] = None,
         post_processing_stages: Optional[list[PostProcessingStage]] = None,
+        token_usage: Optional[list[ScanTokenUsage]] = None,
     ):
         self.contract: Contract = contract
         self.data_source: DataSource = data_source
@@ -505,6 +522,7 @@ class ContractVerificationResult:
         self.log_records: Optional[list[LogRecord]] = log_records
         self.status = status
         self.post_processing_stages: Optional[list[PostProcessingStage]] = post_processing_stages
+        self.token_usage: Optional[list[ScanTokenUsage]] = token_usage
 
         # Initialze these variables to None, they will be set later when the results are sent to Soda Cloud
         self.scan_id: Optional[str] = None

@@ -81,14 +81,14 @@ class TestPSFDataProcessor:
             fit_shape=fit_shape,
             finder=None,
             aperture_radius=3.0,
-            localbkg_estimator=None,
+            local_bkg_estimator=None,
         )
 
         assert processor.param_mapper is param_mapper
         assert processor.fit_shape == fit_shape
         assert processor.finder is None
         assert processor.aperture_radius == 3.0
-        assert processor.localbkg_estimator is None
+        assert processor.local_bkg_estimator is None
         assert processor.data_unit is None
         assert processor.finder_results is None
         assert processor._cached_offsets is None
@@ -120,11 +120,13 @@ class TestPSFDataProcessor:
         processor = PSFDataProcessor(param_mapper, (7, 7))
 
         # Test 1D array
-        with pytest.raises(ValueError, match='data must be a 2D array'):
+        match = 'data must be a 2D array'
+        with pytest.raises(ValueError, match=match):
             processor.validate_array(np.ones(10), 'data')
 
         # Test 3D array
-        with pytest.raises(ValueError, match='error must be a 2D array'):
+        match = 'error must be a 2D array'
+        with pytest.raises(ValueError, match=match):
             processor.validate_array(np.ones((5, 5, 5)), 'error')
 
         # Test shape mismatch
@@ -188,7 +190,7 @@ class TestPSFDataProcessor:
     def test_normalize_init_units_init_has_units_data_does_not(
             self, param_mapper):
         """
-        Test normalize_init_units when init has units but data doesn't.
+        Test normalize_init_units when init has units, but data doesn't.
         """
         processor = PSFDataProcessor(param_mapper, (7, 7))
         processor.data_unit = None
@@ -250,7 +252,10 @@ class TestPSFDataProcessor:
 
     def test_validate_init_params_nonfinite_local_bkg(self, param_mapper):
         """
-        Test validate_init_params with non-finite local_bkg values.
+        Test validate_init_params allows non-finite local_bkg values.
+
+        Non-finite local_bkg values should be allowed and will be
+        flagged later during processing.
         """
         processor = PSFDataProcessor(param_mapper, (7, 7))
         processor.data_unit = None
@@ -261,9 +266,11 @@ class TestPSFDataProcessor:
             'local_bkg': [np.nan],
         })
 
-        match_str = 'local_bkg column contains non-finite values'
-        with pytest.raises(ValueError, match=match_str):
-            processor.validate_init_params(init_params)
+        # Should not raise an error - non-finite local_bkg is allowed
+        result = processor.validate_init_params(init_params)
+        assert result is not None
+        assert 'local_bkg' in result.colnames
+        assert np.isnan(result['local_bkg'][0])
 
     def test_get_aper_fluxes(self, param_mapper, basic_data, init_params):
         """

@@ -2,17 +2,21 @@
 # This file is auto-generated, don't edit it. Thanks.
 from __future__ import annotations
 
+from typing import Dict
+
 from darabonba.model import DaraModel
 
 class CreateDiagnosticReportRequest(DaraModel):
     def __init__(
         self,
+        additional_options: Dict[str, str] = None,
         end_time: str = None,
         metric_set_id: str = None,
         region_id: str = None,
         resource_id: str = None,
         start_time: str = None,
     ):
+        self.additional_options = additional_options
         # The end time. This parameter takes effect only for diagnostic metrics that do not need to be assessed by running Cloud Assistant commands in guest operating systems.
         self.end_time = end_time
         # The ID of the diagnostic metric set. If this parameter is left empty, the dms-instancedefault set is used, which is the default diagnostic metric set provided for Elastic Compute Service (ECS) instances.
@@ -36,6 +40,9 @@ class CreateDiagnosticReportRequest(DaraModel):
         _map = super().to_map()
         if _map is not None:
             result = _map
+        if self.additional_options is not None:
+            result['AdditionalOptions'] = self.additional_options
+
         if self.end_time is not None:
             result['EndTime'] = self.end_time
 
@@ -55,6 +62,9 @@ class CreateDiagnosticReportRequest(DaraModel):
 
     def from_map(self, m: dict = None):
         m = m or dict()
+        if m.get('AdditionalOptions') is not None:
+            self.additional_options = m.get('AdditionalOptions')
+
         if m.get('EndTime') is not None:
             self.end_time = m.get('EndTime')
 

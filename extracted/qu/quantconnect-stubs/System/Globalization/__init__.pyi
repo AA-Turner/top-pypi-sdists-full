@@ -2918,10 +2918,6 @@ class CultureNotFoundException(System.ArgumentException):
     def __init__(self, param_name: str, invalid_culture_id: int, message: str) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 

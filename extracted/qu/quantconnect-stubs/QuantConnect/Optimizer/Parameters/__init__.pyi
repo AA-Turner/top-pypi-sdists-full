@@ -213,11 +213,11 @@ class ParameterSet(System.Object):
         ...
 
     @property
-    def value(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+    def value(self) -> typing.Dict[str, str]:
         """Represent a combination as key value of parameters, i.e. order doesn't matter"""
         ...
 
-    def __init__(self, id: int, value: System.Collections.Generic.IReadOnlyDictionary[str, str]) -> None:
+    def __init__(self, id: int, value: typing.Dict[str, str]) -> None:
         """
         Creates an instance of ParameterSet based on new combination of optimization parameters
         

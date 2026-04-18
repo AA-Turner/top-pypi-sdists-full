@@ -354,17 +354,17 @@ class SecurityExchangeHours(System.Object):
         ...
 
     @property
-    def market_hours(self) -> System.Collections.Generic.IReadOnlyDictionary[System.DayOfWeek, QuantConnect.Securities.LocalMarketHours]:
+    def market_hours(self) -> typing.Dict[System.DayOfWeek, QuantConnect.Securities.LocalMarketHours]:
         """Gets the market hours for this exchange"""
         ...
 
     @property
-    def early_closes(self) -> System.Collections.Generic.IReadOnlyDictionary[datetime.datetime, datetime.timedelta]:
+    def early_closes(self) -> typing.Dict[datetime.datetime, datetime.timedelta]:
         """Gets the early closes for this exchange"""
         ...
 
     @property
-    def late_opens(self) -> System.Collections.Generic.IReadOnlyDictionary[datetime.datetime, datetime.timedelta]:
+    def late_opens(self) -> typing.Dict[datetime.datetime, datetime.timedelta]:
         """Gets the late opens for this exchange"""
         ...
 
@@ -383,7 +383,7 @@ class SecurityExchangeHours(System.Object):
         """Checks whether the market is always open or not"""
         ...
 
-    def __init__(self, time_zone: typing.Any, holiday_dates: typing.List[datetime.datetime], market_hours_for_each_day_of_week: System.Collections.Generic.Dictionary[System.DayOfWeek, QuantConnect.Securities.LocalMarketHours], early_closes: System.Collections.Generic.IReadOnlyDictionary[datetime.datetime, datetime.timedelta], late_opens: System.Collections.Generic.IReadOnlyDictionary[datetime.datetime, datetime.timedelta], bank_holiday_dates: typing.List[datetime.datetime] = None) -> None:
+    def __init__(self, time_zone: typing.Any, holiday_dates: typing.List[datetime.datetime], market_hours_for_each_day_of_week: System.Collections.Generic.Dictionary[System.DayOfWeek, QuantConnect.Securities.LocalMarketHours], early_closes: typing.Dict[datetime.datetime, datetime.timedelta], late_opens: typing.Dict[datetime.datetime, datetime.timedelta], bank_holiday_dates: typing.List[datetime.datetime] = None) -> None:
         """
         Initializes a new instance of the SecurityExchangeHours class
         
@@ -1100,7 +1100,7 @@ class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, Quant
         """
         ...
 
-    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.Security]]:
+    def get_items(self) -> typing.Sequence[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.Security]]:
         """
         Gets all the items in the dictionary
         
@@ -1312,7 +1312,7 @@ class Cash(System.Object):
         """
         ...
 
-    def ensure_currency_data_feed(self, securities: QuantConnect.Securities.SecurityManager, subscriptions: QuantConnect.Data.SubscriptionManager, market_map: System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str], changes: QuantConnect.Data.UniverseSelection.SecurityChanges, security_service: QuantConnect.Interfaces.ISecurityService, account_currency: str, default_resolution: QuantConnect.Resolution = ...) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
+    def ensure_currency_data_feed(self, securities: QuantConnect.Securities.SecurityManager, subscriptions: QuantConnect.Data.SubscriptionManager, market_map: typing.Dict[QuantConnect.SecurityType, str], changes: QuantConnect.Data.UniverseSelection.SecurityChanges, security_service: QuantConnect.Interfaces.ISecurityService, account_currency: str, default_resolution: QuantConnect.Resolution = ...) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
         """
         Ensures that we have a data feed to convert this currency into the base currency.
         This will add a SubscriptionDataConfig and create a Security at the lowest resolution if one is not found.
@@ -2626,7 +2626,7 @@ class IVolatilityModel(metaclass=abc.ABCMeta):
         """Gets the volatility of the security as a percentage"""
         ...
 
-    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.HistoryRequest]:
+    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Data.HistoryRequest]:
         """
         Returns history requirements for the volatility model expressed in the form of history request
         
@@ -3663,7 +3663,7 @@ class IOrderProvider(metaclass=abc.ABCMeta):
         """
         ...
 
-    def get_open_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Iterable[QuantConnect.Orders.OrderTicket]:
+    def get_open_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Sequence[QuantConnect.Orders.OrderTicket]:
         """
         Gets and enumerable of opened OrderTicket matching the specified filter
         
@@ -3681,7 +3681,7 @@ class IOrderProvider(metaclass=abc.ABCMeta):
         """
         ...
 
-    def get_orders(self, filter: typing.Callable[[QuantConnect.Orders.Order], bool] = None) -> typing.Iterable[QuantConnect.Orders.Order]:
+    def get_orders(self, filter: typing.Callable[[QuantConnect.Orders.Order], bool] = None) -> typing.Sequence[QuantConnect.Orders.Order]:
         """
         Gets all orders matching the specified filter. Specifying null will return an enumerable
         of all orders.
@@ -3709,7 +3709,7 @@ class IOrderProvider(metaclass=abc.ABCMeta):
         """
         ...
 
-    def get_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Iterable[QuantConnect.Orders.OrderTicket]:
+    def get_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Sequence[QuantConnect.Orders.OrderTicket]:
         """
         Gets and enumerable of OrderTicket matching the specified filter
         
@@ -4034,7 +4034,7 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         ...
 
     @overload
-    def get_open_order_tickets(self, filter: typing.Any) -> typing.Iterable[QuantConnect.Orders.OrderTicket]:
+    def get_open_order_tickets(self, filter: typing.Any) -> typing.Sequence[QuantConnect.Orders.OrderTicket]:
         """
         Gets an enumerable of opened OrderTicket matching the specified filter
         However, this method can be confused with the override that takes a Symbol as parameter. For this reason
@@ -4047,7 +4047,7 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         ...
 
     @overload
-    def get_open_order_tickets(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Iterable[QuantConnect.Orders.OrderTicket]:
+    def get_open_order_tickets(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Sequence[QuantConnect.Orders.OrderTicket]:
         """
         Get an enumerable of open OrderTicket for the specified symbol
         
@@ -4057,7 +4057,7 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         ...
 
     @overload
-    def get_open_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Iterable[QuantConnect.Orders.OrderTicket]:
+    def get_open_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Sequence[QuantConnect.Orders.OrderTicket]:
         """
         Gets an enumerable of opened OrderTicket matching the specified filter
         
@@ -4076,7 +4076,7 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         ...
 
     @overload
-    def get_orders(self, filter: typing.Any) -> typing.Iterable[QuantConnect.Orders.Order]:
+    def get_orders(self, filter: typing.Any) -> typing.Sequence[QuantConnect.Orders.Order]:
         """
         Gets all orders matching the specified filter.
         
@@ -4086,7 +4086,7 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         ...
 
     @overload
-    def get_orders(self, filter: typing.Callable[[QuantConnect.Orders.Order], bool] = None) -> typing.Iterable[QuantConnect.Orders.Order]:
+    def get_orders(self, filter: typing.Callable[[QuantConnect.Orders.Order], bool] = None) -> typing.Sequence[QuantConnect.Orders.Order]:
         """
         Gets all orders matching the specified filter. Specifying null will return an enumerable
         of all orders.
@@ -4115,7 +4115,7 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         ...
 
     @overload
-    def get_order_tickets(self, filter: typing.Any) -> typing.Iterable[QuantConnect.Orders.OrderTicket]:
+    def get_order_tickets(self, filter: typing.Any) -> typing.Sequence[QuantConnect.Orders.OrderTicket]:
         """
         Gets an enumerable of OrderTicket matching the specified filter
         
@@ -4125,7 +4125,7 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         ...
 
     @overload
-    def get_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Iterable[QuantConnect.Orders.OrderTicket]:
+    def get_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Sequence[QuantConnect.Orders.OrderTicket]:
         """
         Gets an enumerable of OrderTicket matching the specified filter
         
@@ -4412,7 +4412,7 @@ class CashBook(QuantConnect.ExtendedDictionary[str, QuantConnect.Securities.Cash
         """
         ...
 
-    def ensure_currency_data_feeds(self, securities: QuantConnect.Securities.SecurityManager, subscriptions: QuantConnect.Data.SubscriptionManager, market_map: System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str], changes: QuantConnect.Data.UniverseSelection.SecurityChanges, security_service: QuantConnect.Interfaces.ISecurityService, default_resolution: QuantConnect.Resolution = ...) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
+    def ensure_currency_data_feeds(self, securities: QuantConnect.Securities.SecurityManager, subscriptions: QuantConnect.Data.SubscriptionManager, market_map: typing.Dict[QuantConnect.SecurityType, str], changes: QuantConnect.Data.UniverseSelection.SecurityChanges, security_service: QuantConnect.Interfaces.ISecurityService, default_resolution: QuantConnect.Resolution = ...) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
         """
         Checks the current subscriptions and adds necessary currency pair feeds to provide real time conversion data
         
@@ -4434,7 +4434,7 @@ class CashBook(QuantConnect.ExtendedDictionary[str, QuantConnect.Securities.Cash
         """
         ...
 
-    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]:
+    def get_items(self) -> typing.Sequence[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]:
         """
         Gets all the items in the dictionary
         
@@ -4868,7 +4868,7 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Symb
         """
         ...
 
-    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.SecurityHolding]]:
+    def get_items(self) -> typing.Sequence[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.SecurityHolding]]:
         """
         Gets all the items in the dictionary
         
@@ -6037,7 +6037,7 @@ class SymbolPropertiesDatabase(QuantConnect.Securities.BaseSecurityDatabase[Quan
         ...
 
     @overload
-    def get_symbol_properties_list(self, market: str, security_type: QuantConnect.SecurityType) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Securities.SecurityDatabaseKey, QuantConnect.Securities.SymbolProperties]]:
+    def get_symbol_properties_list(self, market: str, security_type: QuantConnect.SecurityType) -> typing.Sequence[System.Collections.Generic.KeyValuePair[QuantConnect.Securities.SecurityDatabaseKey, QuantConnect.Securities.SymbolProperties]]:
         """
         Gets a list of symbol properties for the specified market/security-type
         
@@ -6048,7 +6048,7 @@ class SymbolPropertiesDatabase(QuantConnect.Securities.BaseSecurityDatabase[Quan
         ...
 
     @overload
-    def get_symbol_properties_list(self, market: str) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Securities.SecurityDatabaseKey, QuantConnect.Securities.SymbolProperties]]:
+    def get_symbol_properties_list(self, market: str) -> typing.Sequence[System.Collections.Generic.KeyValuePair[QuantConnect.Securities.SecurityDatabaseKey, QuantConnect.Securities.SymbolProperties]]:
         """
         Gets a list of symbol properties for the specified market
         
@@ -6786,7 +6786,7 @@ class DefaultMarginCallModel(System.Object, QuantConnect.Securities.IMarginCallM
         """
         ...
 
-    def generate_margin_call_orders(self, parameters: QuantConnect.Securities.MarginCallOrdersParameters) -> typing.Iterable[QuantConnect.Orders.SubmitOrderRequest]:
+    def generate_margin_call_orders(self, parameters: QuantConnect.Securities.MarginCallOrdersParameters) -> typing.Sequence[QuantConnect.Orders.SubmitOrderRequest]:
         """
         Generates a new order for the specified security taking into account the total margin
         used by the account. Returns null when no margin call is to be issued.
@@ -7890,7 +7890,7 @@ class RelativeStandardDeviationVolatilityModel(QuantConnect.Securities.Volatilit
         """
         ...
 
-    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.HistoryRequest]:
+    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Data.HistoryRequest]:
         """
         Returns history requirements for the volatility model expressed in the form of history request
         
@@ -7994,7 +7994,7 @@ class StandardDeviationOfReturnsVolatilityModel(QuantConnect.Securities.Volatili
         """
         ...
 
-    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.HistoryRequest]:
+    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Data.HistoryRequest]:
         """
         Returns history requirements for the volatility model expressed in the form of history request
         

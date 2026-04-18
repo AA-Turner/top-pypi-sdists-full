@@ -5,15 +5,12 @@
 pub mod anchor_styles;
 pub mod blockquote;
 pub mod code_block_utils;
-pub mod early_returns;
 pub mod emphasis_utils;
 pub mod fix_utils;
 pub mod header_id_utils;
 pub mod jinja_utils;
 pub mod kramdown_utils;
 pub mod line_ending;
-pub mod markdown_elements;
-pub mod mkdocs_abbreviations;
 pub mod mkdocs_admonitions;
 pub mod mkdocs_attr_list;
 pub mod mkdocs_common;
@@ -27,7 +24,6 @@ pub mod mkdocs_icons;
 pub mod mkdocs_patterns;
 pub mod mkdocs_snippets;
 pub mod mkdocs_tabs;
-pub mod mkdocs_test_utils;
 pub mod mkdocstrings_refs;
 pub mod obsidian_config;
 pub mod parser_options;
@@ -48,7 +44,6 @@ pub use line_ending::{
     LineEnding, detect_line_ending, detect_line_ending_enum, ensure_consistent_line_endings, get_line_ending_str,
     normalize_line_ending,
 };
-pub use markdown_elements::{ElementQuality, ElementType, MarkdownElement, MarkdownElements};
 pub use parser_options::rumdl_parser_options;
 pub use range_utils::LineIndex;
 
@@ -86,7 +81,7 @@ pub fn calculate_indentation_width_default(indent_str: &str) -> usize {
 pub fn is_definition_list_item(line: &str) -> bool {
     let trimmed = line.trim_start();
     trimmed.starts_with(": ")
-        || (trimmed.starts_with(':') && trimmed.len() > 1 && trimmed.chars().nth(1).is_some_and(|c| c.is_whitespace()))
+        || (trimmed.starts_with(':') && trimmed.len() > 1 && trimmed.chars().nth(1).is_some_and(char::is_whitespace))
 }
 
 /// Check if a line consists only of a template directive with no surrounding text.
@@ -140,8 +135,7 @@ impl StrExt for str {
         }
 
         // Build the final string
-        let mut result =
-            String::with_capacity(non_space_len + replacement.len() + if ends_with_newline { 1 } else { 0 });
+        let mut result = String::with_capacity(non_space_len + replacement.len() + usize::from(ends_with_newline));
         result.push_str(&content[..non_space_len]);
         result.push_str(replacement);
         if ends_with_newline {

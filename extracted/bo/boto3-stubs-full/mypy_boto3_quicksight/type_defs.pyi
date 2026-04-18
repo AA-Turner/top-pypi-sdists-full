@@ -70,6 +70,7 @@ from .literals import (
     ConstantTypeType,
     ContributionAnalysisDirectionType,
     ContributionAnalysisSortTypeType,
+    ControlSortDirectionType,
     CrossDatasetTypesType,
     CustomContentImageScalingConfigurationType,
     CustomContentTypeType,
@@ -594,6 +595,7 @@ __all__ = (
     "ContributionAnalysisTimeRangesOutputTypeDef",
     "ContributionAnalysisTimeRangesTypeDef",
     "ContributionAnalysisTimeRangesUnionTypeDef",
+    "ControlSortConfigurationTypeDef",
     "CoordinateTypeDef",
     "CreateAccountCustomizationRequestTypeDef",
     "CreateAccountCustomizationResponseTypeDef",
@@ -675,6 +677,7 @@ __all__ = (
     "CustomSqlUnionTypeDef",
     "CustomValuesConfigurationOutputTypeDef",
     "CustomValuesConfigurationTypeDef",
+    "DashboardCustomizationSummaryConfigurationsTypeDef",
     "DashboardCustomizationVisualOptionsOutputTypeDef",
     "DashboardCustomizationVisualOptionsTypeDef",
     "DashboardErrorTypeDef",
@@ -1772,6 +1775,7 @@ __all__ = (
     "S3SourceOutputTypeDef",
     "S3SourceTypeDef",
     "S3SourceUnionTypeDef",
+    "S3TablesParametersTypeDef",
     "SaaSTableOutputTypeDef",
     "SaaSTableTypeDef",
     "SaaSTableUnionTypeDef",
@@ -1839,6 +1843,7 @@ __all__ = (
     "SectionLayoutConfigurationTypeDef",
     "SectionPageBreakConfigurationTypeDef",
     "SectionStyleTypeDef",
+    "SelectableValuesSortTypeDef",
     "SelectedSheetsFilterScopeConfigurationOutputTypeDef",
     "SelectedSheetsFilterScopeConfigurationTypeDef",
     "SelfUpgradeConfigurationTypeDef",
@@ -3024,6 +3029,7 @@ class CapabilitiesTypeDef(TypedDict):
     SelfUpgradeUserRole: NotRequired[Literal["DENY"]]
     Extension: NotRequired[Literal["DENY"]]
     ManageSharedFolders: NotRequired[Literal["DENY"]]
+    GenerateAnalyses: NotRequired[Literal["DENY"]]
 
 class CastColumnTypeOperationTypeDef(TypedDict):
     ColumnName: str
@@ -3174,6 +3180,9 @@ class ContextMenuOptionTypeDef(TypedDict):
 
 class ContributionAnalysisFactorTypeDef(TypedDict):
     FieldName: NotRequired[str]
+
+class SelectableValuesSortTypeDef(TypedDict):
+    Direction: ControlSortDirectionType
 
 class CoordinateTypeDef(TypedDict):
     Latitude: float
@@ -3334,6 +3343,9 @@ InputColumnTypeDef = TypedDict(
         "SubType": NotRequired[ColumnDataSubTypeType],
     },
 )
+
+class DashboardCustomizationSummaryConfigurationsTypeDef(TypedDict):
+    Enabled: bool
 
 class DataPointDrillUpDownOptionTypeDef(TypedDict):
     AvailabilityStatus: NotRequired[DashboardBehaviorType]
@@ -3574,6 +3586,9 @@ class S3KnowledgeBaseParametersTypeDef(TypedDict):
     BucketUrl: str
     RoleArn: NotRequired[str]
     MetadataFilesLocation: NotRequired[str]
+
+class S3TablesParametersTypeDef(TypedDict):
+    TableBucketArn: NotRequired[str]
 
 class ServiceNowParametersTypeDef(TypedDict):
     SiteBaseUrl: str
@@ -5808,6 +5823,7 @@ class AssetBundleImportSourceTypeDef(TypedDict):
 class AthenaParametersTypeDef(TypedDict):
     WorkGroup: NotRequired[str]
     RoleArn: NotRequired[str]
+    ConsumerAccountRoleArn: NotRequired[str]
     IdentityCenterConfiguration: NotRequired[IdentityCenterConfigurationTypeDef]
 
 class AuthorizationCodeGrantCredentialsDetailsTypeDef(TypedDict):
@@ -8284,6 +8300,7 @@ class RegisteredUserDashboardFeatureConfigurationsTypeDef(TypedDict):
     Schedules: NotRequired[SchedulesConfigurationsTypeDef]
     RecentSnapshots: NotRequired[RecentSnapshotsConfigurationsTypeDef]
     ThresholdAlerts: NotRequired[ThresholdAlertsConfigurationsTypeDef]
+    DashboardCustomizationSummary: NotRequired[DashboardCustomizationSummaryConfigurationsTypeDef]
 
 class RegisteredUserConsoleFeatureConfigurationsTypeDef(TypedDict):
     StatePersistence: NotRequired[StatePersistenceConfigurationsTypeDef]
@@ -8292,6 +8309,7 @@ class RegisteredUserConsoleFeatureConfigurationsTypeDef(TypedDict):
     Schedules: NotRequired[SchedulesConfigurationsTypeDef]
     RecentSnapshots: NotRequired[RecentSnapshotsConfigurationsTypeDef]
     ThresholdAlerts: NotRequired[ThresholdAlertsConfigurationsTypeDef]
+    DashboardCustomizationSummary: NotRequired[DashboardCustomizationSummaryConfigurationsTypeDef]
 
 class AnalysisSourceEntityTypeDef(TypedDict):
     SourceTemplate: NotRequired[AnalysisSourceTemplateTypeDef]
@@ -9469,6 +9487,7 @@ class DataSourceParametersOutputTypeDef(TypedDict):
     RdsParameters: NotRequired[RdsParametersTypeDef]
     RedshiftParameters: NotRequired[RedshiftParametersOutputTypeDef]
     S3Parameters: NotRequired[S3ParametersTypeDef]
+    S3TablesParameters: NotRequired[S3TablesParametersTypeDef]
     S3KnowledgeBaseParameters: NotRequired[S3KnowledgeBaseParametersTypeDef]
     ServiceNowParameters: NotRequired[ServiceNowParametersTypeDef]
     SnowflakeParameters: NotRequired[SnowflakeParametersTypeDef]
@@ -10239,141 +10258,6 @@ class ParameterDateTimePickerControlTypeDef(TypedDict):
     SourceParameterName: str
     DisplayOptions: NotRequired[DateTimePickerControlDisplayOptionsTypeDef]
 
-DefaultFilterDropDownControlOptionsOutputTypeDef = TypedDict(
-    "DefaultFilterDropDownControlOptionsOutputTypeDef",
-    {
-        "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
-        "Type": NotRequired[SheetControlListTypeType],
-        "SelectableValues": NotRequired[FilterSelectableValuesOutputTypeDef],
-        "CommitMode": NotRequired[CommitModeType],
-    },
-)
-DefaultFilterDropDownControlOptionsTypeDef = TypedDict(
-    "DefaultFilterDropDownControlOptionsTypeDef",
-    {
-        "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
-        "Type": NotRequired[SheetControlListTypeType],
-        "SelectableValues": NotRequired[FilterSelectableValuesTypeDef],
-        "CommitMode": NotRequired[CommitModeType],
-    },
-)
-FilterDropDownControlOutputTypeDef = TypedDict(
-    "FilterDropDownControlOutputTypeDef",
-    {
-        "FilterControlId": str,
-        "Title": str,
-        "SourceFilterId": str,
-        "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
-        "Type": NotRequired[SheetControlListTypeType],
-        "SelectableValues": NotRequired[FilterSelectableValuesOutputTypeDef],
-        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationOutputTypeDef],
-        "CommitMode": NotRequired[CommitModeType],
-    },
-)
-FilterDropDownControlTypeDef = TypedDict(
-    "FilterDropDownControlTypeDef",
-    {
-        "FilterControlId": str,
-        "Title": str,
-        "SourceFilterId": str,
-        "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
-        "Type": NotRequired[SheetControlListTypeType],
-        "SelectableValues": NotRequired[FilterSelectableValuesTypeDef],
-        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
-        "CommitMode": NotRequired[CommitModeType],
-    },
-)
-ParameterDropDownControlOutputTypeDef = TypedDict(
-    "ParameterDropDownControlOutputTypeDef",
-    {
-        "ParameterControlId": str,
-        "Title": str,
-        "SourceParameterName": str,
-        "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
-        "Type": NotRequired[SheetControlListTypeType],
-        "SelectableValues": NotRequired[ParameterSelectableValuesOutputTypeDef],
-        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationOutputTypeDef],
-        "CommitMode": NotRequired[CommitModeType],
-    },
-)
-ParameterDropDownControlTypeDef = TypedDict(
-    "ParameterDropDownControlTypeDef",
-    {
-        "ParameterControlId": str,
-        "Title": str,
-        "SourceParameterName": str,
-        "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
-        "Type": NotRequired[SheetControlListTypeType],
-        "SelectableValues": NotRequired[ParameterSelectableValuesTypeDef],
-        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
-        "CommitMode": NotRequired[CommitModeType],
-    },
-)
-DefaultFilterListControlOptionsOutputTypeDef = TypedDict(
-    "DefaultFilterListControlOptionsOutputTypeDef",
-    {
-        "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
-        "Type": NotRequired[SheetControlListTypeType],
-        "SelectableValues": NotRequired[FilterSelectableValuesOutputTypeDef],
-    },
-)
-DefaultFilterListControlOptionsTypeDef = TypedDict(
-    "DefaultFilterListControlOptionsTypeDef",
-    {
-        "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
-        "Type": NotRequired[SheetControlListTypeType],
-        "SelectableValues": NotRequired[FilterSelectableValuesTypeDef],
-    },
-)
-FilterListControlOutputTypeDef = TypedDict(
-    "FilterListControlOutputTypeDef",
-    {
-        "FilterControlId": str,
-        "Title": str,
-        "SourceFilterId": str,
-        "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
-        "Type": NotRequired[SheetControlListTypeType],
-        "SelectableValues": NotRequired[FilterSelectableValuesOutputTypeDef],
-        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationOutputTypeDef],
-    },
-)
-FilterListControlTypeDef = TypedDict(
-    "FilterListControlTypeDef",
-    {
-        "FilterControlId": str,
-        "Title": str,
-        "SourceFilterId": str,
-        "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
-        "Type": NotRequired[SheetControlListTypeType],
-        "SelectableValues": NotRequired[FilterSelectableValuesTypeDef],
-        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
-    },
-)
-ParameterListControlOutputTypeDef = TypedDict(
-    "ParameterListControlOutputTypeDef",
-    {
-        "ParameterControlId": str,
-        "Title": str,
-        "SourceParameterName": str,
-        "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
-        "Type": NotRequired[SheetControlListTypeType],
-        "SelectableValues": NotRequired[ParameterSelectableValuesOutputTypeDef],
-        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationOutputTypeDef],
-    },
-)
-ParameterListControlTypeDef = TypedDict(
-    "ParameterListControlTypeDef",
-    {
-        "ParameterControlId": str,
-        "Title": str,
-        "SourceParameterName": str,
-        "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
-        "Type": NotRequired[SheetControlListTypeType],
-        "SelectableValues": NotRequired[ParameterSelectableValuesTypeDef],
-        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
-    },
-)
-
 class DefaultRelativeDateTimeControlOptionsTypeDef(TypedDict):
     DisplayOptions: NotRequired[RelativeDateTimeControlDisplayOptionsTypeDef]
     CommitMode: NotRequired[CommitModeType]
@@ -10720,6 +10604,10 @@ class StringFormatConfigurationTypeDef(TypedDict):
     NullValueFormatConfiguration: NotRequired[NullValueFormatConfigurationTypeDef]
     NumericFormatConfiguration: NotRequired[NumericFormatConfigurationTypeDef]
 
+class ControlSortConfigurationTypeDef(TypedDict):
+    SelectableValuesSort: NotRequired[SelectableValuesSortTypeDef]
+    ControlColumnSort: NotRequired[AggregationSortConfigurationTypeDef]
+
 class BodySectionDynamicCategoryDimensionConfigurationOutputTypeDef(TypedDict):
     Column: ColumnIdentifierTypeDef
     Limit: NotRequired[int]
@@ -10803,6 +10691,7 @@ class DataSourceParametersTypeDef(TypedDict):
     RdsParameters: NotRequired[RdsParametersTypeDef]
     RedshiftParameters: NotRequired[RedshiftParametersUnionTypeDef]
     S3Parameters: NotRequired[S3ParametersTypeDef]
+    S3TablesParameters: NotRequired[S3TablesParametersTypeDef]
     S3KnowledgeBaseParameters: NotRequired[S3KnowledgeBaseParametersTypeDef]
     ServiceNowParameters: NotRequired[ServiceNowParametersTypeDef]
     SnowflakeParameters: NotRequired[SnowflakeParametersTypeDef]
@@ -10994,73 +10883,6 @@ class LineSeriesAxisDisplayOptionsOutputTypeDef(TypedDict):
 class LineSeriesAxisDisplayOptionsTypeDef(TypedDict):
     AxisOptions: NotRequired[AxisDisplayOptionsTypeDef]
     MissingDataConfigurations: NotRequired[Sequence[MissingDataConfigurationTypeDef]]
-
-class DefaultFilterControlOptionsOutputTypeDef(TypedDict):
-    DefaultDateTimePickerOptions: NotRequired[DefaultDateTimePickerControlOptionsTypeDef]
-    DefaultListOptions: NotRequired[DefaultFilterListControlOptionsOutputTypeDef]
-    DefaultDropdownOptions: NotRequired[DefaultFilterDropDownControlOptionsOutputTypeDef]
-    DefaultTextFieldOptions: NotRequired[DefaultTextFieldControlOptionsTypeDef]
-    DefaultTextAreaOptions: NotRequired[DefaultTextAreaControlOptionsTypeDef]
-    DefaultSliderOptions: NotRequired[DefaultSliderControlOptionsTypeDef]
-    DefaultRelativeDateTimeOptions: NotRequired[DefaultRelativeDateTimeControlOptionsTypeDef]
-
-class DefaultFilterControlOptionsTypeDef(TypedDict):
-    DefaultDateTimePickerOptions: NotRequired[DefaultDateTimePickerControlOptionsTypeDef]
-    DefaultListOptions: NotRequired[DefaultFilterListControlOptionsTypeDef]
-    DefaultDropdownOptions: NotRequired[DefaultFilterDropDownControlOptionsTypeDef]
-    DefaultTextFieldOptions: NotRequired[DefaultTextFieldControlOptionsTypeDef]
-    DefaultTextAreaOptions: NotRequired[DefaultTextAreaControlOptionsTypeDef]
-    DefaultSliderOptions: NotRequired[DefaultSliderControlOptionsTypeDef]
-    DefaultRelativeDateTimeOptions: NotRequired[DefaultRelativeDateTimeControlOptionsTypeDef]
-
-FilterControlOutputTypeDef = TypedDict(
-    "FilterControlOutputTypeDef",
-    {
-        "DateTimePicker": NotRequired[FilterDateTimePickerControlTypeDef],
-        "List": NotRequired[FilterListControlOutputTypeDef],
-        "Dropdown": NotRequired[FilterDropDownControlOutputTypeDef],
-        "TextField": NotRequired[FilterTextFieldControlTypeDef],
-        "TextArea": NotRequired[FilterTextAreaControlTypeDef],
-        "Slider": NotRequired[FilterSliderControlTypeDef],
-        "RelativeDateTime": NotRequired[FilterRelativeDateTimeControlTypeDef],
-        "CrossSheet": NotRequired[FilterCrossSheetControlOutputTypeDef],
-    },
-)
-FilterControlTypeDef = TypedDict(
-    "FilterControlTypeDef",
-    {
-        "DateTimePicker": NotRequired[FilterDateTimePickerControlTypeDef],
-        "List": NotRequired[FilterListControlTypeDef],
-        "Dropdown": NotRequired[FilterDropDownControlTypeDef],
-        "TextField": NotRequired[FilterTextFieldControlTypeDef],
-        "TextArea": NotRequired[FilterTextAreaControlTypeDef],
-        "Slider": NotRequired[FilterSliderControlTypeDef],
-        "RelativeDateTime": NotRequired[FilterRelativeDateTimeControlTypeDef],
-        "CrossSheet": NotRequired[FilterCrossSheetControlTypeDef],
-    },
-)
-ParameterControlOutputTypeDef = TypedDict(
-    "ParameterControlOutputTypeDef",
-    {
-        "DateTimePicker": NotRequired[ParameterDateTimePickerControlTypeDef],
-        "List": NotRequired[ParameterListControlOutputTypeDef],
-        "Dropdown": NotRequired[ParameterDropDownControlOutputTypeDef],
-        "TextField": NotRequired[ParameterTextFieldControlTypeDef],
-        "TextArea": NotRequired[ParameterTextAreaControlTypeDef],
-        "Slider": NotRequired[ParameterSliderControlTypeDef],
-    },
-)
-ParameterControlTypeDef = TypedDict(
-    "ParameterControlTypeDef",
-    {
-        "DateTimePicker": NotRequired[ParameterDateTimePickerControlTypeDef],
-        "List": NotRequired[ParameterListControlTypeDef],
-        "Dropdown": NotRequired[ParameterDropDownControlTypeDef],
-        "TextField": NotRequired[ParameterTextFieldControlTypeDef],
-        "TextArea": NotRequired[ParameterTextAreaControlTypeDef],
-        "Slider": NotRequired[ParameterSliderControlTypeDef],
-    },
-)
 
 class TableFieldURLConfigurationTypeDef(TypedDict):
     LinkConfiguration: NotRequired[TableFieldLinkConfigurationTypeDef]
@@ -11257,6 +11079,153 @@ class FormatConfigurationTypeDef(TypedDict):
     StringFormatConfiguration: NotRequired[StringFormatConfigurationTypeDef]
     NumberFormatConfiguration: NotRequired[NumberFormatConfigurationTypeDef]
     DateTimeFormatConfiguration: NotRequired[DateTimeFormatConfigurationTypeDef]
+
+DefaultFilterDropDownControlOptionsOutputTypeDef = TypedDict(
+    "DefaultFilterDropDownControlOptionsOutputTypeDef",
+    {
+        "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "SelectableValues": NotRequired[FilterSelectableValuesOutputTypeDef],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+    },
+)
+DefaultFilterDropDownControlOptionsTypeDef = TypedDict(
+    "DefaultFilterDropDownControlOptionsTypeDef",
+    {
+        "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "SelectableValues": NotRequired[FilterSelectableValuesTypeDef],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+    },
+)
+DefaultFilterListControlOptionsOutputTypeDef = TypedDict(
+    "DefaultFilterListControlOptionsOutputTypeDef",
+    {
+        "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "SelectableValues": NotRequired[FilterSelectableValuesOutputTypeDef],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+    },
+)
+DefaultFilterListControlOptionsTypeDef = TypedDict(
+    "DefaultFilterListControlOptionsTypeDef",
+    {
+        "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "SelectableValues": NotRequired[FilterSelectableValuesTypeDef],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+    },
+)
+FilterDropDownControlOutputTypeDef = TypedDict(
+    "FilterDropDownControlOutputTypeDef",
+    {
+        "FilterControlId": str,
+        "Title": str,
+        "SourceFilterId": str,
+        "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "SelectableValues": NotRequired[FilterSelectableValuesOutputTypeDef],
+        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationOutputTypeDef],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+    },
+)
+FilterDropDownControlTypeDef = TypedDict(
+    "FilterDropDownControlTypeDef",
+    {
+        "FilterControlId": str,
+        "Title": str,
+        "SourceFilterId": str,
+        "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "SelectableValues": NotRequired[FilterSelectableValuesTypeDef],
+        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+    },
+)
+FilterListControlOutputTypeDef = TypedDict(
+    "FilterListControlOutputTypeDef",
+    {
+        "FilterControlId": str,
+        "Title": str,
+        "SourceFilterId": str,
+        "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "SelectableValues": NotRequired[FilterSelectableValuesOutputTypeDef],
+        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationOutputTypeDef],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+    },
+)
+FilterListControlTypeDef = TypedDict(
+    "FilterListControlTypeDef",
+    {
+        "FilterControlId": str,
+        "Title": str,
+        "SourceFilterId": str,
+        "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "SelectableValues": NotRequired[FilterSelectableValuesTypeDef],
+        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+    },
+)
+ParameterDropDownControlOutputTypeDef = TypedDict(
+    "ParameterDropDownControlOutputTypeDef",
+    {
+        "ParameterControlId": str,
+        "Title": str,
+        "SourceParameterName": str,
+        "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "SelectableValues": NotRequired[ParameterSelectableValuesOutputTypeDef],
+        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationOutputTypeDef],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+    },
+)
+ParameterDropDownControlTypeDef = TypedDict(
+    "ParameterDropDownControlTypeDef",
+    {
+        "ParameterControlId": str,
+        "Title": str,
+        "SourceParameterName": str,
+        "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "SelectableValues": NotRequired[ParameterSelectableValuesTypeDef],
+        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+    },
+)
+ParameterListControlOutputTypeDef = TypedDict(
+    "ParameterListControlOutputTypeDef",
+    {
+        "ParameterControlId": str,
+        "Title": str,
+        "SourceParameterName": str,
+        "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "SelectableValues": NotRequired[ParameterSelectableValuesOutputTypeDef],
+        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationOutputTypeDef],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+    },
+)
+ParameterListControlTypeDef = TypedDict(
+    "ParameterListControlTypeDef",
+    {
+        "ParameterControlId": str,
+        "Title": str,
+        "SourceParameterName": str,
+        "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "SelectableValues": NotRequired[ParameterSelectableValuesTypeDef],
+        "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+    },
+)
 
 class BodySectionRepeatDimensionConfigurationOutputTypeDef(TypedDict):
     DynamicCategoryDimensionConfiguration: NotRequired[
@@ -11584,14 +11553,6 @@ class TopicVisualOutputTypeDef(TypedDict):
     Ir: NotRequired[TopicIROutputTypeDef]
     SupportingVisuals: NotRequired[list[dict[str, Any]]]
 
-class DefaultFilterControlConfigurationOutputTypeDef(TypedDict):
-    Title: str
-    ControlOptions: DefaultFilterControlOptionsOutputTypeDef
-
-class DefaultFilterControlConfigurationTypeDef(TypedDict):
-    Title: str
-    ControlOptions: DefaultFilterControlOptionsTypeDef
-
 class TableFieldOptionTypeDef(TypedDict):
     FieldId: str
     Width: NotRequired[str]
@@ -11774,6 +11735,73 @@ class UnaggregatedFieldTypeDef(TypedDict):
     Column: ColumnIdentifierTypeDef
     FormatConfiguration: NotRequired[FormatConfigurationTypeDef]
 
+class DefaultFilterControlOptionsOutputTypeDef(TypedDict):
+    DefaultDateTimePickerOptions: NotRequired[DefaultDateTimePickerControlOptionsTypeDef]
+    DefaultListOptions: NotRequired[DefaultFilterListControlOptionsOutputTypeDef]
+    DefaultDropdownOptions: NotRequired[DefaultFilterDropDownControlOptionsOutputTypeDef]
+    DefaultTextFieldOptions: NotRequired[DefaultTextFieldControlOptionsTypeDef]
+    DefaultTextAreaOptions: NotRequired[DefaultTextAreaControlOptionsTypeDef]
+    DefaultSliderOptions: NotRequired[DefaultSliderControlOptionsTypeDef]
+    DefaultRelativeDateTimeOptions: NotRequired[DefaultRelativeDateTimeControlOptionsTypeDef]
+
+class DefaultFilterControlOptionsTypeDef(TypedDict):
+    DefaultDateTimePickerOptions: NotRequired[DefaultDateTimePickerControlOptionsTypeDef]
+    DefaultListOptions: NotRequired[DefaultFilterListControlOptionsTypeDef]
+    DefaultDropdownOptions: NotRequired[DefaultFilterDropDownControlOptionsTypeDef]
+    DefaultTextFieldOptions: NotRequired[DefaultTextFieldControlOptionsTypeDef]
+    DefaultTextAreaOptions: NotRequired[DefaultTextAreaControlOptionsTypeDef]
+    DefaultSliderOptions: NotRequired[DefaultSliderControlOptionsTypeDef]
+    DefaultRelativeDateTimeOptions: NotRequired[DefaultRelativeDateTimeControlOptionsTypeDef]
+
+FilterControlOutputTypeDef = TypedDict(
+    "FilterControlOutputTypeDef",
+    {
+        "DateTimePicker": NotRequired[FilterDateTimePickerControlTypeDef],
+        "List": NotRequired[FilterListControlOutputTypeDef],
+        "Dropdown": NotRequired[FilterDropDownControlOutputTypeDef],
+        "TextField": NotRequired[FilterTextFieldControlTypeDef],
+        "TextArea": NotRequired[FilterTextAreaControlTypeDef],
+        "Slider": NotRequired[FilterSliderControlTypeDef],
+        "RelativeDateTime": NotRequired[FilterRelativeDateTimeControlTypeDef],
+        "CrossSheet": NotRequired[FilterCrossSheetControlOutputTypeDef],
+    },
+)
+FilterControlTypeDef = TypedDict(
+    "FilterControlTypeDef",
+    {
+        "DateTimePicker": NotRequired[FilterDateTimePickerControlTypeDef],
+        "List": NotRequired[FilterListControlTypeDef],
+        "Dropdown": NotRequired[FilterDropDownControlTypeDef],
+        "TextField": NotRequired[FilterTextFieldControlTypeDef],
+        "TextArea": NotRequired[FilterTextAreaControlTypeDef],
+        "Slider": NotRequired[FilterSliderControlTypeDef],
+        "RelativeDateTime": NotRequired[FilterRelativeDateTimeControlTypeDef],
+        "CrossSheet": NotRequired[FilterCrossSheetControlTypeDef],
+    },
+)
+ParameterControlOutputTypeDef = TypedDict(
+    "ParameterControlOutputTypeDef",
+    {
+        "DateTimePicker": NotRequired[ParameterDateTimePickerControlTypeDef],
+        "List": NotRequired[ParameterListControlOutputTypeDef],
+        "Dropdown": NotRequired[ParameterDropDownControlOutputTypeDef],
+        "TextField": NotRequired[ParameterTextFieldControlTypeDef],
+        "TextArea": NotRequired[ParameterTextAreaControlTypeDef],
+        "Slider": NotRequired[ParameterSliderControlTypeDef],
+    },
+)
+ParameterControlTypeDef = TypedDict(
+    "ParameterControlTypeDef",
+    {
+        "DateTimePicker": NotRequired[ParameterDateTimePickerControlTypeDef],
+        "List": NotRequired[ParameterListControlTypeDef],
+        "Dropdown": NotRequired[ParameterDropDownControlTypeDef],
+        "TextField": NotRequired[ParameterTextFieldControlTypeDef],
+        "TextArea": NotRequired[ParameterTextAreaControlTypeDef],
+        "Slider": NotRequired[ParameterSliderControlTypeDef],
+    },
+)
+
 class BodySectionRepeatConfigurationOutputTypeDef(TypedDict):
     DimensionConfigurations: NotRequired[list[BodySectionRepeatDimensionConfigurationOutputTypeDef]]
     PageBreakConfiguration: NotRequired[BodySectionRepeatPageBreakConfigurationTypeDef]
@@ -11948,160 +11976,6 @@ class TopicReviewedAnswerTypeDef(TypedDict):
     Mir: NotRequired[TopicIROutputTypeDef]
     PrimaryVisual: NotRequired[TopicVisualOutputTypeDef]
     Template: NotRequired[TopicTemplateOutputTypeDef]
-
-class CategoryFilterOutputTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    Configuration: CategoryFilterConfigurationOutputTypeDef
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
-
-class CategoryInnerFilterOutputTypeDef(TypedDict):
-    Column: ColumnIdentifierTypeDef
-    Configuration: CategoryFilterConfigurationOutputTypeDef
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
-
-class NumericEqualityFilterOutputTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    MatchOperator: NumericEqualityMatchOperatorType
-    NullOption: FilterNullOptionType
-    Value: NotRequired[float]
-    SelectAllOptions: NotRequired[Literal["FILTER_ALL_VALUES"]]
-    AggregationFunction: NotRequired[AggregationFunctionTypeDef]
-    ParameterName: NotRequired[str]
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
-
-class NumericRangeFilterOutputTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    NullOption: FilterNullOptionType
-    IncludeMinimum: NotRequired[bool]
-    IncludeMaximum: NotRequired[bool]
-    RangeMinimum: NotRequired[NumericRangeFilterValueTypeDef]
-    RangeMaximum: NotRequired[NumericRangeFilterValueTypeDef]
-    SelectAllOptions: NotRequired[Literal["FILTER_ALL_VALUES"]]
-    AggregationFunction: NotRequired[AggregationFunctionTypeDef]
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
-
-class RelativeDatesFilterOutputTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    AnchorDateConfiguration: AnchorDateConfigurationTypeDef
-    TimeGranularity: TimeGranularityType
-    RelativeDateType: RelativeDateTypeType
-    NullOption: FilterNullOptionType
-    MinimumGranularity: NotRequired[TimeGranularityType]
-    RelativeDateValue: NotRequired[int]
-    ParameterName: NotRequired[str]
-    ExcludePeriodConfiguration: NotRequired[ExcludePeriodConfigurationTypeDef]
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
-
-class TimeEqualityFilterOutputTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    Value: NotRequired[datetime]
-    ParameterName: NotRequired[str]
-    TimeGranularity: NotRequired[TimeGranularityType]
-    RollingDate: NotRequired[RollingDateConfigurationTypeDef]
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
-
-class TimeRangeFilterOutputTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    NullOption: FilterNullOptionType
-    IncludeMinimum: NotRequired[bool]
-    IncludeMaximum: NotRequired[bool]
-    RangeMinimumValue: NotRequired[TimeRangeFilterValueOutputTypeDef]
-    RangeMaximumValue: NotRequired[TimeRangeFilterValueOutputTypeDef]
-    ExcludePeriodConfiguration: NotRequired[ExcludePeriodConfigurationTypeDef]
-    TimeGranularity: NotRequired[TimeGranularityType]
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
-
-class TopBottomFilterOutputTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    AggregationSortConfigurations: list[AggregationSortConfigurationTypeDef]
-    Limit: NotRequired[int]
-    TimeGranularity: NotRequired[TimeGranularityType]
-    ParameterName: NotRequired[str]
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
-
-class CategoryFilterTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    Configuration: CategoryFilterConfigurationTypeDef
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
-
-class CategoryInnerFilterTypeDef(TypedDict):
-    Column: ColumnIdentifierTypeDef
-    Configuration: CategoryFilterConfigurationTypeDef
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
-
-class NumericEqualityFilterTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    MatchOperator: NumericEqualityMatchOperatorType
-    NullOption: FilterNullOptionType
-    Value: NotRequired[float]
-    SelectAllOptions: NotRequired[Literal["FILTER_ALL_VALUES"]]
-    AggregationFunction: NotRequired[AggregationFunctionTypeDef]
-    ParameterName: NotRequired[str]
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
-
-class NumericRangeFilterTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    NullOption: FilterNullOptionType
-    IncludeMinimum: NotRequired[bool]
-    IncludeMaximum: NotRequired[bool]
-    RangeMinimum: NotRequired[NumericRangeFilterValueTypeDef]
-    RangeMaximum: NotRequired[NumericRangeFilterValueTypeDef]
-    SelectAllOptions: NotRequired[Literal["FILTER_ALL_VALUES"]]
-    AggregationFunction: NotRequired[AggregationFunctionTypeDef]
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
-
-class RelativeDatesFilterTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    AnchorDateConfiguration: AnchorDateConfigurationTypeDef
-    TimeGranularity: TimeGranularityType
-    RelativeDateType: RelativeDateTypeType
-    NullOption: FilterNullOptionType
-    MinimumGranularity: NotRequired[TimeGranularityType]
-    RelativeDateValue: NotRequired[int]
-    ParameterName: NotRequired[str]
-    ExcludePeriodConfiguration: NotRequired[ExcludePeriodConfigurationTypeDef]
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
-
-class TimeEqualityFilterTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    Value: NotRequired[TimestampTypeDef]
-    ParameterName: NotRequired[str]
-    TimeGranularity: NotRequired[TimeGranularityType]
-    RollingDate: NotRequired[RollingDateConfigurationTypeDef]
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
-
-class TimeRangeFilterTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    NullOption: FilterNullOptionType
-    IncludeMinimum: NotRequired[bool]
-    IncludeMaximum: NotRequired[bool]
-    RangeMinimumValue: NotRequired[TimeRangeFilterValueTypeDef]
-    RangeMaximumValue: NotRequired[TimeRangeFilterValueTypeDef]
-    ExcludePeriodConfiguration: NotRequired[ExcludePeriodConfigurationTypeDef]
-    TimeGranularity: NotRequired[TimeGranularityType]
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
-
-class TopBottomFilterTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    AggregationSortConfigurations: Sequence[AggregationSortConfigurationTypeDef]
-    Limit: NotRequired[int]
-    TimeGranularity: NotRequired[TimeGranularityType]
-    ParameterName: NotRequired[str]
-    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
 
 class TableFieldOptionsOutputTypeDef(TypedDict):
     SelectedFieldOptions: NotRequired[list[TableFieldOptionTypeDef]]
@@ -12484,6 +12358,14 @@ class TableUnaggregatedFieldWellsOutputTypeDef(TypedDict):
 class TableUnaggregatedFieldWellsTypeDef(TypedDict):
     Values: NotRequired[Sequence[UnaggregatedFieldTypeDef]]
 
+class DefaultFilterControlConfigurationOutputTypeDef(TypedDict):
+    Title: str
+    ControlOptions: DefaultFilterControlOptionsOutputTypeDef
+
+class DefaultFilterControlConfigurationTypeDef(TypedDict):
+    Title: str
+    ControlOptions: DefaultFilterControlOptionsTypeDef
+
 class BodySectionConfigurationOutputTypeDef(TypedDict):
     SectionId: str
     Content: BodySectionContentOutputTypeDef
@@ -12577,12 +12459,6 @@ class ListTopicReviewedAnswersResponseTypeDef(TypedDict):
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
-
-class InnerFilterOutputTypeDef(TypedDict):
-    CategoryInnerFilter: NotRequired[CategoryInnerFilterOutputTypeDef]
-
-class InnerFilterTypeDef(TypedDict):
-    CategoryInnerFilter: NotRequired[CategoryInnerFilterTypeDef]
 
 class TableInlineVisualizationTypeDef(TypedDict):
     DataBars: NotRequired[DataBarsOptionsTypeDef]
@@ -12766,6 +12642,160 @@ class TableFieldWellsTypeDef(TypedDict):
     TableAggregatedFieldWells: NotRequired[TableAggregatedFieldWellsTypeDef]
     TableUnaggregatedFieldWells: NotRequired[TableUnaggregatedFieldWellsTypeDef]
 
+class CategoryFilterOutputTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    Configuration: CategoryFilterConfigurationOutputTypeDef
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
+
+class CategoryInnerFilterOutputTypeDef(TypedDict):
+    Column: ColumnIdentifierTypeDef
+    Configuration: CategoryFilterConfigurationOutputTypeDef
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
+
+class NumericEqualityFilterOutputTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    MatchOperator: NumericEqualityMatchOperatorType
+    NullOption: FilterNullOptionType
+    Value: NotRequired[float]
+    SelectAllOptions: NotRequired[Literal["FILTER_ALL_VALUES"]]
+    AggregationFunction: NotRequired[AggregationFunctionTypeDef]
+    ParameterName: NotRequired[str]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
+
+class NumericRangeFilterOutputTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    NullOption: FilterNullOptionType
+    IncludeMinimum: NotRequired[bool]
+    IncludeMaximum: NotRequired[bool]
+    RangeMinimum: NotRequired[NumericRangeFilterValueTypeDef]
+    RangeMaximum: NotRequired[NumericRangeFilterValueTypeDef]
+    SelectAllOptions: NotRequired[Literal["FILTER_ALL_VALUES"]]
+    AggregationFunction: NotRequired[AggregationFunctionTypeDef]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
+
+class RelativeDatesFilterOutputTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    AnchorDateConfiguration: AnchorDateConfigurationTypeDef
+    TimeGranularity: TimeGranularityType
+    RelativeDateType: RelativeDateTypeType
+    NullOption: FilterNullOptionType
+    MinimumGranularity: NotRequired[TimeGranularityType]
+    RelativeDateValue: NotRequired[int]
+    ParameterName: NotRequired[str]
+    ExcludePeriodConfiguration: NotRequired[ExcludePeriodConfigurationTypeDef]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
+
+class TimeEqualityFilterOutputTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    Value: NotRequired[datetime]
+    ParameterName: NotRequired[str]
+    TimeGranularity: NotRequired[TimeGranularityType]
+    RollingDate: NotRequired[RollingDateConfigurationTypeDef]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
+
+class TimeRangeFilterOutputTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    NullOption: FilterNullOptionType
+    IncludeMinimum: NotRequired[bool]
+    IncludeMaximum: NotRequired[bool]
+    RangeMinimumValue: NotRequired[TimeRangeFilterValueOutputTypeDef]
+    RangeMaximumValue: NotRequired[TimeRangeFilterValueOutputTypeDef]
+    ExcludePeriodConfiguration: NotRequired[ExcludePeriodConfigurationTypeDef]
+    TimeGranularity: NotRequired[TimeGranularityType]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
+
+class TopBottomFilterOutputTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    AggregationSortConfigurations: list[AggregationSortConfigurationTypeDef]
+    Limit: NotRequired[int]
+    TimeGranularity: NotRequired[TimeGranularityType]
+    ParameterName: NotRequired[str]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
+
+class CategoryFilterTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    Configuration: CategoryFilterConfigurationTypeDef
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
+
+class CategoryInnerFilterTypeDef(TypedDict):
+    Column: ColumnIdentifierTypeDef
+    Configuration: CategoryFilterConfigurationTypeDef
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
+
+class NumericEqualityFilterTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    MatchOperator: NumericEqualityMatchOperatorType
+    NullOption: FilterNullOptionType
+    Value: NotRequired[float]
+    SelectAllOptions: NotRequired[Literal["FILTER_ALL_VALUES"]]
+    AggregationFunction: NotRequired[AggregationFunctionTypeDef]
+    ParameterName: NotRequired[str]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
+
+class NumericRangeFilterTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    NullOption: FilterNullOptionType
+    IncludeMinimum: NotRequired[bool]
+    IncludeMaximum: NotRequired[bool]
+    RangeMinimum: NotRequired[NumericRangeFilterValueTypeDef]
+    RangeMaximum: NotRequired[NumericRangeFilterValueTypeDef]
+    SelectAllOptions: NotRequired[Literal["FILTER_ALL_VALUES"]]
+    AggregationFunction: NotRequired[AggregationFunctionTypeDef]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
+
+class RelativeDatesFilterTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    AnchorDateConfiguration: AnchorDateConfigurationTypeDef
+    TimeGranularity: TimeGranularityType
+    RelativeDateType: RelativeDateTypeType
+    NullOption: FilterNullOptionType
+    MinimumGranularity: NotRequired[TimeGranularityType]
+    RelativeDateValue: NotRequired[int]
+    ParameterName: NotRequired[str]
+    ExcludePeriodConfiguration: NotRequired[ExcludePeriodConfigurationTypeDef]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
+
+class TimeEqualityFilterTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    Value: NotRequired[TimestampTypeDef]
+    ParameterName: NotRequired[str]
+    TimeGranularity: NotRequired[TimeGranularityType]
+    RollingDate: NotRequired[RollingDateConfigurationTypeDef]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
+
+class TimeRangeFilterTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    NullOption: FilterNullOptionType
+    IncludeMinimum: NotRequired[bool]
+    IncludeMaximum: NotRequired[bool]
+    RangeMinimumValue: NotRequired[TimeRangeFilterValueTypeDef]
+    RangeMaximumValue: NotRequired[TimeRangeFilterValueTypeDef]
+    ExcludePeriodConfiguration: NotRequired[ExcludePeriodConfigurationTypeDef]
+    TimeGranularity: NotRequired[TimeGranularityType]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
+
+class TopBottomFilterTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    AggregationSortConfigurations: Sequence[AggregationSortConfigurationTypeDef]
+    Limit: NotRequired[int]
+    TimeGranularity: NotRequired[TimeGranularityType]
+    ParameterName: NotRequired[str]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
+
 class SectionBasedLayoutConfigurationOutputTypeDef(TypedDict):
     HeaderSections: list[HeaderFooterSectionConfigurationOutputTypeDef]
     BodySections: list[BodySectionConfigurationOutputTypeDef]
@@ -12879,18 +12909,6 @@ class TemplateVersionTypeDef(TypedDict):
     SourceEntityArn: NotRequired[str]
     ThemeArn: NotRequired[str]
     Sheets: NotRequired[list[SheetTypeDef]]
-
-class NestedFilterOutputTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    IncludeInnerSet: bool
-    InnerFilter: InnerFilterOutputTypeDef
-
-class NestedFilterTypeDef(TypedDict):
-    FilterId: str
-    Column: ColumnIdentifierTypeDef
-    IncludeInnerSet: bool
-    InnerFilter: InnerFilterTypeDef
 
 class BarChartConfigurationOutputTypeDef(TypedDict):
     FieldWells: NotRequired[BarChartFieldWellsOutputTypeDef]
@@ -13471,6 +13489,12 @@ class TableConfigurationTypeDef(TypedDict):
     DashboardCustomizationVisualOptions: NotRequired[DashboardCustomizationVisualOptionsTypeDef]
     Interactions: NotRequired[VisualInteractionOptionsTypeDef]
 
+class InnerFilterOutputTypeDef(TypedDict):
+    CategoryInnerFilter: NotRequired[CategoryInnerFilterOutputTypeDef]
+
+class InnerFilterTypeDef(TypedDict):
+    CategoryInnerFilter: NotRequired[CategoryInnerFilterTypeDef]
+
 class LayoutConfigurationOutputTypeDef(TypedDict):
     GridLayout: NotRequired[GridLayoutConfigurationOutputTypeDef]
     FreeFormLayout: NotRequired[FreeFormLayoutConfigurationOutputTypeDef]
@@ -13513,26 +13537,6 @@ class TemplateTypeDef(TypedDict):
     TemplateId: NotRequired[str]
     LastUpdatedTime: NotRequired[datetime]
     CreatedTime: NotRequired[datetime]
-
-class FilterOutputTypeDef(TypedDict):
-    CategoryFilter: NotRequired[CategoryFilterOutputTypeDef]
-    NumericRangeFilter: NotRequired[NumericRangeFilterOutputTypeDef]
-    NumericEqualityFilter: NotRequired[NumericEqualityFilterOutputTypeDef]
-    TimeEqualityFilter: NotRequired[TimeEqualityFilterOutputTypeDef]
-    TimeRangeFilter: NotRequired[TimeRangeFilterOutputTypeDef]
-    RelativeDatesFilter: NotRequired[RelativeDatesFilterOutputTypeDef]
-    TopBottomFilter: NotRequired[TopBottomFilterOutputTypeDef]
-    NestedFilter: NotRequired[NestedFilterOutputTypeDef]
-
-class FilterTypeDef(TypedDict):
-    CategoryFilter: NotRequired[CategoryFilterTypeDef]
-    NumericRangeFilter: NotRequired[NumericRangeFilterTypeDef]
-    NumericEqualityFilter: NotRequired[NumericEqualityFilterTypeDef]
-    TimeEqualityFilter: NotRequired[TimeEqualityFilterTypeDef]
-    TimeRangeFilter: NotRequired[TimeRangeFilterTypeDef]
-    RelativeDatesFilter: NotRequired[RelativeDatesFilterTypeDef]
-    TopBottomFilter: NotRequired[TopBottomFilterTypeDef]
-    NestedFilter: NotRequired[NestedFilterTypeDef]
 
 class BarChartVisualOutputTypeDef(TypedDict):
     VisualId: str
@@ -13892,6 +13896,18 @@ class TableVisualTypeDef(TypedDict):
     Actions: NotRequired[Sequence[VisualCustomActionTypeDef]]
     VisualContentAltText: NotRequired[str]
 
+class NestedFilterOutputTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    IncludeInnerSet: bool
+    InnerFilter: InnerFilterOutputTypeDef
+
+class NestedFilterTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    IncludeInnerSet: bool
+    InnerFilter: InnerFilterTypeDef
+
 class LayoutOutputTypeDef(TypedDict):
     Configuration: LayoutConfigurationOutputTypeDef
 
@@ -13925,20 +13941,6 @@ class DescribeTemplateResponseTypeDef(TypedDict):
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
-class FilterGroupOutputTypeDef(TypedDict):
-    FilterGroupId: str
-    Filters: list[FilterOutputTypeDef]
-    ScopeConfiguration: FilterScopeConfigurationOutputTypeDef
-    CrossDataset: CrossDatasetTypesType
-    Status: NotRequired[WidgetStatusType]
-
-class FilterGroupTypeDef(TypedDict):
-    FilterGroupId: str
-    Filters: Sequence[FilterTypeDef]
-    ScopeConfiguration: FilterScopeConfigurationTypeDef
-    CrossDataset: CrossDatasetTypesType
-    Status: NotRequired[WidgetStatusType]
-
 class LayerMapVisualOutputTypeDef(TypedDict):
     VisualId: str
     DataSetIdentifier: str
@@ -13954,6 +13956,26 @@ class LayerMapVisualTypeDef(TypedDict):
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[GeospatialLayerMapConfigurationTypeDef]
     VisualContentAltText: NotRequired[str]
+
+class FilterOutputTypeDef(TypedDict):
+    CategoryFilter: NotRequired[CategoryFilterOutputTypeDef]
+    NumericRangeFilter: NotRequired[NumericRangeFilterOutputTypeDef]
+    NumericEqualityFilter: NotRequired[NumericEqualityFilterOutputTypeDef]
+    TimeEqualityFilter: NotRequired[TimeEqualityFilterOutputTypeDef]
+    TimeRangeFilter: NotRequired[TimeRangeFilterOutputTypeDef]
+    RelativeDatesFilter: NotRequired[RelativeDatesFilterOutputTypeDef]
+    TopBottomFilter: NotRequired[TopBottomFilterOutputTypeDef]
+    NestedFilter: NotRequired[NestedFilterOutputTypeDef]
+
+class FilterTypeDef(TypedDict):
+    CategoryFilter: NotRequired[CategoryFilterTypeDef]
+    NumericRangeFilter: NotRequired[NumericRangeFilterTypeDef]
+    NumericEqualityFilter: NotRequired[NumericEqualityFilterTypeDef]
+    TimeEqualityFilter: NotRequired[TimeEqualityFilterTypeDef]
+    TimeRangeFilter: NotRequired[TimeRangeFilterTypeDef]
+    RelativeDatesFilter: NotRequired[RelativeDatesFilterTypeDef]
+    TopBottomFilter: NotRequired[TopBottomFilterTypeDef]
+    NestedFilter: NotRequired[NestedFilterTypeDef]
 
 LogicalTableUnionTypeDef = Union[LogicalTableTypeDef, LogicalTableOutputTypeDef]
 TopicVisualUnionTypeDef = Union[TopicVisualTypeDef, TopicVisualOutputTypeDef]
@@ -14011,6 +14033,20 @@ class VisualTypeDef(TypedDict):
     EmptyVisual: NotRequired[EmptyVisualTypeDef]
     RadarChartVisual: NotRequired[RadarChartVisualTypeDef]
     PluginVisual: NotRequired[PluginVisualTypeDef]
+
+class FilterGroupOutputTypeDef(TypedDict):
+    FilterGroupId: str
+    Filters: list[FilterOutputTypeDef]
+    ScopeConfiguration: FilterScopeConfigurationOutputTypeDef
+    CrossDataset: CrossDatasetTypesType
+    Status: NotRequired[WidgetStatusType]
+
+class FilterGroupTypeDef(TypedDict):
+    FilterGroupId: str
+    Filters: Sequence[FilterTypeDef]
+    ScopeConfiguration: FilterScopeConfigurationTypeDef
+    CrossDataset: CrossDatasetTypesType
+    Status: NotRequired[WidgetStatusType]
 
 class CreateDataSetRequestTypeDef(TypedDict):
     AwsAccountId: str

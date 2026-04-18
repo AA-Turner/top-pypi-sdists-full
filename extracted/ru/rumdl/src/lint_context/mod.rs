@@ -98,8 +98,6 @@ impl<'a> LintContext<'a> {
     pub fn new(content: &'a str, flavor: MarkdownFlavor, source_file: Option<PathBuf>) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         let profile = std::env::var("RUMDL_PROFILE_QUADRATIC").is_ok();
-        #[cfg(target_arch = "wasm32")]
-        let profile = false;
 
         let line_offsets = profile_section!("Line offsets", profile, {
             let mut offsets = vec![0];
@@ -708,12 +706,6 @@ impl<'a> LintContext<'a> {
         &self.html_comment_ranges
     }
 
-    /// Get Obsidian comment ranges - pre-computed during LintContext construction
-    /// Returns empty slice for non-Obsidian flavors
-    pub fn obsidian_comment_ranges(&self) -> &[(usize, usize)] {
-        &self.obsidian_comment_ranges
-    }
-
     /// Check if a byte position is inside an Obsidian comment
     ///
     /// Returns false for non-Obsidian flavors.
@@ -899,11 +891,6 @@ impl<'a> LintContext<'a> {
         }
     }
 
-    /// Get byte offset for a line number (1-indexed)
-    pub fn line_to_byte_offset(&self, line_num: usize) -> Option<usize> {
-        self.line_info(line_num).map(|info| info.byte_offset)
-    }
-
     /// Get URL for a reference link/image by its ID (O(1) lookup via HashMap)
     pub fn get_reference_url(&self, ref_id: &str) -> Option<&str> {
         let normalized_id = ref_id.to_lowercase();
@@ -912,50 +899,11 @@ impl<'a> LintContext<'a> {
             .map(|&idx| self.reference_defs[idx].url.as_str())
     }
 
-    /// Get a reference definition by its ID (O(1) lookup via HashMap)
-    pub fn get_reference_def(&self, ref_id: &str) -> Option<&ReferenceDef> {
-        let normalized_id = ref_id.to_lowercase();
-        self.reference_defs_map
-            .get(&normalized_id)
-            .map(|&idx| &self.reference_defs[idx])
-    }
-
-    /// Check if a reference definition exists by ID (O(1) lookup via HashMap)
-    pub fn has_reference_def(&self, ref_id: &str) -> bool {
-        let normalized_id = ref_id.to_lowercase();
-        self.reference_defs_map.contains_key(&normalized_id)
-    }
-
     /// Check if a line is part of a list block
     pub fn is_in_list_block(&self, line_num: usize) -> bool {
         self.list_blocks
             .iter()
             .any(|block| line_num >= block.start_line && line_num <= block.end_line)
-    }
-
-    /// Get the list block containing a specific line
-    pub fn list_block_for_line(&self, line_num: usize) -> Option<&ListBlock> {
-        self.list_blocks
-            .iter()
-            .find(|block| line_num >= block.start_line && line_num <= block.end_line)
-    }
-
-    // Compatibility methods for DocumentStructure migration
-
-    /// Check if a line is within a code block
-    pub fn is_in_code_block(&self, line_num: usize) -> bool {
-        if line_num == 0 || line_num > self.lines.len() {
-            return false;
-        }
-        self.lines[line_num - 1].in_code_block
-    }
-
-    /// Check if a line is within front matter
-    pub fn is_in_front_matter(&self, line_num: usize) -> bool {
-        if line_num == 0 || line_num > self.lines.len() {
-            return false;
-        }
-        self.lines[line_num - 1].in_front_matter
     }
 
     /// Check if a line is within an HTML block
@@ -1047,16 +995,6 @@ impl<'a> LintContext<'a> {
         Self::binary_search_ranges(&self.mdx_comment_ranges, byte_pos)
     }
 
-    /// Get all JSX expression byte ranges
-    pub fn jsx_expression_ranges(&self) -> &[(usize, usize)] {
-        &self.jsx_expression_ranges
-    }
-
-    /// Get all MDX comment byte ranges
-    pub fn mdx_comment_ranges(&self) -> &[(usize, usize)] {
-        &self.mdx_comment_ranges
-    }
-
     /// Check if a byte position is within a Pandoc/Quarto citation (`@key` or `[@key]`).
     /// Only active in Quarto flavor. O(log n).
     #[inline]
@@ -1065,7 +1003,8 @@ impl<'a> LintContext<'a> {
         idx > 0 && byte_pos < self.citation_ranges[idx - 1].end
     }
 
-    /// Get all citation byte ranges (Quarto flavor only)
+    /// Pre-computed Pandoc/Quarto citation ranges.
+    #[inline]
     pub fn citation_ranges(&self) -> &[crate::utils::skip_context::ByteRange] {
         &self.citation_ranges
     }
@@ -1076,7 +1015,8 @@ impl<'a> LintContext<'a> {
         Self::binary_search_ranges(&self.shortcode_ranges, byte_pos)
     }
 
-    /// Get all shortcode byte ranges
+    /// Pre-computed Hugo/Quarto shortcode ranges.
+    #[inline]
     pub fn shortcode_ranges(&self) -> &[(usize, usize)] {
         &self.shortcode_ranges
     }
@@ -1178,42 +1118,6 @@ impl<'a> LintContext<'a> {
         } else {
             String::new()
         }
-    }
-
-    /// Get HTML tags on a specific line
-    pub fn html_tags_on_line(&self, line_num: usize) -> Vec<HtmlTag> {
-        self.html_tags()
-            .iter()
-            .filter(|tag| tag.line == line_num)
-            .cloned()
-            .collect()
-    }
-
-    /// Get emphasis spans on a specific line
-    pub fn emphasis_spans_on_line(&self, line_num: usize) -> Vec<EmphasisSpan> {
-        self.emphasis_spans()
-            .iter()
-            .filter(|span| span.line == line_num)
-            .cloned()
-            .collect()
-    }
-
-    /// Get table rows on a specific line
-    pub fn table_rows_on_line(&self, line_num: usize) -> Vec<TableRow> {
-        self.table_rows()
-            .iter()
-            .filter(|row| row.line == line_num)
-            .cloned()
-            .collect()
-    }
-
-    /// Get bare URLs on a specific line
-    pub fn bare_urls_on_line(&self, line_num: usize) -> Vec<BareUrl> {
-        self.bare_urls()
-            .iter()
-            .filter(|url| url.line == line_num)
-            .cloned()
-            .collect()
     }
 
     /// Find the line index for a given byte offset using binary search.

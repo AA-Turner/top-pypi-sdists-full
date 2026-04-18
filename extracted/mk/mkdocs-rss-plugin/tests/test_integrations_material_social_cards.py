@@ -1,4 +1,4 @@
-#! python3  # noqa E265
+#! python3  # noqa: E265
 
 """Usage from the repo root folder:
 
@@ -123,6 +123,27 @@ class TestRssPluginIntegrationsMaterialSocialCards(BaseTest):
         cfg_mkdocs = load_config(
             str(
                 Path("tests/fixtures/mkdocs_item_image_social_cards_blog.yml").resolve()
+            )
+        )
+
+        integration_social_cards = IntegrationMaterialSocialCards(
+            mkdocs_config=cfg_mkdocs
+        )
+        self.assertTrue(integration_social_cards.IS_THEME_MATERIAL)
+        self.assertTrue(integration_social_cards.IS_SOCIAL_PLUGIN_ENABLED)
+        self.assertTrue(integration_social_cards.IS_SOCIAL_PLUGIN_CARDS_ENABLED)
+        self.assertTrue(
+            integration_social_cards.integration_material_blog.IS_BLOG_PLUGIN_ENABLED
+        )
+        self.assertTrue(integration_social_cards.IS_ENABLED)
+
+    def test_plugin_config_materialx_social_cards_enabled_with_blog_plugin(self):
+        # default reference
+        cfg_mkdocs = load_config(
+            str(
+                Path(
+                    "tests/fixtures/mkdocs_materialx_item_image_social_cards_blog.yml"
+                ).resolve()
             )
         )
 

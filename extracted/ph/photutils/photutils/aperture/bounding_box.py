@@ -1,11 +1,13 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define a class for a rectangular bounding box.
+Class for a rectangular bounding box.
 """
 
 import math
 
 import numpy as np
+
+from photutils.utils._deprecation import deprecated_positional_kwargs
 
 __all__ = ['BoundingBox']
 
@@ -95,9 +97,9 @@ class BoundingBox:
         Parameters
         ----------
         xmin, xmax, ymin, ymax : float
-            Float coordinates defining a rectangle. The lower values
-            (``xmin`` and ``ymin``) must not be greater than the
-            respective upper values (``xmax`` and ``ymax``).
+            The floating-point coordinates defining a rectangle. The
+            lower values (``xmin`` and ``ymin``) must not be greater
+            than the respective upper values (``xmax`` and ``ymax``).
 
         Returns
         -------
@@ -159,8 +161,8 @@ class BoundingBox:
 
     def get_overlap_slices(self, shape):
         """
-        Get slices for the overlapping part of the bounding box and an
-        2D array.
+        Get slices for the overlapping part of the bounding box and a 2D
+        array.
 
         Parameters
         ----------
@@ -193,7 +195,7 @@ class BoundingBox:
         ymax = self.iymax
 
         if xmin >= shape[1] or ymin >= shape[0] or xmax <= 0 or ymax <= 0:
-            # no overlap of the bounding box with the input shape
+            # No overlap of the bounding box with the input shape
             return None, None
 
         slices_large = (slice(max(ymin, 0), min(ymax, shape[0])),
@@ -214,8 +216,8 @@ class BoundingBox:
 
         The upper edges here are the actual pixel positions of the
         edges, i.e., they are not "exclusive" indices used for python
-        indexing. This is useful for plotting the bounding box using
-        Matplotlib.
+        indexing. The extent is useful for plotting the bounding box
+        using Matplotlib.
         """
         return (self.ixmin - 0.5, self.ixmax - 0.5,
                 self.iymin - 0.5, self.iymax - 0.5)
@@ -249,8 +251,7 @@ class BoundingBox:
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
             rng = np.random.default_rng(0)
-            ax.imshow(rng.random((10, 10)), origin='lower',
-                      interpolation='nearest')
+            ax.imshow(rng.random((10, 10)), origin='lower')
             ax.add_patch(bbox.as_artist(facecolor='none', edgecolor='white',
                          lw=2.0))
         """
@@ -269,13 +270,14 @@ class BoundingBox:
         aperture : `~photutils.aperture.RectangularAperture`
             A rectangular aperture.
         """
-        # prevent circular import
+        # Prevent circular import
         from photutils.aperture.rectangle import RectangularAperture
 
         xypos = self.center[::-1]  # xy order
         height, width = self.shape
         return RectangularAperture(xypos, w=width, h=height, theta=0.0)
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def plot(self, ax=None, origin=(0, 0), **kwargs):
         """
         Plot the `BoundingBox` on a matplotlib `~matplotlib.axes.Axes`

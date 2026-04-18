@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wisent
-Version: 0.10.49
+Version: 0.10.58
 Summary: Monitor and influence AI Brains
 Home-page: https://github.com/wisent-ai/wisent
 Author: Lukasz Bartoszcze and the Wisent Team
@@ -42,6 +42,12 @@ Requires-Dist: pacmap>=0.7.0
 Requires-Dist: optuna>=3.0.0
 Requires-Dist: hyperopt
 Requires-Dist: psutil
+Requires-Dist: unitxt>=1.15.0
+Requires-Dist: math-verify>=0.5.0
+Requires-Dist: sympy>=1.12
+Requires-Dist: antlr4-python3-runtime==4.11
+Requires-Dist: langdetect>=1.0.9
+Requires-Dist: immutabledict>=4.2.0
 Provides-Extra: harness
 Requires-Dist: lm-eval==0.4.8; extra == "harness"
 Provides-Extra: reft

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-pandas
-Version: 0.29.0
+Version: 0.29.1
 Summary: Utilities and examples for working with pandas and dagster, an opinionated framework for expressing data pipelines
 Project-URL: Homepage, https://github.com/dagster-io/dagster
 Author-email: Dagster Labs <hello@dagsterlabs.com>
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.10
-Requires-Dist: dagster==1.13.0
+Requires-Dist: dagster==1.13.1
 Requires-Dist: pandas<3.0.0
 Description-Content-Type: text/markdown
 

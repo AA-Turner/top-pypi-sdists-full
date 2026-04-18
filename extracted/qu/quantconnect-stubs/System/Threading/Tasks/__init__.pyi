@@ -7,7 +7,6 @@ import typing
 import System
 import System.Collections.Generic
 import System.Runtime.CompilerServices
-import System.Runtime.Serialization
 import System.Threading
 import System.Threading.Tasks
 import System.Threading.Tasks.Sources
@@ -1007,10 +1006,6 @@ class TaskCanceledException(System.OperationCanceledException):
     def __init__(self, task: System.Threading.Tasks.Task) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class TaskAsyncEnumerableExtensions(System.Object):
     """This class has no documentation."""
@@ -1045,10 +1040,6 @@ class TaskSchedulerException(System.Exception):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 

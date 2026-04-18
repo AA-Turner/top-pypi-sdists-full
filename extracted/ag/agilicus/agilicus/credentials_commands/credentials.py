@@ -40,7 +40,7 @@ def add_object_credentials(ctx, object_id, object_type, purpose, **kwargs):
     kwargs["org_id"] = get_org_from_input_or_ctx(ctx, **kwargs)
     kwargs = strip_none(kwargs)
 
-    oauth2_auth = get_oauth2_auth(kwargs, pop=True)
+    oauth2_auth = get_oauth2_auth({}, kwargs, pop=True)
 
     spec = agilicus.ObjectCredentialSpec(
         object_id=object_id,
@@ -66,7 +66,7 @@ def replace_object_credentials(ctx, object_credential_id, **kwargs):
         object_credential_id, org_id=org_id
     )
     kwargs = strip_none(kwargs)
-    oauth2 = get_oauth2_auth(kwargs, pop=True)
+    oauth2 = get_oauth2_auth(credential.spec.oauth2 or {}, kwargs, pop=True)
     credential.spec = build_updated_model_from_dict(
         agilicus.ObjectCredentialSpec, credential.spec, kwargs
     )

@@ -678,10 +678,6 @@ class CookieException(System.FormatException, System.Runtime.Serialization.ISeri
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def get_object_data(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 

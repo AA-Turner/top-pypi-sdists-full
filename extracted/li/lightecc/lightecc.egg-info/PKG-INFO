@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: lightecc
-Version: 0.0.5
+Version: 0.0.6
 Summary: A Lightweight Elliptic Curve Cryptography Arithmetic Library for Python with Support for Prime and Binary Fields
 Home-page: https://github.com/serengil/LightECC
 Author: Sefik Ilkin Serengil

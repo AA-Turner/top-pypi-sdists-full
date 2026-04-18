@@ -1,11 +1,11 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define interpolator classes for Background2D.
+Tools for upsampling images for Background2D using interpolation.
 """
 
 import numpy as np
 from astropy.units import Quantity
-from astropy.utils.decorators import deprecated_renamed_argument
+from astropy.utils.decorators import deprecated
 from scipy.ndimage import zoom
 
 from photutils.utils import ShepardIDWInterpolator
@@ -14,7 +14,7 @@ from photutils.utils._repr import make_repr
 __all__ = ['BkgIDWInterpolator', 'BkgZoomInterpolator']
 
 
-class BkgZoomInterpolator:
+class _BkgZoomInterpolator:
     """
     Class to generate a full-sized background and background RMS images
     from lower-resolution mesh images using the `~scipy.ndimage.zoom`
@@ -43,31 +43,23 @@ class BkgZoomInterpolator:
         input image. This is enabled by default, since higher order
         interpolation may produce values outside the given input range.
 
-    grid_mode : bool, optional
-        If `True` (default), the samples are considered as the centers
-        of regularly-spaced grid elements. If `False`, the samples
-        are treated as isolated points. For zooming 2D images,
-        this keyword should be set to `True`, which makes zoom's
-        behavior consistent with `scipy.ndimage.map_coordinates` and
-        `skimage.transform.resize`. The `False` option is provided only
-        for backwards-compatibility.
-
-        .. deprecated:: 2.0.0
-           When this keyword is removed, the behavior will be
-           ``grid_mode=True``.
+    Notes
+    -----
+    When resizing the mesh to the full image size, the samples are
+    considered as the centers of regularly-spaced grid elements (i.e.,
+    `~scipy.ndimage.zoom` ``grid_mode`` is True). This makes
+    zoom's behavior consistent with `scipy.ndimage.map_coordinates` and
+    `skimage.transform.resize`
     """
 
-    @deprecated_renamed_argument('grid_mode', None, '2.0.0')
-    def __init__(self, *, order=3, mode='reflect', cval=0.0, clip=True,
-                 grid_mode=True):
+    def __init__(self, *, order=3, mode='reflect', cval=0.0, clip=True):
         self.order = order
         self.mode = mode
         self.cval = cval
-        self.grid_mode = grid_mode
         self.clip = clip
 
     def __repr__(self):
-        params = ('order', 'mode', 'cval', 'clip', 'grid_mode')
+        params = ('order', 'mode', 'cval', 'clip')
         return make_repr(self, params)
 
     def __call__(self, data, **kwargs):
@@ -86,6 +78,12 @@ class BkgZoomInterpolator:
         -------
         result : 2D `~numpy.ndarray`
             The resized background or background RMS image.
+
+        Notes
+        -----
+        If ``data`` is an `~astropy.units.Quantity`, units are stripped
+        before interpolation. Unit re-assignment is the caller's
+        responsibility.
         """
         data = np.asanyarray(data)
         if isinstance(data, Quantity):
@@ -94,19 +92,13 @@ class BkgZoomInterpolator:
             return np.full(kwargs['shape'], np.min(data),
                            dtype=kwargs['dtype'])
 
-        if kwargs['edge_method'] == 'pad':
-            # The mesh is first resized to the larger padded-data size
-            # (i.e., zoom_factor should be an integer) and then cropped
-            # back to the final data size.
-            zoom_factor = kwargs['box_size']
-            result = zoom(data, zoom_factor, order=self.order, mode=self.mode,
-                          cval=self.cval, grid_mode=self.grid_mode)
-            result = result[0:kwargs['shape'][0], 0:kwargs['shape'][1]]
-        else:
-            # The mesh is resized directly to the final data size.
-            zoom_factor = np.array(kwargs['shape']) / data.shape
-            result = zoom(data, zoom_factor, order=self.order, mode=self.mode,
-                          cval=self.cval)
+        # The mesh is first resized to the larger padded-data size
+        # (i.e., zoom_factor should be an integer) and then cropped
+        # back to the final data size.
+        zoom_factor = kwargs['box_size']
+        result = zoom(data, zoom_factor, order=self.order, mode=self.mode,
+                      cval=self.cval, grid_mode=True)
+        result = result[0:kwargs['shape'][0], 0:kwargs['shape'][1]]
 
         if self.clip:
             minval = np.min(data)
@@ -116,6 +108,52 @@ class BkgZoomInterpolator:
         return result
 
 
+@deprecated(since='3.0', message=('BkgZoomInterpolator is deprecated and will '
+                                  'be removed in version 4.0.'))
+class BkgZoomInterpolator(_BkgZoomInterpolator):
+    """
+    Class to generate a full-sized background and background RMS images
+    from lower-resolution mesh images using the `~scipy.ndimage.zoom`
+    (spline) interpolator.
+
+    This class must be used in concert with the `Background2D` class.
+
+    Parameters
+    ----------
+    order : int, optional
+        The order of the spline interpolation used to resize the
+        low-resolution background and background RMS mesh images. The
+        value must be an integer in the range 0-5. The default is 3
+        (bicubic interpolation).
+
+    mode : {'reflect', 'constant', 'nearest', 'wrap'}, optional
+        Points outside the boundaries of the input are filled according
+        to the given mode. Default is 'reflect'.
+
+    cval : float, optional
+        The value used for points outside the boundaries of the input if
+        ``mode='constant'``. Default is 0.0.
+
+    clip : bool, optional
+        Whether to clip the output to the range of values in the
+        input image. This is enabled by default, since higher order
+        interpolation may produce values outside the given input range.
+
+    Notes
+    -----
+    When resizing the mesh to the full image size, the samples are
+    considered as the centers of regularly-spaced grid elements (i.e.,
+    `~scipy.ndimage.zoom` ``grid_mode`` is True). This makes
+    zoom's behavior consistent with `scipy.ndimage.map_coordinates` and
+    `skimage.transform.resize`
+    """
+
+    def __init__(self, *, order=3, mode='reflect', cval=0.0, clip=True):
+        super().__init__(order=order, mode=mode, cval=cval, clip=clip)
+
+
+@deprecated(since='3.0', message=('BkgIDWInterpolator is deprecated and will '
+                                  'be removed in a version 4.0.'))
 class BkgIDWInterpolator:
     """
     Class to generate a full-sized background and background RMS images
@@ -139,19 +177,20 @@ class BkgIDWInterpolator:
         The power of the inverse distance used for the interpolation
         weights.
 
-    reg : float, optional
+    regularization : float, optional
         The regularization parameter. It may be used to control the
         smoothness of the interpolator.
     """
 
-    def __init__(self, *, leafsize=10, n_neighbors=10, power=1.0, reg=0.0):
+    def __init__(self, *, leafsize=10, n_neighbors=10, power=1.0,
+                 regularization=0.0):
         self.leafsize = leafsize
         self.n_neighbors = n_neighbors
         self.power = power
-        self.reg = reg
+        self.regularization = regularization
 
     def __repr__(self):
-        params = ('leafsize', 'n_neighbors', 'power', 'reg')
+        params = ('leafsize', 'n_neighbors', 'power', 'regularization')
         return make_repr(self, params)
 
     def __call__(self, data, **kwargs):
@@ -170,6 +209,12 @@ class BkgIDWInterpolator:
         -------
         result : 2D `~numpy.ndarray`
             The resized background or background RMS image.
+
+        Notes
+        -----
+        If ``data`` is an `~astropy.units.Quantity`, units are stripped
+        before interpolation. Unit re-assignment is the caller's
+        responsibility.
         """
         data = np.asanyarray(data)
         if isinstance(data, Quantity):
@@ -178,17 +223,19 @@ class BkgIDWInterpolator:
             return np.full(kwargs['shape'], np.min(data),
                            dtype=kwargs['dtype'])
 
-        # we create the interpolator from only the good mesh points
+        # Create the interpolator from only the good mesh points
         yxcen = np.column_stack(kwargs['mesh_yxcen'])
         good_idx = np.where(~kwargs['mesh_nan_mask'])
         data = data[good_idx]
         interp_func = ShepardIDWInterpolator(yxcen, data,
                                              leafsize=self.leafsize)
 
-        # the position coordinates used when calling the interpolator
+        # Define the position coordinates used when calling the
+        # interpolator
         yi, xi = np.mgrid[0:kwargs['shape'][0], 0:kwargs['shape'][1]]
         yx_indices = np.column_stack((yi.ravel(), xi.ravel()))
         data = interp_func(yx_indices, n_neighbors=self.n_neighbors,
-                           power=self.power, reg=self.reg)
+                           power=self.power,
+                           regularization=self.regularization)
 
         return data.reshape(kwargs['shape'])

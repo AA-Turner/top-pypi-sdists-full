@@ -5,13 +5,12 @@
 import asyncio
 import inspect
 import time
-from pathlib import Path
 
 import pytest
 from braintrust import logger, setup_pydantic_ai, traced
+from braintrust.integrations.test_utils import verify_autoinstrument_script
 from braintrust.span_types import SpanTypeAttribute
 from braintrust.test_helpers import init_test_logger
-from braintrust.wrappers.test_utils import verify_autoinstrument_script
 from pydantic import BaseModel
 from pydantic_ai import Agent, ModelSettings
 from pydantic_ai.messages import ModelRequest, UserPromptPart
@@ -21,11 +20,6 @@ from pydantic_ai.usage import UsageLimits
 PROJECT_NAME = "test-pydantic-ai-integration"
 MODEL = "openai:gpt-4o-mini"  # Use cheaper model for tests
 TEST_PROMPT = "What is 2+2? Answer with just the number."
-
-
-@pytest.fixture(scope="module")
-def vcr_cassette_dir():
-    return str(Path(__file__).resolve().parent / "cassettes")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -131,7 +125,7 @@ async def test_agent_run_async(memory_logger):
     assert chat_span is not None, "chat span not found"
 
     # Check agent span
-    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert agent_span["metadata"]["model"] == "gpt-4o-mini"
     assert agent_span["metadata"]["provider"] == "openai"
     assert TEST_PROMPT in str(agent_span["input"])
@@ -151,6 +145,18 @@ async def test_agent_run_async(memory_logger):
     assert "completion_tokens" in agent_span["metrics"]
     assert agent_span["metrics"]["prompt_tokens"] > 0
     assert agent_span["metrics"]["completion_tokens"] > 0
+
+    # Regression: no double-counting of cost/tokens. Experiment-level aggregations
+    # sum metrics across type='llm' spans, so a single agent turn must contribute
+    # its tokens exactly once. The wrapper agent_run span logs the same usage as
+    # the leaf chat span; only the leaf should be type=LLM.
+    llm_spans = [s for s in spans if s["span_attributes"]["type"] == SpanTypeAttribute.LLM]
+    assert len(llm_spans) == 1, f"expected exactly one LLM-typed span, got {len(llm_spans)}"
+    assert llm_spans[0]["span_id"] == chat_span["span_id"]
+    llm_prompt_tokens_sum = sum(s["metrics"].get("prompt_tokens", 0) for s in llm_spans)
+    llm_completion_tokens_sum = sum(s["metrics"].get("completion_tokens", 0) for s in llm_spans)
+    assert llm_prompt_tokens_sum == chat_span["metrics"]["prompt_tokens"]
+    assert llm_completion_tokens_sum == chat_span["metrics"]["completion_tokens"]
 
 
 @pytest.mark.vcr
@@ -211,7 +217,7 @@ def test_agent_run_sync(memory_logger):
     assert chat_span is not None, "chat span not found"
 
     # Check agent span
-    assert agent_sync_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert agent_sync_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert agent_sync_span["metadata"]["model"] == "gpt-4o-mini"
     assert agent_sync_span["metadata"]["provider"] == "openai"
     assert TEST_PROMPT in str(agent_sync_span["input"])
@@ -293,7 +299,7 @@ def test_agent_to_cli_sync(memory_logger, monkeypatch):
     assert len(spans) == 1, f"Expected 1 CLI span, got {len(spans)}"
 
     cli_span = spans[0]
-    assert cli_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert cli_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert cli_span["span_attributes"]["name"] == "agent_to_cli_sync [cli-agent]"
     assert cli_span["metadata"]["model"] == "gpt-4o-mini"
     assert cli_span["metadata"]["provider"] == "openai"
@@ -503,7 +509,7 @@ async def test_agent_run_stream(memory_logger):
     assert chat_span is not None, "chat span not found"
 
     # Check agent span
-    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert agent_span["metadata"]["model"] == "gpt-4o-mini"
     assert "Count from 1 to 5" in str(agent_span["input"])
     _assert_metrics_are_valid(agent_span["metrics"], start, end)
@@ -613,7 +619,7 @@ async def test_direct_model_request(memory_logger, direct):
     direct_span = next((s for s in spans if s["span_attributes"]["name"] == "model_request"), None)
     assert direct_span is not None
 
-    assert direct_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert direct_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert direct_span["metadata"]["model"] == "gpt-4o-mini"
     assert direct_span["metadata"]["provider"] == "openai"
     assert TEST_PROMPT in str(direct_span["input"])
@@ -643,7 +649,7 @@ def test_direct_model_request_sync(memory_logger, direct):
     # Find the model_request_sync span
     span = next((s for s in spans if s["span_attributes"]["name"] == "model_request_sync"), None)
     assert span is not None, "model_request_sync span not found"
-    assert span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert span["metadata"]["model"] == "gpt-4o-mini"
     assert TEST_PROMPT in str(span["input"])
     _assert_metrics_are_valid(span["metrics"], start, end)
@@ -674,7 +680,7 @@ async def test_direct_model_request_with_settings(memory_logger, direct):
     direct_span = next((s for s in spans if s["span_attributes"]["name"] == "model_request"), None)
     assert direct_span is not None
 
-    assert direct_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert direct_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
 
     # Verify model_settings is in input (NOT metadata)
     assert "model_settings" in direct_span["input"], "model_settings should be in input"
@@ -719,7 +725,7 @@ async def test_direct_model_request_stream(memory_logger, direct):
     direct_span = next((s for s in spans if s["span_attributes"]["name"] == "model_request_stream"), None)
     assert direct_span is not None
 
-    assert direct_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert direct_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert direct_span["metadata"]["model"] == "gpt-4o-mini"
     _assert_metrics_are_valid(direct_span["metrics"], start, end)
 
@@ -810,7 +816,7 @@ async def test_agent_structured_output(memory_logger):
     assert chat_span is not None, "chat span not found"
 
     # Check agent span
-    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert agent_span["metadata"]["model"] == "gpt-4o-mini"
     assert agent_span["metadata"]["provider"] == "openai"
     assert "10 + 15" in str(agent_span["input"])
@@ -1098,7 +1104,7 @@ def test_agent_run_stream_sync(memory_logger):
     assert chat_span is not None, "chat span not found"
 
     # Check agent span
-    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert agent_span["metadata"]["model"] == "gpt-4o-mini"
     assert "Count from 1 to 3" in str(agent_span["input"])
     _assert_metrics_are_valid(agent_span["metrics"], start, end)
@@ -1171,7 +1177,7 @@ async def test_agent_run_stream_events(memory_logger):
     assert agent_span is not None, "agent_run_stream_events span not found"
 
     # Check agent span has basic structure
-    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert agent_span["metadata"]["model"] == "gpt-4o-mini"
     assert "5+5" in str(agent_span["input"]) or "What" in str(agent_span["input"])
     assert agent_span["metrics"]["event_count"] == event_count
@@ -1200,7 +1206,7 @@ def test_direct_model_request_stream_sync(memory_logger, direct):
     assert len(spans) == 1
 
     span = spans[0]
-    assert span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert span["span_attributes"]["name"] == "model_request_stream_sync"
     assert span["metadata"]["model"] == "gpt-4o-mini"
     _assert_metrics_are_valid(span["metrics"], start, end)
@@ -1264,7 +1270,7 @@ async def test_stream_early_break_async_generator(memory_logger, direct):
     assert len(spans) >= 1, "Should have at least one span even with early break"
 
     span = spans[0]
-    assert span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert span["span_attributes"]["name"] == "model_request_stream"
 
 
@@ -1303,7 +1309,7 @@ async def test_agent_stream_early_break(memory_logger):
 
     # Verify at least agent_run_stream span exists and has basic structure
     if agent_span:
-        assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+        assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
         # Metrics may be incomplete due to early break
         assert "start" in agent_span["metrics"]
 
@@ -1374,7 +1380,7 @@ async def test_stream_buffer_pattern_early_return(memory_logger, direct):
     assert len(spans) >= 1, "Should have at least one span even with early return"
 
     span = spans[0]
-    assert span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert span["span_attributes"]["name"] == "model_request_stream"
     assert "start" in span["metrics"]
     assert span["metrics"]["start"] >= start
@@ -1452,7 +1458,7 @@ async def test_agent_stream_buffer_pattern_early_return(memory_logger):
     # Find agent_run_stream span
     agent_span = next((s for s in spans if "agent_run_stream" in s["span_attributes"]["name"]), None)
     assert agent_span is not None, "agent_run_stream span should exist"
-    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert "start" in agent_span["metrics"]
 
 
@@ -1506,7 +1512,7 @@ async def test_agent_with_binary_content(memory_logger):
     assert chat_span is not None, "chat span not found"
 
     # Verify basic span structure
-    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert agent_span["metadata"]["model"] == "gpt-4o-mini"
     _assert_metrics_are_valid(agent_span["metrics"], start, end)
 
@@ -2119,7 +2125,7 @@ async def test_agent_run_stream_structured_output(memory_logger):
     assert chat_span is not None, "chat span not found"
 
     # Check agent span
-    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert agent_span["metadata"]["model"] == "gpt-4o-mini"
     _assert_metrics_are_valid(agent_span["metrics"], start, end)
 
@@ -2669,7 +2675,7 @@ async def test_no_model_agent_run(memory_logger):
     assert agent_span is not None, "agent_run span not found"
     assert chat_span is not None, "chat span not found"
 
-    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert agent_span["metadata"]["model"] == "gpt-4o-mini"
     assert agent_span["metadata"]["provider"] == "openai"
     assert TEST_PROMPT in str(agent_span["input"])

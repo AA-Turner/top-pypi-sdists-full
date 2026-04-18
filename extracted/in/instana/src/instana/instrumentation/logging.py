@@ -35,7 +35,7 @@ def log_with_instana(
     stacklevel = stacklevel_in + 1
 
     try:
-        tracer, parent_span, _ = get_tracer_tuple()
+        tracer, _, _ = get_tracer_tuple()
         # Only needed if we're tracing and serious log and logging spans are not disabled
         if (
             not tracer
@@ -56,7 +56,7 @@ def log_with_instana(
         parameters = None
         (t, v, tb) = sys.exc_info()
         if t is not None and v is not None:
-            parameters = "{} {}".format(t, v)
+            parameters = f"{t} {v}"
 
         parent_context = get_current()
 

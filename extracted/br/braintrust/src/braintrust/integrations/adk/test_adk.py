@@ -38,7 +38,6 @@ def vcr_config():
 
     return {
         "record_mode": record_mode,
-        "cassette_library_dir": str(Path(__file__).parent / "cassettes"),
         "filter_headers": [
             "authorization",
             "Authorization",
@@ -1822,6 +1821,6 @@ class TestAutoInstrumentADK:
 
     def test_auto_instrument_adk(self):
         """Test auto_instrument patches ADK classes and is idempotent."""
-        from braintrust.wrappers.test_utils import verify_autoinstrument_script
+        from braintrust.integrations.test_utils import verify_autoinstrument_script
 
         verify_autoinstrument_script("test_auto_adk.py")

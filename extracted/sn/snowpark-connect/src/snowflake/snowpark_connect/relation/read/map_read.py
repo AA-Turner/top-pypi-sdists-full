@@ -45,7 +45,10 @@ from snowflake.snowpark_connect.type_mapping import (
     map_json_schema_to_snowpark,
 )
 from snowflake.snowpark_connect.utils.cache import df_cache_map_put_if_absent
-from snowflake.snowpark_connect.utils.context import get_spark_session_id
+from snowflake.snowpark_connect.utils.context import (
+    get_should_skip_file_read_cache_result,
+    get_spark_session_id,
+)
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -192,6 +195,10 @@ def map_read(
             )
             attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
             raise exception
+
+    if get_should_skip_file_read_cache_result():
+        # SNOW-3262791: If the result of this read will be persisted by saveAsTable, do not cache the result.
+        result = result.without_materialization()
 
     return df_cache_map_put_if_absent(
         (get_spark_session_id(), rel.common.plan_id), lambda: result

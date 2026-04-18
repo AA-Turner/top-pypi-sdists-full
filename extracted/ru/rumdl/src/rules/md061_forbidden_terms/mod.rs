@@ -5,7 +5,7 @@ use crate::rule::{FixCapability, LintError, LintResult, LintWarning, Rule, RuleC
 use crate::rule_config_serde::RuleConfig;
 
 mod md061_config;
-pub use md061_config::MD061Config;
+pub(super) use md061_config::MD061Config;
 
 /// Rule MD061: Forbidden terms
 ///
@@ -52,8 +52,7 @@ impl MD061ForbiddenTerms {
             content[..start]
                 .chars()
                 .last()
-                .map(|c| !c.is_alphanumeric() && c != '_')
-                .unwrap_or(true)
+                .is_none_or(|c| !c.is_alphanumeric() && c != '_')
         };
 
         let after_ok = if end >= content.len() {
@@ -62,8 +61,7 @@ impl MD061ForbiddenTerms {
             content[end..]
                 .chars()
                 .next()
-                .map(|c| !c.is_alphanumeric() && c != '_')
-                .unwrap_or(true)
+                .is_none_or(|c| !c.is_alphanumeric() && c != '_')
         };
 
         before_ok && after_ok
@@ -81,9 +79,8 @@ impl Rule for MD061ForbiddenTerms {
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         // Early return if no terms configured
-        let pattern = match &self.pattern {
-            Some(p) => p,
-            None => return Ok(Vec::new()),
+        let Some(pattern) = &self.pattern else {
+            return Ok(Vec::new());
         };
 
         let mut warnings = Vec::new();

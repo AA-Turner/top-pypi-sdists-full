@@ -25,6 +25,7 @@ import warnings
 from pyedb.dotnet.database.general import convert_py_list_to_net_list
 from pyedb.dotnet.database.geometry.point_data import PointData
 from pyedb.dotnet.database.utilities.obj_base import BBox
+from pyedb.misc.decorators import deprecated
 
 if TYPE_CHECKING:  # pragma: no cover
     from pyedb.dotnet.database.edb_data.primitives_data import EDBArcs
@@ -55,6 +56,18 @@ class PolygonData:
                 "PolygonData: No valid EDB object or creation method provided. "
                 "Please provide either an 'edb_object', 'create_from_points', or 'create_from_bounding_box' argument."
             )
+
+    @classmethod
+    def create(cls, pedb, points: list[tuple[float, float]], closed: bool = True) -> Any:
+        """Create a polygon from a list of points."""
+        list_of_point_data = []
+        for pt in points:
+            if isinstance(pt, PointData):
+                list_of_point_data.append(pt.core)
+            else:
+                list_of_point_data.append(PointData.create(pedb, x=pt[0], y=pt[1]).core)
+        core = pedb.core.Geometry.PolygonData(convert_py_list_to_net_list(list_of_point_data), closed)
+        return cls(pedb, core)
 
     @property
     def bounding_box(self) -> list[float]:
@@ -100,7 +113,7 @@ class PolygonData:
         """Create a polygon from a list of points."""
         list_of_point_data = []
         for pt in points:
-            list_of_point_data.append(PointData.create_from_xy(self._pedb, x=pt[0], y=pt[1])._edb_object)
+            list_of_point_data.append(PointData.create_from_xy(self._pedb, x=pt[0], y=pt[1]).core)
         return self._pedb.core.Geometry.PolygonData(convert_py_list_to_net_list(list_of_point_data), closed)
 
     @property
@@ -164,6 +177,7 @@ class PolygonData:
         return self._edb_object.PointInPolygon(self._pedb.point_data(x, y))
 
     # TODO: Same argument as above
+    @deprecated("Use is_inside method instead.", category=None)
     def point_in_polygon(self, x: str | float | list[Any], y: str | float | None = None) -> bool:
         """Determines whether a point is inside the polygon.
 

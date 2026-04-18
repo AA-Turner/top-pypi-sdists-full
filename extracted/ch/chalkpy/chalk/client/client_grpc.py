@@ -91,6 +91,7 @@ from chalk._gen.chalk.server.v1.model_registry_pb2 import (
 from chalk._gen.chalk.server.v1.model_registry_pb2_grpc import ModelRegistryServiceStub
 from chalk._gen.chalk.server.v1.named_query_pb2 import GetNamedQueryByNameRequest
 from chalk._gen.chalk.server.v1.named_query_pb2_grpc import NamedQueryServiceStub
+from chalk._gen.chalk.server.v1.offline_queries_pb2 import CancelAsyncOfflineQueryRequest
 from chalk._gen.chalk.server.v1.offline_queries_pb2_grpc import OfflineQueryMetadataServiceStub
 from chalk._gen.chalk.server.v1.scheduled_query_pb2_grpc import ScheduledQueryServiceStub
 from chalk._gen.chalk.server.v1.scheduled_query_run_pb2 import GetScheduledQueryRunsRequest
@@ -1640,6 +1641,31 @@ class ChalkGRPCClient:
         if include_historical:
             return table_names
         return table_names[-1]
+
+    def cancel_offline_query(
+        self,
+        offline_query_id: str,
+    ) -> None:
+        """Cancel an in-progress async offline query by its ID.
+
+        Parameters
+        ----------
+        offline_query_id
+            The ID of the offline query to cancel. Returns an error if the query
+            is not found or is not in a cancellable state (i.e. not WORKING or QUEUED).
+
+        Examples
+        --------
+        >>> from chalk.client.client_grpc import ChalkGRPCClient
+        >>> ChalkGRPCClient().cancel_offline_query(
+        ...     offline_query_id="oq_1234567890abcdef",
+        ... )
+        """
+        self._stub_refresher.call_offline_query_stub(
+            lambda x: x.CancelAsyncOfflineQuery(
+                request=CancelAsyncOfflineQueryRequest(offline_query_id=offline_query_id)
+            )
+        )
 
     def create_service_token(
         self,

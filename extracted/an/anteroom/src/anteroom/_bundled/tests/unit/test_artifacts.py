@@ -282,6 +282,49 @@ class TestListArtifacts:
     def test_empty_result(self, db: ThreadSafeConnection) -> None:
         assert list_artifacts(db) == []
 
+    def test_filter_by_metadata_single(self, db: ThreadSafeConnection) -> None:
+        create_artifact(db, "@a/skill/x", "skill", "a", "x", "c1", metadata={"level": "high"})
+        create_artifact(db, "@a/skill/y", "skill", "a", "y", "c2", metadata={"level": "low"})
+        result = list_artifacts(db, metadata_filter={"level": "high"})
+        assert len(result) == 1
+        assert result[0]["fqn"] == "@a/skill/x"
+
+    def test_filter_by_metadata_multiple(self, db: ThreadSafeConnection) -> None:
+        create_artifact(db, "@a/skill/x", "skill", "a", "x", "c1", metadata={"level": "high", "status": "active"})
+        create_artifact(db, "@a/skill/y", "skill", "a", "y", "c2", metadata={"level": "high", "status": "archived"})
+        create_artifact(db, "@a/skill/z", "skill", "a", "z", "c3", metadata={"level": "low", "status": "active"})
+        result = list_artifacts(db, metadata_filter={"level": "high", "status": "active"})
+        assert len(result) == 1
+        assert result[0]["fqn"] == "@a/skill/x"
+
+    def test_filter_by_metadata_rejects_invalid_key(self, db: ThreadSafeConnection) -> None:
+        # Key containing quote / semicolon / path chars must be rejected to prevent JSON path injection.
+        for bad_key in ("foo.bar", "a'; DROP TABLE artifacts; --", "x space", "1starts-with-digit"):
+            with pytest.raises(ValueError, match="Invalid metadata filter key"):
+                list_artifacts(db, metadata_filter={bad_key: "v"})
+
+    def test_filter_by_metadata_empty_dict_returns_all(self, db: ThreadSafeConnection) -> None:
+        create_artifact(db, "@a/skill/x", "skill", "a", "x", "c1", metadata={"level": "high"})
+        create_artifact(db, "@a/skill/y", "skill", "a", "y", "c2")
+        # Empty dict is truthy-false — behaves like no filter.
+        assert len(list_artifacts(db, metadata_filter={})) == 2
+
+    def test_filter_by_metadata_combined_with_type(self, db: ThreadSafeConnection) -> None:
+        create_artifact(db, "@a/skill/x", "skill", "a", "x", "c1", metadata={"level": "high"})
+        create_artifact(db, "@a/rule/y", "rule", "a", "y", "c2", metadata={"level": "high"})
+        result = list_artifacts(db, artifact_type="skill", metadata_filter={"level": "high"})
+        assert len(result) == 1
+        assert result[0]["type"] == "skill"
+
+    def test_metadata_filter_matches_memory_status(self, db: ThreadSafeConnection) -> None:
+        # Memory-artifact flavoured test preserved from #921 — exercises the
+        # same filter against the real memory metadata keys recall will use.
+        create_artifact(db, "@u/memory/a", "memory", "u", "a", "c1", metadata={"memory_status": "active"})
+        create_artifact(db, "@u/memory/b", "memory", "u", "b", "c2", metadata={"memory_status": "archived"})
+        result = list_artifacts(db, metadata_filter={"memory_status": "active"})
+        assert len(result) == 1
+        assert result[0]["name"] == "a"
+
 
 class TestUpdateArtifact:
     def test_update_content(self, db: ThreadSafeConnection) -> None:

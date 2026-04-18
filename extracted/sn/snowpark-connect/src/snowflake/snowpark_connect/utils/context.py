@@ -37,6 +37,7 @@ _is_processing_order_by = ContextVar[bool]("_is_processing_order_by", default=Fa
 _is_processing_aliased_relation = ContextVar[bool](
     "_is_processing_aliased_relation", default=False
 )
+_is_analyze_plan_request = ContextVar[bool]("_is_analyze_plan_request", default=False)
 
 _sql_aggregate_function_count = ContextVar[int](
     "_contains_aggregate_function", default=0
@@ -67,6 +68,9 @@ _current_lambda_params = ContextVar[list[str]]("_current_lambda_params", default
 _is_window_enabled = ContextVar[bool]("_is_window_enabled", default=False)
 _is_in_udtf_context = ContextVar[bool]("_is_in_udtf_context", default=False)
 _accessing_temp_object = ContextVar[bool]("_accessing_temp_object", default=False)
+_should_skip_file_read_cache_result = ContextVar[bool](
+    "_should_skip_file_read_cache_result", default=False
+)
 
 # Thread-safe lock for JPype JClass creation to prevent access violations
 _jpype_jclass_lock = threading.Lock()
@@ -561,6 +565,14 @@ def get_outer_dataframes() -> list[DataFrameContainer]:
     return _outer_dataframes.get()
 
 
+def is_analyze_plan_request() -> bool:
+    return _is_analyze_plan_request.get()
+
+
+def set_is_analyze_plan_request(value: bool) -> None:
+    _is_analyze_plan_request.set(value)
+
+
 def clear_context_data() -> None:
     _spark_session_id.set(None)
     _plan_id_map.set({})
@@ -576,6 +588,8 @@ def clear_context_data() -> None:
     _is_aggregate_function.set(("default", False))
     _df_before_projection.set(None)
     _outer_dataframes.set([])
+    _is_analyze_plan_request.set(False)
+    _should_skip_file_read_cache_result.set(False)
 
 
 @contextmanager
@@ -616,3 +630,24 @@ def push_udtf_context():
         yield
     finally:
         _is_in_udtf_context.reset(token)
+
+
+def get_should_skip_file_read_cache_result() -> bool:
+    return _should_skip_file_read_cache_result.get()
+
+
+@contextmanager
+def should_skip_file_read_cache_result(active: bool = True):
+    """
+    Context manager that, when *active*, tells file reading operations to skip ``cache_result()``
+    materialization. This flag is used by write operations so that operations ending in a
+    ``saveAsTable`` can generate a single CTAS directly from the staged file instead of going through
+    a redundant temporary table.
+    """
+    prev = _should_skip_file_read_cache_result.get()
+    try:
+        if active:
+            _should_skip_file_read_cache_result.set(True)
+        yield
+    finally:
+        _should_skip_file_read_cache_result.set(prev)

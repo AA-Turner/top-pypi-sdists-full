@@ -3,7 +3,6 @@ from enum import IntEnum
 import typing
 
 import System
-import System.Runtime.Serialization
 import System.Security.Cryptography
 
 
@@ -28,10 +27,6 @@ class CryptographicException(System.SystemException):
 
     @overload
     def __init__(self, format: str, insert: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 

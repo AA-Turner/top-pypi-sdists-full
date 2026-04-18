@@ -2626,6 +2626,351 @@ class DependabotScheduleInterval(enum.Enum):
     '''
 
 
+class DependencyReview(
+    _Component_2b0ad27f,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.github.DependencyReview",
+):
+    '''(experimental) Adds a GitHub workflow that runs the dependency-review-action on pull requests.
+
+    This action scans pull requests for dependency changes and raises an error
+    if any vulnerabilities or invalid licenses are introduced.
+
+    :see: https://github.com/actions/dependency-review-action
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        github: "GitHub",
+        *,
+        allow_ghsas: typing.Optional[typing.Sequence[builtins.str]] = None,
+        allow_licenses: typing.Optional[typing.Sequence[builtins.str]] = None,
+        comment_summary_in_pr: typing.Optional[builtins.str] = None,
+        config_file: typing.Optional[builtins.str] = None,
+        deny_packages: typing.Optional[typing.Sequence[builtins.str]] = None,
+        fail_on_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        fail_on_severity: typing.Optional[builtins.str] = None,
+        license_check: typing.Optional[builtins.bool] = None,
+        runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
+        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        show_open_ssf_scorecard: typing.Optional[builtins.bool] = None,
+        vulnerability_check: typing.Optional[builtins.bool] = None,
+        warn_only: typing.Optional[builtins.bool] = None,
+        warn_on_open_ssf_scorecard_level: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''
+        :param github: -
+        :param allow_ghsas: (experimental) GitHub Advisory Database IDs that can be skipped during detection. Default: - no advisories are skipped
+        :param allow_licenses: (experimental) List of allowed SPDX license identifiers. Default: - no license allow-list
+        :param comment_summary_in_pr: (experimental) Whether to post a comment summary on the PR. Default: "always"
+        :param config_file: (experimental) Path to an external configuration file. Default: - no external config
+        :param deny_packages: (experimental) Packages to block in a PR (in purl format). Default: - no packages are denied
+        :param fail_on_scopes: (experimental) Scopes of dependencies to fail on. Default: - no scopes filter (action default is "runtime")
+        :param fail_on_severity: (experimental) The severity level at which the action will fail. Default: - no minimum severity (action default is "low")
+        :param license_check: (experimental) Enable or disable the license check. Default: true
+        :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
+        :param runs_on_group: (experimental) Github Runner Group selection options.
+        :param show_open_ssf_scorecard: (experimental) Show OpenSSF Scorecard scores for dependencies. Default: true
+        :param vulnerability_check: (experimental) Enable or disable the vulnerability check. Default: true
+        :param warn_only: (experimental) When true, the action will only warn and not fail. Default: false
+        :param warn_on_open_ssf_scorecard_level: (experimental) Score threshold for OpenSSF Scorecard warnings. Default: 3
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d1a93740635d98ed2858c12bde3e4024184432c48c6ca7bd06ba503c1d3dabf)
+            check_type(argname="argument github", value=github, expected_type=type_hints["github"])
+        options = DependencyReviewOptions(
+            allow_ghsas=allow_ghsas,
+            allow_licenses=allow_licenses,
+            comment_summary_in_pr=comment_summary_in_pr,
+            config_file=config_file,
+            deny_packages=deny_packages,
+            fail_on_scopes=fail_on_scopes,
+            fail_on_severity=fail_on_severity,
+            license_check=license_check,
+            runs_on=runs_on,
+            runs_on_group=runs_on_group,
+            show_open_ssf_scorecard=show_open_ssf_scorecard,
+            vulnerability_check=vulnerability_check,
+            warn_only=warn_only,
+            warn_on_open_ssf_scorecard_level=warn_on_open_ssf_scorecard_level,
+        )
+
+        jsii.create(self.__class__, self, [github, options])
+
+
+@jsii.data_type(
+    jsii_type="projen.github.DependencyReviewOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "allow_ghsas": "allowGhsas",
+        "allow_licenses": "allowLicenses",
+        "comment_summary_in_pr": "commentSummaryInPr",
+        "config_file": "configFile",
+        "deny_packages": "denyPackages",
+        "fail_on_scopes": "failOnScopes",
+        "fail_on_severity": "failOnSeverity",
+        "license_check": "licenseCheck",
+        "runs_on": "runsOn",
+        "runs_on_group": "runsOnGroup",
+        "show_open_ssf_scorecard": "showOpenSSFScorecard",
+        "vulnerability_check": "vulnerabilityCheck",
+        "warn_only": "warnOnly",
+        "warn_on_open_ssf_scorecard_level": "warnOnOpenSSFScorecardLevel",
+    },
+)
+class DependencyReviewOptions:
+    def __init__(
+        self,
+        *,
+        allow_ghsas: typing.Optional[typing.Sequence[builtins.str]] = None,
+        allow_licenses: typing.Optional[typing.Sequence[builtins.str]] = None,
+        comment_summary_in_pr: typing.Optional[builtins.str] = None,
+        config_file: typing.Optional[builtins.str] = None,
+        deny_packages: typing.Optional[typing.Sequence[builtins.str]] = None,
+        fail_on_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        fail_on_severity: typing.Optional[builtins.str] = None,
+        license_check: typing.Optional[builtins.bool] = None,
+        runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
+        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        show_open_ssf_scorecard: typing.Optional[builtins.bool] = None,
+        vulnerability_check: typing.Optional[builtins.bool] = None,
+        warn_only: typing.Optional[builtins.bool] = None,
+        warn_on_open_ssf_scorecard_level: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''(experimental) Options for the DependencyReview component.
+
+        :param allow_ghsas: (experimental) GitHub Advisory Database IDs that can be skipped during detection. Default: - no advisories are skipped
+        :param allow_licenses: (experimental) List of allowed SPDX license identifiers. Default: - no license allow-list
+        :param comment_summary_in_pr: (experimental) Whether to post a comment summary on the PR. Default: "always"
+        :param config_file: (experimental) Path to an external configuration file. Default: - no external config
+        :param deny_packages: (experimental) Packages to block in a PR (in purl format). Default: - no packages are denied
+        :param fail_on_scopes: (experimental) Scopes of dependencies to fail on. Default: - no scopes filter (action default is "runtime")
+        :param fail_on_severity: (experimental) The severity level at which the action will fail. Default: - no minimum severity (action default is "low")
+        :param license_check: (experimental) Enable or disable the license check. Default: true
+        :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
+        :param runs_on_group: (experimental) Github Runner Group selection options.
+        :param show_open_ssf_scorecard: (experimental) Show OpenSSF Scorecard scores for dependencies. Default: true
+        :param vulnerability_check: (experimental) Enable or disable the vulnerability check. Default: true
+        :param warn_only: (experimental) When true, the action will only warn and not fail. Default: false
+        :param warn_on_open_ssf_scorecard_level: (experimental) Score threshold for OpenSSF Scorecard warnings. Default: 3
+
+        :stability: experimental
+        '''
+        if isinstance(runs_on_group, dict):
+            runs_on_group = _GroupRunnerOptions_148c59c1(**runs_on_group)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e65ca485637cc926ed0db9d01876f7212e4f08726ceed0e5ffec8be73e88bdcb)
+            check_type(argname="argument allow_ghsas", value=allow_ghsas, expected_type=type_hints["allow_ghsas"])
+            check_type(argname="argument allow_licenses", value=allow_licenses, expected_type=type_hints["allow_licenses"])
+            check_type(argname="argument comment_summary_in_pr", value=comment_summary_in_pr, expected_type=type_hints["comment_summary_in_pr"])
+            check_type(argname="argument config_file", value=config_file, expected_type=type_hints["config_file"])
+            check_type(argname="argument deny_packages", value=deny_packages, expected_type=type_hints["deny_packages"])
+            check_type(argname="argument fail_on_scopes", value=fail_on_scopes, expected_type=type_hints["fail_on_scopes"])
+            check_type(argname="argument fail_on_severity", value=fail_on_severity, expected_type=type_hints["fail_on_severity"])
+            check_type(argname="argument license_check", value=license_check, expected_type=type_hints["license_check"])
+            check_type(argname="argument runs_on", value=runs_on, expected_type=type_hints["runs_on"])
+            check_type(argname="argument runs_on_group", value=runs_on_group, expected_type=type_hints["runs_on_group"])
+            check_type(argname="argument show_open_ssf_scorecard", value=show_open_ssf_scorecard, expected_type=type_hints["show_open_ssf_scorecard"])
+            check_type(argname="argument vulnerability_check", value=vulnerability_check, expected_type=type_hints["vulnerability_check"])
+            check_type(argname="argument warn_only", value=warn_only, expected_type=type_hints["warn_only"])
+            check_type(argname="argument warn_on_open_ssf_scorecard_level", value=warn_on_open_ssf_scorecard_level, expected_type=type_hints["warn_on_open_ssf_scorecard_level"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allow_ghsas is not None:
+            self._values["allow_ghsas"] = allow_ghsas
+        if allow_licenses is not None:
+            self._values["allow_licenses"] = allow_licenses
+        if comment_summary_in_pr is not None:
+            self._values["comment_summary_in_pr"] = comment_summary_in_pr
+        if config_file is not None:
+            self._values["config_file"] = config_file
+        if deny_packages is not None:
+            self._values["deny_packages"] = deny_packages
+        if fail_on_scopes is not None:
+            self._values["fail_on_scopes"] = fail_on_scopes
+        if fail_on_severity is not None:
+            self._values["fail_on_severity"] = fail_on_severity
+        if license_check is not None:
+            self._values["license_check"] = license_check
+        if runs_on is not None:
+            self._values["runs_on"] = runs_on
+        if runs_on_group is not None:
+            self._values["runs_on_group"] = runs_on_group
+        if show_open_ssf_scorecard is not None:
+            self._values["show_open_ssf_scorecard"] = show_open_ssf_scorecard
+        if vulnerability_check is not None:
+            self._values["vulnerability_check"] = vulnerability_check
+        if warn_only is not None:
+            self._values["warn_only"] = warn_only
+        if warn_on_open_ssf_scorecard_level is not None:
+            self._values["warn_on_open_ssf_scorecard_level"] = warn_on_open_ssf_scorecard_level
+
+    @builtins.property
+    def allow_ghsas(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) GitHub Advisory Database IDs that can be skipped during detection.
+
+        :default: - no advisories are skipped
+
+        :stability: experimental
+        '''
+        result = self._values.get("allow_ghsas")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def allow_licenses(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) List of allowed SPDX license identifiers.
+
+        :default: - no license allow-list
+
+        :stability: experimental
+        '''
+        result = self._values.get("allow_licenses")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def comment_summary_in_pr(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Whether to post a comment summary on the PR.
+
+        :default: "always"
+
+        :stability: experimental
+        '''
+        result = self._values.get("comment_summary_in_pr")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def config_file(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Path to an external configuration file.
+
+        :default: - no external config
+
+        :stability: experimental
+        '''
+        result = self._values.get("config_file")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deny_packages(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Packages to block in a PR (in purl format).
+
+        :default: - no packages are denied
+
+        :stability: experimental
+        '''
+        result = self._values.get("deny_packages")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def fail_on_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Scopes of dependencies to fail on.
+
+        :default: - no scopes filter (action default is "runtime")
+
+        :stability: experimental
+        '''
+        result = self._values.get("fail_on_scopes")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def fail_on_severity(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The severity level at which the action will fail.
+
+        :default: - no minimum severity (action default is "low")
+
+        :stability: experimental
+        '''
+        result = self._values.get("fail_on_severity")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def license_check(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable or disable the license check.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("license_check")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def runs_on(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Github Runner selection labels.
+
+        :default: ["ubuntu-latest"]
+
+        :stability: experimental
+        '''
+        result = self._values.get("runs_on")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+        '''(experimental) Github Runner Group selection options.
+
+        :stability: experimental
+        '''
+        result = self._values.get("runs_on_group")
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
+
+    @builtins.property
+    def show_open_ssf_scorecard(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Show OpenSSF Scorecard scores for dependencies.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("show_open_ssf_scorecard")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def vulnerability_check(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable or disable the vulnerability check.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("vulnerability_check")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def warn_only(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true, the action will only warn and not fail.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("warn_only")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def warn_on_open_ssf_scorecard_level(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Score threshold for OpenSSF Scorecard warnings.
+
+        :default: 3
+
+        :stability: experimental
+        '''
+        result = self._values.get("warn_on_open_ssf_scorecard_level")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DependencyReviewOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="projen.github.DownloadArtifactOptions",
     jsii_struct_bases=[_JobStepConfiguration_9caff420],
@@ -2974,6 +3319,8 @@ class GitHub(
         self,
         project: "_Project_57d89203",
         *,
+        dependency_review: typing.Optional[builtins.bool] = None,
+        dependency_review_options: typing.Optional[typing.Union["DependencyReviewOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
         merge_queue: typing.Optional[builtins.bool] = None,
         merge_queue_options: typing.Optional[typing.Union["MergeQueueOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2989,6 +3336,8 @@ class GitHub(
     ) -> None:
         '''
         :param project: -
+        :param dependency_review: (experimental) Enable the dependency-review-action workflow on pull requests. Adds a separate workflow that runs ``actions/dependency-review-action`` to scan pull requests for newly introduced vulnerable or non-compliant dependencies. Default: false
+        :param dependency_review_options: (experimental) Options for the dependency review workflow. Only used when ``dependencyReview`` is ``true``. Default: - default options
         :param download_lfs: (experimental) Download files in LFS in workflows. Default: true if the associated project has ``lfsPatterns``, ``false`` otherwise
         :param merge_queue: (experimental) Whether a merge queue should be used on this repository to merge pull requests. Requires additional configuration of the repositories branch protection rules. Default: false
         :param merge_queue_options: (experimental) Options for MergeQueue. Default: - default options
@@ -3008,6 +3357,8 @@ class GitHub(
             type_hints = typing.get_type_hints(_typecheckingstub__65db11e8703472c7fa4e013294c649e43b7f8634b29ca11be71b46d8c549c4d1)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = GitHubOptions(
+            dependency_review=dependency_review,
+            dependency_review_options=dependency_review_options,
             download_lfs=download_lfs,
             merge_queue=merge_queue,
             merge_queue_options=merge_queue_options,
@@ -3265,6 +3616,8 @@ class GitHubActionsProvider(
     jsii_type="projen.github.GitHubOptions",
     jsii_struct_bases=[],
     name_mapping={
+        "dependency_review": "dependencyReview",
+        "dependency_review_options": "dependencyReviewOptions",
         "download_lfs": "downloadLfs",
         "merge_queue": "mergeQueue",
         "merge_queue_options": "mergeQueueOptions",
@@ -3283,6 +3636,8 @@ class GitHubOptions:
     def __init__(
         self,
         *,
+        dependency_review: typing.Optional[builtins.bool] = None,
+        dependency_review_options: typing.Optional[typing.Union["DependencyReviewOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
         merge_queue: typing.Optional[builtins.bool] = None,
         merge_queue_options: typing.Optional[typing.Union["MergeQueueOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3297,6 +3652,8 @@ class GitHubOptions:
         workflows: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
+        :param dependency_review: (experimental) Enable the dependency-review-action workflow on pull requests. Adds a separate workflow that runs ``actions/dependency-review-action`` to scan pull requests for newly introduced vulnerable or non-compliant dependencies. Default: false
+        :param dependency_review_options: (experimental) Options for the dependency review workflow. Only used when ``dependencyReview`` is ``true``. Default: - default options
         :param download_lfs: (experimental) Download files in LFS in workflows. Default: true if the associated project has ``lfsPatterns``, ``false`` otherwise
         :param merge_queue: (experimental) Whether a merge queue should be used on this repository to merge pull requests. Requires additional configuration of the repositories branch protection rules. Default: false
         :param merge_queue_options: (experimental) Options for MergeQueue. Default: - default options
@@ -3312,6 +3669,8 @@ class GitHubOptions:
 
         :stability: experimental
         '''
+        if isinstance(dependency_review_options, dict):
+            dependency_review_options = DependencyReviewOptions(**dependency_review_options)
         if isinstance(merge_queue_options, dict):
             merge_queue_options = MergeQueueOptions(**merge_queue_options)
         if isinstance(mergify_options, dict):
@@ -3322,6 +3681,8 @@ class GitHubOptions:
             pull_request_lint_options = PullRequestLintOptions(**pull_request_lint_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c22e66f011c96f13a6f4e5b07bb676bf98b477678e968ee61f79ee107a7d2bd7)
+            check_type(argname="argument dependency_review", value=dependency_review, expected_type=type_hints["dependency_review"])
+            check_type(argname="argument dependency_review_options", value=dependency_review_options, expected_type=type_hints["dependency_review_options"])
             check_type(argname="argument download_lfs", value=download_lfs, expected_type=type_hints["download_lfs"])
             check_type(argname="argument merge_queue", value=merge_queue, expected_type=type_hints["merge_queue"])
             check_type(argname="argument merge_queue_options", value=merge_queue_options, expected_type=type_hints["merge_queue_options"])
@@ -3335,6 +3696,10 @@ class GitHubOptions:
             check_type(argname="argument pull_request_lint_options", value=pull_request_lint_options, expected_type=type_hints["pull_request_lint_options"])
             check_type(argname="argument workflows", value=workflows, expected_type=type_hints["workflows"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if dependency_review is not None:
+            self._values["dependency_review"] = dependency_review
+        if dependency_review_options is not None:
+            self._values["dependency_review_options"] = dependency_review_options
         if download_lfs is not None:
             self._values["download_lfs"] = download_lfs
         if merge_queue is not None:
@@ -3359,6 +3724,34 @@ class GitHubOptions:
             self._values["pull_request_lint_options"] = pull_request_lint_options
         if workflows is not None:
             self._values["workflows"] = workflows
+
+    @builtins.property
+    def dependency_review(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable the dependency-review-action workflow on pull requests.
+
+        Adds a separate workflow that runs ``actions/dependency-review-action``
+        to scan pull requests for newly introduced vulnerable or non-compliant
+        dependencies.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("dependency_review")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def dependency_review_options(self) -> typing.Optional["DependencyReviewOptions"]:
+        '''(experimental) Options for the dependency review workflow.
+
+        Only used when ``dependencyReview`` is ``true``.
+
+        :default: - default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("dependency_review_options")
+        return typing.cast(typing.Optional["DependencyReviewOptions"], result)
 
     @builtins.property
     def download_lfs(self) -> typing.Optional[builtins.bool]:
@@ -9483,6 +9876,8 @@ __all__ = [
     "DependabotRegistry",
     "DependabotRegistryType",
     "DependabotScheduleInterval",
+    "DependencyReview",
+    "DependencyReviewOptions",
     "DownloadArtifactOptions",
     "DownloadArtifactWith",
     "GitHub",
@@ -9796,6 +10191,47 @@ def _typecheckingstub__71dcef0810bce091e26ea45c125fc125b6b541331dd4f1fa62466d1f5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8d1a93740635d98ed2858c12bde3e4024184432c48c6ca7bd06ba503c1d3dabf(
+    github: GitHub,
+    *,
+    allow_ghsas: typing.Optional[typing.Sequence[builtins.str]] = None,
+    allow_licenses: typing.Optional[typing.Sequence[builtins.str]] = None,
+    comment_summary_in_pr: typing.Optional[builtins.str] = None,
+    config_file: typing.Optional[builtins.str] = None,
+    deny_packages: typing.Optional[typing.Sequence[builtins.str]] = None,
+    fail_on_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    fail_on_severity: typing.Optional[builtins.str] = None,
+    license_check: typing.Optional[builtins.bool] = None,
+    runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
+    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    show_open_ssf_scorecard: typing.Optional[builtins.bool] = None,
+    vulnerability_check: typing.Optional[builtins.bool] = None,
+    warn_only: typing.Optional[builtins.bool] = None,
+    warn_on_open_ssf_scorecard_level: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e65ca485637cc926ed0db9d01876f7212e4f08726ceed0e5ffec8be73e88bdcb(
+    *,
+    allow_ghsas: typing.Optional[typing.Sequence[builtins.str]] = None,
+    allow_licenses: typing.Optional[typing.Sequence[builtins.str]] = None,
+    comment_summary_in_pr: typing.Optional[builtins.str] = None,
+    config_file: typing.Optional[builtins.str] = None,
+    deny_packages: typing.Optional[typing.Sequence[builtins.str]] = None,
+    fail_on_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    fail_on_severity: typing.Optional[builtins.str] = None,
+    license_check: typing.Optional[builtins.bool] = None,
+    runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
+    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    show_open_ssf_scorecard: typing.Optional[builtins.bool] = None,
+    vulnerability_check: typing.Optional[builtins.bool] = None,
+    warn_only: typing.Optional[builtins.bool] = None,
+    warn_on_open_ssf_scorecard_level: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c7f153d5c1001fcb119385a05448ea85e212f46cc420d578734261b8353a641b(
     *,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -9827,6 +10263,8 @@ def _typecheckingstub__3e5008f68a85d8490ecf62a54f413b82cc795d9a14d3bc8eabcc2720f
 def _typecheckingstub__65db11e8703472c7fa4e013294c649e43b7f8634b29ca11be71b46d8c549c4d1(
     project: _Project_57d89203,
     *,
+    dependency_review: typing.Optional[builtins.bool] = None,
+    dependency_review_options: typing.Optional[typing.Union[DependencyReviewOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
     merge_queue: typing.Optional[builtins.bool] = None,
     merge_queue_options: typing.Optional[typing.Union[MergeQueueOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -9882,6 +10320,8 @@ def _typecheckingstub__20166ac47381861e1a45b550a5e9646380c52a927fca9ebf00ec36dab
 
 def _typecheckingstub__c22e66f011c96f13a6f4e5b07bb676bf98b477678e968ee61f79ee107a7d2bd7(
     *,
+    dependency_review: typing.Optional[builtins.bool] = None,
+    dependency_review_options: typing.Optional[typing.Union[DependencyReviewOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
     merge_queue: typing.Optional[builtins.bool] = None,
     merge_queue_options: typing.Optional[typing.Union[MergeQueueOptions, typing.Dict[builtins.str, typing.Any]]] = None,

@@ -10,7 +10,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from anteroom.services.agent_loop import AgentEvent, _build_compaction_history, _execute_tool, run_agent_loop
+from anteroom.services.agent_loop import AgentEvent, _execute_tool, run_agent_loop
+from anteroom.services.compaction import build_compaction_history as _build_compaction_history
 
 # -- Helpers --
 

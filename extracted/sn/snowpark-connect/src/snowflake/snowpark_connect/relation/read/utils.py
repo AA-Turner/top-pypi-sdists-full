@@ -34,6 +34,7 @@ from snowflake.snowpark_connect.error.error_utils import attach_custom_error_cod
 from snowflake.snowpark_connect.relation.read.metadata_utils import (
     METADATA_FILENAME_COLUMN,
 )
+from snowflake.snowpark_connect.utils.context import _normalize as _norm
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 
 # Maximum number of files allowed in COPY INTO with FILES parameter
@@ -366,12 +367,20 @@ def exponential_backoff(
 def _build_partition_column_transforms(
     partition_columns: list[str],
     partition_types: dict[str, snowpark.types.DataType],
+    partition_file_col_names: list[str] | None = None,
 ) -> tuple[list[str], list[snowpark.Column]]:
     """Build target_columns and transformations for Hive-style partition columns only.
 
     Partition values are extracted from ``METADATA$FILENAME`` using
     ``SPLIT_PART(..., 'col=', 2)`` and cast to their inferred types via
     ``try_cast(permissive=True)``.
+
+    Args:
+        partition_columns: Ordered list of partition column names (user schema names).
+        partition_types: Mapping of user column name → inferred DataType.
+        partition_file_col_names: If provided, the actual directory segment names used
+            in METADATA$FILENAME (e.g. ``['id']`` when user schema has ``['ID']``).
+            When omitted, ``partition_columns`` names are used for SPLIT_PART matching.
 
     Returns ``(target_columns, transformations)`` for partition columns.
     """
@@ -381,11 +390,14 @@ def _build_partition_column_transforms(
     transforms: list[snowpark.Column] = []
 
     metadata_col = sql_expr(METADATA_FILENAME_COLUMN)
-    for col_name in partition_columns:
+    for i, col_name in enumerate(partition_columns):
         target_cols.append(analyzer_utils.quote_name_without_upper_casing(col_name))
+        file_col_name = (
+            partition_file_col_names[i] if partition_file_col_names else col_name
+        )
         partition_val = nullif(
             split_part(
-                split_part(metadata_col, lit(f"{col_name}="), lit(2)),
+                split_part(metadata_col, lit(f"{file_col_name}="), lit(2)),
                 lit("/"),
                 lit(1),
             ),
@@ -406,20 +418,22 @@ def _load_file_with_copy_into(
     stage: str,
     schema: "snowpark.types.StructType",
     file_format_options: dict[str, Any],
-    file_format: Literal["csv", "json"],
+    file_format: Literal["csv", "json", "parquet"],
     on_error: str | None = None,
     partition_columns: list[str] | None = None,
     partition_types: dict[str, snowpark.types.DataType] | None = None,
+    partition_file_col_names: list[str] | None = None,
     needs_metadata: bool = False,
     target_columns: list[str] | None = None,
     transformations: list[Any] | None = None,
+    table_already_exists: bool = False,
 ) -> List[Any]:
     """Load files from a stage using COPY INTO.
 
-    Supports CSV and JSON file formats for parallel execution.
+    Supports CSV, JSON, and Parquet file formats for parallel execution.
     When *partition_columns* is provided, uses COPY INTO with transformations
     to extract partition values from ``METADATA$FILENAME`` and data columns
-    via positional (CSV) or path-based (JSON ``$1:field``) references.
+    via positional (CSV) or path-based (JSON/Parquet ``$1:field``) references.
 
     When *needs_metadata* is ``True``, ``METADATA$FILENAME`` is included in
     the target table so that ``input_file_name()`` can resolve it later.
@@ -437,10 +451,13 @@ def _load_file_with_copy_into(
             single-file loads.
         schema: The StructType schema for the table.
         file_format_options: File format options for the file type.
-        file_format: The file format type, either "csv" or "json".
+        file_format: The file format type: "csv", "json", or "parquet".
         on_error: Optional ON_ERROR strategy (e.g. "CONTINUE").
         partition_columns: Ordered list of Hive partition column names.
         partition_types: Mapping of partition column name -> inferred DataType.
+        partition_file_col_names: Actual METADATA$FILENAME segment names
+            for SPLIT_PART matching (when case differs from user schema names).
+            Only used for Parquet.
         needs_metadata: When True, include ``METADATA$FILENAME`` in the target
             table to support ``input_file_name()``.
         target_columns: Pre-built list of target column names for COPY INTO.
@@ -450,6 +467,9 @@ def _load_file_with_copy_into(
             for COPY INTO.  When provided, these are used as the base set
             of transformations; partition and metadata transforms are appended
             on top if needed.
+        table_already_exists: When True, skip the table existence check — the
+            caller has already pre-created the table.  Saves 1 round-trip per
+            COPY INTO call (useful when loading multiple stage groups in a loop).
 
     Returns:
         The result rows from the COPY INTO command.
@@ -475,8 +495,11 @@ def _load_file_with_copy_into(
 
     if has_partitions:
         part_cols, part_transforms = _build_partition_column_transforms(
-            partition_columns, partition_types
+            partition_columns, partition_types, partition_file_col_names
         )
+        partition_name_set = {
+            _norm(analyzer_utils.unquote_if_quoted(c)) for c in partition_columns
+        }
         partition_fields = [
             StructField(
                 analyzer_utils.quote_name_without_upper_casing(col),
@@ -485,25 +508,24 @@ def _load_file_with_copy_into(
             )
             for col in partition_columns
         ]
-        partition_name_set = set(partition_columns)
         data_fields = [
             f
             for f in schema.fields
-            if analyzer_utils.unquote_if_quoted(f.name) not in partition_name_set
+            if _norm(analyzer_utils.unquote_if_quoted(f.name)) not in partition_name_set
         ]
         loading_schema = StructType(data_fields + partition_fields)
         copy_target_columns = [
             c
             for c in copy_target_columns
-            if analyzer_utils.unquote_if_quoted(c) not in partition_name_set
+            if _norm(analyzer_utils.unquote_if_quoted(c)) not in partition_name_set
         ]
         copy_transformations = [
             t
             for t, c in zip(copy_transformations, target_columns)
-            if analyzer_utils.unquote_if_quoted(c) not in partition_name_set
+            if _norm(analyzer_utils.unquote_if_quoted(c)) not in partition_name_set
         ]
-        copy_target_columns.extend(part_cols)
-        copy_transformations.extend(part_transforms)
+        copy_target_columns = copy_target_columns + part_cols
+        copy_transformations = copy_transformations + part_transforms
 
     if needs_metadata:
         metadata_field = StructField(
@@ -511,43 +533,41 @@ def _load_file_with_copy_into(
         )
         loading_schema = StructType(list(loading_schema.fields) + [metadata_field])
         if copy_transformations is not None:
-            copy_target_columns.append(METADATA_FILENAME_COLUMN)
-            copy_transformations.append(sql_expr(METADATA_FILENAME_COLUMN))
+            copy_target_columns = copy_target_columns + [METADATA_FILENAME_COLUMN]
+            copy_transformations = copy_transformations + [
+                sql_expr(METADATA_FILENAME_COLUMN)
+            ]
 
-    # Pre-create the target table if it doesn't exist.
-    #
-    # Why this is necessary:
-    # Snowpark's copy_into_table() can only auto-create tables for CSV format (without
-    # transformations). For JSON and other semi-structured formats, Snowpark cannot
-    # determine column names from the data alone and raises:
-    #   SnowparkDataframeReaderException: "Cannot create the target table ... because
-    #   Snowpark cannot determine the column names to use."
-    #
-    # This is a Snowpark Python client-side limitation, not a Snowflake SQL limitation.
-    # By pre-creating the table with our known schema, we bypass this restriction.
-    #
-    # See: snowflake/snowpark/_internal/analyzer/snowflake_plan.py::copy_into_table()
-    try:
-        session.table(target).schema
-    except Exception:
-        # Table doesn't exist - create an empty table with the expected schema
-        logger.debug(
-            f"Pre-creating temporary table '{target}' with schema for COPY INTO"
-        )
-        session.create_dataframe(data=[], schema=loading_schema).write.save_as_table(
-            target, table_type="temporary"
-        )
+    if not table_already_exists:
+        # Pre-create the target table if it doesn't exist.
+        # Snowpark's copy_into_table() can only auto-create tables for CSV
+        # without transformations.  For JSON/Parquet and semi-structured formats
+        # Snowpark cannot determine column names and raises
+        # SnowparkDataframeReaderException.  Pre-creating bypasses this.
+        try:
+            session.table(target).schema
+        except Exception:
+            logger.debug(
+                f"Pre-creating temporary table '{target}' with schema for COPY INTO"
+            )
+            session.create_dataframe(
+                data=[], schema=loading_schema
+            ).write.save_as_table(target, table_type="temporary")
 
-    # Get the appropriate reader method based on format
-    schema_reader = reader.schema(schema)
+    # Parquet passes loading_schema (with partition cols filtered out) to the
+    # reader so Snowpark generates the correct COPY INTO column list.
+    # CSV/JSON use the original schema.
+    reader_schema = loading_schema if file_format == "parquet" else schema
+    schema_reader = reader.schema(reader_schema)
     if file_format == "csv":
         source_df = schema_reader.csv(stage)
     elif file_format == "json":
         source_df = schema_reader.json(stage)
+    elif file_format == "parquet":
+        source_df = schema_reader.parquet(stage)
     else:
         raise ValueError(f"Unsupported file format for COPY INTO: {file_format}")
 
-    # Build copy options - JSON requires MATCH_BY_COLUMN_NAME to load into multi-column tables
     copy_options: dict[str, Any] = {"force": True}
     if on_error is not None:
         copy_options["ON_ERROR"] = on_error

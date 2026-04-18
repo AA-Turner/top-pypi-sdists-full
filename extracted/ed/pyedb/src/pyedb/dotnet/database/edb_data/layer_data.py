@@ -22,6 +22,9 @@
 
 from __future__ import absolute_import
 
+from pyedb.dotnet.database.cell.roughness_model import GroisseRoughnessModel, HurrayRoughnessModel
+from pyedb.dotnet.database.utilities.layer_utils import clear_is_owner
+
 
 def layer_cast(pedb, edb_object):
     if edb_object.IsStackupLayer():
@@ -41,6 +44,9 @@ class LayerEdbClass(object):
 
         if edb_object:
             self._edb_object = edb_object.Clone()
+            # Prevent EDBLayer_Cleanup from firing in the destructor on Python-owned wrappers,
+            # which causes memory access violations when the GC finalizer runs.
+            clear_is_owner(self._edb_object)
         else:
             self._create(layer_type)
             self.update(**kwargs)
@@ -53,6 +59,7 @@ class LayerEdbClass(object):
             self._name,
             layer_type,
         )
+        clear_is_owner(self._edb_object)
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
@@ -297,6 +304,7 @@ class StackupLayerEdbClass(LayerEdbClass):
             self._pedb.edb_value(0),
             "copper",
         )
+        clear_is_owner(self._edb_object)
 
     @property
     def lower_elevation(self):
@@ -501,14 +509,14 @@ class StackupLayerEdbClass(LayerEdbClass):
     @property
     def top_hallhuray_nodule_radius(self):
         """Retrieve huray model nodule radius on top of the conductor."""
-        top_roughness_model = self.get_roughness_model("top")
+        top_roughness_model = self._get_roughness_model("top")
         if top_roughness_model:
             self._top_hallhuray_nodule_radius = top_roughness_model.NoduleRadius.ToDouble()
         return self._top_hallhuray_nodule_radius
 
     @top_hallhuray_nodule_radius.setter
     def top_hallhuray_nodule_radius(self, value):
-        top_roughness_model = self.get_roughness_model("top")
+        top_roughness_model = self._get_roughness_model("top")
         if top_roughness_model:
             if str(top_roughness_model).split(".")[-1] == "HurrayRoughnessModel":
                 layer_clone = self._edb_layer
@@ -522,14 +530,14 @@ class StackupLayerEdbClass(LayerEdbClass):
     @property
     def top_hallhuray_surface_ratio(self):
         """Retrieve huray model surface ratio on top of the conductor."""
-        top_roughness_model = self.get_roughness_model("top")
+        top_roughness_model = self._get_roughness_model("top")
         if top_roughness_model:
             self._top_hallhuray_surface_ratio = top_roughness_model.SurfaceRatio.ToDouble()
         return self._top_hallhuray_surface_ratio
 
     @top_hallhuray_surface_ratio.setter
     def top_hallhuray_surface_ratio(self, value):
-        top_roughness_model = self.get_roughness_model("top")
+        top_roughness_model = self._get_roughness_model("top")
         if top_roughness_model:
             if str(top_roughness_model).split(".")[-1] == "HurrayRoughnessModel":
                 layer_clone = self._edb_layer
@@ -543,14 +551,14 @@ class StackupLayerEdbClass(LayerEdbClass):
     @property
     def bottom_hallhuray_nodule_radius(self):
         """Retrieve huray model nodule radius on bottom of the conductor."""
-        bottom_roughness_model = self.get_roughness_model("bottom")
+        bottom_roughness_model = self._get_roughness_model("bottom")
         if bottom_roughness_model:
             self._bottom_hallhuray_nodule_radius = bottom_roughness_model.NoduleRadius.ToDouble()
         return self._bottom_hallhuray_nodule_radius
 
     @bottom_hallhuray_nodule_radius.setter
     def bottom_hallhuray_nodule_radius(self, value):
-        bottom_roughness_model = self.get_roughness_model("bottom")
+        bottom_roughness_model = self._get_roughness_model("bottom")
         if bottom_roughness_model:
             if str(bottom_roughness_model).split(".")[-1] == "HurrayRoughnessModel":
                 layer_clone = self._edb_layer
@@ -564,14 +572,14 @@ class StackupLayerEdbClass(LayerEdbClass):
     @property
     def bottom_hallhuray_surface_ratio(self):
         """Retrieve huray model surface ratio on bottom of the conductor."""
-        bottom_roughness_model = self.get_roughness_model("bottom")
+        bottom_roughness_model = self._get_roughness_model("bottom")
         if bottom_roughness_model:
             self._bottom_hallhuray_surface_ratio = bottom_roughness_model.SurfaceRatio.ToDouble()
         return self._bottom_hallhuray_surface_ratio
 
     @bottom_hallhuray_surface_ratio.setter
     def bottom_hallhuray_surface_ratio(self, value):
-        bottom_roughness_model = self.get_roughness_model("bottom")
+        bottom_roughness_model = self._get_roughness_model("bottom")
         if bottom_roughness_model:
             if str(bottom_roughness_model).split(".")[-1] == "HurrayRoughnessModel":
                 layer_clone = self._edb_layer
@@ -585,14 +593,14 @@ class StackupLayerEdbClass(LayerEdbClass):
     @property
     def side_hallhuray_nodule_radius(self):
         """Retrieve huray model nodule radius on sides of the conductor."""
-        side_roughness_model = self.get_roughness_model("side")
+        side_roughness_model = self._get_roughness_model("side")
         if side_roughness_model:
             self._side_hallhuray_nodule_radius = side_roughness_model.NoduleRadius.ToDouble()
         return self._side_hallhuray_nodule_radius
 
     @side_hallhuray_nodule_radius.setter
     def side_hallhuray_nodule_radius(self, value):
-        side_roughness_model = self.get_roughness_model("side")
+        side_roughness_model = self._get_roughness_model("side")
         if side_roughness_model:
             if str(side_roughness_model).split(".")[-1] == "HurrayRoughnessModel":
                 layer_clone = self._edb_layer
@@ -606,14 +614,14 @@ class StackupLayerEdbClass(LayerEdbClass):
     @property
     def side_hallhuray_surface_ratio(self):
         """Retrieve huray model surface ratio on sides of the conductor."""
-        side_roughness_model = self.get_roughness_model("side")
+        side_roughness_model = self._get_roughness_model("side")
         if side_roughness_model:
             self._side_hallhuray_surface_ratio = side_roughness_model.SurfaceRatio.ToDouble()
         return self._side_hallhuray_surface_ratio
 
     @side_hallhuray_surface_ratio.setter
     def side_hallhuray_surface_ratio(self, value):
-        side_roughness_model = self.get_roughness_model("side")
+        side_roughness_model = self._get_roughness_model("side")
         if side_roughness_model:
             if str(side_roughness_model).split(".")[-1] == "HurrayRoughnessModel":
                 layer_clone = self._edb_layer
@@ -624,7 +632,7 @@ class StackupLayerEdbClass(LayerEdbClass):
                 layer_clone.SetRoughnessModel(region, side_roughness_model)
                 self._pedb.stackup._set_layout_stackup(layer_clone, "change_attribute")
 
-    def get_roughness_model(self, surface="top"):
+    def _get_roughness_model(self, surface="top"):
         """Get roughness model of the layer.
 
         Parameters
@@ -645,6 +653,40 @@ class StackupLayerEdbClass(LayerEdbClass):
             return self._edb_layer.GetRoughnessModel(self._pedb.core.Cell.RoughnessModel.Region.Bottom)
         elif surface == "side":
             return self._edb_layer.GetRoughnessModel(self._pedb.core.Cell.RoughnessModel.Region.Side)
+
+    def get_roughness_model(self, surface: str = "top") -> HurrayRoughnessModel | GroisseRoughnessModel:
+        """Get roughness model of the layer.
+
+        Parameters
+        ----------
+        surface : str, optional
+            Where to fetch roughness model. The default is ``"top"``. Options are ``"top"``, ``"bottom"``, ``"side"``.
+
+        Returns
+        -------
+        ``"Ansys.Ansoft.Edb.Cell.RoughnessModel"``
+
+        """
+        if not self.is_stackup_layer:  # pragma: no cover
+            raise ValueError(f"Only signal layer has roughness model. {self.name} is not a signal layer. ")
+        if surface == "top":
+            model = self._edb_layer.GetRoughnessModel(self._pedb.core.Cell.RoughnessModel.Region.Top)
+        elif surface == "bottom":
+            model = self._edb_layer.GetRoughnessModel(self._pedb.core.Cell.RoughnessModel.Region.Bottom)
+        elif surface == "side":
+            model = self._edb_layer.GetRoughnessModel(self._pedb.core.Cell.RoughnessModel.Region.Side)
+        else:
+            raise ValueError(f"Invalid surface {surface}. Options are 'top', 'bottom', 'side'.")
+
+        if model.ToString().endswith("HurrayRoughnessModel"):
+            return HurrayRoughnessModel(
+                nodule_radius=model.NoduleRadius.ToDouble(),
+                surface_ratio=model.SurfaceRatio.ToDouble(),
+            )
+        else:
+            return GroisseRoughnessModel(
+                roughness=model.Roughness.ToDouble(),
+            )
 
     def assign_roughness_model(
         self,

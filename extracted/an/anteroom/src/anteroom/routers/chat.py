@@ -667,6 +667,81 @@ async def _build_chat_system_prompt(
         meta["rag_chunks"] = 0
         meta["rag_sources"] = []
 
+    # Memory recall (#921)
+    from ..config import MemoryRecallConfig as _MemoryRecallConfig
+
+    mr_config_raw = getattr(config, "memory_recall", None)
+    mr_config: _MemoryRecallConfig | None = mr_config_raw if isinstance(mr_config_raw, _MemoryRecallConfig) else None
+    mr_enabled = mr_config is not None and mr_config.enabled is not False and not plan_mode and message_text.strip()
+    if mr_enabled and mr_config is not None:
+        try:
+            from ..services.memory_recall import (
+                format_memory_context,
+                retrieve_memories,
+                strip_memory_context,
+            )
+
+            extra = strip_memory_context(extra)
+            # Derive scope visibility from the bound space (if any).
+            # ``user`` scope is always visible (handled by retrieve_memories).
+            # ``project`` scope matches the space's name (mirrors #919 discovery
+            # mapping).  ``local`` scope is visible whenever a space is bound —
+            # every space has its own ``.anteroom/local/memories/`` discovery
+            # root, so a conversation attached to a space participates in local
+            # scope. Conversations without a space see only ``user``.
+            _space_type: str | None = None
+            _project_namespace: str | None = None
+            if space_id:
+                _space_type = "local"
+                try:
+                    from ..services import space_storage
+
+                    _space = space_storage.get_space(db, space_id)
+                    if _space:
+                        _project_namespace = _space.get("name")
+                except Exception:
+                    logger.debug("Could not resolve space for memory recall", exc_info=True)
+            recalled, mr_reason = await retrieve_memories(
+                query=message_text,
+                db=db,
+                embedding_service=embedding_service,
+                config=mr_config,
+                vec_manager=vec_manager,
+                space_type=_space_type,
+                project_namespace=_project_namespace,
+            )
+            meta["memory_recall_status"] = "ok" if recalled else "no_results"
+            meta["memory_recall_count"] = len(recalled)
+            if mr_reason:
+                meta["memory_recall_reason"] = mr_reason
+            meta["memory_recall_items"] = [
+                {
+                    "fqn": m.fqn,
+                    "scope": m.scope,
+                    "category": m.category,
+                    "distance": m.distance,
+                }
+                for m in recalled
+            ]
+            if recalled:
+                extra += format_memory_context(recalled)
+        except Exception:
+            logger.debug("Memory recall failed, continuing without it", exc_info=True)
+            meta["memory_recall_status"] = "failed"
+            meta["memory_recall_count"] = 0
+            meta["memory_recall_items"] = []
+    else:
+        if mr_config is None:
+            meta["memory_recall_status"] = "no_config"
+        elif mr_config.enabled is False:
+            meta["memory_recall_status"] = "disabled"
+        elif plan_mode:
+            meta["memory_recall_status"] = "skipped_plan_mode"
+        else:
+            meta["memory_recall_status"] = "skipped"
+        meta["memory_recall_count"] = 0
+        meta["memory_recall_items"] = []
+
     # Codebase index
     try:
         from ..services.codebase_index import create_index_service

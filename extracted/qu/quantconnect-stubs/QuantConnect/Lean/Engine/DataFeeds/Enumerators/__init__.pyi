@@ -251,7 +251,7 @@ class BaseDataCollectionAggregatorEnumerator(System.Object, System.Collections.G
 class ITradableDateEventProvider(metaclass=abc.ABCMeta):
     """Interface for event providers for new tradable dates"""
 
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Called each time there is a new tradable day
         
@@ -357,7 +357,7 @@ class SplitEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enume
         """
         ...
 
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Check for new splits
         
@@ -710,7 +710,7 @@ class DelistingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.E
         """
         ...
 
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Check for delistings
         
@@ -743,7 +743,7 @@ class DelistingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.E
 class LiveDelistingEventProvider(QuantConnect.Lean.Engine.DataFeeds.Enumerators.DelistingEventProvider):
     """Delisting event provider implementation which will source the delisting date based on new map files"""
 
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Check for delistings
         
@@ -1003,7 +1003,7 @@ class MappingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enu
         """
         ...
 
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Check for new mappings
         
@@ -1056,7 +1056,7 @@ class DividendEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.En
         """
         ...
 
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Check for dividends and returns them
         
@@ -1193,7 +1193,7 @@ class PriceScaleFactorEnumerator(System.Object, System.Collections.Generic.IEnum
 class LiveMappingEventProvider(QuantConnect.Lean.Engine.DataFeeds.Enumerators.MappingEventProvider):
     """Event provider who will emit SymbolChangedEvent events"""
 
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """Check for new mappings"""
         ...
 
@@ -1289,7 +1289,7 @@ class LiveAuxiliaryDataSynchronizingEnumerator(System.Object, System.Collections
 class LiveSplitEventProvider(QuantConnect.Lean.Engine.DataFeeds.Enumerators.SplitEventProvider):
     """Event provider who will emit SymbolChangedEvent events"""
 
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Check for dividends and returns them
         
@@ -1327,7 +1327,7 @@ class StrictDailyEndTimesEnumerator(System.Object, System.Collections.Generic.IE
 class LiveDividendEventProvider(QuantConnect.Lean.Engine.DataFeeds.Enumerators.DividendEventProvider):
     """Event provider who will emit SymbolChangedEvent events"""
 
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Check for dividends and returns them
         

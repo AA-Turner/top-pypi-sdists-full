@@ -1,0 +1,269 @@
+from __future__ import annotations
+
+import logging
+import os
+import re
+from typing import TYPE_CHECKING
+from urllib.parse import urlparse
+
+import tiktoken
+import unique_sdk
+from typing_extensions import deprecated
+
+from unique_toolkit.content.schemas import Content, ContentChunk, ContentMetadata
+
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from unique_toolkit.language_model.infos import LanguageModelInfo
+
+INGESTION_UPLOAD_API_URL_INTERNAL_ENV = "INGESTION_UPLOAD_API_URL_INTERNAL"
+
+_ingestion_upload_api_url_internal: str | None = (
+    (v.strip() or None)
+    if (v := os.getenv(INGESTION_UPLOAD_API_URL_INTERNAL_ENV))
+    else None
+)
+
+
+def _apply_ingestion_upload_url_override(write_url: str) -> str:
+    """
+    If INGESTION_UPLOAD_API_URL_INTERNAL is set, replace the scheme+authority+path
+    of write_url with that value, preserving the query string (e.g. key=...).
+    Used when the toolkit runs in Kubernetes or a private network so uploads
+    go to a reachable ingestion service URL.
+    """
+    if not _ingestion_upload_api_url_internal:
+        return write_url
+    parsed = urlparse(write_url)
+    custom_base = _ingestion_upload_api_url_internal.rstrip("/")
+    logger.debug(
+        f"Overriding ingestion upload URL {parsed.scheme}://{parsed.hostname}{parsed.path} with: {custom_base}"
+    )
+    return custom_base + ("?" + parsed.query if parsed.query else "")
+
+
+def _map_content_id_to_chunks(content_chunks: list[ContentChunk]):
+    doc_id_to_chunks: dict[str, list[ContentChunk]] = {}
+    for chunk in content_chunks:
+        source_chunks = doc_id_to_chunks.get(chunk.id)
+        if not source_chunks:
+            doc_id_to_chunks[chunk.id] = [chunk]
+        else:
+            source_chunks.append(chunk)
+    return doc_id_to_chunks
+
+
+def sort_content_chunks(content_chunks: list[ContentChunk]):
+    """
+    Sorts the content chunks based on their 'order' in the original content.
+    This function sorts the search results based on their 'order' in ascending order.
+    It also performs text modifications by replacing the string within the tags <|/content|>
+    with 'text part {order}' and removing any <|info|> tags (Which is useful in referencing the chunk).
+    Parameters:
+    - content_chunks (list): A list of ContentChunkt objects.
+    Returns:
+    - list: A list of ContentChunk objects sorted according to their order.
+    """
+    doc_id_to_chunks = _map_content_id_to_chunks(content_chunks)
+    sorted_chunks: list[ContentChunk] = []
+    for chunks in doc_id_to_chunks.values():
+        chunks.sort(key=lambda x: x.order)
+        for i, s in enumerate(chunks):
+            s.text = re.sub(
+                r"<\|/content\|>", f" text part {s.order}<|/content|>", s.text
+            )
+            s.text = re.sub(r"<\|info\|>(.*?)<\|\/info\|>", "", s.text)
+            pages_postfix = _generate_pages_postfix([s])
+            s.key = s.key + pages_postfix if s.key else s.key
+            s.title = s.title + pages_postfix if s.title else s.title
+        sorted_chunks.extend(chunks)
+    return sorted_chunks
+
+
+def merge_content_chunks(content_chunks: list[ContentChunk]):
+    """
+    Merges multiple search results based on their 'id', removing redundant content and info markers.
+
+    This function groups search results by their 'id' and then concatenates their texts,
+    cleaning up any content or info markers in subsequent chunks beyond the first one.
+
+    Parameters:
+    - content_chunks (list): A list of objects, each representing a search result with 'id' and 'text' keys.
+
+    Returns:
+    - list: A list of objects with merged texts for each unique 'id'.
+    """
+
+    doc_id_to_chunks = _map_content_id_to_chunks(content_chunks)
+    merged_chunks: list[ContentChunk] = []
+    for chunks in doc_id_to_chunks.values():
+        chunks.sort(key=lambda x: x.order)
+        for i, s in enumerate(chunks):
+            ## skip first element
+            if i > 0:
+                ## replace the string within the tags <|content|>...<|/content|> and <|info|> and <|/info|>
+                s.text = re.sub(r"<\|content\|>(.*?)<\|\/content\|>", "", s.text)
+                s.text = re.sub(r"<\|info\|>(.*?)<\|\/info\|>", "", s.text)
+
+        pages_postfix = _generate_pages_postfix(chunks)
+        chunks[0].text = "\n".join(str(s.text) for s in chunks)
+        chunks[0].key = (
+            chunks[0].key + pages_postfix if chunks[0].key else chunks[0].key
+        )
+        chunks[0].title = (
+            chunks[0].title + pages_postfix if chunks[0].title else chunks[0].title
+        )
+        chunks[0].end_page = chunks[-1].end_page
+        merged_chunks.append(chunks[0])
+
+    return merged_chunks
+
+
+def _generate_pages_postfix(chunks: list[ContentChunk]) -> str:
+    """Build a human-readable page suffix for one or more chunks (e.g. ``" : 1,2,3"``).
+
+    Collects all page numbers greater than zero from each chunk's ``start_page`` and
+    ``end_page``, deduplicates and sorts them, then formats them as ``" : n,n,..."`` or
+    returns the empty string when there are no valid pages.
+
+    **Usage:** Called from ``sort_content_chunks``, ``merge_content_chunks``, and
+    ``ContentChunk.to_reference`` so list presentation and reference names stay
+    consistent with the backend's page postfix convention.
+
+    **Why pages may be missing:** ``ContentChunk.start_page`` and ``end_page`` are
+    optional (``None`` from the API). This path must not call ``range`` with ``None``,
+    or callers would raise ``TypeError`` when building references from real chunks.
+
+    Args:
+        chunks: Chunks whose ``start_page`` / ``end_page`` may be ``None`` or ``-1``
+            (sentinel for unknown).
+
+    Returns:
+        Postfix string such as ``" : 3,4,5"``, or ``""`` when no positive pages apply.
+    """
+
+    def gen_all_numbers_in_between(start: int | None, end: int | None) -> list[int]:
+        if start is None or start == -1:
+            return []
+        if end is None or end == -1:
+            return [start]
+        return list(range(start, end + 1))
+
+    page_numbers_array = [
+        gen_all_numbers_in_between(c.start_page, c.end_page) for c in chunks
+    ]
+    page_numbers = [number for sublist in page_numbers_array for number in sublist]
+    page_numbers = [p for p in page_numbers if p > 0]
+    page_numbers = sorted(set(page_numbers))
+    pages_postfix = (
+        " : " + ",".join(str(p) for p in page_numbers) if page_numbers else ""
+    )
+    return pages_postfix
+
+
+def pick_content_chunks_for_token_window(
+    content_chunks: list[ContentChunk],
+    token_limit: int,
+    model_info: LanguageModelInfo | None = None,
+    encoding_model: str = "cl100k_base",
+):
+    """
+    Selects and returns a list of search results that fit within a specified token limit.
+
+    This function iterates over a list of search results, each with a 'text' field, and
+    encodes the text using a predefined encoding scheme. It accumulates search results
+    until the token limit is reached or exceeded.
+
+    Parameters:
+    - content_chunks (list): A list of dictionaries, each containing a 'text' key with string value.
+    - token_limit (int): The maximum number of tokens to include in the output.
+    - model_info (LanguageModelInfo | None): The language model to use for token counting.
+    - encoding_model (str): Deprecated. Use model_info instead.
+
+    Returns:
+    - list: A list of dictionaries representing the search results that fit within the token limit.
+    """
+    picked_chunks: list[ContentChunk] = []
+    token_count = 0
+
+    if model_info is not None:
+        encode = model_info.get_encoder()
+    else:
+        encoding = tiktoken.get_encoding(encoding_model)
+        encode = encoding.encode
+
+    for chunk in content_chunks:
+        try:
+            searchtoken_count = len(encode(chunk.text))
+        except Exception:
+            searchtoken_count = 0
+        if token_count + searchtoken_count > token_limit:
+            break
+        picked_chunks.append(chunk)
+        token_count += searchtoken_count
+
+    return picked_chunks
+
+
+@deprecated("Use unique_toolkit._common.token.count_tokens(text, model_info) instead.")
+def count_tokens(text: str, encoding_model="cl100k_base") -> int:
+    """
+    Counts the number of tokens in the provided text.
+
+    This function encodes the input text using a predefined encoding scheme
+    and returns the number of tokens in the encoded text.
+
+    Parameters:
+    - text (str): The text to count tokens for.
+
+    Returns:
+    - int: The number of tokens in the text.
+    """
+    encoding = tiktoken.get_encoding(encoding_model)
+    return len(encoding.encode(text))
+
+
+def map_content_chunk(
+    content_id: str, content_key: str, content_chunk: dict, metadata: dict | None
+):
+    content_metadata = ContentMetadata(**metadata) if metadata else None
+    return ContentChunk(
+        id=content_id,
+        key=content_key,
+        chunk_id=content_chunk["id"],
+        text=content_chunk["text"],
+        start_page=content_chunk["startPage"],
+        end_page=content_chunk["endPage"],
+        order=content_chunk["order"],
+        metadata=content_metadata,
+    )
+
+
+def map_content(content: dict):
+    metadata = content.get("metadata")
+    return Content(
+        id=content["id"],
+        key=content["key"],
+        title=content["title"],
+        url=content["url"],
+        chunks=[
+            map_content_chunk(content["id"], content["key"], chunk, metadata)
+            for chunk in content["chunks"]
+        ],
+        created_at=content["createdAt"],
+        updated_at=content["updatedAt"],
+        ingestion_state=content.get("ingestionState"),
+        ingestion_config=content.get("ingestionConfig"),
+        applied_ingestion_config=content.get("appliedIngestionConfig"),
+        expired_at=content.get("expiredAt"),
+        metadata=content.get("metadata"),
+    )
+
+
+def map_contents(contents):
+    return [map_content(content) for content in contents]
+
+
+def map_to_content_chunks(searches: list[unique_sdk.Search]):
+    return [ContentChunk(**search) for search in searches]

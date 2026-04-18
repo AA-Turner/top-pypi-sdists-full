@@ -32,12 +32,14 @@ ATIF helpers:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
 import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from typing import Literal
 
 from opentelemetry import context as context_api
@@ -445,6 +447,98 @@ def emit_step(
         pass
 
 
+@dataclass
+class _ModelCost:
+    """Per-model cost/token totals."""
+
+    cost_usd: float = 0.0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    reasoning_tokens: int = 0
+
+
+@dataclass
+class _CostAccumulator:
+    """Aggregates per-step LLM costs/tokens, broken down by model."""
+
+    by_model: dict[str, _ModelCost] = field(default_factory=dict)
+
+
+_current_cost_accumulator: contextvars.ContextVar[_CostAccumulator | None] = contextvars.ContextVar(
+    "plato_cost_accumulator", default=None
+)
+
+
+def record_step_cost(
+    cost_usd: float,
+    prompt_tokens: int,
+    completion_tokens: int,
+    reasoning_tokens: int = 0,
+    model: str | None = None,
+) -> None:
+    """Record an LLM step's cost/tokens into the current accumulator, keyed by model.
+
+    No-op when called outside an `aggregate_step_costs()` / `session_span()` /
+    world span. Safe to call from any thread that inherits the context where
+    the accumulator was entered.
+    """
+    acc = _current_cost_accumulator.get()
+    if acc is None:
+        return
+    key = model or "unknown"
+    bucket = acc.by_model.setdefault(key, _ModelCost())
+    bucket.cost_usd += float(cost_usd or 0.0)
+    bucket.prompt_tokens += int(prompt_tokens or 0)
+    bucket.completion_tokens += int(completion_tokens or 0)
+    bucket.reasoning_tokens += int(reasoning_tokens or 0)
+
+
+@contextmanager
+def aggregate_step_costs(
+    span: Span,
+    tracer: Tracer,
+    name: str | None = None,
+    version: str | None = None,
+) -> Iterator[None]:
+    """Aggregate per-step LLM costs into per-model child spans under `span`.
+
+    Installs a contextvar accumulator that `record_step_cost` writes into,
+    keyed by model. On context exit, emits one child span per model with
+    `atif.agent.{name,model_name,cost_usd,prompt_tokens,completion_tokens,
+    reasoning_tokens,version}` so Chronos's `compute_session_costs` (which
+    groups by spans carrying `atif.agent.cost_usd`) renders one row per
+    model in the trajectory viewer.
+
+    `name`/`version` are propagated as the agent name/version on each
+    child span, with the model appended to disambiguate (e.g. `world:gpt-4`).
+    """
+    accumulator = _CostAccumulator()
+    token = _current_cost_accumulator.set(accumulator)
+    try:
+        yield
+    finally:
+        _current_cost_accumulator.reset(token)
+        for model, bucket in accumulator.by_model.items():
+            if bucket.cost_usd <= 0 and bucket.prompt_tokens == 0 and bucket.completion_tokens == 0:
+                continue
+            child_name = f"atif.cost.{model}"
+            with tracer.start_as_current_span(child_name, context=trace.set_span_in_context(span)) as cost_span:
+                agent_label = f"{name}:{model}" if name else model
+                cost_span.set_attribute("atif.kind", "agent")
+                cost_span.set_attribute("atif.agent.name", agent_label)
+                cost_span.set_attribute("atif.agent.model_name", model)
+                if version is not None:
+                    cost_span.set_attribute("atif.agent.version", version)
+                if bucket.cost_usd > 0:
+                    cost_span.set_attribute("atif.agent.cost_usd", bucket.cost_usd)
+                if bucket.prompt_tokens > 0:
+                    cost_span.set_attribute("atif.agent.prompt_tokens", bucket.prompt_tokens)
+                if bucket.completion_tokens > 0:
+                    cost_span.set_attribute("atif.agent.completion_tokens", bucket.completion_tokens)
+                if bucket.reasoning_tokens > 0:
+                    cost_span.set_attribute("atif.agent.reasoning_tokens", bucket.reasoning_tokens)
+
+
 @contextmanager
 def session_span(
     tracer: Tracer,
@@ -489,4 +583,5 @@ def session_span(
         if system_message:
             emit_step(tracer, step_id=1, source="system", message=system_message)
 
-        yield span
+        with aggregate_step_costs(span, tracer, name=display_name, version=agent_version):
+            yield span

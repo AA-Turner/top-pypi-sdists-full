@@ -15,8 +15,8 @@ from braintrust.integrations.mistral.tracing import (
     _chat_complete_wrapper,
     sanitize_mistral_logged_value,
 )
+from braintrust.integrations.test_utils import assert_metrics_are_valid, verify_autoinstrument_script
 from braintrust.test_helpers import init_test_logger
-from braintrust.wrappers.test_utils import assert_metrics_are_valid, verify_autoinstrument_script
 
 
 pytest.importorskip("mistralai")
@@ -127,11 +127,6 @@ def _audio_method_refs():
 def _restore_method_refs(monkeypatch, refs):
     for (cls, method), original in refs.items():
         monkeypatch.setattr(cls, method, original)
-
-
-@pytest.fixture(scope="module")
-def vcr_cassette_dir():
-    return str(Path(__file__).resolve().parent / "cassettes")
 
 
 @pytest.fixture

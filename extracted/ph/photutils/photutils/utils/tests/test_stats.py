@@ -3,10 +3,14 @@
 Tests for the _stats module.
 """
 
+import importlib
+import pickle  # nosec B403
+from unittest.mock import patch
+
 import astropy.units as u
 import numpy as np
 import pytest
-from numpy.testing import assert_equal
+from numpy.testing import assert_allclose, assert_equal
 
 from photutils.utils._optional_deps import HAS_BOTTLENECK
 from photutils.utils._stats import (nanmax, nanmean, nanmedian, nanmin, nanstd,
@@ -23,6 +27,9 @@ funcs = [(nansum, np.nansum), (nanmean, np.nanmean),
                                   (0, 1, 2), (3, 1), (0, 3), (2, 0)])
 @pytest.mark.parametrize('use_units', [False, True])
 def test_nan_funcs(func, axis, use_units):
+    """
+    Test nan functions with various axes and unit combinations.
+    """
     arr = np.ones((5, 3, 8, 9))
     if use_units:
         arr <<= u.m
@@ -30,3 +37,59 @@ def test_nan_funcs(func, axis, use_units):
     result1 = func[0](arr, axis=axis)
     result2 = func[1](arr, axis=axis)
     assert_equal(result1, result2)
+
+
+@pytest.mark.skipif(not HAS_BOTTLENECK, reason='bottleneck is required')
+@pytest.mark.parametrize('func', funcs)
+def test_nan_funcs_float32(func):
+    """
+    Test that non-float64 arrays dispatch to numpy instead of
+    bottleneck.
+    """
+    arr = np.ones((5, 3), dtype=np.float32)
+    result1 = func[0](arr, axis=None)
+    result2 = func[1](arr, axis=None)
+    assert_equal(result1, result2)
+
+
+@pytest.mark.parametrize('axis', [None, 0, 1])
+@pytest.mark.parametrize('func', funcs)
+def test_nan_function_pickle(axis, func):
+    """
+    Test that nan functions can be pickled and unpickled without error.
+
+    This should work regardless of whether Bottleneck is installed.
+    """
+    nan_func = func[0]
+    np_func = func[1]
+    pickled_func = pickle.loads(  # noqa: S301
+        pickle.dumps(nan_func))  # noqa: S301  # nosec B301
+    data = np.arange(10).reshape(2, 5) ** 2
+    result1 = nan_func(data, axis=axis)
+    result2 = pickled_func(data, axis=axis)
+    result3 = np_func(data, axis=axis)
+    assert_allclose(result1, result2)
+    assert_allclose(result2, result3)
+
+
+def test_nanmean_repr():
+    """
+    Test that the repr of nanmean is correct.
+    """
+    result = repr(nanmean)
+    assert 'nanmean' in result
+
+
+def test_nan_funcs_no_bottleneck():
+    """
+    Test that the functions work when bottleneck is not available by
+    reloading the module with HAS_BOTTLENECK mocked to False.
+    """
+    with patch('photutils.utils._optional_deps.HAS_BOTTLENECK',
+               new=False):
+        import photutils.utils._stats as stats_mod
+        importlib.reload(stats_mod)
+
+        arr = np.ones((5, 3))
+        result = stats_mod.nansum(arr)
+        assert_equal(result, np.nansum(arr))

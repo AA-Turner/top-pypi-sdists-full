@@ -1,14 +1,19 @@
 # ruff: noqa F401
-__version__ = "2.3.0"
+__version__ = "2.4.0"
 
 import logging
 
 log = logging.getLogger(__name__)
 
 try:
-    from openlineage.airflow.extractors.base import (  # type: ignore[import]
-        OperatorLineage,
-    )
+    from airflow.providers.openlineage.extractors.base import OperatorLineage  # type: ignore[import]
+except ImportError:
+    try:
+        from openlineage.airflow.extractors.base import OperatorLineage  # type: ignore[no-redef]
+    except ImportError:
+        logging.debug("apache-airflow-providers-openlineage or openlineage-airflow python dependency is missing")
+
+try:
     from openlineage.client.facet import (
         DataSourceDatasetFacet,
         DocumentationJobFacet,
@@ -20,7 +25,7 @@ try:
     )
     from openlineage.client.run import Dataset
 except ImportError:
-    logging.debug("openlineage-airflow python dependency is missing")
+    logging.debug("openlineage-python dependency is missing")
 
 
 def get_provider_info():

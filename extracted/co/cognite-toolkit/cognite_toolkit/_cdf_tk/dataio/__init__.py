@@ -1,0 +1,79 @@
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+
+from ._annotations import AnnotationIO
+from ._applications import CanvasIO, ChartIO
+from ._asset_centric import (
+    AssetCentricIO,
+    AssetDataIO,
+    EventDataIO,
+    FileMetadataDataIO,
+    HierarchyIO,
+    TimeSeriesDataIO,
+)
+from ._base import (
+    Bookmark,
+    ConfigurableDataIO,
+    DataIO,
+    DataItem,
+    Page,
+    StorageIOConfig,
+    T_DataRequest,
+    T_DataResponse,
+    T_Selector,
+    TableDataIO,
+    UploadableDataIO,
+)
+from ._data_classes import InstanceIdCSVList, InstanceIdRow, ModelList
+from ._datapoints import DatapointsIO
+from ._file_content import FileContentIO
+from ._file_contentv2 import FileMetadataContentIO
+from ._instances import InstanceIO
+from ._raw import RawIO
+from ._records import RecordIO
+from .selectors._base import DataSelector
+
+# MyPy fails to recognize that get_concrete_subclasses always returns a list of concrete subclasses.
+STORAGE_IO_CLASSES = get_concrete_subclasses(DataIO)  # type: ignore[type-abstract]
+UPLOAD_IO_CLASSES = get_concrete_subclasses(UploadableDataIO)  # type: ignore[type-abstract]
+
+
+def get_upload_io(selector: DataSelector) -> type[UploadableDataIO]:
+    """Get the appropriate UploadableStorageIO class based on the type of the provided selector."""
+    for cls in UPLOAD_IO_CLASSES:
+        if isinstance(selector, cls.BASE_SELECTOR) and selector.kind == cls.KIND:
+            return cls
+    raise ValueError(f"No UploadableStorageIO found for selector of type {type(selector).__name__}")
+
+
+__all__ = [
+    "AnnotationIO",
+    "AssetCentricIO",
+    "AssetDataIO",
+    "Bookmark",
+    "CanvasIO",
+    "ChartIO",
+    "ConfigurableDataIO",
+    "DataIO",
+    "DataItem",
+    "DatapointsIO",
+    "EventDataIO",
+    "FileContentIO",
+    "FileMetadataContentIO",
+    "FileMetadataDataIO",
+    "HierarchyIO",
+    "InstanceIO",
+    "InstanceIdCSVList",
+    "InstanceIdRow",
+    "ModelList",
+    "Page",
+    "RawIO",
+    "RecordIO",
+    "StorageIOConfig",
+    "T_DataRequest",
+    "T_DataResponse",
+    "T_Selector",
+    "TableDataIO",
+    "TimeSeriesDataIO",
+    "UploadableDataIO",
+    "get_upload_io",
+]

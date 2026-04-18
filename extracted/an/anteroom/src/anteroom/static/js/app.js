@@ -221,6 +221,7 @@ const App = (() => {
         Chat.init();
         Canvas.init();
         Sources.init();
+        if (typeof MemoryPanel !== 'undefined') MemoryPanel.init();
         if (typeof Workflows !== 'undefined') Workflows.init();
         if (typeof Specs !== 'undefined') Specs.init();
         Sidebar.init();

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: policyengine-us
-Version: 1.638.0
+Version: 1.653.2
 Summary: Add your description here.
 Author-email: PolicyEngine <hello@policyengine.org>
 License-File: LICENSE
@@ -8,15 +8,18 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: <3.15,>=3.11
+Requires-Python: <3.15,>=3.9
 Requires-Dist: microdf-python>=1.0.0
 Requires-Dist: pandas>=2.0
 Requires-Dist: policyengine-core>=3.23.5
+Requires-Dist: spm-calculator>=0.2.0
 Requires-Dist: tables>=3.9
 Requires-Dist: tqdm>=4.67.1
 Provides-Extra: dev

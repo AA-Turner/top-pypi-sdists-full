@@ -56,54 +56,48 @@ sys.path.append(str(pyedb_path / "dlls" / "PDFReport"))
 
 
 if is_linux:  # pragma: no cover
-    from pythonnet import load
-
     dotnet_root = None
     runtime_config = None
     runtime_spec = None
-    # Use system .NET core runtime or fall back to dotnetcore2
+    # Use system .NET core runtime
     if os.environ.get("DOTNET_ROOT") is None:
         try:
             from clr_loader import get_coreclr
+            from pythonnet import load
 
             runtime = get_coreclr()
             load(runtime)
             os.environ["DOTNET_ROOT"] = runtime.dotnet_root.as_posix()
             is_clr = True
-        # TODO: Fall backing to dotnetcore2 should be removed in a near future.
         except Exception:
             warnings.warn(
-                "Unable to set .NET root and locate the runtime configuration file. Falling back to using dotnetcore2."
+                ".NET is not found. PyEDB will work only in gRPC (client) mode. For more information, see "
+                "https://aedt.docs.pyansys.com/version/stable/release_1_0.html#dotnet-changes-in-linux"
             )
-            warnings.warn(LINUX_WARNING)
-
-            import dotnetcore2
-
-            dotnet_root = Path(dotnetcore2.__file__).parent / "bin"
-            runtime_config = pyedb_path / "misc" / "pyedb.runtimeconfig.json"
     # Use specified .NET root folder
     else:
         dotnet_root = Path(os.environ["DOTNET_ROOT"])
-        # Patch the case where DOTNET_ROOT leads to dotnetcore2 for more information
-        # see https://github.com/ansys/pyedb/issues/922
-        # TODO: Remove once dotnetcore2 is deprecated
-        if dotnet_root.parent.name == "dotnetcore2":
-            runtime_config = pyedb_path / "misc" / "pyedb.runtimeconfig.json"
-        else:
+
+        try:
             from clr_loader import find_runtimes
 
             candidates = [rt for rt in find_runtimes() if rt.name == "Microsoft.NETCore.App"]
             candidates.sort(key=lambda spec: spec.version, reverse=True)
             if not candidates:
-                raise RuntimeError(
+                warnings.warn(
                     "Configuration file could not be found from DOTNET_ROOT. "
                     "Please ensure that .NET SDK is correctly installed or "
                     "that DOTNET_ROOT is correctly set."
                 )
-            runtime_spec = candidates[0]
+            else:
+                runtime_spec = candidates[0]
+        except Exception:
+            warnings.warn("Could not find .NET runtimes. PyEDB will work only in gRPC (client) mode.")
     # Use specific .NET core runtime
     if dotnet_root is not None and (runtime_config is not None or runtime_spec is not None):
         try:
+            from pythonnet import load
+
             load(
                 "coreclr",
                 runtime_config=str(runtime_config) if runtime_config else None,
@@ -136,7 +130,7 @@ try:  # work around a number formatting bug in the EDB API for non-English local
 
     edb_initialized = True
 
-except ImportError:  # pragma: no cover
+except (ImportError, RuntimeError):  # pragma: no cover
     if is_windows:
         warnings.warn(
             "The clr is missing. Install PythonNET or use an IronPython version if you want to use the EDB module."

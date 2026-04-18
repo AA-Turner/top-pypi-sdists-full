@@ -209,9 +209,9 @@ class VectorIndex:
 
 
 class VectorIndexManager:
-    """Manages the two vector indexes (messages and source chunks).
+    """Manages the three vector indexes (messages, source chunks, memory artifacts).
 
-    Provides a single point of initialization and access for both indexes,
+    Provides a single point of initialization and access for all indexes,
     with methods to check availability and rebuild from SQLite metadata.
     """
 
@@ -220,6 +220,7 @@ class VectorIndexManager:
         self._dimensions = dimensions
         self._messages: VectorIndex | None = None
         self._source_chunks: VectorIndex | None = None
+        self._memories: VectorIndex | None = None
         self._enabled = False
 
         if not has_vector_support():
@@ -230,11 +231,13 @@ class VectorIndexManager:
             vec_dir = data_dir / "vectors"
             self._messages = VectorIndex(vec_dir / "messages.usearch", dimensions)
             self._source_chunks = VectorIndex(vec_dir / "source_chunks.usearch", dimensions)
+            self._memories = VectorIndex(vec_dir / "memories.usearch", dimensions)
             self._enabled = True
         except Exception:
             logger.warning("Failed to initialize vector indexes", exc_info=True)
             self._messages = None
             self._source_chunks = None
+            self._memories = None
 
     @property
     def enabled(self) -> bool:
@@ -248,12 +251,18 @@ class VectorIndexManager:
     def source_chunks(self) -> VectorIndex | None:
         return self._source_chunks
 
+    @property
+    def memories(self) -> VectorIndex | None:
+        return self._memories
+
     def save_all(self) -> None:
-        """Persist both indexes to disk."""
+        """Persist all indexes to disk."""
         if self._messages:
             self._messages.save()
         if self._source_chunks:
             self._source_chunks.save()
+        if self._memories:
+            self._memories.save()
 
     def rebuild_from_db(self, db: Any) -> None:
         """Rebuild key maps and repair index/metadata divergence.
@@ -347,3 +356,44 @@ class VectorIndexManager:
                     )
             except Exception:
                 logger.warning("Failed to rebuild source chunk vector key map", exc_info=True)
+
+        if self._memories:
+            try:
+                rows = db.execute_fetchall(
+                    "SELECT artifact_id FROM memory_artifact_embeddings WHERE status = ?",
+                    ("embedded",),
+                )
+                if not rows:
+                    logger.info("No embedded memory artifact rows; nothing to rebuild")
+                else:
+                    present = []
+                    missing_ids = []
+                    for r in rows:
+                        if self._memories.contains(r["artifact_id"]):
+                            present.append((r["artifact_id"], ""))
+                        else:
+                            missing_ids.append(r["artifact_id"])
+
+                    if missing_ids:
+                        logger.warning(
+                            "%d of %d memory artifact embeddings missing from usearch index; "
+                            "resetting to 'pending' for re-embedding.",
+                            len(missing_ids),
+                            len(rows),
+                        )
+                        placeholders = ",".join("?" * len(missing_ids))
+                        db.execute(
+                            f"UPDATE memory_artifact_embeddings SET status = 'pending' "
+                            f"WHERE artifact_id IN ({placeholders})",
+                            tuple(missing_ids),
+                        )
+                        db.commit()
+
+                    self._memories.rebuild_key_map(present)
+                    logger.info(
+                        "Rebuilt memory artifact vector key map: %d present, %d reset",
+                        len(present),
+                        len(missing_ids),
+                    )
+            except Exception:
+                logger.warning("Failed to rebuild memory artifact vector key map", exc_info=True)

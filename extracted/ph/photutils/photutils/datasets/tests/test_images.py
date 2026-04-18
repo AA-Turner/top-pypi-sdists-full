@@ -6,16 +6,20 @@ Tests for the images module.
 import astropy.units as u
 import numpy as np
 import pytest
-from astropy.modeling.models import Moffat2D
+from astropy.modeling.models import Moffat2D, Polynomial2D
 from astropy.table import QTable
 from numpy.testing import assert_allclose
 
 from photutils.datasets import make_model_image
+from photutils.datasets.images import _model_shape_from_bbox
 from photutils.psf import (CircularGaussianPSF, CircularGaussianSigmaPRF,
                            ImagePSF)
 
 
 def test_make_model_image():
+    """
+    Test the basic functionality of make_model_image.
+    """
     params = QTable()
     params['x_0'] = [50, 70, 90]
     params['y_0'] = [50, 50, 50]
@@ -28,13 +32,13 @@ def test_make_model_image():
     assert image.shape == shape
     assert image.sum() > 1
 
-    # test variable model shape
+    # Test variable model shape
     params['model_shape'] = [9, 7, 11]
     image = make_model_image(shape, model, params, model_shape=model_shape)
     assert image.shape == shape
     assert image.sum() > 1
 
-    # test local_bkg
+    # Test local_bkg
     params['local_bkg'] = [1, 2, 3]
     image = make_model_image(shape, model, params, model_shape=model_shape)
     assert image.shape == shape
@@ -42,6 +46,10 @@ def test_make_model_image():
 
 
 def test_make_model_image_units():
+    """
+    Test that the model image is created with the correct units when the
+    flux column has units.
+    """
     unit = u.Jy
     params = QTable()
     params['x_0'] = [30, 50, 70.5]
@@ -54,7 +62,7 @@ def test_make_model_image_units():
     assert image.shape == shape
     assert isinstance(image, u.Quantity)
     assert image.unit == unit
-    assert model.flux == 1.0  # default flux (unchanged)
+    assert model.flux == 1.0  # Default flux (unchanged)
 
     params['local_bkg'] = [0.1, 0.2, 0.3] * unit
     image = make_model_image(shape, model, params, model_shape=model_shape)
@@ -84,16 +92,19 @@ def test_make_model_image_units_no_overlap():
     assert image.shape == shape
     assert isinstance(image, u.Quantity)
     assert image.unit == unit
-    assert model.flux == 1.0  # default flux (unchanged)
+    assert model.flux == 1.0  # Default flux (unchanged)
 
     params['flux'] = [2, 3]
     image = make_model_image(shape, model, params)
     assert image.shape == shape
     assert not isinstance(image, u.Quantity)
-    assert model.flux == 1.0  # default flux (unchanged)
+    assert model.flux == 1.0  # Default flux (unchanged)
 
 
 def test_make_model_image_discretize_method():
+    """
+    Test the model image when using different discretization methods.
+    """
     params = QTable()
     params['x_0'] = [50, 70, 90]
     params['y_0'] = [50, 50, 50]
@@ -110,6 +121,10 @@ def test_make_model_image_discretize_method():
 
 
 def test_make_model_image_no_overlap():
+    """
+    Test the model image when there is no overlap between the model and
+    the image.
+    """
     params = QTable()
     params['x_0'] = [50]
     params['y_0'] = [50]
@@ -124,6 +139,9 @@ def test_make_model_image_no_overlap():
 
 
 def test_make_model_image_inputs():
+    """
+    Test that the appropriate exceptions are raised for invalid inputs.
+    """
     match = 'shape must be a 2-tuple'
     with pytest.raises(ValueError, match=match):
         make_model_image(100, Moffat2D(), QTable())
@@ -177,6 +195,10 @@ def test_make_model_image_inputs():
 
 
 def test_make_model_image_bbox():
+    """
+    Test the model image when using a PSF model that has a bounding box
+    and the bbox_factor keyword to control the size of the bounding box.
+    """
     model1 = CircularGaussianPSF(x_0=50, y_0=50, fwhm=10)
     yy, xx = np.mgrid[:101, :101]
     model2 = ImagePSF(model1(xx, yy), x_0=50, y_0=50)
@@ -200,6 +222,10 @@ def test_make_model_image_bbox():
 
 
 def test_make_model_image_params_map():
+    """
+    Test the model image when using a parameter mapping to map the model
+    parameter names to different column names in the input table.
+    """
     params = QTable()
     params['x_0'] = [50, 70, 90]
     params['y_0'] = [50, 50, 50]
@@ -225,6 +251,10 @@ def test_make_model_image_params_map():
 
 
 def test_make_model_image_nonfinite():
+    """
+    Test the model image when the input table contains non-finite
+    values.
+    """
     params = QTable()
     params['x_0'] = [50, np.nan, 90, 100]
     params['y_0'] = [50, 50, 50, 50]
@@ -238,7 +268,7 @@ def test_make_model_image_nonfinite():
     assert image.sum() < 33
     assert image[50, 100] == 0
 
-    # all invalid sources
+    # All invalid sources
     params = QTable()
     params['x_0'] = [50, np.nan, 90, 100]
     params['y_0'] = [-np.inf, 50, 50, 50]
@@ -250,3 +280,33 @@ def test_make_model_image_nonfinite():
     image = make_model_image(shape, model, params, model_shape=model_shape)
     assert image.shape == shape
     assert image.sum() == 0
+
+
+def test_make_model_image_progress_bar():
+    """
+    Test the model image with progress_bar=True.
+    """
+    pytest.importorskip('tqdm')
+    params = QTable()
+    params['x_0'] = [50, 70, 90]
+    params['y_0'] = [50, 50, 50]
+    params['gamma'] = [1.7, 2.32, 5.8]
+    params['alpha'] = [2.9, 5.7, 4.6]
+    model = Moffat2D(amplitude=1)
+    shape = (300, 500)
+    model_shape = (11, 11)
+    image = make_model_image(shape, model, params, model_shape=model_shape,
+                             progress_bar=True)
+    assert image.shape == shape
+    assert image.sum() > 1
+
+
+def test_model_shape_from_bbox_no_bbox():
+    """
+    Test that _model_shape_from_bbox raises an error when the model does
+    not have a bounding_box attribute.
+    """
+    model = Polynomial2D(degree=2)
+    match = 'model does not have a bounding_box attribute'
+    with pytest.raises(ValueError, match=match):
+        _model_shape_from_bbox(model)

@@ -553,6 +553,20 @@ def test(x: int):
 );
 
 testcase!(
+    test_dict_infer_error_value,
+    r#"
+# Error-typed values should not cause the anonymous TypedDict to drop
+# fields, which would narrow the value_type and cause false positives
+# on subscript assignment.
+message = {
+    "device_id": "device-id",
+    "device_2": Unknown,  # E: Could not find name `Unknown`
+}
+message["attachment"] = {"image": "thumb-url"}
+"#,
+);
+
+testcase!(
     test_override_classvar,
     r#"
 from typing import ClassVar
@@ -718,5 +732,18 @@ class B: ...
 
 def test_vec_concat(left: Vec[A], right: Vec[B]) -> None:
     _0: Vec[A | B] = concat_vecs(left, right)
+    "#,
+);
+
+testcase!(
+    test_list_construction_with_union_hint,
+    r#"
+from typing import Protocol, TypeVar
+_T_co = TypeVar("_T_co", covariant=True)
+class Seq(Protocol[_T_co]):
+    def __getitem__(self, index: int, /) -> _T_co: ...
+U = Seq[str] | Seq[int]
+def f(x: U) -> None: ...
+f(list())
     "#,
 );

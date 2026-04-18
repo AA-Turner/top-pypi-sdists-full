@@ -27,6 +27,12 @@ class AggregateBackfillStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper)
     AGGREGATE_BACKFILL_STATUS_FAILED: _ClassVar[AggregateBackfillStatus]
     AGGREGATE_BACKFILL_STATUS_CANCELED: _ClassVar[AggregateBackfillStatus]
 
+class AggregateBackfillTarget(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    AGGREGATE_BACKFILL_TARGET_UNSPECIFIED: _ClassVar[AggregateBackfillTarget]
+    AGGREGATE_BACKFILL_TARGET_ONLINE: _ClassVar[AggregateBackfillTarget]
+    AGGREGATE_BACKFILL_TARGET_OFFLINE: _ClassVar[AggregateBackfillTarget]
+
 AGGREGATE_BACKFILL_STATUS_UNSPECIFIED: AggregateBackfillStatus
 AGGREGATE_BACKFILL_STATUS_INITIALIZING: AggregateBackfillStatus
 AGGREGATE_BACKFILL_STATUS_INIT_FAILED: AggregateBackfillStatus
@@ -36,6 +42,9 @@ AGGREGATE_BACKFILL_STATUS_WORKING: AggregateBackfillStatus
 AGGREGATE_BACKFILL_STATUS_COMPLETED: AggregateBackfillStatus
 AGGREGATE_BACKFILL_STATUS_FAILED: AggregateBackfillStatus
 AGGREGATE_BACKFILL_STATUS_CANCELED: AggregateBackfillStatus
+AGGREGATE_BACKFILL_TARGET_UNSPECIFIED: AggregateBackfillTarget
+AGGREGATE_BACKFILL_TARGET_ONLINE: AggregateBackfillTarget
+AGGREGATE_BACKFILL_TARGET_OFFLINE: AggregateBackfillTarget
 
 class AggregateBackfillCostEstimate(_message.Message):
     __slots__ = ("max_buckets", "expected_buckets", "expected_bytes", "expected_storage_cost", "expected_runtime")
@@ -204,44 +213,60 @@ class CronAggregateBackfill(_message.Message):
         "id",
         "environment_id",
         "deployment_id",
+        "name",
         "schedule",
+        "filename",
         "plan_hash",
         "features",
         "resolvers",
+        "query_tags",
+        "target",
+        "resource_group",
         "created_at",
         "updated_at",
-        "query_tags",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
     SCHEDULE_FIELD_NUMBER: _ClassVar[int]
+    FILENAME_FIELD_NUMBER: _ClassVar[int]
     PLAN_HASH_FIELD_NUMBER: _ClassVar[int]
     FEATURES_FIELD_NUMBER: _ClassVar[int]
     RESOLVERS_FIELD_NUMBER: _ClassVar[int]
+    QUERY_TAGS_FIELD_NUMBER: _ClassVar[int]
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
-    QUERY_TAGS_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     deployment_id: str
+    name: str
     schedule: str
+    filename: str
     plan_hash: str
     features: _containers.RepeatedScalarFieldContainer[str]
     resolvers: _containers.RepeatedScalarFieldContainer[str]
+    query_tags: _containers.RepeatedScalarFieldContainer[str]
+    target: AggregateBackfillTarget
+    resource_group: str
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
-    query_tags: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         id: _Optional[str] = ...,
         environment_id: _Optional[str] = ...,
         deployment_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
         schedule: _Optional[str] = ...,
+        filename: _Optional[str] = ...,
         plan_hash: _Optional[str] = ...,
         features: _Optional[_Iterable[str]] = ...,
         resolvers: _Optional[_Iterable[str]] = ...,
+        query_tags: _Optional[_Iterable[str]] = ...,
+        target: _Optional[_Union[AggregateBackfillTarget, str]] = ...,
+        resource_group: _Optional[str] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
-        query_tags: _Optional[_Iterable[str]] = ...,
     ) -> None: ...

@@ -568,7 +568,7 @@ class PositionCollection(System.Object, typing.Iterable[QuantConnect.Securities.
 class IPositionGroupResolver(metaclass=abc.ABCMeta):
     """Resolves position groups from a collection of positions."""
 
-    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Iterable[QuantConnect.Securities.Positions.IPositionGroup]:
+    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Sequence[QuantConnect.Securities.Positions.IPositionGroup]:
         """
         Determines the position groups that would be evaluated for grouping of the specified
         positions were passed into the resolve method.
@@ -671,7 +671,7 @@ class SecurityPositionGroupModel(QuantConnect.ExtendedDictionary[QuantConnect.Se
         """Creates a PositionGroupKey for the security's default position group"""
         ...
 
-    def get_impacted_groups(self, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Iterable[QuantConnect.Securities.Positions.IPositionGroup]:
+    def get_impacted_groups(self, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Sequence[QuantConnect.Securities.Positions.IPositionGroup]:
         """
         Determines which position groups could be impacted by changes in the specified positions
         
@@ -680,7 +680,7 @@ class SecurityPositionGroupModel(QuantConnect.ExtendedDictionary[QuantConnect.Se
         """
         ...
 
-    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Securities.Positions.PositionGroupKey, QuantConnect.Securities.Positions.IPositionGroup]]:
+    def get_items(self) -> typing.Sequence[System.Collections.Generic.KeyValuePair[QuantConnect.Securities.Positions.PositionGroupKey, QuantConnect.Securities.Positions.IPositionGroup]]:
         """
         Gets all the items in the dictionary
         
@@ -1708,7 +1708,7 @@ class OptionStrategyPositionGroupResolver(System.Object, QuantConnect.Securities
         """
         ...
 
-    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Iterable[QuantConnect.Securities.Positions.IPositionGroup]:
+    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Sequence[QuantConnect.Securities.Positions.IPositionGroup]:
         """
         Determines the position groups that would be evaluated for grouping of the specified
         positions were passed into the resolve method.
@@ -1793,7 +1793,7 @@ class CompositePositionGroupResolver(System.Object, QuantConnect.Securities.Posi
         """
         ...
 
-    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Iterable[QuantConnect.Securities.Positions.IPositionGroup]:
+    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Sequence[QuantConnect.Securities.Positions.IPositionGroup]:
         """
         Determines the position groups that would be evaluated for grouping of the specified
         positions were passed into the resolve method.
@@ -1945,7 +1945,7 @@ class SecurityPositionGroupResolver(System.Object, QuantConnect.Securities.Posit
         """
         ...
 
-    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Iterable[QuantConnect.Securities.Positions.IPositionGroup]:
+    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Sequence[QuantConnect.Securities.Positions.IPositionGroup]:
         """
         Determines the position groups that would be evaluated for grouping of the specified
         positions were passed into the IPositionGroupresolver.resolve method.

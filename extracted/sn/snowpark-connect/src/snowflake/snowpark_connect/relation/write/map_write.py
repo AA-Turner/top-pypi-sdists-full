@@ -13,6 +13,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pyspark.sql.connect.proto.base_pb2 as proto_base
 import pyspark.sql.connect.proto.commands_pb2 as commands_proto
+import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 from pyspark.errors.exceptions.base import AnalysisException
 from pyspark.errors.exceptions.connect import IllegalArgumentException
 
@@ -77,7 +78,10 @@ from snowflake.snowpark_connect.type_mapping import (
     map_snowpark_to_pyspark_types,
     snowpark_to_iceberg_type,
 )
-from snowflake.snowpark_connect.utils.context import get_spark_session_id
+from snowflake.snowpark_connect.utils.context import (
+    get_spark_session_id,
+    should_skip_file_read_cache_result,
+)
 from snowflake.snowpark_connect.utils.identifiers import (
     spark_to_sf_single_id,
     split_fully_qualified_spark_name,
@@ -101,6 +105,22 @@ _column_order_for_write = "name"
 # Available values for TARGET_FILE_SIZE
 #   reference:https://docs.snowflake.com/en/sql-reference/sql/create-iceberg-table
 TARGET_FILE_SIZE_ACCEPTABLE_VALUES = ("AUTO", "16MB", "32MB", "64MB", "128MB")
+
+_FILE_READ_FORMATS = frozenset(("parquet", "csv", "json", "text"))
+
+
+def _input_is_file_read(rel: relation_proto.Relation) -> bool:
+    """
+    Return True when `rel` is a data-source read of a local/staged file. This currently only checks the
+    direct child of this relation, and returns False if a read occurs deeper within a query plan.
+    """
+    if (
+        rel.WhichOneof("rel_type") != "read"
+        or rel.read.WhichOneof("read_type") != "data_source"
+    ):
+        return False
+    fmt = rel.read.data_source.format if rel.read.data_source.HasField("format") else ""
+    return fmt.lower() in _FILE_READ_FORMATS
 
 
 # TODO: We will revise/refactor this after changes for all formats are finalized.
@@ -417,8 +437,13 @@ def map_write(request: proto_base.ExecutePlanRequest):
         case commands_proto.WriteOperation.SaveMode.SAVE_MODE_IGNORE:
             write_mode = "ignore"
 
-    # immediately exclude hidden columns for writing
-    result = map_relation(write_op.input).without_hidden_columns()
+    # Set a context flag to indicate to a nested file read operation whether it should materialize
+    # to a temp table with cache_result. If the write operation currently being processed is trying to save
+    # to a table already, then we can skip the temp table CTAS. See SNOW-3262791 for details.
+    with should_skip_file_read_cache_result(
+        write_op.HasField("table") and _input_is_file_read(write_op.input)
+    ):
+        result = map_relation(write_op.input).without_hidden_columns()
     input_df, snowpark_column_names = handle_column_names(result, write_op.source)
 
     # Create updated container with transformed dataframe, then filter METADATA$FILENAME columns
@@ -447,7 +472,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
     if (
         write_op.HasField("table")
         and write_op.HasField("source")
-        and write_op.source in ("csv", "parquet", "json", "text")
+        and write_op.source in _FILE_READ_FORMATS
     ):
         write_op.source = ""
 

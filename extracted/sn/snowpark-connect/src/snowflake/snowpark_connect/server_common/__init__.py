@@ -16,6 +16,7 @@ import re
 import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import urllib.parse
@@ -468,6 +469,30 @@ def _disable_protobuf_recursion_limit() -> None:
     from google.protobuf.pyext import cpp_message
 
     cpp_message._message.SetAllowOversizeProtos(True)
+
+
+def start_stdin_monitor(stop_event: threading.Event) -> None:
+    """Start a daemon thread that shuts down the server when stdin reaches EOF.
+
+    When the parent process (e.g. JVM) is killed -- even with SIGKILL where
+    shutdown hooks don't run -- the OS closes the write end of the stdin pipe.
+    The read on the child side returns EOF, and we set the stop_event.
+    """
+
+    def _watch_stdin():
+        try:
+            while True:
+                data = sys.stdin.buffer.read(1)
+                if not data:
+                    break
+        except OSError:
+            pass
+        logger.info("Parent process stdin closed, stopping server...")
+        stop_event.set()
+
+    t = threading.Thread(target=_watch_stdin, name="stdin-watchdog", daemon=True)
+    t.start()
+    logger.info("Stdin monitor started (server will exit when parent process dies)")
 
 
 def setup_signal_handlers(stop_event: threading.Event) -> None:

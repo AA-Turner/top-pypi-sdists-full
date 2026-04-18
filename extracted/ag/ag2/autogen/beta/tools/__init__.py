@@ -9,27 +9,36 @@ from .builtin import (
     ContainerAutoEnvironment,
     ContainerReferenceEnvironment,
     ImageGenerationTool,
-    LocalEnvironment,
     MCPServerTool,
     MemoryTool,
     NetworkPolicy,
     ShellTool,
+    Skill,
+    SkillsTool,
     UserLocation,
     WebFetchTool,
     WebSearchTool,
 )
 from .final import Toolkit, tool
+from .shell import LocalShellTool
+from .skills import SkillSearchToolkit, SkillsToolkit
+from .toolkits import FilesystemToolkit
 
 __all__ = (
     "CodeExecutionTool",
     "ContainerAutoEnvironment",
     "ContainerReferenceEnvironment",
+    "FilesystemToolkit",
     "ImageGenerationTool",
-    "LocalEnvironment",
+    "LocalShellTool",
     "MCPServerTool",
     "MemoryTool",
     "NetworkPolicy",
     "ShellTool",
+    "Skill",
+    "SkillSearchToolkit",
+    "SkillsTool",
+    "SkillsToolkit",
     "ToolResult",
     "Toolkit",
     "UserLocation",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-mypy-plugins
-Version: 4.0.1
+Version: 4.0.2
 Summary: pytest plugin for writing tests for mypy plugins
 Home-page: https://github.com/TypedDjango/pytest-mypy-plugins
 Author: Maksim Kurnikov

@@ -13,8 +13,8 @@ r'''
 
 ## Why
 
-It’s just a small feature at the moment,
-Provides you to trigger Lambda Function push notifications to Line Notify or Slack when you discover Console Login event or swith role event through Cloudtrail.
+It's just a small feature at the moment,
+Provides you to trigger Lambda Function push notifications to Slack when you discover Console Login event or switch role event through Cloudtrail.
 
 > Welcome to contribute another event notify case you want.
 
@@ -24,7 +24,6 @@ Provides you to trigger Lambda Function push notifications to Line Notify or Sla
 
 ### Now support
 
-* Line Notify
 * Slack ([webhooks](https://api.slack.com/messaging/webhooks#posting_with_webhooks))
 
 ## You need enable one `Management events` in your account.
@@ -32,24 +31,14 @@ Provides you to trigger Lambda Function push notifications to Line Notify or Sla
 > more see https://aws.amazon.com/tw/cloudtrail/pricing/
 > ![](./images/management-events.png)
 
-# You need Line Notify access token
-
-> more see [line notify docs](https://notify-bot.line.me/doc/en/)
-
-![](./images/access-token.png)
-
 ## Install
 
 ```bash
-Use the npm dist tag to opt in CDKv1 or CDKv2:
-
 // for CDKv2
 npm install cdk-events-notify
 or
 npm install cdk-events-notify@latest
 ```
-
-## 💡💡💡 please click [here](https://github.com/neilkuan/cdk-events-notify/tree/cdkv1#readme), if you are using aws-cdk v1.x.x version.💡💡💡
 
 ## Usage
 
@@ -59,7 +48,12 @@ import { EventNotify } from 'cdk-events-notify';
 
 const app = new cdk.App();
 const stack = new cdk.Stack(app, 'integ-stack', { env });
-new EventNotify(stack, 'LineEventNotify', { lineNotifyToken: process.env.LINE_NOTIFY_TOKEN });
+new EventNotify(stack, 'SlackEventNotify', {
+  slack: {
+    slackChannelName: 'your-channel-name',
+    slackWebhookUrl: 'https://hooks.slack.com/services/xxx/xxx/xxx',
+  },
+});
 ```
 
 ### To deploy
@@ -76,8 +70,6 @@ cdk destroy
 
 ### Finally
 
-* line
-  ![](./images/line-chat.jpg)
 * slack
   ![](./images/slack.jpg)
 
@@ -143,14 +135,12 @@ class EventNotify(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        line_notify_token: typing.Optional[builtins.str] = None,
-        slack: typing.Optional["ISlackEventNotify"] = None,
+        slack: "ISlackEventNotify",
     ) -> None:
         '''
         :param scope: -
         :param id: -
-        :param line_notify_token: (experimental) Line Notify Token for Lambda send notify permission. Default: - none
-        :param slack: (experimental) Notify target to Slack channel. Default: - none
+        :param slack: (experimental) Notify target to Slack channel.
 
         :stability: experimental
         '''
@@ -158,7 +148,7 @@ class EventNotify(
             type_hints = typing.get_type_hints(_typecheckingstub__983697ae0c841ff9396c872569908503f3b178d3ccafd540d76c1c1fec6cdd4c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = EventNotifyProps(line_notify_token=line_notify_token, slack=slack)
+        props = EventNotifyProps(slack=slack)
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -166,53 +156,32 @@ class EventNotify(
 @jsii.data_type(
     jsii_type="cdk-events-notify.EventNotifyProps",
     jsii_struct_bases=[],
-    name_mapping={"line_notify_token": "lineNotifyToken", "slack": "slack"},
+    name_mapping={"slack": "slack"},
 )
 class EventNotifyProps:
-    def __init__(
-        self,
-        *,
-        line_notify_token: typing.Optional[builtins.str] = None,
-        slack: typing.Optional["ISlackEventNotify"] = None,
-    ) -> None:
+    def __init__(self, *, slack: "ISlackEventNotify") -> None:
         '''(experimental) event notify interface.
 
-        :param line_notify_token: (experimental) Line Notify Token for Lambda send notify permission. Default: - none
-        :param slack: (experimental) Notify target to Slack channel. Default: - none
+        :param slack: (experimental) Notify target to Slack channel.
 
         :stability: experimental
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02ebe07fa9d1a749f691d8c3e288afaed85beeefaf28fccccb71a6d2a71fb24b)
-            check_type(argname="argument line_notify_token", value=line_notify_token, expected_type=type_hints["line_notify_token"])
             check_type(argname="argument slack", value=slack, expected_type=type_hints["slack"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if line_notify_token is not None:
-            self._values["line_notify_token"] = line_notify_token
-        if slack is not None:
-            self._values["slack"] = slack
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "slack": slack,
+        }
 
     @builtins.property
-    def line_notify_token(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Line Notify Token for Lambda send notify permission.
-
-        :default: - none
-
-        :stability: experimental
-        '''
-        result = self._values.get("line_notify_token")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def slack(self) -> typing.Optional["ISlackEventNotify"]:
+    def slack(self) -> "ISlackEventNotify":
         '''(experimental) Notify target to Slack channel.
-
-        :default: - none
 
         :stability: experimental
         '''
         result = self._values.get("slack")
-        return typing.cast(typing.Optional["ISlackEventNotify"], result)
+        assert result is not None, "Required property 'slack' is missing"
+        return typing.cast("ISlackEventNotify", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -294,16 +263,14 @@ def _typecheckingstub__983697ae0c841ff9396c872569908503f3b178d3ccafd540d76c1c1fe
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    line_notify_token: typing.Optional[builtins.str] = None,
-    slack: typing.Optional[ISlackEventNotify] = None,
+    slack: ISlackEventNotify,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__02ebe07fa9d1a749f691d8c3e288afaed85beeefaf28fccccb71a6d2a71fb24b(
     *,
-    line_notify_token: typing.Optional[builtins.str] = None,
-    slack: typing.Optional[ISlackEventNotify] = None,
+    slack: ISlackEventNotify,
 ) -> None:
     """Type checking stubs"""
     pass

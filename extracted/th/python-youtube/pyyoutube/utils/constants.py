@@ -1,5 +1,5 @@
 """
-    some constants for YouTube
+some constants for YouTube
 """
 
 ACTIVITIES_RESOURCE_PROPERTIES = {"id", "snippet", "contentDetails"}
@@ -65,6 +65,7 @@ VIDEO_RESOURCE_PROPERTIES = {
     "topicDetails",
     "recordingDetails",
     "liveStreamingDetails",
+    "paidProductPlacementDetails",
 }
 
 GUIDE_CATEGORY_RESOURCE_PROPERTIES = {"id", "snippet"}

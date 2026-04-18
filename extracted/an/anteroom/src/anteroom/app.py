@@ -987,6 +987,7 @@ def create_app(config: AppConfig | None = None, enforced_fields: list[str] | Non
         usage,
     )
     from .routers import artifact_health as artifact_health_router
+    from .routers import memory as memory_router
     from .routers import packs as packs_router
     from .routers import spaces as spaces_router
     from .routers import workflows as workflows_router
@@ -1006,6 +1007,7 @@ def create_app(config: AppConfig | None = None, enforced_fields: list[str] | Non
     app.include_router(artifact_health_router.router, prefix="/api")
     app.include_router(artifacts.router, prefix="/api")
     app.include_router(packs_router.router, prefix="/api")
+    app.include_router(memory_router.router, prefix="/api")
     app.include_router(spaces_router.router, prefix="/api")
     app.include_router(workflows_router.router, prefix="/api")
 

@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define utility functions for image segmentation.
+Tools for image segmentation.
 """
 
 import numpy as np
@@ -8,11 +8,13 @@ from astropy.convolution import Gaussian2DKernel
 from astropy.stats import gaussian_fwhm_to_sigma
 from scipy.ndimage import generate_binary_structure
 
+from photutils.utils._deprecation import deprecated_positional_kwargs
 from photutils.utils._parameters import as_pair
 
 __all__ = ['make_2dgaussian_kernel']
 
 
+@deprecated_positional_kwargs(since='3.0', until='4.0')
 def make_2dgaussian_kernel(fwhm, size, mode='oversample', oversampling=10):
     """
     Make a normalized 2D circular Gaussian kernel.
@@ -56,7 +58,7 @@ def make_2dgaussian_kernel(fwhm, size, mode='oversample', oversampling=10):
     kernel : `astropy.convolution.Kernel2D`
         The output smoothing kernel, normalized such that it sums to 1.
     """
-    ysize, xsize = as_pair('size', size, lower_bound=(0, 1), check_odd=True)
+    ysize, xsize = as_pair('size', size, lower_bound=(0, 0), check_odd=True)
 
     kernel = Gaussian2DKernel(fwhm * gaussian_fwhm_to_sigma,
                               x_size=xsize, y_size=ysize, mode=mode,
@@ -104,13 +106,13 @@ def _make_binary_structure(ndim, connectivity):
     return footprint
 
 
-def _mask_to_mirrored_value(data, replace_mask, xycenter, mask=None):
+def _mask_to_mirrored_value(data, replace_mask, xycenter, *, mask=None):
     """
     Replace masked pixels with the value of the pixel mirrored across a
     given center position.
 
-    If the mirror pixel is unavailable (i.e., it is outside of the image
-    or masked), then the masked pixel value is set to zero.
+    If the mirror pixel is unavailable (i.e., it is outside the image or
+    masked), then the masked pixel value is set to zero.
 
     Parameters
     ----------
@@ -145,15 +147,15 @@ def _mask_to_mirrored_value(data, replace_mask, xycenter, mask=None):
     xmirror = 2 * int(xycenter[0] + 0.5) - xmasked
     ymirror = 2 * int(xycenter[1] + 0.5) - ymasked
 
-    # Find mirrored pixels that are outside of the image
+    # Find mirrored pixels that are outside the image
     badmask = ((xmirror < 0) | (ymirror < 0) | (xmirror >= data.shape[1])
                | (ymirror >= data.shape[0]))
 
-    # remove them from the set of replace_mask pixels and set them to
+    # Remove them from the set of replace_mask pixels and set them to
     # zero
     if np.any(badmask):
         outdata[ymasked[badmask], xmasked[badmask]] = 0.0
-        # remove the badmask pixels from pixels to be replaced
+        # Remove the badmask pixels from pixels to be replaced
         goodmask = ~badmask
         ymasked = ymasked[goodmask]
         xmasked = xmasked[goodmask]

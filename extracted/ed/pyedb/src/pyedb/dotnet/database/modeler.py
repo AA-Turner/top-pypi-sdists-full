@@ -33,6 +33,8 @@ from pyedb.dotnet.database.dotnet.primitive import CircleDotNet, PathDotNet, Rec
 from pyedb.dotnet.database.edb_data.primitives_data import EdbPolygon, Primitive, cast
 from pyedb.dotnet.database.edb_data.utilities import EDBStatistics
 from pyedb.dotnet.database.general import convert_py_list_to_net_list
+from pyedb.dotnet.database.geometry.point_data import PointData
+from pyedb.dotnet.database.geometry.polygon_data import PolygonData
 from pyedb.misc.decorators import deprecate_argument_name, deprecated, deprecated_property
 
 
@@ -58,11 +60,12 @@ class Modeler:
         :class:`pyedb.dotnet.database.cell.hierarchy.component.EDBComponent`
 
         """
+        if isinstance(name, int):
+            return self._pedb.layout.find_object_by_id(name)
+
         for i in self.primitives:
-            if (
-                (isinstance(name, str) and i.aedt_name == name)
-                or (isinstance(name, str) and i.aedt_name == name.replace("__", "_"))
-                or (isinstance(name, int) and i.id == name)
+            if (isinstance(name, str) and i.aedt_name == name) or (
+                isinstance(name, str) and i.aedt_name == name.replace("__", "_")
             ):
                 return i
         raise ValueError(f"Primitive {name} not found.")
@@ -76,7 +79,7 @@ class Modeler:
         """Primitives.
 
         .. deprecated:: 0.70.0
-                Use layout.primitives instead.
+           Use layout.primitives instead.
 
         Returns
         -------
@@ -1161,7 +1164,7 @@ class Modeler:
         """Dictionary of layers.
 
         .. deprecated:: 0.70.0
-        use stackup.layers instead.
+           Use stackup.layers instead.
 
         Returns
         -------
@@ -1170,12 +1173,12 @@ class Modeler:
         """
         return self._pedb.stackup.layers
 
-    @deprecated("use layout.find_object_by_id method instead.")
+    @deprecated("Use layout.find_object_by_id method instead.")
     def get_primitive(self, primitive_id):
         """Retrieve primitive from give id.
 
         .. deprecated:: 0.70.0
-        use layout.find_object_by_id method instead.
+           Use layout.find_object_by_id method instead.
 
         Parameters
         ----------
@@ -1195,7 +1198,7 @@ class Modeler:
         """Primitives with layer names as keys.
 
         .. deprecated:: 0.70.0
-        use layout.polygons_by_layer instead.
+           Use layout.polygons_by_layer instead.
 
         Returns
         -------
@@ -1210,7 +1213,7 @@ class Modeler:
         """Primitives with net names as keys.
 
         .. deprecated:: 0.70.0
-        use layout.primitives_by_net instead.
+           Use layout.primitives_by_net instead.
 
         Returns
         -------
@@ -1224,6 +1227,9 @@ class Modeler:
     def primitives_by_layer(self) -> dict[str, list[Primitive]]:
         """Primitives with layer names as keys.
 
+        .. deprecated:: 0.70.0
+           Use :attr: layout.primitives_by_layer instead.
+
         Returns
         -------
         dict
@@ -1232,12 +1238,12 @@ class Modeler:
         return self._pedb.layout.primitives_by_layer
 
     @property
-    @deprecated_property("use layout.rectangles property instead.")
+    @deprecated_property("Use layout.rectangles property instead.")
     def rectangles(self) -> list[RectangleDotNet]:
         """Rectangles.
 
         .. deprecated:: 0.70.0
-        use layout.rectangles instead.
+           Use :attr: layout.rectangles instead.
 
         Returns
         -------
@@ -1248,12 +1254,12 @@ class Modeler:
         return self._pedb.layout.rectangles
 
     @property
-    @deprecated_property("use layout.circles property instead.")
+    @deprecated_property("Use layout.circles property instead.")
     def circles(self) -> list[CircleDotNet]:
         """Circles.
 
         .. deprecated:: 0.70.0
-        use layout.circles instead.
+           Use :attr: layout.circles instead.
 
         Returns
         -------
@@ -1264,12 +1270,12 @@ class Modeler:
         return self._pedb.layout.circles
 
     @property
-    @deprecated_property("use layout.paths property instead.")
+    @deprecated_property("Use layout.paths property instead.")
     def paths(self) -> list[PathDotNet]:
         """Paths.
 
         .. deprecated:: 0.70.0
-        use layout.paths instead.
+           Use :attr: layout.paths instead.
 
         Returns
         -------
@@ -1284,6 +1290,7 @@ class Modeler:
         """Polygons.
 
         .. deprecated:: 0.70.0
+           Use :attr: layout.polygons instead.
 
         Returns
         -------
@@ -1292,12 +1299,12 @@ class Modeler:
         """
         return self._pedb.layout.polygons
 
-    @deprecated("use layout.get_polygons_by_layer method instead.")
+    @deprecated("Use layout.get_polygons_by_layer method instead.")
     def get_polygons_by_layer(self, layer_name, net_list=None) -> list[EdbPolygon]:
         """Retrieve polygons by a layer.
 
         .. deprecated:: 0.70.0
-        use layout.get_polygons_by_layer method instead.
+           Use :func: layout.get_polygons_by_layer method instead.
 
         Parameters
         ----------
@@ -1312,12 +1319,12 @@ class Modeler:
         """
         return self._pedb.layout.get_polygons_by_layer(layer_name=layer_name, net_list=net_list)
 
-    @deprecated("use layout.get_primitive_by_layer_and_point method instead.")
+    @deprecated("Use layout.get_primitive_by_layer_and_point method instead.")
     def get_primitive_by_layer_and_point(self, point=None, layer=None, nets=None):
         """Return primitive given coordinate point [x, y], layer name and nets.
 
         .. deprecated :: 0.70.0
-        use layout.get_primitive_by_layer_and_point method instead.
+           Use :func: layout.get_primitive_by_layer_and_point method instead.
 
         Parameters
         ----------
@@ -1337,12 +1344,12 @@ class Modeler:
         """
         return self._pedb.layout.get_primitive_by_layer_and_point(point=point, layer=layer, nets=nets)
 
-    @deprecated("use layout.get_polygons_by_layer method instead.")
+    @deprecated("Use layout.get_polygons_by_layer method instead.")
     def get_polygon_bounding_box(self, polygon):
         """Retrieve a polygon bounding box.
 
         .. deprecated:: 0.70.0
-        use layout.get_polygon_bounding_box method instead.
+           Use :func: layout.get_polygon_bounding_box method instead.
 
         Parameters
         ----------
@@ -1356,22 +1363,22 @@ class Modeler:
         """
         return self._pedb.layout.get_polygon_bounding_box(polygon)
 
-    @deprecated("use layout.get_polygons_by_layer method instead.")
+    @deprecated("Use layout.get_polygons_by_layer method instead.")
     def get_polygon_points(self, polygon) -> list[float]:
         """Retrieve polygon points.
 
         .. deprecated :: 0.70.0
-        use layout.get_polygon_points method instead.
+           Use :func: layout.get_polygon_points method instead.
 
         """
         return self._pedb.layout.get_polygon_points(polygon)
 
-    @deprecated("use layout.filter_primitives method instead.")
-    def get_primitives(self, net_name=None, layer_name=None, prim_type=None, is_void=False) -> list[Primitive]:
+    @deprecated("Use layout.filter_primitives method instead.")
+    def get_primitives(self, net_name=None, layer_name=None, prim_type=None, is_void=None) -> list[Primitive]:
         """Get primitives by conditions.
 
         .. deprecated:: 0.70.0
-        use layout.filter_primitives method instead.
+           Use :func: layout.filter_primitives method instead.
 
         Parameters
         ----------
@@ -1381,8 +1388,8 @@ class Modeler:
             Set filter on layer_name. Default is ``None``.
         prim_type :  str, optional
             Set filter on primitive type. Default is ``None``.
-        is_void : bool
-            Set filter on is_void. Default is '``False'``
+        is_void : bool, optional
+            Set filter on is_void. When ``None``, both standard primitives and voids are returned.
         Returns
         -------
         list
@@ -1399,3 +1406,57 @@ class Modeler:
     def clear_cache():
         """Force reload of all primitives and reset indexes."""
         warnings.warn("Redundant methods. Not use.", DeprecationWarning)
+
+    def create_taper(
+        self,
+        start_point: tuple[str | float, str | float, str | float, str | float],
+        end_point: tuple[str | float, str | float, str | float, str | float],
+        start_width: str | float,
+        end_width: str | float,
+        layer_name: str = "",
+        voids: list | None = None,
+        net_name: str = "",
+    ) -> EdbPolygon:
+        """Create RF trace taper.
+        (y)
+         ↑
+         |              <─      End Width      ─>
+         |              ─────── End Point ───────
+         |             /           |             \
+         |            /            |              \
+         |           /             |               \
+         |          ────────── Start Point ─────────
+         |          <─         Start Width        ─>
+         +──────────────────────────────────────→ (x)
+        """
+
+        p0_x, p0_y = self._pedb.value(start_point[0]), self._pedb.value(start_point[1])
+        p1_x, p1_y = self._pedb.value(end_point[0]), self._pedb.value(end_point[1])
+        angle = ((p1_y - p0_y) / (p1_x - p0_x)).atan()
+        w0 = self._pedb.value(start_width)
+        w1 = self._pedb.value(end_width)
+
+        h = ((p0_x - p1_x) ** 2 + (p0_y - p1_y) ** 2) ** 0.5
+
+        t_p0_y = w0 / 2
+        t_p1_y = w0 / -2
+        t_p0_x = t_p1_x = 0
+
+        t_p2_y = w1 / -2
+        t_p3_y = w1 / 2
+        t_p2_x = t_p3_x = h
+
+        point_data = []
+        for i in [
+            [t_p0_x, t_p0_y],
+            [t_p1_x, t_p1_y],
+            [t_p2_x, t_p2_y],
+            [t_p3_x, t_p3_y],
+        ]:
+            temp = PointData.create(self._pedb, x=str(i[0]), y=str(i[1]))
+            temp = temp.rotate(angle=str(angle), center=(0, 0))
+            temp = temp.move(p0_x, p0_y)
+            point_data.append(temp)
+            poly_data = PolygonData.create(self._pedb, point_data, closed=True)
+        _voids = [] if voids is None else voids
+        return self.create_polygon(poly_data, layer_name=layer_name, voids=_voids, net_name=net_name)

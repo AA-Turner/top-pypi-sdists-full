@@ -2164,6 +2164,12 @@ class DbtProjectModelSource(sgqlc.types.Enum):
     __choices__ = ("CLI", "DBT_CLOUD", "DBT_CORE")
 
 
+class Decimal(sgqlc.types.Scalar):
+    """The `Decimal` scalar type represents a python Decimal."""
+
+    __schema__ = schema
+
+
 class DecryptionServiceTypeEnum(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -2219,12 +2225,13 @@ class DetectorStatus(sgqlc.types.Enum):
 class DomainModelDomainType(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `AGENTIC`: Agentic
     * `METADATA`: Metadata
     * `SAMPLING`: Sampling
     """
 
     __schema__ = schema
-    __choices__ = ("METADATA", "SAMPLING")
+    __choices__ = ("AGENTIC", "METADATA", "SAMPLING")
 
 
 class EdgeType(sgqlc.types.Enum):
@@ -2842,7 +2849,9 @@ class FieldMetricCategory(sgqlc.types.Enum):
     * `COMPLETENESS`None
     * `CUSTOM`None
     * `DISTRIBUTION`None
+    * `ML_CARDINALITY`None
     * `ML_CLASSIFICATION_PERFORMANCE`None
+    * `ML_DRIFT`None
     * `ML_REGRESSION_PERFORMANCE`None
     * `PIPELINE`None
     * `UNIQUENESS`None
@@ -2854,7 +2863,9 @@ class FieldMetricCategory(sgqlc.types.Enum):
         "COMPLETENESS",
         "CUSTOM",
         "DISTRIBUTION",
+        "ML_CARDINALITY",
         "ML_CLASSIFICATION_PERFORMANCE",
+        "ML_DRIFT",
         "ML_REGRESSION_PERFORMANCE",
         "PIPELINE",
         "UNIQUENESS",
@@ -2876,16 +2887,20 @@ class FieldMetricType(sgqlc.types.Enum):
     * `FALSE_RATE`None
     * `FUTURE_TIMESTAMP_COUNT`None
     * `FUTURE_TIMESTAMP_RATE`None
+    * `JS_DIVERGENCE`None
+    * `KS_TEST`None
     * `MAE`None
     * `MAPE`None
     * `MAX_LENGTH`None
     * `MEAN_ERROR`None
     * `MEAN_LENGTH`None
     * `MIN_LENGTH`None
+    * `MISSING_VALUES`None
     * `NAN_COUNT`None
     * `NAN_RATE`None
     * `NEGATIVE_COUNT`None
     * `NEGATIVE_RATE`None
+    * `NEW_VALUES`None
     * `NON_NULL_COUNT`None
     * `NULL_COUNT`None
     * `NULL_RATE`None
@@ -2907,6 +2922,7 @@ class FieldMetricType(sgqlc.types.Enum):
     * `PERCENTILE_80`None
     * `PMAX`None
     * `PMIN`None
+    * `PSI`None
     * `RELATIVE_ROW_COUNT`None
     * `RMSE`None
     * `ROW_COUNT`None
@@ -2965,16 +2981,20 @@ class FieldMetricType(sgqlc.types.Enum):
         "FALSE_RATE",
         "FUTURE_TIMESTAMP_COUNT",
         "FUTURE_TIMESTAMP_RATE",
+        "JS_DIVERGENCE",
+        "KS_TEST",
         "MAE",
         "MAPE",
         "MAX_LENGTH",
         "MEAN_ERROR",
         "MEAN_LENGTH",
         "MIN_LENGTH",
+        "MISSING_VALUES",
         "NAN_COUNT",
         "NAN_RATE",
         "NEGATIVE_COUNT",
         "NEGATIVE_RATE",
+        "NEW_VALUES",
         "NON_NULL_COUNT",
         "NULL_COUNT",
         "NULL_RATE",
@@ -2996,6 +3016,7 @@ class FieldMetricType(sgqlc.types.Enum):
         "PERCENTILE_80",
         "PMAX",
         "PMIN",
+        "PSI",
         "RELATIVE_ROW_COUNT",
         "RMSE",
         "ROW_COUNT",
@@ -3069,16 +3090,20 @@ class FieldQueryType(sgqlc.types.Enum):
     * `FALSE_RATE`None
     * `FUTURE_TIMESTAMP_COUNT`None
     * `FUTURE_TIMESTAMP_RATE`None
+    * `JS_DIVERGENCE`None
+    * `KS_TEST`None
     * `MAE`None
     * `MAPE`None
     * `MAX_LENGTH`None
     * `MEAN_ERROR`None
     * `MEAN_LENGTH`None
     * `MIN_LENGTH`None
+    * `MISSING_VALUES`None
     * `NAN_COUNT`None
     * `NAN_RATE`None
     * `NEGATIVE_COUNT`None
     * `NEGATIVE_RATE`None
+    * `NEW_VALUES`None
     * `NON_NULL_COUNT`None
     * `NULL_COUNT`None
     * `NULL_RATE`None
@@ -3100,6 +3125,7 @@ class FieldQueryType(sgqlc.types.Enum):
     * `PERCENTILE_80`None
     * `PMAX`None
     * `PMIN`None
+    * `PSI`None
     * `RELATIVE_ROW_COUNT`None
     * `RMSE`None
     * `ROW_COUNT`None
@@ -3159,16 +3185,20 @@ class FieldQueryType(sgqlc.types.Enum):
         "FALSE_RATE",
         "FUTURE_TIMESTAMP_COUNT",
         "FUTURE_TIMESTAMP_RATE",
+        "JS_DIVERGENCE",
+        "KS_TEST",
         "MAE",
         "MAPE",
         "MAX_LENGTH",
         "MEAN_ERROR",
         "MEAN_LENGTH",
         "MIN_LENGTH",
+        "MISSING_VALUES",
         "NAN_COUNT",
         "NAN_RATE",
         "NEGATIVE_COUNT",
         "NEGATIVE_RATE",
+        "NEW_VALUES",
         "NON_NULL_COUNT",
         "NULL_COUNT",
         "NULL_RATE",
@@ -3190,6 +3220,7 @@ class FieldQueryType(sgqlc.types.Enum):
         "PERCENTILE_80",
         "PMAX",
         "PMIN",
+        "PSI",
         "RELATIVE_ROW_COUNT",
         "RMSE",
         "ROW_COUNT",
@@ -3342,6 +3373,110 @@ class FilterValueType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("FIELD", "LITERAL", "MAP_KEY", "SPAN_FIELD", "SQL")
+
+
+class FindingAgentType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `MONITORING`None
+    * `TRIAGE`None
+    * `TROUBLESHOOTING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("MONITORING", "TRIAGE", "TROUBLESHOOTING")
+
+
+class FindingAlertRole(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `RELATED`None
+    * `TRIGGERING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("RELATED", "TRIGGERING")
+
+
+class FindingAssetRole(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `DOWNSTREAM`None
+    * `PRIMARY`None
+    * `UPSTREAM`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DOWNSTREAM", "PRIMARY", "UPSTREAM")
+
+
+class FindingFeedbackAction(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `CONFIRM`None
+    * `DISMISS`None
+    * `OVERRIDE`None
+    * `UNDO`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CONFIRM", "DISMISS", "OVERRIDE", "UNDO")
+
+
+class FindingMonitorRole(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `RELATED`None
+    * `TRIGGERING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("RELATED", "TRIGGERING")
+
+
+class FindingSeverity(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `CRITICAL`None
+    * `INFO`None
+    * `WARNING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CRITICAL", "INFO", "WARNING")
+
+
+class FindingStatus(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `CONFIRMED`None
+    * `DISMISSED`None
+    * `OPEN`None
+    * `OVERRIDE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CONFIRMED", "DISMISSED", "OPEN", "OVERRIDE")
+
+
+class FindingType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `ALERT_ESCALATED`None
+    * `ALERT_REMEDIATED`None
+    * `ALERT_TRIAGED_LOW`None
+    * `MONITORING_GAP`None
+    * `MONITOR_DEPLOYED`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "ALERT_ESCALATED",
+        "ALERT_REMEDIATED",
+        "ALERT_TRIAGED_LOW",
+        "MONITORING_GAP",
+        "MONITOR_DEPLOYED",
+    )
 
 
 class FivetranConnectorSetupStates(sgqlc.types.Enum):
@@ -6693,6 +6828,19 @@ class TsaAnalysisStatus(sgqlc.types.Enum):
     __choices__ = ("COMPLETED", "FAILED", "IN_PROGRESS", "NOT_STARTED")
 
 
+class TsaAnalysisStatusEnum(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `COMPLETED`None
+    * `FAILED`None
+    * `IN_PROGRESS`None
+    * `NOT_STARTED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPLETED", "FAILED", "IN_PROGRESS", "NOT_STARTED")
+
+
 class TutorialStatusType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -9352,6 +9500,56 @@ class FilterValueUnionInput(sgqlc.types.Input):
     id = sgqlc.types.Field(String, graphql_name="id")
 
 
+class FindingFilterInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "finding_types",
+        "severities",
+        "statuses",
+        "agent_types",
+        "agentic_scope_uuids",
+        "use_cases",
+        "asset_mcon",
+        "search_query",
+        "needs_attention",
+        "detection_time_start",
+        "detection_time_end",
+    )
+    finding_types = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FindingType)), graphql_name="findingTypes"
+    )
+
+    severities = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FindingSeverity)), graphql_name="severities"
+    )
+
+    statuses = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FindingStatus)), graphql_name="statuses"
+    )
+
+    agent_types = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FindingAgentType)), graphql_name="agentTypes"
+    )
+
+    agentic_scope_uuids = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="agenticScopeUuids"
+    )
+
+    use_cases = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="useCases"
+    )
+
+    asset_mcon = sgqlc.types.Field(String, graphql_name="assetMcon")
+
+    search_query = sgqlc.types.Field(String, graphql_name="searchQuery")
+
+    needs_attention = sgqlc.types.Field(Boolean, graphql_name="needsAttention")
+
+    detection_time_start = sgqlc.types.Field(DateTime, graphql_name="detectionTimeStart")
+
+    detection_time_end = sgqlc.types.Field(DateTime, graphql_name="detectionTimeEnd")
+
+
 class FreshnessAutomatedAlertConditionInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("sensitivity_level",)
@@ -10251,6 +10449,10 @@ class MetricAlertConditionInput(sgqlc.types.Input):
         "lower_threshold",
         "upper_threshold",
         "field_pattern",
+        "baseline_trailing_days",
+        "baseline_start",
+        "baseline_end",
+        "num_bins",
         "id",
     )
     metric = sgqlc.types.Field(String, graphql_name="metric")
@@ -10272,6 +10474,14 @@ class MetricAlertConditionInput(sgqlc.types.Input):
     upper_threshold = sgqlc.types.Field(Float, graphql_name="upperThreshold")
 
     field_pattern = sgqlc.types.Field(FieldPatternInput, graphql_name="fieldPattern")
+
+    baseline_trailing_days = sgqlc.types.Field(Int, graphql_name="baselineTrailingDays")
+
+    baseline_start = sgqlc.types.Field(String, graphql_name="baselineStart")
+
+    baseline_end = sgqlc.types.Field(String, graphql_name="baselineEnd")
+
+    num_bins = sgqlc.types.Field(Int, graphql_name="numBins")
 
     id = sgqlc.types.Field(String, graphql_name="id")
 
@@ -16002,6 +16212,29 @@ class AgentTraceTableEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class AgenticDomainOutput(sgqlc.types.Type):
+    """A domain used by the agentic platform."""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "name", "description", "include_all_assets", "created_by_email")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Domain UUID"""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Domain name"""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Domain description"""
+
+    include_all_assets = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="includeAllAssets"
+    )
+    """When true, this domain includes every asset in the account."""
+
+    created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
+    """Email of the user who created the domain"""
+
+
 class AggregatedMetricDataType(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("query_group", "metric_aggregation", "timestamp", "value")
@@ -16694,6 +16927,26 @@ class ApiUsageResponse(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("DailyUsage"))),
         graphql_name="usage",
     )
+
+
+class Asset(sgqlc.types.Type):
+    """Catalog asset — minimal projection from ``CatalogObjectModel``."""
+
+    __schema__ = schema
+    __field_names__ = ("mcon", "resource_id", "object_id", "object_type", "display_name")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    resource_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="resourceId")
+    """Customer resource id (e.g. warehouse)"""
+
+    object_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="objectId")
+    """The object identifier, the format varies according to object type"""
+
+    object_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="objectType")
+    """The type of the object"""
+
+    display_name = sgqlc.types.Field(String, graphql_name="displayName")
+    """The name of the object (e.g. report name)"""
 
 
 class AssetCollectionPreferencesConnection(sgqlc.types.relay.Connection):
@@ -21872,6 +22125,10 @@ class CustomRuleComparison(sgqlc.types.Type):
         "target_metric",
         "source_field",
         "target_field",
+        "baseline_trailing_days",
+        "baseline_start",
+        "baseline_end",
+        "num_bins",
     )
     comparison_type = sgqlc.types.Field(
         sgqlc.types.non_null(ComparisonType), graphql_name="comparisonType"
@@ -21976,6 +22233,18 @@ class CustomRuleComparison(sgqlc.types.Type):
 
     target_field = sgqlc.types.Field(String, graphql_name="targetField")
     """Name of target field"""
+
+    baseline_trailing_days = sgqlc.types.Field(Int, graphql_name="baselineTrailingDays")
+    """Number of trailing days for the rolling baseline window"""
+
+    baseline_start = sgqlc.types.Field(DateTime, graphql_name="baselineStart")
+    """Start of the fixed baseline period"""
+
+    baseline_end = sgqlc.types.Field(DateTime, graphql_name="baselineEnd")
+    """End of the fixed baseline period"""
+
+    num_bins = sgqlc.types.Field(Int, graphql_name="numBins")
+    """Number of equi-width bins for drift metric distribution comparison"""
 
 
 class CustomRuleConnection(sgqlc.types.relay.Connection):
@@ -24842,6 +25111,16 @@ class DeltaLogConnectionPageInfo(sgqlc.types.Type):
     """Whether there are more results to be fetched"""
 
 
+class DeployedMonitor(sgqlc.types.Type):
+    """Monitor this finding deployed. Clients resolve the full monitor
+    via ``getMonitors``.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("monitor_uuid",)
+    monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
+
+
 class DeploymentInfo(sgqlc.types.Type):
     """Deployment environment information"""
 
@@ -26722,6 +27001,20 @@ class FavoriteAsset(sgqlc.types.Type):
     """Timestamp when the asset was added to favorites"""
 
 
+class FeedbackEntry(sgqlc.types.Type):
+    """One row of finding feedback history."""
+
+    __schema__ = schema
+    __field_names__ = ("created_time", "note", "action", "user")
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+
+    note = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="note")
+
+    action = sgqlc.types.Field(sgqlc.types.non_null(FindingFeedbackAction), graphql_name="action")
+
+    user = sgqlc.types.Field(sgqlc.types.non_null("User"), graphql_name="user")
+
+
 class FieldChange(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("field", "friendly_name", "scalar_change", "many_to_many_change")
@@ -26918,6 +27211,8 @@ class FieldMetricDefinition(sgqlc.types.Type):
         "is_field_level",
         "supports_all_fields",
         "required_field_count",
+        "requires_baseline",
+        "supports_binning_field_types",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
     """Name of the field metric"""
@@ -26995,6 +27290,24 @@ class FieldMetricDefinition(sgqlc.types.Type):
     )
     """Number of fields required (0=table, 1=single-field, 2+=multi-
     field)
+    """
+
+    requires_baseline = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="requiresBaseline"
+    )
+    """Whether this metric requires a trailing-window baseline context
+    for SQL generation (e.g. cardinality metrics that compare current
+    vs baseline values)
+    """
+
+    supports_binning_field_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FieldType))),
+        graphql_name="supportsBinningFieldTypes",
+    )
+    """Field types for which the num_bins parameter is meaningful (equi-
+    width binning). Empty list means this metric does not use binning.
+    Categorical field types (e.g. TEXT, BOOLEAN) use distinct-value
+    bins and ignore num_bins. Default bin count: 10.
     """
 
 
@@ -27554,6 +27867,32 @@ class FilterSpan(sgqlc.types.Type):
     workflow = sgqlc.types.Field("FilterValueLiteral", graphql_name="workflow")
 
     task = sgqlc.types.Field("FilterValueLiteral", graphql_name="task")
+
+
+class FindingConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges", "total_count")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("FindingEdge")), graphql_name="edges"
+    )
+    """Contains the nodes in this connection."""
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+
+
+class FindingEdge(sgqlc.types.Type):
+    """A Relay edge containing a `Finding` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("Finding", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
 
 
 class FivetranConnectorConnection(sgqlc.types.relay.Connection):
@@ -32615,6 +32954,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_agent_evaluation_monitor",
         "create_or_update_json_schema_monitor",
         "validate_cron",
+        "submit_finding_feedback",
         "set_event_detector_feedback",
         "set_event_detector_feedback_by_alert",
         "set_incident_feedback",
@@ -46737,6 +47077,38 @@ class Mutation(sgqlc.types.Type):
     * `cron` (`String!`): CRON expression
     """
 
+    submit_finding_feedback = sgqlc.types.Field(
+        "SubmitFindingFeedback",
+        graphql_name="submitFindingFeedback",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "action",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(FindingFeedbackAction),
+                        graphql_name="action",
+                        default=None,
+                    ),
+                ),
+                (
+                    "finding_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="findingUuid", default=None
+                    ),
+                ),
+                ("note", sgqlc.types.Arg(String, graphql_name="note", default=None)),
+            )
+        ),
+    )
+    """(experimental) Append user feedback on a finding.
+
+    Arguments:
+
+    * `action` (`FindingFeedbackAction!`)None
+    * `finding_uuid` (`UUID!`)None
+    * `note` (`String`)None
+    """
+
     set_event_detector_feedback = sgqlc.types.Field(
         "SetEventDetectorFeedback",
         graphql_name="setEventDetectorFeedback",
@@ -54957,6 +55329,32 @@ class PlatformServiceSupportStatus(sgqlc.types.Type):
     """
 
 
+class PolicyEvaluationResult(sgqlc.types.Type):
+    """Result of evaluating what permissions would be granted by the
+    provided role and group definitions.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("permissions", "warnings", "errors")
+    permissions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("UserPermission"))),
+        graphql_name="permissions",
+    )
+    """Resolved permissions that would result from the definitions."""
+
+    warnings = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="warnings",
+    )
+    """Non-fatal issues encountered (e.g., 'Role foo not found')."""
+
+    errors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="errors",
+    )
+    """Fatal errors that prevented full evaluation."""
+
+
 class PolicyGenerationResponse(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("policy",)
@@ -55606,6 +56004,8 @@ class Query(sgqlc.types.Type):
         "get_incident_tables",
         "get_incident_warehouse_tables",
         "get_alert_warehouse_tables",
+        "findings",
+        "finding",
         "get_schema_changes",
         "get_event_groups",
         "get_event_groups_paginated",
@@ -55649,6 +56049,7 @@ class Query(sgqlc.types.Type):
         "get_user_authorization",
         "resolve_roles_permissions",
         "resolve_groups_permissions",
+        "evaluate_policy_proposal",
         "get_authorization_provisioning",
         "get_access_request",
         "resolve_data_authorization",
@@ -55797,10 +56198,12 @@ class Query(sgqlc.types.Type):
         "get_trace_rx_reports",
         "get_agent_memories",
         "get_ai_agent_config",
+        "get_authorization_prompt",
         "fix_sql_query",
         "create_sql_query",
         "generate_eval_prompt",
         "generate_sql_eval",
+        "get_agentic_domains",
         "get_agent_operation_logs",
         "get_gcp_agent_logs",
         "get_azure_agent_logs",
@@ -68265,6 +68668,50 @@ class Query(sgqlc.types.Type):
     * `alert_id` (`UUID!`): The alert UUID
     """
 
+    findings = sgqlc.types.Field(
+        FindingConnection,
+        graphql_name="findings",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "filter",
+                    sgqlc.types.Arg(FindingFilterInput, graphql_name="filter", default=None),
+                ),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) List findings produced by autonomous observability
+    agents.
+
+    Arguments:
+
+    * `filter` (`FindingFilterInput`)None
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    finding = sgqlc.types.Field(
+        "Finding",
+        graphql_name="finding",
+        args=sgqlc.types.ArgDict(
+            (("id", sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="id", default=None)),)
+        ),
+    )
+    """(experimental) Fetch a single finding by UUID.
+
+    Arguments:
+
+    * `id` (`UUID!`)None
+    """
+
     get_schema_changes = sgqlc.types.Field(
         "SchemaChangeConnection",
         graphql_name="getSchemaChanges",
@@ -70106,6 +70553,46 @@ class Query(sgqlc.types.Type):
 
     * `groups` (`[String!]!`): List of group names to resolve
       permissions for.
+    """
+
+    evaluate_policy_proposal = sgqlc.types.Field(
+        sgqlc.types.non_null(PolicyEvaluationResult),
+        graphql_name="evaluatePolicyProposal",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "role_definitions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="roleDefinitions",
+                        default=None,
+                    ),
+                ),
+                (
+                    "group_definitions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="groupDefinitions",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Evaluate what permissions would result from role
+    and group definitions WITHOUT persisting anything. Use for dry-run
+    previews, authorization assistant verification, or IAM-as-code
+    testing before applying changes. This endpoint is for forward-
+    looking proposals: definitions that reference deprecated
+    permissions or deprecated roles are rejected in the 'errors'
+    output.
+
+    Arguments:
+
+    * `role_definitions` (`[String!]`): Optional list of role
+      definition YAML strings.
+    * `group_definitions` (`[String!]`): Optional list of group
+      definition YAML strings.
     """
 
     get_authorization_provisioning = sgqlc.types.Field(
@@ -75265,6 +75752,32 @@ class Query(sgqlc.types.Type):
       configuration for
     """
 
+    get_authorization_prompt = sgqlc.types.Field(
+        String,
+        graphql_name="getAuthorizationPrompt",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "for_user",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="forUser", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Build a system prompt grounded in the caller's
+    account authorization state (roles, authorization groups, and the
+    target user's resolved permissions). Requires read access to
+    users, roles, and authorization groups.
+
+    Arguments:
+
+    * `for_user` (`UUID!`): UUID of the user whose authorization
+      context the prompt should reflect. Must belong to the caller's
+      account.
+    """
+
     fix_sql_query = sgqlc.types.Field(
         AIMessageOutput,
         graphql_name="fixSqlQuery",
@@ -75448,6 +75961,14 @@ class Query(sgqlc.types.Type):
     * `mcon` (`String!`): MCON of the agent data source
     * `connection_uuid` (`UUID`): Connection UUID for schema and
       warehouse type lookup
+    """
+
+    get_agentic_domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgenticDomainOutput)),
+        graphql_name="getAgenticDomains",
+    )
+    """(experimental) Get the list of agentic domains for the current
+    account.
     """
 
     get_agent_operation_logs = sgqlc.types.Field(
@@ -76431,6 +76952,34 @@ class RegisterGitlabApp(sgqlc.types.Type):
     __field_names__ = ("auth_url",)
     auth_url = sgqlc.types.Field(String, graphql_name="authUrl")
     """GitLab URL to request authorization code"""
+
+
+class RelatedAlert(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("incident", "role")
+    incident = sgqlc.types.Field(sgqlc.types.non_null("Incident"), graphql_name="incident")
+
+    role = sgqlc.types.Field(sgqlc.types.non_null(FindingAlertRole), graphql_name="role")
+
+
+class RelatedAsset(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("asset", "role")
+    asset = sgqlc.types.Field(sgqlc.types.non_null(Asset), graphql_name="asset")
+
+    role = sgqlc.types.Field(sgqlc.types.non_null(FindingAssetRole), graphql_name="role")
+
+
+class RelatedMonitor(sgqlc.types.Type):
+    """Monitor reference. Clients fetch full monitor details via
+    ``getMonitors``.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("monitor_uuid", "role")
+    monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
+
+    role = sgqlc.types.Field(sgqlc.types.non_null(FindingMonitorRole), graphql_name="role")
 
 
 class RelatedUserCount(sgqlc.types.Type):
@@ -79132,6 +79681,14 @@ class StringAttribute(sgqlc.types.Type):
     __field_names__ = ("string_value",)
     string_value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="stringValue")
     """String value"""
+
+
+class SubmitFindingFeedback(sgqlc.types.Type):
+    """Append user feedback (Confirm/Override/Dismiss/Undo) to a finding."""
+
+    __schema__ = schema
+    __field_names__ = ("finding",)
+    finding = sgqlc.types.Field(sgqlc.types.non_null("Finding"), graphql_name="finding")
 
 
 class SupportedTableValidationsResponse(sgqlc.types.Type):
@@ -82642,6 +83199,18 @@ class TriggerPlatformMigrationTest(sgqlc.types.Type):
     __field_names__ = ("migration_uuid",)
     migration_uuid = sgqlc.types.Field(UUID, graphql_name="migrationUuid")
     """UUID assigned to the operation, used to check status"""
+
+
+class TsaAnalysis(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("status", "thread_id", "run_id", "conversation_data")
+    status = sgqlc.types.Field(sgqlc.types.non_null(TsaAnalysisStatusEnum), graphql_name="status")
+
+    thread_id = sgqlc.types.Field(String, graphql_name="threadId")
+
+    run_id = sgqlc.types.Field(String, graphql_name="runId")
+
+    conversation_data = sgqlc.types.Field(JSONString, graphql_name="conversationData")
 
 
 class TsaAnalysisResultType(sgqlc.types.Type):
@@ -86390,6 +86959,7 @@ class AuditedUser(sgqlc.types.Type, Node):
         "tablemonitormodel_created_by",
         "tablemonitormodel_updated_by",
         "object_properties",
+        "catalog_objects",
         "catalog_object_metadata",
         "resources",
         "monte_carlo_config_templates",
@@ -86424,6 +86994,7 @@ class AuditedUser(sgqlc.types.Type, Node):
         "dataexplorerwidgetmodel_created_by",
         "dataexplorerwidgetmodel_updated_by",
         "favorite_assets",
+        "finding_feedback",
         "lineage_block_patterns",
         "lineage_repl_rules",
         "lineagenodecollapsingpatternmodel_created_by",
@@ -87105,6 +87676,12 @@ class AuditedUser(sgqlc.types.Type, Node):
     * `mcon_id` (`String`)None
     """
 
+    catalog_objects = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Asset))),
+        graphql_name="catalogObjects",
+    )
+    """Who last updated the object"""
+
     catalog_object_metadata = sgqlc.types.Field(
         sgqlc.types.non_null(CatalogObjectMetadataConnection),
         graphql_name="catalogObjectMetadata",
@@ -87776,6 +88353,11 @@ class AuditedUser(sgqlc.types.Type, Node):
         graphql_name="favoriteAssets",
     )
     """User who favorited this asset"""
+
+    finding_feedback = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FeedbackEntry))),
+        graphql_name="findingFeedback",
+    )
 
     lineage_block_patterns = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(LineageNodeBlockPattern))),
@@ -90941,13 +91523,16 @@ class DomainRestriction(sgqlc.types.Type, Node):
         "uuid",
         "name",
         "domain_type",
+        "include_all_assets",
         "description",
         "created_by",
+        "catalog_objects",
         "tables",
         "obj_assignment_update_time",
         "warehouses_using_sampling",
         "data_products_created_in",
         "custom_dashboards",
+        "agentic_findings",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -90966,10 +91551,23 @@ class DomainRestriction(sgqlc.types.Type, Node):
     sampled.
     """
 
+    include_all_assets = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="includeAllAssets"
+    )
+    """When true, this domain logically includes every asset in the
+    account without enumerating assignments or tags. Used by agentic
+    domains.
+    """
+
     description = sgqlc.types.Field(String, graphql_name="description")
     """Domain description"""
 
     created_by = sgqlc.types.Field("User", graphql_name="createdBy")
+
+    catalog_objects = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Asset))),
+        graphql_name="catalogObjects",
+    )
 
     tables = sgqlc.types.Field(
         sgqlc.types.non_null(WarehouseTableConnection),
@@ -91048,6 +91646,32 @@ class DomainRestriction(sgqlc.types.Type, Node):
     )
     """Domain this dashboard belongs to. Optional when not domain-
     restricted.
+
+    Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    agentic_findings = sgqlc.types.Field(
+        sgqlc.types.non_null(FindingConnection),
+        graphql_name="agenticFindings",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Customer-visible domain the agent is watching. Every finding is
+    scoped to a specific domain; account-wide activation is not
+    supported in v1.
 
     Arguments:
 
@@ -91490,6 +92114,158 @@ class FilterValueSql(sgqlc.types.Type, FilterValueInterface):
     __schema__ = schema
     __field_names__ = ("sql",)
     sql = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sql")
+
+
+class Finding(sgqlc.types.Type, Node):
+    """A finding produced by an autonomous observability agent."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "created_time",
+        "updated_time",
+        "uuid",
+        "title",
+        "summary",
+        "detection_time",
+        "detail_payload",
+        "actions",
+        "confidence_score",
+        "use_case",
+        "criticality_score",
+        "suggested_next_steps",
+        "budget_credits_consumed",
+        "finding_type",
+        "agent_type",
+        "severity",
+        "status",
+        "agentic_scope_uuid",
+        "parent_finding_uuid",
+        "feedback_action",
+        "feedback_at",
+        "feedback_by",
+        "feedback_history",
+        "related_alerts",
+        "related_alerts_count",
+        "related_monitors",
+        "related_monitors_count",
+        "deployed_monitors",
+        "deployed_monitors_count",
+        "related_assets",
+        "related_assets_count",
+        "tsa_analysis",
+    )
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+
+    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
+
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Public finding identifier."""
+
+    title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
+    """Human-readable title."""
+
+    summary = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="summary")
+    """Agent-generated summary."""
+
+    detection_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="detectionTime")
+    """When the agent run produced this finding."""
+
+    detail_payload = sgqlc.types.Field(
+        sgqlc.types.non_null(JSONString), graphql_name="detailPayload"
+    )
+    """Type-specific structured data. Schemas are owned by the agent repo
+    and validated at write time by the agents themselves.
+    """
+
+    actions = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="actions")
+    """Available actions the user can take on this finding."""
+
+    confidence_score = sgqlc.types.Field(Float, graphql_name="confidenceScore")
+    """Agent self-reported confidence in the finding (0–1)."""
+
+    use_case = sgqlc.types.Field(String, graphql_name="useCase")
+    """Business use case the finding relates to, e.g. "Finance
+    reporting".
+    """
+
+    criticality_score = sgqlc.types.Field(Int, graphql_name="criticalityScore")
+    """Criticality of the affected asset (0–100)."""
+
+    suggested_next_steps = sgqlc.types.Field(String, graphql_name="suggestedNextSteps")
+    """Suggested next steps for the user (plain text / markdown)."""
+
+    budget_credits_consumed = sgqlc.types.Field(Decimal, graphql_name="budgetCreditsConsumed")
+    """Credits this finding consumed when produced."""
+
+    finding_type = sgqlc.types.Field(sgqlc.types.non_null(FindingType), graphql_name="findingType")
+
+    agent_type = sgqlc.types.Field(sgqlc.types.non_null(FindingAgentType), graphql_name="agentType")
+
+    severity = sgqlc.types.Field(sgqlc.types.non_null(FindingSeverity), graphql_name="severity")
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(FindingStatus), graphql_name="status")
+
+    agentic_scope_uuid = sgqlc.types.Field(
+        sgqlc.types.non_null(UUID), graphql_name="agenticScopeUuid"
+    )
+
+    parent_finding_uuid = sgqlc.types.Field(UUID, graphql_name="parentFindingUuid")
+
+    feedback_action = sgqlc.types.Field(FindingFeedbackAction, graphql_name="feedbackAction")
+    """Latest feedback action on this finding (null if none)."""
+
+    feedback_at = sgqlc.types.Field(DateTime, graphql_name="feedbackAt")
+    """When the latest feedback was recorded."""
+
+    feedback_by = sgqlc.types.Field("User", graphql_name="feedbackBy")
+    """User who submitted the latest feedback."""
+
+    feedback_history = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FeedbackEntry))),
+        graphql_name="feedbackHistory",
+    )
+    """Full feedback history (newest first)."""
+
+    related_alerts = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(RelatedAlert))),
+        graphql_name="relatedAlerts",
+    )
+
+    related_alerts_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="relatedAlertsCount"
+    )
+
+    related_monitors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(RelatedMonitor))),
+        graphql_name="relatedMonitors",
+    )
+
+    related_monitors_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="relatedMonitorsCount"
+    )
+
+    deployed_monitors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DeployedMonitor))),
+        graphql_name="deployedMonitors",
+    )
+
+    deployed_monitors_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="deployedMonitorsCount"
+    )
+
+    related_assets = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(RelatedAsset))),
+        graphql_name="relatedAssets",
+    )
+
+    related_assets_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="relatedAssetsCount"
+    )
+
+    tsa_analysis = sgqlc.types.Field(TsaAnalysis, graphql_name="tsaAnalysis")
+    """TSA analysis for escalated findings with a triggering alert. Null
+    when no triggering alert is linked or no TSA run exists.
+    """
 
 
 class FivetranConnector(sgqlc.types.Type, Node):
@@ -93473,6 +94249,7 @@ class UnifiedUserAssignment(sgqlc.types.Type, Node):
     __field_names__ = (
         "account_id",
         "unified_user",
+        "object",
         "relationship_type",
         "created_time",
         "is_deleted",
@@ -93483,6 +94260,9 @@ class UnifiedUserAssignment(sgqlc.types.Type, Node):
 
     unified_user = sgqlc.types.Field(sgqlc.types.non_null(UnifiedUser), graphql_name="unifiedUser")
     """Associated MC user"""
+
+    object = sgqlc.types.Field(sgqlc.types.non_null(Asset), graphql_name="object")
+    """Associated catalog object"""
 
     relationship_type = sgqlc.types.Field(
         UnifiedUserAssignmentModelRelationshipType, graphql_name="relationshipType"
@@ -93557,6 +94337,7 @@ class User(sgqlc.types.Type, Node):
         "tablemonitormodel_created_by",
         "tablemonitormodel_updated_by",
         "object_properties",
+        "catalog_objects",
         "catalog_object_metadata",
         "resources",
         "monte_carlo_config_templates",
@@ -93591,6 +94372,7 @@ class User(sgqlc.types.Type, Node):
         "dataexplorerwidgetmodel_created_by",
         "dataexplorerwidgetmodel_updated_by",
         "favorite_assets",
+        "finding_feedback",
         "lineage_block_patterns",
         "lineage_repl_rules",
         "lineagenodecollapsingpatternmodel_created_by",
@@ -94275,6 +95057,12 @@ class User(sgqlc.types.Type, Node):
     * `mcon_id` (`String`)None
     """
 
+    catalog_objects = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Asset))),
+        graphql_name="catalogObjects",
+    )
+    """Who last updated the object"""
+
     catalog_object_metadata = sgqlc.types.Field(
         sgqlc.types.non_null(CatalogObjectMetadataConnection),
         graphql_name="catalogObjectMetadata",
@@ -94946,6 +95734,11 @@ class User(sgqlc.types.Type, Node):
         graphql_name="favoriteAssets",
     )
     """User who favorited this asset"""
+
+    finding_feedback = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FeedbackEntry))),
+        graphql_name="findingFeedback",
+    )
 
     lineage_block_patterns = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(LineageNodeBlockPattern))),

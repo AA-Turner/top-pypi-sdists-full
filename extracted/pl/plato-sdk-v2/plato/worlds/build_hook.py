@@ -62,8 +62,10 @@ class WorldSchemaHook(BuildHookInterface):
             # Find the world module by looking for packages
             module_name = self._find_module_name(src_path)
             if not module_name:
-                print("Warning: Could not determine module name for schema generation")
-                return
+                raise RuntimeError(
+                    "Could not determine module name for schema generation. "
+                    "Expected a package directory with __init__.py under src/ or the project root."
+                )
 
             # Find and import all .py files with @register_world,
             # bypassing __init__.py to avoid importing heavy runtime deps.
@@ -79,8 +81,10 @@ class WorldSchemaHook(BuildHookInterface):
             from plato.worlds.base import _WORLD_REGISTRY
 
             if not _WORLD_REGISTRY:
-                print(f"Warning: No worlds registered after importing {module_name}")
-                return
+                raise RuntimeError(
+                    f"No worlds registered after importing {module_name}. "
+                    f"Expected @register_world(...) decorator on a BaseWorld subclass."
+                )
 
             # Generate image URL from package name
             image_url = self._get_image_url()
@@ -120,10 +124,15 @@ class WorldSchemaHook(BuildHookInterface):
 
             print(f"Generated schema.json (catalog): {len(catalog['worlds'])} worlds")
 
-        except ValueError:
-            raise
-        except Exception as e:
-            print(f"Warning: Could not generate schema.json: {e}")
+        except ModuleNotFoundError as e:
+            raise RuntimeError(
+                f"World schema generation failed while importing {module_name or 'the world module'}: {e!s}. "
+                f"The build hook imports the world package to introspect its Pydantic config. "
+                f"Use `plato world publish` (runs `uv sync` + `uv build --no-build-isolation` "
+                f"against the world's .venv), or if invoking `uv build` directly, first run "
+                f"`uv sync --no-dev && uv pip install hatchling && uv build --no-build-isolation`. "
+                f"To bypass the build hook entirely, set {_SKIP_WORLD_BUILD_HOOK_ENV}=1."
+            ) from e
         finally:
             if str(src_path) in sys.path:
                 sys.path.remove(str(src_path))

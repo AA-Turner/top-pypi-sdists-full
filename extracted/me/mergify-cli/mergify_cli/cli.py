@@ -23,9 +23,12 @@ import click
 import httpx
 
 from mergify_cli import VERSION
+from mergify_cli import console
+from mergify_cli import utils
 from mergify_cli.ci import cli as ci_cli_mod
 from mergify_cli.config import cli as config_cli_mod
 from mergify_cli.dym import DYMGroup
+from mergify_cli.exit_codes import ExitCode
 from mergify_cli.freeze import cli as freeze_cli_mod
 from mergify_cli.queue import cli as queue_cli_mod
 from mergify_cli.stack import cli as stack_cli_mod
@@ -78,6 +81,12 @@ def main() -> None:
 
     try:
         cli()
-    except httpx.HTTPStatusError:
-        # Error details already printed by check_for_status
-        raise SystemExit(1) from None
+    except httpx.HTTPStatusError as e:
+        # Error details already printed by check_for_status.
+        # Distinguish Mergify API from GitHub API using the request base URL.
+        if str(e.request.url).startswith(utils.get_mergify_api_url()):
+            raise SystemExit(ExitCode.MERGIFY_API_ERROR) from None
+        raise SystemExit(ExitCode.GITHUB_API_ERROR) from None
+    except utils.CommandError as e:
+        console.print(f"error: {e}", style="red")
+        raise SystemExit(ExitCode.GENERIC_ERROR) from None

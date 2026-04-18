@@ -191,9 +191,7 @@ class EdbPadstacks(object):
             return self._definitions
         self._definitions = {}
         for padstackdef in list(self._pedb._db.PadstackDefs):
-            PadStackData = padstackdef.GetData()
-            if len(PadStackData.GetLayerNames()) >= 1:
-                self._definitions[padstackdef.GetName()] = EDBPadstack(padstackdef, self)
+            self._definitions[padstackdef.GetName()] = EDBPadstack(padstackdef, self)
         return self._definitions
 
     @property
@@ -1264,7 +1262,7 @@ class EdbPadstacks(object):
                 net._edb_object,
                 via_name,
                 padstack,
-                position._edb_object,
+                position.core,
                 rotation,
                 fromlayer,
                 tolayer,
@@ -1466,9 +1464,12 @@ class EdbPadstacks(object):
                     instances = [inst for inst in instances if inst.component_pin in component_pin]
             return instances
 
-    @deprecated("use get_instances method instead.")
+    @deprecated("Use get_instances method instead.")
     def get_padstack_instance_by_net_name(self, net_name):
         """Get a list of padstack instances by net name.
+
+        .. deprecated:: 0.71.0
+           Use get_instances method instead.
 
         Parameters
         ----------
@@ -1603,8 +1604,8 @@ class EdbPadstacks(object):
             raise Exception("No points defining polygon was provided")
         if not padstack_instances_index:
             padstack_instances_index = {}
-            for inst in self.instances:
-                padstack_instances_index[inst.id] = inst.position
+            for inst_id, inst in self.instances.items():
+                padstack_instances_index[inst_id] = inst.position
         _x = [pt[0] for pt in points]
         _y = [pt[1] for pt in points]
         points = [_x, _y]

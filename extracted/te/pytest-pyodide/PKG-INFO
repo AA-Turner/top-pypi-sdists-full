@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-pyodide
-Version: 0.59.0
+Version: 0.59.1
 Summary: Pytest plugin for testing applications that use Pyodide
 Project-URL: Homepage, https://github.com/pyodide/pytest-pyodide
 Project-URL: Repository, https://github.com/pyodide/pytest-pyodide
@@ -393,6 +393,7 @@ Requires-Dist: selenium
 Requires-Dist: tblib>=3
 Provides-Extra: test
 Requires-Dist: build; extra == 'test'
+Requires-Dist: coverage; extra == 'test'
 Requires-Dist: pytest-cov; extra == 'test'
 Requires-Dist: requests; extra == 'test'
 Requires-Dist: selenium<4.21.0; extra == 'test'

@@ -1,11 +1,14 @@
 import asyncio
 import inspect
 import logging
+from collections import deque
 from collections.abc import Coroutine
 from time import perf_counter
 from typing import Any, AsyncContextManager, Callable, Optional, TypeVar
 
+import numpy as np
 import tenacity as tc
+from pydantic import BaseModel
 
 import verifiers as vf
 from verifiers.utils.error_utils import ErrorChain
@@ -31,6 +34,14 @@ async def maybe_await(func: Callable, *args, **kwargs):
     if inspect.isawaitable(result):
         return await result
     return result
+
+
+class NullContext:
+    def __enter__(self):
+        return None
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return False
 
 
 class NullAsyncContext:
@@ -65,19 +76,12 @@ class EventLoopLagMonitor:
     def __init__(
         self,
         measure_interval: float = 0.1,
-        max_measurements: int = int(1e5),
-        logger: Any | None = None,
+        max_measurements: int = 1000,
     ):
         assert measure_interval > 0 and max_measurements > 0
         self.measure_interval = measure_interval
         self.max_measurements = max_measurements
-        self.logger = logger or logging.getLogger(
-            f"{__name__}.{self.__class__.__name__}"
-        )
-        self.lags: list[float] = []
-        self.logger.debug(
-            f"Event loop lag monitor initialized with measure_interval={self.measure_interval} and max_measurements={self.max_measurements}"
-        )
+        self.lags: deque[float] = deque(maxlen=max_measurements)
 
     async def measure_lag(self):
         """Measures event loop lag by asynchronously sleeping for interval seconds"""
@@ -87,21 +91,51 @@ class EventLoopLagMonitor:
         lag = now - next_time
         return lag
 
-    def reset(self):
-        """Reset the list of measured event loop lags."""
-        self.lags = []
-
     async def run(self):
         """Loop to measure event loop lag. Should be started as background task."""
         while True:
             lag = await self.measure_lag()
             self.lags.append(lag)
-            if len(self.lags) > self.max_measurements:
-                self.lags.pop(0)
 
-    def run_in_background(self):
-        """Run the event loop lag monitor as a background task."""
-        return asyncio.create_task(self.run())
+
+class EventLoopLagStats(BaseModel):
+    """Snapshot of event loop lag statistics."""
+
+    min: float = 0.0
+    mean: float = 0.0
+    median: float = 0.0
+    p90: float = 0.0
+    p99: float = 0.0
+    max: float = 0.0
+    n: int = 0
+
+    def __str__(self) -> str:
+        from verifiers.utils.logging_utils import print_time
+
+        if self.n == 0:
+            return "no samples"
+        return (
+            f"min={print_time(self.min)} mean={print_time(self.mean)} "
+            f"median={print_time(self.median)} p90={print_time(self.p90)} "
+            f"p99={print_time(self.p99)} max={print_time(self.max)} (n={self.n})"
+        )
+
+    @classmethod
+    def from_monitor(cls, monitor: EventLoopLagMonitor) -> "EventLoopLagStats":
+        lags = monitor.lags
+        n = len(lags)
+        if n == 0:
+            return cls(n=0)
+        arr = np.array(lags)
+        return cls(
+            min=float(arr.min()),
+            mean=float(arr.mean()),
+            median=float(np.median(arr)),
+            p90=float(np.percentile(arr, 90)),
+            p99=float(np.percentile(arr, 99)),
+            max=float(arr.max()),
+            n=n,
+        )
 
 
 def maybe_retry(

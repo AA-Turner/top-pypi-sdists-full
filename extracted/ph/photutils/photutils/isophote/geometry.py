@@ -1,13 +1,14 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define a container class to store parameters for the geometry of an
-ellipse.
+Tools for storing parameters for the geometry of an ellipse.
 """
 
 import math
 
 import numpy as np
 from astropy import log
+
+from photutils.utils._deprecation import deprecated_positional_kwargs
 
 __all__ = ['EllipseGeometry']
 
@@ -96,8 +97,8 @@ class EllipseGeometry:
         axes, respectively.
     pa : float
         The position angle (in radians) of the semimajor axis in
-        relation to the positive x axis of the image array (rotating
-        towards the positive y axis). Position angles are defined in the
+        relation to the positive x-axis of the image array (rotating
+        towards the positive y-axis). Position angles are defined in the
         range :math:`0 < PA <= \pi`. Avoid using as starting position
         angle of 0., since the fit algorithm may not work properly.
         When the ellipses are such that position angles are near either
@@ -121,6 +122,7 @@ class EllipseGeometry:
         Keep ellipticity of ellipse fixed during fit? The default is False.
     """
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __init__(self, x0, y0, sma, eps, pa, astep=0.1, linear_growth=False,
                  fix_center=False, fix_pa=False, fix_eps=False):
         self.x0 = x0
@@ -153,6 +155,7 @@ class EllipseGeometry:
             self.initial_polar_angle = self.sector_angular_width / 2.0
             self.initial_polar_radius = self.radius(self.initial_polar_angle)
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def find_center(self, image, threshold=0.1, verbose=True):
         """
         Find the center of a galaxy.
@@ -164,9 +167,8 @@ class EllipseGeometry:
         The isophote fit algorithm requires an initial guess for the
         galaxy center (x, y) coordinates and these coordinates must be
         close to the actual galaxy center for the isophote fit to work.
-        This method provides can provide an initial guess for the galaxy
-        center coordinates. See the **Notes** section below for more
-        details.
+        This method can provide an initial guess for the galaxy center
+        coordinates. See the **Notes** section below for more details.
 
         Parameters
         ----------

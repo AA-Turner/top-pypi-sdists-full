@@ -24,7 +24,7 @@ QuantConnect_Algorithm_Framework_Selection_UniverseSelectionModel = typing.Any
 class IUniverseSelectionModel(metaclass=abc.ABCMeta):
     """Algorithm framework model that defines the universes to be used by an algorithm"""
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates the universes for this algorithm. Called once after IAlgorithm.initialize
         
@@ -45,7 +45,7 @@ class UniverseSelectionModel(QuantConnect.Python.BasePythonWrapper[QuantConnect_
         """Initializes a new instance of the UniverseSelectionModel class."""
         ...
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates the universes for this algorithm. Called once after IAlgorithm.initialize
         
@@ -126,7 +126,7 @@ class ETFConstituentsUniverseSelectionModel(QuantConnect.Algorithm.Framework.Sel
         """
         ...
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates a new ETF constituents universe using this class's selection function
         
@@ -194,7 +194,7 @@ class CustomUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.Un
         """
         ...
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates the universes for this algorithm. Called at algorithm start.
         
@@ -202,7 +202,7 @@ class CustomUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.Un
         """
         ...
 
-    def select(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[str]:
+    def select(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[str]:
         """
         
         
@@ -242,7 +242,7 @@ class InceptionDateUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selec
         """
         ...
 
-    def select(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[str]:
+    def select(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[str]:
         """Returns all tickers that are trading at current algorithm Time"""
         ...
 
@@ -318,7 +318,7 @@ class FutureUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.Un
         """
         ...
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates the universes for this algorithm. Called once after IAlgorithm.initialize
         
@@ -380,7 +380,7 @@ class OpenInterestFutureUniverseSelectionModel(QuantConnect.Algorithm.Framework.
         """
         ...
 
-    def filter_by_open_interest(self, contracts: System.Collections.Generic.IReadOnlyDictionary[QuantConnect.Symbol, QuantConnect.Securities.MarketHoursDatabase.Entry]) -> typing.Iterable[QuantConnect.Symbol]:
+    def filter_by_open_interest(self, contracts: typing.Dict[QuantConnect.Symbol, QuantConnect.Securities.MarketHoursDatabase.Entry]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Filters a set of contracts based on open interest.
         
@@ -459,35 +459,6 @@ class FundamentalUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selecti
         """
         ...
 
-    @overload
-    def __init__(self, filter_fine_data: bool) -> None:
-        """
-        Initializes a new instance of the FundamentalUniverseSelectionModel class
-        
-        
-        This codeEntityType is protected.
-        
-        Fine and Coarse selection are merged, please use 'FundamentalUniverseSelectionModel()'
-        
-        :param filter_fine_data: True to also filter using fine fundamental data, false to only filter on coarse data
-        """
-        ...
-
-    @overload
-    def __init__(self, filter_fine_data: bool, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
-        """
-        Initializes a new instance of the FundamentalUniverseSelectionModel class
-        
-        
-        This codeEntityType is protected.
-        
-        Fine and Coarse selection are merged, please use 'FundamentalUniverseSelectionModel(UniverseSettings)'
-        
-        :param filter_fine_data: True to also filter using fine fundamental data, false to only filter on coarse data
-        :param universe_settings: The settings used when adding symbols to the algorithm, specify null to use algorithm.UniverseSettings
-        """
-        ...
-
     @staticmethod
     def coarse(coarse_selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel:
         """
@@ -511,7 +482,7 @@ class FundamentalUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selecti
         """
         ...
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates a new fundamental universe using this class's selection functions
         
@@ -544,7 +515,7 @@ class FundamentalUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selecti
         """
         ...
 
-    def select(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, fundamental: typing.List[QuantConnect.Data.Fundamental.Fundamental]) -> typing.Iterable[QuantConnect.Symbol]:
+    def select(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, fundamental: typing.List[QuantConnect.Data.Fundamental.Fundamental]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Defines the fundamental selection function.
         
@@ -554,7 +525,7 @@ class FundamentalUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selecti
         """
         ...
 
-    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Defines the coarse fundamental selection function.
         
@@ -567,7 +538,7 @@ class FundamentalUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selecti
         """
         warnings.warn("Fine and Coarse selection are merged, please use 'Select(QCAlgorithm, IEnumerable<Fundamental>)'", DeprecationWarning)
 
-    def select_fine(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, fine: typing.List[QuantConnect.Data.Fundamental.FineFundamental]) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_fine(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, fine: typing.List[QuantConnect.Data.Fundamental.FineFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Defines the fine fundamental selection function.
         
@@ -598,7 +569,7 @@ class EmaCrossUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.
         """
         ...
 
-    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Defines the coarse fundamental selection function.
         
@@ -692,7 +663,7 @@ class ScheduledUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection
         """
         ...
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates the universes for this algorithm. Called once after IAlgorithm.initialize
         
@@ -747,7 +718,7 @@ class OptionUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.Un
         """
         ...
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates the universes for this algorithm. Called once after IAlgorithm.initialize
         
@@ -847,7 +818,7 @@ class CoarseFundamentalUniverseSelectionModel(QuantConnect.Algorithm.Framework.S
         """
         ...
 
-    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
         ...
 
 
@@ -994,10 +965,10 @@ class FineFundamentalUniverseSelectionModel(QuantConnect.Algorithm.Framework.Sel
         """
         ...
 
-    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
         ...
 
-    def select_fine(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, fine: typing.List[QuantConnect.Data.Fundamental.FineFundamental]) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_fine(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, fine: typing.List[QuantConnect.Data.Fundamental.FineFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
         ...
 
 
@@ -1021,7 +992,7 @@ class QC500UniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.Fun
         """
         ...
 
-    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs coarse selection for the QC500 constituents.
         The stocks must have fundamental data
@@ -1030,7 +1001,7 @@ class QC500UniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.Fun
         """
         ...
 
-    def select_fine(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, fine: typing.List[QuantConnect.Data.Fundamental.FineFundamental]) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_fine(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, fine: typing.List[QuantConnect.Data.Fundamental.FineFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs fine selection for the QC500 constituents
         The company's headquarter must in the U.S.
@@ -1048,7 +1019,7 @@ class CustomUniverse(QuantConnect.Data.UniverseSelection.UserDefinedUniverse):
         """Creates a new instance of the CustomUniverse"""
         ...
 
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
         """
         Gets the subscription requests to be added for the specified security
         
@@ -1064,7 +1035,7 @@ class CustomUniverse(QuantConnect.Data.UniverseSelection.UserDefinedUniverse):
 class NullUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
     """Provides a null implementation of IUniverseSelectionModel"""
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates the universes for this algorithm.
         Called at algorithm start.
@@ -1116,7 +1087,7 @@ class CompositeUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection
         """
         ...
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates the universes for this algorithm.
         
@@ -1177,7 +1148,7 @@ class ManualUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.Un
         """
         ...
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates the universes for this algorithm.
         Called at algorithm start.
@@ -1197,7 +1168,7 @@ class ManualUniverse(QuantConnect.Data.UniverseSelection.UserDefinedUniverse):
         """Creates a new instance of the ManualUniverse"""
         ...
 
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
         """
         Gets the subscription requests to be added for the specified security
         
@@ -1221,7 +1192,7 @@ class UniverseSelectionModelPythonWrapper(QuantConnect.Algorithm.Framework.Selec
         """
         ...
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates the universes for this algorithm. Called once after IAlgorithm.initialize
         

@@ -30,6 +30,7 @@ from docling_jobkit.orchestrators.ray.config import RayOrchestratorConfig
 from docling_jobkit.orchestrators.ray.logging_utils import (
     configure_ray_actor_logging,
 )
+from docling_jobkit.orchestrators.ray.models import TaskUpdate
 from docling_jobkit.orchestrators.ray.redis_helper import RedisStateManager
 
 _log = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ class DocumentProcessorDeployment:
         # Get replica context for logging
         try:
             replica_context = serve.get_replica_context()
-            self.replica_id = replica_context.replica_id
+            self.replica_id = str(replica_context.replica_id)
         except RuntimeError:
             self.replica_id = "unknown"
 
@@ -90,6 +91,8 @@ class DocumentProcessorDeployment:
         self.redis_manager = RedisStateManager(
             redis_url=redis_url,
             results_ttl=config.results_ttl,
+            task_timeout=config.task_timeout,
+            dispatcher_interval=config.dispatcher_interval,
             log_level=config.log_level,
         )
         # Note: Connection will be established on first use (lazy connection)
@@ -135,28 +138,48 @@ class DocumentProcessorDeployment:
             await self.redis_manager.update_task_status(
                 task.task_id, TaskStatus.STARTED
             )
-
-            # Update processing state to "processing" (used for accurate metrics)
-            await self.redis_manager.mark_task_processing(task.task_id, tenant_id)
-
-            _log.debug(
-                f"Replica {self.replica_id}: Task {task.task_id} marked as processing"
-            )
         except Exception as e:
             _log.warning(
                 f"Replica {self.replica_id}: Failed to update task processing state: {e}"
             )
             # Continue processing even if status update fails
 
-        # Check memory before processing
-        if self.config.enable_oom_protection and PSUTIL_AVAILABLE:
-            await self._check_memory()
-
-        # Create task-specific work directory
+        # heartbeat_task and workdir are initialized here so the finally block
+        # can reference them unconditionally regardless of where an exception occurs.
+        heartbeat_task: Optional[asyncio.Task] = None
         workdir = self.scratch_dir / task.task_id
-        workdir.mkdir(exist_ok=True, parents=True)
 
         try:
+            # Write replica-owned execution lease and start heartbeat.
+            # Liveness signal reconciliation reads to judge STARTED tasks.
+            _execution_lease_written = False
+            try:
+                await self.redis_manager.write_task_execution_lease(
+                    task_id=task.task_id,
+                    tenant_id=tenant_id,
+                    replica_id=self.replica_id,
+                )
+                _execution_lease_written = True
+            except Exception as e:
+                _log.error(
+                    "Replica %s: Failed to write execution lease for %s: %s. "
+                    "Reconciliation will not detect a crash of this replica for this task.",
+                    self.replica_id,
+                    task.task_id,
+                    e,
+                )
+            if _execution_lease_written:
+                heartbeat_task = asyncio.create_task(
+                    self._maintain_execution_heartbeat(task.task_id)
+                )
+
+            # Check memory before processing
+            if self.config.enable_oom_protection and PSUTIL_AVAILABLE:
+                await self._check_memory()
+
+            # Create task-specific work directory
+            workdir.mkdir(exist_ok=True, parents=True)
+
             # Process based on task type
             if task.task_type == TaskType.CONVERT:
                 result = await self._process_convert_with_retry(task, workdir)
@@ -176,24 +199,56 @@ class DocumentProcessorDeployment:
                 f"in {duration:.2f}s"
             )
 
+            terminalization = await self.redis_manager.finalize_task_success_atomic(
+                tenant_id=tenant_id,
+                task_id=task.task_id,
+                task_size=len(task.sources),
+                result=result,
+            )
+            if (
+                terminalization.status_changed
+                and terminalization.final_status == TaskStatus.SUCCESS
+                and terminalization.result_key is not None
+            ):
+                try:
+                    await self.redis_manager.publish_update(
+                        TaskUpdate(
+                            task_id=task.task_id,
+                            task_status=TaskStatus.SUCCESS,
+                            result_key=terminalization.result_key,
+                            progress=None,
+                        )
+                    )
+                    await self.redis_manager.update_tenant_stats(
+                        tenant_id,
+                        delta_total_tasks=1,
+                        delta_total_documents=len(task.sources),
+                        delta_successful_documents=result.num_succeeded,
+                        delta_failed_documents=result.num_failed,
+                    )
+                except Exception as exc:
+                    _log.warning(
+                        f"Replica {self.replica_id}: Durable success follow-up failed "
+                        f"for task {task.task_id}: {exc}"
+                    )
+            elif terminalization.final_status == TaskStatus.FAILURE:
+                _log.warning(
+                    f"Replica {self.replica_id}: Task {task.task_id} completed after "
+                    "a terminal FAILURE was already recorded; preserving FAILURE"
+                )
+
             return result
 
         finally:
+            if heartbeat_task is not None:
+                heartbeat_task.cancel()
+                try:
+                    await heartbeat_task
+                except asyncio.CancelledError:
+                    pass
             # Clean up work directory
             if workdir.exists():
                 shutil.rmtree(workdir, ignore_errors=True)
-
-            # Clean up processing state (actor created it, actor deletes it)
-            try:
-                processing_key = f"task:{task.task_id}:processing"
-                await self.redis_manager._ensure_redis().delete(processing_key)
-                _log.debug(
-                    f"Replica {self.replica_id}: Cleaned up processing state for {task.task_id}"
-                )
-            except Exception as e:
-                _log.warning(
-                    f"Replica {self.replica_id}: Failed to clean up processing state: {e}"
-                )
 
     async def _process_convert_with_retry(
         self, task: Task, workdir: Path
@@ -205,7 +260,7 @@ class DocumentProcessorDeployment:
 
         for attempt in range(max_retries + 1):
             try:
-                return self._process_convert(task, workdir)
+                return await asyncio.to_thread(self._process_convert, task, workdir)
             except Exception as e:
                 last_exception = e
                 if attempt < max_retries:
@@ -276,7 +331,7 @@ class DocumentProcessorDeployment:
 
         for attempt in range(max_retries + 1):
             try:
-                return self._process_chunk(task, workdir)
+                return await asyncio.to_thread(self._process_chunk, task, workdir)
             except Exception as e:
                 last_exception = e
                 if attempt < max_retries:
@@ -342,6 +397,33 @@ class DocumentProcessorDeployment:
         )
 
         return processed_results
+
+    async def _maintain_execution_heartbeat(self, task_id: str) -> None:
+        """Refresh the replica-owned execution lease while a task is in flight.
+
+        This is the canonical liveness signal for a running task. Reconciliation
+        reads task:{id}:execution to determine whether a STARTED task still has
+        a live owner. Returning False from update_task_execution_heartbeat means
+        the key was deleted (terminalization happened), so we stop.
+        """
+        interval = max(self.config.heartbeat_interval, 0.01)
+        while True:
+            try:
+                updated = await self.redis_manager.update_task_execution_heartbeat(
+                    task_id
+                )
+                if not updated:
+                    return
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                _log.warning(
+                    "Replica %s [EXEC-HEARTBEAT] %s: failed to refresh execution lease: %s",
+                    self.replica_id,
+                    task_id,
+                    exc,
+                )
+            await asyncio.sleep(interval)
 
     async def _check_memory(self):
         """Check memory usage and warn if approaching limits."""

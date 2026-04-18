@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define tools to perform aperture photometry.
+Tools for performing aperture photometry.
 """
 
 import warnings
@@ -8,16 +8,25 @@ import warnings
 import astropy.units as u
 import numpy as np
 from astropy.nddata import NDData, StdDevUncertainty
-from astropy.table import QTable
 from astropy.utils.exceptions import AstropyUserWarning
 
 from photutils.aperture.converters import region_to_aperture
 from photutils.aperture.core import Aperture, SkyAperture, _aperture_metadata
+from photutils.utils._deprecation import (create_empty_deprecated_qtable,
+                                          deprecated_positional_kwargs)
 from photutils.utils._misc import _get_meta
 
 __all__ = ['aperture_photometry']
 
 
+# Remove in 4.0
+_DEPRECATED_COLUMNS: dict = {
+    'xcenter': 'x_center',
+    'ycenter': 'y_center',
+}
+
+
+@deprecated_positional_kwargs(since='3.0', until='4.0')
 def aperture_photometry(data, apertures, error=None, mask=None,
                         method='exact', subpixels=5, wcs=None):
     """
@@ -44,7 +53,7 @@ def aperture_photometry(data, apertures, error=None, mask=None,
         list of `~photutils.aperture.Aperture` or `regions.Region`
         The aperture(s) to use for the photometry. If ``apertures`` is
         a list of `~photutils.aperture.Aperture` or `regions.Region`,
-        then then they all must have the same position(s). If
+        then they all must have the same position(s). If
         ``apertures`` contains a `~photutils.aperture.SkyAperture` or
         `~regions.SkyRegion` object, then a WCS must be input using
         the ``wcs`` keyword. Region objects are converted to aperture
@@ -54,7 +63,7 @@ def aperture_photometry(data, apertures, error=None, mask=None,
         The pixel-wise Gaussian 1-sigma errors of the input
         ``data``. ``error`` is assumed to include *all* sources
         of error, including the Poisson error of the sources (see
-        `~photutils.utils.calc_total_error`) . ``error`` must have the
+        `~photutils.utils.calc_total_error`). ``error`` must have the
         same shape as the input ``data``. If a `~astropy.units.Quantity`
         array, then ``data`` must also be a `~astropy.units.Quantity`
         array with the same units.
@@ -113,7 +122,7 @@ def aperture_photometry(data, apertures, error=None, mask=None,
         * ``'id'``:
           The source ID.
 
-        * ``'xcenter'``, ``'ycenter'``:
+        * ``'x_center'``, ``'y_center'``:
           The ``x`` and ``y`` pixel coordinates of the input aperture
           center(s).
 
@@ -122,7 +131,7 @@ def aperture_photometry(data, apertures, error=None, mask=None,
           if a ``wcs`` is input.
 
         * ``'aperture_sum'``:
-          The sum of the values within the aperture.
+          The sum of the values within the aperture(s).
 
         * ``'aperture_sum_err'``:
           The corresponding uncertainty in the ``'aperture_sum'``
@@ -143,7 +152,7 @@ def aperture_photometry(data, apertures, error=None, mask=None,
     subpixel approximation gives results typically within 0.001 percent
     or better of the exact value. The differences can be larger for
     smaller apertures (e.g., aperture sizes of one pixel or smaller).
-    For such small sizes, it is recommend to set ``method='subpixel'``
+    For such small sizes, it is recommended to set ``method='subpixel'``
     with a larger ``subpixels`` size.
 
     If the input ``data`` is a `~astropy.nddata.NDData` instance,
@@ -157,9 +166,9 @@ def aperture_photometry(data, apertures, error=None, mask=None,
         nddata_attr = {'error': error, 'mask': mask, 'wcs': wcs}
         for key, value in nddata_attr.items():
             if value is not None:
-                warnings.warn(f'The {key!r} keyword is be ignored. Its value '
-                              'is obtained from the input NDData object.',
-                              AstropyUserWarning)
+                msg = (f'The {key!r} keyword is ignored. Its value '
+                       'is obtained from the input NDData object.')
+                warnings.warn(msg, AstropyUserWarning)
 
         mask = data.mask
         wcs = data.wcs
@@ -184,19 +193,19 @@ def aperture_photometry(data, apertures, error=None, mask=None,
         single_aperture = True
         apertures = (apertures,)
 
-    # create table metadata using the input apertures, not the converted
+    # Create table metadata using the input apertures, not the converted
     # ones
     aper_meta = {}
     for i, aperture in enumerate(apertures):
         i = '' if single_aperture else i
-        aper_meta.update(_aperture_metadata(aperture, i))
+        aper_meta.update(_aperture_metadata(aperture, index=i))
 
-    # convert regions to apertures if necessary
+    # Convert regions to apertures if necessary
     apertures = [region_to_aperture(aper)
                  if not isinstance(aper, Aperture) else aper
                  for aper in apertures]
 
-    # convert sky to pixel apertures
+    # Convert sky to pixel apertures
     skyaper = False
     if isinstance(apertures[0], SkyAperture):
         if wcs is None:
@@ -204,38 +213,41 @@ def aperture_photometry(data, apertures, error=None, mask=None,
                    'the wcs keyword when using a SkyAperture object.')
             raise ValueError(msg)
 
-        # used to include SkyCoord position in the output table
+        # Include SkyCoord position in the output table
         skyaper = True
         skycoord_pos = apertures[0].positions
 
         apertures = [aper.to_pixel(wcs) for aper in apertures]
 
-    # compare positions in pixels to avoid comparing SkyCoord objects
+    # Compare positions in pixels to avoid comparing SkyCoord objects
     positions = apertures[0].positions
     for aper in apertures[1:]:
         if not np.array_equal(aper.positions, positions):
             msg = 'Input apertures must all have identical positions'
             raise ValueError(msg)
 
-    # define output table meta data
+    # Define output table meta data
     meta = _get_meta()
     calling_args = f"method='{method}', subpixels={subpixels}"
     meta['aperture_photometry_args'] = calling_args
     meta.update(aper_meta)
 
-    tbl = QTable()
+    # Replace with QTable in 4.0
+    tbl = create_empty_deprecated_qtable(
+        _DEPRECATED_COLUMNS, since='3.0', until='4.0')
+
     tbl.meta.update(meta)  # keep tbl.meta type
 
     positions = np.atleast_2d(apertures[0].positions)
     tbl['id'] = np.arange(positions.shape[0], dtype=int) + 1
 
     xypos_pixel = np.transpose(positions)
-    tbl['xcenter'] = xypos_pixel[0]
-    tbl['ycenter'] = xypos_pixel[1]
+    tbl['x_center'] = xypos_pixel[0]
+    tbl['y_center'] = xypos_pixel[1]
 
     if skyaper:
         if skycoord_pos.isscalar:
-            # create length-1 SkyCoord array
+            # Create length-1 SkyCoord array
             tbl['sky_center'] = skycoord_pos.reshape((-1,))
         else:
             tbl['sky_center'] = skycoord_pos

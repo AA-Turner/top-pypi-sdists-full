@@ -4,7 +4,6 @@ Tests for the model module.
 """
 
 import warnings
-from contextlib import nullcontext
 
 import numpy as np
 import pytest
@@ -12,24 +11,23 @@ from astropy.io import fits
 from astropy.modeling.models import Gaussian2D
 from astropy.utils.data import get_pkg_data_filename
 
-from photutils.datasets import get_path
+from photutils.datasets.load import _get_path
 from photutils.isophote.ellipse import Ellipse
 from photutils.isophote.geometry import EllipseGeometry
 from photutils.isophote.isophote import IsophoteList
 from photutils.isophote.model import build_ellipse_model
 from photutils.isophote.tests.make_test_data import make_test_image
-from photutils.tests.helper import PYTEST_LT_80
 
 
 @pytest.mark.remote_data
 def test_model():
-    path = get_path('isophote/M105-S001-RGB.fits',
-                    location='photutils-datasets', cache=True)
+    path = _get_path('isophote/M105-S001-RGB.fits',
+                     location='photutils-datasets', cache=True)
     hdu = fits.open(path)
     data = hdu[0].data[0]
     hdu.close()
 
-    g = EllipseGeometry(530.0, 511, 10.0, 0.1, 10.0 / 180.0 * np.pi)
+    g = EllipseGeometry(530.0, 511, 10.0, 0.1, np.deg2rad(10.0))
     ellipse = Ellipse(data, geometry=g, threshold=1.0e5)
 
     # NOTE: this sometimes emits warnings (e.g., py38, ubuntu), but
@@ -80,23 +78,19 @@ def test_model_minimum_radius():
     filepath = get_pkg_data_filename('data/minimum_radius_test.fits')
     with fits.open(filepath) as hdu:
         data = hdu[0].data
-        g = EllipseGeometry(50.0, 45, 530.0, 0.1, 10.0 / 180.0 * np.pi)
+        g = EllipseGeometry(50.0, 45, 530.0, 0.1, np.deg2rad(10.0))
         g.find_center(data)
         ellipse = Ellipse(data, geometry=g)
 
         match1 = 'Degrees of freedom'
+        match2 = 'Mean of empty slice'
+        match3 = 'invalid value encountered'
         ctx1 = pytest.warns(RuntimeWarning, match=match1)
-        if PYTEST_LT_80:
-            ctx2 = nullcontext()
-            ctx3 = nullcontext()
-        else:
-            match2 = 'Mean of empty slice'
-            match3 = 'invalid value encountered'
-            ctx2 = pytest.warns(RuntimeWarning, match=match2)
-            ctx3 = pytest.warns(RuntimeWarning, match=match3)
+        ctx2 = pytest.warns(RuntimeWarning, match=match2)
+        ctx3 = pytest.warns(RuntimeWarning, match=match3)
         with ctx1, ctx2, ctx3:
             isophote_list = ellipse.fit_image(sma0=40, minsma=0,
-                                              maxsma=350.0, step=0.4, nclip=3)
+                                              maxsma=350.0, step=0.4, n_clip=3)
 
         model = build_ellipse_model(data.shape, isophote_list,
                                     fill=np.mean(data[0:50, 0:50]))
@@ -135,7 +129,7 @@ def test_model_harmonics():
     data += 5 * harm
 
     geometry = EllipseGeometry(x0=x0, y0=y0, sma=30, eps=eps, pa=theta)
-    ellipse = Ellipse(data, geometry)
+    ellipse = Ellipse(data, geometry=geometry)
     isolist = ellipse.fit_image(fix_center=True, fix_eps=True)
 
     model_image = build_ellipse_model(data.shape, isolist, high_harmonics=True)
@@ -143,3 +137,19 @@ def test_model_harmonics():
 
     mask = model_image > 0
     assert np.std(residual[mask]) < 0.4
+
+
+def test_model_integration():
+    """
+    Test that model integration does not stop as soon as the angle reaches
+    the edge of the image.
+    """
+    data = make_test_image(nx=80, ny=110, i0=100.0, sma=60.0, eps=0.5,
+                           pa=np.pi / 3.0, noise=0.05, seed=0)
+    g = EllipseGeometry(40, 55, 5.0, 0.5, np.pi / 3.0)
+    ellipse = Ellipse(data, geometry=g, threshold=1.0e5)
+    isophote_list = ellipse.fit_image()
+    model = build_ellipse_model(data.shape, isophote_list,
+                                fill=np.nanmean(data[105:, :5]),
+                                sma_interval=0.05)
+    assert np.nanmean(np.abs(model[100:, 60:] - data[100:, 60:])) < 2

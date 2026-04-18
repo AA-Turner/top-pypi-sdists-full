@@ -56,13 +56,15 @@ plot_pre_code = ''
 highlight_language = 'python3'
 
 # If your documentation needs a minimal Sphinx version, state it here.
-needs_sphinx = '3.0'
+needs_sphinx = '8.2'  # keep in sync with pyproject.toml
 
 # Extend astropy intersphinx_mapping with packages we use here
 intersphinx_mapping.update(  # noqa: F405
-    {'regions': ('https://astropy-regions.readthedocs.io/en/stable/', None),
+    {'gwcs': ('https://gwcs.readthedocs.io/en/latest/', None),
+     'regions': ('https://astropy-regions.readthedocs.io/en/stable/', None),
+     'shapely': ('https://shapely.readthedocs.io/en/stable/', None),
      'skimage': ('https://scikit-image.org/docs/stable/', None),
-     'gwcs': ('https://gwcs.readthedocs.io/en/latest/', None)})
+     })
 
 # Exclude astropy intersphinx_mapping for unused packages
 del intersphinx_mapping['h5py']  # noqa: F405
@@ -74,7 +76,13 @@ del intersphinx_mapping['h5py']  # noqa: F405
 
 extensions += [
     'sphinx_design',
+    'sphinx_reredirects',
 ]
+
+redirects = {
+    'user_guide/epsf': 'epsf_building.html',
+    'user_guide/profiles': 'radial_profiles.html',
+}
 
 # This is added to the end of RST files - a good place to put
 # substitutions to be used globally.
@@ -196,7 +204,11 @@ if os.path.isfile(nitpick_filename):
 
 # -- Options for linkcheck output ---------------------------------------------
 linkcheck_retry = 5
-linkcheck_ignore = ['http://data.astropy.org',
-                    r'https://iraf.net/*',
-                    r'https://github\.com/astropy/photutils/(?:issues|pull)/\d+']
+linkcheck_ignore = [
+    'http://data.astropy.org',
+    r'https://github\.com/astropy/photutils/(?:issues|pull)/\d+',
+    # Zenodo/doi: 403 Client Error: Forbidden for url
+    r'https://zenodo.org/records/*',
+    r'https://doi.org/*',
+]
 linkcheck_timeout = 180

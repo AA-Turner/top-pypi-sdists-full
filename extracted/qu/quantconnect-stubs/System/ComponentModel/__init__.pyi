@@ -50,10 +50,6 @@ class Win32Exception(System.Runtime.InteropServices.ExternalException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
@@ -3328,10 +3324,6 @@ class LicenseException(System.SystemException):
     def __init__(self, type: typing.Type) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
@@ -3549,10 +3541,6 @@ class WarningException(System.SystemException):
 
     @overload
     def __init__(self, message: str, help_url: str, help_topic: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:

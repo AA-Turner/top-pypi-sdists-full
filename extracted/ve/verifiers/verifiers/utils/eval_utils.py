@@ -10,7 +10,7 @@ import threading
 import time
 from collections import Counter, defaultdict
 from collections.abc import Mapping
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import Callable, cast
 
@@ -32,11 +32,15 @@ from verifiers.types import (
     RolloutInput,
     RolloutOutput,
     StartCallback,
+    _validate_extra_headers_value,
 )
 from verifiers.utils.async_utils import EventLoopLagMonitor
 from verifiers.utils.import_utils import load_toml
-from verifiers.utils.logging_utils import print_prompt_completions_sample, print_time
-from verifiers.utils.metric_utils import compute_pass_at_k
+from verifiers.utils.logging_utils import (
+    log_level,
+    print_prompt_completions_sample,
+    print_time,
+)
 from verifiers.utils.path_utils import get_eval_results_path
 
 logger = logging.getLogger(__name__)
@@ -101,6 +105,18 @@ def _coerce_endpoint(raw_endpoint: object, source: str) -> Endpoint:
                 f"Field 'type'/'api_client_type' must be 'openai_completions' or 'openai_chat_completions' or 'openai_chat_completions_token' or 'anthropic_messages' in {source}"
             )
         endpoint["api_client_type"] = cast(ClientType, client_type)
+
+    raw_headers = raw_endpoint_dict.get("headers")
+    raw_extra_headers = raw_endpoint_dict.get("extra_headers")
+    if raw_headers is not None and raw_extra_headers is not None:
+        raise ValueError(
+            f"Use only one of 'headers' or 'extra_headers' in {source}, not both"
+        )
+    header_table = raw_headers if raw_headers is not None else raw_extra_headers
+    if header_table is not None:
+        coerced_headers = _validate_extra_headers_value(header_table)
+        if coerced_headers:
+            endpoint["extra_headers"] = coerced_headers
 
     return endpoint
 
@@ -314,8 +330,14 @@ def _expand_ablation(ablation: dict, global_defaults: dict) -> list[dict]:
                 f"sweep.env_args — use one or the other"
             )
 
+    explicit_keys = (set(ablation.keys()) - {"sweep"}) | set(sweep.keys())
+
     # Fixed fields: global defaults overridden by ablation-level fields
     fixed = {**global_defaults, **ablation}
+    if "endpoint_id" in explicit_keys and "model" not in explicit_keys:
+        fixed.pop("model", None)
+    if "model" in explicit_keys and "endpoint_id" not in explicit_keys:
+        fixed.pop("endpoint_id", None)
 
     # Expand cartesian product
     keys = [k for k, _ in dimensions]
@@ -335,7 +357,9 @@ def _expand_ablation(ablation: dict, global_defaults: dict) -> list[dict]:
     return expanded
 
 
-def load_toml_config(path: Path) -> list[dict]:
+def load_toml_config(
+    path: Path, extra_valid_fields: set[str] | None = None
+) -> list[dict]:
     """Loads and validates a TOML config file.
 
     Config format supports global defaults at the top level, with per-eval overrides
@@ -413,6 +437,7 @@ def load_toml_config(path: Path) -> list[dict]:
         "api_key_var",
         "api_base_url",
         "header",
+        "headers",
         # sampling
         "sampling_args",
         "max_tokens",
@@ -423,11 +448,13 @@ def load_toml_config(path: Path) -> list[dict]:
         "max_concurrent",
         "independent_scoring",
         "max_retries",
+        "num_workers",
         "disable_env_server",
         # logging
         "verbose",
         "debug",
         # saving
+        "output_dir",
         "state_columns",
         "save_results",
         "resume",
@@ -435,6 +462,7 @@ def load_toml_config(path: Path) -> list[dict]:
         "save_to_hf_hub",
         "hf_hub_dataset_name",
     }
+    valid_fields |= extra_valid_fields or set()
 
     # validate global fields
     if global_defaults:
@@ -456,6 +484,10 @@ def load_toml_config(path: Path) -> list[dict]:
             )
         # global defaults, then per-eval overrides
         merged = {**global_defaults, **eval_config}
+        if "endpoint_id" in eval_config and "model" not in eval_config:
+            merged.pop("model", None)
+        if "model" in eval_config and "endpoint_id" not in eval_config:
+            merged.pop("endpoint_id", None)
         merged_eval_list.append(merged)
 
     # expand [[ablation]] blocks into eval configs
@@ -550,8 +582,8 @@ def print_rewards(results: GenerateOutputs):
         out = f"r{i + 1}: {trials}"
         print(out)
 
-    threshold = results["metadata"].get("pass_threshold", 0.5)
-    pass_at_k, pass_all_k = compute_pass_at_k(results["outputs"], r, threshold)
+    pass_at_k = results["metadata"].get("pass_at_k", {})
+    pass_all_k = results["metadata"].get("pass_all_k", {})
     if pass_at_k:
         parts = [
             f"{k}={v:.3f}"
@@ -717,7 +749,11 @@ async def run_evaluation(
     on_log: LogCallback | None = None,
 ) -> GenerateOutputs:
     # load environment
-    vf_env = vf.load_environment(env_id=config.env_id, **config.env_args)
+    maybe_suppress_logs = (
+        log_level(logging.CRITICAL) if not config.disable_env_server else nullcontext()
+    )
+    with maybe_suppress_logs:
+        vf_env = vf.load_environment(env_id=config.env_id, **config.env_args)
 
     # set extra environment kwargs
     if config.extra_env_kwargs:
@@ -728,22 +764,48 @@ async def run_evaluation(
 
     try:
         if not config.disable_env_server:
-            if config.debug:
-                await vf_env.start_server(
-                    extra_env_kwargs=config.extra_env_kwargs,
-                    log_level=get_log_level(config.verbose),
-                )
+            extra_env_kwargs = dict(config.extra_env_kwargs)
+            # resolve total concurrency
+            if "concurrency" not in extra_env_kwargs:
+                if config.max_concurrent <= 0:
+                    concurrency = config.num_examples * config.rollouts_per_example
+                else:
+                    concurrency = config.max_concurrent
+                logger.info(f"Automatically determined {concurrency=}")
             else:
-                log_file = results_path / "eval.log"
-                log_file.parent.mkdir(parents=True, exist_ok=True)
-                await vf_env.start_server(
-                    extra_env_kwargs=config.extra_env_kwargs,
-                    log_level="CRITICAL",  # disable console logging
-                    log_file=str(log_file),
-                    log_file_level=get_log_level(config.verbose),
-                )
-                if on_log_file is not None:
-                    on_log_file(log_file)
+                concurrency = extra_env_kwargs["concurrency"]
+
+            # resolve num_workers
+            num_workers = config.num_workers
+            if num_workers == "auto":
+                num_workers = max(1, math.ceil(concurrency / 256))
+            else:
+                num_workers = int(num_workers)
+                if num_workers < 1:
+                    raise ValueError(f"num_workers must be >= 1, got {num_workers}")
+
+            # per-worker concurrency
+            per_worker = max(1, concurrency // num_workers)
+            extra_env_kwargs["concurrency"] = per_worker
+            logger.info(
+                f"Using {num_workers=} env server worker(s), "
+                f"per-worker concurrency: {per_worker} (total {concurrency})"
+            )
+
+            log_dir = str(results_path)
+            results_path.mkdir(parents=True, exist_ok=True)
+            await vf_env.start_server(
+                extra_env_kwargs=extra_env_kwargs,
+                num_workers=num_workers,
+                log_level=get_log_level(config.verbose),
+                log_dir=log_dir,
+                console_logging=config.debug,
+            )
+            if on_log_file is not None:
+                from verifiers.serve import EnvServer
+
+                for path in EnvServer.get_all_log_files(log_dir, num_workers):
+                    on_log_file(path)
 
         logger.debug(f"Starting evaluation with model: {config.model}")
         logger.debug(
@@ -793,8 +855,8 @@ async def run_evaluation(
 
 async def run_evaluations(config: EvalRunConfig) -> None:
     # load event loop lag monitor
-    event_loop_lag_monitor = EventLoopLagMonitor()
-    event_loop_lag_monitor.run_in_background()
+    event_loop_lag_monitor = EventLoopLagMonitor(max_measurements=int(1e5))
+    lag_monitor_task = asyncio.create_task(event_loop_lag_monitor.run())
 
     on_progress: list[ProgressCallback] | None = None
     if config.heartbeat_url is not None:
@@ -812,25 +874,25 @@ async def run_evaluations(config: EvalRunConfig) -> None:
     )
     end_time = time.time()
 
+    lag_monitor_task.cancel()
+
     if config.heartbeat_url is not None:
         await heart.close()
 
-    event_loop_lags = event_loop_lag_monitor.lags
+    lags = event_loop_lag_monitor.lags
     logger.info(f"Evaluation completed in {end_time - start_time:.2f} seconds")
 
     for results in all_results:
         print_results(results)
 
-    if event_loop_lags:
-        print("\nPerformance:")
-        event_loop_lags_arr = np.array(event_loop_lags)
-        med_lag, p90_lag, max_lag = (
-            np.median(event_loop_lags_arr),
-            np.percentile(event_loop_lags_arr, 90),
-            np.max(event_loop_lags_arr),
-        )
+    n = len(lags)
+    if n > 0:
+        lags_arr = np.array(lags)
+        mean_lag = float(lags_arr.mean())
+        p99_lag = float(np.percentile(lags_arr, 99))
+        max_lag = float(lags_arr.max())
         print(
-            f"event_loop_lag: med - {print_time(float(med_lag))}, p90 - {print_time(float(p90_lag))}, max - {print_time(float(max_lag))}"
+            f"\nPerformance:\nevent_loop_lag: mean={print_time(mean_lag)}, p99={print_time(p99_lag)}, max={print_time(max_lag)} (n={n})"
         )
 
 

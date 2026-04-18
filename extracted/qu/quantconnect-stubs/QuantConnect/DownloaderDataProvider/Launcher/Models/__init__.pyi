@@ -20,7 +20,7 @@ class BrokerageDataDownloader(System.Object, QuantConnect.IDataDownloader, Syste
     def dispose(self) -> None:
         ...
 
-    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Get historical data enumerable for a single symbol, type and resolution given this start and end time (in UTC).
         

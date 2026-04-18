@@ -19,6 +19,7 @@ from ..output.table import output_entry
 @click.option("--oauth2-scopes", default=None, multiple=True, type=str)
 @click.option("--oauth2-federated-audience", default=None, type=str)
 @click.option("--oauth2-bearer-fingerprint", default=None, type=str)
+@click.option("--oauth2-routing-external", default=None, type=bool)
 @click.pass_context
 def cli_command_add_object_credential(
     ctx, private_key, username, password, encrypt, private_key_passphrase, **kwargs
@@ -41,6 +42,7 @@ def cli_command_add_object_credential(
 @click.option("--oauth2-scopes", default=None, multiple=True, type=str)
 @click.option("--oauth2-federated-audience", default=None, type=str)
 @click.option("--oauth2-bearer-fingerprint", default=None, type=str)
+@click.option("--oauth2-routing-external", default=None, type=bool)
 @click.option("--object-id")
 @click.option("--object-type")
 @click.option("--org-id", default=None)
@@ -76,6 +78,7 @@ def cli_command_delete_object_credential(ctx, **kwargs):
 @click.option("--object-ids", multiple=True, default=None)
 @click.option("--encryption-key-id", default=None)
 @click.option("--purposes", type=str, multiple=True, default=None)
+@click.option("--external", type=bool, default=None)
 @click.pass_context
 def cli_command_list_object_credential(ctx, **kwargs):
     creds = credentials.list_object_credentials(ctx, **kwargs)

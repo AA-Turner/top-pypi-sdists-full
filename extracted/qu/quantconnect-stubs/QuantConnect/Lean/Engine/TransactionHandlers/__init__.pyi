@@ -221,7 +221,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         ...
 
-    def get_open_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Iterable[QuantConnect.Orders.OrderTicket]:
+    def get_open_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Sequence[QuantConnect.Orders.OrderTicket]:
         """
         Gets and enumerable of opened OrderTicket matching the specified filter
         
@@ -239,7 +239,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         ...
 
-    def get_orders(self, filter: typing.Callable[[QuantConnect.Orders.Order], bool] = None) -> typing.Iterable[QuantConnect.Orders.Order]:
+    def get_orders(self, filter: typing.Callable[[QuantConnect.Orders.Order], bool] = None) -> typing.Sequence[QuantConnect.Orders.Order]:
         """
         Gets all orders matching the specified filter. Specifying null will return an enumerable
         of all orders.
@@ -267,7 +267,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         ...
 
-    def get_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Iterable[QuantConnect.Orders.OrderTicket]:
+    def get_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Sequence[QuantConnect.Orders.OrderTicket]:
         """
         Gets and enumerable of OrderTicket matching the specified filter
         

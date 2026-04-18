@@ -5,7 +5,6 @@ import pathlib
 import mkdocs.config.config_options
 import mkdocs.plugins
 import mkdocs.structure.files
-import properdocs.replacement_warning
 
 try:
     import properdocs.replacement_warning
@@ -19,7 +18,7 @@ except ImportError:
 class SameDirPlugin(mkdocs.plugins.BasePlugin):
     def __init__(self):
         # HACK: Before the code has a chance to kick in, remove the validation of directory paths,
-        # so mkdocs doesn't refuse to process docs alongside mkdocs.yml.
+        # so ProperDocs doesn't refuse to process docs alongside properdocs.yml.
         mkdocs.config.config_options.Dir.post_validation = _replace_validation
         with contextlib.suppress(AttributeError):
             mkdocs.config.config_options.DocsDir.post_validation = _replace_validation
@@ -29,7 +28,7 @@ class SameDirPlugin(mkdocs.plugins.BasePlugin):
         result = []
         for f in files:
             # Exclude everything under site_dir.
-            if _is_path_under(base=config["site_dir"], path=f.abs_src_path):
+            if f.src_dir and _is_path_under(base=config["site_dir"], path=f.abs_src_path):
                 continue
             # Exclude non-document pages in the root of docs_dir.
             if (
@@ -53,6 +52,7 @@ def _replace_validation(self, config, *args, **kwargs):
 def _is_path_under(base, path):
     try:
         pathlib.Path(path).relative_to(base)
-        return True
     except ValueError:
         return False
+    else:
+        return True

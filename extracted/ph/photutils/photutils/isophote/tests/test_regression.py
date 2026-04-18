@@ -24,19 +24,19 @@ compared this way are:
 For the M51 image we have mostly good agreement with the SPP code
 in most of the parameters (mean isophotal intensity agrees within a
 fraction of 1% mostly), but every now and then the ellipticity and
-position angle of the semi-major axis may differ by a large amount
-from what the SPP code measures. The code also stops prematurely wrt
-the larger sma values measured by the SPP code. This is caused by a
+position angle of the semi-major axis may differ by a large amount from
+what the SPP code measures. The code also stops prematurely with respect
+to the larger sma values measured by the SPP code. This is caused by a
 difference in the way the gradient relative error is measured in each
 case, and suggests that the SPP code may have a bug.
 
 The not-so-good behavior observed in the case of the M51 image is to
 be expected though. This image is exactly the type of galaxy image for
-which the algorithm *wasn't* designed for. It has an almost negligible
-smooth ellipsoidal component, and a lot of lumpy spiral structure that
-causes the radial gradient computation to go berserk. On top of that,
-the ellipticity is small (roundish isophotes) throughout the image,
-causing large relative errors and instability in the fitting algorithm.
+which the algorithm was not designed. It has an almost negligible smooth
+ellipsoidal component, and a lot of lumpy spiral structure that causes
+the radial gradient computation to go berserk. On top of that, the
+ellipticity is small (roundish isophotes) throughout the image, causing
+large relative errors and instability in the fitting algorithm.
 
 For now, we can only check the bilinear integration mode. The mean and
 median modes cannot be checked since the original 'ellipse' task has
@@ -54,7 +54,7 @@ import pytest
 from astropy.io import fits
 from astropy.table import Table
 
-from photutils.datasets import get_path
+from photutils.datasets.load import _get_path
 from photutils.isophote.ellipse import Ellipse
 from photutils.isophote.integrator import BILINEAR
 
@@ -77,8 +77,8 @@ def test_regression(name):
     table = Table.read(path)
 
     nrows = len(table['SMA'])
-    path = get_path(f'isophote/{name}.fits',
-                    location='photutils-datasets', cache=True)
+    path = _get_path(f'isophote/{name}.fits',
+                     location='photutils-datasets', cache=True)
     hdu = fits.open(path)
     data = hdu[0].data
     hdu.close()
@@ -111,22 +111,21 @@ def test_regression(name):
         # data from Isophote
         sma_i = iso.sample.geometry.sma
         intens_i = iso.intens
-        int_err_i = iso.int_err if iso.int_err else 0.0
-        pix_stddev_i = iso.pix_stddev if iso.pix_stddev else 0.0
-        rms_i = iso.rms if iso.rms else 0.0
-        ellip_i = iso.sample.geometry.eps if iso.sample.geometry.eps else 0.0
-        pa_i = iso.sample.geometry.pa if iso.sample.geometry.pa else 0.0
+        int_err_i = iso.int_err or 0.0
+        pix_stddev_i = iso.pix_stddev or 0.0
+        rms_i = iso.rms or 0.0
+        ellip_i = iso.sample.geometry.eps or 0.0
+        pa_i = iso.sample.geometry.pa or 0.0
         x0_i = iso.sample.geometry.x0
         y0_i = iso.sample.geometry.y0
-        rerr_i = (iso.sample.gradient_relative_error
-                  if iso.sample.gradient_relative_error else 0.0)
-        ndata_i = iso.ndata
-        nflag_i = iso.nflag
-        niter_i = iso.niter
+        rerr_i = (iso.sample.gradient_rel_err or 0.0)
+        ndata_i = iso.n_data
+        nflag_i = iso.n_flag
+        niter_i = iso.n_iter
         stop_i = iso.stop_code
 
         # convert to old code reference system
-        pa_i = (pa_i - np.pi / 2) / np.pi * 180.0
+        pa_i = np.rad2deg(pa_i - np.pi / 2)
         x0_i += 1
         y0_i += 1
 
@@ -143,8 +142,9 @@ def test_regression(name):
         rerr_t = table['GRAD_R_ERR'][row]
         ndata_t = table['NDATA'][row]
         nflag_t = table['NFLAG'][row]
-        niter_t = table['NITER'][row] if table['NITER'][row] else 0
-        stop_t = table['STOP'][row] if table['STOP'][row] else -1
+
+        niter_t = table['NITER'][row] or 0
+        stop_t = table['STOP'][row] or -1
 
         # relative differences
         sma_d = (sma_i - sma_t) / sma_t * 100.0 if sma_t > 0.0 else 0.0

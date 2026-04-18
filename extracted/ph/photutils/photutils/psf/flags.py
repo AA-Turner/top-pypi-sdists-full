@@ -1,13 +1,16 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define tools for working with PSF photometry flags, including
-centralized flag definitions and decoding utilities.
+Tools for working with PSF photometry flags, including centralized flag
+definitions and decoding utilities.
 """
 
 from dataclasses import dataclass
 from typing import ClassVar
 
 import numpy as np
+
+from photutils.utils._deprecation import (deprecated_getattr,
+                                          deprecated_positional_kwargs)
 
 __all__ = ['PSF_FLAGS', 'decode_psf_flags']
 
@@ -51,10 +54,10 @@ class _PSFFlags:
     --------
     >>> from photutils.psf.flags import _PSFFlags
     >>> flags = _PSFFlags()
-    >>> flags.NPIXFIT_PARTIAL
+    >>> flags.N_PIXELS_FIT_PARTIAL
     1
     >>> flags.get_name(1)
-    'npixfit_partial'
+    'n_pixels_fit_partial'
     >>> flags.get_description(8)
     'possible non-convergence'
     """
@@ -63,11 +66,13 @@ class _PSFFlags:
     FLAG_DEFINITIONS: ClassVar = [
         _PSFFlagDefinition(
             bit_value=1,
-            name='npixfit_partial',
-            description='npixfit smaller than full fit_shape region',
-            detailed_description=('The number of fitted pixels (npixfit) is '
-                                  'smaller than the full fit_shape region, '
-                                  'indicating partial PSF fitting'),
+            name='n_pixels_fit_partial',
+            description=('n_pixels_fit smaller than full fit_shape '
+                         'region'),
+            detailed_description=('The number of fitted pixels '
+                                  '(n_pixels_fit) is smaller than the '
+                                  'full fit_shape region, indicating '
+                                  'partial PSF fitting'),
         ),
         _PSFFlagDefinition(
             bit_value=2,
@@ -125,16 +130,54 @@ class _PSFFlags:
             detailed_description=('Insufficient unmasked pixels available '
                                   'for reliable PSF fitting'),
         ),
+        _PSFFlagDefinition(
+            bit_value=512,
+            name='non_finite_position',
+            description='non-finite fitted position',
+            detailed_description=('The fitted x or y position is NaN or inf, '
+                                  'indicating an invalid or failed fit'),
+        ),
+        _PSFFlagDefinition(
+            bit_value=1024,
+            name='non_finite_flux',
+            description='non-finite fitted flux',
+            detailed_description=('The fitted flux value is NaN or inf, '
+                                  'indicating an invalid or failed fit'),
+        ),
+        _PSFFlagDefinition(
+            bit_value=2048,
+            name='non_finite_localbkg',
+            description='non-finite local background',
+            detailed_description=('The local background value is NaN or '
+                                  'inf, so it was not subtracted before '
+                                  'fitting'),
+        ),
     ]
+
+    # Remove in 4.0
+    _DEPRECATED_FLAG_NAMES: ClassVar = {
+        'npixfit_partial': 'n_pixels_fit_partial',
+    }
+
+    # Remove in 4.0
+    _DEPRECATED_CONSTANT_NAMES: ClassVar = {
+        'NPIXFIT_PARTIAL': 'N_PIXELS_FIT_PARTIAL',
+    }
 
     def __init__(self):
         for flag_def in self.FLAG_DEFINITIONS:
-            # Create uppercase constants (e.g., NPIXFIT_PARTIAL = 1)
+            # Create uppercase constants (e.g., N_PIXELS_FIT_PARTIAL = 1)
             setattr(self, flag_def.name.upper(), flag_def.bit_value)
 
         # Create lookup dictionaries for efficient access
         self._bit_to_def = {fd.bit_value: fd for fd in self.FLAG_DEFINITIONS}
         self._name_to_def = {fd.name: fd for fd in self.FLAG_DEFINITIONS}
+
+    # Remove in 4.0
+    def __getattr__(self, name):
+        return deprecated_getattr(self, name,
+                                  self._DEPRECATED_CONSTANT_NAMES,
+                                  since='3.0', until='4.0')
 
     @property
     def all_flags(self):
@@ -185,11 +228,27 @@ class _PSFFlags:
         """
         if isinstance(identifier, int):
             if identifier not in self._bit_to_def:
-                msg = f"No flag with bit value {identifier}"
+                msg = f'No flag with bit value {identifier}'
                 raise KeyError(msg)
             return self._bit_to_def[identifier]
 
         if isinstance(identifier, str):
+            # Remove in 4.0
+            if identifier in self._DEPRECATED_FLAG_NAMES:
+                import warnings
+
+                from astropy.utils.exceptions import AstropyDeprecationWarning
+
+                new_name = self._DEPRECATED_FLAG_NAMES[identifier]
+                warnings.warn(
+                    f"The flag name '{identifier}' is deprecated "
+                    f"in version 3.0. Use '{new_name}' instead. "
+                    'It will be removed in version 4.0.',
+                    AstropyDeprecationWarning,
+                    stacklevel=2,
+                )
+                identifier = new_name
+
             if identifier not in self._name_to_def:
                 msg = f"No flag with name '{identifier}'"
                 raise KeyError(msg)
@@ -314,7 +373,8 @@ def _update_decode_docstring(func):
 
 
 @_update_decode_docstring
-def decode_psf_flags(flags):
+@deprecated_positional_kwargs(since='3.0', until='4.0')
+def decode_psf_flags(flags, return_bit_values=False):
     # numpydoc ignore: RT05
     """
     Decode PSF photometry bit flags into individual components.
@@ -332,13 +392,19 @@ def decode_psf_flags(flags):
         represents a specific condition that occurred during
         PSF fitting.
 
+    return_bit_values : bool, optional
+        If `True`, return the decoded bit flags (integers) instead of
+        the flag descriptions (strings). Default is `False`.
+
     Returns
     -------
-    decoded : list of str or list of list of str
-        List of active flag names, or list of lists if input is an
-        array. Each string represents a specific condition that was
-        detected during PSF fitting. If no flags are set, an empty list
-        is returned. Possible flag names are:
+    decoded : list of str, list of int, list of list of str, or \
+            list of list of int
+        List of active flag names (or bit values), or list of lists
+        if input is an array. Each string (or integer) represents a
+        specific condition that was detected during PSF fitting. If no
+        flags are set, an empty list is returned. Possible flag names
+        are:
         <flag descriptions>
 
     Examples
@@ -348,8 +414,8 @@ def decode_psf_flags(flags):
     >>> from photutils.psf import decode_psf_flags
     >>> issues = decode_psf_flags(5)  # bits 1 and 4 set
     >>> print(issues)
-    ['npixfit_partial', 'negative_flux']
-    >>> 'npixfit_partial' in issues
+    ['n_pixels_fit_partial', 'negative_flux']
+    >>> 'n_pixels_fit_partial' in issues
     True
     >>> 'no_convergence' in issues
     False
@@ -400,7 +466,8 @@ def decode_psf_flags(flags):
     ...     if issues:
     ...         print(f"Source {i+1}: {', '.join(issues)}")
     Source 1: negative_flux
-    Source 3: npixfit_partial, no_covariance, too_few_pixels
+    Source 3: n_pixels_fit_partial, no_covariance, too_few_pixels, \
+non_finite_position, non_finite_flux
     """
     # Get flag definitions from centralized source
     flag_definitions = PSF_FLAGS.flag_dict
@@ -420,7 +487,10 @@ def decode_psf_flags(flags):
         active_flags = []
         for bit_value, description in flag_definitions.items():
             if flag_value & bit_value:
-                active_flags.append(description)
+                if return_bit_values:
+                    active_flags.append(bit_value)
+                else:
+                    active_flags.append(description)
         return active_flags
 
     # Handle both single values and arrays

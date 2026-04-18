@@ -86,6 +86,7 @@ from snowflake.snowpark_connect.server_common import (  # noqa: F401 - re-export
     set_grpc_max_message_size,
     set_server_error,
     setup_signal_handlers,
+    start_stdin_monitor,
     validate_startup_parameters,
 )
 from snowflake.snowpark_connect.type_mapping import (
@@ -100,6 +101,8 @@ from snowflake.snowpark_connect.utils.artifacts import (
     write_class_files_to_stage,
 )
 from snowflake.snowpark_connect.utils.cache import (
+    analyze_memo_clear_session,
+    analyze_memo_pop,
     df_cache_map_get,
     df_cache_map_pop,
     df_cache_map_put_if_absent,
@@ -109,6 +112,7 @@ from snowflake.snowpark_connect.utils.context import (
     clear_context_data,
     get_request_external_tables,
     get_spark_session_id,
+    set_is_analyze_plan_request,
     set_spark_session_id,
     set_spark_version,
 )
@@ -427,6 +431,7 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
                         span.set_status(status)
             _handle_exception(context, e)
         finally:
+            analyze_memo_clear_session(request.session_id)
             if span_context_manager:
                 span_context_manager.__exit__(None, None, None)  # End the span
             if snowpark_context_token is not None:
@@ -454,6 +459,7 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
             clear_context_data()
             set_spark_session_id(request.session_id)
             set_spark_version(request.client_type)
+            set_is_analyze_plan_request(True)
             telemetry.initialize_request_summary(request)
             match request.WhichOneof("analyze"):
                 case "schema":
@@ -541,6 +547,7 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
                     plan_id = request.persist.relation.common.plan_id
                     # unpersist the cached plan
                     df_cache_map_pop((request.session_id, plan_id))
+                    analyze_memo_pop((request.session_id, plan_id))
 
                     return proto_base.AnalyzePlanResponse(
                         session_id=request.session_id,
@@ -1239,7 +1246,7 @@ def start_jvm():
             os.environ.get("JAVA_OPTS", "").split(),
         )
     )
-    # Add JVM memory constraints to reduce memory usage
+
     jpype.startJVM(
         *jvm_settings,
         convertStrings=True,
@@ -1256,6 +1263,7 @@ def start_session(
     connection_parameters: Optional[Dict[str, str]] = None,
     max_grpc_message_size: int = _SPARK_CONNECT_GRPC_MAX_MESSAGE_SIZE,
     _add_signal_handler: bool = False,
+    _monitor_stdin: bool = False,
     app_name: str | None = None,
 ) -> threading.Thread | None:
     """
@@ -1318,6 +1326,9 @@ def start_session(
 
         if _add_signal_handler:
             setup_signal_handlers(stop_event)
+
+        if _monitor_stdin:
+            start_stdin_monitor(stop_event)
 
         if is_daemon:
             arguments = (stop_event, snowpark_session, app_name)
@@ -1440,100 +1451,110 @@ def init_spark_session(
 
 
 def execute_jar(
-    jar_path: str,
-    main_class: str,
-    jar_args: list[str] | None = None,
-    additional_jars: list[str] | None = None,
+    class_name: str,
+    jars: list[str],
+    job_args: list[str] | None = None,
+    session: Optional[snowpark.Session] = None,
     tcp_port: int | None = None,
     jvm_options: list[str] | None = None,
 ) -> None:
     """
-    Run a Java/Scala JAR inside the SCOS server process.
+    Start the SCOS server, then call ``class_name.main(String[] args)`` via JPype.
 
-    1. Add user's JAR and additional dependency JARs to classpath (before JVM starts)
-    2. Inject JVM options and --add-opens flags into JAVA_OPTS env var
+    1. Add JARs to classpath (before JVM starts)
+    2. Inject JVM options and ``--add-opens`` flags into ``JAVA_OPTS``
     3. Start SCOS thick server (which starts JVM + gRPC server)
-    4. Set SPARK_REMOTE env var so customer's SparkSession.builder().getOrCreate()
-       connects automatically (zero code changes needed)
-    5. Execute JAR's main class via JPype with jar_args
-    6. Block until main() completes
-    7. Shut down SCOS server
-    8. Shut down JVM
-    9. Process exits
+    4. Set ``SPARK_REMOTE`` so the customer's ``SparkSession.builder().getOrCreate()``
+       connects automatically
+    5. Invoke ``public static void main(String[])`` on *class_name*
+    6. Shut down SCOS server + JVM
 
     Args:
-        jar_path: Path to the customer's JAR file.
-        main_class: Fully qualified class name (e.g. com.example.MyApp).
-        jar_args: Arguments forwarded to main(String[] args).
-        additional_jars: Dependency JARs/globs added to classpath
-            (e.g. ["/path/to/gson.jar", "/path/to/lib/*.jar"]).
-        tcp_port: gRPC server port (default 15002).
-        jvm_options: JVM flags (e.g. ["-Xmx4g", "-Xms1g"]).
+        class_name: Fully qualified Java/Scala class name (e.g. ``com.example.MyApp``).
+        jars: JAR files / glob patterns to add to the classpath.
+        job_args: Arguments forwarded to ``main(String[] args)``.
+        session: Optional Snowpark session for the SCOS server.
+        tcp_port: gRPC server port (default 15002). ``None`` uses a Unix domain socket.
+        jvm_options: Extra JVM flags (e.g. ``["-Xmx4g"]``).
     """
     import glob
     import time as _time
 
-    jar_path_resolved = os.path.abspath(jar_path)
-    if not os.path.isfile(jar_path_resolved):
-        raise FileNotFoundError(f"JAR not found: {jar_path_resolved}")
-
     stop_event = threading.Event()
 
     try:
-        # 1. Add user's JAR and additional dependency JARs to classpath
-        jpype.addClassPath(jar_path_resolved)
-        for pattern in additional_jars or []:
+        # 1. Validate and add JARs to classpath
+        for jar in jars or []:
+            if not glob.glob(jar):
+                raise FileNotFoundError(f"JAR not found: {jar}")
+        for pattern in jars or []:
             for resolved in glob.glob(pattern):
                 jpype.addClassPath(os.path.abspath(resolved))
 
-        # 2. Inject JVM options and --add-opens flags into JAVA_OPTS.
+        # 2. Set SPARK_REMOTE env var BEFORE JVM starts (Java caches env at startup)
+        socket_path = None
+        if tcp_port:
+            spark_remote_url = f"sc://127.0.0.1:{tcp_port}"
+        else:
+            socket_dir = tempfile.mkdtemp()
+            socket_path = os.path.join(socket_dir, "snowflake_sas_grpc.sock")
+            spark_remote_url = f"sc://unix:{socket_path}"
+        os.environ["SPARK_REMOTE"] = spark_remote_url
+
+        # 3. Inject JVM options and --add-opens flags into JAVA_OPTS.
         #    --add-opens is required because the Spark Connect client uses Apache Arrow
         #    for data transfer, which needs reflective access to java.nio internals
         #    for off-heap memory allocation (MemoryUtil / DirectByteBuffer).
-        required_flags = ["--add-opens=java.base/java.nio=ALL-UNNAMED"]
+        required_flags = [
+            "--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED",
+            "--add-opens=java.base/jdk.internal.misc=org.apache.arrow.memory.core,ALL-UNNAMED",
+            "--add-opens=jdk.unsupported/sun.misc=org.apache.arrow.memory.core,ALL-UNNAMED",
+        ]
         existing = os.environ.get("JAVA_OPTS", "").split()
         all_opts = existing + (jvm_options or []) + required_flags
         os.environ["JAVA_OPTS"] = " ".join(dict.fromkeys(all_opts))
 
-        # 3. Set SPARK_REMOTE env var BEFORE JVM starts (Java caches env at startup)
-        port = tcp_port or 15002
-        spark_remote_url = f"sc://127.0.0.1:{port}"
-        os.environ["SPARK_REMOTE"] = spark_remote_url
-
         # 4. Start SCOS thick server (which starts JVM + gRPC server)
         start_session(
             is_daemon=True,
-            tcp_port=port,
+            tcp_port=tcp_port,
+            unix_domain_socket=socket_path,
             stop_event=stop_event,
+            snowpark_session=session,
         )
         logger.info(f"Server ready at {spark_remote_url} (SPARK_REMOTE set)")
 
-        # 5. Execute JAR's main class via JPype
-        java_args = jar_args or []
-        JString = jpype.JClass("java.lang.String")
-        j_arr = jpype.JArray(JString)(java_args)
+        # 5. Invoke public static void main(String[])
+        java_args = job_args or []
+        logger.info(f"Calling {class_name}.main() with args {java_args}")
+        java_class = jpype.JClass(class_name)
+        java_class.main(java_args)
 
-        logger.info(f"Launching {main_class} with args {java_args}")
-        MainClass = jpype.JClass(main_class)
-
-        # 6. Block until main() completes
-        MainClass.main(j_arr)
-        logger.info(f"{main_class} completed.")
-
+        logger.info(f"{class_name}.main() completed.")
     except Exception:
         logger.error("execute_jar failed", exc_info=True)
         raise
     finally:
-        # 7. Shut down SCOS server
+        # 6. Shut down SCOS server
         stop_event.set()
         logger.info("Shutting down gRPC server...")
         _time.sleep(1)
 
-        # 8. Shut down JVM
+        # 7. Shut down JVM (must be called from main thread; skip if not)
         if jpype.isJVMStarted():
-            logger.info("Shutting down JVM...")
-            jpype.shutdownJVM()
-            logger.info("JVM shutdown complete.")
+            try:
+                logger.info("Shutting down JVM...")
+                jpype.shutdownJVM()
+                logger.info("JVM shutdown complete.")
+            except RuntimeError as e:
+                if "main thread" in str(e):
+                    logger.info(
+                        "Skipping JVM shutdown (not on main thread); "
+                        "JVM will be reclaimed at process exit."
+                    )
+                else:
+                    logger.error(f"Unexpected error during JVM shutdown: {e}")
+                    raise
 
 
 def _get_files_metadata(data_source: relations_proto.Read.DataSource) -> List[str]:

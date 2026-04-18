@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 2.4.1
+Version: 2.4.2
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -18,15 +18,18 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests==2.33.0
+Requires-Dist: requests==2.32.5; python_version < "3.10"
+Requires-Dist: requests==2.33.0; python_version >= "3.10"
 Requires-Dist: PySocks==1.7.1
 Requires-Dist: pydantic==2.13.0
 Requires-Dist: moviepy==1.0.3
 Requires-Dist: pycryptodomex==3.23.0
 Provides-Extra: test
 Requires-Dist: flake8==7.3.0; extra == "test"
-Requires-Dist: Pillow==12.2.0; extra == "test"
-Requires-Dist: isort==7.0.0; extra == "test"
+Requires-Dist: Pillow==11.3.0; python_version < "3.10" and extra == "test"
+Requires-Dist: Pillow==12.2.0; python_version >= "3.10" and extra == "test"
+Requires-Dist: isort==6.1.0; python_version < "3.10" and extra == "test"
+Requires-Dist: isort==7.0.0; python_version >= "3.10" and extra == "test"
 Requires-Dist: bandit==1.8.6; extra == "test"
 Requires-Dist: mike==2.2.0; extra == "test"
 Requires-Dist: markdown-include==0.8.1; extra == "test"
@@ -34,21 +37,35 @@ Requires-Dist: mkdocs-material==9.7.6; extra == "test"
 Requires-Dist: mkdocs-minify-html-plugin>=0.3.1; extra == "test"
 Requires-Dist: mkdocstrings==0.30.1; extra == "test"
 Requires-Dist: pytest-xdist==3.8.0; extra == "test"
-Requires-Dist: pytest==9.0.3; extra == "test"
+Requires-Dist: pytest==8.4.2; python_version < "3.10" and extra == "test"
+Requires-Dist: pytest==9.0.3; python_version >= "3.10" and extra == "test"
 Dynamic: license-file
 
 # instagrapi
 
-[![Package](https://github.com/subzeroid/instagrapi/actions/workflows/python-package.yml/badge.svg?branch=master&1)](https://github.com/subzeroid/instagrapi/actions/workflows/python-package.yml)
 [![PyPI](https://img.shields.io/pypi/v/instagrapi)](https://pypi.org/project/instagrapi/)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/instagrapi)
-![Checked with mypy](https://img.shields.io/badge/mypy-checked-blue)
+[![Python](https://img.shields.io/pypi/pyversions/instagrapi)](https://pypi.org/project/instagrapi/)
+[![License](https://img.shields.io/pypi/l/instagrapi)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-gh--pages-blue)](https://subzeroid.github.io/instagrapi/)
 
 Fast and effective unofficial Instagram API wrapper for Python.
 
 `instagrapi` combines public web and private mobile API flows, supports session persistence and challenge handling, and covers the main automation primitives for users, media, stories, direct messages, notes, locations, comments, insights, and uploads.
 
-Support **Python >= 3.9**
+If you want to work with Instagrapi for business interests, prefer [HikerAPI SaaS](https://hikerapi.com/p/bkXQlaVe).
+You will not need to spend weeks or even months setting it up.
+The service handles millions of daily requests, provides round-the-clock support, and offers partners a special rate.
+In many cases, clients first try to save money with self-hosted private API automation, then return to [HikerAPI SaaS](https://hikerapi.com/p/bkXQlaVe) after spending more time and money on accounts, proxies, and challenge handling.
+It is difficult to find good accounts, good proxies, resolve challenges reliably, and keep Instagram from banning accounts.
+
+The instagrapi project is better suited for testing and research than for running a production business.
+
+✨ [aiograpi - Asynchronous Python library for Instagram Private API](https://github.com/subzeroid/aiograpi) ✨
+
+Support **Python 3.10+**
+
+`Python 3.9` remains in maintenance support through **December 31, 2026**.
+This transition keeps current users stable while aligning the main supported range with modern dependency security and tooling compatibility. In particular, newer `requests` releases now target `Python 3.10+`, which is one of the reasons `Python 3.9` is now maintenance-only.
 
 ## Installation
 
@@ -155,7 +172,7 @@ cl.delete_note(note.id)
 
 ## Features
 
-* Uses [Web API](https://subzeroid.github.io/instagrapi/usage-guide/fundamentals.html) or [Mobile API](https://subzeroid.github.io/instagrapi/usage-guide/fundamentals.html) depending on the situation
+* Uses [Web API](https://subzeroid.github.io/instagrapi/usage-guide/fundamentals.html) and [Mobile API](https://subzeroid.github.io/instagrapi/usage-guide/fundamentals.html) flows where available
 * Supports login by password, 2FA, and `sessionid`
 * Includes email/SMS-based [challenge resolver](https://subzeroid.github.io/instagrapi/usage-guide/challenge_resolver.html) hooks
 * Uploads and downloads photos, videos, albums, IGTV, reels, and stories
@@ -163,31 +180,18 @@ cl.delete_note(note.id)
 * Supports story building with mentions, hashtags, link stickers, and media stickers
 * Includes helpers for current location search and notes flows
 
+Anonymous/public web paths are best treated as opportunistic rather than guaranteed. Instagram can change or restrict them independently of the library, so production-grade workflows should prefer authenticated sessions.
+
 ## Documentation And Support
 
 * [Documentation index](https://subzeroid.github.io/instagrapi/)
 * [Getting Started](https://subzeroid.github.io/instagrapi/getting-started.html)
 * [Usage Guide](https://subzeroid.github.io/instagrapi/usage-guide/fundamentals.html)
+* [Interactions reference](https://subzeroid.github.io/instagrapi/usage-guide/interactions.html)
 * [GitHub Discussions](https://github.com/subzeroid/instagrapi/discussions)
 * [Support chat in Telegram](https://t.me/instagrapi)
 
 For other languages, consider [instagrapi-rest](https://github.com/subzeroid/instagrapi-rest). For async Python, see [aiograpi](https://github.com/subzeroid/aiograpi).
-
-<details>
-  <summary>ASCII Logo</summary>
-
-```text
-░██                         ░██                                                         ░██
-                            ░██
-░██░████████   ░███████  ░████████  ░██████    ░████████ ░██░████  ░██████   ░████████  ░██
-░██░██    ░██ ░██           ░██          ░██  ░██    ░██ ░███           ░██  ░██    ░██ ░██
-░██░██    ░██  ░███████     ░██     ░███████  ░██    ░██ ░██       ░███████  ░██    ░██ ░██
-░██░██    ░██        ░██    ░██    ░██   ░██  ░██   ░███ ░██      ░██   ░██  ░███   ░██ ░██
-░██░██    ░██  ░███████      ░████  ░█████░██  ░█████░██ ░██       ░█████░██ ░██░█████  ░██
-                                                     ░██                     ░██
-                                               ░███████                      ░██
-```
-</details>
 
 
 <details>
@@ -216,53 +220,16 @@ cl.video_upload_to_story(
 ```
 </details>
 
-## Documentation
-
-* [Index](https://subzeroid.github.io/instagrapi/)
-* [Getting Started](https://subzeroid.github.io/instagrapi/getting-started.html)
-* [Usage Guide](https://subzeroid.github.io/instagrapi/usage-guide/fundamentals.html)
-* [Interactions](https://subzeroid.github.io/instagrapi/usage-guide/interactions.html)
-  * [`Media`](https://subzeroid.github.io/instagrapi/usage-guide/media.html) - Publication (also called post): Photo, Video, Album, IGTV and Reels
-  * [`Resource`](https://subzeroid.github.io/instagrapi/usage-guide/media.html) - Part of Media (for albums)
-  * [`MediaOembed`](https://subzeroid.github.io/instagrapi/usage-guide/media.html) - Short version of Media
-  * [`Account`](https://subzeroid.github.io/instagrapi/usage-guide/account.html) - Full private info for your account (e.g. email, phone_number)
-  * [`TOTP`](https://subzeroid.github.io/instagrapi/usage-guide/totp.html) - 2FA TOTP helpers (generate seed, enable/disable TOTP, generate code as Google Authenticator)
-  * [`User`](https://subzeroid.github.io/instagrapi/usage-guide/user.html) - Full public user data
-  * [`UserShort`](https://subzeroid.github.io/instagrapi/usage-guide/user.html) - Short public user data (used in Usertag, Comment, Media, Direct Message)
-  * [`Usertag`](https://subzeroid.github.io/instagrapi/usage-guide/user.html) - Tag user in Media (coordinates + UserShort)
-  * [`Location`](https://subzeroid.github.io/instagrapi/usage-guide/location.html) - GEO location (GEO coordinates, name, address)
-  * [`Hashtag`](https://subzeroid.github.io/instagrapi/usage-guide/hashtag.html) - Hashtag object (id, name, picture)
-  * [`Collection`](https://subzeroid.github.io/instagrapi/usage-guide/collection.html) - Collection of medias (name, picture and list of medias)
-  * [`Comment`](https://subzeroid.github.io/instagrapi/usage-guide/comment.html) - Comments to Media
-  * [`Highlight`](https://subzeroid.github.io/instagrapi/usage-guide/highlight.html) - Highlights
-  * [`Notes`](https://subzeroid.github.io/instagrapi/usage-guide/notes.html) - Notes
-  * [`Story`](https://subzeroid.github.io/instagrapi/usage-guide/story.html) - Story
-  * [`StoryLink`](https://subzeroid.github.io/instagrapi/usage-guide/story.html) - Story link sticker
-  * [`StoryLocation`](https://subzeroid.github.io/instagrapi/usage-guide/story.html) - Tag Location in Story (as sticker)
-  * [`StoryMention`](https://subzeroid.github.io/instagrapi/usage-guide/story.html) - Mention users in Story (user, coordinates and dimensions)
-  * [`StoryHashtag`](https://subzeroid.github.io/instagrapi/usage-guide/story.html) - Hashtag for story (as sticker)
-  * [`StorySticker`](https://subzeroid.github.io/instagrapi/usage-guide/story.html) - Tag sticker to story (for example from giphy)
-  * [`StoryBuild`](https://subzeroid.github.io/instagrapi/usage-guide/story.html) - [StoryBuilder](/instagrapi/story.py) return path to photo/video and mention co-ordinates
-  * [`DirectThread`](https://subzeroid.github.io/instagrapi/usage-guide/direct.html) - Thread (topic) with messages in Direct Message
-  * [`DirectMessage`](https://subzeroid.github.io/instagrapi/usage-guide/direct.html) - Message in Direct Message
-  * [`Insight`](https://subzeroid.github.io/instagrapi/usage-guide/insight.html) - Insights for a post
-  * [`Track`](https://subzeroid.github.io/instagrapi/usage-guide/track.html) - Music track (for Reels/Clips)
-* [Best Practices](https://subzeroid.github.io/instagrapi/usage-guide/best-practices.html)
-* [Development Guide](https://subzeroid.github.io/instagrapi/development-guide.html)
-* [Handle Exceptions](https://subzeroid.github.io/instagrapi/usage-guide/handle_exception.html)
-* [Challenge Resolver](https://subzeroid.github.io/instagrapi/usage-guide/challenge_resolver.html)
-* [Exceptions](https://subzeroid.github.io/instagrapi/exceptions.html)
-
 ## Ecosystem And Hosted Options
 
 If you need async Python, use [aiograpi](https://github.com/subzeroid/aiograpi).
 
 If you need hosted infrastructure instead of maintaining accounts, proxies, and challenge handling yourself, consider:
 
-* [HikerAPI](https://hikerapi.com/p/bkXQlaVe) for hosted Instagram API
-* [Cloqly](https://cloqly.com/register?ref=58dbf70f) for rotating proxies
-* [DataLikers](https://datalikers.com/p/S9Lv5vBy) for Instagram datasets, MCP, and CacheAPI
-* [LamaTok](https://lamatok.com/p/B9ScEYIQ) for TikTok API
+* [HikerAPI](https://hikerapi.com/p/bkXQlaVe) for production-grade hosted Instagram API infrastructure
+* [Cloqly](https://cloqly.com/register?ref=58dbf70f) for premium rotating proxies and stable automation traffic
+* [DataLikers](https://datalikers.com/p/S9Lv5vBy) for Instagram MCP, Cache API, and datasets
+* [LamaTok](https://lamatok.com/p/B9ScEYIQ) for TikTok API access, automation, and data workflows
 * [InstaSurfBot](https://t.me/InstaSurfBot) for downloading Instagram media in Telegram
 * [OSINTagramBot](https://t.me/OSINTagramBot) for Instagram OSINT in Telegram
 

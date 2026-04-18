@@ -65,9 +65,27 @@ def setup_pybind11(cfg):
     import pybind11
 
     cfg["include_dirs"] += [pybind11.get_include(), pybind11.get_include(True)]
+
     # Prefix with c++11 arg instead of suffix so that if a user specifies c++14
     # (or later!) then it won't be overridden.
-    cfg["compiler_args"] = ["-std=c++11", "-fvisibility=hidden"] + cfg["compiler_args"]
+    prefix_args = ["-std=c++11", "-fvisibility=hidden"]
+    # MSVC compiler do not support "-std=c++11" nor "-fvisibility=hidden"
+    if os.name == "nt":
+        import sys
+
+        if sys.version_info[0] >= 3 and sys.version_info[1] > 11:
+            from setuptools._distutils import ccompiler
+        else:
+            from distutils import ccompiler
+        compiler = ccompiler.new_compiler()
+        if compiler.compiler_type == "msvc":
+            for k in ["-std=c++11", "-fvisibility=hidden"]:  # remove unsupported flags
+                try:
+                    prefix_args.remove(k)
+                except ValueError:
+                    pass
+
+    cfg["compiler_args"] = prefix_args + cfg["compiler_args"]
 
 
 def get_rendered_source_filepath(filepath):

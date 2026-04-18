@@ -1,15 +1,16 @@
-# (c) Copyright IBM Corp. 2021
+# (c) Copyright IBM Corp. 2021, 2026
 # (c) Copyright Instana Inc. 2016
 
 from __future__ import print_function
+
+import logging
 import os
 import sys
-import logging
 
 logger = None
 
 
-def get_standard_logger():
+def get_standard_logger() -> logging.Logger:
     """
     Retrieves and configures a standard logger for the Instana package
 
@@ -18,14 +19,16 @@ def get_standard_logger():
     standard_logger = logging.getLogger("instana")
 
     ch = logging.StreamHandler()
-    f = logging.Formatter('%(asctime)s: %(process)d %(levelname)s %(name)s: %(message)s')
+    f = logging.Formatter(
+        "%(asctime)s: %(process)d %(levelname)s %(name)s: %(message)s"
+    )
     ch.setFormatter(f)
     standard_logger.addHandler(ch)
     standard_logger.setLevel(logging.DEBUG)
     return standard_logger
 
 
-def get_aws_lambda_logger():
+def get_aws_lambda_logger() -> logging.Logger:
     """
     Retrieves the preferred logger for AWS Lambda
 
@@ -35,7 +38,8 @@ def get_aws_lambda_logger():
     aws_lambda_logger.setLevel(logging.INFO)
     return aws_lambda_logger
 
-def glogging_available():
+
+def glogging_available() -> bool:
     """
     Determines if the gunicorn.glogging package is available
 
@@ -45,15 +49,16 @@ def glogging_available():
 
     # Is the glogging package available?
     try:
-        from gunicorn import glogging
+        from gunicorn import glogging  # noqa: F401
     except ImportError:
         pass
     else:
         package_check = True
-    
+
     return package_check
 
-def running_in_gunicorn():
+
+def running_in_gunicorn() -> bool:
     """
     Determines if we are running inside of a gunicorn process.
 
@@ -63,29 +68,28 @@ def running_in_gunicorn():
 
     try:
         # Is this a gunicorn process?
-        if hasattr(sys, 'argv'):
+        if hasattr(sys, "argv"):
             for arg in sys.argv:
-                if arg.find('gunicorn') >= 0:
+                if arg.find("gunicorn") >= 0:
                     process_check = True
         elif os.path.isfile("/proc/self/cmdline"):
             with open("/proc/self/cmdline") as cmd:
                 contents = cmd.read()
 
-            parts = contents.split('\0')
+            parts = contents.split("\0")
             parts.pop()
             cmdline = " ".join(parts)
 
-            if cmdline.find('gunicorn') >= 0:
+            if cmdline.find("gunicorn") >= 0:
                 process_check = True
 
         return process_check
     except Exception:
-        logger.debug("Instana.log.running_in_gunicorn: ", exc_info=True)
         return False
 
 
-aws_env = os.environ.get("AWS_EXECUTION_ENV", "")
-env_is_aws_lambda = "AWS_Lambda_" in aws_env
+env_is_aws_lambda = "AWS_Lambda_" in os.environ.get("AWS_EXECUTION_ENV", "")
+
 
 if running_in_gunicorn() and glogging_available():
     logger = logging.getLogger("gunicorn.error")

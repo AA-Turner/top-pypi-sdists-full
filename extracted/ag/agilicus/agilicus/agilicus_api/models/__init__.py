@@ -646,6 +646,7 @@ from agilicus_api.model.oidc_proxy_upstream_ntlm import OIDCProxyUpstreamNTLM
 from agilicus_api.model.oidc_upstream_identity_provider import OIDCUpstreamIdentityProvider
 from agilicus_api.model.os_info import OSInfo
 from agilicus_api.model.oauth2_auth import Oauth2Auth
+from agilicus_api.model.oauth2_auth_routing import Oauth2AuthRouting
 from agilicus_api.model.object_credential import ObjectCredential
 from agilicus_api.model.object_credential_existence_info import ObjectCredentialExistenceInfo
 from agilicus_api.model.object_credential_secrets import ObjectCredentialSecrets

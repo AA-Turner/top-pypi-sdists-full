@@ -24,11 +24,15 @@ if typing.TYPE_CHECKING:
     from collections import abc
 
 
-class Commit(typing.TypedDict):
+class _CommitRequired(typing.TypedDict):
     sha: str
     title: str
     message: str
     change_id: str
+
+
+class Commit(_CommitRequired, total=False):
+    head_ref: str  # existing PR branch ref; overrides slug-based refspec in finalize()
 
 
 @dataclasses.dataclass
@@ -69,7 +73,12 @@ class GitMock:
         # Base commit SHA
         self.mock("merge-base", "--fork-point", "origin/main", output="base_commit_sha")
 
-    def finalize(self) -> None:
+    def finalize(
+        self,
+        *,
+        remote_shas: dict[str, str] | None = None,
+        no_verify: bool = False,
+    ) -> None:
         # Register batch log mock
         records = []
         for c in self._commits:
@@ -83,13 +92,36 @@ class GitMock:
             output="\x1e".join(records) + "\x1e" if records else "",
         )
 
-        # Register batch push mock
-        refspecs = [
-            f"{c['sha']}:refs/heads/current-branch/{c['change_id']}"
-            for c in self._commits
-        ]
-        if refspecs:
-            self.mock("push", "-f", "origin", *refspecs, output="")
+        # Register batch push mock with explicit per-ref leases
+        if not self._commits:
+            return
+
+        from mergify_cli.stack.slug import slugify_title
+
+        lease_args: list[str] = []
+        refspecs: list[str] = []
+        for c in self._commits:
+            if "head_ref" in c:
+                branch = c["head_ref"]
+            else:
+                branch = f"current-branch/{slugify_title(c['title'], c['change_id'])}"
+            expected_sha = (remote_shas or {}).get(c["change_id"], "")
+            lease_args.append(
+                f"--force-with-lease=refs/heads/{branch}:{expected_sha}",
+            )
+            refspecs.append(f"{c['sha']}:refs/heads/{branch}")
+
+        no_verify_args: tuple[str, ...] = ("--no-verify",) if no_verify else ()
+
+        self.mock(
+            "push",
+            "--atomic",
+            *no_verify_args,
+            *lease_args,
+            "origin",
+            *refspecs,
+            output="",
+        )
 
 
 @dataclasses.dataclass

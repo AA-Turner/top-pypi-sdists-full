@@ -1312,7 +1312,12 @@ class SodaCloud:
         logger.info(f"Migration {migration_id} failed")
 
     def post_processing_update(
-        self, stage: str, scan_id: str, state: PostProcessingStageState, error: Optional[str] = None
+        self,
+        stage: str,
+        scan_id: str,
+        state: PostProcessingStageState,
+        error: Optional[str] = None,
+        records_written: Optional[int] = None,
     ):
         logger.info(f"Updating post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
 
@@ -1324,6 +1329,8 @@ class SodaCloud:
         }
         if error:
             request["error"] = error
+        if records_written is not None:
+            request["recordsWritten"] = records_written
         response = self._execute_command(request, request_log_name="post_processing_update")
         response.json()  # verify response is in JSON format
 
@@ -1419,10 +1426,28 @@ def _build_scan_definition_name(contract_verification_result: ContractVerificati
 def _build_post_processing_stages_dicts(
     contract_verification_result: ContractVerificationResult,
 ) -> list[Dict[str, str]]:
+    # Note: CorePostProcessingStage DTO only has `name`. The server hardcodes
+    # state to ONGOING on initial ingestion. State/recordsWritten are updated
+    # later via the sodaCorePostProcessingUpdate command.
     if contract_verification_result and contract_verification_result.post_processing_stages:
         return [{"name": stage.name} for stage in contract_verification_result.post_processing_stages]
     else:
         return []
+
+
+def _build_token_usage_dicts(contract_verification_result: ContractVerificationResult) -> list[dict]:
+    if contract_verification_result and contract_verification_result.token_usage:
+        return [
+            {
+                "promptTokens": tu.prompt_tokens,
+                "completionTokens": tu.completion_tokens,
+                "totalTokens": tu.total_tokens,
+                "model": tu.model,
+                "operation": tu.operation,
+            }
+            for tu in contract_verification_result.token_usage
+        ]
+    return []
 
 
 def _build_contract_result_json_dict(contract_verification_result: ContractVerificationResult) -> dict:
@@ -1432,8 +1457,12 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             # The scan definition name is still required on result ingestion to link to the contract
             # and determine if we're dealing with a default or test contract.
             "definitionName": _build_scan_definition_name(contract_verification_result),
-            "defaultDataSource": contract_verification_result.data_source.name,
-            "defaultDataSourceProperties": {"type": contract_verification_result.data_source.type},
+            "defaultDataSource": contract_verification_result.data_source.name
+            if contract_verification_result.data_source
+            else None,
+            "defaultDataSourceProperties": {"type": contract_verification_result.data_source.type}
+            if contract_verification_result.data_source
+            else None,
             # dataTimestamp can be changed by user, this is shown in Cloud as time of a scan.
             # It's the timestamp used to identify the time partition, which is the slice of data that is verified.
             "dataTimestamp": contract_verification_result.data_timestamp,
@@ -1450,6 +1479,7 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             "contract": _build_contract_cloud_json_dict(contract_verification_result.contract),
             "postProcessingStages": _build_post_processing_stages_dicts(contract_verification_result),
             "resultsIngestionMode": determine_verification_ingestion_mode(contract_verification_result).value,
+            "tokenUsage": _build_token_usage_dicts(contract_verification_result),
         }
     )
 
@@ -1517,7 +1547,9 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
 
     return {
         #  TODO: this default 0 value is here only because check.diagnostics.value is a required non-nullable field in the api.
-        "value": check_result.threshold_value or 0,
+        "value": int(check_result.threshold_value)
+        if isinstance(check_result.threshold_value, bool)
+        else (check_result.threshold_value or 0),
         "fail": _build_fail_threshold(check_result),
         "v4": _build_v4_diagnostics_check_type_json_dict(check_result),
     }
@@ -1569,7 +1601,9 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
         return {
             "type": check_result.check.type,
             "failedRowsCount": check_result.diagnostic_metric_values.get("failed_rows_count"),
+            "failedRowsPercent": check_result.diagnostic_metric_values.get("failed_rows_percent"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
         }
     elif check_result.check.type == "aggregate":
         return {

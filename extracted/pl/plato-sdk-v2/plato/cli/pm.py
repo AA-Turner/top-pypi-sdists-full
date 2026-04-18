@@ -542,6 +542,21 @@ _EXPERIMENT_NAMES: dict[tuple[str, str], str] = {
 }
 
 
+def _render_step_instructions(world_config: dict, **substitutions: str) -> None:
+    """Replace ``{key}`` placeholders in each step's instruction in place.
+
+    Templates live in structured_execution_world and use ``{sim_name}``,
+    ``{github_url}``, ``{feedback}``, ``{artifact_id}``, etc. We render them
+    here at launch time so the world receives plain strings — no runtime
+    substitution engine required.
+    """
+    for step in world_config.get("steps", []):
+        instr = step.get("instruction", "")
+        for key, value in substitutions.items():
+            instr = instr.replace(f"{{{key}}}", str(value))
+        step["instruction"] = instr
+
+
 def _fetch_experiment_config(pipeline: str, mode: str, api_key: str) -> tuple[dict, str]:
     """Fetch latest experiment config from Chronos by name. Raises if not found.
 
@@ -651,11 +666,17 @@ async def _launch_env_world(
             config = template["world"]["config"]
             config["sim_name"] = simulator_name
             config["github_url"] = github_url
+            _render_step_instructions(
+                config,
+                sim_name=simulator_name,
+                github_url=github_url,
+                workspace="/workspace",
+            )
             cred_key, cred_val = _get_claude_credentials()
             config["plato_api_key"] = datagen_api_key
             _set_claude_credentials(config, cred_key, cred_val)
-            config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
-            _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
+            config["agent"]["config"]["plato_api_key"] = datagen_api_key
+            _set_claude_credentials(config["agent"]["config"], cred_key, cred_val)
             template["tags"].append(simulator_name)
 
         elif action == "resume":
@@ -664,12 +685,19 @@ async def _launch_env_world(
             template, version_id = _fetch_experiment_config("env", "base", api_key)
             config = template["world"]["config"]
             config["sim_name"] = simulator_name
-            config["github_url"] = current_config.get("source_code_url", "")
+            github_url = current_config.get("source_code_url", "")
+            config["github_url"] = github_url
+            _render_step_instructions(
+                config,
+                sim_name=simulator_name,
+                github_url=github_url,
+                workspace="/workspace",
+            )
             cred_key, cred_val = _get_claude_credentials()
             config["plato_api_key"] = datagen_api_key
             _set_claude_credentials(config, cred_key, cred_val)
-            config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
-            _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
+            config["agent"]["config"]["plato_api_key"] = datagen_api_key
+            _set_claude_credentials(config["agent"]["config"], cred_key, cred_val)
             config["state"]["resume_from"] = resume_from
             template["tags"].append(simulator_name)
             template["tags"].append("resume")
@@ -685,13 +713,18 @@ async def _launch_env_world(
             template, version_id = _fetch_experiment_config("env", "fix", api_key)
             config = template["world"]["config"]
             config["sim_name"] = simulator_name
-            config["artifact_id"] = base_artifact_id
-            config["feedback"] = feedback
+            _render_step_instructions(
+                config,
+                sim_name=simulator_name,
+                feedback=feedback,
+                artifact_id=base_artifact_id,
+                workspace="/workspace",
+            )
             cred_key, cred_val = _get_claude_credentials()
             config["plato_api_key"] = datagen_api_key
             _set_claude_credentials(config, cred_key, cred_val)
-            config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
-            _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
+            config["agent"]["config"]["plato_api_key"] = datagen_api_key
+            _set_claude_credentials(config["agent"]["config"], cred_key, cred_val)
             config["state"]["resume_from"] = resume_from
             template["tags"].append(simulator_name)
 
@@ -761,7 +794,7 @@ async def _launch_datagen_world(
         config = template["world"]["config"]
         cred_key, cred_val = _get_claude_credentials()
         _set_claude_credentials(config, cred_key, cred_val)
-        # Also set credentials on agent.config if present (used by claude-code agent)
+        # Also set credentials on agent.config (used by claude-code agent)
         agent_config = config.get("agent", {}).get("config")
         if agent_config is not None:
             _set_claude_credentials(agent_config, cred_key, cred_val)
@@ -769,13 +802,26 @@ async def _launch_datagen_world(
         config["anchor_api_key"] = DEFAULT_ANCHOR_KEY
         config["mcps"] = mcps
         config["envs"] = [{"artifact_id": artifact_id, "alias": simulator_name}]
+        config["sim_name"] = simulator_name
 
-        # Update generation message iterations (message 0 = generate step)
-        gen_msg = config["initial_messages"][0]
-        gen_msg["iterations"] = iterations
+        # Expand steps to match `iterations`: 1 generate + (iterations-1) audit_and_fill.
+        # Template ships with exactly those two step definitions.
+        template_steps = config["steps"]
+        generate_step = template_steps[0]
+        audit_step = template_steps[1]
         if review_comments is not None:
-            base_prompt = gen_msg["message"]
-            gen_msg["message"] = _build_datagen_review_prompt(simulator_name, review_comments, base_prompt)
+            generate_step["instruction"] = _build_datagen_review_prompt(
+                simulator_name, review_comments, generate_step["instruction"]
+            )
+        expanded = [generate_step]
+        for i in range(max(0, iterations - 1)):
+            step = json.loads(json.dumps(audit_step))
+            step["name"] = f"audit_and_fill_{i + 1}"
+            expanded.append(step)
+        config["steps"] = expanded
+        # Render step-instruction placeholders after expansion so both the
+        # generate and audit_and_fill_N copies pick up the values.
+        _render_step_instructions(config, sim_name=simulator_name, workspace="/workspace")
 
         template["tags"].append(simulator_name)
         if review_comments is not None:
@@ -971,10 +1017,16 @@ def start_env(
                     config = template["world"]["config"]
                     config["sim_name"] = s["name"]
                     config["github_url"] = s["github_url"]
+                    _render_step_instructions(
+                        config,
+                        sim_name=s["name"],
+                        github_url=s["github_url"],
+                        workspace="/workspace",
+                    )
                     config["plato_api_key"] = datagen_api_key
                     _set_claude_credentials(config, cred_key, cred_val)
-                    config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
-                    _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
+                    config["agent"]["config"]["plato_api_key"] = datagen_api_key
+                    _set_claude_credentials(config["agent"]["config"], cred_key, cred_val)
                     template["tags"].append(s["name"])
 
                 elif mode == "resume":
@@ -982,10 +1034,16 @@ def start_env(
                     config = template["world"]["config"]
                     config["sim_name"] = s["name"]
                     config["github_url"] = s["github_url"]
+                    _render_step_instructions(
+                        config,
+                        sim_name=s["name"],
+                        github_url=s["github_url"],
+                        workspace="/workspace",
+                    )
                     config["plato_api_key"] = datagen_api_key
                     _set_claude_credentials(config, cred_key, cred_val)
-                    config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
-                    _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
+                    config["agent"]["config"]["plato_api_key"] = datagen_api_key
+                    _set_claude_credentials(config["agent"]["config"], cred_key, cred_val)
                     config["state"]["resume_from"] = s.get("resume_from", "")
                     template["tags"].append(s["name"])
                     template["tags"].append("resume")
@@ -994,12 +1052,17 @@ def start_env(
                     template, version_id = _fetch_experiment_config("env", "fix", api_key)
                     config = template["world"]["config"]
                     config["sim_name"] = s["name"]
-                    config["artifact_id"] = s["base_artifact_id"]
-                    config["feedback"] = s.get("feedback", "")
+                    _render_step_instructions(
+                        config,
+                        sim_name=s["name"],
+                        feedback=s.get("feedback", ""),
+                        artifact_id=s["base_artifact_id"],
+                        workspace="/workspace",
+                    )
                     config["plato_api_key"] = datagen_api_key
                     _set_claude_credentials(config, cred_key, cred_val)
-                    config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
-                    _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
+                    config["agent"]["config"]["plato_api_key"] = datagen_api_key
+                    _set_claude_credentials(config["agent"]["config"], cred_key, cred_val)
                     config["state"]["resume_from"] = s.get("resume_from", "")
                     template["tags"].append(s["name"])
                 session_id = _launch_on_chronos(template, api_key)

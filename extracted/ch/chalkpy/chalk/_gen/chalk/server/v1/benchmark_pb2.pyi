@@ -101,6 +101,9 @@ class CreateBenchmarkRequest(_message.Message):
         "insecure",
         "concurrency",
         "num_connections",
+        "initial_window_size",
+        "initial_conn_window_size",
+        "nodepool",
     )
     WARMUP_QPS_FIELD_NUMBER: _ClassVar[int]
     WARMUP_DURATION_FIELD_NUMBER: _ClassVar[int]
@@ -119,6 +122,9 @@ class CreateBenchmarkRequest(_message.Message):
     INSECURE_FIELD_NUMBER: _ClassVar[int]
     CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
     NUM_CONNECTIONS_FIELD_NUMBER: _ClassVar[int]
+    INITIAL_WINDOW_SIZE_FIELD_NUMBER: _ClassVar[int]
+    INITIAL_CONN_WINDOW_SIZE_FIELD_NUMBER: _ClassVar[int]
+    NODEPOOL_FIELD_NUMBER: _ClassVar[int]
     warmup_qps: int
     warmup_duration: _duration_pb2.Duration
     qps: int
@@ -136,6 +142,9 @@ class CreateBenchmarkRequest(_message.Message):
     insecure: bool
     concurrency: int
     num_connections: int
+    initial_window_size: int
+    initial_conn_window_size: int
+    nodepool: str
     def __init__(
         self,
         warmup_qps: _Optional[int] = ...,
@@ -155,6 +164,9 @@ class CreateBenchmarkRequest(_message.Message):
         insecure: bool = ...,
         concurrency: _Optional[int] = ...,
         num_connections: _Optional[int] = ...,
+        initial_window_size: _Optional[int] = ...,
+        initial_conn_window_size: _Optional[int] = ...,
+        nodepool: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateBenchmarkResponse(_message.Message):

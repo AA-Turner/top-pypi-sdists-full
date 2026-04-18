@@ -733,7 +733,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         """
         ...
 
-    def get_history(self, request: QuantConnect.Data.HistoryRequest) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_history(self, request: QuantConnect.Data.HistoryRequest) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Gets the history for the requested security
         
@@ -1137,7 +1137,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         """
         ...
 
-    def get_subscribed(self) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_subscribed(self) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Gets a list of current subscriptions
         
@@ -1146,7 +1146,6 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         """
         ...
 
-    @overload
     def initialize(self, wss_url: str, websocket: QuantConnect.Brokerages.IWebSocket, http_client: typing.Any, api_key: str, api_secret: str) -> None:
         """
         Initialize the instance of this class
@@ -1159,24 +1158,6 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         :param http_client: Instance of HTTP client
         :param api_key: Api key
         :param api_secret: Api secret
-        """
-        ...
-
-    @overload
-    def initialize(self, wss_url: str, websocket: QuantConnect.Brokerages.IWebSocket, rest_client: typing.Any, api_key: str, api_secret: str) -> None:
-        """
-        Initialize the instance of this class
-        
-        
-        This codeEntityType is protected.
-        
-        This Initialize method is deprecated. Use the overload that takes an HttpClient instance instead.
-        
-        :param wss_url: The web socket base url
-        :param websocket: instance of websockets client
-        :param rest_client: instance of rest client
-        :param api_key: api key
-        :param api_secret: api secret
         """
         ...
 
@@ -1224,7 +1205,7 @@ class IBrokerageModel(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -1284,26 +1265,11 @@ class IBrokerageModel(metaclass=abc.ABCMeta):
         """
         ...
 
-    @overload
     def get_buying_power_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Securities.IBuyingPowerModel:
         """
         Gets a new buying power model for the security
         
         :param security: The security to get a buying power model for
-        :returns: The buying power model for this brokerage/security.
-        """
-        ...
-
-    @overload
-    def get_buying_power_model(self, security: QuantConnect.Securities.Security, account_type: QuantConnect.AccountType) -> QuantConnect.Securities.IBuyingPowerModel:
-        """
-        Gets a new buying power model for the security
-        
-        
-        Flagged deprecated and will remove December 1st 2018
-        
-        :param security: The security to get a buying power model for
-        :param account_type: The account type
         :returns: The buying power model for this brokerage/security.
         """
         ...
@@ -1344,26 +1310,11 @@ class IBrokerageModel(metaclass=abc.ABCMeta):
         """
         ...
 
-    @overload
     def get_settlement_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Securities.ISettlementModel:
         """
         Gets a new settlement model for the security
         
         :param security: The security to get a settlement model for
-        :returns: The settlement model for this brokerage.
-        """
-        ...
-
-    @overload
-    def get_settlement_model(self, security: QuantConnect.Securities.Security, account_type: QuantConnect.AccountType) -> QuantConnect.Securities.ISettlementModel:
-        """
-        Gets a new settlement model for the security
-        
-        
-        Flagged deprecated and will remove December 1st 2018
-        
-        :param security: The security to get a settlement model for
-        :param account_type: The account type
         :returns: The settlement model for this brokerage.
         """
         ...
@@ -2133,7 +2084,7 @@ class DefaultBrokerageModel(System.Object, QuantConnect.Brokerages.IBrokerageMod
     the default transaction models
     """
 
-    DEFAULT_MARKET_MAP: System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str] = ...
+    DEFAULT_MARKET_MAP: typing.Dict[QuantConnect.SecurityType, str] = ...
     """The default markets for the backtesting brokerage"""
 
     @property
@@ -2150,7 +2101,7 @@ class DefaultBrokerageModel(System.Object, QuantConnect.Brokerages.IBrokerageMod
         ...
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -2219,27 +2170,12 @@ class DefaultBrokerageModel(System.Object, QuantConnect.Brokerages.IBrokerageMod
         """
         ...
 
-    @overload
     def get_buying_power_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Securities.IBuyingPowerModel:
         """
         Gets a new buying power model for the security, returning the default model with the security's configured leverage.
         For cash accounts, leverage = 1 is used.
         
         :param security: The security to get a buying power model for
-        :returns: The buying power model for this brokerage/security.
-        """
-        ...
-
-    @overload
-    def get_buying_power_model(self, security: QuantConnect.Securities.Security, account_type: QuantConnect.AccountType) -> QuantConnect.Securities.IBuyingPowerModel:
-        """
-        Gets a new buying power model for the security
-        
-        
-        Flagged deprecated and will remove December 1st 2018
-        
-        :param security: The security to get a buying power model for
-        :param account_type: The account type
         :returns: The buying power model for this brokerage/security.
         """
         ...
@@ -2280,26 +2216,11 @@ class DefaultBrokerageModel(System.Object, QuantConnect.Brokerages.IBrokerageMod
         """
         ...
 
-    @overload
     def get_settlement_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Securities.ISettlementModel:
         """
         Gets a new settlement model for the security
         
         :param security: The security to get a settlement model for
-        :returns: The settlement model for this brokerage.
-        """
-        ...
-
-    @overload
-    def get_settlement_model(self, security: QuantConnect.Securities.Security, account_type: QuantConnect.AccountType) -> QuantConnect.Securities.ISettlementModel:
-        """
-        Gets a new settlement model for the security
-        
-        
-        Flagged deprecated and will remove December 1st 2018
-        
-        :param security: The security to get a settlement model for
-        :param account_type: The account type
         :returns: The settlement model for this brokerage.
         """
         ...
@@ -2338,7 +2259,7 @@ class BitfinexBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """Provides Bitfinex specific properties"""
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -2424,7 +2345,7 @@ class BinanceBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         ...
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -2470,7 +2391,7 @@ class BinanceBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         ...
 
     @staticmethod
-    def get_default_markets(market_name: str) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def get_default_markets(market_name: str) -> typing.Dict[QuantConnect.SecurityType, str]:
         """
         Returns a readonly dictionary of binance default markets
         
@@ -2599,7 +2520,7 @@ class CoinbaseBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -2654,7 +2575,7 @@ class CoinbaseBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         ...
 
     @staticmethod
-    def get_default_markets(market_name: str) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def get_default_markets(market_name: str) -> typing.Dict[QuantConnect.SecurityType, str]:
         """
         Gets the default markets for different security types, with an option to override the market name for Crypto securities.
         
@@ -2973,7 +2894,7 @@ class FTXBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         ...
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -3021,7 +2942,7 @@ class FTXBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         ...
 
     @staticmethod
-    def get_default_markets(market: str) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def get_default_markets(market: str) -> typing.Dict[QuantConnect.SecurityType, str]:
         """
         Returns a readonly dictionary of FTX default markets
         
@@ -3063,7 +2984,7 @@ class FTXUSBrokerageModel(QuantConnect.Brokerages.FTXBrokerageModel):
         ...
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -3133,11 +3054,11 @@ class TradeStationBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
 class FxcmBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """Provides FXCM specific properties"""
 
-    DEFAULT_MARKET_MAP: System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str] = ...
+    DEFAULT_MARKET_MAP: typing.Dict[QuantConnect.SecurityType, str] = ...
     """The default markets for the fxcm brokerage"""
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -3271,11 +3192,11 @@ class BrokerageFactoryAttribute(System.Attribute):
 class OandaBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """Oanda Brokerage Model Implementation for Back Testing."""
 
-    DEFAULT_MARKET_MAP: System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str] = ...
+    DEFAULT_MARKET_MAP: typing.Dict[QuantConnect.SecurityType, str] = ...
     """The default markets for the fxcm brokerage"""
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -3332,7 +3253,7 @@ class ZerodhaBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """Brokerage Model implementation for Zerodha"""
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -3473,12 +3394,12 @@ class KrakenBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """Kraken Brokerage model"""
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
     @property
-    def coin_leverage(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def coin_leverage(self) -> typing.Dict[str, float]:
         """Leverage map of different coins"""
         ...
 
@@ -3652,11 +3573,11 @@ class EzeBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
 class AxosClearingBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """Provides the Axos clearing brokerage model specific properties"""
 
-    DEFAULT_MARKET_MAP: System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str] = ...
+    DEFAULT_MARKET_MAP: typing.Dict[QuantConnect.SecurityType, str] = ...
     """The default markets for Trading Technologies"""
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -3779,7 +3700,7 @@ class dYdXBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """This class has no documentation."""
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -3856,7 +3777,7 @@ class dYdXBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
 class InteractiveBrokersBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """Provides properties specific to interactive brokers"""
 
-    DEFAULT_MARKET_MAP: System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str] = ...
+    DEFAULT_MARKET_MAP: typing.Dict[QuantConnect.SecurityType, str] = ...
     """The default markets for the IB brokerage"""
 
     @property
@@ -3880,7 +3801,7 @@ class InteractiveBrokersBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageM
         ...
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -4007,11 +3928,11 @@ class InteractiveBrokersFixModel(QuantConnect.Brokerages.InteractiveBrokersBroke
 class TradingTechnologiesBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """Provides properties specific to Trading Technologies"""
 
-    DEFAULT_MARKET_MAP: System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str] = ...
+    DEFAULT_MARKET_MAP: typing.Dict[QuantConnect.SecurityType, str] = ...
     """The default markets for Trading Technologies"""
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -4181,7 +4102,7 @@ class BybitBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         ...
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -4270,7 +4191,7 @@ class SamcoBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """Brokerage Model implementation for Samco"""
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 
@@ -4415,7 +4336,7 @@ class BinanceUSBrokerageModel(QuantConnect.Brokerages.BinanceBrokerageModel):
         ...
 
     @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+    def default_markets(self) -> typing.Dict[QuantConnect.SecurityType, str]:
         """Gets a map of the default markets to be used for each security type"""
         ...
 

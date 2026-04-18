@@ -209,6 +209,7 @@ class Environment:
         status: str | None = None,
         public_url: str | None = None,
         mesh_ip: str | None = None,
+        is_desktop: bool = False,
     ):
         self._session = session
         self.job_id = job_id
@@ -218,6 +219,7 @@ class Environment:
         self.status = status
         self.public_url = public_url
         self.mesh_ip = mesh_ip
+        self.is_desktop = is_desktop
 
     @property
     def _http(self):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cwsandbox
-Version: 0.16.0
+Version: 0.17.0
 Summary: A Python client library for CoreWeave Sandbox
 Author: CoreWeave, Inc.
 License-Expression: Apache-2.0
@@ -37,11 +37,6 @@ Requires-Dist: python-semantic-release>=9.15.1; extra == 'dev'
 Requires-Dist: ruff>=0.6.0; extra == 'dev'
 Requires-Dist: types-protobuf<7,>=5; extra == 'dev'
 Requires-Dist: wandb>=0.19.0; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: mkdocs-include-markdown-plugin>=7.0.0; extra == 'docs'
-Requires-Dist: mkdocs-material>=9.5.0; extra == 'docs'
-Requires-Dist: mkdocs>=1.6.0; extra == 'docs'
-Requires-Dist: mkdocstrings[python]>=0.27.0; extra == 'docs'
 Description-Content-Type: text/markdown
 
 # cwsandbox-client
@@ -50,7 +45,7 @@ A Python client library for CWSandboxes.
 
 ## Documentation
 
-See the [documentation site](https://docs.coreweave.com/products/coreweave-sandbox) for the full tutorial, guides, and API reference.
+See the [documentation site](https://docs.coreweave.com/products/coreweave-sandbox/client) for the full tutorial, guides, and API reference.
 
 ## Quick Start
 

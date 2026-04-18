@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: somacore
-Version: 1.0.29
+Version: 2.0.0
 Summary: Python-language API specification and base utilities for implementation of the SOMA system.
 Project-URL: repository, https://github.com/single-cell-data/SOMA.git
 Classifier: License :: OSI Approved :: MIT License

@@ -20,7 +20,7 @@ keywords = [
     "distributed-tracing",
 ]
 authors = [
-    { name = "Instana Team Python Tracer Engineers" },
+    { name = "Instana Python Tracer Engineers", email = "pythonrubyinstana@ibm.com" },
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -65,6 +65,7 @@ dev = [
     "pytest-mock",
     "pre-commit>=3.0.0",
     "ruff",
+    "gunicorn",
 ]
 
 [project.urls]
@@ -94,3 +95,32 @@ exclude_also = [
     "except Exception:",
     "except Exception as exc:",
     ]
+
+[tool.ruff]
+# https://docs.astral.sh/ruff/configuration/
+target-version = "py39"
+# In addition to the standard set of exclusions, omit all tests, plus a specific file.
+extend-exclude = [".bob", "bin", ".github", ".circleci", ".tekton"]
+preview = true
+output-format = "concise"
+
+[tool.ruff.lint]
+# https://docs.astral.sh/ruff/rules/
+select = [
+    "E",        # pycodestyle
+    "F",        # Pyflakes
+    "I",        # isort
+    "CPY",      # flake8-copyright
+    "SIM",      # flake8-simplify
+    "FLY",      # flynt (static-join-to-f-string)
+    "UP031",    # printf-string-formatting
+    "UP032",    # f-string
+]
+ignore = ["E501", "I001"]
+
+[tool.ruff.lint.flake8-copyright]
+notice-rgx = "(?i)#\\s?(\\(c\\)\\s+)?Copyright\\s+IBM Corp\\.\\s+(\\d{4}((-|,\\s)\\d{4})?)"
+min-file-size = 1024
+
+# [tool.ruff.format]
+# preview = true

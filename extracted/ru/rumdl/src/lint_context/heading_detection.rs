@@ -33,19 +33,14 @@ pub(super) fn detect_headings_and_blockquotes(
             let full_prefix = format!("{}{}", bq.prefix, &bq.content[..content_leading_ws_len]);
             let normalized_content = &bq.content[content_leading_ws_len..];
 
-            let has_no_space = bq.spaces_after_marker.is_empty() && !normalized_content.is_empty();
             let has_multiple_spaces = bq.spaces_after_marker.chars().filter(|&c| c == ' ').count() > 1;
-            let needs_md028_fix = normalized_content.is_empty() && bq.spaces_after_marker.is_empty();
 
             lines[i].blockquote = Some(Box::new(BlockquoteInfo {
                 nesting_level,
-                indent: bq.indent.to_string(),
                 marker_column,
                 prefix: full_prefix,
                 content: normalized_content.to_string(),
-                has_no_space_after_marker: has_no_space,
                 has_multiple_spaces_after_marker: has_multiple_spaces,
-                needs_md028_fix,
             }));
 
             // Update is_horizontal_rule for blockquote content
@@ -168,7 +163,7 @@ pub(super) fn detect_headings_and_blockquotes(
             let is_valid = !spaces_after.is_empty()
                 || rest.is_empty()
                 || level > 1
-                || rest.trim().chars().next().is_some_and(|c| c.is_uppercase());
+                || rest.trim().chars().next().is_some_and(char::is_uppercase);
 
             lines[i].heading = Some(Box::new(HeadingInfo {
                 level,
@@ -212,7 +207,7 @@ pub(super) fn detect_headings_and_blockquotes(
                 if let Some(first_char) = content_line.chars().next()
                     && first_char.is_ascii_digit()
                 {
-                    let num_end = content_line.chars().take_while(|c| c.is_ascii_digit()).count();
+                    let num_end = content_line.chars().take_while(char::is_ascii_digit).count();
                     if num_end < content_line.len() {
                         let next = content_line.chars().nth(num_end);
                         if next == Some('.') || next == Some(')') {

@@ -12,7 +12,6 @@ import System.IO
 import System.Reflection
 import System.Resources
 import System.Runtime.InteropServices
-import System.Runtime.Serialization
 
 IServiceProvider = typing.Any
 
@@ -94,12 +93,7 @@ class DesignerTransactionCloseEventArgs(System.EventArgs):
     def last_transaction(self) -> bool:
         ...
 
-    @overload
     def __init__(self, commit: bool, last_transaction: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, commit: bool) -> None:
         ...
 
 
@@ -1201,10 +1195,6 @@ class CheckoutException(System.Runtime.InteropServices.ExternalException):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 

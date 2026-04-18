@@ -9,7 +9,6 @@ import System.Globalization
 import System.IO
 import System.Reflection
 import System.Resources
-import System.Runtime.Serialization
 
 
 class IResourceReader(System.Collections.IEnumerable, System.IDisposable, metaclass=abc.ABCMeta):
@@ -67,10 +66,6 @@ class MissingManifestResourceException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -302,10 +297,6 @@ class MissingSatelliteAssemblyException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 

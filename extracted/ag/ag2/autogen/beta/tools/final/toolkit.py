@@ -6,6 +6,8 @@ from collections.abc import Callable, Iterable
 from contextlib import ExitStack
 from typing import Any, overload
 
+from fast_depends import Provider
+
 from autogen.beta.annotations import Context
 from autogen.beta.middleware import BaseMiddleware, ToolMiddleware
 from autogen.beta.tools.schemas import ToolSchema
@@ -15,8 +17,25 @@ from .function_tool import FunctionParameters, FunctionTool, tool
 
 
 class Toolkit(Tool):
-    def __init__(self, *tools: Tool | Callable[..., Any]) -> None:
-        self.tools: list[Tool] = [FunctionTool.ensure_tool(t) for t in tools]
+    __slots__ = (
+        "name",
+        "tools",
+        "_middleware",
+    )
+
+    def __init__(
+        self,
+        *tools: Tool | Callable[..., Any],
+        name: str | None = None,
+        middleware: Iterable[ToolMiddleware] = (),
+    ) -> None:
+        self._middleware: tuple[ToolMiddleware, ...] = tuple(middleware)
+        self.name = name or self.__class__.__name__
+        self.tools: list[Tool] = [FunctionTool.ensure_tool(t).with_middleware(*self._middleware) for t in tools]
+
+    def set_provider(self, provider: Provider) -> None:
+        for t in self.tools:
+            t.set_provider(provider)
 
     @overload
     def tool(
@@ -28,7 +47,7 @@ class Toolkit(Tool):
         schema: FunctionParameters | None = None,
         sync_to_thread: bool = True,
         middleware: Iterable[ToolMiddleware] = (),
-    ) -> Tool: ...
+    ) -> FunctionTool: ...
 
     @overload
     def tool(
@@ -40,7 +59,7 @@ class Toolkit(Tool):
         schema: FunctionParameters | None = None,
         sync_to_thread: bool = True,
         middleware: Iterable[ToolMiddleware] = (),
-    ) -> Callable[[Callable[..., Any]], Tool]: ...
+    ) -> Callable[[Callable[..., Any]], FunctionTool]: ...
 
     def tool(
         self,
@@ -51,8 +70,8 @@ class Toolkit(Tool):
         schema: FunctionParameters | None = None,
         sync_to_thread: bool = True,
         middleware: Iterable[ToolMiddleware] = (),
-    ) -> Tool | Callable[[Callable[..., Any]], Tool]:
-        def make_tool(f: Callable[..., Any]) -> Tool:
+    ) -> FunctionTool | Callable[[Callable[..., Any]], FunctionTool]:
+        def make_tool(f: Callable[..., Any]) -> FunctionTool:
             t = FunctionTool.ensure_tool(
                 tool(
                     f,
@@ -62,7 +81,7 @@ class Toolkit(Tool):
                     sync_to_thread=sync_to_thread,
                     middleware=middleware,
                 )
-            )
+            ).with_middleware(*self._middleware)
             self.tools.append(t)
             return t
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-jupyter
-Version: 0.26.2
+Version: 0.26.3
 Summary: Use Jupyter in mkdocs websites
 Project-URL: Documentation, https://github.com/danielfrg/mkdocs-jupyter#readme
 Project-URL: Issues, https://github.com/danielfrg/mkdocs-jupyter/issues
@@ -196,6 +196,15 @@ for all the notebooks:
 plugins:
     - mkdocs-jupyter:
           no_input: True
+```
+
+You can also only hide the `In[#]` and `Out[#]` prompts but keep the input and
+output content:
+
+```yaml
+plugins:
+    - mkdocs-jupyter:
+          no_prompt: True
 ```
 
 ### Remove Cell Using Tags

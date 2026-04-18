@@ -27,7 +27,7 @@ try:
         :param: dict
         :return: dict or None
         """
-        method, path = api_request.get("method", None), api_request.get("path", None)
+        method, path = api_request.get("method"), api_request.get("path")
 
         if method not in _storage_api:
             return
@@ -62,7 +62,7 @@ try:
         args: Tuple[object, ...],
         kwargs: Dict[str, Any],
     ) -> object:
-        tracer, parent_span, _ = get_tracer_tuple()
+        tracer, _, _ = get_tracer_tuple()
 
         # batch requests are traced with finish_batch_with_instana()
         # also return early if we're not tracing
@@ -94,7 +94,7 @@ try:
         args: Tuple[object, ...],
         kwargs: Dict[str, Any],
     ) -> object:
-        tracer, parent_span, _ = get_tracer_tuple()
+        tracer, _, _ = get_tracer_tuple()
         # return early if we're not tracing
         if not tracer:
             return wrapped(*args, **kwargs)
@@ -106,16 +106,16 @@ try:
             span.set_attribute("gcs.bucket", instance.bucket.name)
             span.set_attribute("gcs.object", instance.name)
 
-            start = len(args) > 4 and args[4] or kwargs.get("start", None)
+            start = len(args) > 4 and args[4] or kwargs.get("start")
             if start is None:
                 start = ""
 
-            end = len(args) > 5 and args[5] or kwargs.get("end", None)
+            end = len(args) > 5 and args[5] or kwargs.get("end")
             if end is None:
                 end = ""
 
             if start != "" or end != "":
-                span.set_attribute("gcs.range", "-".join((start, end)))
+                span.set_attribute("gcs.range", f"{start}-{end}")
 
             try:
                 kv = wrapped(*args, **kwargs)
@@ -130,7 +130,7 @@ try:
         args: Tuple[object, ...],
         kwargs: Dict[str, Any],
     ) -> object:
-        tracer, parent_span, _ = get_tracer_tuple()
+        tracer, _, _ = get_tracer_tuple()
         # return early if we're not tracing
         if not tracer:
             return wrapped(*args, **kwargs)
@@ -155,7 +155,7 @@ try:
         args: Tuple[object, ...],
         kwargs: Dict[str, Any],
     ) -> object:
-        tracer, parent_span, _ = get_tracer_tuple()
+        tracer, _, _ = get_tracer_tuple()
         # return early if we're not tracing
         if not tracer:
             return wrapped(*args, **kwargs)

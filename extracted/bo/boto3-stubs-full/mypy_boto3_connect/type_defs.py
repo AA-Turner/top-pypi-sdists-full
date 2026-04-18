@@ -3992,6 +3992,17 @@ class ListTestCaseExecutionRecordsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 
+class ListTestCaseExecutionsRequestTypeDef(TypedDict):
+    InstanceId: str
+    TestCaseId: NotRequired[str]
+    TestCaseName: NotRequired[str]
+    StartTime: NotRequired[int]
+    EndTime: NotRequired[int]
+    Status: NotRequired[TestCaseExecutionStatusType]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
 class TestCaseExecutionTypeDef(TypedDict):
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
@@ -6337,17 +6348,6 @@ class DataTableValueTypeDef(TypedDict):
     LockVersion: NotRequired[DataTableLockVersionTypeDef]
     LastModifiedTime: NotRequired[TimestampTypeDef]
     LastModifiedRegion: NotRequired[str]
-
-
-class ListTestCaseExecutionsRequestTypeDef(TypedDict):
-    InstanceId: str
-    TestCaseId: NotRequired[str]
-    TestCaseName: NotRequired[str]
-    StartTime: NotRequired[TimestampTypeDef]
-    EndTime: NotRequired[TimestampTypeDef]
-    Status: NotRequired[TestCaseExecutionStatusType]
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
 
 
 SearchContactsTimeRangeTypeDef = TypedDict(

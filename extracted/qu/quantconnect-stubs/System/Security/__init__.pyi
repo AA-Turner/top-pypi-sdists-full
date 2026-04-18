@@ -409,10 +409,6 @@ class VerificationException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class SecurityException(System.SystemException):
     """This class has no documentation."""
@@ -515,10 +511,6 @@ class SecurityException(System.SystemException):
 
     @overload
     def __init__(self, message: str, type: typing.Type, state: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:

@@ -49,7 +49,7 @@ class FakeDataQueue(System.Object, QuantConnect.Interfaces.IDataQueueHandler, Qu
         """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
         ...
 
-    def lookup_symbols(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], include_expired: bool, security_currency: str = None) -> typing.Iterable[QuantConnect.Symbol]:
+    def lookup_symbols(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], include_expired: bool, security_currency: str = None) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Method returns a collection of Symbols that are available at the data source.
         

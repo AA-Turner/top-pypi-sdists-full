@@ -5,6 +5,7 @@
 
 import argparse
 import logging
+import os
 import threading
 
 from snowflake.snowpark_connect.utils.spcs_logger import setup_spcs_logger
@@ -72,10 +73,15 @@ if __name__ == "__main__":
 
     # Create stop_event and optionally set up signal handlers in start_server
     stop_event = threading.Event()
+    monitor_stdin = (
+        os.environ.get("SNOWPARK_CONNECT_MONITOR_STDIN", "").lower() == "true"
+    )
+
     start_session(
         is_daemon=False,
         tcp_port=tcp_port,
         unix_domain_socket=unix_domain_socket,
         stop_event=stop_event,
         _add_signal_handler=(not args.disable_signal_handlers),
+        _monitor_stdin=monitor_stdin,
     )

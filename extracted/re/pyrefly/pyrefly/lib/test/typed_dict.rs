@@ -2531,3 +2531,19 @@ def test_inherited(c: Child) -> None:
     c.update
 "#,
 );
+
+testcase!(
+    test_construct_generic_typed_dict_with_union_hint,
+    r#"
+from typing import TypedDict, Generic
+from typing_extensions import TypeVar
+
+T = TypeVar('T')
+
+class TD(TypedDict, Generic[T]):
+    value: T
+
+def f(x: str) -> TD[int] | TD[str]:
+    return TD(value=x)
+    "#,
+);

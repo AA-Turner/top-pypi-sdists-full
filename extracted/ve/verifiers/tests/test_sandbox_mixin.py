@@ -2,7 +2,15 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from prime_sandboxes import CommandTimeoutError, SandboxOOMError, SandboxTimeoutError
+import httpx
+from prime_sandboxes import (
+    APIError,
+    CommandTimeoutError,
+    DownloadTimeoutError,
+    SandboxOOMError,
+    SandboxTimeoutError,
+    UploadTimeoutError,
+)
 
 import verifiers as vf
 from verifiers.envs.experimental.sandbox_mixin import (
@@ -11,6 +19,8 @@ from verifiers.envs.experimental.sandbox_mixin import (
     SandboxNotReadyError,
     SandboxSetupError,
     ThreadedAsyncSandboxClient,
+    is_retryable_sandbox_api_error,
+    is_retryable_sandbox_read_error,
 )
 
 MODULE = "verifiers.envs.experimental.sandbox_mixin"
@@ -41,6 +51,28 @@ def test_init_creates_client_and_retry():
     assert callable(obj.with_retry)
 
 
+@pytest.mark.parametrize(
+    "exception",
+    [
+        UploadTimeoutError("sb", "/tmp/file", 300),
+        DownloadTimeoutError("sb", "/tmp/file", 300),
+        CommandTimeoutError("sb", "echo hi", 30),
+        httpx.ReadTimeout("timed out"),
+        APIError("Upload failed: HTTP 503: retry me"),
+        APIError("Upload failed: ConnectError at POST /upload: boom"),
+    ],
+)
+def test_retryable_sandbox_read_error_matches_current_sdk_exceptions(exception):
+    assert is_retryable_sandbox_read_error(exception) is True
+
+
+def test_retryable_sandbox_api_error_ignores_non_retryable_api_error():
+    assert (
+        is_retryable_sandbox_api_error(APIError("Upload failed: HTTP 400: nope"))
+        is False
+    )
+
+
 # ── create_sandbox ───────────────────────────────────────────────────
 
 
@@ -66,6 +98,19 @@ def test_create_sandbox_creation_fails(mixin):
 
     with pytest.raises(SandboxCreationError):
         asyncio.run(mixin.create_sandbox({}, request=MagicMock()))
+
+
+def test_create_sandbox_max_retries_is_true_retry_count():
+    obj = ConcreteMixin(max_retries=1, base_delay=0.01)
+    obj.logger = MagicMock()
+    sandbox_obj = MagicMock(id="sb-retry")
+    obj.sandbox_client.create = AsyncMock(side_effect=[Exception("boom"), sandbox_obj])
+    obj.sandbox_client.wait_for_creation = AsyncMock()
+
+    result = asyncio.run(obj.create_sandbox({}, request=MagicMock()))
+
+    assert result == "sb-retry"
+    assert obj.sandbox_client.create.await_count == 2
 
 
 def test_create_sandbox_not_ready(mixin):
@@ -184,10 +229,8 @@ def test_bulk_delete_failure(mixin):
 
 
 def test_run_background_job_success(mixin):
-    job = MagicMock()
     results = MagicMock(completed=True)
-    mixin.sandbox_client.start_background_job = AsyncMock(return_value=job)
-    mixin.sandbox_client.get_background_job = AsyncMock(return_value=results)
+    mixin.sandbox_client.run_background_job = AsyncMock(return_value=results)
 
     state = {"sandbox_id": "sb-1"}
     ret = asyncio.run(mixin.run_background_job(state, command="echo hi", timeout=10))
@@ -195,74 +238,35 @@ def test_run_background_job_success(mixin):
 
 
 def test_run_background_job_command_timeout(mixin):
-    mixin.sandbox_client.start_background_job = AsyncMock(
+    mixin.sandbox_client.run_background_job = AsyncMock(
         side_effect=CommandTimeoutError(sandbox_id="sb-1", command="cmd", timeout=5)
     )
 
     state = {"sandbox_id": "sb-1"}
-    with pytest.raises(vf.SandboxError):
-        asyncio.run(mixin.run_background_job(state, command="cmd", timeout=10))
-
-
-def test_run_background_job_oom_on_start(mixin):
-    mixin.sandbox_client.start_background_job = AsyncMock(
-        side_effect=SandboxOOMError(sandbox_id="sb-1")
-    )
-
-    state = {"sandbox_id": "sb-1"}
-    with pytest.raises(vf.SandboxError):
-        asyncio.run(mixin.run_background_job(state, command="cmd", timeout=10))
-    assert state["sandbox_oom"] is True
-
-
-def test_run_background_job_timeout_on_start(mixin):
-    mixin.sandbox_client.start_background_job = AsyncMock(
-        side_effect=SandboxTimeoutError(sandbox_id="sb-1")
-    )
-
-    state = {"sandbox_id": "sb-1"}
-    with pytest.raises(vf.SandboxError):
-        asyncio.run(mixin.run_background_job(state, command="cmd", timeout=10))
-    assert state["sandbox_timeout"] is True
-
-
-def test_run_background_job_oom_during_poll(mixin):
-    job = MagicMock()
-    mixin.sandbox_client.start_background_job = AsyncMock(return_value=job)
-    mixin.sandbox_client.get_background_job = AsyncMock(
-        side_effect=SandboxOOMError(sandbox_id="sb-1")
-    )
-
-    state = {"sandbox_id": "sb-1"}
-    with pytest.raises(vf.SandboxError):
-        asyncio.run(mixin.run_background_job(state, command="cmd", timeout=10))
-    assert state["sandbox_oom"] is True
-
-
-def test_run_background_job_timeout_during_poll(mixin):
-    job = MagicMock()
-    mixin.sandbox_client.start_background_job = AsyncMock(return_value=job)
-    mixin.sandbox_client.get_background_job = AsyncMock(
-        side_effect=SandboxTimeoutError(sandbox_id="sb-1")
-    )
-
-    state = {"sandbox_id": "sb-1"}
-    with pytest.raises(vf.SandboxError):
-        asyncio.run(mixin.run_background_job(state, command="cmd", timeout=10))
-    assert state["sandbox_timeout"] is True
-
-
-def test_run_background_job_poll_timeout(mixin):
-    job = MagicMock()
-    not_done = MagicMock(completed=False)
-    mixin.sandbox_client.start_background_job = AsyncMock(return_value=job)
-    mixin.sandbox_client.get_background_job = AsyncMock(return_value=not_done)
-
-    state = {"sandbox_id": "sb-1"}
     with pytest.raises(CommandTimeoutError):
-        asyncio.run(
-            mixin.run_background_job(state, command="cmd", timeout=0, poll_interval=1)
-        )
+        asyncio.run(mixin.run_background_job(state, command="cmd", timeout=10))
+
+
+def test_run_background_job_oom(mixin):
+    mixin.sandbox_client.run_background_job = AsyncMock(
+        side_effect=SandboxOOMError(sandbox_id="sb-1")
+    )
+
+    state = {"sandbox_id": "sb-1"}
+    with pytest.raises(vf.SandboxError):
+        asyncio.run(mixin.run_background_job(state, command="cmd", timeout=10))
+    assert state["sandbox_oom"] is True
+
+
+def test_run_background_job_sandbox_timeout(mixin):
+    mixin.sandbox_client.run_background_job = AsyncMock(
+        side_effect=SandboxTimeoutError(sandbox_id="sb-1")
+    )
+
+    state = {"sandbox_id": "sb-1"}
+    with pytest.raises(vf.SandboxError):
+        asyncio.run(mixin.run_background_job(state, command="cmd", timeout=10))
+    assert state["sandbox_timeout"] is True
 
 
 # ── teardown_sandboxes ──────────────────────────────────────────────

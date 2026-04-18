@@ -854,19 +854,6 @@ class ClassicRenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Cl
         """
         ...
 
-    @overload
-    def __init__(self, bar_size: float, type: QuantConnect.Data.Market.RenkoType) -> None:
-        """
-        Initializes a new instance of the ClassicRenkoConsolidator class.
-        
-        
-        Please use the new RenkoConsolidator if RenkoType is not Classic
-        
-        :param bar_size: The constant value size of each bar
-        :param type: The RenkoType of the bar
-        """
-        ...
-
     def create_new_bar(self, data: QuantConnect.Data.IBaseData, current_value: float, volume: float) -> None:
         """
         Creates a new bar with the given data

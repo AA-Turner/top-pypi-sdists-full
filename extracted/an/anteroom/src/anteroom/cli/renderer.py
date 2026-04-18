@@ -321,11 +321,17 @@ def set_verbosity(v: Verbosity) -> None:
 
 
 _show_rag_status: bool = True
+_show_memory_recall_status: bool = True
 
 
 def set_rag_status_visible(show: bool) -> None:
     global _show_rag_status
     _show_rag_status = show
+
+
+def set_memory_recall_status_visible(show: bool) -> None:
+    global _show_memory_recall_status
+    _show_memory_recall_status = show
 
 
 def set_tool_dedup(enabled: bool) -> None:
@@ -2318,6 +2324,35 @@ def render_rag_status(status: str, chunk_count: int = 0, reason: str | None = No
     elif status == "no_vec_support":
         console.print(f"  [{MUTED}][RAG: embedding service unavailable][/{MUTED}]")
     # Silent for: disabled, no_config, skipped_plan_mode, skipped
+
+
+def render_memory_recall_status(status: str, count: int = 0, reason: str | None = None) -> None:
+    """Render memory recall status with consistent formatting.
+
+    Mirrors ``render_rag_status`` but for the per-turn memory recall pipeline
+    (#921).  When the gate toggle ``_show_memory_recall_status`` is off, emits
+    nothing.  COMPACT mode suppresses informational messages; DETAILED/VERBOSE
+    show full diagnostics.
+    """
+    if not _show_memory_recall_status:
+        return
+    if _verbosity == Verbosity.COMPACT:
+        if status == "failed":
+            console.print(f"  [{MUTED}]Memory recall unavailable[/{MUTED}]")
+        elif status == "no_vec_support":
+            console.print(f"  [{MUTED}]Memory recall not configured[/{MUTED}]")
+        return
+    # DETAILED / VERBOSE — full diagnostic output
+    if status == "ok" and count > 0:
+        console.print(f"  [{MUTED}][Memory: {count} memory(ies) recalled][/{MUTED}]")
+    elif status == "no_results":
+        suffix = f" — {reason}" if reason else ""
+        console.print(f"  [{MUTED}][Memory: no results{suffix}][/{MUTED}]")
+    elif status == "failed":
+        console.print(f"  [{MUTED}][Memory: recall failed][/{MUTED}]")
+    elif status == "no_vec_support":
+        console.print(f"  [{MUTED}][Memory: embedding service unavailable][/{MUTED}]")
+    # Silent for: disabled, skipped
 
 
 def render_context_footer(

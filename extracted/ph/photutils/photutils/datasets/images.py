@@ -1,19 +1,18 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Provide tools for making simulated images for documentation examples and
-tests.
+Tools for making simulated images for documentation examples and tests.
 """
 
 import astropy.units as u
 import numpy as np
 from astropy.convolution import discretize_model
 from astropy.modeling import Model
-from astropy.nddata.utils import NoOverlapError
+from astropy.nddata import NoOverlapError, overlap_slices
 from astropy.table import Table
 
+from photutils.utils._deprecation import deprecated_positional_kwargs
 from photutils.utils._parameters import as_pair
 from photutils.utils._progress_bars import add_progress_bar
-from photutils.utils.cutouts import _overlap_slices as overlap_slices
 
 __all__ = ['make_model_image']
 
@@ -54,10 +53,10 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
         and y positions of the sources. The column names for the x
         and y positions can be specified using the ``x_name`` and
         ``y_name`` keywords. Model parameters not defined in the table
-        or ``params_maps`` will be set to the ``model`` default value.
-        To attach units to model parameters, ``params_table`` must
-        be input as a `~astropy.table.QTable`. Rows that contain any
-        non-finite model parameters will be skipped.
+        or ``params_map`` will be set to the ``model`` default value. To
+        attach units to model parameters, ``params_table`` must be input
+        as a `~astropy.table.QTable`. Rows that contain any non-finite
+        model parameters will be skipped.
 
         If the table contains a column named 'model_shape', then
         the values in that column will be used to override the
@@ -66,8 +65,8 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
         shape.
 
         If the table contains a column named 'local_bkg', then the
-        per-pixel local background values in that column will be used
-        to added to each model source over the region defined by its
+        per-pixel local background values in that column will be to
+        added to each model source over the region defined by its
         ``model_shape``. The 'local_bkg' column must have the same
         flux units as the output image (e.g., if the input ``model``
         has 'amplitude' or 'flux' parameters with units). Including
@@ -100,8 +99,8 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
         bounding box will be used. This keyword is ignored if
         ``model_shape`` is specified or if the ``params_table`` contains
         a ``'model_shape'`` column. Note that some Photutils PSF models
-        have a ``bbox_factor`` keyword that is be used to define the
-        model bounding box. In that case, this keyword is ignored.
+        have a ``bbox_factor`` keyword that is used to define the model
+        bounding box. In that case, this keyword is ignored.
 
     x_name : str, optional
         The name of the ``model`` parameter that corresponds to the x
@@ -120,7 +119,7 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
         in the input ``params_table``. This can be used to map column
         names to model parameter names that are different. For example,
         if the input column name is 'flux_f200w' and the model parameter
-        name is 'flux', then use ``column_map={'flux': 'flux_f200w'}``.
+        name is 'flux', then use ``params_map={'flux': 'flux_f200w'}``.
         This table may also be used if you want to map the model x and y
         parameters to different columns than ``x_name`` and ``y_name``,
         but the ``x_name`` and ``y_name`` keys must be included in the
@@ -166,6 +165,16 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
     array : 2D `~numpy.ndarray`
         The rendered image containing the model sources.
 
+    Notes
+    -----
+    The local background value around each source is optionally included
+    using the ``local_bkg`` column in the input ``params_table``. This
+    local background is added to each source over its ``model_shape``
+    region. In regions where the ``model_shape`` of sources overlap,
+    the local background will be added multiple times. This is not an
+    issue if the sources are well-separated, but for crowded fields,
+    this option should be used with care.
+
     Examples
     --------
     .. plot::
@@ -189,8 +198,9 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
         model_shape = (15, 15)
         data = make_model_image(shape, model, params, model_shape=model_shape)
 
-        plt.imshow(data, origin='lower')
-        plt.tight_layout()
+        fig, ax = plt.subplots()
+        ax.imshow(data, origin='lower')
+        fig.tight_layout()
 
     .. plot::
         :include-source:
@@ -211,18 +221,9 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
         data = make_model_image(shape, model, params, model_shape=model_shape,
                                 x_name='x_mean', y_name='y_mean')
 
-        plt.imshow(data, origin='lower')
-        plt.tight_layout()
-
-    Notes
-    -----
-    The local background value around each source is optionally included
-    using the ``local_bkg`` column in the input ``params_table``. This
-    local background added to each source over its ``model_shape``
-    region. In regions where the ``model_shape`` of source overlap, the
-    local background will be added multiple times. This is not an issue
-    if the sources are well-separated, but for crowded fields, this
-    option should be used with care.
+        fig, ax = plt.subplots()
+        ax.imshow(data, origin='lower')
+        fig.tight_layout()
     """
     if not isinstance(shape, tuple) or len(shape) != 2:
         msg = 'shape must be a 2-tuple'
@@ -240,7 +241,7 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
 
     xypos_map = {x_name: x_name, y_name: y_name}
 
-    # by default, use the model parameter names as the column names
+    # By default, use the model parameter names as the column names
     # if they are in the table
     params_to_set = set(params_table.colnames) & set(model.param_names)
     xypos_map.update({param: param for param in params_to_set})
@@ -260,7 +261,7 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
             raise ValueError(msg)
 
     if model_shape is not None:
-        model_shape = as_pair('model_shape', model_shape, lower_bound=(0, 1))
+        model_shape = as_pair('model_shape', model_shape, lower_bound=(0, 0))
 
     variable_shape = False
     if 'model_shape' in params_table.colnames:
@@ -283,10 +284,10 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
     else:
         local_bkg = np.zeros(len(params_table))
 
-    # copy the input model to leave it unchanged
+    # Copy the input model to leave it unchanged
     model = model.copy()
 
-    if progress_bar:  # pragma: no cover
+    if progress_bar:
         desc = 'Add model sources'
         params_table = add_progress_bar(params_table, desc=desc)
 
@@ -295,12 +296,12 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
     for i, source in enumerate(params_table):
         for key, param in params_map.items():
             value = source[param]
-            # skip if any parameter value is not finite
+            # Skip if any parameter value is not finite
             if not np.isfinite(value):
                 break
             setattr(model, key, value)
 
-        else:  # all parameters are finite for the source
+        else:  # All parameters are finite for the source
             # This assumes that if the user also uses params_table to
             # override the (x/y)_name mapping that the x_name and y_name
             # values are correct (i.e., the mapping keys include x_name
@@ -311,7 +312,7 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
             if variable_shape:
                 mod_shape = model_shape[i]
             elif model_shape is None:
-                # the bounding box size generally depends on model
+                # The bounding box size generally depends on model
                 # parameters, so needs to be calculated for each source
                 mod_shape = _model_shape_from_bbox(model,
                                                    bbox_factor=bbox_factor)
@@ -335,7 +336,7 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
                                               mode=discretize_method,
                                               factor=discretize_oversample)
 
-                # if the model is a Quantity, then the output image
+                # If the model is a Quantity, then the output image
                 # should also be a Quantity with the same units;
                 # but apply the units only once
                 if apply_units and isinstance(subimg, u.Quantity):
@@ -350,7 +351,7 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
                     raise ValueError(msg) from exc
 
             except NoOverlapError:
-                # evaluate the model to get the model output units
+                # Evaluate the model to get the model output units
                 result = model(0, 0)
                 if isinstance(result, u.Quantity):
                     image <<= result.unit
@@ -359,6 +360,7 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
     return image
 
 
+@deprecated_positional_kwargs(since='3.0', until='4.0')
 def _model_shape_from_bbox(model, bbox_factor=None):
     """
     Calculate the model shape from the model bounding box.
@@ -387,7 +389,7 @@ def _model_shape_from_bbox(model, bbox_factor=None):
         If the model does not have a bounding_box attribute.
     """
     try:
-        hasattr(model, 'bounding_box')
+        _ = model.bounding_box
     except NotImplementedError as exc:
         msg = 'model does not have a bounding_box attribute'
         raise ValueError(msg) from exc

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gxformat2
-Version: 0.25.0
+Version: 0.26.0
 Summary: Galaxy Workflow Format 2 Descriptions
 Author-email: Galaxy Project and Community <jmchilton@gmail.com>
 License-Expression: MIT
@@ -30,6 +30,8 @@ Requires-Dist: pyyaml
 Requires-Dist: requests
 Requires-Dist: schema-salad>8.7.20241010092723
 Requires-Dist: typing_extensions
+Provides-Extra: bioblend
+Requires-Dist: bioblend; extra == "bioblend"
 Dynamic: license-file
 
 

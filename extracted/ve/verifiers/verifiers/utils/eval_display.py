@@ -297,10 +297,15 @@ class EvalDisplay(BaseDisplay):
         """Register a log file for tailing for a specific environment."""
         if env_idx in self._env_log_files:
             self._env_log_files[env_idx][path] = 0
+            n = len(self._env_log_files[env_idx])
             title = Text()
             title.append("logs", style="dim")
             title.append(" ", style="dim")
-            title.append(str(path), style="dim cyan")
+            if n == 1:
+                title.append(str(path), style="dim cyan")
+            else:
+                title.append(str(path.parent), style="dim cyan")
+                title.append(f" ({n} files)", style="dim")
             self._env_log_titles[env_idx] = title
 
     async def _tail_log_files(self) -> None:
@@ -411,9 +416,13 @@ class EvalDisplay(BaseDisplay):
             config_line.append("  |  ", style="dim")
             config_line.append("custom sampling ", style="white")
             config_line.append("(", style="dim")
-            for key, value in config.sampling_args.items():
-                if value is not None:
-                    config_line.append(f"{key}={value}", style="dim")
+            non_none_items = [
+                (k, v) for k, v in config.sampling_args.items() if v is not None
+            ]
+            for i, (key, value) in enumerate(non_none_items):
+                if i > 0:
+                    config_line.append(", ", style="dim")
+                config_line.append(f"{key}={value}", style="dim")
             config_line.append(")", style="dim")
         if config.save_results:
             config_line.append("  |  ", style="dim")

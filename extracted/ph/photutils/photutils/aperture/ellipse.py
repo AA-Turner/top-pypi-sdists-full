@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define elliptical and elliptical-annulus apertures in both pixel and sky
+Elliptical and elliptical-annulus apertures in both pixel and sky
 coordinates.
 """
 
@@ -8,6 +8,8 @@ import math
 
 import astropy.units as u
 import numpy as np
+from astropy.coordinates import Angle
+from astropy.utils import lazyproperty
 
 from photutils.aperture.attributes import (PixelPositions, PositiveScalar,
                                            PositiveScalarAngle, ScalarAngle,
@@ -16,6 +18,10 @@ from photutils.aperture.attributes import (PixelPositions, PositiveScalar,
 from photutils.aperture.core import PixelAperture, SkyAperture
 from photutils.aperture.mask import ApertureMask
 from photutils.geometry import elliptical_overlap_grid
+from photutils.utils._deprecation import (deprecated,
+                                          deprecated_positional_kwargs)
+from photutils.utils._wcs_helpers import (pixel_ellipse_to_sky_svd,
+                                          sky_ellipse_to_pixel_svd)
 
 __all__ = [
     'EllipticalAnnulus',
@@ -26,10 +32,13 @@ __all__ = [
 ]
 
 
-class EllipticalMaskMixin:
+@deprecated('3.0', until='4.0')
+class EllipticalMaskMixin:  # pragma: no cover
     """
     Mixin class to create masks for elliptical and elliptical-annulus
     aperture objects.
+
+    .. deprecated:: 3.0
     """
 
     def to_mask(self, method='exact', subpixels=5):
@@ -78,7 +87,7 @@ class EllipticalMaskMixin:
             otherwise a list of `~photutils.aperture.ApertureMask` is
             returned.
         """
-        use_exact, subpixels = self._translate_mask_mode(method, subpixels)
+        use_exact, subpixels = self._translate_mask_method(method, subpixels)
 
         if hasattr(self, 'a'):
             a = self.a
@@ -98,7 +107,7 @@ class EllipticalMaskMixin:
                                            edges[3], nx, ny, a, b,
                                            theta_rad, use_exact, subpixels)
 
-            # subtract the inner ellipse for an annulus
+            # Subtract the inner ellipse for an annulus
             if hasattr(self, 'a_in'):
                 mask -= elliptical_overlap_grid(edges[0], edges[1], edges[2],
                                                 edges[3], nx, ny, self.a_in,
@@ -117,20 +126,27 @@ class EllipticalMaskMixin:
         """
         Calculate half of the bounding box extents of an ellipse.
         """
-        theta_rad = theta.to(u.radian).value
-        cos_theta = np.cos(theta_rad)
-        sin_theta = np.sin(theta_rad)
-        semimajor_x = semimajor_axis * cos_theta
-        semimajor_y = semimajor_axis * sin_theta
-        semiminor_x = semiminor_axis * -sin_theta
-        semiminor_y = semiminor_axis * cos_theta
-        x_extent = np.sqrt(semimajor_x**2 + semiminor_x**2)
-        y_extent = np.sqrt(semimajor_y**2 + semiminor_y**2)
-
-        return x_extent, y_extent
+        return _calc_ellipse_extents(semimajor_axis, semiminor_axis, theta)
 
 
-class EllipticalAperture(EllipticalMaskMixin, PixelAperture):
+def _calc_ellipse_extents(semimajor_axis, semiminor_axis, theta):
+    """
+    Calculate half of the bounding box extents of an ellipse.
+    """
+    theta_rad = theta.to(u.radian).value
+    cos_theta = np.cos(theta_rad)
+    sin_theta = np.sin(theta_rad)
+    semimajor_x = semimajor_axis * cos_theta
+    semimajor_y = semimajor_axis * sin_theta
+    semiminor_x = semiminor_axis * -sin_theta
+    semiminor_y = semiminor_axis * cos_theta
+    x_extent = np.sqrt(semimajor_x**2 + semiminor_x**2)
+    y_extent = np.sqrt(semimajor_y**2 + semiminor_y**2)
+
+    return x_extent, y_extent
+
+
+class EllipticalAperture(PixelAperture):
     """
     An elliptical aperture defined in pixel coordinates.
 
@@ -187,24 +203,29 @@ class EllipticalAperture(EllipticalMaskMixin, PixelAperture):
                                'angular Quantity or value in radians from '
                                'the positive x axis.')
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __init__(self, positions, a, b, theta=0.0):
         self.positions = positions
         self.a = a
         self.b = b
         self.theta = theta
 
-    @property
+    @lazyproperty
     def _xy_extents(self):
-        return self._calc_extents(self.a, self.b, self.theta)
+        """
+        The half of the bounding box extents of the ellipse in the x and
+        y directions.
+        """
+        return _calc_ellipse_extents(self.a, self.b, self.theta)
 
-    @property
+    @lazyproperty
     def area(self):
         """
         The exact geometric area of the aperture shape.
         """
         return math.pi * self.a * self.b
 
-    def _to_patch(self, origin=(0, 0), **kwargs):
+    def _to_patch(self, *, origin=(0, 0), **kwargs):
         """
         Return a `~matplotlib.patches.Patch` for the aperture.
 
@@ -241,9 +262,37 @@ class EllipticalAperture(EllipticalMaskMixin, PixelAperture):
 
         return patches
 
-    def to_mask(self, method='exact', subpixels=5):
-        return EllipticalMaskMixin.to_mask(self, method=method,
-                                           subpixels=subpixels)
+    def _compute_overlap(self, edges, nx, ny, use_exact, subpixels):
+        """
+        Compute the overlap of the aperture on the pixel grid.
+
+        Parameters
+        ----------
+        edges : list of 4 1D `~numpy.ndarray`
+            The edges of the pixel grid in the form of
+            ``[x_edges, y_edges, x_centers, y_centers]``.
+
+        nx, ny : int
+            The number of pixels in the x and y directions.
+
+        use_exact : bool
+            Whether to use the exact method for calculating the overlap.
+
+        subpixels : int
+            The number of subpixels to use in each dimension for the
+            subpixel method.
+
+        Returns
+        -------
+        overlap : 2D `~numpy.ndarray`
+            The overlap of the aperture on the pixel grid. The values
+            will be between 0 and 1, where 0 means no overlap and 1
+            means full overlap.
+        """
+        theta_rad = self.theta.to(u.radian).value
+        return elliptical_overlap_grid(edges[0], edges[1], edges[2],
+                                       edges[3], nx, ny, self.a, self.b,
+                                       theta_rad, use_exact, subpixels)
 
     def to_sky(self, wcs):
         """
@@ -262,11 +311,32 @@ class EllipticalAperture(EllipticalMaskMixin, PixelAperture):
         -------
         aperture : `SkyEllipticalAperture` object
             A `SkyEllipticalAperture` object.
+
+        Notes
+        -----
+        The aperture shape parameters are converted using the local WCS
+        properties (pixel scale, rotation angle) evaluated at the first
+        aperture position. Because aperture objects require scalar shape
+        parameters, only a single reference position is used for the
+        conversion. For apertures with multiple positions used with a
+        WCS that has spatially-varying distortions, this may produce
+        inaccurate results for positions far from the first position.
         """
-        return SkyEllipticalAperture(**self._to_sky_params(wcs))
+        xpos, ypos = np.transpose(self.positions)
+        positions = wcs.pixel_to_world(xpos, ypos)
+
+        first_pos = np.atleast_2d(self.positions)[0]
+        pixcoord = (float(first_pos[0]), float(first_pos[1]))
+        _, sky_width, sky_height, sky_angle = pixel_ellipse_to_sky_svd(
+            pixcoord, wcs, 2 * self.a, 2 * self.b, self.theta.to(u.rad).value)
+
+        a = Angle(sky_width / 2, 'arcsec')
+        b = Angle(sky_height / 2, 'arcsec')
+        return SkyEllipticalAperture(positions=positions, a=a, b=b,
+                                     theta=sky_angle)
 
 
-class EllipticalAnnulus(EllipticalMaskMixin, PixelAperture):
+class EllipticalAnnulus(PixelAperture):
     r"""
     An elliptical annulus aperture defined in pixel coordinates.
 
@@ -342,9 +412,10 @@ class EllipticalAnnulus(EllipticalMaskMixin, PixelAperture):
                                'angular Quantity or value in radians from '
                                'the positive x axis.')
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __init__(self, positions, a_in, a_out, b_out, b_in=None, theta=0.0):
         if not a_out > a_in:
-            msg = '"a_out" must be greater than "a_in"'
+            msg = "'a_out' must be greater than 'a_in'"
             raise ValueError(msg)
 
         self.positions = positions
@@ -355,24 +426,28 @@ class EllipticalAnnulus(EllipticalMaskMixin, PixelAperture):
         if b_in is None:
             b_in = self.b_out * self.a_in / self.a_out
         elif not b_out > b_in:
-            msg = '"b_out" must be greater than "b_in"'
+            msg = "'b_out' must be greater than 'b_in'"
             raise ValueError(msg)
         self.b_in = b_in
 
         self.theta = theta
 
-    @property
+    @lazyproperty
     def _xy_extents(self):
-        return self._calc_extents(self.a_out, self.b_out, self.theta)
+        """
+        The half of the bounding box extents of the outer ellipse in the
+        x and y directions.
+        """
+        return _calc_ellipse_extents(self.a_out, self.b_out, self.theta)
 
-    @property
+    @lazyproperty
     def area(self):
         """
         The exact geometric area of the aperture shape.
         """
         return math.pi * (self.a_out * self.b_out - self.a_in * self.b_in)
 
-    def _to_patch(self, origin=(0, 0), **kwargs):
+    def _to_patch(self, *, origin=(0, 0), **kwargs):
         """
         Return a `~matplotlib.patches.Patch` for the aperture.
 
@@ -414,9 +489,43 @@ class EllipticalAnnulus(EllipticalMaskMixin, PixelAperture):
 
         return patches
 
-    def to_mask(self, method='exact', subpixels=5):
-        return EllipticalMaskMixin.to_mask(self, method=method,
-                                           subpixels=subpixels)
+    def _compute_overlap(self, edges, nx, ny, use_exact, subpixels):
+        """
+        Compute the overlap of the aperture on the pixel grid.
+
+        Parameters
+        ----------
+        edges : list of 4 1D `~numpy.ndarray`
+            The edges of the pixel grid in the form of
+            ``[x_edges, y_edges, x_centers, y_centers]``.
+
+        nx, ny : int
+            The number of pixels in the x and y directions.
+
+        use_exact : bool
+            Whether to use the exact method for calculating the overlap.
+
+        subpixels : int
+            The number of subpixels to use in each dimension for the
+            subpixel method.
+
+        Returns
+        -------
+        overlap : 2D `~numpy.ndarray`
+            The overlap of the aperture on the pixel grid. The values
+            will be between 0 and 1, where 0 means no overlap and 1
+            means full overlap.
+        """
+        theta_rad = self.theta.to(u.radian).value
+        overlap = elliptical_overlap_grid(edges[0], edges[1], edges[2],
+                                          edges[3], nx, ny, self.a_out,
+                                          self.b_out, theta_rad,
+                                          use_exact, subpixels)
+        overlap -= elliptical_overlap_grid(edges[0], edges[1], edges[2],
+                                           edges[3], nx, ny, self.a_in,
+                                           self.b_in, theta_rad,
+                                           use_exact, subpixels)
+        return overlap
 
     def to_sky(self, wcs):
         """
@@ -435,8 +544,36 @@ class EllipticalAnnulus(EllipticalMaskMixin, PixelAperture):
         -------
         aperture : `SkyEllipticalAnnulus` object
             A `SkyEllipticalAnnulus` object.
+
+        Notes
+        -----
+        The aperture shape parameters are converted using the local WCS
+        properties (pixel scale, rotation angle) evaluated at the first
+        aperture position. Because aperture objects require scalar shape
+        parameters, only a single reference position is used for the
+        conversion. For apertures with multiple positions used with a
+        WCS that has spatially-varying distortions, this may produce
+        inaccurate results for positions far from the first position.
         """
-        return SkyEllipticalAnnulus(**self._to_sky_params(wcs))
+        xpos, ypos = np.transpose(self.positions)
+        positions = wcs.pixel_to_world(xpos, ypos)
+
+        first_pos = np.atleast_2d(self.positions)[0]
+        pixcoord = (float(first_pos[0]), float(first_pos[1]))
+        theta_rad = self.theta.to(u.rad).value
+
+        _, sky_w_out, sky_h_out, sky_angle = pixel_ellipse_to_sky_svd(
+            pixcoord, wcs, 2 * self.a_out, 2 * self.b_out, theta_rad)
+        _, sky_w_in, sky_h_in, _ = pixel_ellipse_to_sky_svd(
+            pixcoord, wcs, 2 * self.a_in, 2 * self.b_in, theta_rad)
+
+        a_out = Angle(sky_w_out / 2, 'arcsec')
+        b_out = Angle(sky_h_out / 2, 'arcsec')
+        a_in = Angle(sky_w_in / 2, 'arcsec')
+        b_in = Angle(sky_h_in / 2, 'arcsec')
+        return SkyEllipticalAnnulus(positions=positions, a_in=a_in,
+                                    a_out=a_out, b_out=b_out,
+                                    b_in=b_in, theta=sky_angle)
 
 
 class SkyEllipticalAperture(SkyAperture):
@@ -479,6 +616,7 @@ class SkyEllipticalAperture(SkyAperture):
     theta = ScalarAngle('The position angle in angular units of the ellipse '
                         'semimajor axis.')
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __init__(self, positions, a, b, theta=0.0 * u.deg):
         self.positions = positions
         self.a = a
@@ -502,8 +640,32 @@ class SkyEllipticalAperture(SkyAperture):
         -------
         aperture : `EllipticalAperture` object
             An `EllipticalAperture` object.
+
+        Notes
+        -----
+        The aperture shape parameters are converted using the local WCS
+        properties (pixel scale, rotation angle) evaluated at the first
+        aperture position. Because aperture objects require scalar shape
+        parameters, only a single reference position is used for the
+        conversion. For apertures with multiple positions used with a
+        WCS that has spatially-varying distortions, this may produce
+        inaccurate results for positions far from the first position.
         """
-        return EllipticalAperture(**self._to_pixel_params(wcs))
+        xpos, ypos = wcs.world_to_pixel(self.positions)
+        positions = np.transpose((xpos, ypos))
+
+        skypos = self.positions if self.isscalar else self.positions[0]
+        sky_angle_rad = self.theta.to(u.rad).value
+        _, pix_width, pix_height, pix_angle = sky_ellipse_to_pixel_svd(
+            skypos, wcs,
+            2 * self.a.to(u.arcsec).value,
+            2 * self.b.to(u.arcsec).value,
+            sky_angle_rad)
+
+        a = pix_width / 2
+        b = pix_height / 2
+        return EllipticalAperture(positions=positions, a=a, b=b,
+                                  theta=pix_angle)
 
 
 class SkyEllipticalAnnulus(SkyAperture):
@@ -560,10 +722,11 @@ class SkyEllipticalAnnulus(SkyAperture):
     theta = ScalarAngle('The position angle in angular units of the ellipse '
                         'semimajor axis.')
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __init__(self, positions, a_in, a_out, b_out, b_in=None,
                  theta=0.0 * u.deg):
         if not a_out > a_in:
-            msg = '"a_out" must be greater than "a_in"'
+            msg = "'a_out' must be greater than 'a_in'"
             raise ValueError(msg)
 
         self.positions = positions
@@ -574,7 +737,7 @@ class SkyEllipticalAnnulus(SkyAperture):
         if b_in is None:
             b_in = self.b_out * self.a_in / self.a_out
         elif not b_out > b_in:
-            msg = '"b_out" must be greater than "b_in"'
+            msg = "'b_out' must be greater than 'b_in'"
             raise ValueError(msg)
         self.b_in = b_in
 
@@ -597,5 +760,38 @@ class SkyEllipticalAnnulus(SkyAperture):
         -------
         aperture : `EllipticalAnnulus` object
             An `EllipticalAnnulus` object.
+
+        Notes
+        -----
+        The aperture shape parameters are converted using the local WCS
+        properties (pixel scale, rotation angle) evaluated at the first
+        aperture position. Because aperture objects require scalar shape
+        parameters, only a single reference position is used for the
+        conversion. For apertures with multiple positions used with a
+        WCS that has spatially-varying distortions, this may produce
+        inaccurate results for positions far from the first position.
         """
-        return EllipticalAnnulus(**self._to_pixel_params(wcs))
+        xpos, ypos = wcs.world_to_pixel(self.positions)
+        positions = np.transpose((xpos, ypos))
+
+        skypos = self.positions if self.isscalar else self.positions[0]
+        sky_angle_rad = self.theta.to(u.rad).value
+
+        _, pix_w_out, pix_h_out, pix_angle = sky_ellipse_to_pixel_svd(
+            skypos, wcs,
+            2 * self.a_out.to(u.arcsec).value,
+            2 * self.b_out.to(u.arcsec).value,
+            sky_angle_rad)
+        _, pix_w_in, pix_h_in, _ = sky_ellipse_to_pixel_svd(
+            skypos, wcs,
+            2 * self.a_in.to(u.arcsec).value,
+            2 * self.b_in.to(u.arcsec).value,
+            sky_angle_rad)
+
+        a_out = pix_w_out / 2
+        b_out = pix_h_out / 2
+        a_in = pix_w_in / 2
+        b_in = pix_h_in / 2
+        return EllipticalAnnulus(positions=positions, a_in=a_in,
+                                 a_out=a_out, b_out=b_out,
+                                 b_in=b_in, theta=pix_angle)

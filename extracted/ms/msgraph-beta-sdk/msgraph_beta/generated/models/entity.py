@@ -7,6 +7,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .aad_user_conversation_member import AadUserConversationMember
+    from .access_drift_report import AccessDriftReport
     from .access_package import AccessPackage
     from .access_package_assignment import AccessPackageAssignment
     from .access_package_assignment_policy import AccessPackageAssignmentPolicy
@@ -81,6 +82,7 @@ if TYPE_CHECKING:
     from .all_drives_backup import AllDrivesBackup
     from .all_mailboxes_backup import AllMailboxesBackup
     from .all_sites_backup import AllSitesBackup
+    from .android_app_configuration_schema import AndroidAppConfigurationSchema
     from .android_certificate_profile_base import AndroidCertificateProfileBase
     from .android_compliance_policy import AndroidCompliancePolicy
     from .android_custom_configuration import AndroidCustomConfiguration
@@ -254,6 +256,7 @@ if TYPE_CHECKING:
     from .azure_authorization_system_resource import AzureAuthorizationSystemResource
     from .azure_authorization_system_type_action import AzureAuthorizationSystemTypeAction
     from .azure_a_d_authentication import AzureADAuthentication
+    from .azure_a_d_premium_license_insight import AzureADPremiumLicenseInsight
     from .azure_a_d_windows_autopilot_deployment_profile import AzureADWindowsAutopilotDeploymentProfile
     from .azure_communication_services_user_conversation_member import AzureCommunicationServicesUserConversationMember
     from .azure_group import AzureGroup
@@ -341,6 +344,7 @@ if TYPE_CHECKING:
     from .cloud_app_security_profile import CloudAppSecurityProfile
     from .cloud_certification_authority import CloudCertificationAuthority
     from .cloud_certification_authority_leaf_certificate import CloudCertificationAuthorityLeafCertificate
+    from .cloud_certification_authority_version import CloudCertificationAuthorityVersion
     from .cloud_clipboard_item import CloudClipboardItem
     from .cloud_clipboard_root import CloudClipboardRoot
     from .cloud_flare_web_application_firewall_provider import CloudFlareWebApplicationFirewallProvider
@@ -436,6 +440,7 @@ if TYPE_CHECKING:
     from .copilot_package import CopilotPackage
     from .copilot_package_detail import CopilotPackageDetail
     from .copilot_people_admin_setting import CopilotPeopleAdminSetting
+    from .copilot_policy_setting import CopilotPolicySetting
     from .copilot_report_root import CopilotReportRoot
     from .copilot_setting import CopilotSetting
     from .cors_configuration_v2 import CorsConfiguration_v2
@@ -458,8 +463,6 @@ if TYPE_CHECKING:
     from .custom_extension_stage_setting import CustomExtensionStageSetting
     from .custom_security_attribute_audit import CustomSecurityAttributeAudit
     from .custom_security_attribute_definition import CustomSecurityAttributeDefinition
-    from .custom_security_attribute_exemption import CustomSecurityAttributeExemption
-    from .custom_security_attribute_string_value_exemption import CustomSecurityAttributeStringValueExemption
     from .daily_inactive_users_by_application_metric import DailyInactiveUsersByApplicationMetric
     from .daily_inactive_users_metric import DailyInactiveUsersMetric
     from .daily_user_insight_metrics_root import DailyUserInsightMetricsRoot
@@ -733,6 +736,12 @@ if TYPE_CHECKING:
     from .entitlement_management_settings import EntitlementManagementSettings
     from .entra import Entra
     from .entra_id_protection_risky_user_approval import EntraIdProtectionRiskyUserApproval
+    from .entra_recovery_services.recovery import Recovery
+    from .entra_recovery_services.recovery_change_object_base import RecoveryChangeObjectBase
+    from .entra_recovery_services.recovery_job import RecoveryJob
+    from .entra_recovery_services.recovery_job_base import RecoveryJobBase
+    from .entra_recovery_services.recovery_preview_job import RecoveryPreviewJob
+    from .entra_recovery_services.snapshot import Snapshot
     from .evaluate_label_job_response import EvaluateLabelJobResponse
     from .event import Event
     from .event_message import EventMessage
@@ -1700,6 +1709,7 @@ if TYPE_CHECKING:
     from .security.sensor import Sensor
     from .security.sensor_candidate import SensorCandidate
     from .security.sensor_candidate_activation_configuration import SensorCandidateActivationConfiguration
+    from .security.sensor_migration import SensorMigration
     from .security.settings_container import SettingsContainer
     from .security.site_source import SiteSource
     from .security.ssl_certificate import SslCertificate
@@ -1886,6 +1896,8 @@ if TYPE_CHECKING:
     from .teamwork_device_operation import TeamworkDeviceOperation
     from .teamwork_hosted_content import TeamworkHostedContent
     from .teamwork_peripheral import TeamworkPeripheral
+    from .teamwork_section import TeamworkSection
+    from .teamwork_section_item import TeamworkSectionItem
     from .teamwork_tag import TeamworkTag
     from .teamwork_tag_member import TeamworkTagMember
     from .team_info import TeamInfo
@@ -1897,7 +1909,31 @@ if TYPE_CHECKING:
     from .tenant_app_management_policy import TenantAppManagementPolicy
     from .tenant_attach_r_b_a_c import TenantAttachRBAC
     from .tenant_data_security_and_governance import TenantDataSecurityAndGovernance
+    from .tenant_governance_services.b2b_registration_metrics import B2bRegistrationMetrics
+    from .tenant_governance_services.b2_b_registration_metrics_base import B2BRegistrationMetricsBase
+    from .tenant_governance_services.b2_b_registration_metrics_initial import B2BRegistrationMetricsInitial
+    from .tenant_governance_services.b2_b_registration_metrics_recent import B2BRegistrationMetricsRecent
+    from .tenant_governance_services.b2_b_sign_in_activity_metrics import B2BSignInActivityMetrics
+    from .tenant_governance_services.b2_b_sign_in_activity_metrics_base import B2BSignInActivityMetricsBase
+    from .tenant_governance_services.b2_b_sign_in_activity_metrics_initial import B2BSignInActivityMetricsInitial
+    from .tenant_governance_services.b2_b_sign_in_activity_metrics_recent import B2BSignInActivityMetricsRecent
+    from .tenant_governance_services.billing_metrics import BillingMetrics
+    from .tenant_governance_services.billing_metrics_base import BillingMetricsBase
+    from .tenant_governance_services.billing_metrics_initial import BillingMetricsInitial
+    from .tenant_governance_services.billing_metrics_recent import BillingMetricsRecent
+    from .tenant_governance_services.governance_invitation import GovernanceInvitation
+    from .tenant_governance_services.governance_policy_template import GovernancePolicyTemplate
+    from .tenant_governance_services.governance_relationship import GovernanceRelationship
+    from .tenant_governance_services.governance_request import GovernanceRequest
     from .tenant_governance_services.long_running_operation import LongRunningOperation
+    from .tenant_governance_services.multi_tenant_application_metrics import MultiTenantApplicationMetrics
+    from .tenant_governance_services.multi_tenant_application_metrics_base import MultiTenantApplicationMetricsBase
+    from .tenant_governance_services.multi_tenant_application_metrics_initial import MultiTenantApplicationMetricsInitial
+    from .tenant_governance_services.multi_tenant_application_metrics_recent import MultiTenantApplicationMetricsRecent
+    from .tenant_governance_services.related_tenant import RelatedTenant
+    from .tenant_governance_services.related_tenants_refresh_request import RelatedTenantsRefreshRequest
+    from .tenant_governance_services.tenant_governance import TenantGovernance
+    from .tenant_governance_services.tenant_governance_setting import TenantGovernanceSetting
     from .tenant_protection_scope_container import TenantProtectionScopeContainer
     from .tenant_relationship_access_policy_base import TenantRelationshipAccessPolicyBase
     from .tenant_setup_info import TenantSetupInfo
@@ -2319,6 +2355,10 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .aad_user_conversation_member import AadUserConversationMember
 
             return AadUserConversationMember()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.accessDriftReport".casefold():
+            from .access_drift_report import AccessDriftReport
+
+            return AccessDriftReport()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.accessPackage".casefold():
             from .access_package import AccessPackage
 
@@ -2618,6 +2658,10 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .all_sites_backup import AllSitesBackup
 
             return AllSitesBackup()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.androidAppConfigurationSchema".casefold():
+            from .android_app_configuration_schema import AndroidAppConfigurationSchema
+
+            return AndroidAppConfigurationSchema()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.androidCertificateProfileBase".casefold():
             from .android_certificate_profile_base import AndroidCertificateProfileBase
 
@@ -3299,6 +3343,10 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .azure_a_d_authentication import AzureADAuthentication
 
             return AzureADAuthentication()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.azureADPremiumLicenseInsight".casefold():
+            from .azure_a_d_premium_license_insight import AzureADPremiumLicenseInsight
+
+            return AzureADPremiumLicenseInsight()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.azureADWindowsAutopilotDeploymentProfile".casefold():
             from .azure_a_d_windows_autopilot_deployment_profile import AzureADWindowsAutopilotDeploymentProfile
 
@@ -3661,6 +3709,10 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .cloud_certification_authority_leaf_certificate import CloudCertificationAuthorityLeafCertificate
 
             return CloudCertificationAuthorityLeafCertificate()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.cloudCertificationAuthorityVersion".casefold():
+            from .cloud_certification_authority_version import CloudCertificationAuthorityVersion
+
+            return CloudCertificationAuthorityVersion()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.cloudClipboardItem".casefold():
             from .cloud_clipboard_item import CloudClipboardItem
 
@@ -4043,6 +4095,10 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .copilot_people_admin_setting import CopilotPeopleAdminSetting
 
             return CopilotPeopleAdminSetting()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.copilotPolicySetting".casefold():
+            from .copilot_policy_setting import CopilotPolicySetting
+
+            return CopilotPolicySetting()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.copilotReportRoot".casefold():
             from .copilot_report_root import CopilotReportRoot
 
@@ -4131,14 +4187,6 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .custom_security_attribute_definition import CustomSecurityAttributeDefinition
 
             return CustomSecurityAttributeDefinition()
-        if mapping_value and mapping_value.casefold() == "#microsoft.graph.customSecurityAttributeExemption".casefold():
-            from .custom_security_attribute_exemption import CustomSecurityAttributeExemption
-
-            return CustomSecurityAttributeExemption()
-        if mapping_value and mapping_value.casefold() == "#microsoft.graph.customSecurityAttributeStringValueExemption".casefold():
-            from .custom_security_attribute_string_value_exemption import CustomSecurityAttributeStringValueExemption
-
-            return CustomSecurityAttributeStringValueExemption()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.dailyInactiveUsersByApplicationMetric".casefold():
             from .daily_inactive_users_by_application_metric import DailyInactiveUsersByApplicationMetric
 
@@ -5244,6 +5292,30 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .entra_id_protection_risky_user_approval import EntraIdProtectionRiskyUserApproval
 
             return EntraIdProtectionRiskyUserApproval()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.entraRecoveryServices.recovery".casefold():
+            from .entra_recovery_services.recovery import Recovery
+
+            return Recovery()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.entraRecoveryServices.recoveryChangeObjectBase".casefold():
+            from .entra_recovery_services.recovery_change_object_base import RecoveryChangeObjectBase
+
+            return RecoveryChangeObjectBase()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.entraRecoveryServices.recoveryJob".casefold():
+            from .entra_recovery_services.recovery_job import RecoveryJob
+
+            return RecoveryJob()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.entraRecoveryServices.recoveryJobBase".casefold():
+            from .entra_recovery_services.recovery_job_base import RecoveryJobBase
+
+            return RecoveryJobBase()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.entraRecoveryServices.recoveryPreviewJob".casefold():
+            from .entra_recovery_services.recovery_preview_job import RecoveryPreviewJob
+
+            return RecoveryPreviewJob()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.entraRecoveryServices.snapshot".casefold():
+            from .entra_recovery_services.snapshot import Snapshot
+
+            return Snapshot()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.evaluateLabelJobResponse".casefold():
             from .evaluate_label_job_response import EvaluateLabelJobResponse
 
@@ -5578,6 +5650,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             return GovernanceInsight()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.governancePolicyTemplate".casefold():
             from .governance_policy_template import GovernancePolicyTemplate
+            from .tenant_governance_services.governance_policy_template import GovernancePolicyTemplate
 
             return GovernancePolicyTemplate()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.governanceResource".casefold():
@@ -9149,6 +9222,10 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .security.sensor_candidate_activation_configuration import SensorCandidateActivationConfiguration
 
             return SensorCandidateActivationConfiguration()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.security.sensorMigration".casefold():
+            from .security.sensor_migration import SensorMigration
+
+            return SensorMigration()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.security.settingsContainer".casefold():
             from .security.settings_container import SettingsContainer
 
@@ -9911,6 +9988,14 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .teamwork_peripheral import TeamworkPeripheral
 
             return TeamworkPeripheral()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.teamworkSection".casefold():
+            from .teamwork_section import TeamworkSection
+
+            return TeamworkSection()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.teamworkSectionItem".casefold():
+            from .teamwork_section_item import TeamworkSectionItem
+
+            return TeamworkSectionItem()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.teamworkTag".casefold():
             from .teamwork_tag import TeamworkTag
 
@@ -9943,11 +10028,108 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
             from .tenant_data_security_and_governance import TenantDataSecurityAndGovernance
 
             return TenantDataSecurityAndGovernance()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.b2bRegistrationMetrics".casefold():
+            from .tenant_governance_services.b2b_registration_metrics import B2bRegistrationMetrics
+
+            return B2bRegistrationMetrics()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.b2BRegistrationMetricsBase".casefold():
+            from .tenant_governance_services.b2_b_registration_metrics_base import B2BRegistrationMetricsBase
+
+            return B2BRegistrationMetricsBase()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.b2BRegistrationMetricsInitial".casefold():
+            from .tenant_governance_services.b2_b_registration_metrics_initial import B2BRegistrationMetricsInitial
+
+            return B2BRegistrationMetricsInitial()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.b2BRegistrationMetricsRecent".casefold():
+            from .tenant_governance_services.b2_b_registration_metrics_recent import B2BRegistrationMetricsRecent
+
+            return B2BRegistrationMetricsRecent()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.b2BSignInActivityMetrics".casefold():
+            from .tenant_governance_services.b2_b_sign_in_activity_metrics import B2BSignInActivityMetrics
+
+            return B2BSignInActivityMetrics()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.b2BSignInActivityMetricsBase".casefold():
+            from .tenant_governance_services.b2_b_sign_in_activity_metrics_base import B2BSignInActivityMetricsBase
+
+            return B2BSignInActivityMetricsBase()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.b2BSignInActivityMetricsInitial".casefold():
+            from .tenant_governance_services.b2_b_sign_in_activity_metrics_initial import B2BSignInActivityMetricsInitial
+
+            return B2BSignInActivityMetricsInitial()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.b2BSignInActivityMetricsRecent".casefold():
+            from .tenant_governance_services.b2_b_sign_in_activity_metrics_recent import B2BSignInActivityMetricsRecent
+
+            return B2BSignInActivityMetricsRecent()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.billingMetrics".casefold():
+            from .tenant_governance_services.billing_metrics import BillingMetrics
+
+            return BillingMetrics()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.billingMetricsBase".casefold():
+            from .tenant_governance_services.billing_metrics_base import BillingMetricsBase
+
+            return BillingMetricsBase()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.billingMetricsInitial".casefold():
+            from .tenant_governance_services.billing_metrics_initial import BillingMetricsInitial
+
+            return BillingMetricsInitial()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.billingMetricsRecent".casefold():
+            from .tenant_governance_services.billing_metrics_recent import BillingMetricsRecent
+
+            return BillingMetricsRecent()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.governanceInvitation".casefold():
+            from .tenant_governance_services.governance_invitation import GovernanceInvitation
+
+            return GovernanceInvitation()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.governancePolicyTemplate".casefold():
+            from .governance_policy_template import GovernancePolicyTemplate
+            from .tenant_governance_services.governance_policy_template import GovernancePolicyTemplate
+
+            return GovernancePolicyTemplate()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.governanceRelationship".casefold():
+            from .tenant_governance_services.governance_relationship import GovernanceRelationship
+
+            return GovernanceRelationship()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.governanceRequest".casefold():
+            from .tenant_governance_services.governance_request import GovernanceRequest
+
+            return GovernanceRequest()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.longRunningOperation".casefold():
             from .long_running_operation import LongRunningOperation
             from .tenant_governance_services.long_running_operation import LongRunningOperation
 
             return LongRunningOperation()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.multiTenantApplicationMetrics".casefold():
+            from .tenant_governance_services.multi_tenant_application_metrics import MultiTenantApplicationMetrics
+
+            return MultiTenantApplicationMetrics()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.multiTenantApplicationMetricsBase".casefold():
+            from .tenant_governance_services.multi_tenant_application_metrics_base import MultiTenantApplicationMetricsBase
+
+            return MultiTenantApplicationMetricsBase()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.multiTenantApplicationMetricsInitial".casefold():
+            from .tenant_governance_services.multi_tenant_application_metrics_initial import MultiTenantApplicationMetricsInitial
+
+            return MultiTenantApplicationMetricsInitial()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.multiTenantApplicationMetricsRecent".casefold():
+            from .tenant_governance_services.multi_tenant_application_metrics_recent import MultiTenantApplicationMetricsRecent
+
+            return MultiTenantApplicationMetricsRecent()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.relatedTenant".casefold():
+            from .tenant_governance_services.related_tenant import RelatedTenant
+
+            return RelatedTenant()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.relatedTenantsRefreshRequest".casefold():
+            from .tenant_governance_services.related_tenants_refresh_request import RelatedTenantsRefreshRequest
+
+            return RelatedTenantsRefreshRequest()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.tenantGovernance".casefold():
+            from .tenant_governance_services.tenant_governance import TenantGovernance
+
+            return TenantGovernance()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantGovernanceServices.tenantGovernanceSetting".casefold():
+            from .tenant_governance_services.tenant_governance_setting import TenantGovernanceSetting
+
+            return TenantGovernanceSetting()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.tenantProtectionScopeContainer".casefold():
             from .tenant_protection_scope_container import TenantProtectionScopeContainer
 
@@ -11523,6 +11705,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         Returns: dict[str, Callable[[ParseNode], None]]
         """
         from .aad_user_conversation_member import AadUserConversationMember
+        from .access_drift_report import AccessDriftReport
         from .access_package import AccessPackage
         from .access_package_assignment import AccessPackageAssignment
         from .access_package_assignment_policy import AccessPackageAssignmentPolicy
@@ -11597,6 +11780,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .all_drives_backup import AllDrivesBackup
         from .all_mailboxes_backup import AllMailboxesBackup
         from .all_sites_backup import AllSitesBackup
+        from .android_app_configuration_schema import AndroidAppConfigurationSchema
         from .android_certificate_profile_base import AndroidCertificateProfileBase
         from .android_compliance_policy import AndroidCompliancePolicy
         from .android_custom_configuration import AndroidCustomConfiguration
@@ -11770,6 +11954,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .azure_authorization_system_resource import AzureAuthorizationSystemResource
         from .azure_authorization_system_type_action import AzureAuthorizationSystemTypeAction
         from .azure_a_d_authentication import AzureADAuthentication
+        from .azure_a_d_premium_license_insight import AzureADPremiumLicenseInsight
         from .azure_a_d_windows_autopilot_deployment_profile import AzureADWindowsAutopilotDeploymentProfile
         from .azure_communication_services_user_conversation_member import AzureCommunicationServicesUserConversationMember
         from .azure_group import AzureGroup
@@ -11857,6 +12042,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .cloud_app_security_profile import CloudAppSecurityProfile
         from .cloud_certification_authority import CloudCertificationAuthority
         from .cloud_certification_authority_leaf_certificate import CloudCertificationAuthorityLeafCertificate
+        from .cloud_certification_authority_version import CloudCertificationAuthorityVersion
         from .cloud_clipboard_item import CloudClipboardItem
         from .cloud_clipboard_root import CloudClipboardRoot
         from .cloud_flare_web_application_firewall_provider import CloudFlareWebApplicationFirewallProvider
@@ -11952,6 +12138,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .copilot_package import CopilotPackage
         from .copilot_package_detail import CopilotPackageDetail
         from .copilot_people_admin_setting import CopilotPeopleAdminSetting
+        from .copilot_policy_setting import CopilotPolicySetting
         from .copilot_report_root import CopilotReportRoot
         from .copilot_setting import CopilotSetting
         from .cors_configuration_v2 import CorsConfiguration_v2
@@ -11974,8 +12161,6 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .custom_extension_stage_setting import CustomExtensionStageSetting
         from .custom_security_attribute_audit import CustomSecurityAttributeAudit
         from .custom_security_attribute_definition import CustomSecurityAttributeDefinition
-        from .custom_security_attribute_exemption import CustomSecurityAttributeExemption
-        from .custom_security_attribute_string_value_exemption import CustomSecurityAttributeStringValueExemption
         from .daily_inactive_users_by_application_metric import DailyInactiveUsersByApplicationMetric
         from .daily_inactive_users_metric import DailyInactiveUsersMetric
         from .daily_user_insight_metrics_root import DailyUserInsightMetricsRoot
@@ -12249,6 +12434,12 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .entitlement_management_settings import EntitlementManagementSettings
         from .entra import Entra
         from .entra_id_protection_risky_user_approval import EntraIdProtectionRiskyUserApproval
+        from .entra_recovery_services.recovery import Recovery
+        from .entra_recovery_services.recovery_change_object_base import RecoveryChangeObjectBase
+        from .entra_recovery_services.recovery_job import RecoveryJob
+        from .entra_recovery_services.recovery_job_base import RecoveryJobBase
+        from .entra_recovery_services.recovery_preview_job import RecoveryPreviewJob
+        from .entra_recovery_services.snapshot import Snapshot
         from .evaluate_label_job_response import EvaluateLabelJobResponse
         from .event import Event
         from .event_message import EventMessage
@@ -13216,6 +13407,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .security.sensor import Sensor
         from .security.sensor_candidate import SensorCandidate
         from .security.sensor_candidate_activation_configuration import SensorCandidateActivationConfiguration
+        from .security.sensor_migration import SensorMigration
         from .security.settings_container import SettingsContainer
         from .security.site_source import SiteSource
         from .security.ssl_certificate import SslCertificate
@@ -13402,6 +13594,8 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .teamwork_device_operation import TeamworkDeviceOperation
         from .teamwork_hosted_content import TeamworkHostedContent
         from .teamwork_peripheral import TeamworkPeripheral
+        from .teamwork_section import TeamworkSection
+        from .teamwork_section_item import TeamworkSectionItem
         from .teamwork_tag import TeamworkTag
         from .teamwork_tag_member import TeamworkTagMember
         from .team_info import TeamInfo
@@ -13413,7 +13607,31 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .tenant_app_management_policy import TenantAppManagementPolicy
         from .tenant_attach_r_b_a_c import TenantAttachRBAC
         from .tenant_data_security_and_governance import TenantDataSecurityAndGovernance
+        from .tenant_governance_services.b2b_registration_metrics import B2bRegistrationMetrics
+        from .tenant_governance_services.b2_b_registration_metrics_base import B2BRegistrationMetricsBase
+        from .tenant_governance_services.b2_b_registration_metrics_initial import B2BRegistrationMetricsInitial
+        from .tenant_governance_services.b2_b_registration_metrics_recent import B2BRegistrationMetricsRecent
+        from .tenant_governance_services.b2_b_sign_in_activity_metrics import B2BSignInActivityMetrics
+        from .tenant_governance_services.b2_b_sign_in_activity_metrics_base import B2BSignInActivityMetricsBase
+        from .tenant_governance_services.b2_b_sign_in_activity_metrics_initial import B2BSignInActivityMetricsInitial
+        from .tenant_governance_services.b2_b_sign_in_activity_metrics_recent import B2BSignInActivityMetricsRecent
+        from .tenant_governance_services.billing_metrics import BillingMetrics
+        from .tenant_governance_services.billing_metrics_base import BillingMetricsBase
+        from .tenant_governance_services.billing_metrics_initial import BillingMetricsInitial
+        from .tenant_governance_services.billing_metrics_recent import BillingMetricsRecent
+        from .tenant_governance_services.governance_invitation import GovernanceInvitation
+        from .tenant_governance_services.governance_policy_template import GovernancePolicyTemplate
+        from .tenant_governance_services.governance_relationship import GovernanceRelationship
+        from .tenant_governance_services.governance_request import GovernanceRequest
         from .tenant_governance_services.long_running_operation import LongRunningOperation
+        from .tenant_governance_services.multi_tenant_application_metrics import MultiTenantApplicationMetrics
+        from .tenant_governance_services.multi_tenant_application_metrics_base import MultiTenantApplicationMetricsBase
+        from .tenant_governance_services.multi_tenant_application_metrics_initial import MultiTenantApplicationMetricsInitial
+        from .tenant_governance_services.multi_tenant_application_metrics_recent import MultiTenantApplicationMetricsRecent
+        from .tenant_governance_services.related_tenant import RelatedTenant
+        from .tenant_governance_services.related_tenants_refresh_request import RelatedTenantsRefreshRequest
+        from .tenant_governance_services.tenant_governance import TenantGovernance
+        from .tenant_governance_services.tenant_governance_setting import TenantGovernanceSetting
         from .tenant_protection_scope_container import TenantProtectionScopeContainer
         from .tenant_relationship_access_policy_base import TenantRelationshipAccessPolicyBase
         from .tenant_setup_info import TenantSetupInfo
@@ -13806,6 +14024,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .zebra_fota_deployment import ZebraFotaDeployment
 
         from .aad_user_conversation_member import AadUserConversationMember
+        from .access_drift_report import AccessDriftReport
         from .access_package import AccessPackage
         from .access_package_assignment import AccessPackageAssignment
         from .access_package_assignment_policy import AccessPackageAssignmentPolicy
@@ -13880,6 +14099,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .all_drives_backup import AllDrivesBackup
         from .all_mailboxes_backup import AllMailboxesBackup
         from .all_sites_backup import AllSitesBackup
+        from .android_app_configuration_schema import AndroidAppConfigurationSchema
         from .android_certificate_profile_base import AndroidCertificateProfileBase
         from .android_compliance_policy import AndroidCompliancePolicy
         from .android_custom_configuration import AndroidCustomConfiguration
@@ -14053,6 +14273,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .azure_authorization_system_resource import AzureAuthorizationSystemResource
         from .azure_authorization_system_type_action import AzureAuthorizationSystemTypeAction
         from .azure_a_d_authentication import AzureADAuthentication
+        from .azure_a_d_premium_license_insight import AzureADPremiumLicenseInsight
         from .azure_a_d_windows_autopilot_deployment_profile import AzureADWindowsAutopilotDeploymentProfile
         from .azure_communication_services_user_conversation_member import AzureCommunicationServicesUserConversationMember
         from .azure_group import AzureGroup
@@ -14140,6 +14361,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .cloud_app_security_profile import CloudAppSecurityProfile
         from .cloud_certification_authority import CloudCertificationAuthority
         from .cloud_certification_authority_leaf_certificate import CloudCertificationAuthorityLeafCertificate
+        from .cloud_certification_authority_version import CloudCertificationAuthorityVersion
         from .cloud_clipboard_item import CloudClipboardItem
         from .cloud_clipboard_root import CloudClipboardRoot
         from .cloud_flare_web_application_firewall_provider import CloudFlareWebApplicationFirewallProvider
@@ -14235,6 +14457,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .copilot_package import CopilotPackage
         from .copilot_package_detail import CopilotPackageDetail
         from .copilot_people_admin_setting import CopilotPeopleAdminSetting
+        from .copilot_policy_setting import CopilotPolicySetting
         from .copilot_report_root import CopilotReportRoot
         from .copilot_setting import CopilotSetting
         from .cors_configuration_v2 import CorsConfiguration_v2
@@ -14257,8 +14480,6 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .custom_extension_stage_setting import CustomExtensionStageSetting
         from .custom_security_attribute_audit import CustomSecurityAttributeAudit
         from .custom_security_attribute_definition import CustomSecurityAttributeDefinition
-        from .custom_security_attribute_exemption import CustomSecurityAttributeExemption
-        from .custom_security_attribute_string_value_exemption import CustomSecurityAttributeStringValueExemption
         from .daily_inactive_users_by_application_metric import DailyInactiveUsersByApplicationMetric
         from .daily_inactive_users_metric import DailyInactiveUsersMetric
         from .daily_user_insight_metrics_root import DailyUserInsightMetricsRoot
@@ -14532,6 +14753,12 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .entitlement_management_settings import EntitlementManagementSettings
         from .entra import Entra
         from .entra_id_protection_risky_user_approval import EntraIdProtectionRiskyUserApproval
+        from .entra_recovery_services.recovery import Recovery
+        from .entra_recovery_services.recovery_change_object_base import RecoveryChangeObjectBase
+        from .entra_recovery_services.recovery_job import RecoveryJob
+        from .entra_recovery_services.recovery_job_base import RecoveryJobBase
+        from .entra_recovery_services.recovery_preview_job import RecoveryPreviewJob
+        from .entra_recovery_services.snapshot import Snapshot
         from .evaluate_label_job_response import EvaluateLabelJobResponse
         from .event import Event
         from .event_message import EventMessage
@@ -15499,6 +15726,7 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .security.sensor import Sensor
         from .security.sensor_candidate import SensorCandidate
         from .security.sensor_candidate_activation_configuration import SensorCandidateActivationConfiguration
+        from .security.sensor_migration import SensorMigration
         from .security.settings_container import SettingsContainer
         from .security.site_source import SiteSource
         from .security.ssl_certificate import SslCertificate
@@ -15685,6 +15913,8 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .teamwork_device_operation import TeamworkDeviceOperation
         from .teamwork_hosted_content import TeamworkHostedContent
         from .teamwork_peripheral import TeamworkPeripheral
+        from .teamwork_section import TeamworkSection
+        from .teamwork_section_item import TeamworkSectionItem
         from .teamwork_tag import TeamworkTag
         from .teamwork_tag_member import TeamworkTagMember
         from .team_info import TeamInfo
@@ -15696,7 +15926,31 @@ class Entity(AdditionalDataHolder, BackedModel, Parsable):
         from .tenant_app_management_policy import TenantAppManagementPolicy
         from .tenant_attach_r_b_a_c import TenantAttachRBAC
         from .tenant_data_security_and_governance import TenantDataSecurityAndGovernance
+        from .tenant_governance_services.b2b_registration_metrics import B2bRegistrationMetrics
+        from .tenant_governance_services.b2_b_registration_metrics_base import B2BRegistrationMetricsBase
+        from .tenant_governance_services.b2_b_registration_metrics_initial import B2BRegistrationMetricsInitial
+        from .tenant_governance_services.b2_b_registration_metrics_recent import B2BRegistrationMetricsRecent
+        from .tenant_governance_services.b2_b_sign_in_activity_metrics import B2BSignInActivityMetrics
+        from .tenant_governance_services.b2_b_sign_in_activity_metrics_base import B2BSignInActivityMetricsBase
+        from .tenant_governance_services.b2_b_sign_in_activity_metrics_initial import B2BSignInActivityMetricsInitial
+        from .tenant_governance_services.b2_b_sign_in_activity_metrics_recent import B2BSignInActivityMetricsRecent
+        from .tenant_governance_services.billing_metrics import BillingMetrics
+        from .tenant_governance_services.billing_metrics_base import BillingMetricsBase
+        from .tenant_governance_services.billing_metrics_initial import BillingMetricsInitial
+        from .tenant_governance_services.billing_metrics_recent import BillingMetricsRecent
+        from .tenant_governance_services.governance_invitation import GovernanceInvitation
+        from .tenant_governance_services.governance_policy_template import GovernancePolicyTemplate
+        from .tenant_governance_services.governance_relationship import GovernanceRelationship
+        from .tenant_governance_services.governance_request import GovernanceRequest
         from .tenant_governance_services.long_running_operation import LongRunningOperation
+        from .tenant_governance_services.multi_tenant_application_metrics import MultiTenantApplicationMetrics
+        from .tenant_governance_services.multi_tenant_application_metrics_base import MultiTenantApplicationMetricsBase
+        from .tenant_governance_services.multi_tenant_application_metrics_initial import MultiTenantApplicationMetricsInitial
+        from .tenant_governance_services.multi_tenant_application_metrics_recent import MultiTenantApplicationMetricsRecent
+        from .tenant_governance_services.related_tenant import RelatedTenant
+        from .tenant_governance_services.related_tenants_refresh_request import RelatedTenantsRefreshRequest
+        from .tenant_governance_services.tenant_governance import TenantGovernance
+        from .tenant_governance_services.tenant_governance_setting import TenantGovernanceSetting
         from .tenant_protection_scope_container import TenantProtectionScopeContainer
         from .tenant_relationship_access_policy_base import TenantRelationshipAccessPolicyBase
         from .tenant_setup_info import TenantSetupInfo

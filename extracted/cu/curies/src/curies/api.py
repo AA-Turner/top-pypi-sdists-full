@@ -301,6 +301,25 @@ class Prefix(str):
                 ...
             },
         )
+
+    .. warning::
+
+        Serialization with YAML with :mod:`yaml` might not work as expected for classes containing
+        :class:`Prefix` instances, since they are subclasses of strings. Do something like this:
+
+        .. code-block:: python
+
+            def _reference_representer(
+                dumper: SafeRepresenter, data: curies.Prefix
+            ) -> yaml.ScalarNode:
+                return dumper.represent_str(str(data))
+
+
+            # if you're using yaml.safe_dump()
+            yaml.add_representer(curies.Prefix, _reference_representer, Dumper=yaml.SafeDumper)
+
+            # if you're using yaml.dump()
+            yaml.add_representer(curies.Prefix, _reference_representer, Dumper=yaml.Dumper)
     """
 
     @classmethod
@@ -2657,10 +2676,11 @@ class Converter:
         ]
         return Converter(records)
 
-    def hash_triple(self, triple: Triple) -> str:
+    def hash_triple(self, triple: Triple, *, negate: bool = False) -> str:
         """Hash a triple using :func:`curies.triples.hash_triple`, implementing https://ts4nfdi.github.io/mapping-sameness-identifier.
 
         :param triple: A subject-predicate-object triple
+        :param negate: If true, considers the triple as "negative" and postpends a ``~`` to the hash
         :return: A hexadecimal digest of the SHA-256 hash of the space-joined expanded URI triple
 
         >>> import curies
@@ -2679,6 +2699,8 @@ class Converter:
         ... )
         >>> converter.hash_triple(triple)
         '36a1f9244ea7641a90987c82f33c25c0c13712ee8f48207b2a0825f8a4e4e26a'
+        >>> converter.hash_triple(triple, negate=True)
+        '36a1f9244ea7641a90987c82f33c25c0c13712ee8f48207b2a0825f8a4e4e26a~'
         """
         from .triples import hash_triple
 

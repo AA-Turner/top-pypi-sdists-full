@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: invenio-accounts
-Version: 7.2.0
+Version: 7.2.1
 Summary: Invenio user management and authentication.
 Home-page: https://github.com/inveniosoftware/invenio-accounts
 Author: CERN
@@ -24,6 +24,7 @@ Requires-Dist: maxminddb-geolite2>=2017.404
 Requires-Dist: pyjwt>=1.5.0
 Requires-Dist: simplekv>=0.11.2
 Requires-Dist: ua-parser>=0.7.3
+Requires-Dist: limits>=4.0.0
 Provides-Extra: admin
 Requires-Dist: invenio-admin<2.0.0,>=1.2.1; extra == "admin"
 Provides-Extra: postgresql
@@ -101,6 +102,10 @@ https://invenio-accounts.readthedocs.io/
 
 Changes
 =======
+
+Version v7.2.1 (released 2026-04-17)
+
+- fix: add missing `limits` dependency
 
 Version v7.2.0 (released 2026-04-13)
 

@@ -281,7 +281,7 @@ fn detect_ref_link_usage(line: &str, byte_cursor: usize) -> Option<String> {
     if after_close.starts_with('[')
         && let Some(ref_close) = after_close[1..].find(']')
     {
-        let ref_id = &after_close[1..1 + ref_close];
+        let ref_id = &after_close[1..=ref_close];
         if !ref_id.is_empty() {
             return Some(ref_id.to_lowercase());
         }
@@ -449,7 +449,7 @@ impl RumdlLanguageServer {
         let target_path = if link.file_path.is_empty() {
             current_file.clone()
         } else {
-            normalize_path(current_dir.join(&link.file_path))
+            normalize_path(&current_dir.join(&link.file_path))
         };
 
         // Read target file content
@@ -601,7 +601,7 @@ impl RumdlLanguageServer {
             let target_path = if link.file_path.is_empty() {
                 current_file.clone()
             } else {
-                normalize_path(current_dir.join(&link.file_path))
+                normalize_path(&current_dir.join(&link.file_path))
             };
 
             return self.find_references_to_target(&target_path, &link.anchor).await;
@@ -630,7 +630,7 @@ impl RumdlLanguageServer {
                 .cross_file_links
                 .iter()
                 .filter(|link| {
-                    let resolved_target = normalize_path(source_dir.join(&link.target_path));
+                    let resolved_target = normalize_path(&source_dir.join(&link.target_path));
                     resolved_target == *target_file
                 })
                 .collect();
@@ -639,9 +639,8 @@ impl RumdlLanguageServer {
                 continue;
             }
 
-            let source_uri = match Url::from_file_path(source_path) {
-                Ok(uri) => uri,
-                Err(_) => continue,
+            let Ok(source_uri) = Url::from_file_path(source_path) else {
+                continue;
             };
 
             let source_content = tokio::fs::read_to_string(source_path).await.ok();
@@ -656,11 +655,10 @@ impl RumdlLanguageServer {
 
                 let character = source_lines
                     .get(line as usize)
-                    .map(|line_text| {
+                    .map_or(byte_col_0indexed as u32, |line_text| {
                         let clamped = byte_col_0indexed.min(line_text.len());
                         byte_to_utf16_offset(line_text, clamped)
-                    })
-                    .unwrap_or(byte_col_0indexed as u32);
+                    });
 
                 locations.push(Location {
                     uri: source_uri.clone(),
@@ -686,7 +684,7 @@ impl RumdlLanguageServer {
         let target_path = if link.file_path.is_empty() {
             current_file.clone()
         } else {
-            normalize_path(current_dir.join(&link.file_path))
+            normalize_path(&current_dir.join(&link.file_path))
         };
 
         let target_uri = Url::from_file_path(&target_path).ok()?;
@@ -734,7 +732,7 @@ impl RumdlLanguageServer {
                 .cross_file_links
                 .iter()
                 .filter(|link| {
-                    let resolved_target = normalize_path(source_dir.join(&link.target_path));
+                    let resolved_target = normalize_path(&source_dir.join(&link.target_path));
                     resolved_target == *target_path && link.fragment.eq_ignore_ascii_case(fragment)
                 })
                 .collect();
@@ -743,9 +741,8 @@ impl RumdlLanguageServer {
                 continue;
             }
 
-            let source_uri = match Url::from_file_path(source_path) {
-                Ok(uri) => uri,
-                Err(_) => continue,
+            let Ok(source_uri) = Url::from_file_path(source_path) else {
+                continue;
             };
 
             // Load source content for byte→UTF-16 column conversion.
@@ -766,11 +763,10 @@ impl RumdlLanguageServer {
                 // Convert byte column to UTF-16 code units using the actual line text
                 let character = source_lines
                     .get(line as usize)
-                    .map(|line_text| {
+                    .map_or(byte_col_0indexed as u32, |line_text| {
                         let clamped = byte_col_0indexed.min(line_text.len());
                         byte_to_utf16_offset(line_text, clamped)
-                    })
-                    .unwrap_or(byte_col_0indexed as u32);
+                    });
 
                 locations.push(Location {
                     uri: source_uri.clone(),
@@ -952,9 +948,8 @@ impl RumdlLanguageServer {
                 continue;
             }
 
-            let source_uri = match Url::from_file_path(source_path) {
-                Ok(uri) => uri,
-                Err(_) => continue,
+            let Ok(source_uri) = Url::from_file_path(source_path) else {
+                continue;
             };
 
             // Try editor buffer first, fall back to disk
@@ -1017,7 +1012,7 @@ impl RumdlLanguageServer {
                 .cross_file_links
                 .iter()
                 .filter(|link| {
-                    let resolved = normalize_path(source_dir.join(&link.target_path));
+                    let resolved = normalize_path(&source_dir.join(&link.target_path));
                     resolved == *target_path && link.fragment.eq_ignore_ascii_case(old_anchor)
                 })
                 .cloned()

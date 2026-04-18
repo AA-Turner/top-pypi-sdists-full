@@ -2256,6 +2256,122 @@ class TestCodebaseIndexConfig:
 
 
 # ---------------------------------------------------------------------------
+# Memory promotion config (#920)
+# ---------------------------------------------------------------------------
+
+
+class TestMemoryPromotionConfig:
+    def test_memory_promotion_defaults(self, tmp_path: Path) -> None:
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        p = config.memory.promotion
+        assert p.default_review_state == "candidate"
+        assert p.local_auto_approve is False
+        assert p.agent_proposals_enabled is True
+        assert p.max_lineage_entries == 50
+        assert p.max_candidates_per_conversation == 10
+        assert p.max_reject_reason_chars == 500
+
+    def test_memory_promotion_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {
+                    "promotion": {
+                        "default_review_state": "pending_review",
+                        "local_auto_approve": True,
+                        "agent_proposals_enabled": False,
+                        "max_lineage_entries": 25,
+                        "max_candidates_per_conversation": 3,
+                        "max_reject_reason_chars": 120,
+                    }
+                },
+            },
+        )
+        config, _ = load_config(cfg)
+        p = config.memory.promotion
+        assert p.default_review_state == "pending_review"
+        assert p.local_auto_approve is True
+        assert p.agent_proposals_enabled is False
+        assert p.max_lineage_entries == 25
+        assert p.max_candidates_per_conversation == 3
+        assert p.max_reject_reason_chars == 120
+
+    def test_memory_promotion_invalid_review_state_falls_back(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {"promotion": {"default_review_state": "nope"}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.memory.promotion.default_review_state == "candidate"
+
+    def test_memory_promotion_local_auto_approve_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_PROMOTION_LOCAL_AUTO_APPROVE", "true")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.promotion.local_auto_approve is True
+
+    def test_memory_promotion_agent_proposals_env_var_false(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_PROMOTION_AGENT_PROPOSALS_ENABLED", "false")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.promotion.agent_proposals_enabled is False
+
+    def test_memory_promotion_max_candidates_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_PROMOTION_MAX_CANDIDATES_PER_CONVERSATION", "4")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.promotion.max_candidates_per_conversation == 4
+
+    def test_memory_promotion_max_lineage_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_PROMOTION_MAX_LINEAGE_ENTRIES", "17")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.promotion.max_lineage_entries == 17
+
+    def test_memory_promotion_max_reject_reason_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_PROMOTION_MAX_REJECT_REASON_CHARS", "200")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.promotion.max_reject_reason_chars == 200
+
+    def test_memory_promotion_max_candidates_invalid_falls_back(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_PROMOTION_MAX_CANDIDATES_PER_CONVERSATION", "garbage")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.promotion.max_candidates_per_conversation == 10
+
+    def test_memory_promotion_zero_or_negative_caps_clamped(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {
+                    "promotion": {
+                        "max_lineage_entries": 0,
+                        "max_candidates_per_conversation": -5,
+                        "max_reject_reason_chars": 0,
+                    }
+                },
+            },
+        )
+        config, _ = load_config(cfg)
+        p = config.memory.promotion
+        # clamp is 1 (ensures the pipeline never runs with an un-bounded cap)
+        assert p.max_lineage_entries == 1
+        assert p.max_candidates_per_conversation == 1
+        assert p.max_reject_reason_chars == 1
+
+
+# ---------------------------------------------------------------------------
 # Compliance config (lines 1866-1896)
 # ---------------------------------------------------------------------------
 

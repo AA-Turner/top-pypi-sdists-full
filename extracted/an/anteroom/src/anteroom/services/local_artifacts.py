@@ -43,6 +43,40 @@ _LOCAL_DIR = "local"
 _ANTEROOM_DIR = ".anteroom"
 _LOCAL_NAMESPACE = "local"
 
+# Default memory metadata for filesystem-discovered memories.
+_DEFAULT_MEMORY_METADATA: dict[str, Any] = {
+    "memory_scope": "local",
+    "memory_category": "project_fact",
+    "memory_status": "active",
+    "provenance": {},
+    "created_by": "user",
+    "promoted_by": None,
+    "last_recalled_at": None,
+    "recall_count": 0,
+}
+
+
+def _apply_memory_scope(art: dict[str, Any], scope: str, namespace: str) -> dict[str, Any]:
+    """Rewrite a discovered memory artifact's identity and metadata for *scope*.
+
+    ``discover_local_artifacts()`` returns all artifacts under ``@local/...``.
+    For memory-type artifacts the FQN, namespace, and metadata must reflect the
+    discovery root (global → ``user``, project → ``project``, space → ``local``).
+    Non-memory artifacts are returned unchanged.
+    """
+    if art.get("type") != ArtifactType.MEMORY.value:
+        return art
+    art = dict(art)  # shallow copy to avoid mutating the original
+    art["namespace"] = namespace
+    try:
+        art["fqn"] = build_fqn(namespace, ArtifactType.MEMORY.value, art["name"])
+    except ValueError:
+        logger.warning("Cannot build memory FQN for name=%s namespace=%s, keeping original", art["name"], namespace)
+        return art
+    art["metadata"] = {**_DEFAULT_MEMORY_METADATA, "memory_scope": scope}
+    return art
+
+
 # Map artifact type to subdirectory name
 _TYPE_DIRS: dict[str, str] = {
     ArtifactType.SKILL: "skills",
@@ -223,6 +257,7 @@ def load_local_artifacts(
     # Global local artifacts: ~/.anteroom/local/
     global_local = data_dir / _LOCAL_DIR
     for art in discover_local_artifacts(global_local):
+        art = _apply_memory_scope(art, scope="user", namespace="user")
         upsert_artifact(
             db,
             fqn=art["fqn"],
@@ -239,6 +274,7 @@ def load_local_artifacts(
     if project_dir is not None:
         project_local = project_dir / _ANTEROOM_DIR / _LOCAL_DIR
         for art in discover_local_artifacts(project_local):
+            art = _apply_memory_scope(art, scope="project", namespace="project")
             upsert_artifact(
                 db,
                 fqn=art["fqn"],
@@ -258,6 +294,7 @@ def load_local_artifacts(
                 continue
             space_local = space_dir / _ANTEROOM_DIR / _LOCAL_DIR
             for art in discover_local_artifacts(space_local):
+                art = _apply_memory_scope(art, scope="local", namespace="local")
                 upsert_artifact(
                     db,
                     fqn=art["fqn"],

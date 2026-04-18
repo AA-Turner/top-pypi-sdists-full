@@ -11,12 +11,16 @@ from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.utils.cache import (
+    analyze_memo_get,
+    analyze_memo_put,
     df_cache_map_get,
     df_cache_map_put_if_absent,
 )
 from snowflake.snowpark_connect.utils.context import (
+    _STARTING_SQL_PLAN_ID,
     get_plan_id_map,
     get_spark_session_id,
+    is_analyze_plan_request,
     not_resolving_fun_args,
     push_operation_scope,
     set_is_aggregate_function,
@@ -30,6 +34,14 @@ from snowflake.snowpark_connect.utils.telemetry import (
 # Spark doesn't have proto for NaturalJoin as Spark DF doesn't have API for it.
 # BUT spark supports NATURAL JOIN via SQL
 NATURAL_JOIN_TYPE_BASE = 22
+
+
+def _is_server_generated_plan_id(plan_id: int) -> bool:
+    """Server-generated plan IDs (from SQL parsing) start at _STARTING_SQL_PLAN_ID
+    and are reset by clear_context_data() at the start of every RPC, so they
+    collide across requests.  Client-generated plan IDs (from PySpark LogicalPlan)
+    are monotonically increasing and never reset."""
+    return plan_id >= _STARTING_SQL_PLAN_ID
 
 
 def map_relation(
@@ -81,6 +93,14 @@ def map_relation(
             if isinstance(cache_entry, DataFrameContainer):
                 set_plan_id_map(rel.common.plan_id, cache_entry)
             return cache_entry
+
+        if is_analyze_plan_request() and not _is_server_generated_plan_id(
+            rel.common.plan_id
+        ):
+            memo_hit = analyze_memo_get((get_spark_session_id(), rel.common.plan_id))
+            if memo_hit is not None:
+                set_plan_id_map(rel.common.plan_id, memo_hit)
+                return memo_hit
 
         # If df is not cached, check if we have parsed the plan
         cached_container = get_plan_id_map(rel.common.plan_id)
@@ -301,5 +321,9 @@ def map_relation(
         # Store container in plan cache
         if isinstance(result, DataFrameContainer):
             set_plan_id_map(rel.common.plan_id, result)
+            if is_analyze_plan_request() and not _is_server_generated_plan_id(
+                rel.common.plan_id
+            ):
+                analyze_memo_put((get_spark_session_id(), rel.common.plan_id), result)
 
         return result

@@ -29,6 +29,7 @@ from langchain_anthropic.chat_models import (
     _format_messages,
     _is_builtin_tool,
     _merge_messages,
+    _thinking_in_params,
     convert_to_anthropic_tool,
 )
 
@@ -2312,7 +2313,9 @@ def test_effort_in_output_config() -> None:
         model="claude-opus-4-5-20251101",
         output_config={"effort": "low"},
     )
-    assert model.model_kwargs["output_config"] == {"effort": "low"}
+    assert model.output_config == {"effort": "low"}
+    payload = model._get_request_payload("Test query")
+    assert payload["output_config"]["effort"] == "low"
 
 
 def test_effort_priority() -> None:
@@ -2675,6 +2678,57 @@ def test_bind_tools_drops_forced_tool_choice_when_thinking_enabled() -> None:
     assert len(w) == 1
 
 
+def test_bind_tools_drops_forced_tool_choice_when_adaptive_thinking() -> None:
+    """Adaptive thinking has the same forced tool_choice restriction as enabled."""
+    chat_model = ChatAnthropic(
+        model=MODEL_NAME,
+        anthropic_api_key="secret-api-key",
+        thinking={"type": "adaptive"},
+    )
+
+    # tool_choice="any" should be dropped with warning
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        result = chat_model.bind_tools([GetWeather], tool_choice="any")
+    assert "tool_choice" not in cast("RunnableBinding", result).kwargs
+    assert len(w) == 1
+    assert "thinking is enabled" in str(w[0].message)
+
+    # tool_choice="auto" should NOT be dropped (auto is allowed)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        result = chat_model.bind_tools([GetWeather], tool_choice="auto")
+    assert cast("RunnableBinding", result).kwargs["tool_choice"] == {"type": "auto"}
+    assert len(w) == 0
+
+    # tool_choice=specific tool name should be dropped with warning
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        result = chat_model.bind_tools([GetWeather], tool_choice="GetWeather")
+    assert "tool_choice" not in cast("RunnableBinding", result).kwargs
+    assert len(w) == 1
+
+    # tool_choice=dict with type "tool" should be dropped with warning
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        result = chat_model.bind_tools(
+            [GetWeather],
+            tool_choice={"type": "tool", "name": "GetWeather"},
+        )
+    assert "tool_choice" not in cast("RunnableBinding", result).kwargs
+    assert len(w) == 1
+
+    # tool_choice=dict with type "any" should also be dropped
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        result = chat_model.bind_tools(
+            [GetWeather],
+            tool_choice={"type": "any"},
+        )
+    assert "tool_choice" not in cast("RunnableBinding", result).kwargs
+    assert len(w) == 1
+
+
 def test_bind_tools_keeps_forced_tool_choice_when_thinking_disabled() -> None:
     """When thinking is not enabled, forced tool_choice should pass through."""
     chat_model = ChatAnthropic(
@@ -2703,3 +2757,89 @@ def test_bind_tools_keeps_forced_tool_choice_when_thinking_disabled() -> None:
     )
     result = chat_model_disabled.bind_tools([GetWeather], tool_choice="any")
     assert cast("RunnableBinding", result).kwargs["tool_choice"] == {"type": "any"}
+
+
+def test_thinking_in_params_recognizes_adaptive() -> None:
+    """_thinking_in_params should recognize both enabled and adaptive types."""
+    assert _thinking_in_params({"thinking": {"type": "enabled", "budget_tokens": 5000}})
+    assert _thinking_in_params({"thinking": {"type": "adaptive"}})
+    assert not _thinking_in_params({"thinking": {"type": "disabled"}})
+    assert not _thinking_in_params({"thinking": {}})
+    assert not _thinking_in_params({})
+
+
+def test_effort_xhigh() -> None:
+    """Test that xhigh effort level is accepted and lands in output_config."""
+    model = ChatAnthropic(model="claude-opus-4-6", effort="xhigh")
+    assert model.effort == "xhigh"
+    payload = model._get_request_payload("Test query")
+    assert payload["output_config"]["effort"] == "xhigh"
+
+
+def test_output_config_top_level_field() -> None:
+    """Test that output_config is a top-level field, not model_kwargs."""
+    model = ChatAnthropic(
+        model=MODEL_NAME,
+        output_config={
+            "effort": "low",
+            "task_budget": {"type": "tokens", "total": 50000},
+        },
+    )
+    assert model.output_config == {
+        "effort": "low",
+        "task_budget": {"type": "tokens", "total": 50000},
+    }
+    assert "output_config" not in model.model_kwargs
+
+    payload = model._get_request_payload("Test query")
+    assert payload["output_config"]["effort"] == "low"
+    assert payload["output_config"]["task_budget"] == {"type": "tokens", "total": 50000}
+
+
+def test_output_config_merged_with_kwargs() -> None:
+    """Test that call-time output_config overrides field-level output_config."""
+    model = ChatAnthropic(
+        model=MODEL_NAME,
+        output_config={"effort": "low"},
+    )
+    payload = model._get_request_payload(
+        "Test query",
+        output_config={
+            "effort": "high",
+            "task_budget": {"type": "tokens", "total": 50000},
+        },
+    )
+    # Call-time kwargs override field-level
+    assert payload["output_config"]["effort"] == "high"
+    assert payload["output_config"]["task_budget"] == {"type": "tokens", "total": 50000}
+
+
+def test_task_budget_auto_appends_beta() -> None:
+    """Test that task_budget in output_config triggers beta header."""
+    model = ChatAnthropic(
+        model=MODEL_NAME,
+        output_config={"task_budget": {"type": "tokens", "total": 128000}},
+    )
+    payload = model._get_request_payload("Test query")
+    assert "betas" in payload
+    assert "task-budgets-2026-03-13" in payload["betas"]
+
+
+def test_task_budget_beta_not_duplicated() -> None:
+    """Test that task_budget beta is not duplicated if already present."""
+    model = ChatAnthropic(
+        model=MODEL_NAME,
+        betas=["task-budgets-2026-03-13"],
+        output_config={"task_budget": {"type": "tokens", "total": 128000}},
+    )
+    payload = model._get_request_payload("Test query")
+    assert payload["betas"].count("task-budgets-2026-03-13") == 1
+
+
+def test_no_task_budget_no_beta() -> None:
+    """Test that task_budget beta is not added when no task_budget is set."""
+    model = ChatAnthropic(model=MODEL_NAME, output_config={"effort": "high"})
+    payload = model._get_request_payload("Test query")
+    betas = payload.get("betas")
+    if betas:
+        assert "task-budgets-2026-03-13" not in betas

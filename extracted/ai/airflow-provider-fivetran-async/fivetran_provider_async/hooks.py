@@ -10,13 +10,19 @@ from typing import TYPE_CHECKING, Any, Dict
 import aiohttp
 import pendulum
 import requests
-from aiohttp import ClientResponseError
+from aiohttp import ClientConnectorError, ClientResponseError
 from airflow.exceptions import AirflowException
-from airflow.hooks.base import BaseHook
-from airflow.models.connection import Connection
-from airflow.utils.helpers import is_container
 from asgiref.sync import sync_to_async
 from requests import exceptions as requests_exceptions
+
+try:
+    from airflow.sdk.bases.hook import BaseHook
+    from airflow.sdk.definitions.connection import Connection
+except ImportError:
+    from airflow.hooks.base import BaseHook
+    from airflow.models.connection import Connection
+
+from airflow.utils.helpers import is_container
 
 
 class FivetranHook(BaseHook):
@@ -166,7 +172,6 @@ class FivetranHook(BaseHook):
                     raise AirflowException(
                         f"Response: {e.response.content.decode()}, " f"Status Code: {e.response.status_code}"
                     ) from e
-
                 self._log_request_error(attempt_num, str(e))
 
             if attempt_num == self.retry_limit:
@@ -203,6 +208,13 @@ class FivetranHook(BaseHook):
             raise ValueError("No value specified for connector_id")
         endpoint = self.api_path_connectors + connector_id
         resp = self._do_api_call("GET", endpoint)
+        return resp["data"]
+
+    def test_connector(self, connector_id: str) -> dict[str, Any]:
+        if connector_id == "":
+            raise ValueError("No value specified for connector_id")
+        endpoint = self.api_path_connectors + connector_id + "/test"
+        resp = self._do_api_call("POST", endpoint, json={})
         return resp["data"]
 
     def get_connector_schemas(self, connector_id: str) -> dict[str, Any]:
@@ -315,12 +327,17 @@ class FivetranHook(BaseHook):
         service_name = connector_details["service"]
         schema_name = connector_details["schema"]
         setup_state = connector_details["status"]["setup_state"]
+
         if setup_state != "connected":
-            raise AirflowException(
-                f'Fivetran connector "{connector_id}" not correctly configured, '
-                f"status: {setup_state}\nPlease see: "
-                f"{self._connector_ui_url_setup(service_name, schema_name)}"
-            )
+            connector_details = self.test_connector(connector_id)
+            setup_state = connector_details["status"]["setup_state"]
+            if setup_state != "connected":
+                raise AirflowException(
+                    f'Fivetran connector "{connector_id}" not correctly configured, '
+                    f"status: {setup_state}\nPlease see: "
+                    f"{self._connector_ui_url_setup(service_name, schema_name)}"
+                )
+            self.log.info("Connector %s passed test connection and is now connected", connector_id)
         self.log.info("Connector type: %s, connector schema: %s", service_name, schema_name)
         self.log.info("Connectors logs at %s", self._connector_ui_url_logs(service_name, schema_name))
         return connector_details
@@ -347,6 +364,7 @@ class FivetranHook(BaseHook):
             page in the Fivetran user interface.
         :param schedule_type: Fivetran connector schedule type
         """
+
         connector_details = self.check_connector(connector_id)
         if schedule_type not in {"manual", "auto"}:
             raise ValueError('schedule_type must be either "manual" or "auto"')
@@ -505,8 +523,8 @@ class FivetranHook(BaseHook):
 
         # The only way to tell if a sync failed is to check if its latest
         # failed_at value is greater than then last known "sync completed at" value.
-        if failed_at > completed_after_time > succeeded_at or (
-            completed_after_time > failed_at > succeeded_at and propagate_failures_forward
+        if failed_at > completed_after_time >= succeeded_at or (
+            completed_after_time >= failed_at > succeeded_at and propagate_failures_forward
         ):
             service_name = connector_details["service"]
             schema_name = connector_details["schema"]
@@ -676,6 +694,8 @@ class FivetranHookAsync(FivetranHook):
                         # In this case, the user probably made a mistake.
                         # Don't retry.
                         return {"Response": {e.message}, "Status Code": {e.status}}
+                    self._log_request_error(attempt_num, str(e))
+                except ClientConnectorError as e:
                     self._log_request_error(attempt_num, str(e))
 
                 if attempt_num == self.retry_limit:

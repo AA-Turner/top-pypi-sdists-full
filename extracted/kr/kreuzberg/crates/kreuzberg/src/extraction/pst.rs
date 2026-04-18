@@ -33,7 +33,7 @@ use std::collections::HashMap;
 #[cfg(feature = "email")]
 use outlook_pst::{
     ltp::prop_context::PropertyValue,
-    messaging::{folder::Folder as PstFolder, message::Message as PstMessage},
+    messaging::{folder::Folder as PstFolder, message::Message as PstMessage, store::EntryId},
     ndb::node_id::NodeId,
 };
 #[cfg(feature = "email")]
@@ -143,7 +143,7 @@ fn extract_from_path(path: &std::path::Path) -> Result<(Vec<EmailExtractionResul
                         continue;
                     }
                 };
-                messages.push(extract_message_content(msg.as_ref()));
+                messages.push(extract_message_content(msg.as_ref(), &entry_id));
             }
         }
 
@@ -181,7 +181,7 @@ fn extract_from_path(path: &std::path::Path) -> Result<(Vec<EmailExtractionResul
 }
 
 #[cfg(feature = "email")]
-fn extract_message_content(message: &dyn PstMessage) -> EmailExtractionResult {
+fn extract_message_content(message: &dyn PstMessage, entry_id: &EntryId) -> EmailExtractionResult {
     let props = message.properties();
 
     let subject = get_str_prop(props, 0x0037); // PR_SUBJECT
@@ -239,12 +239,11 @@ fn extract_message_content(message: &dyn PstMessage) -> EmailExtractionResult {
                         // PR_DISPLAY_NAME
                         display_name = prop_value_to_string(&value);
                     }
-                    0x39FE | 0x3003 => {
+                    0x39FE | 0x3003
                         // PR_SMTP_ADDRESS / PR_EMAIL_ADDRESS
-                        if smtp_email.is_none() {
+                        if smtp_email.is_none() => {
                             smtp_email = prop_value_to_string(&value);
                         }
-                    }
                     _ => {}
                 }
             }
@@ -276,7 +275,7 @@ fn extract_message_content(message: &dyn PstMessage) -> EmailExtractionResult {
         html_content,
         cleaned_text,
         attachments: vec![],
-        metadata: HashMap::new(),
+        metadata: HashMap::from([("entry_id".to_string(), format!("{:?}", entry_id))]),
     }
 }
 

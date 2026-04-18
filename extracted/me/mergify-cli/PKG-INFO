@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mergify_cli
-Version: 2026.4.14.1
+Version: 2026.4.17.1
 Summary: Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub and handles CI results upload
 Project-URL: Homepage, https://mergify.com
 Project-URL: Documentation, https://docs.mergify.com
@@ -26,11 +26,12 @@ Requires-Dist: httpx==0.28.1
 Requires-Dist: jsonschema==4.26.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.41.0
 Requires-Dist: opentelemetry-sdk==1.41.0
-Requires-Dist: pydantic==2.13.0
+Requires-Dist: pydantic==2.13.1
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: questionary>=2.0.0
 Requires-Dist: rich==15.0.0
 Requires-Dist: tenacity==9.1.4
+Requires-Dist: tzlocal==5.3.1
 Description-Content-Type: text/markdown
 
 # Mergify CLI
@@ -171,6 +172,36 @@ npx skills add Mergifyio/mergify-cli
 ```shell
 /plugin marketplace add Mergifyio/mergify-cli
 /plugin install mergify
+```
+
+## Exit Codes
+
+The CLI uses structured exit codes so scripts can distinguish failure modes
+without parsing stderr:
+
+| Code | Name | Meaning |
+|------|------|---------|
+| 0 | `SUCCESS` | Command completed successfully |
+| 1 | `GENERIC_ERROR` | Unclassified error |
+| 2 | *(Click)* | Invalid usage or bad arguments |
+| 3 | `STACK_NOT_FOUND` | Stack, branch, or commit not found |
+| 4 | `CONFLICT` | Rebase conflict |
+| 5 | `GITHUB_API_ERROR` | GitHub API failure |
+| 6 | `MERGIFY_API_ERROR` | Mergify API failure |
+| 7 | `INVALID_STATE` | Invalid state (e.g. branch targets itself, ambiguous commit) |
+| 8 | `CONFIGURATION_ERROR` | Configuration validation failed |
+
+Example usage in a script:
+
+```bash
+mergify stack push
+case $? in
+  0) echo "Success" ;;
+  3) echo "Not in a stack" ;;
+  4) echo "Rebase conflict — resolve and retry" ;;
+  5) echo "GitHub API error — check auth" ;;
+  *) echo "Failed with code $?" ;;
+esac
 ```
 
 ## Contributing

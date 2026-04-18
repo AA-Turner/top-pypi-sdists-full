@@ -208,8 +208,7 @@ class Padstacks(object):
         self.__definitions = {}
         for padstack_def in self._pedb.db.padstack_defs:
             try:
-                if len(padstack_def.data.layer_names) >= 1:
-                    self.__definitions[padstack_def.name] = PadstackDef(self._pedb, padstack_def)
+                self.__definitions[padstack_def.name] = PadstackDef(self._pedb, padstack_def)
             except (Exception, InvalidArgumentException) as e:
                 self._logger.warning(f"Error processing padstack definition {padstack_def.name}: {e}")
         return self.__definitions
@@ -702,7 +701,9 @@ class Padstacks(object):
             "ballDIam": "solder_ball_diameter",
         }
     )
-    def set_solderball(self, padstack_instance, solder_ball_layer, top_placed=True, solder_ball_diameter=100e-6):
+    def set_solderball(
+        self, padstack_instance, solder_ball_layer, top_placed=True, solder_ball_diameter=100e-6, material: str = None
+    ):
         """Set solderball for the given PadstackInstance.
 
         Parameters
@@ -715,6 +716,9 @@ class Padstacks(object):
             Boolean triggering is the solder ball is placed on Top or Bottom of the layer stackup.
         solder_ball_diameter : double, optional,
             Solder ball diameter value.
+        material : str, optional,
+            Material name for the solder ball. If the material does not exist in the central material library,
+            it will be created on the fly with a default conductivity of 1e7 Siemens.
 
         Returns
         -------
@@ -734,6 +738,10 @@ class Padstacks(object):
             CoreSolderballPlacement.ABOVE_PADSTACK if top_placed else CoreSolderballPlacement.BELOW_PADSTACK
         )
         newdefdata.solder_ball_placement = sball_placement
+        if material:
+            if material not in self._pedb.materials:
+                self._pedb.materials.add_conductor_material(name=material, conductivity=1e7)
+            newdefdata.solder_ball_material = material
         psdef.data = newdefdata
         sball_layer = [lay.core for lay in list(self._layers.values()) if lay.name == solder_ball_layer][0]
         if sball_layer is not None:
@@ -1165,7 +1173,7 @@ class Padstacks(object):
                 offset_y=value0,
                 rotation=value0,
                 type_geom=CorePadGeometryType.PADGEOMTYPE_POLYGON,
-                poly=polygon_hole,
+                poly=polygon_hole.core,
             )
             padstack_data.plating_percentage = 20.0
         else:
@@ -1204,7 +1212,7 @@ class Padstacks(object):
             pad_shape = CorePadGeometryType.PADGEOMTYPE_RECTANGLE
         elif pad_shape == "Polygon":
             if isinstance(pad_polygon, list):
-                pad_polygon = PolygonData(edb_object=CorePolygonData(points=pad_polygon))
+                pad_polygon = PolygonData(core=CorePolygonData(points=pad_polygon))
         if antipad_shape == "Bullet":  # pragma no cover
             antipad_array = [x_size, y_size, corner_radius]
             antipad_shape = CorePadGeometryType.PADGEOMTYPE_BULLET
@@ -1213,7 +1221,7 @@ class Padstacks(object):
             antipad_shape = CorePadGeometryType.PADGEOMTYPE_RECTANGLE
         elif antipad_shape == "Polygon":
             if isinstance(antipad_polygon, list):
-                antipad_polygon = PolygonData(edb_object=CorePolygonData(points=antipad_polygon))
+                antipad_polygon = PolygonData(core=CorePolygonData(points=antipad_polygon))
         else:
             antipad_array = [antipaddiam] if not isinstance(antipaddiam, list) else antipaddiam
             antipad_shape = CorePadGeometryType.PADGEOMTYPE_CIRCLE
@@ -1221,22 +1229,32 @@ class Padstacks(object):
             layers = layers + ["Default"]
         if antipad_shape == "Polygon" and pad_shape == "Polygon":
             for layer in layers:
-                padstack_data.set_pad_parameters(
-                    layer=layer,
-                    pad_type=CorePadType.REGULAR_PAD,
-                    offset_x=pad_offset_x,
-                    offset_y=pad_offset_y,
-                    rotation=pad_rotation,
-                    poly=pad_polygon.core,
-                )
-                padstack_data.set_pad_parameters(
-                    layer=layer,
-                    pad_type=CorePadType.ANTI_PAD,
-                    offset_x=pad_offset_x,
-                    offset_y=pad_offset_y,
-                    rotation=pad_rotation,
-                    poly=antipad_polygon.core,
-                )
+                if pad_polygon.core is not None:
+                    padstack_data.set_pad_parameters(
+                        layer=layer,
+                        pad_type=CorePadType.REGULAR_PAD,
+                        offset_x=pad_offset_x,
+                        offset_y=pad_offset_y,
+                        rotation=pad_rotation,
+                        poly=pad_polygon.core,
+                    )
+                else:
+                    self._pedb.logger.error(
+                        f"Polygon used for defining pad-stack {padstackname} pad on layer {layer} is not valid"
+                    )
+                if antipad_polygon.core is not None:
+                    padstack_data.set_pad_parameters(
+                        layer=layer,
+                        pad_type=CorePadType.ANTI_PAD,
+                        offset_x=pad_offset_x,
+                        offset_y=pad_offset_y,
+                        rotation=pad_rotation,
+                        poly=antipad_polygon.core,
+                    )
+                else:
+                    self._pedb.logger.error(
+                        f"Polygon used for defining pad-stack {padstackname} anti-pad on layer {layer} is not valid"
+                    )
         else:
             for layer in layers:
                 padstack_data.set_pad_parameters(
@@ -1682,7 +1700,7 @@ class Padstacks(object):
         self,
         points: List[Tuple[float, float]],
         nets: Optional[Union[str, List[str]]] = None,
-        padstack_instances_index: Optional[Dict[int, Tuple[float, float]]] = None,
+        padstack_instances_index: Optional[Union[Dict[int, Tuple[float, float]], "rtree.index.Index"]] = None,
     ) -> List[int]:
         """Returns the list of padstack instances ID intersecting a given bounding box and nets.
 
@@ -1703,16 +1721,46 @@ class Padstacks(object):
         """
         if not points:
             raise Exception("No points defining polygon was provided")
-        if not padstack_instances_index:
-            padstack_instances_index = {}
-            for inst in self.instances:
-                padstack_instances_index[inst.id] = inst.position
-        _x = [pt[0] for pt in points]
-        _y = [pt[1] for pt in points]
-        points = [_x, _y]
-        return [
-            ind for ind, pt in padstack_instances_index.items() if GeometryOperators.is_point_in_polygon(pt, points)
-        ]
+
+        polygon_x = [float(pt[0]) for pt in points]
+        polygon_y = [float(pt[1]) for pt in points]
+        polygon = [polygon_x, polygon_y]
+        min_x, max_x = min(polygon_x), max(polygon_x)
+        min_y, max_y = min(polygon_y), max(polygon_y)
+
+        net_filter = [nets] if isinstance(nets, str) else nets
+
+        if padstack_instances_index and hasattr(padstack_instances_index, "intersection"):
+            candidate_ids = self.get_padstack_instances_intersecting_bounding_box(
+                [min_x, min_y, max_x, max_y],
+                nets=nets,
+                padstack_instances_index=padstack_instances_index,
+            )
+            candidate_positions = ((inst_id, self.instances[inst_id].position) for inst_id in candidate_ids)
+        else:
+            if not padstack_instances_index:
+                instances = self.instances.values()
+                if net_filter:
+                    instances = [inst for inst in instances if inst.net_name in net_filter]
+                candidate_positions = ((inst.id, inst.position) for inst in instances)
+            else:
+                candidate_positions = padstack_instances_index.items()
+
+        inside_ids = []
+        for inst_id, position in candidate_positions:
+            try:
+                x = float(position[0])
+                y = float(position[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+
+            if not (math.isfinite(x) and math.isfinite(y)):
+                continue
+            if x < min_x or x > max_x or y < min_y or y > max_y:
+                continue
+            if GeometryOperators.is_point_in_polygon([x, y], polygon):
+                inside_ids.append(inst_id)
+        return inside_ids
 
     def get_padstack_instances_intersecting_bounding_box(
         self,

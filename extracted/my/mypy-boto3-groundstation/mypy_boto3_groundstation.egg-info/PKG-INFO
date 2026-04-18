@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-groundstation
-Version: 1.42.35
-Summary: Type annotations for boto3 GroundStation 1.42.35 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.91
+Summary: Type annotations for boto3 GroundStation 1.42.91 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 GroundStation 1.42.35](https://pypi.org/project/boto3/) compatible with
+[boto3 GroundStation 1.42.91](https://pypi.org/project/boto3/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -106,7 +106,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.35' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.91' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `GroundStation` service.
 4. Use provided commands to install generated packages.
@@ -341,10 +341,13 @@ from boto3.session import Session
 
 from mypy_boto3_groundstation import GroundStationClient
 from mypy_boto3_groundstation.paginator import (
+    ListAntennasPaginator,
     ListConfigsPaginator,
+    ListContactVersionsPaginator,
     ListContactsPaginator,
     ListDataflowEndpointGroupsPaginator,
     ListEphemeridesPaginator,
+    ListGroundStationReservationsPaginator,
     ListGroundStationsPaginator,
     ListMissionProfilesPaginator,
     ListSatellitesPaginator,
@@ -354,12 +357,19 @@ client: GroundStationClient = Session().client("groundstation")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
+list_antennas_paginator: ListAntennasPaginator = client.get_paginator("list_antennas")
 list_configs_paginator: ListConfigsPaginator = client.get_paginator("list_configs")
+list_contact_versions_paginator: ListContactVersionsPaginator = client.get_paginator(
+    "list_contact_versions"
+)
 list_contacts_paginator: ListContactsPaginator = client.get_paginator("list_contacts")
 list_dataflow_endpoint_groups_paginator: ListDataflowEndpointGroupsPaginator = client.get_paginator(
     "list_dataflow_endpoint_groups"
 )
 list_ephemerides_paginator: ListEphemeridesPaginator = client.get_paginator("list_ephemerides")
+list_ground_station_reservations_paginator: ListGroundStationReservationsPaginator = (
+    client.get_paginator("list_ground_station_reservations")
+)
 list_ground_stations_paginator: ListGroundStationsPaginator = client.get_paginator(
     "list_ground_stations"
 )
@@ -380,13 +390,14 @@ waiters.
 from boto3.session import Session
 
 from mypy_boto3_groundstation import GroundStationClient
-from mypy_boto3_groundstation.waiter import ContactScheduledWaiter
+from mypy_boto3_groundstation.waiter import ContactScheduledWaiter, ContactUpdatedWaiter
 
 client: GroundStationClient = Session().client("groundstation")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
 contact_scheduled_waiter: ContactScheduledWaiter = client.get_waiter("contact_scheduled")
+contact_updated_waiter: ContactUpdatedWaiter = client.get_waiter("contact_updated")
 ```
 
 <a id="literals"></a>

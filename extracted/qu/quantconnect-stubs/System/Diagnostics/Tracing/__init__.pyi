@@ -8,7 +8,6 @@ import System
 import System.Collections.Generic
 import System.Collections.ObjectModel
 import System.Diagnostics.Tracing
-import System.Runtime.Serialization
 
 System_Diagnostics_Tracing__EventContainer_Callable = typing.TypeVar("System_Diagnostics_Tracing__EventContainer_Callable")
 System_Diagnostics_Tracing__EventContainer_ReturnType = typing.TypeVar("System_Diagnostics_Tracing__EventContainer_ReturnType")
@@ -714,10 +713,6 @@ class EventSourceException(System.Exception):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 

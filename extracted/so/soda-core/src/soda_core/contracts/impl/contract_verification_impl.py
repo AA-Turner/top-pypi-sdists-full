@@ -44,6 +44,7 @@ from soda_core.contracts.contract_verification import (
     Threshold,
     YamlFileContentInfo,
 )
+from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
     ColumnYaml,
@@ -122,7 +123,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_agent: bool = False,
         soda_cloud_verbose: bool = False,
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
-        check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list[CheckSelector]] = None,
         dwh_data_source_file_path: Optional[str] = None,
     ):
         logs: Logs = Logs()
@@ -170,8 +171,8 @@ class ContractVerificationSessionImpl:
         # Validate input soda_cloud_use_agent_blocking_timeout_in_minutes
         assert isinstance(soda_cloud_use_agent_blocking_timeout_in_minutes, int)
 
-        if check_paths is None:
-            check_paths = []
+        if check_selectors is None:
+            check_selectors = []
 
         if soda_cloud_use_agent:
             contract_verification_results: list[ContractVerificationResult] = cls._execute_on_agent(
@@ -194,7 +195,7 @@ class ContractVerificationSessionImpl:
                 data_source_yaml_sources=data_source_yaml_sources,
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_publish_results=soda_cloud_publish_results,
-                check_paths=check_paths,
+                check_selectors=check_selectors,
                 dwh_data_source_file_path=dwh_data_source_file_path,
             )
         return ContractVerificationSessionResult(contract_verification_results=contract_verification_results)
@@ -211,7 +212,7 @@ class ContractVerificationSessionImpl:
         data_source_yaml_sources: list[DataSourceYamlSource],
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_publish_results: bool,
-        check_paths: list[str],
+        check_selectors: list[CheckSelector],
         dwh_data_source_file_path: Optional[str] = None,
     ) -> list[ContractVerificationResult]:
         "Verifies a Contract locally."
@@ -251,7 +252,7 @@ class ContractVerificationSessionImpl:
                         soda_cloud=soda_cloud_impl,
                         publish_results=soda_cloud_publish_results,
                         logs=logs,
-                        check_paths=check_paths,
+                        check_selectors=check_selectors,
                         dwh_data_source_file_path=dwh_data_source_file_path,
                     )
                     contract_verification_result: ContractVerificationResult = contract_impl.verify()
@@ -375,7 +376,7 @@ class ContractImpl:
         execution_timestamp: datetime,
         soda_cloud: Optional[SodaCloud],
         publish_results: bool,
-        check_paths: list[str] = [],
+        check_selectors: list[CheckSelector] = [],
         dwh_data_source_file_path: Optional[str] = None,
     ):
         self.logs: Logs = logs
@@ -388,7 +389,7 @@ class ContractImpl:
         self.soda_config = EnvConfigHelper()
 
         self.filter: Optional[str] = self.contract_yaml.filter
-        self.check_paths: list[str] = check_paths
+        self.check_selectors: list[CheckSelector] = check_selectors
 
         self.started_timestamp: datetime = datetime.now(tz=timezone.utc)
 
@@ -714,17 +715,26 @@ class ContractImpl:
 
         scan_id: Optional[str] = None
         if soda_cloud_file_id:
-            # send_contract_result will use contract.source.soda_cloud_file_id
-            soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
-            scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
-            if not scan_id:
+            if data_source is None:
+                logger.error(
+                    f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
+                    f"Data source not found. Check that the data source name in the contract's "
+                    f"'dataset' field matches the name in your data source configuration."
+                )
+                sending_results_to_soda_cloud_failed = True
                 contract_verification_result.sending_results_to_soda_cloud_failed = True
             else:
-                contract_verification_result.scan_id = scan_id
-                # Put the dataset id in the contract object
-                contract_verification_result.contract.dataset_id = self.__get_dataset_id(
-                    soda_cloud_response_json, self.soda_qualified_dataset_name
-                )
+                # send_contract_result will use contract.source.soda_cloud_file_id
+                soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
+                scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
+                if not scan_id:
+                    contract_verification_result.sending_results_to_soda_cloud_failed = True
+                else:
+                    contract_verification_result.scan_id = scan_id
+                    # Put the dataset id in the contract object
+                    contract_verification_result.contract.dataset_id = self.__get_dataset_id(
+                        soda_cloud_response_json, self.soda_qualified_dataset_name
+                    )
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
@@ -1345,6 +1355,7 @@ class CheckImpl:
         contract_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: CheckYaml,
+        extra_identity_properties: Optional[dict[str, object]] = None,
     ):
         self.logs: Logs = contract_impl.logs
 
@@ -1358,19 +1369,18 @@ class CheckImpl:
             column_impl=column_impl,
             check_type=check_yaml.type_name,
             qualifier=check_yaml.qualifier,
+            extra_identity_properties=extra_identity_properties,
         )
 
         self.threshold: Optional[ThresholdImpl] = None
         self.metrics: list[MetricImpl] = []
         self.queries: list[Query] = []
-        self.skip: bool = False
 
-        if contract_impl.check_paths:
-            if self.path not in contract_impl.check_paths:
-                self.skip = True
-
-        # Merge check attributes with contract attributes
+        # Merge attributes before filtering (selectors may query them)
         self.attributes: dict[str, any] = {**contract_impl.check_attributes, **check_yaml.attributes}
+
+        # Apply check selectors (subsumes old check_paths logic)
+        self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self)
 
     @property
     def column_expression(self) -> Optional[SqlExpressionStr | COLUMN]:
@@ -1454,7 +1464,12 @@ class CheckImpl:
 
     @classmethod
     def _build_identity(
-        cls, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_type: str, qualifier: Optional[str]
+        cls,
+        contract_impl: ContractImpl,
+        column_impl: Optional[ColumnImpl],
+        check_type: str,
+        qualifier: Optional[str],
+        extra_identity_properties: Optional[dict[str, object]] = None,
     ) -> str:
         identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
         if contract_impl.data_source_impl:
@@ -1464,6 +1479,9 @@ class CheckImpl:
         identity_hash_builder.add_property("c", column_impl.column_yaml.name if column_impl else None)
         identity_hash_builder.add_property("t", check_type)
         identity_hash_builder.add_property("q", qualifier)
+        if extra_identity_properties:
+            for key in sorted(extra_identity_properties):
+                identity_hash_builder.add_property(key, extra_identity_properties[key])
 
         return identity_hash_builder.get_hash()
 
@@ -1521,9 +1539,13 @@ class CheckImpl:
 
 class MissingAndValidityCheckImpl(CheckImpl):
     def __init__(
-        self, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_yaml: MissingAncValidityCheckYaml
+        self,
+        contract_impl: ContractImpl,
+        column_impl: Optional[ColumnImpl],
+        check_yaml: MissingAncValidityCheckYaml,
+        extra_identity_properties: Optional[dict[str, object]] = None,
     ):
-        super().__init__(contract_impl, column_impl, check_yaml)
+        super().__init__(contract_impl, column_impl, check_yaml, extra_identity_properties=extra_identity_properties)
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(missing_and_validity_yaml=check_yaml)
         self.missing_and_validity.apply_column_defaults(column_impl)
 

@@ -80,6 +80,7 @@ from .literals import (
     ClusterEventResourceTypeType,
     ClusterInstanceStatusType,
     ClusterInstanceTypeType,
+    ClusterInterfaceTypeType,
     ClusterKubernetesTaintEffectType,
     ClusterNodeRecoveryType,
     ClusterSlurmConfigStrategyType,
@@ -542,6 +543,8 @@ __all__ = (
     "ClusterKubernetesTaintTypeDef",
     "ClusterLifeCycleConfigTypeDef",
     "ClusterMetadataTypeDef",
+    "ClusterNetworkInterfaceDetailsTypeDef",
+    "ClusterNetworkInterfaceTypeDef",
     "ClusterNodeDetailsTypeDef",
     "ClusterNodeSummaryTypeDef",
     "ClusterOrchestratorEksConfigTypeDef",
@@ -2786,6 +2789,11 @@ class ClusterInstanceTypeDetailTypeDef(TypedDict):
 class ClusterLifeCycleConfigTypeDef(TypedDict):
     SourceS3Uri: NotRequired[str]
     OnCreate: NotRequired[str]
+    OnInitComplete: NotRequired[str]
+
+
+class ClusterNetworkInterfaceDetailsTypeDef(TypedDict):
+    InterfaceType: NotRequired[ClusterInterfaceTypeType]
 
 
 class ClusterSlurmConfigDetailsTypeDef(TypedDict):
@@ -2795,6 +2803,10 @@ class ClusterSlurmConfigDetailsTypeDef(TypedDict):
 
 class ClusterInstanceRequirementsTypeDef(TypedDict):
     InstanceTypes: Sequence[ClusterInstanceTypeType]
+
+
+class ClusterNetworkInterfaceTypeDef(TypedDict):
+    InterfaceType: NotRequired[ClusterInterfaceTypeType]
 
 
 class ClusterSlurmConfigTypeDef(TypedDict):
@@ -11282,6 +11294,7 @@ class ClusterNodeDetailsTypeDef(TypedDict):
     UltraServerInfo: NotRequired[UltraServerInfoTypeDef]
     KubernetesConfig: NotRequired[ClusterKubernetesConfigNodeDetailsTypeDef]
     CapacityType: NotRequired[ClusterCapacityTypeType]
+    NetworkInterface: NotRequired[ClusterNetworkInterfaceDetailsTypeDef]
 
 
 class ListClusterNodesResponseTypeDef(TypedDict):
@@ -13685,6 +13698,7 @@ class ClusterInstanceGroupDetailsTypeDef(TypedDict):
     SoftwareUpdateStatus: NotRequired[SoftwareUpdateStatusType]
     ActiveSoftwareUpdateConfig: NotRequired[DeploymentConfigurationOutputTypeDef]
     SlurmConfig: NotRequired[ClusterSlurmConfigDetailsTypeDef]
+    NetworkInterface: NotRequired[ClusterNetworkInterfaceDetailsTypeDef]
 
 
 class ClusterRestrictedInstanceGroupDetailsTypeDef(TypedDict):
@@ -14627,6 +14641,7 @@ class ClusterInstanceGroupSpecificationTypeDef(TypedDict):
     KubernetesConfig: NotRequired[ClusterKubernetesConfigTypeDef]
     SlurmConfig: NotRequired[ClusterSlurmConfigTypeDef]
     CapacityRequirements: NotRequired[ClusterCapacityRequirementsUnionTypeDef]
+    NetworkInterface: NotRequired[ClusterNetworkInterfaceTypeDef]
 
 
 class ClusterRestrictedInstanceGroupSpecificationTypeDef(TypedDict):

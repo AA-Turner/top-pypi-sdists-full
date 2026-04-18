@@ -39,7 +39,7 @@ class Schedule(System.Object):
         """Creates a new instance holding the same schedule if any"""
         ...
 
-    def get(self, start_time: typing.Union[datetime.datetime, datetime.date], end_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
+    def get(self, start_time: typing.Union[datetime.datetime, datetime.date], end_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[datetime.datetime]:
         """Gets the current schedule for a given start time"""
         ...
 
@@ -569,8 +569,7 @@ class Universe(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """Marks this universe as disposed and ready to remove all child subscriptions"""
         ...
 
-    @overload
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
         """
         Gets the subscription requests to be added for the specified security
         
@@ -578,21 +577,6 @@ class Universe(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         :param current_time_utc: The current time in utc. This is the frontier time of the algorithm
         :param maximum_end_time_utc: The max end time
         :param subscription_service: Instance which implements ISubscriptionDataConfigService interface
-        :returns: All subscriptions required by this security.
-        """
-        ...
-
-    @overload
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
-        """
-        Gets the subscription requests to be added for the specified security
-        
-        
-        This overload is obsolete and will not be called. It was not capable of creating new SubscriptionDataConfig due to lack of information
-        
-        :param security: The security to get subscriptions for
-        :param current_time_utc: The current time in utc. This is the frontier time of the algorithm
-        :param maximum_end_time_utc: The max end time
         :returns: All subscriptions required by this security.
         """
         ...
@@ -608,7 +592,7 @@ class Universe(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def perform_selection(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def perform_selection(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs universe selection using the data specified
         
@@ -618,7 +602,7 @@ class Universe(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs universe selection using the data specified
         
@@ -664,7 +648,7 @@ class CryptoUniverseFactory(QuantConnect.Data.UniverseSelection.Universe):
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs universe selection using the data specified
         
@@ -866,7 +850,7 @@ class OptionChainUniverse(QuantConnect.Data.UniverseSelection.Universe):
         """
         ...
 
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
         """
         Gets the subscription requests to be added for the specified security
         
@@ -878,7 +862,7 @@ class OptionChainUniverse(QuantConnect.Data.UniverseSelection.Universe):
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs universe selection using the data specified
         
@@ -1107,8 +1091,7 @@ class UniverseDecorator(QuantConnect.Data.UniverseSelection.Universe, metaclass=
         """
         warnings.warn("CreateSecurity is obsolete and will not be called. The system will create the required Securities based on selected symbols", DeprecationWarning)
 
-    @overload
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
         """
         Gets the subscription requests to be added for the specified security
         
@@ -1120,22 +1103,7 @@ class UniverseDecorator(QuantConnect.Data.UniverseSelection.Universe, metaclass=
         """
         ...
 
-    @overload
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
-        """
-        Gets the subscription requests to be added for the specified security
-        
-        
-        This overload is obsolete and will not be called. It was not capable of creating new SubscriptionDataConfig due to lack of information
-        
-        :param security: The security to get subscriptions for
-        :param current_time_utc: The current time in utc. This is the frontier time of the algorithm
-        :param maximum_end_time_utc: The max end time
-        :returns: All subscriptions required by this security.
-        """
-        ...
-
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs universe selection using the data specified
         
@@ -1158,7 +1126,7 @@ class SelectSymbolsUniverseDecorator(QuantConnect.Data.UniverseSelection.Univers
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs universe selection using the data specified
         
@@ -1168,7 +1136,7 @@ class SelectSymbolsUniverseDecorator(QuantConnect.Data.UniverseSelection.Univers
         """
         ...
 
-    def select_symbols_delegate(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols_delegate(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Delegate type for the select_symbols method
         
@@ -1236,7 +1204,7 @@ class FundamentalUniverseFactory(QuantConnect.Data.UniverseSelection.Universe):
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs universe selection using the data specified
         
@@ -1458,7 +1426,7 @@ class CoarseFundamentalUniverse(QuantConnect.Data.UniverseSelection.Universe):
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs universe selection using the data specified
         
@@ -1712,7 +1680,7 @@ class FuncUniverse(typing.Generic[QuantConnect_Data_UniverseSelection_FuncUniver
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs an initial, coarse filter
         
@@ -1848,7 +1816,7 @@ class GetSubscriptionRequestsUniverseDecorator(QuantConnect.Data.UniverseSelecti
         """
         ...
 
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
         """
         Gets the subscription requests to be added for the specified security
         
@@ -1859,7 +1827,7 @@ class GetSubscriptionRequestsUniverseDecorator(QuantConnect.Data.UniverseSelecti
         """
         ...
 
-    def get_subscription_requests_delegate(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+    def get_subscription_requests_delegate(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
         """
         Delegate type for the get_subscription_requests method
         
@@ -1878,7 +1846,7 @@ class ITimeTriggeredUniverse(metaclass=abc.ABCMeta):
     GetTriggerTimes are used to 'pulse' the universe selection function WITHOUT data.
     """
 
-    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Iterable[datetime.datetime]:
+    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Sequence[datetime.datetime]:
         """
         Returns an enumerator that defines when this user defined universe will be invoked
         
@@ -2089,7 +2057,7 @@ class UserDefinedUniverse(QuantConnect.Data.UniverseSelection.Universe, System.C
         """
         ...
 
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
         """
         Gets the subscription requests to be added for the specified security
         
@@ -2101,7 +2069,7 @@ class UserDefinedUniverse(QuantConnect.Data.UniverseSelection.Universe, System.C
         """
         ...
 
-    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Iterable[datetime.datetime]:
+    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Sequence[datetime.datetime]:
         """
         Returns an enumerator that defines when this user defined universe will be invoked
         
@@ -2129,7 +2097,7 @@ class UserDefinedUniverse(QuantConnect.Data.UniverseSelection.Universe, System.C
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Returns the symbols defined by the user for this universe
         
@@ -2302,7 +2270,7 @@ class FuturesChainUniverse(QuantConnect.Data.UniverseSelection.Universe):
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs universe selection using the data specified
         
@@ -2348,7 +2316,7 @@ class UniversePythonWrapper(QuantConnect.Data.UniverseSelection.Universe):
         """Initializes a new instance of the UniversePythonWrapper class"""
         ...
 
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
         """
         Gets the subscription requests to be added for the specified security
         
@@ -2360,7 +2328,7 @@ class UniversePythonWrapper(QuantConnect.Data.UniverseSelection.Universe):
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs universe selection using the data specified
         
@@ -2486,7 +2454,7 @@ class FineFundamentalUniverse(QuantConnect.Data.UniverseSelection.Universe):
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs universe selection using the data specified
         
@@ -2550,7 +2518,7 @@ class ScheduledUniverse(QuantConnect.Data.UniverseSelection.Universe, QuantConne
         """
         ...
 
-    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Iterable[datetime.datetime]:
+    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Sequence[datetime.datetime]:
         """
         Get an enumerator of UTC DateTimes that defines when this universe will be invoked
         
@@ -2560,7 +2528,7 @@ class ScheduledUniverse(QuantConnect.Data.UniverseSelection.Universe, QuantConne
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs universe selection using the data specified
         
@@ -2630,7 +2598,7 @@ class ContinuousContractUniverse(QuantConnect.Data.UniverseSelection.Universe, Q
         """
         ...
 
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
         """
         Gets the subscription requests to be added for the specified security
         
@@ -2642,14 +2610,14 @@ class ContinuousContractUniverse(QuantConnect.Data.UniverseSelection.Universe, Q
         """
         ...
 
-    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Iterable[datetime.datetime]:
+    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Sequence[datetime.datetime]:
         """
         Each tradeable day of the future we trigger a new selection.
         Allows use to select the current contract
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Performs universe selection based on the symbol mapping
         

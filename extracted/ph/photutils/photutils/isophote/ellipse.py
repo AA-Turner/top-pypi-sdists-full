@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define a class to fit elliptical isophotes.
+Tools for fitting elliptical isophotes.
 """
 
 import warnings
@@ -16,6 +16,8 @@ from photutils.isophote.geometry import EllipseGeometry
 from photutils.isophote.integrator import BILINEAR
 from photutils.isophote.isophote import Isophote, IsophoteList
 from photutils.isophote.sample import CentralEllipseSample, EllipseSample
+from photutils.utils._deprecation import (deprecated_positional_kwargs,
+                                          deprecated_renamed_argument)
 
 __all__ = ['Ellipse']
 
@@ -90,7 +92,7 @@ class Ellipse:
     2. a user-specified maximum number of iterations is reached.
 
     3. more than a given fraction of the elliptical sample points have no
-       valid data in then, either because they lie outside the image
+       valid data in them, either because they lie outside the image
        boundaries or because they were flagged out from the fit by
        sigma-clipping.
 
@@ -173,13 +175,14 @@ class Ellipse:
 
     A note of caution: the ellipse fitting algorithm was designed
     explicitly with an elliptical galaxy brightness distribution in
-    mind. In particular, a well defined negative radial intensity
+    mind. In particular, a well-defined negative radial intensity
     gradient across the region being fitted is paramount for the
     achievement of stable solutions. Use of the algorithm in other
     types of images (e.g., planetary nebulae) may lead to inability to
     converge to any acceptable solution.
     """
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __init__(self, image, geometry=None, threshold=0.1):
         self.image = image
 
@@ -203,10 +206,12 @@ class Ellipse:
         """
         self._geometry.centerer_threshold = threshold
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
+    @deprecated_renamed_argument('nclip', 'n_clip', '3.0', until='4.0')
     def fit_image(self, sma0=None, minsma=0.0, maxsma=None, step=0.1,
                   conver=DEFAULT_CONVERGENCE, minit=DEFAULT_MINIT,
                   maxit=DEFAULT_MAXIT, fflag=DEFAULT_FFLAG,
-                  maxgerr=DEFAULT_MAXGERR, sclip=3.0, nclip=0,
+                  maxgerr=DEFAULT_MAXGERR, sclip=3.0, n_clip=0,
                   integrmode=BILINEAR, linear=None, maxrit=None,
                   fix_center=False, fix_pa=False, fix_eps=False):
         # This parameter list is quite large and should in principle be
@@ -327,9 +332,13 @@ class Ellipse:
         sclip : float, optional
             The sigma-clip sigma value. The default is 3.0.
 
-        nclip : int, optional
+        n_clip : int, optional
             The number of sigma-clip iterations. The default is 0, which
             means sigma-clipping is skipped.
+
+            .. deprecated:: 3.0
+                The ``nclip`` keyword is deprecated. Use ``n_clip``
+                instead.
 
         integrmode : {'bilinear', 'nearest_neighbor', 'mean', 'median'}, \
                 optional
@@ -398,8 +407,8 @@ class Ellipse:
         else:
             linear = self._geometry.linear_growth
         if fix_center and fix_pa and fix_eps:
-            warnings.warn(': Everything is fixed. Fit not possible.',
-                          AstropyUserWarning)
+            msg = ': Everything is fixed. Fit not possible.'
+            warnings.warn(msg, AstropyUserWarning)
             return IsophoteList([])
         if fix_center or fix_pa or fix_eps:
             # Note that this overrides the geometry instance for good.
@@ -415,9 +424,12 @@ class Ellipse:
             minit_a = 2 * minit if first_isophote else minit
             first_isophote = False
 
-            isophote = self.fit_isophote(sma, step, conver, minit_a, maxit,
-                                         fflag, maxgerr, sclip, nclip,
-                                         integrmode, linear, maxrit,
+            isophote = self.fit_isophote(sma, step=step, conver=conver,
+                                         minit=minit_a, maxit=maxit,
+                                         fflag=fflag, maxgerr=maxgerr,
+                                         sclip=sclip, n_clip=n_clip,
+                                         integrmode=integrmode,
+                                         linear=linear, maxrit=maxrit,
                                          noniterate=noiter,
                                          isophote_list=isophote_list)
 
@@ -429,8 +441,8 @@ class Ellipse:
                 # the fitting algorithm to find any meaningful solution.
 
                 if len(isophote_list) == 1:
-                    warnings.warn('No meaningful fit was possible.',
-                                  AstropyUserWarning)
+                    msg = 'No meaningful fit was possible.'
+                    warnings.warn(msg, AstropyUserWarning)
                     return IsophoteList([])
 
                 self._fix_last_isophote(isophote_list, -1)
@@ -473,9 +485,12 @@ class Ellipse:
 
         # now, go from initial sma inwards towards center.
         while True:
-            isophote = self.fit_isophote(sma, step, conver, minit, maxit,
-                                         fflag, maxgerr, sclip, nclip,
-                                         integrmode, linear, maxrit,
+            isophote = self.fit_isophote(sma, step=step, conver=conver,
+                                         minit=minit, maxit=maxit,
+                                         fflag=fflag, maxgerr=maxgerr,
+                                         sclip=sclip, n_clip=n_clip,
+                                         integrmode=integrmode,
+                                         linear=linear, maxrit=maxrit,
                                          going_inwards=True,
                                          isophote_list=isophote_list)
 
@@ -509,20 +524,23 @@ class Ellipse:
 
         return IsophoteList(isophote_list)
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
+    @deprecated_renamed_argument('nclip', 'n_clip', '3.0', until='4.0')
     def fit_isophote(self, sma, step=0.1, conver=DEFAULT_CONVERGENCE,
                      minit=DEFAULT_MINIT, maxit=DEFAULT_MAXIT,
                      fflag=DEFAULT_FFLAG, maxgerr=DEFAULT_MAXGERR,
-                     sclip=3.0, nclip=0, integrmode=BILINEAR,
+                     sclip=3.0, n_clip=0, integrmode=BILINEAR,
                      linear=False, maxrit=None, noniterate=False,
                      going_inwards=False, isophote_list=None):
         """
         Fit a single isophote with a given semimajor axis length.
 
-        The ``step`` and ``linear`` parameters are not used to actually
-        grow or shrink the current fitting semimajor axis length. They
-        are necessary so the sampling algorithm can know where to start
-        the gradient computation and also how to compute the elliptical
-        sector areas (when area integration mode is selected).
+        The ``step`` and ``linear`` parameters do not directly control
+        the growth or reduction of the current fitting semimajor axis
+        length. Instead, they are used by the sampling algorithm to
+        determine the starting point for gradient computation and
+        to calculate the areas of the elliptical sectors (when area
+        integration mode is enabled).
 
         Parameters
         ----------
@@ -572,9 +590,13 @@ class Ellipse:
         sclip : float, optional
             The sigma-clip sigma value. The default is 3.0.
 
-        nclip : int, optional
+        n_clip : int, optional
             The number of sigma-clip iterations. The default is 0, which
             means sigma-clipping is skipped.
+
+            .. deprecated:: 3.0
+                The ``nclip`` keyword is deprecated. Use ``n_clip``
+                instead.
 
         integrmode : {'bilinear', 'nearest_neighbor', 'mean', 'median'}, \
                 optional
@@ -641,11 +663,12 @@ class Ellipse:
         # do the fit
         if noniterate or (maxrit and sma > maxrit):
             isophote = self._non_iterative(sma, step, linear, geometry,
-                                           sclip, nclip, integrmode)
+                                           sclip, n_clip, integrmode)
         else:
             isophote = self._iterative(sma, step, linear, geometry, sclip,
-                                       nclip, integrmode, conver, minit,
-                                       maxit, fflag, maxgerr, going_inwards)
+                                       n_clip, integrmode, conver, minit,
+                                       maxit, fflag, maxgerr,
+                                       going_inwards=going_inwards)
 
         # store result in list
         if isophote_list is not None and isophote.valid:
@@ -653,13 +676,13 @@ class Ellipse:
 
         return isophote
 
-    def _iterative(self, sma, step, linear, geometry, sclip, nclip,
-                   integrmode, conver, minit, maxit, fflag, maxgerr,
+    def _iterative(self, sma, step, linear, geometry, sclip, n_clip,
+                   integrmode, conver, minit, maxit, fflag, maxgerr, *,
                    going_inwards=False):
         if sma > 0.0:
             # iterative fitter
             sample = EllipseSample(self.image, sma, astep=step, sclip=sclip,
-                                   nclip=nclip, linear_growth=linear,
+                                   n_clip=n_clip, linear_growth=linear,
                                    geometry=geometry, integrmode=integrmode)
             fitter = EllipseFitter(sample)
         else:
@@ -671,12 +694,12 @@ class Ellipse:
                           fflag=fflag, maxgerr=maxgerr,
                           going_inwards=going_inwards)
 
-    def _non_iterative(self, sma, step, linear, geometry, sclip, nclip,
+    def _non_iterative(self, sma, step, linear, geometry, sclip, n_clip,
                        integrmode):
         sample = EllipseSample(self.image, sma, astep=step, sclip=sclip,
-                               nclip=nclip, linear_growth=linear,
+                               n_clip=n_clip, linear_growth=linear,
                                geometry=geometry, integrmode=integrmode)
-        sample.update(geometry.fix)
+        sample.update(fixed_parameters=geometry.fix)
 
         # build isophote without iterating with an EllipseFitter
         return Isophote(sample, 0, valid=True, stop_code=4)
@@ -694,7 +717,8 @@ class Ellipse:
             # force new extraction of raw data, since
             # geometry changed.
             isophote.sample.values = None
-            isophote.sample.update(isophote.sample.geometry.fix)
+            isophote.sample.update(
+                fixed_parameters=isophote.sample.geometry.fix)
 
             # we take the opportunity to change an eventual
             # negative stop code to its' positive equivalent.
@@ -702,7 +726,7 @@ class Ellipse:
 
             # build new instance so it can have its attributes
             # populated from the updated sample attributes.
-            new_isophote = Isophote(isophote.sample, isophote.niter,
+            new_isophote = Isophote(isophote.sample, isophote.n_iter,
                                     isophote.valid, code)
 
             # add new isophote to list

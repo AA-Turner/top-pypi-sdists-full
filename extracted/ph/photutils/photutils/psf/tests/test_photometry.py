@@ -43,8 +43,8 @@ def fixture_test_data():
     return data, error, true_params
 
 
-def make_mock_finder(x_col, y_col, units=False):
-    def finder(data, mask=None):  # noqa: ARG001
+def make_mock_finder(x_col, y_col, *, units=False):
+    def finder(data, *, mask=None):  # noqa: ARG001
         source_table = Table()
         x_val = [25.1]
         y_val = [24.9]
@@ -99,18 +99,18 @@ def test_invalid_inputs():
         with pytest.raises(TypeError, match=match):
             _ = PSFPhotometry(model, 1, **{key: val})
 
-    match = 'localbkg_estimator must be a LocalBackground instance'
+    match = 'local_bkg_estimator must be a LocalBackground instance'
     localbkg = MMMBackground()
-    with pytest.raises(ValueError, match=match):
-        _ = PSFPhotometry(model, 1, localbkg_estimator=localbkg)
+    with pytest.raises(TypeError, match=match):
+        _ = PSFPhotometry(model, 1, local_bkg_estimator=localbkg)
 
     match = 'aperture_radius must be a strictly-positive scalar'
     for radius in (0, -1, np.nan, np.inf):
         with pytest.raises(ValueError, match=match):
             _ = PSFPhotometry(model, 1, aperture_radius=radius)
 
-    match = 'grouper must be a SourceGrouper instance'
-    with pytest.raises(ValueError, match=match):
+    match = "'grouper' must be a callable object"
+    with pytest.raises(TypeError, match=match):
         _ = PSFPhotometry(model, (5, 5), grouper=1)
 
     match = 'data must be a 2D array'
@@ -169,15 +169,6 @@ def test_invalid_inputs():
     mask[7, 7] = True
     with pytest.warns(AstropyUserWarning, match=match):
         _ = psfphot2(data, mask=mask, init_params=init_params)
-
-    match = 'init_params local_bkg column contains non-finite values'
-    tbl = Table()
-    init_params['x_init'] = [1, 2]
-    init_params['y_init'] = [1, 2]
-    init_params['local_bkg'] = [0.1, np.inf]
-    data = np.ones((11, 11))
-    with pytest.raises(ValueError, match=match):
-        _ = psfphot(data, init_params=init_params)
 
     data = np.ones((11, 11))
     tbl = Table()
@@ -346,21 +337,21 @@ def test_model_residual_image(test_data):
     fit_shape = (5, 5)
     finder = DAOStarFinder(16.0, 2.0)
     bkgstat = MMMBackground()
-    localbkg_estimator = LocalBackground(5, 10, bkgstat)
+    local_bkg_estimator = LocalBackground(5, 10, bkg_estimator=bkgstat)
     psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
                             aperture_radius=4,
-                            localbkg_estimator=localbkg_estimator)
+                            local_bkg_estimator=local_bkg_estimator)
     psfphot(data, error=error)
 
     psf_shape = (25, 25)
     model1 = psfphot.make_model_image(data.shape, psf_shape=psf_shape,
-                                      include_localbkg=False)
+                                      include_local_bkg=False)
     model2 = psfphot.make_model_image(data.shape, psf_shape=psf_shape,
-                                      include_localbkg=True)
+                                      include_local_bkg=True)
     resid1 = psfphot.make_residual_image(data, psf_shape=psf_shape,
-                                         include_localbkg=False)
+                                         include_local_bkg=False)
     resid2 = psfphot.make_residual_image(data, psf_shape=psf_shape,
-                                         include_localbkg=True)
+                                         include_local_bkg=True)
 
     x, y = 0, 100
     assert model1[y, x] < 0.1
@@ -373,6 +364,91 @@ def test_model_residual_image(test_data):
     assert model2[y, x] > 18
     assert resid1[y, x] > 9
     assert resid2[y, x] < -9
+
+
+def test_model_residual_image_nonfinite_localbkg(test_data):
+    """
+    Test that make_model_image and make_residual_image handle non-finite
+    local background values correctly.
+
+    When include_local_bkg=True and the local_bkg is non-finite (NaN or
+    inf), the non-finite value should be treated as 0 and not included
+    in the model or residual images.
+    """
+    data, error, _ = test_data
+
+    psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    fit_shape = (5, 5)
+    finder = DAOStarFinder(10.0, 2.0)
+
+    # Find sources and manually set some local_bkg values to non-finite
+    sources = finder(data)
+    sources['local_bkg'] = np.zeros(len(sources))
+    sources['local_bkg'][0] = np.nan
+    sources['local_bkg'][1] = np.inf
+    if len(sources) > 2:
+        sources['local_bkg'][2] = -np.inf
+
+    # Perform PSF photometry with non-finite local_bkg
+    psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
+                            aperture_radius=4)
+    phot = psfphot(data, error=error, init_params=sources)
+
+    # Test make_model_image with include_local_bkg=True
+    psf_shape = (15, 15)
+    model_with_bkg = psfphot.make_model_image(data.shape, psf_shape=psf_shape,
+                                              include_local_bkg=True)
+    model_without_bkg = psfphot.make_model_image(
+        data.shape, psf_shape=psf_shape, include_local_bkg=False)
+
+    # The model images should be finite everywhere
+    assert np.all(np.isfinite(model_with_bkg))
+    assert np.all(np.isfinite(model_without_bkg))
+
+    # For sources with non-finite local_bkg, the model with and without
+    # local_bkg should be identical (since non-finite is treated as 0)
+    # Check this by comparing the models at source positions
+    for i in range(min(3, len(phot))):
+        if not np.isfinite(phot['local_bkg'][i]):
+            x_fit = int(phot['x_fit'][i])
+            y_fit = int(phot['y_fit'][i])
+            # At the source center, both models should be similar
+            assert_allclose(model_with_bkg[y_fit, x_fit],
+                            model_without_bkg[y_fit, x_fit], atol=1e-6)
+
+
+def test_residual_image_localbkg_invalid_sources(test_data):
+    """
+    Test that make_residual_image handles sources with non-finite
+    local_bkg values and sources outside the image (invalid sources)
+    correctly.
+    """
+    data, error, _ = test_data
+
+    psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    fit_shape = (5, 5)
+    finder = DAOStarFinder(10.0, 2.0)
+
+    sources = finder(data)
+
+    # Add non-finite local_bkg values to init_params
+    sources['local_bkg'] = np.zeros(len(sources))
+    sources['local_bkg'][0] = np.nan
+    sources['local_bkg'][1] = np.inf
+    sources['local_bkg'][2] = -np.inf
+    # Add an invalid source outside the image
+    sources['x_centroid'][-3] = 1000
+    sources['y_centroid'][-3] = 1000
+
+    # Perform PSF photometry with init_params containing non-finite local_bkg
+    psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
+                            aperture_radius=4)
+    psfphot(data, error=error, init_params=sources)
+
+    residual_img = psfphot.make_residual_image(data, include_local_bkg=True)
+
+    assert residual_img.shape == data.shape
+    assert np.all(np.isfinite(residual_img))
 
 
 @pytest.mark.parametrize('fit_stddev', [False, True])
@@ -408,13 +484,13 @@ def test_psf_photometry_compound_psfmodel(test_data, fit_stddev):
     # test model and residual images
     psf_shape = (9, 9)
     model1 = psfphot.make_model_image(data.shape, psf_shape=psf_shape,
-                                      include_localbkg=False)
+                                      include_local_bkg=False)
     resid1 = psfphot.make_residual_image(data, psf_shape=psf_shape,
-                                         include_localbkg=False)
+                                         include_local_bkg=False)
     model2 = psfphot.make_model_image(data.shape, psf_shape=psf_shape,
-                                      include_localbkg=True)
+                                      include_local_bkg=True)
     resid2 = psfphot.make_residual_image(data, psf_shape=psf_shape,
-                                         include_localbkg=True)
+                                         include_local_bkg=True)
     assert model1.shape == data.shape
     assert model2.shape == data.shape
     assert resid1.shape == data.shape
@@ -498,7 +574,7 @@ def test_psf_photometry_mask(test_data):
                 'qfit', 'cfit', 'reduced_chi2')
     for col in colnames:
         assert np.isnan(phot_masked[col][0])
-    assert phot_masked['npixfit'][0] == 0
+    assert phot_masked['n_pixels_fit'][0] == 0
     assert phot_masked['group_size'][0] == 1
     # new flag 128 for fully masked
     assert (phot_masked['flags'][0] & 128) == 128
@@ -591,7 +667,7 @@ def test_psf_photometry_init_params(test_data):
     assert len(phot_no_overlap) == 1
     for col in colnames:
         assert np.isnan(phot_no_overlap[col][0])
-    assert phot_no_overlap['npixfit'][0] == 0
+    assert phot_no_overlap['n_pixels_fit'][0] == 0
     assert phot_no_overlap['group_size'][0] == 1
     # new flag 64 for no overlap
     assert (phot_no_overlap['flags'][0] & 64) == 64
@@ -608,7 +684,7 @@ def test_psf_photometry_init_params(test_data):
     assert len(phot_few) == 1
     for col in colnames:
         assert np.isnan(phot_few[col][0])
-    assert phot_few['npixfit'][0] == 2
+    assert phot_few['n_pixels_fit'][0] == 2
     assert phot_few['group_size'][0] == 1
     # new flag 256 for too few pixels
     assert (phot_few['flags'][0] & 256) == 256
@@ -657,11 +733,11 @@ def test_psf_photometry_init_params_units(test_data):
 
     for val in (True, False):
         im = psfphot.make_model_image(data2.shape, psf_shape=fit_shape,
-                                      include_localbkg=val)
+                                      include_local_bkg=val)
         assert isinstance(im, u.Quantity)
         assert im.unit == unit
         resid = psfphot.make_residual_image(data2, psf_shape=fit_shape,
-                                            include_localbkg=val)
+                                            include_local_bkg=val)
         assert isinstance(resid, u.Quantity)
         assert resid.unit == unit
 
@@ -796,14 +872,95 @@ def test_local_bkg(test_data):
     finder = DAOStarFinder(6.0, 2.0)
     grouper = SourceGrouper(min_separation=20)
     bkgstat = MMMBackground()
-    localbkg_estimator = LocalBackground(5, 10, bkgstat)
+    local_bkg_estimator = LocalBackground(5, 10, bkg_estimator=bkgstat)
     finder = DAOStarFinder(10.0, 2.0)
 
     psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
                             grouper=grouper, aperture_radius=4,
-                            localbkg_estimator=localbkg_estimator)
+                            local_bkg_estimator=local_bkg_estimator)
     phot = psfphot(data, error=error)
     assert np.count_nonzero(phot['local_bkg']) == len(sources)
+
+
+def test_local_bkg_nonfinite(test_data):
+    """
+    Test that non-finite local background values are handled correctly.
+
+    When local_bkg is NaN or inf, the code should:
+    1. Report the actual local_bkg value in the output table
+    2. Not subtract it from the data before fitting
+    3. Set a flag indicating non-finite local background
+    """
+    data, error, _ = test_data
+
+    psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    fit_shape = (5, 5)
+    finder = DAOStarFinder(10.0, 2.0)
+
+    # Find sources using the finder
+    sources = finder(data)
+
+    # Add non-finite local_bkg values to init_params
+    sources['local_bkg'] = np.zeros(len(sources))
+    sources['local_bkg'][0] = np.nan
+    sources['local_bkg'][1] = np.inf
+    sources['local_bkg'][2] = -np.inf
+
+    # Perform PSF photometry with init_params containing non-finite local_bkg
+    psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
+                            aperture_radius=4)
+    phot = psfphot(data, error=error, init_params=sources)
+
+    # Check that non-finite local_bkg values are preserved in output
+    assert np.isnan(phot['local_bkg'][0])
+    assert np.isinf(phot['local_bkg'][1])
+    assert np.isinf(phot['local_bkg'][2])
+
+    # Check that flags are set correctly (bit 2048 for non-finite local_bkg)
+    assert phot['flags'][0] & 2048
+    assert phot['flags'][1] & 2048
+    assert phot['flags'][2] & 2048
+
+    # Check that sources with finite local_bkg don't have this flag
+    if len(phot) > 3:
+        assert not (phot['flags'][3] & 2048)
+
+
+def test_local_bkg_nonfinite_measured(test_data):
+    """
+    Test that non-finite local background values measured from the image
+    are handled correctly.
+
+    When the LocalBackground estimator returns NaN (e.g., due to a fully
+    masked region), the code should:
+    1. Report the NaN local_bkg value in the output table
+    2. Not subtract it from the data before fitting
+    3. Set a flag (bit 2048) indicating non-finite local background
+    """
+    data, error, _ = test_data
+
+    psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    fit_shape = (5, 5)
+    finder = DAOStarFinder(10.0, 2.0)
+
+    # Create a mask that will cause LocalBackground to return NaN for
+    # some sources (mask out a large region around a source)
+    mask = np.ones(data.shape, dtype=bool)
+    mask[44:54, 58:68] = False  # around source at ~(63, 49)
+    mask[70:, :20] = False  # two sources
+
+    bkgstat = MMMBackground()
+    local_bkg_estimator = LocalBackground(10, 25, bkg_estimator=bkgstat)
+    psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
+                            aperture_radius=4,
+                            local_bkg_estimator=local_bkg_estimator)
+    phot = psfphot(data, error=error, mask=mask)
+
+    assert_equal(phot['flags'], [2048, 0, 0])
+    assert np.isnan(phot['local_bkg'][0])
+    assert np.all(np.isfinite(phot['local_bkg'][1:]))
+    assert np.all(phot['flux_fit'] > 0)
+    assert np.all(phot['flux_err'] > 0)
 
 
 def test_fixed_params(test_data):
@@ -877,7 +1034,7 @@ def test_fitter_no_maxiters_no_metrics(test_data):
     fit_shape = (5, 5)
     fitter = SimplexLSQFitter()  # does not produce residual array
     finder = DAOStarFinder(6.0, 2.0)
-    match = '"maxiters" will be ignored because it is not accepted by'
+    match = "'maxiters' will be ignored because it is not accepted by"
     with pytest.warns(AstropyUserWarning, match=match):
         psfphot = PSFPhotometry(psf_model, fit_shape, fitter=fitter,
                                 finder=finder, aperture_radius=4)
@@ -1232,7 +1389,7 @@ def test_flag64_no_overlap():
     # Expect bits include 64 (no overlap). Others (2,1,16,32) may also
     # be present. Only assert 64 is set.
     assert (phot['flags'][0] & 64) == 64
-    assert phot['npixfit'][0] == 0
+    assert phot['n_pixels_fit'][0] == 0
 
 
 def test_flag128_fully_masked():
@@ -1251,7 +1408,7 @@ def test_flag128_fully_masked():
     psfphot = PSFPhotometry(psf_model, fit_shape)
     phot = psfphot(data, init_params=init_params, mask=mask)
     assert len(phot) == 1
-    assert phot['npixfit'][0] == 0
+    assert phot['n_pixels_fit'][0] == 0
     assert (phot['flags'][0] & 128) == 128
 
 
@@ -1273,7 +1430,7 @@ def test_flag256_too_few_pixels():
     psfphot = PSFPhotometry(psf_model, fit_shape)
     phot = psfphot(data, init_params=init_params, mask=mask)
     assert len(phot) == 1
-    assert phot['npixfit'][0] == 1
+    assert phot['n_pixels_fit'][0] == 1
     # Ensure 256 bit set (too few pixels); not fully masked (no 128).
     assert (phot['flags'][0] & 256) == 256
 
@@ -1299,7 +1456,7 @@ def test_flag16_missing_covariance():
     mock_fitter.fit_info = {}
     fit_shape = (5, 5)
 
-    match = r'"maxiters" will be ignored because it is not accepted'
+    match = r"'maxiters' will be ignored because it is not accepted"
     with pytest.warns(AstropyUserWarning, match=match):
         psfphot = PSFPhotometry(psf_model, fit_shape, fitter=mock_fitter)
 
@@ -1332,8 +1489,81 @@ def test_flag32_parameter_at_bounds():
     assert (phot['flags'][0] & 32) == 32
 
 
+def test_flag512_non_finite_position():
+    """
+    Test flag=512 for non-finite fitted position.
+
+    When a source has non-finite initial position or when the fit fails
+    to converge properly, the fitted x or y position can be non-finite.
+    """
+    shape = (25, 25)
+    psf_model = CircularGaussianPRF(fwhm=3.0)
+    data = np.zeros(shape)
+
+    # Create init_params with non-finite initial position
+    init_params = QTable()
+    init_params['x_init'] = [12.0, np.nan, 12.0]
+    init_params['y_init'] = [12.0, 12.0, np.inf]
+    init_params['flux_init'] = [500.0, 500.0, 500.0]
+
+    fit_shape = (5, 5)
+    psfphot = PSFPhotometry(psf_model, fit_shape, aperture_radius=3)
+    phot = psfphot(data, init_params=init_params)
+
+    assert len(phot) == 3
+
+    # First source should be valid (no flag 512)
+    assert np.isfinite(phot['x_fit'][0])
+    assert np.isfinite(phot['y_fit'][0])
+    assert (phot['flags'][0] & 512) == 0
+
+    # Second source should have non-finite x_fit (flag 512 set)
+    assert not np.isfinite(phot['x_fit'][1])
+    assert (phot['flags'][1] & 512) == 512
+
+    # Third source should have non-finite y_fit (flag 512 set)
+    assert not np.isfinite(phot['y_fit'][2])
+    assert (phot['flags'][2] & 512) == 512
+
+
+def test_flag1024_non_finite_flux():
+    """
+    Test flag=1024 for non-finite flux in init_params.
+
+    When a source has non-finite initial flux (NaN or inf), the code
+    should handle it gracefully and set flag 1024.
+    """
+    shape = (25, 25)
+    psf_model = CircularGaussianPRF(fwhm=3.0)
+    data = np.zeros(shape)
+
+    # Create init_params with non-finite initial flux
+    init_params = QTable()
+    init_params['x_init'] = [12.0, 12.0, 12.0]
+    init_params['y_init'] = [12.0, 12.0, 12.0]
+    init_params['flux_init'] = [500.0, np.nan, np.inf]
+
+    fit_shape = (5, 5)
+    psfphot = PSFPhotometry(psf_model, fit_shape, aperture_radius=3)
+    phot = psfphot(data, init_params=init_params)
+
+    assert len(phot) == 3
+
+    # First source should be valid (no flag 1024)
+    assert np.isfinite(phot['flux_fit'][0])
+    assert (phot['flags'][0] & 1024) == 0
+
+    # Second source should have non-finite flux_fit (flag 1024 set)
+    assert not np.isfinite(phot['flux_fit'][1])
+    assert (phot['flags'][1] & 1024) == 1024
+
+    # Third source should have non-finite flux_fit (flag 1024 set)
+    assert not np.isfinite(phot['flux_fit'][2])
+    assert (phot['flags'][2] & 1024) == 1024
+
+
 def test_psf_photometry_methods(test_data):
-    data, error, sources = test_data
+    data, error, _ = test_data
 
     psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
     fit_shape = (5, 5)
@@ -1435,14 +1665,14 @@ def test_psf_photometry_table_serialization(test_data):
     fit_shape = (5, 5)
     finder = DAOStarFinder(6.0, 2.0)
     grouper = SourceGrouper(min_separation=2.0)
-    localbkg_estimator = LocalBackground(5, 10)
+    local_bkg_estimator = LocalBackground(5, 10)
     fitter = TRFLSQFitter()
 
     psfphot = PSFPhotometry(
         psf_model, fit_shape,
         finder=finder,
         grouper=grouper,
-        localbkg_estimator=localbkg_estimator,
+        local_bkg_estimator=local_bkg_estimator,
         fitter=fitter,
         aperture_radius=4,
     )
@@ -1459,21 +1689,21 @@ def test_psf_photometry_table_serialization(test_data):
     assert 'psf_model' in meta
     assert 'finder' in meta
     assert 'grouper' in meta
-    assert 'localbkg_estimator' in meta
+    assert 'local_bkg_estimator' in meta
     assert 'fitter' in meta
 
     # Verify these are string representations, not objects
     assert isinstance(meta['psf_model'], str)
     assert isinstance(meta['finder'], str)
     assert isinstance(meta['grouper'], str)
-    assert isinstance(meta['localbkg_estimator'], str)
+    assert isinstance(meta['local_bkg_estimator'], str)
     assert isinstance(meta['fitter'], str)
 
     # Verify the repr strings contain expected content
     assert 'CircularGaussianPRF' in meta['psf_model']
     assert 'DAOStarFinder' in meta['finder']
     assert 'SourceGrouper' in meta['grouper']
-    assert 'LocalBackground' in meta['localbkg_estimator']
+    assert 'LocalBackground' in meta['local_bkg_estimator']
     assert 'TRFLSQFitter' in meta['fitter']
 
     # Test file writing - this should not raise any errors
@@ -1534,13 +1764,16 @@ def test_should_skip_source_coverage():
 
     data_shape = (50, 50)
 
+    should_skip_source = psfphot._data_processor.should_skip_source
+
     # Test outside bounds - clearly beyond fit region
     row_data = {
         psfphot._param_mapper.init_colnames['x']: -5.0,
         psfphot._param_mapper.init_colnames['y']: 25.0,
+        psfphot._param_mapper.init_colnames['flux']: 100.0,
     }
     row = Table([row_data])[0]  # Create a table row
-    should_skip, reason = psfphot._should_skip_source(row, data_shape)
+    should_skip, reason = should_skip_source(row, data_shape)
     assert should_skip is True
     assert reason == 'no_overlap'
 
@@ -1548,9 +1781,10 @@ def test_should_skip_source_coverage():
     row_data = {
         psfphot._param_mapper.init_colnames['x']: 25.0,
         psfphot._param_mapper.init_colnames['y']: 60.0,
+        psfphot._param_mapper.init_colnames['flux']: 100.0,
     }
     row = Table([row_data])[0]
-    should_skip, reason = psfphot._should_skip_source(row, data_shape)
+    should_skip, reason = should_skip_source(row, data_shape)
     assert should_skip is True
     assert reason == 'no_overlap'
 
@@ -1558,9 +1792,10 @@ def test_should_skip_source_coverage():
     row_data = {
         psfphot._param_mapper.init_colnames['x']: np.nan,
         psfphot._param_mapper.init_colnames['y']: 25.0,
+        psfphot._param_mapper.init_colnames['flux']: 100.0,
     }
     row = Table([row_data])[0]
-    should_skip, reason = psfphot._should_skip_source(row, data_shape)
+    should_skip, reason = should_skip_source(row, data_shape)
     assert should_skip is True
     assert reason == 'invalid_position'
 
@@ -1568,19 +1803,32 @@ def test_should_skip_source_coverage():
     row_data = {
         psfphot._param_mapper.init_colnames['x']: 25.0,
         psfphot._param_mapper.init_colnames['y']: np.nan,
+        psfphot._param_mapper.init_colnames['flux']: 100.0,
     }
     row = Table([row_data])[0]
-    should_skip, reason = psfphot._should_skip_source(row, data_shape)
+    should_skip, reason = should_skip_source(row, data_shape)
     assert should_skip is True
     assert reason == 'invalid_position'
+
+    # Test non-finite flux
+    row_data = {
+        psfphot._param_mapper.init_colnames['x']: 25.0,
+        psfphot._param_mapper.init_colnames['y']: 25.0,
+        psfphot._param_mapper.init_colnames['flux']: np.nan,
+    }
+    row = Table([row_data])[0]
+    should_skip, reason = should_skip_source(row, data_shape)
+    assert should_skip is True
+    assert reason == 'non_finite_flux'
 
     # Test valid coordinates
     row_data = {
         psfphot._param_mapper.init_colnames['x']: 25.0,
         psfphot._param_mapper.init_colnames['y']: 25.0,
+        psfphot._param_mapper.init_colnames['flux']: 100.0,
     }
     row = Table([row_data])[0]
-    should_skip, reason = psfphot._should_skip_source(row, data_shape)
+    should_skip, reason = should_skip_source(row, data_shape)
     assert should_skip is False
     assert reason is None
 
@@ -1596,7 +1844,7 @@ def test_get_source_cutout_data_no_overlap():
     fit_shape = (5, 5)
     psfphot = PSFPhotometry(psf_model, fit_shape)
 
-    y_offsets, x_offsets = psfphot._get_fit_offsets()
+    y_offsets, x_offsets = psfphot._data_processor.get_fit_offsets()
 
     # Create a source that will definitely cause NoOverlapError
     # Place it far outside the data bounds (-100, -100) to trigger
@@ -1611,8 +1859,9 @@ def test_get_source_cutout_data_no_overlap():
     row = init_params[0]
 
     # Call the method that should trigger NoOverlapError
-    result = psfphot._get_source_cutout_data(row, data, None,
-                                             y_offsets, x_offsets)
+    result = psfphot._data_processor.get_source_cutout_data(row, data, None,
+                                                            y_offsets,
+                                                            x_offsets)
 
     # Verify the expected result for NoOverlapError exception handling
     assert result['valid'] is False
@@ -1820,7 +2069,7 @@ def test_qfit_cfit_with_different_errors(test_data):
     """
     Test qfit and cfit with different error values.
     """
-    data, error, sources = test_data
+    data, error, _ = test_data
 
     psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
     fit_shape = (5, 5)
@@ -1853,3 +2102,68 @@ def test_qfit_cfit_with_different_errors(test_data):
     assert_allclose(phot_small_error['cfit'], phot_no_error['cfit'])
     assert_allclose(phot_large_error['qfit'], phot_no_error['qfit'])
     assert_allclose(phot_large_error['cfit'], phot_no_error['cfit'])
+
+
+def test_decode_flags():
+    """
+    Test the decode_flags convenience method.
+    """
+    # Create test data with some sources that will have flags
+    yy, xx = np.mgrid[:21, :21]
+    psf_model = CircularGaussianPRF(flux=1, x_0=10, y_0=10, fwhm=2)
+
+    # Source 1: normal source (no flags expected)
+    m1 = CircularGaussianPRF(flux=100, x_0=10, y_0=10, fwhm=2)
+    # Source 2: negative flux (will have negative_flux flag)
+    m2 = CircularGaussianPRF(flux=-50, x_0=5, y_0=5, fwhm=2)
+    # Source 3: outside bounds (will have outside_bounds flag)
+    m3 = CircularGaussianPRF(flux=100, x_0=25, y_0=25, fwhm=2)
+
+    data = m1(xx, yy) + m2(xx, yy) + m3(xx, yy)
+
+    init_params = Table({
+        'x': [10, 5, 25],
+        'y': [10, 5, 25],
+        'flux': [100, 100, 100],
+    })
+
+    psfphot = PSFPhotometry(psf_model, (3, 3))
+
+    # Test that decode_flags raises ValueError before running photometry
+    match = 'No results available'
+    with pytest.raises(ValueError, match=match):
+        psfphot.decode_flags()
+
+    # Run photometry
+    results = psfphot(data, init_params=init_params)
+
+    # Test decode_flags method
+    decoded_flags = psfphot.decode_flags()
+
+    # Check that we get a list of lists
+    assert isinstance(decoded_flags, list)
+    assert len(decoded_flags) == len(results)
+
+    # Each element should be a list of strings
+    for decoded in decoded_flags:
+        assert isinstance(decoded, list)
+        for flag_name in decoded:
+            assert isinstance(flag_name, str)
+
+    # Check that the first source has no flags or minimal flags
+    # (depending on fitting success)
+    assert isinstance(decoded_flags[0], list)
+
+    # Check that the second source has the negative_flux flag
+    assert 'negative_flux' in decoded_flags[1]
+
+    # Check that the third source has flags (it's outside the image bounds)
+    # It should have 'no_overlap' since it's completely outside
+    assert len(decoded_flags[2]) > 0
+    assert 'no_overlap' in decoded_flags[2]
+
+    # Verify that decode_flags gives the same result as calling
+    # decode_psf_flags directly
+    from photutils.psf.flags import decode_psf_flags
+    direct_decoded = decode_psf_flags(results['flags'])
+    assert decoded_flags == direct_decoded

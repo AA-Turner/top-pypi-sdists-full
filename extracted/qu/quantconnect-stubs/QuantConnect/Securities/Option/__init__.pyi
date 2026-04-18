@@ -1958,7 +1958,7 @@ class OptionPriceModels(System.Object):
 class EmptyOptionChainProvider(System.Object, QuantConnect.Interfaces.IOptionChainProvider):
     """An implementation of IOptionChainProvider that always returns an empty list of contracts"""
 
-    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Gets the list of option contracts for a given underlying symbol
         
@@ -1998,30 +1998,12 @@ class OptionPortfolioModel(QuantConnect.Securities.SecurityPortfolioModel):
 class OptionPriceModel(System.Object, QuantConnect.Securities.Option.IOptionPriceModel, metaclass=abc.ABCMeta):
     """Base class for option price models, computing theoretical price, IV, and Greeks."""
 
-    @overload
     def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
         """
         Evaluates the specified option contract to compute a theoretical price, IV and greeks
         
         :param parameters: A OptionPriceModelParameters object
         containing the security, slice and contract
-        :returns: An instance of OptionPriceModelResult containing the theoretical
-        price of the specified option contract.
-        """
-        ...
-
-    @overload
-    def evaluate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> QuantConnect.Securities.Option.OptionPriceModelResult:
-        """
-        Evaluates the specified option contract to compute a theoretical price, IV and greeks
-        
-        
-        This method is deprecated. Use Evaluate(OptionPriceModelParameters parameters) instead.
-        
-        :param security: The option security object
-        :param slice: The current data slice. This can be used to access other information
-        available to the algorithm
-        :param contract: The option contract to evaluate
         :returns: An instance of OptionPriceModelResult containing the theoretical
         price of the specified option contract.
         """

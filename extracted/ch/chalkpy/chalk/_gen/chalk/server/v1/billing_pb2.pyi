@@ -8,6 +8,7 @@ from chalk._gen.chalk.server.v1 import pod_request_pb2 as _pod_request_pb2
 from chalk._gen.chalk.usage.v1 import rate_pb2 as _rate_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.type import date_pb2 as _date_pb2
+from google.type import decimal_pb2 as _decimal_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -88,10 +89,19 @@ class GetUtilizationRatesRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class GetUtilizationRatesResponse(_message.Message):
-    __slots__ = ("rates",)
+    __slots__ = ("rates", "sandbox_credits_per_vcpu_hour", "sandbox_credits_per_gb_memory_hour")
     RATES_FIELD_NUMBER: _ClassVar[int]
+    SANDBOX_CREDITS_PER_VCPU_HOUR_FIELD_NUMBER: _ClassVar[int]
+    SANDBOX_CREDITS_PER_GB_MEMORY_HOUR_FIELD_NUMBER: _ClassVar[int]
     rates: _containers.RepeatedCompositeFieldContainer[_rate_pb2.MachineRate]
-    def __init__(self, rates: _Optional[_Iterable[_Union[_rate_pb2.MachineRate, _Mapping]]] = ...) -> None: ...
+    sandbox_credits_per_vcpu_hour: _decimal_pb2.Decimal
+    sandbox_credits_per_gb_memory_hour: _decimal_pb2.Decimal
+    def __init__(
+        self,
+        rates: _Optional[_Iterable[_Union[_rate_pb2.MachineRate, _Mapping]]] = ...,
+        sandbox_credits_per_vcpu_hour: _Optional[_Union[_decimal_pb2.Decimal, _Mapping]] = ...,
+        sandbox_credits_per_gb_memory_hour: _Optional[_Union[_decimal_pb2.Decimal, _Mapping]] = ...,
+    ) -> None: ...
 
 class GetNodesAndPodsRequest(_message.Message):
     __slots__ = ("namespace", "pod_label_selector", "environment_id")

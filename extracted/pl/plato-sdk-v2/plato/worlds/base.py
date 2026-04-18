@@ -19,7 +19,7 @@ from pydantic import BaseModel as PydanticBaseModel
 from typing_extensions import TypeVar
 
 from plato.markers import WorkspaceMarker
-from plato.otel import get_tracer
+from plato.otel import aggregate_step_costs, get_tracer
 from plato.runtimes.base import RuntimeInfo
 from plato.settings import PlatoSettings
 from plato.settings import get_settings as get_plato_settings
@@ -578,7 +578,10 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         tracer = get_tracer("plato.world")
 
         run_error: Exception | None = None
-        with tracer.start_as_current_span("world") as root_span:
+        with (
+            tracer.start_as_current_span("world") as root_span,
+            aggregate_step_costs(root_span, tracer, name=self.name, version=self.get_version()),
+        ):
             root_span.set_attribute("plato.world.name", self.name)
             root_span.set_attribute("plato.world.version", self.get_version())
             root_span.set_attribute("plato.session.id", self.chronos.session_id)

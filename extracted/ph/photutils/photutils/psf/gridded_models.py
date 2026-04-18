@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define gridded PSF models.
+Gridded PSF models.
 """
 
 import copy
@@ -16,19 +16,19 @@ from scipy.interpolate import RectBivariateSpline
 from photutils.psf.model_io import (GriddedPSFModelRead, _get_metadata,
                                     _read_stdpsf, is_stdpsf, is_webbpsf,
                                     stdpsf_reader, webbpsf_reader)
-from photutils.psf.model_plotting import ModelGridPlotMixin
+from photutils.psf.model_plotting import (_ModelGridPlotter,
+                                          _plot_grid_docstring)
 from photutils.utils._parameters import as_pair
 
 __all__ = ['GriddedPSFModel', 'STDPSFGrid']
 __doctest_skip__ = ['STDPSFGrid']
 
 
-class GriddedPSFModel(ModelGridPlotMixin, Fittable2DModel):
+class GriddedPSFModel(Fittable2DModel):
     """
     A model for a grid of 2D ePSF models.
 
     The ePSF models are defined at fiducial detector locations and are
-    bilinearly interpolated to calculate an ePSF model at an arbitrary
     (x, y) detector position. The fiducial detector locations are must
     form a rectangular grid.
 
@@ -84,8 +84,8 @@ class GriddedPSFModel(ModelGridPlotMixin, Fittable2DModel):
         coordinate grid on which the model is evaluated.
 
     fill_value : float, optional
-        The value to use for points outside of the input pixel grid.
-        The default is 0.0.
+        The value to use for points outside the input pixel grid. The
+        default is 0.0.
 
     Methods
     -------
@@ -135,7 +135,7 @@ class GriddedPSFModel(ModelGridPlotMixin, Fittable2DModel):
         self._meta = nddata.meta.copy()  # _meta to avoid the meta descriptor
         self._oversampling = as_pair('oversampling',
                                      nddata.meta['oversampling'],
-                                     lower_bound=(0, 1))
+                                     lower_bound=(0, 0))
         self.fill_value = fill_value
 
         self._xgrid = np.unique(self.grid_xypos[:, 0])  # sorted
@@ -187,7 +187,7 @@ class GriddedPSFModel(ModelGridPlotMixin, Fittable2DModel):
             raise ValueError(msg)
 
         if 'oversampling' not in data.meta:
-            msg = '"oversampling" must be in the nddata meta dictionary'
+            msg = "'oversampling' must be in the nddata meta dictionary"
             raise ValueError(msg)
 
     @staticmethod
@@ -240,7 +240,7 @@ class GriddedPSFModel(ModelGridPlotMixin, Fittable2DModel):
         try:
             grid_xypos = np.array(data.meta['grid_xypos'])
         except KeyError as exc:
-            msg = '"grid_xypos" must be in the nddata meta dictionary'
+            msg = "'grid_xypos' must be in the nddata meta dictionary"
             raise ValueError(msg) from exc
 
         if len(grid_xypos) != data.data.shape[0]:
@@ -278,23 +278,29 @@ class GriddedPSFModel(ModelGridPlotMixin, Fittable2DModel):
         idx = np.lexsort((grid_xypos[:, 0], grid_xypos[:, 1]))
         return nddata.data[idx], grid_xypos[idx]
 
-    def _cls_info(self):
-        cls_info = []
+    def __str__(self):
+        keywords = []
 
-        keys = ('STDPSF', 'instrument', 'detector', 'filter', 'grid_shape')
+        keys = ('STDPSF', 'instrument', 'detector', 'filter')
         for key in keys:
             if key in self.meta:
                 name = key.capitalize() if key != 'STDPSF' else key
-                cls_info.append((name, self.meta[key]))
+                keywords.append((name, self.meta[key]))
 
-        cls_info.extend([('Number of PSFs', len(self.grid_xypos)),
+        keywords.extend([('Number of PSFs', len(self.grid_xypos)),
+                         ('Grid shape', self.meta['grid_shape']),
+                         ('Grid positions', self.grid_xypos.tolist()),
                          ('PSF shape (oversampled pixels)',
                           self.data.shape[1:]),
-                         ('Oversampling', tuple(self.oversampling))])
-        return cls_info
+                         ('Oversampling', self.oversampling.tolist()),
+                         ('Fill Value', self.fill_value)])
 
-    def __str__(self):
-        return self._format_str(keywords=self._cls_info())
+        return self._format_str(keywords=keywords)
+
+    def __repr__(self):
+        kwargs = {'oversampling': self.oversampling.tolist(),
+                  'fill_value': self.fill_value}
+        return self._format_repr(args=[], kwargs=kwargs)
 
     @property
     def data(self):
@@ -331,7 +337,7 @@ class GriddedPSFModel(ModelGridPlotMixin, Fittable2DModel):
         the model parameters in a model copy. It is used in the PSF
         photometry classes during model fitting.
 
-        Use the `deepcopy` method if you want to copy all of the model
+        Use the `deepcopy` method if you want to copy all the model
         attributes, including the ePSF grid data.
 
         Returns
@@ -384,7 +390,7 @@ class GriddedPSFModel(ModelGridPlotMixin, Fittable2DModel):
             axes. If ``oversampling`` has two elements, they must be in
             ``(y, x)`` order.
         """
-        self._oversampling = as_pair('oversampling', value, lower_bound=(0, 1))
+        self._oversampling = as_pair('oversampling', value, lower_bound=(0, 0))
 
     def _calc_bounding_box(self):
         """
@@ -660,8 +666,19 @@ class GriddedPSFModel(ModelGridPlotMixin, Fittable2DModel):
 
         return evaluated_model
 
+    @_plot_grid_docstring
+    def plot_grid(self, *, ax=None, vmax_scale=None, peak_norm=False,
+                  deltas=False, cmap='viridis', dividers=True,
+                  divider_color='darkgray', divider_ls='-', figsize=None):
+        plotter = _ModelGridPlotter(self)
+        return plotter.plot_grid(ax=ax, vmax_scale=vmax_scale,
+                                 peak_norm=peak_norm, deltas=deltas,
+                                 cmap=cmap, dividers=dividers,
+                                 divider_color=divider_color,
+                                 divider_ls=divider_ls, figsize=figsize)
 
-class STDPSFGrid(ModelGridPlotMixin):
+
+class STDPSFGrid:
     """
     Class to read and plot "STDPSF" format ePSF model grids.
 
@@ -681,7 +698,6 @@ class STDPSFGrid(ModelGridPlotMixin):
     >>> from photutils.psf import STDPSFGrid
     >>> psfgrid = STDPSFGrid('STDPSF_ACSWFC_F814W.fits')
     >>> fig = psfgrid.plot_grid()
-    >>> fig.show()
     """
 
     def __init__(self, filename):
@@ -694,7 +710,7 @@ class STDPSFGrid(ModelGridPlotMixin):
         oversampling = 4  # assumption for STDPSF files
         self.grid_xypos = xy_grid
         self.oversampling = as_pair('oversampling', oversampling,
-                                    lower_bound=(0, 1))
+                                    lower_bound=(0, 0))
         meta = {'grid_shape': (len(self._ygrid), len(self._xgrid)),
                 'grid_xypos': xy_grid,
                 'oversampling': oversampling}
@@ -706,6 +722,17 @@ class STDPSFGrid(ModelGridPlotMixin):
             meta.update(file_meta)
 
         self.meta = meta
+
+    @_plot_grid_docstring
+    def plot_grid(self, *, ax=None, vmax_scale=None, peak_norm=False,
+                  deltas=False, cmap='viridis', dividers=True,
+                  divider_color='darkgray', divider_ls='-', figsize=None):
+        plotter = _ModelGridPlotter(self)
+        return plotter.plot_grid(ax=ax, vmax_scale=vmax_scale,
+                                 peak_norm=peak_norm, deltas=deltas,
+                                 cmap=cmap, dividers=dividers,
+                                 divider_color=divider_color,
+                                 divider_ls=divider_ls, figsize=figsize)
 
     def __str__(self):
         cls_name = f'<{self.__class__.__module__}.{self.__class__.__name__}>'

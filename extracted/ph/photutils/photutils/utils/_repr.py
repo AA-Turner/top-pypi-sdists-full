@@ -1,10 +1,10 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define tools for class __repr__ and __str__ strings.
+Tools for class __repr__ and __str__ strings.
 """
 
 
-def make_repr(instance, params, *, overrides=None, long=False):
+def make_repr(instance, params, *, brackets=False, overrides=None, long=False):
     """
     Generate a __repr__ string for a class instance.
 
@@ -16,6 +16,11 @@ def make_repr(instance, params, *, overrides=None, long=False):
     params : str or list of str
         List of parameter names to include in the repr. The order of
         returned parameters is the same as the order of ``params``.
+
+    brackets : bool, optional
+        Whether to use angle brackets at the start and end of the
+        string. Angle brackets are typically used for __repr__ strings
+        that are not valid executable Python expressions.
 
     overrides : `None` or dict, optional
         Dictionary of parameter names and values to override the
@@ -40,16 +45,15 @@ def make_repr(instance, params, *, overrides=None, long=False):
     if isinstance(params, str):
         params = [params]
 
-    if (overrides is not None
-            and not set(overrides.keys()).issubset(set(params))):
+    if overrides is not None and not set(overrides).issubset(params):
         msg = 'The overrides keys must be a subset of the params list.'
         raise ValueError(msg)
 
     cls_info = []
     for param in params:
         if overrides is not None and param in overrides:
-            # overrides may contain input parameters that are not
-            # stored long-term in the instance (e.g., Background2D)
+            # Note that overrides may contain input parameters that are
+            # not stored long-term in the instance (e.g., Background2D)
             if param in instance.__dict__ and instance.__dict__[param] is None:
                 value = None
             else:
@@ -75,4 +79,9 @@ def make_repr(instance, params, *, overrides=None, long=False):
     if long:
         return f'<{cls_name}>\n{fmt}'
 
-    return f'{cls_name}({fmt})'
+    repr_str = f'{cls_name}({fmt})'
+
+    if brackets:
+        repr_str = f'<{repr_str}>'
+
+    return repr_str

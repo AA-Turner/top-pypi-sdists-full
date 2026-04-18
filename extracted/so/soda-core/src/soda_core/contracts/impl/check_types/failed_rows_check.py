@@ -73,11 +73,12 @@ class FailedRowsCheckImpl(CheckImpl):
         check_yaml: FailedRowsCheckYaml,
     ):
         self.failed_rows_count_metric_impl: Optional[MetricImpl] = None
+        self.check_rows_tested_metric_impl: Optional[MetricImpl] = None
         if self.is_expression_check():
             self.failed_rows_count_metric_impl = self._resolve_metric(
                 FailedRowsExpressionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
-            self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
+            self.check_rows_tested_metric_impl = self._resolve_metric(
                 RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
             )
 
@@ -102,6 +103,24 @@ class FailedRowsCheckImpl(CheckImpl):
                 )
                 self.queries.append(failed_rows_count_query)
 
+            if self.failed_rows_check_yaml.rows_tested_query and contract_impl.data_source_impl:
+                self.check_rows_tested_metric_impl = self._resolve_metric(
+                    RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+                )
+                rows_tested_sql = self.failed_rows_check_yaml.rows_tested_query
+                if contract_impl.should_apply_sampling:
+                    rows_tested_sql = contract_impl.data_source_impl.sql_dialect.apply_sampling(
+                        sql=rows_tested_sql,
+                        sampler_limit=contract_impl.sampler_limit,
+                        sampler_type=contract_impl.sampler_type,
+                    )
+                rows_tested_query: Query = RowsTestedQuery(
+                    data_source_impl=contract_impl.data_source_impl,
+                    metrics=[self.check_rows_tested_metric_impl],
+                    rows_tested_sql=rows_tested_sql,
+                )
+                self.queries.append(rows_tested_query)
+
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
@@ -111,34 +130,23 @@ class FailedRowsCheckImpl(CheckImpl):
         threshold_value: Optional[float] = None
 
         if self.failed_rows_check_yaml.expression:
-            check_rows_tested: Optional[int] = measurement_values.get_value(self.check_rows_tested_metric_impl)
-            failed_rows_percent: Optional[float] = 0
-            if (
-                isinstance(check_rows_tested, Number)
-                and isinstance(failed_rows_count, Number)
-                and check_rows_tested > 0
-            ):
-                failed_rows_percent = failed_rows_count * 100 / check_rows_tested
+            threshold_value, diagnostic_metric_values = self._evaluate_with_rows_tested(
+                failed_rows_count, measurement_values
+            )
 
-            if self.failed_rows_check_yaml.metric == "percent":
-                threshold_value = failed_rows_percent
+        elif self.failed_rows_check_yaml.query:
+            if self.failed_rows_check_yaml.rows_tested_query:
+                threshold_value, diagnostic_metric_values = self._evaluate_with_rows_tested(
+                    failed_rows_count, measurement_values
+                )
             else:
                 threshold_value = failed_rows_count
 
-            diagnostic_metric_values = {
-                "failed_rows_count": failed_rows_count,
-                "failed_rows_percent": failed_rows_percent,
-                "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
-                "check_rows_tested": check_rows_tested,
-            }
-
-        elif self.failed_rows_check_yaml.query:
-            threshold_value = failed_rows_count
-
-            diagnostic_metric_values = {
-                "failed_rows_count": failed_rows_count,
-                "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
-            }
+                diagnostic_metric_values = {
+                    "failed_rows_count": failed_rows_count,
+                    "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+                    "check_rows_tested": None,
+                }
 
         outcome = self.evaluate_threshold(threshold_value)
 
@@ -148,6 +156,27 @@ class FailedRowsCheckImpl(CheckImpl):
             threshold_value=threshold_value,
             diagnostic_metric_values=diagnostic_metric_values,
         )
+
+    def _evaluate_with_rows_tested(
+        self, failed_rows_count: Optional[int], measurement_values: MeasurementValues
+    ) -> tuple[Optional[float], dict[str, float]]:
+        check_rows_tested: Optional[int] = measurement_values.get_value(self.check_rows_tested_metric_impl)
+        failed_rows_percent: Optional[float] = 0
+        if isinstance(check_rows_tested, Number) and isinstance(failed_rows_count, Number) and check_rows_tested > 0:
+            failed_rows_percent = failed_rows_count * 100 / check_rows_tested
+
+        if self.failed_rows_check_yaml.metric == "percent":
+            threshold_value = failed_rows_percent
+        else:
+            threshold_value = failed_rows_count
+
+        diagnostic_metric_values = {
+            "failed_rows_count": failed_rows_count,
+            "failed_rows_percent": failed_rows_percent,
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "check_rows_tested": check_rows_tested,
+        }
+        return threshold_value, diagnostic_metric_values
 
     def get_threshold_metric_impl(self) -> Optional[MetricImpl]:
         return self.failed_rows_count_metric_impl
@@ -218,24 +247,74 @@ class FailedRowsQueryMetricImpl(MetricImpl):
         return id_properties
 
 
+STREAMING_COUNT_WARNING_THRESHOLD = 10_000
+
+
 class FailedRowsCountQuery(Query):
     def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], failed_rows_query: str):
-        sql = data_source_impl.sql_dialect.build_select_sql(
+        self.failed_rows_query = failed_rows_query
+        # Try CTE-wrapped COUNT first (efficient — only transfers a single number).
+        # Store the raw query as self.sql for fallback and logging.
+        count_sql = data_source_impl.sql_dialect.build_select_sql(
             [
                 WITH([CTE(alias="failed_rows").AS(cte_query=failed_rows_query)]),
                 SELECT(COUNT(STAR())),
                 FROM("failed_rows"),
             ]
         )
-        super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=sql)
+        super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=count_sql)
+
+    def execute(self) -> list[Measurement]:
+        metric_value = None
+
+        # Try CTE-wrapped COUNT(*) first — efficient, server-side aggregation.
+        try:
+            query_result: QueryResult = self.data_source_impl.execute_query(self.sql)
+            if query_result.rows:
+                metric_value = query_result.rows[0][0]
+        except Exception as e:
+            logger.debug(f"CTE-wrapped count failed, falling back to row-by-row streaming: {e}")
+            # Fallback: execute the raw user query and count rows one-by-one.
+            try:
+                row_count = 0
+
+                def count_row(row, description):
+                    nonlocal row_count
+                    row_count += 1
+
+                self.data_source_impl.execute_query_one_by_one(sql=self.failed_rows_query, row_callback=count_row)
+                metric_value = row_count
+                if metric_value > STREAMING_COUNT_WARNING_THRESHOLD:
+                    logger.warning(
+                        f"Streamed {metric_value} rows to count failed rows. "
+                        f"The query could not be wrapped in a CTE and had to be executed directly. "
+                        f"Consider rewriting your query so that it can be wrapped in a CTE."
+                    )
+            except Exception as e2:
+                logger.error(
+                    msg=f"Could not execute failed rows count query: \n{self.failed_rows_query}:\n{e2}",
+                    exc_info=True,
+                )
+                return []
+
+        metric_impl: MetricImpl = self.metrics[0]
+        return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]
+
+
+class RowsTestedQuery(Query):
+    def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], rows_tested_sql: str):
+        super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=rows_tested_sql)
 
     def execute(self) -> list[Measurement]:
         try:
             query_result: QueryResult = self.data_source_impl.execute_query(self.sql)
         except Exception as e:
-            logger.error(msg=f"Could not execute failed rows count query: \n{self.sql}:\n{e}", exc_info=True)
+            logger.error(msg=f"Could not execute rows tested query: \n{self.sql}:\n{e}", exc_info=True)
             return []
 
-        metric_value = query_result.rows[0][0]
+        if not query_result.rows:
+            metric_value = None
+        else:
+            metric_value = query_result.rows[0][0]
         metric_impl: MetricImpl = self.metrics[0]
         return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]

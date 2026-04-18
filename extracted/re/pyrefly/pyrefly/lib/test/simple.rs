@@ -1029,15 +1029,13 @@ z: " T" = 1  # E: Expected a type form, got instance of `Literal[' T']`
 );
 
 testcase!(
-    test_no_backtracking,
+    test_backtracking,
     r#"
 from typing import assert_type
 def foo(x: tuple[list[int], list[int]] | tuple[list[str], list[str]]) -> None: ...
 def test(x: list[str]) -> None:
     y = ([], x)
-    # Because we pin down the `[]` first, we end up with a type error.
-    # If we had backtracking we wouldn't.
-    foo(y)  # E: Argument `tuple[list[int], list[str]]` is not assignable to parameter `x` with type `tuple[list[int], list[int]] | tuple[list[str], list[str]]`
+    foo(y)
 "#,
 );
 
@@ -2335,5 +2333,27 @@ def f(x):
     y = True
     y &= x
     assert_type(y, Any)
+    "#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/3048
+testcase!(
+    test_enumerate_reversed,
+    r#"
+from collections.abc import Iterator, Sequence
+
+class Series: ...
+
+class DataFrame:
+    def __iter__(self) -> Iterator[Series]: ...
+    def __reversed__(self) -> Iterator[Series]: ...
+    def __len__(self) -> int: ...
+    def __getitem__(self, key: int | Sequence[int]) -> Series | DataFrame: ...
+
+def func(s: Series) -> None: ...
+
+def main(a: DataFrame) -> None:
+    for i, s in enumerate(reversed(a)):
+        func(s)
     "#,
 );

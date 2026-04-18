@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define a class to fit ellipses.
+Tools for fitting ellipses.
 """
 
 import math
@@ -147,7 +147,7 @@ class EllipseFitter:
 
         for i in range(maxit):
             # Force the sample to compute its gradient and associated values.
-            sample.update(fixed_parameters)
+            sample.update(fixed_parameters=fixed_parameters)
 
             # The extract() method returns sampled values as a 2-d numpy
             # array with the following structure:
@@ -200,7 +200,7 @@ class EllipseFitter:
                     > np.abs(largest_harmonic)) and (i >= minit - 1):
                 # Got a valid solution and a minimum number of
                 # iterations has run
-                sample.update(fixed_parameters)
+                sample.update(fixed_parameters=fixed_parameters)
                 return Isophote(sample, i + 1, valid=True, stop_code=0)
 
             # it may not have converged yet, but the sample contains too
@@ -208,7 +208,8 @@ class EllipseFitter:
             if sample.actual_points < (sample.total_points * fflag):
                 # when too many data points were flagged, return the
                 # best fit sample instead of the current one.
-                minimum_amplitude_sample.update(fixed_parameters)
+                minimum_amplitude_sample.update(
+                    fixed_parameters=fixed_parameters)
                 return Isophote(minimum_amplitude_sample, i + 1, valid=True,
                                 stop_code=1)
 
@@ -225,7 +226,7 @@ class EllipseFitter:
             # pay a (hopefully smaller) price here, by having multiple
             # calls to the EllipseSample constructor.
             sample = corrector.correct(sample, largest_harmonic)
-            sample.update(fixed_parameters)
+            sample.update(fixed_parameters=fixed_parameters)
 
             # see if any abnormal (or unusual) conditions warrant
             # the change to non-iterative mode, or go-inwards mode.
@@ -233,13 +234,13 @@ class EllipseFitter:
                 sample, maxgerr, going_inwards, lexceed)
 
             if not proceed:
-                sample.update(fixed_parameters)
+                sample.update(fixed_parameters=fixed_parameters)
                 return Isophote(sample, i + 1, valid=True, stop_code=-1)
 
         # Got to the maximum number of iterations. Return with
         # code 2, and handle it as a valid isophote. Use the
         # best fit sample instead of the current one.
-        minimum_amplitude_sample.update(fixed_parameters)
+        minimum_amplitude_sample.update(fixed_parameters=fixed_parameters)
         return Isophote(minimum_amplitude_sample, maxit, valid=True,
                         stop_code=2)
 
@@ -248,9 +249,9 @@ class EllipseFitter:
         proceed = True
 
         # check if an acceptable gradient value could be computed.
-        if sample.gradient_error and sample.gradient_relative_error:
+        if sample.gradient_err and sample.gradient_rel_err:
             if not going_inwards and (
-                    sample.gradient_relative_error > maxgerr
+                    sample.gradient_rel_err > maxgerr
                     or sample.gradient >= 0.0):
                 if lexceed:
                     proceed = False
@@ -298,7 +299,7 @@ class _PositionCorrector(_ParameterCorrector):
 
         return EllipseSample(sample.image, sample.geometry.sma, x0=new_x0,
                              y0=new_y0, astep=sample.geometry.astep,
-                             sclip=sample.sclip, nclip=sample.nclip,
+                             sclip=sample.sclip, n_clip=sample.n_clip,
                              eps=sample.geometry.eps,
                              position_angle=sample.geometry.pa,
                              linear_growth=sample.geometry.linear_growth,
@@ -340,7 +341,7 @@ class _AngleCorrector(_ParameterCorrector):
         return EllipseSample(sample.image, sample.geometry.sma,
                              x0=sample.geometry.x0, y0=sample.geometry.y0,
                              astep=sample.geometry.astep, sclip=sample.sclip,
-                             nclip=sample.nclip, eps=sample.geometry.eps,
+                             n_clip=sample.n_clip, eps=sample.geometry.eps,
                              position_angle=new_pa,
                              linear_growth=sample.geometry.linear_growth,
                              integrmode=sample.integrmode)
@@ -359,7 +360,7 @@ class _EllipticityCorrector(_ParameterCorrector):
         return EllipseSample(sample.image, sample.geometry.sma,
                              x0=sample.geometry.x0, y0=sample.geometry.y0,
                              astep=sample.geometry.astep, sclip=sample.sclip,
-                             nclip=sample.nclip, eps=new_eps,
+                             n_clip=sample.n_clip, eps=new_eps,
                              position_angle=sample.geometry.pa,
                              linear_growth=sample.geometry.linear_growth,
                              integrmode=sample.integrmode)
@@ -400,5 +401,5 @@ class CentralEllipseFitter(EllipseFitter):
         # default values
         fixed_parameters = np.array([False, False, False, False])
 
-        self._sample.update(fixed_parameters)
+        self._sample.update(fixed_parameters=fixed_parameters)
         return CentralPixel(self._sample)

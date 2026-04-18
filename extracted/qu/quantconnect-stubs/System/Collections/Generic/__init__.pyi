@@ -179,10 +179,6 @@ class HashSet(typing.Generic[System_Collections_Generic_HashSet_T], System.Objec
     def __init__(self, capacity: int, comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Generic_HashSet_T]) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def __iter__(self) -> typing.Iterator[System_Collections_Generic_HashSet_T]:
         ...
 
@@ -813,10 +809,6 @@ class KeyNotFoundException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class CollectionExtensions(System.Object):
     """This class has no documentation."""
@@ -1107,10 +1099,6 @@ class Dictionary(typing.Generic[System_Collections_Generic_Dictionary_TKey, Syst
     def __init__(self, collection: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Generic_Dictionary_TKey, System_Collections_Generic_Dictionary_TValue]], comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Generic_Dictionary_TKey]) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Generic_Dictionary_TKey, System_Collections_Generic_Dictionary_TValue]]:
         ...
 
@@ -1357,10 +1345,6 @@ class SortedSet(typing.Generic[System_Collections_Generic_SortedSet_T], System.O
 
     @overload
     def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Generic_SortedSet_T], comparer: System.Collections.Generic.IComparer[System_Collections_Generic_SortedSet_T]) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
     def __iter__(self) -> typing.Iterator[System_Collections_Generic_SortedSet_T]:
@@ -2009,10 +1993,6 @@ class LinkedList(typing.Generic[System_Collections_Generic_LinkedList_T], System
 
     @overload
     def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Generic_LinkedList_T]) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
     def __iter__(self) -> typing.Iterator[System_Collections_Generic_LinkedList_T]:

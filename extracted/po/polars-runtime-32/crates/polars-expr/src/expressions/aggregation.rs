@@ -252,7 +252,18 @@ impl PhysicalExpr for AggregationExpr {
                     AggregatedScalar(agg_c.with_name(keep_name))
                 },
                 GroupByMethod::Count { include_nulls } => {
-                    if include_nulls || ac.get_values().null_count() == 0 {
+                    let values_have_no_nulls = match ac.agg_state() {
+                        AggState::AggregatedList(s) => {
+                            let list = s.list()?;
+                            list.null_count() == 0
+                                && list
+                                    .downcast_iter()
+                                    .all(|arr| arr.values().null_count() == 0)
+                        },
+                        _ => ac.get_values().null_count() == 0,
+                    };
+
+                    if include_nulls || values_have_no_nulls {
                         // a few fast paths that prevent materializing new groups
                         match ac.update_groups {
                             UpdateGroups::WithSeriesLen => {
@@ -414,11 +425,23 @@ impl PhysicalExpr for AggregationExpr {
                     AggregatedScalar(agg_s.with_name(keep_name))
                 },
                 GroupByMethod::Implode { maintain_order: _ } => {
-                    AggregatedScalar(match ac.agg_state() {
+                    let col = match ac.agg_state() {
                         AggState::LiteralScalar(_) => unreachable!(), // handled above
                         AggState::AggregatedScalar(c) => c.as_list().into_column(),
-                        AggState::NotAggregated(_) | AggState::AggregatedList(_) => ac.aggregated(),
-                    })
+                        AggState::AggregatedList(c) => c.clone(),
+                        AggState::NotAggregated(_) => ac.aggregated(),
+                    };
+                    // TODO: Introduce `UpdateGroups::WithUnitLen` as a new lazy `groups()` method
+                    // and move the groups constructor there. Then, set `UpdateGroups::WithUnitLen` to
+                    // all AggregationExprs.
+                    let groups = Cow::Owned({
+                        let groups = (0..col.len() as IdxSize).map(|i| [i, 1]).collect();
+                        GroupsType::new_slice(groups, false, true).into_sliceable()
+                    });
+                    return Ok(AggregationContext::from_agg_state(
+                        AggregatedScalar(col),
+                        groups,
+                    ));
                 },
                 GroupByMethod::Groups => {
                     let mut column: ListChunked = ac.groups().as_list_chunked();
@@ -578,8 +601,16 @@ impl PhysicalExpr for AggQuantileExpr {
         let keep_name = ac.get_values().name().clone();
 
         let quantile_column = self.quantile.evaluate(df, state)?;
-        polars_ensure!(quantile_column.len() <= 1, ComputeError:
-            "polars only supports computing a single quantile in a groupby aggregation context"
+        polars_ensure!(
+            quantile_column.len() <= 1,
+            ComputeError:
+                "polars only supports computing a single quantile in a groupby aggregation context"
+        );
+        polars_ensure!(
+            quantile_column.dtype().is_numeric(),
+            SchemaMismatch:
+                "expected expression of dtype 'numeric' for quantile, got '{}'",
+            quantile_column.dtype()
         );
         let quantile: f64 = quantile_column.get(0).unwrap().try_extract()?;
 

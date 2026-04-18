@@ -311,22 +311,162 @@ class CloudComponentStorageRequest(_message.Message):
         cloud_credential_id: _Optional[str] = ...,
     ) -> None: ...
 
+class GarContainerRegistryConfig(_message.Message):
+    __slots__ = ("repository_name",)
+    REPOSITORY_NAME_FIELD_NUMBER: _ClassVar[int]
+    repository_name: str
+    def __init__(self, repository_name: _Optional[str] = ...) -> None: ...
+
+class EcrContainerRegistryConfig(_message.Message):
+    __slots__ = ("registry_id", "repository_name")
+    REGISTRY_ID_FIELD_NUMBER: _ClassVar[int]
+    REPOSITORY_NAME_FIELD_NUMBER: _ClassVar[int]
+    registry_id: str
+    repository_name: str
+    def __init__(self, registry_id: _Optional[str] = ..., repository_name: _Optional[str] = ...) -> None: ...
+
+class AcrContainerRegistryConfig(_message.Message):
+    __slots__ = ("repository_name",)
+    REPOSITORY_NAME_FIELD_NUMBER: _ClassVar[int]
+    repository_name: str
+    def __init__(self, repository_name: _Optional[str] = ...) -> None: ...
+
+class CloudContainerRegistryConfig(_message.Message):
+    __slots__ = ("gar", "ecr", "acr")
+    GAR_FIELD_NUMBER: _ClassVar[int]
+    ECR_FIELD_NUMBER: _ClassVar[int]
+    ACR_FIELD_NUMBER: _ClassVar[int]
+    gar: GarContainerRegistryConfig
+    ecr: EcrContainerRegistryConfig
+    acr: AcrContainerRegistryConfig
+    def __init__(
+        self,
+        gar: _Optional[_Union[GarContainerRegistryConfig, _Mapping]] = ...,
+        ecr: _Optional[_Union[EcrContainerRegistryConfig, _Mapping]] = ...,
+        acr: _Optional[_Union[AcrContainerRegistryConfig, _Mapping]] = ...,
+    ) -> None: ...
+
+class CloudComponentContainerRegistry(_message.Message):
+    __slots__ = ("name", "designator", "config")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESIGNATOR_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    designator: str
+    config: CloudContainerRegistryConfig
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        designator: _Optional[str] = ...,
+        config: _Optional[_Union[CloudContainerRegistryConfig, _Mapping]] = ...,
+    ) -> None: ...
+
+class CloudComponentContainerRegistryResponse(_message.Message):
+    __slots__ = (
+        "name",
+        "id",
+        "designator",
+        "team_id",
+        "spec",
+        "kind",
+        "managed",
+        "cloud_credential_id",
+        "created_at",
+        "updated_at",
+        "applied_at",
+    )
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    DESIGNATOR_FIELD_NUMBER: _ClassVar[int]
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    SPEC_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    MANAGED_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_CREDENTIAL_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    APPLIED_AT_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    id: str
+    designator: str
+    team_id: str
+    spec: CloudComponentContainerRegistry
+    kind: str
+    managed: bool
+    cloud_credential_id: str
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    applied_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        id: _Optional[str] = ...,
+        designator: _Optional[str] = ...,
+        team_id: _Optional[str] = ...,
+        spec: _Optional[_Union[CloudComponentContainerRegistry, _Mapping]] = ...,
+        kind: _Optional[str] = ...,
+        managed: bool = ...,
+        cloud_credential_id: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        applied_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class CloudComponentContainerRegistryRequest(_message.Message):
+    __slots__ = ("kind", "spec", "managed", "cloud_credential_id")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    SPEC_FIELD_NUMBER: _ClassVar[int]
+    MANAGED_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_CREDENTIAL_ID_FIELD_NUMBER: _ClassVar[int]
+    kind: str
+    spec: CloudComponentContainerRegistry
+    managed: bool
+    cloud_credential_id: str
+    def __init__(
+        self,
+        kind: _Optional[str] = ...,
+        spec: _Optional[_Union[CloudComponentContainerRegistry, _Mapping]] = ...,
+        managed: bool = ...,
+        cloud_credential_id: _Optional[str] = ...,
+    ) -> None: ...
+
 class CloudComponentCluster(_message.Message):
-    __slots__ = ("name", "designator", "kubernetes_version", "dns_zone")
+    __slots__ = ("name", "designator", "kubernetes_version", "dns_zone", "data_plane_redis")
     NAME_FIELD_NUMBER: _ClassVar[int]
     DESIGNATOR_FIELD_NUMBER: _ClassVar[int]
     KUBERNETES_VERSION_FIELD_NUMBER: _ClassVar[int]
     DNS_ZONE_FIELD_NUMBER: _ClassVar[int]
+    DATA_PLANE_REDIS_FIELD_NUMBER: _ClassVar[int]
     name: str
     designator: str
     kubernetes_version: str
     dns_zone: str
+    data_plane_redis: DataPlaneRedis
     def __init__(
         self,
         name: _Optional[str] = ...,
         designator: _Optional[str] = ...,
         kubernetes_version: _Optional[str] = ...,
         dns_zone: _Optional[str] = ...,
+        data_plane_redis: _Optional[_Union[DataPlaneRedis, _Mapping]] = ...,
+    ) -> None: ...
+
+class DataPlaneRedis(_message.Message):
+    __slots__ = ("kind", "memory", "cpu", "cloud_secret_name")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_FIELD_NUMBER: _ClassVar[int]
+    CPU_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    kind: str
+    memory: str
+    cpu: str
+    cloud_secret_name: str
+    def __init__(
+        self,
+        kind: _Optional[str] = ...,
+        memory: _Optional[str] = ...,
+        cpu: _Optional[str] = ...,
+        cloud_secret_name: _Optional[str] = ...,
     ) -> None: ...
 
 class DeploymentManifest(_message.Message):

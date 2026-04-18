@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define functional PSF models.
+Functional PSF models.
 """
 
 import astropy.units as u
@@ -8,7 +8,6 @@ import numpy as np
 from astropy.modeling import Fittable2DModel, Parameter
 from astropy.modeling.utils import ellipse_extent
 from astropy.units import UnitsError
-from astropy.utils.decorators import deprecated
 from scipy.special import erf, j1, jn_zeros
 
 __all__ = [
@@ -18,7 +17,6 @@ __all__ = [
     'CircularGaussianSigmaPRF',
     'GaussianPRF',
     'GaussianPSF',
-    'IntegratedGaussianPRF',
     'MoffatPSF',
 ]
 
@@ -49,10 +47,10 @@ class GaussianPSF(Fittable2DModel):
         Total integrated flux over the entire PSF.
 
     x_0 : float, optional
-        Position of the peak along the x axis.
+        Position of the peak along the x-axis.
 
     y_0 : float, optional
-        Position of the peak along the y axis.
+        Position of the peak along the y-axis.
 
     x_fwhm : float, optional
         The full width at half maximum (FWHM) of the Gaussian along the
@@ -88,10 +86,10 @@ class GaussianPSF(Fittable2DModel):
                   - b \left(x - x_{0}\right) \left(y - y_{0}\right)
                   - c \left(y - y_{0}\right)^{2} \right)
 
-    where :math:`F` is the total integrated flux, :math:`(x_{0},
-    y_{0})` is the position of the peak, and :math:`\sigma_{x}` and
-    :math:`\sigma_{y}` are the standard deviations along the x and y
-    axes, respectively.
+    where :math:`F` denotes the total integrated flux, :math:`(x_{0},
+    y_{0})` denotes the position of the peak, and :math:`\sigma_{x}` and
+    :math:`\sigma_{y}` denote are the standard deviations along the x
+    and y axes, respectively.
 
     .. math::
 
@@ -145,11 +143,13 @@ class GaussianPSF(Fittable2DModel):
         import matplotlib.pyplot as plt
         import numpy as np
         from photutils.psf import GaussianPSF
+
         model = GaussianPSF(flux=71.4, x_0=24.3, y_0=25.2, x_fwhm=10.1,
                             y_fwhm=5.82, theta=21.7)
         yy, xx = np.mgrid[0:51, 0:51]
         data = model(xx, yy)
-        plt.imshow(data, origin='lower', interpolation='nearest')
+        fig, ax = plt.subplots()
+        ax.imshow(data, origin='lower')
     """
 
     flux = Parameter(
@@ -190,18 +190,18 @@ class GaussianPSF(Fittable2DModel):
     @property
     def x_sigma(self):
         """
-        Gaussian sigma (standard deviation) along the x axis.
+        Gaussian sigma (standard deviation) along the x-axis.
         """
         return self.x_fwhm * GAUSSIAN_FWHM_TO_SIGMA
 
     @property
     def y_sigma(self):
         """
-        Gaussian sigma (standard deviation) along the y axis.
+        Gaussian sigma (standard deviation) along the y-axis.
         """
         return self.y_fwhm * GAUSSIAN_FWHM_TO_SIGMA
 
-    def _calc_bounding_box(self, factor=5.5):
+    def _calc_bounding_box(self, *, factor=5.5):
         """
         Calculate a bounding box defining the limits of the model.
 
@@ -447,10 +447,10 @@ class CircularGaussianPSF(Fittable2DModel):
         Total integrated flux over the entire PSF.
 
     x_0 : float, optional
-        Position of the peak along the x axis.
+        Position of the peak along the x-axis.
 
     y_0 : float, optional
-        Position of the peak along the y axis.
+        Position of the peak along the y-axis.
 
     fwhm : float, optional
         The full width at half maximum (FWHM) of the Gaussian.
@@ -515,10 +515,12 @@ class CircularGaussianPSF(Fittable2DModel):
         import matplotlib.pyplot as plt
         import numpy as np
         from photutils.psf import CircularGaussianPSF
+
         model = CircularGaussianPSF(flux=71.4, x_0=24.3, y_0=25.2, fwhm=10.1)
         yy, xx = np.mgrid[0:51, 0:51]
         data = model(xx, yy)
-        plt.imshow(data, origin='lower', interpolation='nearest')
+        fig, ax = plt.subplots()
+        ax.imshow(data, origin='lower')
     """
 
     flux = Parameter(
@@ -552,7 +554,7 @@ class CircularGaussianPSF(Fittable2DModel):
         """
         return self.fwhm * GAUSSIAN_FWHM_TO_SIGMA
 
-    def _calc_bounding_box(self, factor=5.5):
+    def _calc_bounding_box(self, *, factor=5.5):
         """
         Calculate a bounding box defining the limits of the model.
 
@@ -704,10 +706,10 @@ class GaussianPRF(Fittable2DModel):
         Total integrated flux over the entire PSF.
 
     x_0 : float, optional
-        Position of the peak along the x axis.
+        Position of the peak along the x-axis.
 
     y_0 : float, optional
-        Position of the peak along the y axis.
+        Position of the peak along the y-axis.
 
     x_fwhm : float, optional
         The full width at half maximum (FWHM) of the Gaussian along the
@@ -806,11 +808,13 @@ class GaussianPRF(Fittable2DModel):
         import matplotlib.pyplot as plt
         import numpy as np
         from photutils.psf import GaussianPRF
+
         model = GaussianPRF(flux=71.4, x_0=24.3, y_0=25.2, x_fwhm=10.1,
                             y_fwhm=5.82, theta=21.7)
         yy, xx = np.mgrid[0:51, 0:51]
         data = model(xx, yy)
-        plt.imshow(data, origin='lower', interpolation='nearest')
+        fig, ax = plt.subplots()
+        ax.imshow(data, origin='lower')
     """
 
     flux = Parameter(
@@ -851,18 +855,18 @@ class GaussianPRF(Fittable2DModel):
     @property
     def x_sigma(self):
         """
-        Gaussian sigma (standard deviation) along the x axis.
+        Gaussian sigma (standard deviation) along the x-axis.
         """
         return self.x_fwhm * GAUSSIAN_FWHM_TO_SIGMA
 
     @property
     def y_sigma(self):
         """
-        Gaussian sigma (standard deviation) along the y axis.
+        Gaussian sigma (standard deviation) along the y-axis.
         """
         return self.y_fwhm * GAUSSIAN_FWHM_TO_SIGMA
 
-    def _calc_bounding_box(self, factor=5.5):
+    def _calc_bounding_box(self, *, factor=5.5):
         """
         Calculate a bounding box defining the limits of the model.
 
@@ -1012,10 +1016,10 @@ class CircularGaussianPRF(Fittable2DModel):
         Total integrated flux over the entire PSF.
 
     x_0 : float, optional
-        Position of the peak along the x axis.
+        Position of the peak along the x-axis.
 
     y_0 : float, optional
-        Position of the peak along the y axis.
+        Position of the peak along the y-axis.
 
     fwhm : float, optional
         The full width at half maximum (FWHM) of the Gaussian.
@@ -1092,10 +1096,12 @@ class CircularGaussianPRF(Fittable2DModel):
         import matplotlib.pyplot as plt
         import numpy as np
         from photutils.psf import CircularGaussianPRF
+
         model = CircularGaussianPRF(flux=71.4, x_0=24.3, y_0=25.2, fwhm=10.1)
         yy, xx = np.mgrid[0:51, 0:51]
         data = model(xx, yy)
-        plt.imshow(data, origin='lower', interpolation='nearest')
+        fig, ax = plt.subplots()
+        ax.imshow(data, origin='lower')
     """
 
     flux = Parameter(
@@ -1129,7 +1135,7 @@ class CircularGaussianPRF(Fittable2DModel):
         """
         return self.fwhm * GAUSSIAN_FWHM_TO_SIGMA
 
-    def _calc_bounding_box(self, factor=5.5):
+    def _calc_bounding_box(self, *, factor=5.5):
         """
         Calculate a bounding box defining the limits of the model.
 
@@ -1333,11 +1339,13 @@ class CircularGaussianSigmaPRF(Fittable2DModel):
         import matplotlib.pyplot as plt
         import numpy as np
         from photutils.psf import CircularGaussianSigmaPRF
+
         model = CircularGaussianSigmaPRF(flux=71.4, x_0=24.3, y_0=25.2,
                                          sigma=5.1)
         yy, xx = np.mgrid[0:51, 0:51]
         data = model(xx, yy)
-        plt.imshow(data, origin='lower', interpolation='nearest')
+        fig, ax = plt.subplots()
+        ax.imshow(data, origin='lower')
     """
 
     flux = Parameter(
@@ -1371,7 +1379,7 @@ class CircularGaussianSigmaPRF(Fittable2DModel):
         """
         return self.sigma / GAUSSIAN_FWHM_TO_SIGMA
 
-    def _calc_bounding_box(self, factor=5.5):
+    def _calc_bounding_box(self, *, factor=5.5):
         """
         Calculate a bounding box defining the limits of the model.
 
@@ -1482,105 +1490,6 @@ class CircularGaussianSigmaPRF(Fittable2DModel):
                 'flux': outputs_unit[self.outputs[0]]}
 
 
-@deprecated('2.0.0', alternative='`CircularGaussianSigmaPRF` or '
-            '`CircularGaussianPRF`')
-class IntegratedGaussianPRF(CircularGaussianSigmaPRF):
-    r"""
-    A circular 2D Gaussian PSF model integrated over pixels.
-
-    This model is evaluated by integrating the 2D Gaussian over the
-    input coordinate pixels, and is equivalent to assuming the PSF is
-    2D Gaussian at a *sub-pixel* level. Because it is integrated over
-    pixels, this model is considered a PRF instead of a PSF.
-
-    The Gaussian is normalized such that the analytical integral over
-    the entire 2D plane is equal to the total flux.
-
-    This model is equivalent to `CircularGaussianPRF`, but it is
-    parameterized in terms of the standard deviation (sigma) instead of
-    the full width at half maximum (FWHM).
-
-    Parameters
-    ----------
-    flux : float, optional
-        Total integrated flux over the entire PSF.
-
-    x_0 : float, optional
-        Position of the peak in x direction.
-
-    y_0 : float, optional
-        Position of the peak in y direction.
-
-    sigma : float, optional
-        Width of the Gaussian PSF.
-
-    bbox_factor : float, optional
-        The multiple of the standard deviation (sigma) used to define
-        the bounding box limits.
-
-    **kwargs : dict, optional
-        Additional optional keyword arguments to be passed to the
-        `astropy.modeling.Model` parent class.
-
-    See Also
-    --------
-    GaussianPSF, GaussianPRF, CircularGaussianPSF, CircularGaussianPRF
-
-    Notes
-    -----
-    The circular Gaussian function is defined as:
-
-    .. math::
-
-        f(x, y) =
-            \frac{F}{4}
-            \left[
-                {\rm erf} \left(\frac{x - x_0 + 0.5}
-                                     {\sqrt{2} \sigma} \right)  -
-                {\rm erf} \left(\frac{x - x_0 - 0.5}
-                                     {\sqrt{2} \sigma} \right)
-            \right]
-            \left[
-                {\rm erf} \left(\frac{y - y_0 + 0.5}
-                                     {\sqrt{2} \sigma} \right) -
-                {\rm erf} \left(\frac{y - y_0 - 0.5}
-                                     {\sqrt{2} \sigma} \right)
-            \right]
-
-    where :math:`F` is the total integrated flux, :math:`(x_{0},
-    y_{0})` is the position of the peak, :math:`\sigma` is the standard
-    deviation of the Gaussian, and :math:`{\rm erf}` denotes the error
-    function.
-
-    The model is normalized such that:
-
-    .. math::
-
-        \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} f(x, y) \,dx \,dy = F
-
-    References
-    ----------
-    .. [1] https://en.wikipedia.org/wiki/Gaussian_function
-    """
-
-    flux = Parameter(
-        default=1, description='Total integrated flux over the entire PSF.')
-    x_0 = Parameter(
-        default=0, description='Position of the peak along the x axis')
-    y_0 = Parameter(
-        default=0, description='Position of the peak along the y axis')
-    sigma = Parameter(
-        default=1,
-        bounds=(FLOAT_EPSILON, None),
-        fixed=True,
-        description='Sigma (standard deviation) of the Gaussian')
-
-    def __init__(self, *, flux=flux.default, x_0=x_0.default, y_0=y_0.default,
-                 sigma=sigma.default, bbox_factor=5.5, **kwargs):
-        super().__init__(sigma=sigma, x_0=x_0, y_0=y_0, flux=flux,
-                         bbox_factor=bbox_factor, **kwargs)
-
-
 class MoffatPSF(Fittable2DModel):
     r"""
     A 2D Moffat PSF model.
@@ -1596,10 +1505,10 @@ class MoffatPSF(Fittable2DModel):
         Total integrated flux over the entire PSF.
 
     x_0 : float, optional
-        Position of the peak along the x axis.
+        Position of the peak along the x-axis.
 
     y_0 : float, optional
-        Position of the peak along the y axis.
+        Position of the peak along the y-axis.
 
     alpha : float, optional
         The characteristic radius of the Moffat profile.
@@ -1679,10 +1588,12 @@ class MoffatPSF(Fittable2DModel):
         import matplotlib.pyplot as plt
         import numpy as np
         from photutils.psf import MoffatPSF
+
         model = MoffatPSF(flux=71.4, x_0=24.3, y_0=25.2, alpha=5.1, beta=3.2)
         yy, xx = np.mgrid[0:51, 0:51]
         data = model(xx, yy)
-        plt.imshow(data, origin='lower', interpolation='nearest')
+        fig, ax = plt.subplots()
+        ax.imshow(data, origin='lower')
     """
 
     flux = Parameter(
@@ -1716,7 +1627,7 @@ class MoffatPSF(Fittable2DModel):
         """
         return 2.0 * self.alpha * np.sqrt(2 ** (1.0 / self.beta) - 1)
 
-    def _calc_bounding_box(self, factor=10.0):
+    def _calc_bounding_box(self, *, factor=10.0):
         """
         Calculate a bounding box defining the limits of the model.
 
@@ -1843,10 +1754,10 @@ class AiryDiskPSF(Fittable2DModel):
         Total integrated flux over the entire PSF.
 
     x_0 : float, optional
-        Position of the peak along the x axis.
+        Position of the peak along the x-axis.
 
     y_0 : float, optional
-        Position of the peak along the y axis.
+        Position of the peak along the y-axis.
 
     radius : float, optional
         The radius of the Airy disk at the first zero.
@@ -1930,11 +1841,13 @@ class AiryDiskPSF(Fittable2DModel):
         import numpy as np
         from astropy.visualization import simple_norm
         from photutils.psf import AiryDiskPSF
+
         model = AiryDiskPSF(flux=71.4, x_0=24.3, y_0=25.2, radius=5)
         yy, xx = np.mgrid[0:51, 0:51]
         data = model(xx, yy)
         norm = simple_norm(data, 'sqrt')
-        plt.imshow(data, norm=norm, origin='lower', interpolation='nearest')
+        fig, ax = plt.subplots()
+        ax.imshow(data, norm=norm, origin='lower')
     """
 
     flux = Parameter(
@@ -1963,7 +1876,7 @@ class AiryDiskPSF(Fittable2DModel):
         """
         return 2.0 * 1.616339948310703 * self.radius / self._rz / np.pi
 
-    def _calc_bounding_box(self, factor=10.0):
+    def _calc_bounding_box(self, *, factor=10.0):
         """
         Calculate a bounding box defining the limits of the model.
 

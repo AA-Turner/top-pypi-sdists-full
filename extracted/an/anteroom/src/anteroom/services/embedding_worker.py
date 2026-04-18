@@ -123,45 +123,80 @@ class EmbeddingWorker:
         return False
 
     async def process_pending(self) -> int:
-        """Process unembedded messages and source chunks. Returns total count embedded."""
+        """Process unembedded messages, source chunks, and memory artifacts. Returns total count embedded."""
         count = await self._process_pending_messages()
         count += await self._process_pending_source_chunks()
+        count += await self._process_pending_memory_artifacts()
         self._cycle_count += 1
         if self._cycle_count % 10 == 0:
             self._repair_stale_embeddings()
         return count
 
     def _repair_stale_embeddings(self, limit: int = 100) -> None:
-        """Detect source chunks marked 'embedded' but missing from the vector index.
+        """Detect rows marked 'embedded' but missing from the vector index.
 
-        Resets them to 'pending' so the normal worker flow re-embeds them.
-        Uses an advancing OFFSET cursor so that every embedded row is
-        eventually checked, even when the total exceeds ``limit``.
+        Sweeps source_chunk_embeddings and memory_artifact_embeddings in each
+        pass. Resets missing rows to 'pending' so the normal worker flow
+        re-embeds them. Uses an advancing OFFSET cursor so that every embedded
+        row is eventually checked, even when the total exceeds ``limit``.
         """
-        if not self._vec_manager or not self._vec_manager.source_chunks:
+        self._repair_table(
+            table="source_chunk_embeddings",
+            id_col="chunk_id",
+            vec_attr="source_chunks",
+            limit=limit,
+        )
+        self._repair_table(
+            table="memory_artifact_embeddings",
+            id_col="artifact_id",
+            vec_attr="memories",
+            limit=limit,
+        )
+
+    def _repair_table(self, *, table: str, id_col: str, vec_attr: str, limit: int) -> None:
+        """Repair stale rows for one embedding table.
+
+        ``table`` and ``id_col`` are interpolated into DDL/DML but are
+        constrained to a hardcoded allowlist below — no user input reaches
+        these identifiers.
+        """
+        # Identifier allowlist — values below are the only permitted combinations.
+        # Use a hard guard (not ``assert``) so ``python -O`` cannot suppress it.
+        # ASVS V5.2: security controls must not rely on assertions.
+        _allowed: dict[str, str] = {
+            "source_chunk_embeddings": "chunk_id",
+            "memory_artifact_embeddings": "artifact_id",
+        }
+        if _allowed.get(table) != id_col:
+            raise ValueError(f"Disallowed repair table/column pair: {table!r}/{id_col!r}")
+
+        if not self._vec_manager:
+            return
+        vec_index = getattr(self._vec_manager, vec_attr, None)
+        if not vec_index:
             return
         try:
             rows = self._db.execute_fetchall(
-                "SELECT chunk_id FROM source_chunk_embeddings "
-                "WHERE status = 'embedded' ORDER BY chunk_id LIMIT ? OFFSET ?",
+                f"SELECT {id_col} FROM {table} WHERE status = 'embedded' ORDER BY {id_col} LIMIT ? OFFSET ?",
                 (limit, self._repair_offset),
             )
             if not rows:
                 # Wrapped around — reset cursor for next sweep
                 self._repair_offset = 0
                 return
-            missing_ids = [r["chunk_id"] for r in rows if not self._vec_manager.source_chunks.contains(r["chunk_id"])]
+            missing_ids = [r[id_col] for r in rows if not vec_index.contains(r[id_col])]
             if missing_ids:
                 placeholders = ",".join("?" * len(missing_ids))
                 self._db.execute(
-                    f"UPDATE source_chunk_embeddings SET status = 'pending' WHERE chunk_id IN ({placeholders})",
+                    f"UPDATE {table} SET status = 'pending' WHERE {id_col} IN ({placeholders})",
                     tuple(missing_ids),
                 )
                 self._db.commit()
                 logger.warning(
-                    "Mid-session repair: reset %d of %d source chunk embeddings to 'pending'",
+                    "Mid-session repair: reset %d of %d %s to 'pending'",
                     len(missing_ids),
                     len(rows),
+                    table,
                 )
             # Advance cursor; if we got a full page, there may be more
             if len(rows) < limit:
@@ -169,7 +204,7 @@ class EmbeddingWorker:
             else:
                 self._repair_offset += limit
         except Exception:
-            logger.warning("Failed to repair stale source chunk embeddings", exc_info=True)
+            logger.warning("Failed to repair stale %s", table, exc_info=True)
 
     async def _process_pending_messages(self) -> int:
         """Process unembedded messages. Returns count of messages embedded."""
@@ -324,6 +359,86 @@ class EmbeddingWorker:
 
         if count:
             logger.info("Embedded %d source chunks", count)
+        return count
+
+    async def _process_pending_memory_artifacts(self) -> int:
+        """Process unembedded memory artifacts. Returns count embedded.
+
+        Only memory-type artifacts (filtered in storage query) are considered.
+        Scope/status filtering is applied at recall time, not at embed time —
+        archived/rejected memories remain embedded but are excluded from recall.
+        """
+        artifacts = storage.get_unembedded_memory_artifacts(self._db, limit=self._batch_size)
+        if not artifacts:
+            return 0
+
+        eligible = []
+        for a in artifacts:
+            if len(a.get("content", "")) < MIN_CONTENT_LENGTH:
+                try:
+                    storage.mark_memory_artifact_embedding_skipped(
+                        self._db, a["id"], a["content_hash"], status="skipped"
+                    )
+                except Exception:
+                    logger.debug("Failed to mark short memory %s as skipped", a["id"], exc_info=True)
+            else:
+                eligible.append(a)
+
+        if not eligible:
+            return 0
+
+        texts = [a["content"] for a in eligible]
+        embeddings = await self._service.embed_batch(texts, batch_size=self._batch_size)
+
+        count = 0
+        for art, embedding in zip(eligible, embeddings):
+            if embedding is None:
+                logger.warning("Embedding returned None for memory %s, marking as failed", art["id"])
+                try:
+                    storage.mark_memory_artifact_embedding_skipped(
+                        self._db, art["id"], art["content_hash"], status="failed"
+                    )
+                except Exception:
+                    logger.debug("Failed to mark memory %s as failed", art["id"], exc_info=True)
+                continue
+            try:
+                storage.store_memory_artifact_embedding(
+                    self._db,
+                    art["id"],
+                    embedding,
+                    art["content_hash"],
+                    vec_index=self._vec_manager.memories if self._vec_manager else None,
+                )
+                count += 1
+                self._store_failures.pop(art["id"], None)
+            except Exception as e:
+                fails = self._store_failures.get(art["id"], 0) + 1
+                self._store_failures[art["id"]] = fails
+                if fails >= MAX_STORE_RETRIES:
+                    logger.error(
+                        "Failed to store embedding for memory %s %d times, marking as failed: %s",
+                        art["id"],
+                        fails,
+                        type(e).__name__,
+                    )
+                    try:
+                        storage.mark_memory_artifact_embedding_skipped(
+                            self._db, art["id"], art["content_hash"], status="failed"
+                        )
+                    except Exception:
+                        logger.debug("Failed to mark memory %s as failed", art["id"], exc_info=True)
+                    self._store_failures.pop(art["id"], None)
+                else:
+                    logger.error(
+                        "Failed to store embedding for memory %s (%d/%d): %s",
+                        art["id"],
+                        fails,
+                        MAX_STORE_RETRIES,
+                        type(e).__name__,
+                    )
+
+        if count:
+            logger.info("Embedded %d memory artifacts", count)
         return count
 
     async def embed_source(self, source_id: str) -> int:

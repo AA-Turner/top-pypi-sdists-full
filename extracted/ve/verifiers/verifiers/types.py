@@ -12,15 +12,18 @@ from typing import (
     TypeAlias,
 )
 
-from anthropic.types import RedactedThinkingBlock
-from anthropic.types import ThinkingBlock as AnthropicThinkingBlock
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 if TYPE_CHECKING:
+    from anthropic.types import RedactedThinkingBlock
+    from anthropic.types import ThinkingBlock as AnthropicThinkingBlock
     from datasets import Dataset
 
     from verifiers.clients import Client
     from verifiers.errors import Error
+else:
+    RedactedThinkingBlock = Any
+    AnthropicThinkingBlock = Any
 
 if sys.version_info < (3, 12):
     from typing_extensions import NotRequired, TypedDict
@@ -33,6 +36,7 @@ ClientType = Literal[
     "openai_chat_completions",
     "openai_chat_completions_token",
     "anthropic_messages",
+    "nemorl_chat_completions",
 ]
 MessageType = Literal["chat", "completion"]  # deprecated
 
@@ -396,9 +400,23 @@ Endpoint = TypedDict(
         "url": str,
         "model": str,
         "api_client_type": NotRequired[ClientType],
+        "extra_headers": NotRequired[dict[str, str]],
     },
 )
 Endpoints = dict[str, list[Endpoint]]
+
+
+def _validate_extra_headers_value(value: object) -> dict[str, str]:
+    if not isinstance(value, dict):
+        raise ValueError("extra_headers must be a dict")
+    out: dict[str, str] = {}
+    for k, v in value.items():
+        if not isinstance(k, str) or not k.strip():
+            raise ValueError("extra_headers keys must be non-empty strings")
+        if not isinstance(v, str):
+            raise ValueError("extra_headers values must be strings")
+        out[k] = v
+    return out
 
 
 class ClientConfig(BaseModel):
@@ -415,6 +433,18 @@ class ClientConfig(BaseModel):
     max_keepalive_connections: int = 28000
     max_retries: int = 10
     extra_headers: dict[str, str] = Field(default_factory=dict)
+    extra_headers_from_state: dict[str, str] = Field(
+        default_factory=dict,
+        description="Maps HTTP header names to state field names. "
+        "For each request, the header value is read from the state dict. "
+        'e.g. {"X-Session-ID": "example_id"} adds a X-Session-ID header '
+        "with the value of state['example_id'].",
+    )
+
+    @field_validator("extra_headers", mode="before")
+    @classmethod
+    def validate_extra_headers(cls, value: object) -> dict[str, str]:
+        return _validate_extra_headers_value(value)
 
     @field_validator("endpoint_configs", mode="before")
     @classmethod
@@ -471,6 +501,11 @@ class EndpointClientConfig(BaseModel):
     max_retries: int = 10
     extra_headers: dict[str, str] = Field(default_factory=dict)
 
+    @field_validator("extra_headers", mode="before")
+    @classmethod
+    def validate_extra_headers(cls, value: object) -> dict[str, str]:
+        return _validate_extra_headers_value(value)
+
 
 ClientConfig.model_rebuild()
 
@@ -490,6 +525,7 @@ class EvalConfig(BaseModel):
     num_examples: int
     rollouts_per_example: int
     max_concurrent: int
+    num_workers: int | str = "auto"
     independent_scoring: bool = False
     extra_env_kwargs: dict = {}
     max_retries: int = 0
@@ -498,6 +534,7 @@ class EvalConfig(BaseModel):
     verbose: bool = False
     debug: bool = False
     # saving
+    output_dir: str | None = None
     state_columns: list[str] | None = None
     save_results: bool = False
     resume_path: Path | None = None

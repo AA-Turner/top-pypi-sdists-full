@@ -76,6 +76,22 @@ class TestGriddedPSFModel:
         with pytest.raises(AttributeError, match=match):
             psfmodel.grid_xypos = [[0, 0], [1, 1]]
 
+    def test_repr_str(self, psfmodel):
+        repr_str = repr(psfmodel)
+        assert 'GriddedPSFModel' in repr_str
+        assert 'flux=1.' in repr_str
+        assert 'x_0=0.' in repr_str
+        assert 'y_0=0.' in repr_str
+        assert 'oversampling=' in repr_str
+        assert 'fill_value=0.0' in repr_str
+
+        str_str = str(psfmodel)
+        assert 'GriddedPSFModel' in str_str
+        assert 'Number of PSFs: 16' in str_str
+        assert 'PSF shape (oversampled pixels): (101, 101)' in str_str
+        assert 'Oversampling: [4, 4]' in str_str
+        assert 'Fill Value: 0.0' in str_str
+
     def test_gridded_psf_model_basic_eval(self, psfmodel):
         assert psfmodel(0, 0) == 1
         assert psfmodel(100, 100) == 0
@@ -151,7 +167,7 @@ class TestGriddedPSFModel:
         # check that grid_xypos is in meta
         meta = {'oversampling': 4}
         nddata = NDData(data, meta=meta)
-        match = '"grid_xypos" must be in the nddata meta dictionary'
+        match = "'grid_xypos' must be in the nddata meta dictionary"
         with pytest.raises(ValueError, match=match):
             GriddedPSFModel(nddata)
 
@@ -180,7 +196,7 @@ class TestGriddedPSFModel:
         # check that oversampling is in meta
         meta = {'grid_xypos': [[0, 0], [0, 1], [1, 0], [1, 1]]}
         nddata = NDData(data, meta=meta)
-        match = '"oversampling" must be in the nddata meta dictionary'
+        match = "'oversampling' must be in the nddata meta dictionary"
         with pytest.raises(ValueError, match=match):
             GriddedPSFModel(nddata)
 
@@ -200,7 +216,7 @@ class TestGriddedPSFModel:
         cat = SourceCatalog(data, segm)
         orients = cat.orientation.value
         assert_allclose(orients[1], 50.0, rtol=1.0e-5)
-        assert_allclose(orients[2], -80.0, rtol=1.0e-5)
+        assert_allclose(orients[2], 280.0, rtol=1.0e-5)
         assert 88.3 < orients[0] < 88.4
         assert 64.0 < orients[3] < 64.2
 
@@ -241,7 +257,7 @@ class TestGriddedPSFModel:
 
     def test_str(self, psfmodel):
         model_str = str(psfmodel)
-        keys = ('Grid_shape', 'Number of PSFs', 'PSF shape', 'Oversampling')
+        keys = ('Grid shape', 'Number of PSFs', 'PSF shape', 'Oversampling')
         for key in keys:
             assert key in model_str
         for param in psfmodel.param_names:
@@ -278,7 +294,7 @@ class TestGriddedPSFModel:
     @pytest.mark.parametrize('detector_id', [1, 2])
     def test_read_stdpsf_multi_detector(self, filename, detector_id):
         """
-        Test STDPSF read for a multiple detectors.
+        Test STDPSF read for multiple detectors.
         """
         filename = op.join(op.dirname(op.abspath(__file__)), 'data', filename)
         psfmodel = GriddedPSFModel.read(filename, detector_id=detector_id,

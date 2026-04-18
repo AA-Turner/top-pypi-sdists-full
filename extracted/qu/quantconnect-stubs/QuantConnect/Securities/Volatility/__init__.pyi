@@ -91,7 +91,7 @@ class BaseVolatilityModel(System.Object, QuantConnect.Securities.IVolatilityMode
         ...
 
     @overload
-    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.HistoryRequest]:
+    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Data.HistoryRequest]:
         """
         Returns history requirements for the volatility model expressed in the form of history request
         
@@ -102,7 +102,7 @@ class BaseVolatilityModel(System.Object, QuantConnect.Securities.IVolatilityMode
         ...
 
     @overload
-    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution], bar_count: int) -> typing.Iterable[QuantConnect.Data.HistoryRequest]:
+    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution], bar_count: int) -> typing.Sequence[QuantConnect.Data.HistoryRequest]:
         """
         Gets history requests required for warming up the greeks with the provided resolution
         

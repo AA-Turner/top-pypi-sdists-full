@@ -175,12 +175,6 @@ def _decompose(flag, value):
         members.pop(0)
     return members, not_covered
 
-def _power_of_two(value):
-    "Check if value is a power of two (internal helper for FlagOption)."
-    if value < 1:
-        return False
-    return value == 2 ** (value.bit_length() - 1)
-
 class EnvExtendedInterpolation(ExtendedInterpolation):
     """.. versionadded:: 1.8.0
 

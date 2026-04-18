@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: model-library
-Version: 0.1.22
+Version: 0.1.23
 Summary: Model Library for vals.ai 
 Author-email: "Vals AI, Inc." <contact@vals.ai>
 License: MIT
@@ -15,14 +15,16 @@ Requires-Dist: backoff<3.0,>=2.2.1
 Requires-Dist: redis<7.0,>=6.4.0
 Requires-Dist: tiktoken<1.0,>=0.12.0
 Requires-Dist: pillow<13.0,>=12.1.1
-Requires-Dist: openai<3.0,>=2.28.0
-Requires-Dist: anthropic<1.0,>=0.89.0
+Requires-Dist: openai[aiohttp]<3.0,>=2.28.0
+Requires-Dist: anthropic[aiohttp]<1.0,>=0.89.0
 Requires-Dist: mistralai<3.0,>=2.0.4
 Requires-Dist: xai-sdk<2.0,>=1.7.0
 Requires-Dist: ai21<5.0,>=4.3.0
 Requires-Dist: boto3<2.0,>=1.38.27
 Requires-Dist: google-genai[aiohttp]<2.0,>=1.67.0
 Requires-Dist: google-cloud-storage<4.0,>=3.9.0
+Provides-Extra: docent
+Requires-Dist: docent-python>=0.1.55a0; extra == "docent"
 Dynamic: license-file
 
 # Model Library

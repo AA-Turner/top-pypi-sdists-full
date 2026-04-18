@@ -20,6 +20,26 @@ class SsoServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateScimTokenRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateScimTokenResponse.FromString,
         )
+        self.ListSignOnProviderConfigurations = channel.unary_unary(
+            "/chalk.server.v1.SsoService/ListSignOnProviderConfigurations",
+            request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.ListSignOnProviderConfigurationsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.ListSignOnProviderConfigurationsResponse.FromString,
+        )
+        self.CreateSignOnProviderConfiguration = channel.unary_unary(
+            "/chalk.server.v1.SsoService/CreateSignOnProviderConfiguration",
+            request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateSignOnProviderConfigurationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateSignOnProviderConfigurationResponse.FromString,
+        )
+        self.UpdateSignOnProviderConfiguration = channel.unary_unary(
+            "/chalk.server.v1.SsoService/UpdateSignOnProviderConfiguration",
+            request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.UpdateSignOnProviderConfigurationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.UpdateSignOnProviderConfigurationResponse.FromString,
+        )
+        self.DeleteSignOnProviderConfiguration = channel.unary_unary(
+            "/chalk.server.v1.SsoService/DeleteSignOnProviderConfiguration",
+            request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationResponse.FromString,
+        )
 
 
 class SsoServiceServicer(object):
@@ -31,6 +51,30 @@ class SsoServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListSignOnProviderConfigurations(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateSignOnProviderConfiguration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateSignOnProviderConfiguration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteSignOnProviderConfiguration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_SsoServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -38,6 +82,26 @@ def add_SsoServiceServicer_to_server(servicer, server):
             servicer.CreateScimToken,
             request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateScimTokenRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateScimTokenResponse.SerializeToString,
+        ),
+        "ListSignOnProviderConfigurations": grpc.unary_unary_rpc_method_handler(
+            servicer.ListSignOnProviderConfigurations,
+            request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.ListSignOnProviderConfigurationsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.ListSignOnProviderConfigurationsResponse.SerializeToString,
+        ),
+        "CreateSignOnProviderConfiguration": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateSignOnProviderConfiguration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateSignOnProviderConfigurationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateSignOnProviderConfigurationResponse.SerializeToString,
+        ),
+        "UpdateSignOnProviderConfiguration": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateSignOnProviderConfiguration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.UpdateSignOnProviderConfigurationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.UpdateSignOnProviderConfigurationResponse.SerializeToString,
+        ),
+        "DeleteSignOnProviderConfiguration": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteSignOnProviderConfiguration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.SsoService", rpc_method_handlers)
@@ -67,6 +131,122 @@ class SsoService(object):
             "/chalk.server.v1.SsoService/CreateScimToken",
             chalk_dot_server_dot_v1_dot_sso__pb2.CreateScimTokenRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_sso__pb2.CreateScimTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListSignOnProviderConfigurations(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SsoService/ListSignOnProviderConfigurations",
+            chalk_dot_server_dot_v1_dot_sso__pb2.ListSignOnProviderConfigurationsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_sso__pb2.ListSignOnProviderConfigurationsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateSignOnProviderConfiguration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SsoService/CreateSignOnProviderConfiguration",
+            chalk_dot_server_dot_v1_dot_sso__pb2.CreateSignOnProviderConfigurationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_sso__pb2.CreateSignOnProviderConfigurationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateSignOnProviderConfiguration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SsoService/UpdateSignOnProviderConfiguration",
+            chalk_dot_server_dot_v1_dot_sso__pb2.UpdateSignOnProviderConfigurationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_sso__pb2.UpdateSignOnProviderConfigurationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteSignOnProviderConfiguration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SsoService/DeleteSignOnProviderConfiguration",
+            chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationResponse.FromString,
             options,
             channel_credentials,
             insecure,

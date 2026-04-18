@@ -973,6 +973,15 @@ class DisablePrivateReflectionAttribute(System.Attribute):
         ...
 
 
+class IUnion(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def value(self) -> System.Object:
+        ...
+
+
 class DateTimeConstantAttribute(System.Runtime.CompilerServices.CustomConstantAttribute):
     """This class has no documentation."""
 
@@ -1255,6 +1264,10 @@ class AsyncIteratorMethodBuilder:
 
 
 class MetadataUpdateDeletedAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class UnionAttribute(System.Attribute):
     """This class has no documentation."""
 
 

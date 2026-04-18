@@ -1,17 +1,20 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define tools for building a model elliptical galaxy image from a list of
+Tools for building a model elliptical galaxy image from a list of
 isophotes.
 """
 
 import numpy as np
 from scipy.interpolate import LSQUnivariateSpline
 
+from photutils.utils._deprecation import deprecated_positional_kwargs
+
 from .ellipse_model import build_ellipse_model_c
 
 __all__ = ['build_ellipse_model']
 
 
+@deprecated_positional_kwargs(since='3.0', until='4.0')
 def build_ellipse_model(
     shape,
     isolist,

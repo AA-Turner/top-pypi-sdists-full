@@ -41,7 +41,7 @@ class FileHandler(System.Object):
         """True if the given directory exists"""
         ...
 
-    def enumerate_files(self, path: str, pattern: str, search_option: System.IO.SearchOption, rootfolder: typing.Optional[str]) -> typing.Tuple[typing.Iterable[System.IO.FileInfo], str]:
+    def enumerate_files(self, path: str, pattern: str, search_option: System.IO.SearchOption, rootfolder: typing.Optional[str]) -> typing.Tuple[typing.Sequence[System.IO.FileInfo], str]:
         """Enumerate the files in the target path"""
         ...
 

@@ -4,7 +4,6 @@ Tests for the ellipse module.
 """
 
 import math
-from contextlib import nullcontext
 
 import numpy as np
 import pytest
@@ -12,16 +11,16 @@ from astropy.io import fits
 from astropy.modeling.models import Gaussian2D
 from astropy.utils.exceptions import AstropyUserWarning
 
-from photutils.datasets import get_path, make_noise_image
+from photutils.datasets import make_noise_image
+from photutils.datasets.load import _get_path
 from photutils.isophote.ellipse import Ellipse
 from photutils.isophote.geometry import EllipseGeometry
 from photutils.isophote.isophote import Isophote, IsophoteList
 from photutils.isophote.tests.make_test_data import make_test_image
-from photutils.tests.helper import PYTEST_LT_80
 
 # define an off-center position and a tilted sma
 POS = 384
-PA = 10.0 / 180.0 * np.pi
+PA = np.deg2rad(10.0)
 
 # build off-center test data. It's fine to have a single np array to use
 # in all tests that need it, but do not use a single instance of
@@ -38,8 +37,8 @@ class TestEllipse:
 
     @pytest.mark.remote_data
     def test_find_center(self):
-        path = get_path('isophote/M51.fits', location='photutils-datasets',
-                        cache=True)
+        path = _get_path('isophote/M51.fits', location='photutils-datasets',
+                         cache=True)
         hdu = fits.open(path)
         data = hdu[0].data
         hdu.close()
@@ -94,18 +93,13 @@ class TestEllipse:
         ellipse = Ellipse(OFFSET_GALAXY)
 
         match1 = 'Degrees of freedom'
+        match2 = 'Mean of empty slice'
+        match3 = 'invalid value encountered'
+        match4 = 'No meaningful fit was possible'
         ctx1 = pytest.warns(RuntimeWarning, match=match1)
-        if PYTEST_LT_80:
-            ctx2 = nullcontext()
-            ctx3 = nullcontext()
-            ctx4 = nullcontext()
-        else:
-            match2 = 'Mean of empty slice'
-            match3 = 'invalid value encountered'
-            match4 = 'No meaningful fit was possible'
-            ctx2 = pytest.warns(RuntimeWarning, match=match2)
-            ctx3 = pytest.warns(RuntimeWarning, match=match3)
-            ctx4 = pytest.warns(AstropyUserWarning, match=match4)
+        ctx2 = pytest.warns(RuntimeWarning, match=match2)
+        ctx3 = pytest.warns(RuntimeWarning, match=match3)
+        ctx4 = pytest.warns(AstropyUserWarning, match=match4)
         with ctx1, ctx2, ctx3, ctx4:
             isophote_list = ellipse.fit_image()
             assert len(isophote_list) == 0
@@ -145,7 +139,7 @@ class TestEllipse:
         ny = 500
         nx = 150
         g = Gaussian2D(100.0, nx / 2.0, ny / 2.0, 20, 12,
-                       theta=40.0 * np.pi / 180.0)
+                       theta=np.deg2rad(40.0))
         y, x = np.mgrid[0:ny, 0:nx]
         noise = make_noise_image((ny, nx), distribution='gaussian', mean=0.0,
                                  stddev=2.0, seed=0)

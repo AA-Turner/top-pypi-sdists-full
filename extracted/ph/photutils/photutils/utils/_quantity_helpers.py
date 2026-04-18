@@ -1,10 +1,57 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define Quantity helper tools.
+Tools for Quantity helpers.
 """
 
 import astropy.units as u
 import numpy as np
+
+
+def check_units(values, names):
+    """
+    Check that input values have consistent units.
+
+    Parameters
+    ----------
+    values : list of scalar, `~numpy.ndarray`, or `~astropy.units.Quantity`
+        A list of values.
+
+    names : list of str
+        A list of names corresponding to the input ``values``.
+
+    Returns
+    -------
+    units : set
+        The set of distinct units across all non-`None` values.
+
+    Raises
+    ------
+    ValueError
+        If the number of values does not match the number of names,
+        or if the input values do not all have the same units.
+    """
+    if len(values) != len(names):
+        msg = 'The number of values must match the number of names.'
+        raise ValueError(msg)
+
+    all_units = {name: getattr(arr, 'unit', None)
+                 for arr, name in zip(values, names, strict=True)
+                 if arr is not None}
+    units = set(all_units.values())
+
+    if len(units) > 1:
+        param_names = list(all_units.keys())
+        msg = [f'The inputs {param_names} must all have the same units:']
+        indent = ' ' * 4
+        for key, value in all_units.items():
+            if value is None:
+                msg.append(f'{indent}{key} does not have units')
+            else:
+                msg.append(f'{indent}{key} has units of {value}')
+        msg = '\n'.join(msg)
+        raise ValueError(msg)
+
+    return units
 
 
 def process_quantities(values, names):
@@ -31,37 +78,24 @@ def process_quantities(values, names):
         A list of values, where units have been removed.
 
     unit : `~astropy.unit.Unit`
-        The common unit for the input values. `None` will be returned if
-        all the input values do not have units.
+        The common unit for the input values. `None` will be returned
+        if all the input values do not have units (including when all
+        values are `None`).
 
     Raises
     ------
     ValueError
         If the input values do not all have the same units.
     """
-    if len(values) != len(names):
-        msg = 'The number of values must match the number of names.'
-        raise ValueError(msg)
+    units = check_units(values, names)
 
-    all_units = {name: getattr(arr, 'unit', None)
-                 for arr, name in zip(values, names, strict=True)
-                 if arr is not None}
-    unit = set(all_units.values())
+    # When all values are None, the units set is empty; return unchanged
+    # with unit=None
+    if len(units) == 0:
+        return values, None
 
-    if len(unit) > 1:
-        values = list(all_units.keys())
-        msg = [f'The inputs {values} must all have the same units:']
-        indent = ' ' * 4
-        for key, value in all_units.items():
-            if value is None:
-                msg.append(f'{indent}{key} does not have units')
-            else:
-                msg.append(f'{indent}{key} has units of {value}')
-        msg = '\n'.join(msg)
-        raise ValueError(msg)
-
-    # extract the unit and remove it from the return values
-    unit = unit.pop()
+    # Extract the unit and remove it from the return values
+    unit = units.pop()
     if unit is not None:
         values = [val.value if val is not None else val for val in values]
 

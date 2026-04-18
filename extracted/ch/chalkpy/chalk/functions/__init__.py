@@ -5549,7 +5549,13 @@ def random(n: int | None = None):
     return UnderscoreFunction("random", n)
 
 
-def between(value: Underscore | Any, low: Underscore | Any, high: Underscore | Any):
+def between(
+    value: Underscore | Any,
+    low: Underscore | Any,
+    high: Underscore | Any,
+    *,
+    inclusive: Literal["both", "left", "right", "neither"] = "both",
+):
     """
     Check if a value is between two bounds (inclusive).
 
@@ -5558,9 +5564,12 @@ def between(value: Underscore | Any, low: Underscore | Any, high: Underscore | A
     value
         The value to check.
     low
-        The lower bound (inclusive).
+        The lower bound.
     high
-        The upper bound (inclusive).
+        The upper bound.
+    inclusive
+        Specify if ``"both"`` (default), the ``"left"`` (lower), the ``"right"`` (upper),
+        or ``"neither"`` bound(s) should be treated as inclusive.
 
     Examples
     --------
@@ -5570,9 +5579,15 @@ def between(value: Underscore | Any, low: Underscore | Any, high: Underscore | A
     ... class RiskAssessment:
     ...    id: str
     ...    score: float
-    ...    is_moderate_risk: bool = F.between(_.score, 0.3, 0.7)
+    ...    is_moderate_risk: bool = F.between(_.score, 0.3, 0.7, inclusive="left")
     """
-    return UnderscoreFunction("between", value, low, high)
+    if inclusive == "both":
+        return UnderscoreFunction("between", value, low, high)
+    return UnderscoreFunction(
+        "and",
+        UnderscoreFunction("<=" if inclusive == "left" else "<", low, value),
+        UnderscoreFunction("<=" if inclusive == "right" else "<", value, high),
+    )
 
 
 def distinct_from(value1: Underscore | Any, value2: Underscore | Any):

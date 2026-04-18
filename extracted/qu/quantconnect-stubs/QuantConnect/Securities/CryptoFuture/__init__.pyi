@@ -112,26 +112,11 @@ class CryptoFuture(QuantConnect.Securities.Security, QuantConnect.Securities.IBa
 class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
     """The crypto future margin model which supports both Coin and USDT futures"""
 
-    @overload
     def __init__(self, leverage: float = 25) -> None:
         """
         Creates a new instance
         
         :param leverage: The leverage to use, used on initial margin requirements, default 25x
-        """
-        ...
-
-    @overload
-    def __init__(self, leverage: float, maintenance_margin_rate: float = 0.05, maintenance_amount: float = 0) -> None:
-        """
-        Creates a new instance
-        
-        
-        This constructor is deprecated, please use the overload without maintenance_margin_rate and maintenance_amount parameters.
-        
-        :param leverage: The leverage to use, used on initial margin requirements, default 25x
-        :param maintenance_margin_rate: The maintenance margin rate, default 5%
-        :param maintenance_amount: The maintenance amount which will reduce maintenance margin requirements, default 0
         """
         ...
 

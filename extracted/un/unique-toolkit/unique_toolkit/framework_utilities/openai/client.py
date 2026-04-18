@@ -1,0 +1,84 @@
+import importlib.util
+import logging
+
+from unique_toolkit.app.unique_settings import UniqueSettings
+from unique_toolkit.framework_utilities.utils import get_default_headers
+
+logger = logging.getLogger("toolkit.framework_utilities.openai")
+
+
+class OpenAINotInstalledError(ImportError):
+    """Raised when OpenAI package is not installed but functionality requiring it is accessed."""
+
+    def __init__(self):
+        super().__init__(
+            "OpenAI package is not installed. Install it with 'poetry install --with openai'."
+        )
+
+
+if importlib.util.find_spec("openai") is not None:
+    from openai import AsyncOpenAI, OpenAI
+else:
+    raise OpenAINotInstalledError()
+
+
+def get_openai_client(
+    *,
+    unique_settings: UniqueSettings | None = None,
+    additional_headers: dict[str, str] | None = None,
+) -> OpenAI:
+    """Get an OpenAI client instance.
+
+    Args:
+        unique_settings (UniqueSettings | None): Optional UniqueSettings instance
+        additional_headers (dict[str, str] | None): Optional additional headers to add to the request
+
+    Returns:
+        OpenAI client instance
+
+    Raises:
+        OpenAINotInstalledError: If OpenAI package is not installed
+    """
+    if unique_settings is None:
+        unique_settings = UniqueSettings.from_env_auto()
+
+    default_headers = get_default_headers(unique_settings.app, unique_settings.auth)
+    if additional_headers is not None:
+        default_headers.update(additional_headers)
+
+    return OpenAI(
+        api_key="dummy_key",
+        base_url=unique_settings.api.openai_proxy_url(),
+        default_headers=default_headers,
+    )
+
+
+def get_async_openai_client(
+    *,
+    unique_settings: UniqueSettings | None = None,
+    additional_headers: dict[str, str] | None = None,
+) -> AsyncOpenAI:
+    """Get an async OpenAI client instance.
+
+    Args:
+        unique_settings: Optional UniqueSettings instance
+
+    Returns:
+        AsyncOpenAI client instance
+
+    Raises:
+        OpenAINotInstalledError: If OpenAI package is not installed
+    """
+    if unique_settings is None:
+        unique_settings = UniqueSettings.from_env_auto()
+
+    default_headers = get_default_headers(unique_settings.app, unique_settings.auth)
+
+    if additional_headers is not None:
+        default_headers.update(additional_headers)
+
+    return AsyncOpenAI(
+        api_key="dummy_key",
+        base_url=unique_settings.api.openai_proxy_url(),
+        default_headers=default_headers,
+    )

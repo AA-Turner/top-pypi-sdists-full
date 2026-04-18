@@ -1,23 +1,23 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define the IRAFStarFinder class.
+IRAFStarFinder class.
 """
 
-import inspect
 import warnings
 
-import astropy.units as u
 import numpy as np
-from astropy.nddata import extract_array
-from astropy.table import QTable
 from astropy.utils import lazyproperty
+from astropy.utils.exceptions import AstropyDeprecationWarning
 
-from photutils.detection.core import (StarFinderBase, _StarFinderKernel,
-                                      _validate_brightest)
+from photutils.detection.core import (_DEPR_DEFAULT, StarFinderBase,
+                                      StarFinderCatalogBase,
+                                      _handle_deprecated_range,
+                                      _StarFinderKernel, _validate_n_brightest)
 from photutils.utils._convolution import _filter_data
-from photutils.utils._misc import _get_meta
-from photutils.utils._moments import _moments, _moments_central
-from photutils.utils._quantity_helpers import isscalar, process_quantities
+from photutils.utils._deprecation import (deprecated_positional_kwargs,
+                                          deprecated_renamed_argument)
+from photutils.utils._quantity_helpers import check_units, isscalar
+from photutils.utils._repr import make_repr
 from photutils.utils.exceptions import NoDetectionsWarning
 
 __all__ = ['IRAFStarFinder']
@@ -35,9 +35,10 @@ class IRAFStarFinder(StarFinderBase):
 
     Parameters
     ----------
-    threshold : float
-        The absolute image value above which to select sources.
-        If the star finder is run on an image that is a
+    threshold : float or 2D `~numpy.ndarray`
+        The absolute image value above which to select sources. If
+        ``threshold`` is a 2D array, it must have the same shape as the
+        input ``data``. If the star finder is run on an image that is a
         `~astropy.units.Quantity` array, then ``threshold`` must have
         the same units.
 
@@ -46,9 +47,9 @@ class IRAFStarFinder(StarFinderBase):
         kernel in units of pixels.
 
     sigma_radius : float, optional
-        The truncation radius of the Gaussian kernel in units
-        of sigma (standard deviation) [``1 sigma = FWHM /
-        2.0*sqrt(2.0*log(2.0))``].
+        The truncation radius of the Gaussian kernel in units of sigma
+        (standard deviation) (:math:`\\sigma = \\mbox{FWHM} / (2
+        \\sqrt{2 \\log(2)})`).
 
     minsep_fwhm : float, optional
         The separation (in units of ``fwhm``) for detected objects. The
@@ -56,39 +57,50 @@ class IRAFStarFinder(StarFinderBase):
         0.5)`` and is clipped to a minimum value of 2. Note that large
         values may result in long run times.
 
+        .. deprecated:: 3.0
+            Use ``min_separation`` instead.
+
     sharplo : float, optional
-        The lower bound on sharpness for object detection. Objects
-        with sharpness less than ``sharplo`` will be rejected.
+        The lower bound on sharpness for object detection.
+
+        .. deprecated:: 3.0
+            Use ``sharpness_range=(lower, upper)`` instead.
 
     sharphi : float, optional
-        The upper bound on sharpness for object detection. Objects
-        with sharpness greater than ``sharphi`` will be rejected.
+        The upper bound on sharpness for object detection.
+
+        .. deprecated:: 3.0
+            Use ``sharpness_range=(lower, upper)`` instead.
 
     roundlo : float, optional
-        The lower bound on roundness for object detection. Objects
-        with roundness less than ``roundlo`` will be rejected.
+        The lower bound on roundness for object detection.
+
+        .. deprecated:: 3.0
+            Use ``roundness_range=(lower, upper)`` instead.
 
     roundhi : float, optional
-        The upper bound on roundness for object detection. Objects
-        with roundness greater than ``roundhi`` will be rejected.
+        The upper bound on roundness for object detection.
+
+        .. deprecated:: 3.0
+            Use ``roundness_range=(lower, upper)`` instead.
 
     exclude_border : bool, optional
         Set to `True` to exclude sources found within half the size of
         the convolution kernel from the image borders. The default is
         `False`, which is the mode used by starfind.
 
-    brightest : int, None, optional
+    n_brightest : int, None, optional
         The number of brightest objects to keep after sorting the source
-        list by flux. If ``brightest`` is set to `None`, all objects
+        list by flux. If ``n_brightest`` is set to `None`, all objects
         will be selected.
 
-    peakmax : float, None, optional
+    peak_max : float, None, optional
         The maximum allowed peak pixel value in an object. Objects with
-        peak pixel values greater than ``peakmax`` will be rejected.
+        peak pixel values greater than ``peak_max`` will be rejected.
         This keyword may be used, for example, to exclude saturated
         sources. If the star finder is run on an image that is a
-        `~astropy.units.Quantity` array, then ``peakmax`` must have the
-        same units. If ``peakmax`` is set to `None`, then no peak pixel
+        `~astropy.units.Quantity` array, then ``peak_max`` must have the
+        same units. If ``peak_max`` is set to `None`, then no peak pixel
         value filtering will be performed.
 
     xycoords : `None` or Nx2 `~numpy.ndarray`, optional
@@ -98,9 +110,27 @@ class IRAFStarFinder(StarFinderBase):
 
     min_separation : `None` or float, optional
         The minimum separation (in pixels) for detected objects. If
-        `None` then ``minsep_fwhm`` will be used, otherwise this keyword
-        overrides ``minsep_fwhm``. Note that large values may result in
-        long run times.
+        `None` (default) then the minimum separation is calculated as
+        ``2.5 * fwhm``. Note that large values may result in long run
+        times.
+
+        .. versionchanged:: 3.0
+            The default ``min_separation`` changed from ``max(2,
+            int(fwhm * 2.5 + 0.5))`` to ``2.5 * fwhm``. To recover the
+            previous behavior, set ``min_separation=max(2, int(fwhm *
+            2.5 + 0.5))``.
+
+    sharpness_range : tuple of 2 floats or `None`, optional
+        The ``(lower, upper)`` inclusive bounds on sharpness for object
+        detection. Objects with sharpness outside this range will be
+        rejected. If `None`, no sharpness filtering is performed. The
+        default is ``(0.5, 2.0)``.
+
+    roundness_range : tuple of 2 floats or `None`, optional
+        The ``(lower, upper)`` inclusive bounds on roundness for object
+        detection. Objects with roundness outside this range will be
+        rejected. If `None`, no roundness filtering is performed. The
+        default is ``(0.0, 0.2)``.
 
     See Also
     --------
@@ -109,7 +139,7 @@ class IRAFStarFinder(StarFinderBase):
     Notes
     -----
     If the star finder is run on an image that is a
-    `~astropy.units.Quantity` array, then ``threshold`` and ``peakmax``
+    `~astropy.units.Quantity` array, then ``threshold`` and ``peak_max``
     must have the same units as the image.
 
     For the convolution step, this routine sets pixels beyond the image
@@ -121,8 +151,8 @@ class IRAFStarFinder(StarFinderBase):
     are:
 
     * ``fwhm = hwhmpsf * 2``
-    * ``sigma_radius = fradius * sqrt(2.0*log(2.0))``
-    * ``minsep_fwhm = 0.5 * sepmin``
+    * ``sigma_radius = fradius * sqrt(2.0 * log(2.0))``
+    * ``min_separation = max(2, int((fwhm * sepmin) + 0.5))``
 
     The main differences between `~photutils.detection.DAOStarFinder`
     and `~photutils.detection.IRAFStarFinder` are:
@@ -138,40 +168,76 @@ class IRAFStarFinder(StarFinderBase):
       centroid, roundness, and sharpness using image moments.
     """
 
-    def __init__(self, threshold, fwhm, sigma_radius=1.5, minsep_fwhm=2.5,
-                 sharplo=0.5, sharphi=2.0, roundlo=0.0, roundhi=0.2,
-                 exclude_border=False, brightest=None, peakmax=None,
-                 xycoords=None, min_separation=None):
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
+    @deprecated_renamed_argument('brightest', 'n_brightest', '3.0',
+                                 until='4.0')
+    @deprecated_renamed_argument('peakmax', 'peak_max', '3.0', until='4.0')
+    def __init__(self, threshold, fwhm, sigma_radius=1.5,
+                 minsep_fwhm=_DEPR_DEFAULT,
+                 sharplo=_DEPR_DEFAULT, sharphi=_DEPR_DEFAULT,
+                 roundlo=_DEPR_DEFAULT, roundhi=_DEPR_DEFAULT,
+                 exclude_border=False, n_brightest=None, peak_max=None,
+                 xycoords=None, min_separation=None, *,
+                 sharpness_range=(0.5, 2.0),
+                 roundness_range=(0.0, 0.2)):
 
-        # here we validate the units, but do not strip them
-        inputs = (threshold, peakmax)
-        names = ('threshold', 'peakmax')
-        _ = process_quantities(inputs, names)
+        # Validate the units, but do not strip them
+        inputs = (threshold, peak_max)
+        names = ('threshold', 'peak_max')
+        check_units(inputs, names)
 
-        if not isscalar(threshold):
-            msg = 'threshold must be a scalar value'
-            raise TypeError(msg)
-
-        if not np.isscalar(fwhm):
+        if not isscalar(fwhm):
             msg = 'fwhm must be a scalar value'
             raise TypeError(msg)
+
+        sharpness_range = _handle_deprecated_range(
+            sharplo, sharphi, sharpness_range,
+            'sharp', 'sharpness_range', (0.5, 2.0))
+        roundness_range = _handle_deprecated_range(
+            roundlo, roundhi, roundness_range,
+            'round', 'roundness_range', (0.0, 0.2))
+
+        if sharpness_range is not None:
+            if np.ndim(sharpness_range) != 1 or np.size(sharpness_range) != 2:
+                msg = ('sharpness_range must be a 2-element (lower, upper) '
+                       'tuple or None')
+                raise ValueError(msg)
+            sharpness_range = tuple(sharpness_range)
+
+        if roundness_range is not None:
+            if np.ndim(roundness_range) != 1 or np.size(roundness_range) != 2:
+                msg = ('roundness_range must be a 2-element (lower, upper) '
+                       'tuple or None')
+                raise ValueError(msg)
+            roundness_range = tuple(roundness_range)
+
+        # Handle deprecated minsep_fwhm parameter
+        if minsep_fwhm is not _DEPR_DEFAULT:
+            msg = ("The 'minsep_fwhm' parameter is deprecated "
+                   'and will be removed in a future version. Use '
+                   "'min_separation' instead.")
+            warnings.warn(msg, AstropyDeprecationWarning)
+            if minsep_fwhm < 0:
+                msg = 'minsep_fwhm must be >= 0'
+                raise ValueError(msg)
+            if min_separation is None:
+                # Use the deprecated minsep_fwhm calculation to set the
+                # min_separation
+                min_separation = max(2, int((fwhm * minsep_fwhm) + 0.5))
 
         self.threshold = threshold
         self.fwhm = fwhm
         self.sigma_radius = sigma_radius
-        self.minsep_fwhm = minsep_fwhm
-        self.sharplo = sharplo
-        self.sharphi = sharphi
-        self.roundlo = roundlo
-        self.roundhi = roundhi
+        self.sharpness_range = sharpness_range
+        self.roundness_range = roundness_range
         self.exclude_border = exclude_border
-        self.brightest = _validate_brightest(brightest)
-        self.peakmax = peakmax
+        self.n_brightest = _validate_n_brightest(n_brightest)
+        self.peak_max = peak_max
 
         if xycoords is not None:
             xycoords = np.asarray(xycoords)
             if xycoords.ndim != 2 or xycoords.shape[1] != 2:
-                msg = 'xycoords must be shaped as a Nx2 array'
+                msg = 'xycoords must be shaped as an Nx2 array'
                 raise ValueError(msg)
         self.xycoords = xycoords
 
@@ -184,10 +250,51 @@ class IRAFStarFinder(StarFinderBase):
                 raise ValueError(msg)
             self.min_separation = min_separation
         else:
-            self.min_separation = max(2, int((self.fwhm * self.minsep_fwhm)
-                                             + 0.5))
+            self.min_separation = 2.5 * self.fwhm
+
+    def _repr_str_params(self):
+        params = ('threshold', 'fwhm', 'sigma_radius',
+                  'sharpness_range', 'roundness_range',
+                  'exclude_border', 'n_brightest', 'peak_max', 'xycoords',
+                  'min_separation')
+        overrides = {}
+        if not isscalar(self.threshold):
+            overrides['threshold'] = (
+                f'<array; shape={np.shape(self.threshold)}>')
+        if self.xycoords is not None:
+            overrides['xycoords'] = f'<array; shape={self.xycoords.shape}>'
+        return params, overrides
+
+    def __repr__(self):
+        params, overrides = self._repr_str_params()
+        return make_repr(self, params, overrides=overrides)
+
+    def __str__(self):
+        params, overrides = self._repr_str_params()
+        return make_repr(self, params, overrides=overrides, long=True)
 
     def _get_raw_catalog(self, data, *, mask=None):
+        """
+        Get the raw catalog of sources from the input data.
+
+        Parameters
+        ----------
+        data : 2D `~numpy.ndarray`
+            The 2D image array. The image should be
+            background-subtracted.
+
+        mask : 2D bool array, optional
+            A boolean mask with the same shape as ``data``, where a
+            `True` value indicates the corresponding element of ``data``
+            is masked. Masked pixels are ignored when searching for
+            stars.
+
+        Returns
+        -------
+        cat : `_IRAFStarFinderCatalog` or `None`
+            A catalog of sources found in the input data. `None` is
+            returned if no sources are found.
+        """
         convolved_data = _filter_data(data, self.kernel.data, mode='constant',
                                       fill_value=0.0,
                                       check_normalization=False)
@@ -202,17 +309,20 @@ class IRAFStarFinder(StarFinderBase):
             xypos = self.xycoords
 
         if xypos is None:
-            warnings.warn('No sources were found.', NoDetectionsWarning)
+            msg = 'No sources were found.'
+            warnings.warn(msg, NoDetectionsWarning)
             return None
 
-        return _IRAFStarFinderCatalog(data, convolved_data, xypos, self.kernel,
-                                      sharplo=self.sharplo,
-                                      sharphi=self.sharphi,
-                                      roundlo=self.roundlo,
-                                      roundhi=self.roundhi,
-                                      brightest=self.brightest,
-                                      peakmax=self.peakmax)
+        return _IRAFStarFinderCatalog(data,
+                                      convolved_data,
+                                      xypos,
+                                      self.kernel,
+                                      sharpness_range=self.sharpness_range,
+                                      roundness_range=self.roundness_range,
+                                      n_brightest=self.n_brightest,
+                                      peak_max=self.peak_max)
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def find_stars(self, data, mask=None):
         """
         Find stars in an astronomical image.
@@ -236,13 +346,15 @@ class IRAFStarFinder(StarFinderBase):
             found. The table contains the following parameters:
 
             * ``id``: unique object identification number.
-            * ``xcentroid, ycentroid``: object centroid.
+            * ``x_centroid, y_centroid``: object centroid.
             * ``fwhm``: object FWHM.
             * ``sharpness``: object sharpness.
             * ``roundness``: object roundness.
-            * ``pa``: object position angle (degrees counter clockwise from
-              the positive x axis).
-            * ``npix``: the total number of (positive) unmasked pixels.
+            * ``orientation``: the angle between the ``x`` axis and the
+              major axis source measured counter-clockwise in the range
+              [0, 360) degrees.
+            * ``n_pixels``: the total number of (positive) unmasked
+              pixels.
             * ``peak``: the peak, sky-subtracted, pixel value of the object.
             * ``flux``: the object instrumental flux calculated as the
               sum of sky-subtracted data values within the kernel
@@ -250,24 +362,24 @@ class IRAFStarFinder(StarFinderBase):
             * ``mag``: the object instrumental magnitude calculated as
               ``-2.5 * log10(flux)``.
         """
-        inputs = (data, self.threshold, self.peakmax)
-        names = ('data', 'threshold', 'peakmax')
-        _ = process_quantities(inputs, names)
+        inputs = (data, self.threshold, self.peak_max)
+        names = ('data', 'threshold', 'peak_max')
+        check_units(inputs, names)
 
         cat = self._get_raw_catalog(data, mask=mask)
         if cat is None:
             return None
 
-        # apply all selection filters
+        # Apply all selection filters
         cat = cat.apply_all_filters()
         if cat is None:
             return None
 
-        # create the output table
+        # Create the output table
         return cat.to_table()
 
 
-class _IRAFStarFinderCatalog:
+class _IRAFStarFinderCatalog(StarFinderCatalogBase):
     """
     Class to create a catalog of the properties of each detected star,
     as defined by IRAF's ``starfind`` task.
@@ -283,137 +395,66 @@ class _IRAFStarFinderCatalog:
         have the same units.
 
     xypos : Nx2 `~numpy.ndarray`
-        A Nx2 array of (x, y) pixel coordinates denoting the central
+        An Nx2 array of (x, y) pixel coordinates denoting the central
         positions of the stars.
 
     kernel : `_StarFinderKernel`
         The convolution kernel. This kernel must match the kernel used
         to create the ``convolved_data``.
 
-    sharplo : float, optional
-        The lower bound on sharpness for object detection. Objects
-        with sharpness less than ``sharplo`` will be rejected.
+    sharpness_range : tuple of 2 floats, optional
+        The ``(lower, upper)`` inclusive bounds on sharpness for object
+        detection. Objects with sharpness outside this range will be
+        rejected.
 
-    sharphi : float, optional
-        The upper bound on sharpness for object detection. Objects
-        with sharpness greater than ``sharphi`` will be rejected.
+    roundness_range : tuple of 2 floats, optional
+        The ``(lower, upper)`` inclusive bounds on roundness for object
+        detection. Objects with roundness outside this range will be
+        rejected.
 
-    roundlo : float, optional
-        The lower bound on roundness for object detection. Objects
-        with roundness less than ``roundlo`` will be rejected.
-
-    roundhi : float, optional
-        The upper bound on roundness for object detection. Objects
-        with roundness greater than ``roundhi`` will be rejected.
-
-    brightest : int, None, optional
+    n_brightest : int, None, optional
         The number of brightest objects to keep after sorting the source
-        list by flux. If ``brightest`` is set to `None`, all objects
+        list by flux. If ``n_brightest`` is set to `None`, all objects
         will be selected.
 
-    peakmax : float, None, optional
+    peak_max : float, None, optional
         The maximum allowed peak pixel value in an object. Objects with
-        peak pixel values greater than ``peakmax`` will be rejected.
+        peak pixel values greater than ``peak_max`` will be rejected.
         This keyword may be used, for example, to exclude saturated
         sources. If the star finder is run on an image that is a
-        `~astropy.units.Quantity` array, then ``peakmax`` must have the
-        same units. If ``peakmax`` is set to `None`, then no peak pixel
+        `~astropy.units.Quantity` array, then ``peak_max`` must have the
+        same units. If ``peak_max`` is set to `None`, then no peak pixel
         value filtering will be performed.
     """
 
-    def __init__(self, data, convolved_data, xypos, kernel, *, sharplo=0.2,
-                 sharphi=1.0, roundlo=-1.0, roundhi=1.0, brightest=None,
-                 peakmax=None):
+    def __init__(self, data, convolved_data, xypos, kernel, *,
+                 sharpness_range=(0.2, 1.0), roundness_range=(-1.0, 1.0),
+                 n_brightest=None, peak_max=None):
 
-        # here we validate the units, but do not strip them
-        inputs = (data, convolved_data, peakmax)
-        names = ('data', 'convolved_data', 'peakmax')
-        _ = process_quantities(inputs, names)
+        # Validate the units, but do not strip them
+        inputs = (data, convolved_data, peak_max)
+        names = ('data', 'convolved_data', 'peak_max')
+        check_units(inputs, names)
 
-        self.data = data
-        unit = data.unit if isinstance(data, u.Quantity) else None
-        self.unit = unit
+        super().__init__(data, xypos, kernel,
+                         n_brightest=n_brightest,
+                         peak_max=peak_max)
 
         self.convolved_data = convolved_data
-        self.xypos = xypos
-        self.kernel = kernel
-        self.sharplo = sharplo
-        self.sharphi = sharphi
-        self.roundlo = roundlo
-        self.roundhi = roundhi
-        self.brightest = brightest
-        self.peakmax = peakmax
+        self.sharpness_range = sharpness_range
+        self.roundness_range = roundness_range
 
-        self.id = np.arange(len(self)) + 1
-        self.cutout_shape = kernel.shape
-        self.default_columns = ('id', 'xcentroid', 'ycentroid', 'fwhm',
-                                'sharpness', 'roundness', 'pa', 'npix',
-                                'peak', 'flux', 'mag')
+        self.default_columns = ('id', 'x_centroid', 'y_centroid', 'fwhm',
+                                'sharpness', 'roundness', 'orientation',
+                                'n_pixels', 'peak', 'flux', 'mag')
 
-    def __len__(self):
-        return len(self.xypos)
-
-    def __getitem__(self, index):
-        # NOTE: we allow indexing/slicing of scalar (self.isscalar = True)
-        #       instances in order to perform catalog filtering even for
-        #       a single source
-
-        newcls = object.__new__(self.__class__)
-
-        # copy these attributes to the new instance
-        init_attr = ('data', 'unit', 'convolved_data', 'kernel',
-                     'sharplo', 'sharphi', 'roundlo', 'roundhi', 'brightest',
-                     'peakmax', 'cutout_shape', 'default_columns')
-        for attr in init_attr:
-            setattr(newcls, attr, getattr(self, attr))
-
-        # xypos determines ordering and isscalar
-        # NOTE: always keep as a 2D array, even for a single source
-        attr = 'xypos'
-        value = getattr(self, attr)[index]
-        setattr(newcls, attr, np.atleast_2d(value))
-
-        # index/slice the remaining attributes
-        keys = set(self.__dict__.keys()) & set(self._lazyproperties)
-        keys.add('id')
-        for key in keys:
-            value = self.__dict__[key]
-
-            # do not insert lazy attributes that are always scalar (e.g.,
-            # isscalar), i.e., not an array/list for each source
-            if np.isscalar(value):
-                continue
-
-            # value is always at least a 1D array, even for a single source
-            value = np.atleast_1d(value[index])
-
-            newcls.__dict__[key] = value
-        return newcls
-
-    @lazyproperty
-    def isscalar(self):
+    def _get_init_attributes(self):
         """
-        Whether the instance is scalar (e.g., a single source).
+        Return a tuple of attribute names to copy during slicing.
         """
-        return self.xypos.shape == (1, 2)
-
-    @property
-    def _lazyproperties(self):
-        """
-        Return all lazyproperties (even in superclasses).
-        """
-
-        def islazyproperty(obj):
-            return isinstance(obj, lazyproperty)
-
-        return [i[0] for i in inspect.getmembers(self.__class__,
-                                                 predicate=islazyproperty)]
-
-    def reset_ids(self):
-        """
-        Reset the ID column to be consecutive integers.
-        """
-        self.id = np.arange(len(self)) + 1
+        return ('data', 'unit', 'convolved_data', 'kernel',
+                'sharpness_range', 'roundness_range', 'n_brightest',
+                'peak_max', 'cutout_shape', 'default_columns')
 
     @lazyproperty
     def sky(self):
@@ -424,38 +465,33 @@ class _IRAFStarFinderCatalog:
         calculation as the average value in the non-masked regions
         within the kernel footprint.
         """
-        skymask = ~self.kernel.mask.astype(bool)  # 1=sky, 0=obj
+        skymask = ~self.kernel.mask.astype(bool)  # True=sky, False=obj
+        # nsky is always > 0 because the kernel mask never covers the
+        # entire footprint (the Gaussian kernel is always truncated
+        # within the array, leaving unmasked border pixels).
         nsky = np.count_nonzero(skymask)
         axis = (1, 2)
-        if nsky == 0.0:  # pragma: no cover
-            sky = (np.max(self.cutout_data_nosub, axis=axis)
-                   - np.max(self.cutout_convdata, axis=axis))
-        else:
-            sky = (np.sum(self.cutout_data_nosub * skymask, axis=axis)
-                   / nsky)
+        sky = np.sum(self.cutout_data_nosub * skymask, axis=axis) / nsky
 
         if self.unit is not None:
             sky <<= self.unit
 
         return sky
 
-    def make_cutouts(self, data):
-        cutouts = []
-        for xpos, ypos in self.xypos:
-            cutouts.append(extract_array(data, self.cutout_shape, (ypos, xpos),
-                                         fill_value=0.0))
-        value = np.array(cutouts)
-        if self.unit is not None:
-            value <<= self.unit
-
-        return value
-
     @lazyproperty
     def cutout_data_nosub(self):
+        """
+        The cutout data without sky subtraction or masking.
+        """
         return self.make_cutouts(self.data)
 
     @lazyproperty
     def cutout_data(self):
+        """
+        The cutout data with sky subtraction and masking applied.
+        """
+        # This is a freshly computed array, so in-place modification is
+        # safe.
         data = ((self.cutout_data_nosub - self.sky[:, np.newaxis, np.newaxis])
                 * self.kernel.mask)
         # IRAF starfind discards negative pixels
@@ -463,177 +499,61 @@ class _IRAFStarFinderCatalog:
         return data
 
     @lazyproperty
-    def cutout_convdata(self):  # pragma: no cover
-        return self.make_cutouts(self.convolved_data)
-
-    @lazyproperty
-    def npix(self):
+    def n_pixels(self):
+        """
+        The total number of (positive) unmasked pixels in the cutout
+        data.
+        """
         return np.count_nonzero(self.cutout_data, axis=(1, 2))
 
     @lazyproperty
-    def moments(self):
-        return np.array([_moments(arr, order=1) for arr in self.cutout_data])
-
-    @lazyproperty
-    def cutout_centroid(self):
-        moments = self.moments
-
-        # ignore divide-by-zero RuntimeWarning
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', RuntimeWarning)
-            ycentroid = moments[:, 1, 0] / moments[:, 0, 0]
-            xcentroid = moments[:, 0, 1] / moments[:, 0, 0]
-        return np.transpose((ycentroid, xcentroid))
-
-    @lazyproperty
-    def cutout_xcentroid(self):
-        return np.transpose(self.cutout_centroid)[1]
-
-    @lazyproperty
-    def cutout_ycentroid(self):
-        return np.transpose(self.cutout_centroid)[0]
-
-    @lazyproperty
     def cutout_xorigin(self):
-        return np.transpose(self.xypos)[0] - self.kernel.xradius
+        """
+        The x pixel coordinate of the cutout origin.
+        """
+        return np.transpose(self.xypos)[0] - self.kernel.x_radius
 
     @lazyproperty
     def cutout_yorigin(self):
-        return np.transpose(self.xypos)[1] - self.kernel.yradius
+        """
+        The y pixel coordinate of the cutout origin.
+        """
+        return np.transpose(self.xypos)[1] - self.kernel.y_radius
 
     @lazyproperty
-    def xcentroid(self):
-        return self.cutout_xcentroid + self.cutout_xorigin
+    def x_centroid(self):
+        """
+        The x pixel coordinate of the object centroid.
+        """
+        return self.cutout_x_centroid + self.cutout_xorigin
 
     @lazyproperty
-    def ycentroid(self):
-        return self.cutout_ycentroid + self.cutout_yorigin
-
-    @lazyproperty
-    def peak(self):
-        peaks = [np.max(arr) for arr in self.cutout_data]
-        return u.Quantity(peaks) if self.unit is not None else np.array(peaks)
-
-    @lazyproperty
-    def flux(self):
-        fluxes = [np.sum(arr) for arr in self.cutout_data]
-        if self.unit is not None:
-            fluxes = u.Quantity(fluxes)
-        else:
-            fluxes = np.array(fluxes)
-        return fluxes
-
-    @lazyproperty
-    def mag(self):
-        flux = self.flux
-        if isinstance(flux, u.Quantity):
-            flux = flux.value
-        return -2.5 * np.log10(flux)
-
-    @lazyproperty
-    def moments_central(self):
-        moments = np.array([_moments_central(arr, center=(xcen_, ycen_),
-                                             order=2)
-                            for arr, xcen_, ycen_ in
-                            zip(self.cutout_data, self.cutout_xcentroid,
-                                self.cutout_ycentroid, strict=True)])
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', RuntimeWarning)
-            return moments / self.moments[:, 0, 0][:, np.newaxis, np.newaxis]
-
-    @lazyproperty
-    def mu_sum(self):
-        return self.moments_central[:, 0, 2] + self.moments_central[:, 2, 0]
-
-    @lazyproperty
-    def mu_diff(self):
-        return self.moments_central[:, 0, 2] - self.moments_central[:, 2, 0]
-
-    @lazyproperty
-    def fwhm(self):
-        return 2.0 * np.sqrt(np.log(2.0) * self.mu_sum)
-
-    @lazyproperty
-    def roundness(self):
-        # ignore divide-by-zero RuntimeWarning
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', RuntimeWarning)
-            return (np.sqrt(self.mu_diff**2
-                            + 4.0 * self.moments_central[:, 1, 1]**2)
-                    / self.mu_sum)
+    def y_centroid(self):
+        """
+        The y pixel coordinate of the object centroid.
+        """
+        return self.cutout_y_centroid + self.cutout_yorigin
 
     @lazyproperty
     def sharpness(self):
+        """
+        The sharpness of the object.
+        """
         return self.fwhm / self.kernel.fwhm
-
-    @lazyproperty
-    def pa(self):
-        pa = np.rad2deg(0.5 * np.arctan2(2.0 * self.moments_central[:, 1, 1],
-                                         self.mu_diff))
-        return np.where(pa < 0, pa + 180, pa)
 
     def apply_filters(self):
         """
         Filter the catalog.
         """
-        # remove all non-finite values - consider these non-detections
-        attrs = ('xcentroid', 'ycentroid', 'sharpness', 'roundness', 'pa',
-                 'sky', 'peak', 'flux')
-        mask = np.count_nonzero(self.cutout_data, axis=(1, 2)) > 1
-        for attr in attrs:
-            mask &= np.isfinite(getattr(self, attr))
-        newcat = self[mask]
-
-        if len(newcat) == 0:
-            warnings.warn('No sources were found.', NoDetectionsWarning)
+        attrs = ('x_centroid', 'y_centroid', 'sharpness', 'roundness',
+                 'orientation', 'sky', 'peak', 'flux')
+        initial_mask = np.count_nonzero(self.cutout_data, axis=(1, 2)) > 1
+        newcat = self._filter_finite(attrs, initial_mask=initial_mask)
+        if newcat is None:
             return None
 
-        # keep sources that are within the sharpness, roundness, and
-        # peakmax (inclusive) bounds
-        mask = ((newcat.sharpness >= newcat.sharplo)
-                & (newcat.sharpness <= newcat.sharphi)
-                & (newcat.roundness >= newcat.roundlo)
-                & (newcat.roundness <= newcat.roundhi))
-        if newcat.peakmax is not None:
-            mask &= (newcat.peak <= newcat.peakmax)
-        newcat = newcat[mask]
-
-        if len(newcat) == 0:
-            warnings.warn('Sources were found, but none pass the sharpness, '
-                          'roundness, or peakmax criteria',
-                          NoDetectionsWarning)
-            return None
-
-        return newcat
-
-    def select_brightest(self):
-        """
-        Sort the catalog by the brightest fluxes and select the top
-        brightest sources.
-        """
-        newcat = self
-        if self.brightest is not None:
-            idx = np.argsort(self.flux)[::-1][:self.brightest]
-            newcat = self[idx]
-        return newcat
-
-    def apply_all_filters(self):
-        """
-        Apply all filters, select the brightest, and reset the source
-        IDs.
-        """
-        cat = self.apply_filters()
-        if cat is None:
-            return None
-        cat = cat.select_brightest()
-        cat.reset_ids()
-        return cat
-
-    def to_table(self, columns=None):
-        table = QTable()
-        table.meta.update(_get_meta())  # keep table.meta type
-        if columns is None:
-            columns = self.default_columns
-        for column in columns:
-            table[column] = getattr(self, column)
-        return table
+        bounds = [
+            ('sharpness', self.sharpness_range),
+            ('roundness', self.roundness_range),
+        ]
+        return newcat._filter_bounds(bounds)

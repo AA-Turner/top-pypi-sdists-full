@@ -7,6 +7,7 @@ import re
 import typing
 from contextlib import suppress
 from datetime import datetime
+from decimal import Decimal
 from functools import cache
 from typing import List, Union
 
@@ -23,7 +24,10 @@ from snowflake.snowpark import types as snowpark_type
 from snowflake.snowpark._internal.utils import quote_name
 from snowflake.snowpark.types import TimestampTimeZone, TimestampType
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
-from snowflake.snowpark_connect.config import get_timestamp_type
+from snowflake.snowpark_connect.config import (
+    get_string_session_config_param,
+    get_timestamp_type,
+)
 from snowflake.snowpark_connect.constants import (
     COLUMN_METADATA_COLLISION_KEY,
     STRUCTURED_TYPES_ENABLED,
@@ -326,6 +330,14 @@ def cast_to_match_snowpark_type(
         case snowpark.types.ByteType:
             return bytes(content)
         case snowpark.types.DecimalType:
+            io_validations_mode = (
+                get_string_session_config_param("snowpark.connect.io.validations.mode")
+                .strip()
+                .lower()
+                or "lenient"
+            )
+            if io_validations_mode == "strict":
+                return Decimal(str(content))
             return float(content)
         case snowpark.types.DoubleType:
             return float(content)
@@ -574,7 +586,7 @@ class SnowparkToArrowMapper:
                 return pa.int64()
 
             case snowpark.types.MapType:
-                if not snowpark_type_arg.structured:
+                if not snowpark_type_arg.structured or pa_type == pa.string():
                     return pa.string()
                 if pa.types.is_map(pa_type) or pa.types.is_null(pa_type):
                     return pa.map_(
@@ -604,7 +616,7 @@ class SnowparkToArrowMapper:
                 return pa.string()
 
             case snowpark.types.StructType:
-                if not snowpark_type_arg.structured:
+                if not snowpark_type_arg.structured or pa_type == pa.string():
                     return pa.string()
                 if pa.types.is_struct(pa_type) or pa.types.is_null(pa_type):
                     return pa.struct(

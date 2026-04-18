@@ -10,6 +10,14 @@ from abc import (
 from chalk._gen.chalk.server.v1.sso_pb2 import (
     CreateScimTokenRequest,
     CreateScimTokenResponse,
+    CreateSignOnProviderConfigurationRequest,
+    CreateSignOnProviderConfigurationResponse,
+    DeleteSignOnProviderConfigurationRequest,
+    DeleteSignOnProviderConfigurationResponse,
+    ListSignOnProviderConfigurationsRequest,
+    ListSignOnProviderConfigurationsResponse,
+    UpdateSignOnProviderConfigurationRequest,
+    UpdateSignOnProviderConfigurationResponse,
 )
 from grpc import (
     Channel,
@@ -25,6 +33,22 @@ class SsoServiceStub:
         CreateScimTokenResponse,
     ]
     """Creates a SCIM JWT token for the authenticated team"""
+    ListSignOnProviderConfigurations: UnaryUnaryMultiCallable[
+        ListSignOnProviderConfigurationsRequest,
+        ListSignOnProviderConfigurationsResponse,
+    ]
+    CreateSignOnProviderConfiguration: UnaryUnaryMultiCallable[
+        CreateSignOnProviderConfigurationRequest,
+        CreateSignOnProviderConfigurationResponse,
+    ]
+    UpdateSignOnProviderConfiguration: UnaryUnaryMultiCallable[
+        UpdateSignOnProviderConfigurationRequest,
+        UpdateSignOnProviderConfigurationResponse,
+    ]
+    DeleteSignOnProviderConfiguration: UnaryUnaryMultiCallable[
+        DeleteSignOnProviderConfigurationRequest,
+        DeleteSignOnProviderConfigurationResponse,
+    ]
 
 class SsoServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -34,5 +58,29 @@ class SsoServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> CreateScimTokenResponse:
         """Creates a SCIM JWT token for the authenticated team"""
+    @abstractmethod
+    def ListSignOnProviderConfigurations(
+        self,
+        request: ListSignOnProviderConfigurationsRequest,
+        context: ServicerContext,
+    ) -> ListSignOnProviderConfigurationsResponse: ...
+    @abstractmethod
+    def CreateSignOnProviderConfiguration(
+        self,
+        request: CreateSignOnProviderConfigurationRequest,
+        context: ServicerContext,
+    ) -> CreateSignOnProviderConfigurationResponse: ...
+    @abstractmethod
+    def UpdateSignOnProviderConfiguration(
+        self,
+        request: UpdateSignOnProviderConfigurationRequest,
+        context: ServicerContext,
+    ) -> UpdateSignOnProviderConfigurationResponse: ...
+    @abstractmethod
+    def DeleteSignOnProviderConfiguration(
+        self,
+        request: DeleteSignOnProviderConfigurationRequest,
+        context: ServicerContext,
+    ) -> DeleteSignOnProviderConfigurationResponse: ...
 
 def add_SsoServiceServicer_to_server(servicer: SsoServiceServicer, server: Server) -> None: ...

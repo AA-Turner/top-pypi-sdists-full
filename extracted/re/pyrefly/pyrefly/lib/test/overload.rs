@@ -1863,3 +1863,66 @@ def test(value: int | float | None) -> str:
     return str(i)
     "#,
 );
+
+testcase!(
+    test_match_overload_with_unknown_type_from_missing_import,
+    r#"
+from typing import Any, assert_type, overload, TypeVar, TypeAliasType
+from collections.abc import Sequence
+import nonexistent as nmod  # type: ignore
+
+T = TypeVar("T")
+
+Opaque = TypeAliasType("Opaque", nmod.Foo[T], type_params=(T,))
+MyType = TypeAliasType("MyType", Opaque[T] | Sequence[T], type_params=(T,))
+
+class Inexact: ...
+S = TypeVar("S", bound=Inexact)
+
+@overload
+def f(a: MyType[S]) -> S: ...
+@overload
+def f(a: MyType[int]) -> float: ...
+def f(a: object) -> object: ...
+
+x: list[int] = []
+# This agrees with pyright and ty. (Mypy says `Never`.)
+# Because of `Opaque`, we should match the first overload with `S` unsolved.
+assert_type(f(x), Any)
+    "#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/3161
+testcase!(
+    test_overload_unpacked_tuple_varargs,
+    r#"
+from typing import overload, assert_type
+
+@overload
+def f(*args: *tuple[int]) -> int: ...
+@overload
+def f(*args: *tuple[int, int]) -> tuple[int, int]: ...
+def f(*args) -> int | tuple[int, int]:
+    return 1
+
+assert_type(f(1), int)
+assert_type(f(1, 2), tuple[int, int])
+    "#,
+);
+
+testcase!(
+    test_reject_overload_with_specialization_error,
+    r#"
+from typing import overload
+
+@overload
+def f[T: str](x: T) -> T: ...
+@overload
+def f(x: int) -> int: ...
+def f(x):
+    return x
+
+def g(x: float):
+    f(x)  # E: No matching overload
+    "#,
+);

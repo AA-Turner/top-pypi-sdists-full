@@ -73,6 +73,8 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     # Utilities
     "get_session_stats", "get_session_context", "get_session_snapshot", "plan_turn", "register_edit", "invalidate_cache", "test_summarizer",
     "audit_agent_config",
+    # Composite retrieval
+    "winnow_symbols",
 )
 
 # --------------------------------------------------------------------------- #
@@ -107,7 +109,7 @@ _TOOL_TIER_STANDARD: frozenset[str] = _TOOL_TIER_CORE | frozenset({
     # Quality & Metrics
     "get_symbol_complexity", "get_churn_rate", "get_hotspots",
     "get_symbol_importance", "find_dead_code", "get_dead_code_v2",
-    "get_untested_symbols", "get_repo_health", "search_ast",
+    "get_untested_symbols", "get_repo_health", "search_ast", "winnow_symbols",
     # Architecture
     "get_dependency_cycles", "get_coupling_metrics", "get_layer_violations",
     "get_cross_repo_map", "get_tectonic_map", "get_signal_chains",
@@ -276,6 +278,36 @@ def _save_session_state() -> None:
 
 # Register atexit handler for session state persistence
 atexit.register(_save_session_state)
+
+
+def _cleanup_mermaid_temp_startup() -> None:
+    """Clean stale mermaid viewer temp files from previous sessions."""
+    if not config_module.get("render_diagram_viewer_enabled", False):
+        return
+    try:
+        from .tools.mermaid_viewer import cleanup_temp_dir
+        cleanup_temp_dir()
+    except Exception as e:
+        logger.debug("Mermaid temp startup cleanup failed: %s", e, exc_info=True)
+
+
+def _cleanup_mermaid_temp_shutdown() -> None:
+    """Clean mermaid viewer temp files only if viewer was used this session."""
+    if not config_module.get("render_diagram_viewer_enabled", False):
+        return
+    try:
+        from .tools.mermaid_viewer import cleanup_temp_dir, was_viewer_used
+        if not was_viewer_used():
+            return
+        cleanup_temp_dir()
+    except Exception as e:
+        logger.debug("Mermaid temp shutdown cleanup failed: %s", e, exc_info=True)
+
+
+# Startup: clean stale files from previous sessions.
+_cleanup_mermaid_temp_startup()
+# Shutdown: clean only if viewer was actually used this session.
+atexit.register(_cleanup_mermaid_temp_shutdown)
 
 
 def _parse_watcher_flag(value: Optional[str]) -> bool:
@@ -2082,6 +2114,17 @@ def _build_tools_list() -> list[Tool]:
                         "description": "Maximum nodes before smart pruning (default 80, range 10–200).",
                         "default": 80,
                     },
+                    **({
+                        "open_in_viewer": {
+                            "type": "boolean",
+                            "description": (
+                                "When true, also open the rendered mermaid in the local mmd-viewer. "
+                                "The HTML file is written under <index_storage>/temp/mermaid/. "
+                                "Non-fatal: if the viewer is missing, mermaid is returned anyway."
+                            ),
+                            "default": False,
+                        },
+                    } if config_module.get("render_diagram_viewer_enabled", False) else {}),
                 },
                 "required": ["source"],
             },
@@ -2111,6 +2154,69 @@ def _build_tools_list() -> list[Tool]:
                     },
                 },
                 "required": ["repo"],
+            },
+        ),
+        Tool(
+            name="winnow_symbols",
+            description=(
+                "Run a multi-axis constraint query against the index in a single round trip. "
+                "Accepts an ordered list of criteria (AND) intersecting signals no other tool "
+                "composes: kind, language, name (regex), file glob, cyclomatic complexity, "
+                "decorator, direct call references, summary/docstring text, and git churn. "
+                "Survivors are ranked by importance (PageRank, default), complexity, churn, "
+                "or name. Use for questions like 'complex untested functions that call db.Exec' "
+                "or 'deprecated methods still churning in the last 30 days' — cases that would "
+                "otherwise require 4-5 separate calls and client-side merging."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repository identifier (owner/repo or just repo name)",
+                    },
+                    "criteria": {
+                        "type": "array",
+                        "description": (
+                            "Ordered list of filters. Each item is {axis, op, value}. "
+                            "Supported axes: kind (in/eq), language (in/eq), name (eq/matches), "
+                            "file (matches - glob), complexity (>,<,>=,<=,==), decorator (contains), "
+                            "calls (contains - matches call_references), summary (contains), "
+                            "churn (>,<,>=,<=,== with optional window_days, default 90). "
+                            "All criteria must match (AND)."
+                        ),
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "axis": {"type": "string"},
+                                "op": {"type": "string"},
+                                "value": {},
+                                "window_days": {
+                                    "type": "integer",
+                                    "description": "Only used when axis='churn'. Days of git history to scan (default 90).",
+                                },
+                            },
+                            "required": ["axis", "op", "value"],
+                        },
+                    },
+                    "rank_by": {
+                        "type": "string",
+                        "enum": ["importance", "complexity", "churn", "name"],
+                        "default": "importance",
+                        "description": "Ranking axis for survivors.",
+                    },
+                    "order": {
+                        "type": "string",
+                        "enum": ["asc", "desc"],
+                        "default": "desc",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Hard cap on returned results.",
+                    },
+                },
+                "required": ["repo", "criteria"],
             },
         ),
     ]
@@ -2424,6 +2530,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     logger.info("tool_call: %s args=%s", name, {k: v for k, v in arguments.items() if k != "content"})
 
     try:   # main handler try starts here, before coerce
+        # Extract cross-cutting args that are not part of any tool's schema.
+        # `format` controls compact-output encoding (see .encoding package).
+        _requested_format = None
+        if isinstance(arguments, dict) and "format" in arguments:
+            _requested_format = arguments.pop("format")
         # Coerce stringified booleans/integers/numbers before routing
         schema = (await _ensure_tool_schemas()).get(name)
         if schema:
@@ -3161,6 +3272,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     source=arguments["source"],
                     theme=arguments.get("theme", "flow"),
                     max_nodes=arguments.get("max_nodes", 80),
+                    open_in_viewer=arguments.get("open_in_viewer", False),
                 )
             )
         elif name == "get_project_intel":
@@ -3170,6 +3282,19 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     get_project_intel,
                     repo=arguments["repo"],
                     category=arguments.get("category", "all"),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "winnow_symbols":
+            from .tools.winnow_symbols import winnow_symbols
+            result = await asyncio.to_thread(
+                functools.partial(
+                    winnow_symbols,
+                    repo=arguments["repo"],
+                    criteria=arguments.get("criteria", []),
+                    rank_by=arguments.get("rank_by", "importance"),
+                    order=arguments.get("order", "desc"),
+                    max_results=arguments.get("max_results", 20),
                     storage_path=storage_path,
                 )
             )
@@ -3353,6 +3478,25 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                         meta["secrets_redacted"] = _redact_count
             except Exception:
                 logger.debug("Secret redaction failed", exc_info=True)
+
+        # Compact output encoding (MUNCH). Opt-in via `format` argument or
+        # JCODEMUNCH_DEFAULT_FORMAT env; "auto" falls back to JSON unless
+        # savings clear the gate threshold.
+        try:
+            from .encoding import encode_response
+            from .storage.token_tracker import record_encoding_savings
+            encoded, enc_meta = encode_response(name, result, _requested_format)
+            if enc_meta.get("encoding") != "json":
+                saved = enc_meta.get("encoding_tokens_saved", 0)
+                total_enc = record_encoding_savings(saved, base_path=storage_path, tool_name=name)
+                if isinstance(result, dict):
+                    m = result.setdefault("_meta", {})
+                    m["encoding"] = enc_meta["encoding"]
+                    m["encoding_tokens_saved"] = saved
+                    m["total_encoding_tokens_saved"] = total_enc
+                return [TextContent(type="text", text=encoded)]
+        except Exception:
+            logger.debug("Compact encoding failed; emitting JSON", exc_info=True)
 
         return [TextContent(type="text", text=json.dumps(result, separators=(',', ':')))]
 
@@ -3814,7 +3958,8 @@ def _generate_claude_md_snippet(missing_only: bool = False) -> str:
         ("Quality & Metrics", ["get_symbol_complexity", "get_churn_rate", "get_hotspots",
                                 "get_repo_health", "get_symbol_importance",
                                 "find_dead_code", "get_dead_code_v2",
-                                "get_untested_symbols", "search_ast"]),
+                                "get_untested_symbols", "search_ast",
+                                "winnow_symbols"]),
         ("Diffs & Embeddings", ["get_symbol_diff", "embed_repo"]),
         ("Session-Aware Routing", ["plan_turn", "get_session_context", "get_session_snapshot", "register_edit"]),
         ("Utilities", ["get_session_stats", "invalidate_cache", "test_summarizer",

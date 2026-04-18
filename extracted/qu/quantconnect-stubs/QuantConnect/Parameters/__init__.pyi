@@ -53,7 +53,7 @@ class ParameterAttribute(System.Attribute):
         ...
 
     @staticmethod
-    def get_parameters_from_type(type: typing.Type) -> typing.Iterable[System.Collections.Generic.KeyValuePair[str, str]]:
+    def get_parameters_from_type(type: typing.Type) -> typing.Sequence[System.Collections.Generic.KeyValuePair[str, str]]:
         """
         Resolves all parameter attributes from the specified type
         

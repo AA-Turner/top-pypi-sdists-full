@@ -320,9 +320,8 @@ pub(super) fn compute_math_block_line_map(content_lines: &[&str], code_block_map
 
         let trimmed = line.trim();
         // Strip blockquote prefix so that `> $$` is recognized as a math delimiter
-        let content_after_blockquote = crate::utils::blockquote::parse_blockquote_prefix(trimmed)
-            .map(|p| p.content.trim())
-            .unwrap_or(trimmed);
+        let content_after_blockquote =
+            crate::utils::blockquote::parse_blockquote_prefix(trimmed).map_or(trimmed, |p| p.content.trim());
 
         if content_after_blockquote == "$$" {
             if inside_math {
@@ -411,7 +410,6 @@ pub(super) fn detect_list_items_and_emphasis_with_pulldown(
                             byte_offset: match_start,
                             byte_end: match_end,
                             marker,
-                            marker_count,
                             content: content_part.to_string(),
                         });
                     }

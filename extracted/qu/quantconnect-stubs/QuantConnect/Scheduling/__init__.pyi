@@ -138,7 +138,7 @@ class ITimeRule(metaclass=abc.ABCMeta):
         """Gets a name for this rule"""
         ...
 
-    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
+    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Sequence[datetime.datetime]:
         """
         Creates the event times for the specified dates in UTC
         
@@ -359,7 +359,7 @@ class IDateRule(metaclass=abc.ABCMeta):
         """Gets a name for this rule"""
         ...
 
-    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
+    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[datetime.datetime]:
         """
         Gets the dates produced by this date rule between the specified times
         
@@ -398,7 +398,7 @@ class FuncDateRule(System.Object, QuantConnect.Scheduling.IDateRule):
         """
         ...
 
-    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
+    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[datetime.datetime]:
         """
         Gets the dates produced by this date rule between the specified times
         
@@ -1205,7 +1205,7 @@ class CompositeTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
         """
         ...
 
-    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
+    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Sequence[datetime.datetime]:
         """
         Creates the event times for the specified dates in UTC
         
@@ -1244,7 +1244,7 @@ class FuncTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
         """
         ...
 
-    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
+    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Sequence[datetime.datetime]:
         """
         Creates the event times for the specified dates in UTC
         

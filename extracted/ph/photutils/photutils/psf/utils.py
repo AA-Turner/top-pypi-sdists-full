@@ -1,167 +1,23 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define utilities for PSF-fitting photometry.
+Tools for PSF-fitting photometry.
 """
 
 import warnings
-from copy import deepcopy
 
 import numpy as np
 from astropy.modeling import Model
-from astropy.nddata import NDData
 from astropy.table import QTable
 from astropy.units import Quantity
 from astropy.utils.exceptions import AstropyUserWarning
 from scipy import interpolate
 
 from photutils.centroids import centroid_com
-from photutils.datasets import make_model_image as _make_model_image
 from photutils.psf.functional_models import CircularGaussianPRF
 from photutils.utils import CutoutImage
 from photutils.utils._parameters import as_pair
 
-__all__ = ['ModelImageMixin', 'fit_2dgaussian', 'fit_fwhm']
-
-
-class ModelImageMixin:
-    """
-    Mixin class to provide methods to calculate model images and
-    residuals.
-    """
-
-    def make_model_image(self, shape, *, psf_shape=None,
-                         include_localbkg=False):
-        """
-        Create a 2D image from the fit PSF models and optional local
-        background.
-
-        Parameters
-        ----------
-        shape : 2 tuple of int
-            The shape of the output array.
-
-        psf_shape : 2 tuple of int, optional
-            The shape of the region around the center of the fit model
-            to render in the output image. If ``psf_shape`` is a scalar
-            integer, then a square shape of size ``psf_shape`` will be
-            used. If `None`, then the bounding box of the model will be
-            used. This keyword must be specified if the model does not
-            have a ``bounding_box`` attribute.
-
-        include_localbkg : bool, optional
-            Whether to include the local background in the rendered
-            output image. Note that the local background level is
-            included around each source over the region defined by
-            ``psf_shape``. Thus, regions where the ``psf_shape`` of
-            sources overlap will have the local background added
-            multiple times.
-
-        Returns
-        -------
-        array : 2D `~numpy.ndarray`
-            The rendered image from the fit PSF models. This image will
-            not have any units.
-
-        Notes
-        -----
-        Classes that inherit from this mixin class must have a
-        `_model_image_params` attribute that is a `dict` containing the
-        following items:
-
-        * 'psf_model': 2D `astropy.modeling.Model` instance
-          The PSF model used to fit the sources.
-        * 'fitted_models_table': `~astropy.table.QTable`
-          The fit parameters for the PSF model.
-        * 'local_bkg': `~numpy.ndarray`
-          The local background values for each source.
-        * 'progress_bar': bool
-          Whether to show a progress bar during the rendering of the
-          model image.
-
-        If the `_model_image_params` attribute is not set, then a
-        `ValueError` will be raised.
-
-        Raises
-        ------
-        ValueError
-            If the `_model_image_params` attribute is not set.
-        """
-        image_params = getattr(self, '_model_image_params', None)
-        if image_params is None:
-            msg = ('The `_model_image_params` attribute must be set '
-                   'in the class that inherits from ModelImageMixin.')
-            raise ValueError(msg)
-
-        psf_model = image_params.get('psf_model')
-        model_params = image_params.get('model_params')
-        local_bkgs = image_params.get('local_bkg')
-        progress_bar = image_params.get('progress_bar', False)
-
-        if include_localbkg:
-            # add local_bkg
-            model_params = model_params.copy()
-            model_params['local_bkg'] = local_bkgs
-
-        try:
-            x_name = psf_model.x_name
-            y_name = psf_model.y_name
-        except AttributeError:
-            x_name = 'x_0'
-            y_name = 'y_0'
-
-        return _make_model_image(shape, psf_model, model_params,
-                                 model_shape=psf_shape,
-                                 x_name=x_name, y_name=y_name,
-                                 progress_bar=progress_bar)
-
-    def make_residual_image(self, data, *, psf_shape=None,
-                            include_localbkg=False):
-        """
-        Create a 2D residual image from the fit PSF models and local
-        background.
-
-        Parameters
-        ----------
-        data : 2D `~numpy.ndarray`
-            The 2D array on which photometry was performed. This should
-            be the same array input when calling the PSF-photometry
-            class.
-
-        psf_shape : 2 tuple of int, optional
-            The shape of the region around the center of the fit model
-            to subtract. If ``psf_shape`` is a scalar integer, then
-            a square shape of size ``psf_shape`` will be used. If
-            `None`, then the bounding box of the model will be used.
-            This keyword must be specified if the model does not have a
-            ``bounding_box`` attribute.
-
-        include_localbkg : bool, optional
-            Whether to include the local background in the subtracted
-            model. Note that the local background level is subtracted
-            around each source over the region defined by ``psf_shape``.
-            Thus, regions where the ``psf_shape`` of sources overlap
-            will have the local background subtracted multiple times.
-
-        Returns
-        -------
-        array : 2D `~numpy.ndarray`
-            The residual image of the ``data`` minus the fit PSF models
-            minus the optional``local_bkg``.
-        """
-        if isinstance(data, NDData):
-            residual = deepcopy(data)
-            data_arr = data.data
-            if data.unit is not None:
-                data_arr <<= data.unit
-            residual.data[:] = self.make_residual_image(
-                data_arr, psf_shape=psf_shape,
-                include_localbkg=include_localbkg)
-        else:
-            residual = self.make_model_image(data.shape, psf_shape=psf_shape,
-                                             include_localbkg=include_localbkg)
-            np.subtract(data, residual, out=residual)
-
-        return residual
+__all__ = ['fit_2dgaussian', 'fit_fwhm']
 
 
 def _make_mask(image, mask):
@@ -188,9 +44,9 @@ def _make_mask(image, mask):
         corresponding element of ``image`` is masked.
     """
     def warn_nonfinite():
-        warnings.warn('Input data contains unmasked non-finite values '
-                      '(NaN or inf), which were automatically ignored.',
-                      AstropyUserWarning)
+        msg = ('Input data contains unmasked non-finite values '
+               '(NaN or inf), which were automatically ignored.')
+        warnings.warn(msg, AstropyUserWarning)
 
     # if NaNs are in the data, no actual fitting takes place
     # https://github.com/astropy/astropy/pull/12811
@@ -229,9 +85,10 @@ def fit_2dgaussian(data, *, xypos=None, fwhm=None, fix_fwhm=True,
         subtracted.
 
     xypos : array-like, optional
-        The initial (x, y) pixel coordinates of the sources. If `None`,
-        then one source will be fit with an initial position using the
-        center-of-mass centroid of the ``data`` array.
+        The initial (x, y) pixel coordinates of the sources as a list
+        of tuples or a 2D array. If `None`, then one source will be fit
+        with an initial position using the center-of-mass centroid of
+        the ``data`` array.
 
     fwhm : float, optional
         The initial guess for the FWHM of the Gaussian PSF model. If
@@ -256,7 +113,7 @@ def fit_2dgaussian(data, *, xypos=None, fwhm=None, fix_fwhm=True,
         The pixel-wise Gaussian 1-sigma errors of the input
         ``data``. ``error`` is assumed to include *all* sources
         of error, including the Poisson error of the sources (see
-        `~photutils.utils.calc_total_error`) . ``error`` must have the
+        `~photutils.utils.calc_total_error`). ``error`` must have the
         same shape as the input ``data``. If a `~astropy.units.Quantity`
         array, then ``data`` must also be a `~astropy.units.Quantity`
         array with the same units.
@@ -280,15 +137,15 @@ def fit_2dgaussian(data, *, xypos=None, fwhm=None, fix_fwhm=True,
 
     Examples
     --------
-    Fit a 2D Gaussian model to a image containing only one source (e.g.,
-    a cutout image):
+    Fit a 2D Gaussian model to an image containing only one source
+    (e.g., a cutout image):
 
     >>> import numpy as np
     >>> from photutils.psf import CircularGaussianPRF, fit_2dgaussian
     >>> yy, xx = np.mgrid[:51, :51]
     >>> model = CircularGaussianPRF(x_0=22.17, y_0=28.87, fwhm=3.123, flux=9.7)
     >>> data = model(xx, yy)
-    >>> fit = fit_2dgaussian(data, fix_fwhm=False)
+    >>> fit = fit_2dgaussian(data, fix_fwhm=False, fit_shape=7)
     >>> phot_tbl = fit.results  # doctest: +FLOAT_CMP
     >>> cols = ['x_fit', 'y_fit', 'fwhm_fit', 'flux_fit']
     >>> for col in cols:
@@ -311,7 +168,7 @@ def fit_2dgaussian(data, *, xypos=None, fwhm=None, fix_fwhm=True,
     ...                                      flux=(100, 200), fwhm=[3, 8])
     >>> finder = DAOStarFinder(0.1, 5)
     >>> finder_tbl = finder(data)
-    >>> xypos = list(zip(sources['x_0'], sources['y_0']))
+    >>> xypos = zip(sources['x_0'], sources['y_0'])
     >>> psfphot = fit_2dgaussian(data, xypos=xypos, fit_shape=7,
     ...                          fix_fwhm=False)
     >>> phot_tbl = psfphot.results
@@ -340,12 +197,34 @@ def fit_2dgaussian(data, *, xypos=None, fwhm=None, fix_fwhm=True,
 
     if xypos is None:
         xypos = centroid_com(data, mask=mask)
+    if isinstance(xypos, zip):
+        xypos = np.array(list(xypos))
     xypos = np.atleast_2d(xypos)
 
     if fit_shape is None:
+        if len(xypos) > 1:
+            msg = ('fit_shape is required when fitting multiple sources. If '
+                   'fit_shape is not provided, then the fit may not converge '
+                   'or may give poor results. For multiple sources, you '
+                   'should provide a fit_shape value that is appropriate for '
+                   'the size of the sources in your image.')
+            raise ValueError(msg)
+
         fit_shape = data.shape
+        # Ensure odd shape required by the PSF photometry fitting
+        # Here we trim the even edges by 1 pixel
+        fit_shape = tuple(s - 1 if s % 2 == 0 else s for s in fit_shape)
+
+        msg = ('fit_shape is None, so the input data array is assumed to be '
+               'a cutout image containing only one source. If your input '
+               'data is not a cutout image, then the fit may not converge '
+               'or may give poor results. For non-cutout input data, you '
+               'should provide a fit_shape value that is appropriate for '
+               'the size of the sources in your image. '
+               f'Using fit_shape={fit_shape}.')
+        warnings.warn(msg, AstropyUserWarning)
     else:
-        fit_shape = as_pair('fit_shape', fit_shape, lower_bound=(1, 0),
+        fit_shape = as_pair('fit_shape', fit_shape, lower_bound=(1, 1),
                             check_odd=True)
 
     flux_init = []
@@ -396,9 +275,10 @@ def fit_fwhm(data, *, xypos=None, fwhm=None, fit_shape=None, mask=None,
         subtracted.
 
     xypos : array-like, optional
-        The initial (x, y) pixel coordinates of the sources. If `None`,
-        then one source will be fit with an initial position using the
-        center-of-mass centroid of the ``data`` array.
+        The initial (x, y) pixel coordinates of the sources as a list
+        of tuples or a 2D array. If `None`, then one source will be fit
+        with an initial position using the center-of-mass centroid of
+        the ``data`` array.
 
     fwhm : float, optional
         The initial guess for the FWHM of the Gaussian PSF model. If
@@ -419,7 +299,7 @@ def fit_fwhm(data, *, xypos=None, fwhm=None, fit_shape=None, mask=None,
         The pixel-wise Gaussian 1-sigma errors of the input
         ``data``. ``error`` is assumed to include *all* sources
         of error, including the Poisson error of the sources (see
-        `~photutils.utils.calc_total_error`) . ``error`` must have the
+        `~photutils.utils.calc_total_error`). ``error`` must have the
         same shape as the input ``data``. If a `~astropy.units.Quantity`
         array, then ``data`` must also be a `~astropy.units.Quantity`
         array with the same units.
@@ -453,7 +333,7 @@ def fit_fwhm(data, *, xypos=None, fwhm=None, fit_shape=None, mask=None,
     >>> yy, xx = np.mgrid[:51, :51]
     >>> model = CircularGaussianPRF(x_0=22.17, y_0=28.87, fwhm=3.123, flux=9.7)
     >>> data = model(xx, yy)
-    >>> fwhm = fit_fwhm(data)
+    >>> fwhm = fit_fwhm(data, fit_shape=7)
     >>> fwhm  # doctest: +FLOAT_CMP
     array([3.123])
 
@@ -470,7 +350,7 @@ def fit_fwhm(data, *, xypos=None, fwhm=None, fit_shape=None, mask=None,
     ...                                      flux=(100, 200), fwhm=[3, 8])
     >>> finder = DAOStarFinder(0.1, 5)
     >>> finder_tbl = finder(data)
-    >>> xypos = list(zip(sources['x_0'], sources['y_0']))
+    >>> xypos = zip(sources['x_0'], sources['y_0'])
     >>> fwhms = fit_fwhm(data, xypos=xypos, fit_shape=7)
     >>> fwhms  # doctest: +FLOAT_CMP
     array([5.69467204, 5.21376414, 7.65508658, 3.20255356, 6.66003098])
@@ -479,16 +359,26 @@ def fit_fwhm(data, *, xypos=None, fwhm=None, fit_shape=None, mask=None,
         phot = fit_2dgaussian(data, xypos=xypos, fwhm=fwhm, fix_fwhm=False,
                               fit_shape=fit_shape, mask=mask, error=error)
 
-    if len(fit_warnings) > 0:
-        warnings.warn('One or more fit(s) may not have converged. Please '
-                      'carefully check your results. You may need to change '
-                      'the input "xypos" and "fit_shape" parameters.',
-                      AstropyUserWarning)
+    # Re-emit fit_shape warnings and check for other warnings
+    fit_shape_warning = False
+    other_warnings = False
+    for warning in fit_warnings:
+        if 'fit_shape is None' in str(warning.message):
+            warnings.warn(str(warning.message), warning.category)
+            fit_shape_warning = True
+        else:
+            other_warnings = True
+
+    if other_warnings and not fit_shape_warning:
+        msg = ('One or more fit(s) may not have converged. Please '
+               'carefully check your results. You may need to change '
+               'the input "xypos" and "fit_shape" parameters.')
+        warnings.warn(msg, AstropyUserWarning)
 
     return np.array(phot.results['fwhm_fit'])
 
 
-def _interpolate_missing_data(data, mask, method='cubic'):
+def _interpolate_missing_data(data, mask, *, method='cubic'):
     """
     Interpolate missing data as identified by the ``mask`` keyword.
 
@@ -507,7 +397,9 @@ def _interpolate_missing_data(data, mask, method='cubic'):
         The method of used to interpolate the missing data:
 
         * ``'cubic'``:  Masked data are interpolated using 2D cubic
-          splines. This is the default.
+          splines. If any masked pixels cannot be interpolated using
+          cubic interpolation (e.g., at the edges), they will be filled
+          using nearest-neighbor interpolation as a fallback.
 
         * ``'nearest'``:  Masked data are interpolated using
           nearest-neighbor interpolation.
@@ -515,7 +407,9 @@ def _interpolate_missing_data(data, mask, method='cubic'):
     Returns
     -------
     data_interp : 2D `~numpy.ndarray`
-        The interpolated 2D image.
+        The interpolated 2D image. All masked pixels are guaranteed
+        to be filled if there are any valid (unmasked) pixels. If all
+        pixels are masked, the returned array will contain NaN values.
     """
     data_interp = np.copy(data)
 
@@ -526,6 +420,14 @@ def _interpolate_missing_data(data, mask, method='cubic'):
     if mask.shape != data.shape:
         msg = 'mask and data must have the same shape'
         raise ValueError(msg)
+
+    if not np.any(mask):
+        return data_interp
+
+    # Check if all pixels are masked - cannot interpolate
+    if np.all(mask):
+        data_interp[:] = np.nan
+        return data_interp
 
     # initialize the interpolator
     y, x = np.indices(data_interp.shape)
@@ -544,6 +446,19 @@ def _interpolate_missing_data(data, mask, method='cubic'):
     xy_missing = np.dstack((x[mask].ravel(), y[mask].ravel()))[0]
     data_interp[mask] = interpol(xy_missing)
 
+    # For cubic interpolation, some edge pixels may not be interpolated
+    # (NaN values). Use nearest-neighbor interpolation as a fallback.
+    if method == 'cubic':
+        remaining_mask = ~np.isfinite(data_interp)
+        if np.any(remaining_mask):
+            xy_valid = np.dstack((x[~remaining_mask].ravel(),
+                                  y[~remaining_mask].ravel()))[0]
+            z_valid = data_interp[~remaining_mask].ravel()
+            interpol_nn = interpolate.NearestNDInterpolator(xy_valid, z_valid)
+            xy_remaining = np.dstack((x[remaining_mask].ravel(),
+                                      y[remaining_mask].ravel()))[0]
+            data_interp[remaining_mask] = interpol_nn(xy_remaining)
+
     return data_interp
 
 
@@ -551,9 +466,9 @@ def _validate_psf_model(psf_model):
     """
     Validate the PSF model.
 
-    The PSF model must be a subclass of `astropy
-    .modeling.Fittable2DModel`. It must also be two-dimensional and
-    have a single output.
+    The PSF model must be a subclass of
+    `astropy.modeling.Fittable2DModel`. It must also be two-dimensional
+    and have a single output.
 
     Parameters
     ----------
@@ -625,7 +540,7 @@ def _get_psf_model_main_params(psf_model):
     return model_params
 
 
-def _create_call_docstring(iterative=False):
+def _create_call_docstring(*, iterative=False):
     """
     Decorator factory to create the __call__ method docstring for PSF
     photometry methods.
@@ -684,7 +599,7 @@ def _create_call_docstring(iterative=False):
             measure the initial flux values. Note that the initial
             flux values refer to the model flux parameters and are
             not corrected for local background values (computed using
-            ``localbkg_estimator`` or input in a ``local_bkg`` column).
+            ``local_bkg_estimator`` or input in a ``local_bkg`` column).
             The allowed column names are:
 
             * ``x_init``, ``xinit``, ``x``, ``x_0``, ``x0``,
@@ -722,7 +637,7 @@ def _create_call_docstring(iterative=False):
             columns. If ``group_id`` is input, the values will
             be used and ``grouper`` keyword will be ignored. If
             ``local_bkg`` is input, those values will be used and the
-            ``localbkg_estimator`` will be ignored. If ``data`` has
+            ``local_bkg_estimator`` will be ignored. If ``data`` has
             units, then the ``local_bkg`` values must have the same
             units.
 
@@ -746,9 +661,9 @@ def _create_call_docstring(iterative=False):
               and error of the source y center
             * ``flux_init``, ``flux_fit``, ``flux_err`` : the initial,
               fit, and error of the source flux
-            * ``npixfit`` : the number of unmasked pixels used to fit
-              the source
-            * ``qfit`` : a quality-of-fit metric defined as the the sum
+            * ``n_pixels_fit`` : the number of unmasked pixels used to
+              fit the source
+            * ``qfit`` : a quality-of-fit metric defined as the sum
               of the absolute value of the fit residuals divided by the
               fit flux. ``qfit`` is zero for sources that are perfectly
               fit by the PSF model.
@@ -772,7 +687,10 @@ def _create_call_docstring(iterative=False):
         `hst1pass
         <https://www.stsci.edu/files/live/sites/www/files/home/hst/instr
         umentation/acs/documentation/instrument-science-reports-isrs/_do
-        cuments/isr2202.pdf>`_ software.
+        cuments/isr2202.pdf>`_ software.  They are also similar to the
+        ``chi`` (``qfit``) and ``sharp`` (``cfit``) metrics used by
+        `DAOPHOT
+        <https://ui.adsabs.harvard.edu/abs/1987PASP...99..191S/abstract>`_.
         """
 
         if iterative:

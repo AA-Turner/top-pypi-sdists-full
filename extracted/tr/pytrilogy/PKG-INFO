@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytrilogy
-Version: 0.3.229
+Version: 0.3.231
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -37,17 +37,20 @@ Description-Content-Type: text/markdown
 [![Discord](https://img.shields.io/badge/DISCORD-CHAT-red?logo=discord)](https://discord.gg/Z4QSSuqGEd)
 [![PyPI version](https://badge.fury.io/py/pytrilogy.svg)](https://badge.fury.io/py/pytrilogy)
 
-Trilogy is a semantic SQL language for analytics.
+Trilogy is a batteries-included data-productivity toolkit to accelerate traditional SQL tasks - reporting, data processing,
+and adhoc analytics. It's great for humans - and even better for agents. 
 
-It lets you write queries without manual joins, reuse and compose logic,
+The language - also called Trilogy - lets you write queries without manual joins, reuse and compose logic,
 and get type-checked, safe SQL for any supported backend.
+
+The rich surrounding ecosystem - CLI, studio, public models, python datasource integration - let you move fast. 
 
 ## Why Trilogy
 
-Analytics SQL can get hard to maintain - fast.
+SQL is easy to start with and hard to scale.
 
-Trilogy adds a lightweight semantic layer that makes queries reusable,
-refactorable, and safer at any scale. 
+Trilogy adds a lightweight semantic layer to keep the speed, but make it 
+faster at scale. 
 
 - No manual joins; no from clause
 - Reusable models, calculations, and functions
@@ -56,37 +59,86 @@ refactorable, and safer at any scale.
 - Easy to write - for humans and AI
 - Built-in semantic layer without boilerplate or YAML
 
-Trilogy is future proof - with the fast feedback loops agents crave -but is built for people first.
+This repo contains [pytrilogy](https://github.com/trilogy-data/pytrilogy), the reference implementation of the core language and cli.
 
-This repo contains [pytrilogy](https://github.com/trilogy-data/pytrilogy), the reference implementation of the language.
+**Install**
+To try it out, include both the CLI and serve dependencies.
 
+```bash
+pip install pytrilogy[cli,serve]
+```
 
-## Quick Start
+## Docs and Web
 
 > [!TIP]
 > **Try it now:** [Open-source studio](https://trilogydata.dev/trilogy-studio-core/) | [Interactive demo](https://trilogydata.dev/demo/) | [Documentation](https://trilogydata.dev/)
 
-**Install**
+
+### Quick Start
+
+Go from zero to a queryable, persisted model in seconds. We'll pull a
+public DuckDB model (some 2000s USA FAA airplane data, hosted parquet), add a
+derived persisted datasource, refresh it, then explore it in Studio.
+
 ```bash
-pip install pytrilogy[cli]
+# 1. Pull a public model (fetches all source .preql + setup.sql + trilogy.toml).
+trilogy public fetch faa ./faa-demo
+cd faa-demo
+
+# Run a quick adhoc query
+trilogy run "import flight; select carrier.code, count(id) as flight_count order by flight_count desc;"
+
+# Plot it
+trilogy run "import flight; chart barh set y_axis:carrier.name set x_axis:flight_count from select carrier.name, count(id) as flight_count order by flight_count desc limit 10;"
+
+# Add a derived datasource that persists daily plane counts to a local file
+python -c "
+open('reporting.preql', 'w').write('''import flight;
+
+# derive reusable concepts
+auto flight_date <-flight.dep_time::date;
+
+# this can be properties or metrics
+auto flight_count <- count(id);
+
+# datasources can be read from or written to
+datasource daily_airplane_usage (
+    flight_date,
+    flight.model.name,
+    flight_count
+)
+grain(flight_date, flight.model.name)
+file './daily_airplane_usage.parquet'
+;
+''')"
+
+# 3. Refresh — runs setup.sql, builds station_daily_stats, tracks watermarks.
+trilogy refresh .
+
+# 4. Launch the Studio UI against the live model (opens your browser) to explore + query
+trilogy serve .
 ```
 
-**Create a file hello.preql**
+Browse other available models with `trilogy public list` (filter with
+`--engine duckdb` or `--tag benchmark`). Every model in
+[trilogy-public-models](https://github.com/trilogy-data/trilogy-public-models)
+is pullable.
 
-Trilogy supports reusable functions and constants. 
+### Key Features
 
+Trilogy supports reusable functions.
+Where clauses are automatically pushed down inside aggregates;
+having filters the otuside.
 ```sql
 const prime <- unnest([2, 3, 5, 7, 11, 13, 17, 19, 23, 29]);
 
 def cube_plus_one(x) -> (x * x * x + 1);
+def sum_plus_one(val)-> sum(val)+1;
 
 WHERE 
-    prime_cubed_plus_one % 7 = 0
+   (prime+1) % 4 = 0
 SELECT
-    prime,
-    @cube_plus_one(prime) as prime_cubed_plus_one
-ORDER BY
-    prime asc
+    @sum_plus_one(@cube_plus_one(prime)) as prime_cubed_plus_one_sum_plus_one
 LIMIT 10;
 ```
 
@@ -95,47 +147,7 @@ LIMIT 10;
 trilogy run hello.preql duckdb
 ```
 
-## What Trilogy Gives You
-
-- **Speed** - write less, faster. Concise but powerful syntax
-- **Efficiency** - easily reuse and compose functions and models, modeled after python
-- **Easy refactoring** - change and update tables without breaking queries, and easy testing snd static analysis
-- **Testability** - built-in testing patterns with query fixtures
-- **Straightforward** - for humans and LLMs alike
-
-Trilogy is especially powerful for data consumption, providing a rich metadata layer that makes creating, interpreting, and visualizing queries easy and expressive.
-
-
-We recommend starting with the free [studio](https://trilogydata.dev/trilogy-studio-core/) UI to explore Trilogy for most users. The SDK `pytrilogy` provides a CLI - similiar to DBT - that can be run locally to parse and execute trilogy model [.preql], or can be embedding larger python applications by importing the `trilogy` package.
-
-
-
-## Trilogy is Easy to Write
-For humans *and* AI. Enjoy flexible, one-shot query generation without any DB access or security risks. 
-
-(full code in the python API section.)
-
-```python
-query = text_to_query(
-    executor.environment,
-    "number of flights by month in 2005",
-    Provider.OPENAI,
-    "gpt-5-chat-latest",
-    api_key,
-)
-
-# get a ready to run query
-print(query)
-# typical output
-'''where local.dep_time.year = 2020  
-select
-    local.dep_time.month,
-    count(local.id2) as number_of_flights
-order by
-    local.dep_time.month asc;'''
-```
-
-## Goals
+## Principles
 
 Versus SQL, Trilogy aims to: 
 
@@ -152,6 +164,8 @@ Versus SQL, Trilogy aims to:
 **Maintain:**
 - Acceptable performance
 
+(we shoot for <~100-300ms of overhead for queyr planning, and optimized SQL generation)
+
 ## Backend Support
 
 | Backend | Status | Notes |
@@ -163,10 +177,9 @@ Versus SQL, Trilogy aims to:
 | **SQL Server** | Experimental | Limited testing |
 | **Presto** | Experimental | Limited testing |
 
+## Semantic Layer Intro
 
-## Examples
-
-### Hello World
+### Semantic models are compositions of types, keys, and properties
 
 Save the following code in a file named `hello.preql`
 
@@ -239,7 +252,7 @@ trilogy run hello.preql duckdb
 
 ![UI Preview](hello-world.png)
 
-### Python SDK Usage
+### Python SDK Intro
 
 Trilogy can be run directly in python through the core SDK. Trilogy code can be defined and parsed inline or parsed out of files.
 
@@ -348,6 +361,16 @@ trilogy run "key x int; datasource test_source(i:x) grain(x) address test; selec
 trilogy fmt <path to trilogy file>
 ```
 
+**Browse and pull public models:**
+```bash
+trilogy public list [--engine duckdb] [--tag benchmark]
+trilogy public fetch <model-name> [<dir>] [--no-examples]
+```
+
+Fetches model source files, setup scripts, and a ready-to-use `trilogy.toml`
+from [trilogy-public-models](https://github.com/trilogy-data/trilogy-public-models)
+into a local directory so you can immediately `refresh` and `serve` it.
+
 #### Backend Configuration
 
 **BigQuery:**
@@ -439,120 +462,7 @@ If you're interested in a more fleshed out standalone server or MCP server, plea
 
 ## Trilogy Syntax Reference 
 
-Not exhaustive - see [documentation](https://trilogydata.dev/) for more details.
-
-### Import
-```sql
-import [path] as [alias];
-```
-
-### Concepts
-
-**Types:**
-`string | int | float | bool | date | datetime | time | numeric(scale, precision) | timestamp | interval | array<[type]> | map<[type], [type]> | struct<name:[type], name:[type]>`
-
-**Key:**
-```sql
-key [name] [type];
-```
-
-**Property:**
-```sql
-property [key].[name] [type];
-property x.y int;
-
-# or multi-key
-property <[key],[key]>.[name] [type];
-property <x,y>.z int;
-```
-
-**Transformation:**
-```sql
-auto [name] <- [expression];
-auto x <- y + 1;
-```
-
-### Datasource
-```sql
-datasource <name>(
-    <column_and_concept_with_same_name>,
-    # or a mapping from column to concept
-    <column>:<concept>,
-    <column>:<concept>,
-)
-grain(<concept>, <concept>)
-address <table>;
-
-datasource orders(
-    order_id,
-    order_date,
-    total_rev: point_of_sale_rev,
-    customomer_id: customer.id
-)
-grain orders
-address orders;
-
-```
-
-### Queries
-
-**Basic SELECT:**
-```sql
-WHERE
-    <concept> = <value>
-SELECT
-    <concept>,
-    <concept>+1 -> <alias>,
-    ...
-HAVING
-    <alias> = <value2>
-ORDER BY
-    <concept> asc|desc
-;
-```
-
-**CTEs/Rowsets:**
-```sql
-with <alias> as
-WHERE
-    <concept> = <value>
-select
-    <concept>,
-    <concept>+1 -> <alias>,
-    ...
-
-select <alias>.<concept>;
-```
-
-### Data Operations
-
-**Persist to table:**
-```sql
-persist <alias> as <table_name> from
-<select>;
-```
-
-**Export to file:**
-```sql
-COPY INTO <TARGET_TYPE> '<target_path>' FROM SELECT
-    <concept>, ...
-ORDER BY
-    <concept>, ...
-;
-```
-
-**Show generated SQL:**
-```sql
-show <select>;
-```
-
-**Validate Model**
-```sql
-validate all
-validate concepts abc,def...
-validate datasources abc,def...
-```
-
+See [documentation](https://trilogydata.dev/) for more details.
 
 ## Contributing
 

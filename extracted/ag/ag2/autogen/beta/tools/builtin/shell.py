@@ -40,12 +40,10 @@ class ContainerReferenceEnvironment:
     container_id: str
 
 
-@dataclass(slots=True)
-class LocalEnvironment:
-    """Commands execute in the local runtime (client-side, OpenAI)."""
+ShellEnvironment = ContainerAutoEnvironment | ContainerReferenceEnvironment
 
 
-ShellEnvironment = ContainerAutoEnvironment | ContainerReferenceEnvironment | LocalEnvironment
+SHELL_TOOL_NAME = "shell"
 
 
 @dataclass(slots=True)
@@ -58,7 +56,7 @@ class ShellToolSchema(ToolSchema):
     - OpenAI Responses API: ``shell`` (with optional ``environment``)
     """
 
-    type: str = field(default="shell", init=False)
+    type: str = field(default=SHELL_TOOL_NAME, init=False)
     version: Literal["bash_20250124"] = "bash_20250124"
     environment: ShellEnvironment | None = None
 
@@ -75,15 +73,17 @@ class ShellTool(Tool):
 
     - **OpenAI Responses API** — maps to ``shell`` (``gpt-5.4``).
       Use ``environment`` to control where commands execute:
-      ``ContainerAutoEnvironment``, ``ContainerReferenceEnvironment``, or
-      ``LocalEnvironment``. Omit ``environment`` for OpenAI's default behaviour.
+      ``ContainerAutoEnvironment``, ``ContainerReferenceEnvironment``
 
     See:
     - https://platform.claude.com/docs/en/agents-and-tools/tool-use/bash-tool
     - https://developers.openai.com/api/docs/guides/tools-shell
     """
 
-    __slots__ = ("_params",)
+    __slots__ = (
+        "_params",
+        "name",
+    )
 
     def __init__(
         self,
@@ -91,14 +91,14 @@ class ShellTool(Tool):
         environment: ShellEnvironment | Variable | None = None,
         version: Literal["bash_20250124"] = "bash_20250124",
     ) -> None:
-        self._params: dict[str, object] = {}
+        self._params: dict[str, object] = {"version": version}
         if environment is not None:
             self._params["environment"] = environment
-        self._version = version
+        self.name = SHELL_TOOL_NAME
 
     async def schemas(self, context: "Context") -> list[ShellToolSchema]:
         resolved = {k: resolve_variable(v, context, param_name=k) for k, v in self._params.items()}
-        return [ShellToolSchema(version=self._version, **resolved)]
+        return [ShellToolSchema(**resolved)]
 
     def register(
         self,

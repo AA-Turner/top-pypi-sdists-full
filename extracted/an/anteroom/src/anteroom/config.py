@@ -662,6 +662,22 @@ class RerankerConfig:
 
 
 @dataclass
+class MemoryRecallConfig:
+    """Runtime recall of typed memory artifacts (#921).
+
+    Recall runs per-turn alongside RAG.  Scope visibility, token budget, and
+    distance threshold are all independent from ``RagConfig`` so memory can
+    be tuned without affecting source retrieval.
+    """
+
+    enabled: bool | None = None  # None = auto-detect (use if embeddings available)
+    max_memories: int = 5  # top-K memories to inject per turn
+    max_tokens: int = 800  # independent token budget (char/4 estimate)
+    similarity_threshold: float = 0.5  # max cosine distance; lower = stricter
+    show_status: bool = True  # show recall status line in CLI renderer
+
+
+@dataclass
 class CodebaseIndexConfig:
     """Tree-sitter codebase index settings."""
 
@@ -787,6 +803,34 @@ class AuditConfig:
             "output_filter": True,
         }
     )
+
+
+@dataclass
+class MemoryPromotionConfig:
+    """Governed memory promotion / review pipeline settings (#920).
+
+    Defaults are conservative: agent proposals are allowed but land as
+    ``candidate`` for explicit review; ``local_auto_approve`` is off by
+    design so durable memory is never an invisible side effect of chat.
+    Rate-limit and lineage caps bound the blast radius of a misbehaving
+    proposer.
+    """
+
+    default_review_state: str = "candidate"  # "candidate" or "pending_review"
+    local_auto_approve: bool = False  # escape hatch for solo/local mode
+    agent_proposals_enabled: bool = True  # allow proposer="agent" calls
+    max_lineage_entries: int = 50  # FIFO cap on decision history per memory
+    max_candidates_per_conversation: int = 10  # per-conversation proposal cap
+    max_reject_reason_chars: int = 500  # server-side bound on reject reason
+
+
+@dataclass
+class MemoryConfig:
+    """Memory subsystem settings. Currently only the promotion sub-config
+    (#920) lives here; recall, storage, and lifecycle settings can grow in
+    place without restructuring the config tree."""
+
+    promotion: MemoryPromotionConfig = field(default_factory=MemoryPromotionConfig)
 
 
 @dataclass
@@ -1005,11 +1049,13 @@ class AppConfig:
     proxy: ProxyConfig = field(default_factory=ProxyConfig)
     rag: RagConfig = field(default_factory=RagConfig)
     reranker: RerankerConfig = field(default_factory=RerankerConfig)
+    memory_recall: MemoryRecallConfig = field(default_factory=MemoryRecallConfig)
     codebase_index: CodebaseIndexConfig = field(default_factory=CodebaseIndexConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)
     session: SessionConfig = field(default_factory=SessionConfig)
     rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
     audit: AuditConfig = field(default_factory=AuditConfig)
+    memory: MemoryConfig = field(default_factory=MemoryConfig)
     compliance: ComplianceConfig = field(default_factory=ComplianceConfig)
     trusted_proxy: TrustedProxyConfig = field(default_factory=TrustedProxyConfig)
     workflow: WorkflowConfig = field(default_factory=WorkflowConfig)
@@ -2153,6 +2199,53 @@ def load_config(
         cache_dir=str(reranker_cache_dir),
     )
 
+    # Memory recall config (#921)
+    mr_raw = raw.get("memory_recall", {})
+    if not isinstance(mr_raw, dict):
+        mr_raw = {}
+    _raw_mr_enabled = mr_raw.get("enabled", os.environ.get("AI_CHAT_MEMORY_RECALL_ENABLED", ""))
+    if _raw_mr_enabled == "" or _raw_mr_enabled is None:
+        mr_enabled: bool | None = None  # auto-detect
+    else:
+        mr_enabled = str(_raw_mr_enabled).lower() in ("true", "1", "yes")
+    try:
+        mr_max_memories = max(
+            1, min(50, int(mr_raw.get("max_memories", os.environ.get("AI_CHAT_MEMORY_RECALL_MAX_MEMORIES", 5))))
+        )
+    except (ValueError, TypeError):
+        mr_max_memories = 5
+    try:
+        mr_max_tokens = max(
+            50, min(10_000, int(mr_raw.get("max_tokens", os.environ.get("AI_CHAT_MEMORY_RECALL_MAX_TOKENS", 800))))
+        )
+    except (ValueError, TypeError):
+        mr_max_tokens = 800
+    try:
+        mr_threshold = max(
+            0.0,
+            min(
+                2.0,
+                float(
+                    mr_raw.get(
+                        "similarity_threshold",
+                        os.environ.get("AI_CHAT_MEMORY_RECALL_SIMILARITY_THRESHOLD", 0.5),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        mr_threshold = 0.5
+    mr_show_status = str(
+        mr_raw.get("show_status", os.environ.get("AI_CHAT_MEMORY_RECALL_SHOW_STATUS", "true"))
+    ).lower() not in ("false", "0", "no")
+    memory_recall_config = MemoryRecallConfig(
+        enabled=mr_enabled,
+        max_memories=mr_max_memories,
+        max_tokens=mr_max_tokens,
+        similarity_threshold=mr_threshold,
+        show_status=mr_show_status,
+    )
+
     # Proxy config
     proxy_raw = raw.get("proxy", {})
     if not isinstance(proxy_raw, dict):
@@ -2383,6 +2476,81 @@ def load_config(
         retention_days=audit_retention,
         redact_content=audit_redact,
         events=audit_events,
+    )
+
+    # Memory config (#920 promotion/review pipeline)
+    memory_raw = raw.get("memory", {})
+    if not isinstance(memory_raw, dict):
+        memory_raw = {}
+    promotion_raw = memory_raw.get("promotion", {})
+    if not isinstance(promotion_raw, dict):
+        promotion_raw = {}
+
+    mem_default_review_state = str(
+        promotion_raw.get(
+            "default_review_state",
+            os.environ.get("AI_CHAT_MEMORY_PROMOTION_DEFAULT_REVIEW_STATE", "candidate"),
+        )
+    )
+    if mem_default_review_state not in ("candidate", "pending_review"):
+        mem_default_review_state = "candidate"
+    mem_local_auto_approve = str(
+        promotion_raw.get(
+            "local_auto_approve",
+            os.environ.get("AI_CHAT_MEMORY_PROMOTION_LOCAL_AUTO_APPROVE", "false"),
+        )
+    ).lower() in ("true", "1", "yes")
+    mem_agent_proposals_enabled = str(
+        promotion_raw.get(
+            "agent_proposals_enabled",
+            os.environ.get("AI_CHAT_MEMORY_PROMOTION_AGENT_PROPOSALS_ENABLED", "true"),
+        )
+    ).lower() not in ("false", "0", "no")
+    try:
+        mem_max_lineage_entries = max(
+            1,
+            int(
+                promotion_raw.get(
+                    "max_lineage_entries",
+                    os.environ.get("AI_CHAT_MEMORY_PROMOTION_MAX_LINEAGE_ENTRIES", 50),
+                )
+            ),
+        )
+    except (ValueError, TypeError):
+        mem_max_lineage_entries = 50
+    try:
+        mem_max_candidates_per_conversation = max(
+            1,
+            int(
+                promotion_raw.get(
+                    "max_candidates_per_conversation",
+                    os.environ.get("AI_CHAT_MEMORY_PROMOTION_MAX_CANDIDATES_PER_CONVERSATION", 10),
+                )
+            ),
+        )
+    except (ValueError, TypeError):
+        mem_max_candidates_per_conversation = 10
+    try:
+        mem_max_reject_reason_chars = max(
+            1,
+            int(
+                promotion_raw.get(
+                    "max_reject_reason_chars",
+                    os.environ.get("AI_CHAT_MEMORY_PROMOTION_MAX_REJECT_REASON_CHARS", 500),
+                )
+            ),
+        )
+    except (ValueError, TypeError):
+        mem_max_reject_reason_chars = 500
+    memory_config = MemoryConfig(
+        promotion=MemoryPromotionConfig(
+            default_review_state=mem_default_review_state,
+            local_auto_approve=mem_local_auto_approve,
+            agent_proposals_enabled=mem_agent_proposals_enabled,
+            max_lineage_entries=mem_max_lineage_entries,
+            max_candidates_per_conversation=mem_max_candidates_per_conversation,
+            max_reject_reason_chars=mem_max_reject_reason_chars,
+        )
     )
 
     # Codebase index config
@@ -2616,12 +2784,14 @@ def load_config(
             proxy=proxy_config,
             rag=rag_config,
             reranker=reranker_config,
+            memory_recall=memory_recall_config,
             references=refs_config,
             codebase_index=ci_config,
             storage=storage_config,
             session=session_config,
             rate_limit=rate_limit_config,
             audit=audit_config,
+            memory=memory_config,
             compliance=compliance_config,
             trusted_proxy=trusted_proxy_config,
             workflow=workflow_config,

@@ -10,7 +10,6 @@ from pyspark.errors.exceptions.base import AnalysisException, IllegalArgumentExc
 
 import snowflake.snowpark_connect.relation.utils as utils
 from snowflake import snowpark
-from snowflake.snowpark._internal.error_message import SnowparkClientExceptionMessages
 from snowflake.snowpark.functions import col, expr as snowpark_expr, lit, to_binary
 from snowflake.snowpark.types import (
     BinaryType,
@@ -31,6 +30,7 @@ from snowflake.snowpark.types import (
 from snowflake.snowpark_connect.column_name_handler import (
     ColumnNameMap,
     set_schema_getter,
+    union_restorable_name,
 )
 from snowflake.snowpark_connect.config import global_config
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
@@ -382,21 +382,48 @@ def map_fillna(
         # If no column named "*" exists, fillna is a no-op for that column reference.
         spark_col_names = list(rel.fill_na.cols)
 
-        # We don't validate the fully qualified spark name here as fillNa is no-op for structured type columns.
-        # It only works for scalar type columns like float, int, string or bool.
-        # Also, if a column doesn't exist, fillna silently ignores it (Spark behavior).
+        # When a single fill value is provided alongside a list of column names, the
+        # user called fillna(value, subset=[...]).  Spark validates that every column
+        # in the subset actually exists in the schema and raises AnalysisException for
+        # any missing top-level column (SNOW-3372862).
+        #
+        # When len(values) > 1 the user called fillna({"col": value, ...}) (dict mode).
+        # In that mode Spark silently skips missing dict keys, so we preserve the
+        # original ignore-and-continue behaviour for dict mode.
+        #
+        # Nested / fully-qualified paths (e.g. "struct_col.field") are not fully
+        # validated in SCOS — missing nested fields are silently ignored regardless of
+        # mode (tracked separately).
+        is_subset_mode = len(rel.fill_na.values) == 1
+
         columns: list[str] = []
         valid_indices: list[int] = []
         for i, c in enumerate(spark_col_names):
+            col_parts = split_fully_qualified_spark_name(c)
+            base_col = col_parts[0]
+            is_nested = len(col_parts) > 1
             try:
                 col_name = input_container.column_map.get_snowpark_column_name_from_spark_column_name(
-                    split_fully_qualified_spark_name(c)[0]
+                    base_col
                 )
                 columns.append(col_name)
                 valid_indices.append(i)
             except Exception:
-                # Column doesn't exist, skip it (Spark behavior is to silently ignore)
-                pass
+                if c == "*":
+                    # col("*") refers to a literal column named "*", not a wildcard.
+                    # Spark silently ignores it when no such column exists.
+                    continue
+                if is_subset_mode and not is_nested:
+                    # Top-level column missing in subset mode — raise immediately,
+                    # matching Spark behaviour.
+                    available_cols = input_container.column_map.get_spark_columns()
+                    exception = AnalysisException(
+                        f"[UNRESOLVED_COLUMN.WITH_SUGGESTION] A column or function parameter with name `{c}` cannot be resolved. "
+                        f"Did you mean one of the following? [{', '.join(f'`{col}`' for col in available_cols)}]."
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.COLUMN_NOT_FOUND)
+                    raise exception
+                # Otherwise (dict mode or nested path): silently skip the missing column.
 
         raw_values = [get_literal_field_and_name(v)[0] for v in rel.fill_na.values]
         if len(raw_values) == 1:
@@ -505,6 +532,8 @@ def map_union(
         columns_to_restore: dict[str, tuple[str, str]] = {}
 
         original_right_schema = right_df.schema
+        original_left_schema = left_df.schema
+
         right_renamed_fields = []
         for field in original_right_schema.fields:
             spark_name = (
@@ -512,9 +541,13 @@ def map_union(
                     field.name
                 )
             )
-            columns_to_restore[spark_name.upper()] = (spark_name, field.name)
+            new_field_name = union_restorable_name(spark_name)
+            columns_to_restore[new_field_name] = (
+                spark_name,
+                field.name,
+            )
             right_renamed_fields.append(
-                StructField(spark_name, field.datatype, field.nullable)
+                StructField(new_field_name, field.datatype, field.nullable)
             )
         if right_renamed_fields:
             right_df = right_df.select(
@@ -527,7 +560,6 @@ def map_union(
             )
         set_schema_getter(right_df, lambda: StructType(right_renamed_fields))
 
-        original_left_schema = left_df.schema
         left_renamed_fields = []
         for field in original_left_schema.fields:
             spark_name = (
@@ -535,9 +567,13 @@ def map_union(
                     field.name
                 )
             )
-            columns_to_restore[spark_name.upper()] = (spark_name, field.name)
+            new_field_name = union_restorable_name(spark_name)
+            columns_to_restore[new_field_name] = (
+                spark_name,
+                field.name,
+            )
             left_renamed_fields.append(
-                StructField(spark_name, field.datatype, field.nullable)
+                StructField(new_field_name, field.datatype, field.nullable)
             )
         if left_renamed_fields:
             left_df = left_df.select(
@@ -573,7 +609,7 @@ def map_union(
         select_exprs = []
         for col_ in result.columns:
             spark_col_to_restore, snowpark_col_to_restore = columns_to_restore[
-                col_.upper()
+                union_restorable_name(col_)
             ]
             select_exprs.append(col(col_).alias(snowpark_col_to_restore))
             spark_columns.append(spark_col_to_restore)
@@ -1166,10 +1202,13 @@ def _union_by_name_optimized(
             set_schema_getter(result, lambda: StructType(result_fields))
             return result
         else:
-            exception = (
-                SnowparkClientExceptionMessages.DF_CANNOT_RESOLVE_COLUMN_NAME_AMONG(
-                    missing_left, missing_right
-                )
+            parts = []
+            for column in missing_left:
+                parts.append(f"`{column}` is in the right hand side, but not the left")
+            for column in missing_right:
+                parts.append(f"`{column}` is in the left hand side, but not the right")
+            exception = AnalysisException(
+                f"Cannot union the DataFrames by column names. {'. '.join(parts)}."
             )
             attach_custom_error_code(exception, ErrorCodes.COLUMN_NOT_FOUND)
             raise exception

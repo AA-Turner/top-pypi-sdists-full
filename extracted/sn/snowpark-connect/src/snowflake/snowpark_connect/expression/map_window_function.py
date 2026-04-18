@@ -38,6 +38,71 @@ RANGE_BASED_WINDOW_FRAME_ONLY_SNOWFLAKE_FUNCTIONS = frozenset(["percent_rank"])
 CAPITAL_FUNCTION_NAMES = frozenset(["rank()", "dense_rank()", "percent_rank()"])
 
 
+def try_eval_foldable_boundary_int(
+    boundary_exp: expressions_proto.Expression,
+) -> int | None:
+    """Fold a window frame boundary expression into an integer when possible.
+
+    Args:
+        boundary_exp: Spark Connect expression proto for a frame boundary value.
+
+    Returns:
+        An ``int`` when the expression can be folded locally from supported
+        integral forms, otherwise ``None`` so callers can use the fallback path.
+
+    Supported forms are integral literals, unary ``positive``/``negative`` (and
+    ``unary_minus``), and binary ``+``, ``-``, ``*``, and ``/``. Division is
+    folded only when it is exact and denominator is non-zero. ``//`` is
+    intentionally unsupported because Connect arithmetic expressions use ``/``.
+    """
+    expr_type = boundary_exp.WhichOneof("expr_type")
+    if expr_type == "literal":
+        literal_type = boundary_exp.literal.WhichOneof("literal_type")
+        if literal_type not in ("byte", "short", "integer", "long"):
+            return None
+        literal, _ = get_literal_field_and_name(boundary_exp.literal)
+        return int(literal)
+
+    if expr_type != "unresolved_function":
+        return None
+
+    unresolved_function = boundary_exp.unresolved_function
+    function_name = unresolved_function.function_name.lower()
+    arguments = unresolved_function.arguments
+
+    if function_name in ("unary_minus", "negative"):
+        if len(arguments) != 1:
+            return None
+        value = try_eval_foldable_boundary_int(arguments[0])
+        return None if value is None else -value
+
+    if function_name == "positive":
+        if len(arguments) != 1:
+            return None
+        return try_eval_foldable_boundary_int(arguments[0])
+
+    if function_name in ("+", "-", "*", "/"):
+        if len(arguments) != 2:
+            return None
+        left = try_eval_foldable_boundary_int(arguments[0])
+        right = try_eval_foldable_boundary_int(arguments[1])
+        if left is None or right is None:
+            return None
+        if function_name == "+":
+            return left + right
+        if function_name == "-":
+            return left - right
+        if function_name == "*":
+            return left * right
+        if right == 0:
+            return None
+        if left % right != 0:
+            return None
+        return left // right
+
+    return None
+
+
 def map_window_function(
     exp: expressions_proto.Expression,
     column_mapping: ColumnNameMap,
@@ -61,10 +126,14 @@ def map_window_function(
                 else:
                     return "UNBOUNDED PRECEDING", snowpark.Window.UNBOUNDED_PRECEDING
             elif boundary.HasField("value"):
-                # the expression has to be literal of int in the case of rows_between or range_betwen
+                # Preserve legacy behavior for literal boundaries and only fold
+                # non-literal expressions incrementally.
                 if boundary.value.HasField("literal"):
                     literal, _ = get_literal_field_and_name(boundary.value.literal)
                 else:
+                    # try to eval the boundary first, fallback to send snowflake query if failed.
+                    literal = try_eval_foldable_boundary_int(boundary.value)
+                if not boundary.value.HasField("literal") and literal is None:
                     expr_proto = boundary.value
                     session = snowpark.Session.get_active_session()
                     m = ColumnNameMap([], [], None)

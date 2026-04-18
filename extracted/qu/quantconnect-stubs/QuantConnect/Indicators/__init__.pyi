@@ -4794,6 +4794,63 @@ class SimpleMovingAverage(QuantConnect.Indicators.WindowIndicator[QuantConnect.I
         ...
 
 
+class PythonIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.IBaseData], QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
+    """Provides a wrapper for IndicatorBase{IBaseData} implementations written in python"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @property
+    def warm_up_period(self) -> int:
+        """Required period, in data points, for the indicator to be ready and fully initialized"""
+        ...
+
+    @warm_up_period.setter
+    def warm_up_period(self, value: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, indicator: typing.Any) -> None:
+        """
+        Initializes a new instance of the PythonIndicator class using the specified name.
+        
+        :param indicator: The python implementation of IndicatorBase{IBaseDataBar}
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the PythonIndicator class using the specified name."""
+        ...
+
+    @overload
+    def __init__(self, *args: typing.Union[typing.Any, typing.Iterable[typing.Any]]) -> None:
+        """Initializes a new instance of the PythonIndicator class using the specified name."""
+        ...
+
+    def compute_next_value(self, input: QuantConnect.Data.IBaseData) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        
+        This codeEntityType is protected.
+        
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def set_indicator(self, indicator: typing.Any) -> None:
+        """
+        Sets the python implementation of the indicator
+        
+        :param indicator: The python implementation of IndicatorBase{IBaseDataBar}
+        """
+        ...
+
+
 class IndicatorExtensions(System.Object):
     """Provides extension methods for Indicator"""
 
@@ -5165,7 +5222,7 @@ class IndicatorExtensions(System.Object):
         ...
 
     @staticmethod
-    def update(indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], time: typing.Union[datetime.datetime, datetime.date], value: float) -> bool:
+    def update(indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], time: typing.Union[datetime.datetime, datetime.date], value: float) -> bool:
         """
         Updates the state of this indicator with the given value and returns true
         if this indicator is ready, false otherwise
@@ -8876,63 +8933,6 @@ class AccumulationDistributionOscillator(QuantConnect.Indicators.TradeBarIndicat
 
     def reset(self) -> None:
         """Resets this indicator to its initial state"""
-        ...
-
-
-class PythonIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.IBaseData], QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
-    """Provides a wrapper for IndicatorBase{IBaseData} implementations written in python"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @property
-    def warm_up_period(self) -> int:
-        """Required period, in data points, for the indicator to be ready and fully initialized"""
-        ...
-
-    @warm_up_period.setter
-    def warm_up_period(self, value: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, indicator: typing.Any) -> None:
-        """
-        Initializes a new instance of the PythonIndicator class using the specified name.
-        
-        :param indicator: The python implementation of IndicatorBase{IBaseDataBar}
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the PythonIndicator class using the specified name."""
-        ...
-
-    @overload
-    def __init__(self, *args: typing.Union[typing.Any, typing.Iterable[typing.Any]]) -> None:
-        """Initializes a new instance of the PythonIndicator class using the specified name."""
-        ...
-
-    def compute_next_value(self, input: QuantConnect.Data.IBaseData) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        
-        This codeEntityType is protected.
-        
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def set_indicator(self, indicator: typing.Any) -> None:
-        """
-        Sets the python implementation of the indicator
-        
-        :param indicator: The python implementation of IndicatorBase{IBaseDataBar}
-        """
         ...
 
 

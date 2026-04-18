@@ -46,15 +46,18 @@ class GcpStorageIntegrationConfig(_message.Message):
     def __init__(self, bucket_name: _Optional[str] = ..., service_account: _Optional[str] = ...) -> None: ...
 
 class SnowflakeStorageIntegration(_message.Message):
-    __slots__ = ("s3", "gcp")
+    __slots__ = ("s3", "gcp", "integration_name")
     S3_FIELD_NUMBER: _ClassVar[int]
     GCP_FIELD_NUMBER: _ClassVar[int]
+    INTEGRATION_NAME_FIELD_NUMBER: _ClassVar[int]
     s3: S3StorageIntegrationConfig
     gcp: GcpStorageIntegrationConfig
+    integration_name: str
     def __init__(
         self,
         s3: _Optional[_Union[S3StorageIntegrationConfig, _Mapping]] = ...,
         gcp: _Optional[_Union[GcpStorageIntegrationConfig, _Mapping]] = ...,
+        integration_name: _Optional[str] = ...,
     ) -> None: ...
 
 class SnowflakeCredentialsInput(_message.Message):

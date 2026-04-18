@@ -69,6 +69,7 @@ __all__ = (
     "DeleteCampaignChannelSubtypeConfigRequestTypeDef",
     "DeleteCampaignCommunicationLimitsRequestTypeDef",
     "DeleteCampaignCommunicationTimeRequestTypeDef",
+    "DeleteCampaignEntryLimitsRequestTypeDef",
     "DeleteCampaignRequestTypeDef",
     "DeleteConnectInstanceConfigRequestTypeDef",
     "DeleteConnectInstanceIntegrationRequestTypeDef",
@@ -83,6 +84,7 @@ __all__ = (
     "EmailOutboundModeTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EncryptionConfigTypeDef",
+    "EntryLimitsConfigTypeDef",
     "EventTriggerTypeDef",
     "FailedCampaignStateResponseTypeDef",
     "FailedProfileOutboundRequestTypeDef",
@@ -176,6 +178,7 @@ __all__ = (
     "UpdateCampaignChannelSubtypeConfigRequestTypeDef",
     "UpdateCampaignCommunicationLimitsRequestTypeDef",
     "UpdateCampaignCommunicationTimeRequestTypeDef",
+    "UpdateCampaignEntryLimitsRequestTypeDef",
     "UpdateCampaignFlowAssociationRequestTypeDef",
     "UpdateCampaignNameRequestTypeDef",
     "UpdateCampaignScheduleRequestTypeDef",
@@ -199,6 +202,10 @@ InstanceIdFilterTypeDef = TypedDict(
         "operator": Literal["Eq"],
     },
 )
+
+class EntryLimitsConfigTypeDef(TypedDict):
+    maxEntryCount: int
+    minEntryInterval: str
 
 class ScheduleOutputTypeDef(TypedDict):
     startTime: datetime
@@ -273,6 +280,12 @@ DeleteCampaignCommunicationTimeRequestTypeDef = TypedDict(
     {
         "id": str,
         "config": CommunicationTimeConfigTypeType,
+    },
+)
+DeleteCampaignEntryLimitsRequestTypeDef = TypedDict(
+    "DeleteCampaignEntryLimitsRequestTypeDef",
+    {
+        "id": str,
     },
 )
 DeleteCampaignRequestTypeDef = TypedDict(
@@ -515,6 +528,13 @@ class TelephonyOutboundConfigTypeDef(TypedDict):
 class CampaignFiltersTypeDef(TypedDict):
     instanceIdFilter: NotRequired[InstanceIdFilterTypeDef]
 
+UpdateCampaignEntryLimitsRequestTypeDef = TypedDict(
+    "UpdateCampaignEntryLimitsRequestTypeDef",
+    {
+        "id": str,
+        "entryLimitsConfig": EntryLimitsConfigTypeDef,
+    },
+)
 CampaignSummaryTypeDef = TypedDict(
     "CampaignSummaryTypeDef",
     {
@@ -525,6 +545,7 @@ CampaignSummaryTypeDef = TypedDict(
         "channelSubtypes": list[ChannelSubtypeType],
         "type": NotRequired[ExternalCampaignTypeType],
         "schedule": NotRequired[ScheduleOutputTypeDef],
+        "entryLimitsConfig": NotRequired[EntryLimitsConfigTypeDef],
         "connectCampaignFlowArn": NotRequired[str],
     },
 )
@@ -866,6 +887,7 @@ CampaignTypeDef = TypedDict(
         "source": NotRequired[SourceTypeDef],
         "connectCampaignFlowArn": NotRequired[str],
         "schedule": NotRequired[ScheduleOutputTypeDef],
+        "entryLimitsConfig": NotRequired[EntryLimitsConfigTypeDef],
         "communicationTimeConfig": NotRequired[CommunicationTimeConfigOutputTypeDef],
         "communicationLimitsOverride": NotRequired[CommunicationLimitsConfigOutputTypeDef],
         "tags": NotRequired[dict[str, str]],
@@ -896,6 +918,7 @@ CreateCampaignRequestTypeDef = TypedDict(
         "source": NotRequired[SourceTypeDef],
         "connectCampaignFlowArn": NotRequired[str],
         "schedule": NotRequired[ScheduleUnionTypeDef],
+        "entryLimitsConfig": NotRequired[EntryLimitsConfigTypeDef],
         "communicationTimeConfig": NotRequired[CommunicationTimeConfigUnionTypeDef],
         "communicationLimitsOverride": NotRequired[CommunicationLimitsConfigUnionTypeDef],
         "tags": NotRequired[Mapping[str, str]],

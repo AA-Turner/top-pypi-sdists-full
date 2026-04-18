@@ -2,7 +2,9 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+import os
 import threading
+from collections import defaultdict
 from collections.abc import Callable
 from typing import Dict, Tuple
 
@@ -16,6 +18,50 @@ df_cache_map: Dict[Tuple[str, any], DataFrameContainer] = {}
 
 # reentrant lock for thread safety
 _cache_map_lock = threading.RLock()
+
+# Cross-request memo for map_relation results (lazy DataFrameContainer).
+# Per-session dict; accumulates during AnalyzePlan calls, cleared at the end
+# of each ExecutePlan RPC in server.py's finally block.
+_analyze_memo_lock = threading.RLock()
+_analyze_memo: Dict[str, Dict[int, DataFrameContainer]] = defaultdict(dict)
+_ANALYZE_MEMO_DISABLED = os.environ.get(
+    "SNOWPARK_CONNECT_ANALYZE_MEMO_DISABLED", ""
+).lower() in ("1", "true", "yes")
+
+
+def analyze_memo_get(key: Tuple[str, int]) -> DataFrameContainer | None:
+    if _ANALYZE_MEMO_DISABLED:
+        return None
+    session_id, plan_id = key
+    with _analyze_memo_lock:
+        session_map = _analyze_memo.get(session_id)
+        if session_map is None or plan_id not in session_map:
+            return None
+        return session_map[plan_id]
+
+
+def analyze_memo_put(key: Tuple[str, int], value: DataFrameContainer) -> None:
+    if _ANALYZE_MEMO_DISABLED:
+        return
+    session_id, plan_id = key
+    with _analyze_memo_lock:
+        _analyze_memo[session_id][plan_id] = value
+
+
+def analyze_memo_pop(key: Tuple[str, int]) -> None:
+    session_id, plan_id = key
+    with _analyze_memo_lock:
+        session_map = _analyze_memo.get(session_id)
+        if session_map is None:
+            return
+        session_map.pop(plan_id, None)
+        if len(session_map) == 0:
+            del _analyze_memo[session_id]
+
+
+def analyze_memo_clear_session(session_id: str) -> None:
+    with _analyze_memo_lock:
+        _analyze_memo.pop(session_id, None)
 
 
 def df_cache_map_get(key: Tuple[str, any]) -> DataFrameContainer | None:

@@ -1359,7 +1359,7 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         """
         ...
 
-    def split_packets(self, delta_charts: System.Collections.Generic.Dictionary[str, QuantConnect.Chart], delta_orders: System.Collections.Generic.Dictionary[int, QuantConnect.Orders.Order], runtime_statistics: System.Collections.Generic.SortedDictionary[str, str], progress: float, server_statistics: System.Collections.Generic.Dictionary[str, str], algorithm_performance: QuantConnect.Statistics.AlgorithmPerformance) -> typing.Iterable[QuantConnect.Packets.BacktestResultPacket]:
+    def split_packets(self, delta_charts: System.Collections.Generic.Dictionary[str, QuantConnect.Chart], delta_orders: System.Collections.Generic.Dictionary[int, QuantConnect.Orders.Order], runtime_statistics: System.Collections.Generic.SortedDictionary[str, str], progress: float, server_statistics: System.Collections.Generic.Dictionary[str, str], algorithm_performance: QuantConnect.Statistics.AlgorithmPerformance) -> typing.Sequence[QuantConnect.Packets.BacktestResultPacket]:
         """Run over all the data and break it into smaller packets to ensure they all arrive at the terminal"""
         ...
 

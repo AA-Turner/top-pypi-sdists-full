@@ -29,7 +29,7 @@ class CanonicalDataDownloaderDecorator(System.Object, QuantConnect.IDataDownload
         """
         ...
 
-    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Get historical data enumerable for a single symbol, type and resolution given this start and end time (in UTC).
         For canonical symbols, automatically resolves and downloads data for all underlying contracts.

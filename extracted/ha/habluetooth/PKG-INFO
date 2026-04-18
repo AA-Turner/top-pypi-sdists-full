@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: habluetooth
-Version: 6.0.0
+Version: 6.0.1
 Summary: High availability Bluetooth
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: async-interrupt (>=1.1.1)
 Requires-Dist: bleak (>=1.0.1)

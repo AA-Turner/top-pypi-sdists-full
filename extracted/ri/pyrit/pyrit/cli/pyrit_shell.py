@@ -33,7 +33,7 @@ class PyRITShell(cmd.Cmd):
     Commands:
         list-scenarios             - List all available scenarios
         list-initializers          - List all available initializers
-        list-targets               - List all available targets from the registry
+        list-targets [opts]        - List all available targets from the registry
         run <scenario> [opts]      - Run a scenario with optional parameters
         scenario-history           - List all previous scenario runs
         print-scenario [N]         - Print detailed results for scenario run(s)
@@ -189,6 +189,9 @@ class PyRITShell(cmd.Cmd):
 
     def do_list_scenarios(self, arg: str) -> None:
         """List all available scenarios."""
+        if arg.strip():
+            print(f"Error: list-scenarios does not accept arguments, got: {arg.strip()}")
+            return
         self._ensure_initialized()
         try:
             asyncio.run(self._fc.print_scenarios_list_async(context=self.context))
@@ -197,19 +200,53 @@ class PyRITShell(cmd.Cmd):
 
     def do_list_initializers(self, arg: str) -> None:
         """List all available initializers."""
+        if arg.strip():
+            print(f"Error: list-initializers does not accept arguments, got: {arg.strip()}")
+            return
         self._ensure_initialized()
         try:
-            # Discover from scenarios directory by default (same as scan)
-            discovery_path = self._fc.get_default_initializer_discovery_path()
-            asyncio.run(self._fc.print_initializers_list_async(context=self.context, discovery_path=discovery_path))
+            asyncio.run(self._fc.print_initializers_list_async(context=self.context))
         except Exception as e:
             print(f"Error listing initializers: {e}")
 
     def do_list_targets(self, arg: str) -> None:
-        """List all available targets from the TargetRegistry."""
+        """
+        List all available targets from the TargetRegistry.
+
+        Usage:
+            list-targets
+            list-targets --initializers <name> [<name> ...]
+            list-targets --initialization-scripts <path> [<path> ...]
+
+        Options:
+            --initializers <name> ...       Built-in initializers to run first
+            --initialization-scripts <...>  Custom Python scripts to run first
+
+        Examples:
+            list-targets --initializers target
+            list-targets --initializers target:tags=default,scorer
+        """
         self._ensure_initialized()
         try:
-            asyncio.run(self._fc.print_targets_list_async(context=self.context))
+            list_targets_context = self.context
+            if arg.strip():
+                args = self._fc.parse_list_targets_arguments(args_string=arg)
+
+                resolved_scripts = None
+                if args["initialization_scripts"]:
+                    resolved_scripts = self._fc.resolve_initialization_scripts(
+                        script_paths=args["initialization_scripts"]
+                    )
+                list_targets_context = self.context.with_overrides(
+                    initialization_scripts=resolved_scripts,
+                    initializer_names=args["initializers"],
+                )
+
+            asyncio.run(self._fc.print_targets_list_async(context=list_targets_context))
+        except ValueError as e:
+            print(f"Error: {e}")
+        except FileNotFoundError as e:
+            print(f"Error: {e}")
         except Exception as e:
             print(f"Error listing targets: {e}")
 
@@ -231,22 +268,22 @@ class PyRITShell(cmd.Cmd):
             --log-level <level>             Override default log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 
         Examples:
-            run garak.encoding --target my_target --initializers targets \
+            run garak.encoding --target my_target --initializers target \
                 load_default_datasets
-            run garak.encoding --target my_target --initializers targets \
+            run garak.encoding --target my_target --initializers target \
                 load_default_datasets --strategies base64 rot13
-            run foundry --target my_target --initializers targets:tags=default,scorer \
+            run foundry.red_team_agent --target my_target --initializers target:tags=default,scorer \
                 dataset:mode=strict --strategies base64
-            run foundry --target my_target --initializers targets \
+            run foundry.red_team_agent --target my_target --initializers target \
                 load_default_datasets --max-concurrency 10 --max-retries 3
-            run garak.encoding --target my_target --initializers targets \
+            run garak.encoding --target my_target --initializers target \
                 load_default_datasets \
                 --memory-labels '{"run_id":"test123","env":"dev"}'
-            run foundry --target my_target --initializers targets \
+            run foundry.red_team_agent --target my_target --initializers target \
                 load_default_datasets -s jailbreak crescendo
-            run garak.encoding --target my_target --initializers targets \
+            run garak.encoding --target my_target --initializers target \
                 load_default_datasets --log-level DEBUG
-            run foundry --target my_target --initialization-scripts ./my_custom_init.py -s all
+            run foundry.red_team_agent --target my_target --initialization-scripts ./my_custom_init.py -s all
 
         Note:
             --target is required for every run.
@@ -274,7 +311,7 @@ class PyRITShell(cmd.Cmd):
                 "  --log-level <level>             Override default log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
             )
             print("\nExample:")
-            print("  run foundry --target my_target --initializers targets load_default_datasets")
+            print("  run foundry.red_team_agent --target my_target --initializers target load_default_datasets")
             print("\nType 'help run' for more details and examples")
             return
 
@@ -294,16 +331,13 @@ class PyRITShell(cmd.Cmd):
                 print(f"Error: {e}")
                 return
 
-        # Create a context for this run with overrides
-        run_context = self._fc.FrontendCore(
-            initialization_scripts=resolved_scripts,
+        # Create a context for this run with per-command overrides,
+        # inheriting config_file, database, and env_files from startup.
+        run_context = self.context.with_overrides(
             initializer_names=args["initializers"],
-            log_level=args["log_level"] if args["log_level"] else self.default_log_level,
+            initialization_scripts=resolved_scripts,
+            log_level=args["log_level"],
         )
-        # Use the existing registries (don't reinitialize)
-        run_context._scenario_registry = self.context._scenario_registry
-        run_context._initializer_registry = self.context._initializer_registry
-        run_context._initialized = True
 
         try:
             result = asyncio.run(
@@ -321,6 +355,8 @@ class PyRITShell(cmd.Cmd):
             )
             # Store the command and result in history
             self._scenario_history.append((line, result))
+        except KeyboardInterrupt:
+            print("\n\nScenario interrupted. Returning to shell.")
         except ValueError as e:
             print(f"Error: {e}")
         except Exception as e:
@@ -338,6 +374,9 @@ class PyRITShell(cmd.Cmd):
 
         Shows a numbered list of all scenario runs with the commands used.
         """
+        if arg.strip():
+            print(f"Error: scenario-history does not accept arguments, got: {arg.strip()}")
+            return
         if not self._scenario_history:
             print("No scenario runs in history.")
             return
@@ -429,20 +468,21 @@ class PyRITShell(cmd.Cmd):
             print("=" * 70)
             print("  --target <name>  (REQUIRED)")
             print(f"      {ARG_HELP['target']}")
-            print("      Example: run foundry --target my_target --initializers targets load_default_datasets")
+            print("      Example: run foundry.red_team_agent --target my_target")
+            print("               --initializers target load_default_datasets")
             print()
             print("  --initializers <name> [<name> ...]")
             print(f"      {ARG_HELP['initializers']}")
-            print("      Example: run foundry --target my_target --initializers targets load_default_datasets")
-            print("      With params: run foundry --target my_target --initializers targets:tags=default,scorer")
-            print(
-                "      Multiple with params: run foundry --target my_target"
-                " --initializers targets:tags=default,scorer dataset:mode=strict"
-            )
+            print("      Example: run foundry.red_team_agent --target my_target")
+            print("               --initializers target load_default_datasets")
+            print("      With params: run foundry.red_team_agent --target my_target")
+            print("               --initializers target:tags=default,scorer")
+            print("      Multiple with params: run foundry.red_team_agent --target my_target")
+            print("               --initializers target:tags=default,scorer dataset:mode=strict")
             print()
             print("  --initialization-scripts <path> [<path> ...]  (Alternative to --initializers)")
             print(f"      {ARG_HELP['initialization_scripts']}")
-            print("      Example: run foundry --initialization-scripts ./my_init.py")
+            print("      Example: run foundry.red_team_agent --initialization-scripts ./my_init.py")
             print()
             print("  --strategies, -s <s1> [<s2> ...]")
             print(f"      {ARG_HELP['scenario_strategies']}")
@@ -456,7 +496,7 @@ class PyRITShell(cmd.Cmd):
             print()
             print("  --memory-labels <JSON>")
             print(f"      {ARG_HELP['memory_labels']}")
-            print('      Example: run foundry --memory-labels \'{"env":"test"}\'')
+            print('      Example: run foundry.red_team_agent --memory-labels \'{"env":"test"}\'')
             print()
             print("  --log-level <level>             Override (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
             print()
@@ -466,8 +506,9 @@ class PyRITShell(cmd.Cmd):
             print("  pyrit_shell")
             print("  pyrit_shell --config-file ./my_config.yaml --log-level DEBUG")
         else:
-            # Show help for specific command
-            super().do_help(arg)
+            # Convert hyphens to underscores (e.g. help list-targets -> help list_targets) for command lookup
+            normalized_arg = arg.replace("-", "_")
+            super().do_help(normalized_arg)
 
     def do_exit(self, arg: str) -> bool:
         """

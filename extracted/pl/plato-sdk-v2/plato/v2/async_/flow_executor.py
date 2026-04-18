@@ -27,27 +27,43 @@ from plato._generated.models import (
     WaitForUrlStep,
     WaitStep,
 )
+from plato.v2.async_.flow_backends import FlowBackend, FlowExecutionError, PlaywrightBackend
 
 logger = logging.getLogger(__name__)
 
-
-class FlowExecutionError(Exception):
-    """Raised when a flow step fails."""
-
-    pass
+__all__ = ["FlowExecutionError", "FlowExecutor"]
 
 
 class FlowExecutor:
-    """Executes configurable flows for simulator interactions (async)."""
+    """Executes configurable flows for simulator interactions (async).
+
+    The executor is decoupled from its execution environment via
+    :class:`~plato.v2.async_.flow_backends.FlowBackend`. Passing ``page`` keeps
+    the historical Playwright-backed behaviour; passing ``backend`` allows
+    alternate backends (e.g. ``AgentBrowserBackend``) that drive the flow
+    against a different browser surface.
+    """
 
     def __init__(
         self,
-        page: Page,
-        flow: Flow,
+        page: Page | None = None,
+        flow: Flow | None = None,
         screenshots_dir: Path | None = None,
         log: logging.Logger | None = None,
+        *,
+        backend: FlowBackend | None = None,
     ):
+        if flow is None:
+            raise TypeError("FlowExecutor requires a `flow` argument")
+        if backend is not None and page is not None:
+            raise TypeError("Pass `page` or `backend`, not both")
+        if backend is None:
+            if page is None:
+                raise TypeError("FlowExecutor requires `page` or `backend`")
+            backend = PlaywrightBackend(page)
+
         self.page = page
+        self.backend = backend
         self.flow = flow
         self.screenshots_dir = screenshots_dir
         if self.screenshots_dir:
@@ -55,13 +71,15 @@ class FlowExecutor:
         self.base_url: str | None = None
         self.log = log or logger
 
-    def _resolve_url(self, url: str) -> str:
+    async def _resolve_url(self, url: str) -> str:
         """Resolve a URL against the base URL if it's relative."""
         if url.startswith(("http://", "https://")):
             return url
 
-        if not self.base_url and self.page.url:
-            self.base_url = self.page.url
+        if not self.base_url:
+            current = await self.backend.current_url()
+            if current:
+                self.base_url = current
 
         if self.base_url:
             return urljoin(self.base_url, url)
@@ -114,163 +132,78 @@ class FlowExecutor:
 
     async def _wait_for_selector(self, step: WaitForSelectorStep) -> None:
         try:
-            await self.page.wait_for_selector(step.selector, timeout=step.timeout)
+            await self.backend.wait_for_selector(step.selector, step.timeout)
             self.log.info(f"✅ Selector found: {step.selector}")
+        except FlowExecutionError:
+            raise
         except Exception as e:
             raise FlowExecutionError(f"Selector not found: {step.selector} - {e}") from e
 
     async def _click(self, step: ClickStep) -> None:
         try:
-            await self.page.wait_for_selector(step.selector, timeout=step.timeout)
-            await self.page.click(step.selector)
+            await self.backend.click(step.selector, step.timeout)
             self.log.info(f"✅ Clicked: {step.selector}")
+        except FlowExecutionError:
+            raise
         except Exception as e:
             raise FlowExecutionError(f"Failed to click: {step.selector} - {e}") from e
 
     async def _fill(self, step: FillStep) -> None:
         value = step.value
         try:
-            await self.page.wait_for_selector(step.selector, timeout=step.timeout)
-            await self.page.fill(step.selector, str(value))
+            await self.backend.fill(step.selector, str(value), step.timeout)
             display_value = "*" * len(str(value)) if "password" in step.selector.lower() else str(value)
             self.log.info(f"✅ Filled {step.selector} with: {display_value}")
+        except FlowExecutionError:
+            raise
         except Exception as e:
             raise FlowExecutionError(f"Failed to fill: {step.selector} - {e}") from e
 
     async def _wait(self, step: WaitStep) -> None:
         try:
-            await self.page.wait_for_timeout(step.duration)
+            await self.backend.wait(step.duration)
             self.log.info(f"✅ Waited {step.duration}ms")
+        except FlowExecutionError:
+            raise
         except Exception as e:
             raise FlowExecutionError(f"Wait failed: {e}") from e
 
     async def _navigate(self, step: NavigateStep) -> None:
         try:
-            resolved_url = self._resolve_url(step.url)
-            await self.page.goto(resolved_url)
+            resolved_url = await self._resolve_url(step.url)
+            await self.backend.navigate(resolved_url)
             self.log.info(f"✅ Navigated to: {resolved_url}")
-            self.base_url = self.page.url
+            self.base_url = await self.backend.current_url()
+        except FlowExecutionError:
+            raise
         except Exception as e:
             raise FlowExecutionError(f"Navigation failed: {step.url} - {e}") from e
 
     async def _wait_for_url(self, step: WaitForUrlStep) -> None:
         try:
-            await self.page.wait_for_function(
-                f"window.location.href.includes('{step.url_contains}')",
-                timeout=step.timeout,
-            )
+            await self.backend.wait_for_url(step.url_contains, step.timeout)
             self.log.info(f"✅ URL contains: {step.url_contains}")
+        except FlowExecutionError:
+            raise
         except Exception as e:
             raise FlowExecutionError(f"URL check failed: {step.url_contains} - {e}") from e
 
     async def _check_element(self, step: CheckElementStep) -> None:
         try:
-            element = await self.page.query_selector(step.selector)
-            exists = element is not None
-
-            if step.should_exist and exists:
+            await self.backend.check_element(step.selector, step.should_exist)
+            if step.should_exist:
                 self.log.info(f"✅ Element exists as expected: {step.selector}")
-                return
-            elif not step.should_exist and not exists:
-                self.log.info(f"✅ Element absent as expected: {step.selector}")
-                return
             else:
-                raise FlowExecutionError(
-                    f"Element check failed: {step.selector} (expected: {step.should_exist}, found: {exists})"
-                )
+                self.log.info(f"✅ Element absent as expected: {step.selector}")
         except FlowExecutionError:
             raise
         except Exception as e:
             raise FlowExecutionError(f"Element check error: {step.selector} - {e}") from e
 
     async def _verify(self, step: VerifyStep) -> None:
-        handlers = {
-            "element_exists": self._verify_element_exists,
-            "element_visible": self._verify_element_visible,
-            "element_text": self._verify_element_text,
-            "element_count": self._verify_element_count,
-            "page_title": self._verify_page_title,
-        }
-        vt = step.verify_type
-        verify_key = vt.value if hasattr(vt, "value") else vt
-        handler = handlers.get(str(verify_key))
-        if handler:
-            await handler(step)
-            return
-        raise FlowExecutionError(f"Unknown verification type: {step.verify_type}")
-
-    async def _verify_element_exists(self, step: VerifyStep) -> None:
         try:
-            element = await self.page.query_selector(step.selector) if step.selector else None
-            if element:
-                self.log.info(f"✅ Element exists: {step.selector}")
-                return
-            raise FlowExecutionError(f"Element not found: {step.selector}")
-        except FlowExecutionError:
-            raise
-        except Exception as e:
-            raise FlowExecutionError(f"Verification error: {step.selector} - {e}") from e
-
-    async def _verify_element_visible(self, step: VerifyStep) -> None:
-        try:
-            element = await self.page.query_selector(step.selector) if step.selector else None
-            if element and await element.is_visible():
-                self.log.info(f"✅ Element is visible: {step.selector}")
-                return
-            raise FlowExecutionError(f"Element not visible: {step.selector}")
-        except FlowExecutionError:
-            raise
-        except Exception as e:
-            raise FlowExecutionError(f"Verification error: {step.selector} - {e}") from e
-
-    async def _verify_element_text(self, step: VerifyStep) -> None:
-        try:
-            element = await self.page.query_selector(step.selector) if step.selector else None
-            if not element:
-                raise FlowExecutionError(f"Element not found: {step.selector}")
-
-            actual_text = await element.text_content() or ""
-            if step.contains:
-                if step.text and step.text in actual_text:
-                    self.log.info(f"✅ Text contains '{step.text}'")
-                    return
-                raise FlowExecutionError(f"Text '{actual_text}' does not contain '{step.text}'")
-            else:
-                if step.text == actual_text.strip():
-                    self.log.info(f"✅ Text matches '{step.text}'")
-                    return
-                raise FlowExecutionError(f"Text '{actual_text}' does not match '{step.text}'")
-        except FlowExecutionError:
-            raise
-        except Exception as e:
-            raise FlowExecutionError(f"Verification error: {step.selector} - {e}") from e
-
-    async def _verify_element_count(self, step: VerifyStep) -> None:
-        try:
-            elements = await self.page.query_selector_all(step.selector) if step.selector else []
-            actual_count = len(elements)
-            if actual_count == step.count:
-                self.log.info(f"✅ Found {actual_count} elements")
-                return
-            raise FlowExecutionError(f"Expected {step.count} elements, found {actual_count}")
-        except FlowExecutionError:
-            raise
-        except Exception as e:
-            raise FlowExecutionError(f"Verification error: {step.selector} - {e}") from e
-
-    async def _verify_page_title(self, step: VerifyStep) -> None:
-        try:
-            actual_title = await self.page.title()
-            if step.contains:
-                if step.title and step.title in actual_title:
-                    self.log.info(f"✅ Title contains '{step.title}'")
-                    return
-                raise FlowExecutionError(f"Title '{actual_title}' does not contain '{step.title}'")
-            else:
-                if step.title == actual_title:
-                    self.log.info(f"✅ Title matches '{step.title}'")
-                    return
-                raise FlowExecutionError(f"Title '{actual_title}' does not match '{step.title}'")
+            await self.backend.verify(step)
+            self.log.info(f"✅ Verified: {step.verify_type}")
         except FlowExecutionError:
             raise
         except Exception as e:
@@ -288,27 +221,20 @@ class FlowExecutor:
 
             if self.screenshots_dir:
                 screenshot_path = self.screenshots_dir / timestamped_filename
-                await self.page.screenshot(path=str(screenshot_path), full_page=step.full_page)
+                await self.backend.screenshot(screenshot_path, full_page=step.full_page)
                 self.log.info(f"📸 Screenshot: {screenshot_path}")
+        except FlowExecutionError:
+            raise
         except Exception as e:
             raise FlowExecutionError(f"Screenshot failed: {e}") from e
 
     async def _verify_text(self, step: VerifyTextStep) -> None:
         try:
-            page_content = await self.page.content()
-            text_found = step.text in page_content
-
-            if step.should_exist and text_found:
+            await self.backend.verify_text(step.text, step.should_exist)
+            if step.should_exist:
                 self.log.info(f"✅ Text '{step.text}' found on page")
-                return
-            elif not step.should_exist and not text_found:
-                self.log.info(f"✅ Text '{step.text}' not found (as expected)")
-                return
             else:
-                if step.should_exist:
-                    raise FlowExecutionError(f"Text '{step.text}' not found on page")
-                else:
-                    raise FlowExecutionError(f"Text '{step.text}' found (should not exist)")
+                self.log.info(f"✅ Text '{step.text}' not found (as expected)")
         except FlowExecutionError:
             raise
         except Exception as e:
@@ -316,17 +242,11 @@ class FlowExecutor:
 
     async def _verify_url(self, step: VerifyUrlStep) -> None:
         try:
-            current_url = self.page.url
+            await self.backend.verify_url(step.url, step.contains)
             if step.contains:
-                if step.url in current_url:
-                    self.log.info(f"✅ URL contains '{step.url}'")
-                    return
-                raise FlowExecutionError(f"URL '{current_url}' does not contain '{step.url}'")
+                self.log.info(f"✅ URL contains '{step.url}'")
             else:
-                if step.url == current_url:
-                    self.log.info(f"✅ URL matches '{step.url}'")
-                    return
-                raise FlowExecutionError(f"URL '{current_url}' does not match '{step.url}'")
+                self.log.info(f"✅ URL matches '{step.url}'")
         except FlowExecutionError:
             raise
         except Exception as e:
@@ -334,19 +254,8 @@ class FlowExecutor:
 
     async def _verify_no_errors(self, step: VerifyNoErrorsStep) -> None:
         try:
-            errors_found = []
-            for selector in step.error_selectors or []:
-                elements = await self.page.query_selector_all(selector)
-                for element in elements:
-                    if await element.is_visible():
-                        text = await element.text_content()
-                        if text and text.strip():
-                            errors_found.append(f"{selector}: {text.strip()}")
-
-            if not errors_found:
-                self.log.info("✅ No error indicators found")
-                return
-            raise FlowExecutionError(f"Error indicators found: {errors_found}")
+            await self.backend.verify_no_errors(step.error_selectors or [])
+            self.log.info("✅ No error indicators found")
         except FlowExecutionError:
             raise
         except Exception as e:

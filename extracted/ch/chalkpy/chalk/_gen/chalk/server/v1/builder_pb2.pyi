@@ -48,6 +48,12 @@ class TelemetryCollectorTolerationMode(int, metaclass=_enum_type_wrapper.EnumTyp
     TELEMETRY_COLLECTOR_TOLERATION_MODE_NO_SCHEDULE_ALL: _ClassVar[TelemetryCollectorTolerationMode]
     TELEMETRY_COLLECTOR_TOLERATION_MODE_NO_SCHEDULE_ALL_EXCEPT_NO_NETWORK: _ClassVar[TelemetryCollectorTolerationMode]
 
+class OtelCollectorImage(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    OTEL_COLLECTOR_IMAGE_UNSPECIFIED: _ClassVar[OtelCollectorImage]
+    OTEL_COLLECTOR_IMAGE_UPSTREAM_CONTRIB: _ClassVar[OtelCollectorImage]
+    OTEL_COLLECTOR_IMAGE_CHALK_SHARED: _ClassVar[OtelCollectorImage]
+
 class PerfettoTrigger(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     PERFETTO_TRIGGER_UNSPECIFIED: _ClassVar[PerfettoTrigger]
@@ -87,6 +93,9 @@ DEPLOYMENT_BUILD_STATUS_BOOT_ERRORS: DeploymentBuildStatus
 TELEMETRY_COLLECTOR_TOLERATION_MODE_UNSPECIFIED: TelemetryCollectorTolerationMode
 TELEMETRY_COLLECTOR_TOLERATION_MODE_NO_SCHEDULE_ALL: TelemetryCollectorTolerationMode
 TELEMETRY_COLLECTOR_TOLERATION_MODE_NO_SCHEDULE_ALL_EXCEPT_NO_NETWORK: TelemetryCollectorTolerationMode
+OTEL_COLLECTOR_IMAGE_UNSPECIFIED: OtelCollectorImage
+OTEL_COLLECTOR_IMAGE_UPSTREAM_CONTRIB: OtelCollectorImage
+OTEL_COLLECTOR_IMAGE_CHALK_SHARED: OtelCollectorImage
 PERFETTO_TRIGGER_UNSPECIFIED: PerfettoTrigger
 PERFETTO_TRIGGER_TIME_INTERVAL: PerfettoTrigger
 PERFETTO_TRIGGER_HTTP: PerfettoTrigger
@@ -1632,21 +1641,24 @@ class CustomerCollectorConfig(_message.Message):
     def __init__(self, config_yaml: _Optional[str] = ...) -> None: ...
 
 class OtelCollectorSpec(_message.Message):
-    __slots__ = ("otel_collector_version", "request", "limit", "toleration_mode")
+    __slots__ = ("otel_collector_version", "request", "limit", "toleration_mode", "otel_collector_image")
     OTEL_COLLECTOR_VERSION_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     TOLERATION_MODE_FIELD_NUMBER: _ClassVar[int]
+    OTEL_COLLECTOR_IMAGE_FIELD_NUMBER: _ClassVar[int]
     otel_collector_version: str
     request: KubeResourceConfig
     limit: KubeResourceConfig
     toleration_mode: TelemetryCollectorTolerationMode
+    otel_collector_image: OtelCollectorImage
     def __init__(
         self,
         otel_collector_version: _Optional[str] = ...,
         request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         toleration_mode: _Optional[_Union[TelemetryCollectorTolerationMode, str]] = ...,
+        otel_collector_image: _Optional[_Union[OtelCollectorImage, str]] = ...,
     ) -> None: ...
 
 class GpuTelemetrySpec(_message.Message):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import os
@@ -782,22 +783,54 @@ class DevRunner:
                 "serialized_session": serialized.model_dump(mode="json"),
             }
         config_json = json.dumps(config_dict)
-        escaped_config = config_json.replace("'", "'\\''")
-        result = await self.world_env.execute(f"echo '{escaped_config}' > /tmp/config.json", timeout=30)
-        if result.exit_code != 0:
-            raise RuntimeError(f"Failed to write config: {result.stderr}")
+        await self._write_file_to_vm("/tmp/config.json", config_json)
 
-        # Write serialized session to a well-known path so integration tests
-        # running on the VM can reuse the active Plato session.
         if serialized:
             session_json = json.dumps(serialized.model_dump(mode="json"))
-            escaped_session = session_json.replace("'", "'\\''")
+            try:
+                await self._write_file_to_vm("/etc/plato/session.json", session_json, mkdir=True)
+            except RuntimeError as exc:
+                logger.warning("Failed to write session.json: %s", exc)
+
+    async def _write_file_to_vm(self, remote_path: str, content: str, *, mkdir: bool = False) -> None:
+        """Write content to a file on the VM using chunked base64 to avoid ARG_MAX limits."""
+        if not self.world_env:
+            raise RuntimeError("world_env must be initialized")
+        b64 = base64.b64encode(content.encode()).decode()
+        q_path = shlex.quote(remote_path)
+        prefix = f"mkdir -p $(dirname {q_path}) && " if mkdir else ""
+
+        if not b64:
+            result = await self.world_env.execute(f"{prefix}: > {q_path}", timeout=30)
+            if result.exit_code != 0:
+                raise RuntimeError(f"Failed to write {remote_path}: {result.stderr}")
+            return
+
+        q_tmp = shlex.quote(f"{remote_path}.b64tmp")
+        chunk_size = 65536
+        chunks = [b64[i : i + chunk_size] for i in range(0, len(b64), chunk_size)]
+
+        result = await self.world_env.execute(
+            f"{prefix}printf '%s' '{chunks[0]}' > {q_tmp}",
+            timeout=30,
+        )
+        if result.exit_code != 0:
+            raise RuntimeError(f"Failed to write {remote_path}: {result.stderr}")
+
+        for chunk in chunks[1:]:
             result = await self.world_env.execute(
-                f"mkdir -p /etc/plato && echo '{escaped_session}' > /etc/plato/session.json",
+                f"printf '%s' '{chunk}' >> {q_tmp}",
                 timeout=30,
             )
             if result.exit_code != 0:
-                logger.warning("Failed to write session.json: %s", result.stderr)
+                raise RuntimeError(f"Failed to write {remote_path}: {result.stderr}")
+
+        result = await self.world_env.execute(
+            f"base64 -d < {q_tmp} > {q_path} && rm -f {q_tmp}",
+            timeout=30,
+        )
+        if result.exit_code != 0:
+            raise RuntimeError(f"Failed to write {remote_path}: {result.stderr}")
 
     def _print_startup_profile(self) -> None:
         """Print startup timing summary sorted by slowest steps."""
@@ -906,7 +939,7 @@ class DevRunner:
                     old_agent = old_agents.get(name)
                     if old_agent and "image" in old_agent and "image" not in new_agent:
                         new_agent["image"] = old_agent["image"]
-                # Inline config write into the world command to save an SSH round-trip
+                # Write config to VM (chunked to avoid ARG_MAX on large configs)
                 config_dict = self.config.model_dump(mode="json")
                 serialized = self._serialized_session
                 if serialized:
@@ -915,13 +948,13 @@ class DevRunner:
                         "hostname": "localhost",
                         "serialized_session": serialized.model_dump(mode="json"),
                     }
-                config_json = json.dumps(config_dict)
-                escaped_config = config_json.replace("'", "'\\''")
-                write_config_cmd = f"echo '{escaped_config}' > /tmp/config.json; "
+                await self._write_file_to_vm("/tmp/config.json", json.dumps(config_dict))
                 if serialized:
                     session_json = json.dumps(serialized.model_dump(mode="json"))
-                    escaped_session = session_json.replace("'", "'\\''")
-                    write_config_cmd += f"mkdir -p /etc/plato && echo '{escaped_session}' > /etc/plato/session.json; "
+                    try:
+                        await self._write_file_to_vm("/etc/plato/session.json", session_json, mkdir=True)
+                    except RuntimeError as exc:
+                        logger.warning("Failed to write session.json: %s", exc)
 
                 # Only reinstall editable packages on the first run;
                 # subsequent resumes reuse the existing editable install
@@ -949,7 +982,7 @@ class DevRunner:
                 debug_env = self._forwarded_debug_env_assignments()
                 debug_prefix = f"{debug_env} " if debug_env else ""
                 world_cmd = (
-                    f"{write_config_cmd}{reinstall_cmd}"
+                    f"{reinstall_cmd}"
                     f"{debug_prefix}PLATO_API_KEY={shlex.quote(self.api_key)} PLATO_WORLD_DEV_MODE='1' {runner_cmd}"
                 )
 

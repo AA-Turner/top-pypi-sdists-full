@@ -1653,6 +1653,277 @@ def _phase_badge(status: str) -> str:
     return f"[{CHROME}]draft[/{CHROME}]"
 
 
+def _handle_memory_command(user_input: str, *, cmd: str, db: Any, config: AppConfig | None = None) -> None:
+    """Handle /memory and /memories REPL commands.
+
+    Delegates to the shared handlers used by ``aroom memory`` so CLI and
+    REPL stay consistent. Includes propose / candidates / approve / reject
+    from #920 once ``config`` is available — older callers that don't
+    pass ``config`` fall back to #1416's scope (list / show / create /
+    edit / delete) only.
+
+    The memory_cli handlers write to their own module-level ``console``.
+    Redirect it to the shared renderer console for the duration of the
+    call so output lands where the REPL expects it.
+    """
+    import argparse as _argparse
+
+    from . import memory_cli
+    from .memory_cli import (
+        _handle_approve,
+        _handle_candidates,
+        _handle_create,
+        _handle_delete,
+        _handle_edit,
+        _handle_list,
+        _handle_propose,
+        _handle_reject,
+        _handle_show,
+    )
+
+    _saved_console = memory_cli.console
+    memory_cli.console = renderer.console
+    try:
+        _run_memory_subcommand(
+            user_input,
+            cmd=cmd,
+            db=db,
+            config=config,
+            handlers=(_handle_list, _handle_show, _handle_create, _handle_edit, _handle_delete),
+            promotion_handlers=(_handle_propose, _handle_candidates, _handle_approve, _handle_reject),
+            argparse_module=_argparse,
+        )
+    finally:
+        memory_cli.console = _saved_console
+
+
+def _run_memory_subcommand(
+    user_input: str,
+    *,
+    cmd: str,
+    db: Any,
+    config: AppConfig | None = None,
+    handlers: Any,
+    promotion_handlers: Any = None,
+    argparse_module: Any,
+) -> None:
+    """Parse ``/memory <sub> ...`` and dispatch to the matching handler.
+
+    Shell-like tokenisation via :mod:`shlex` preserves quoted multi-word
+    values like ``/memory create --content "hello world"``; plain
+    ``str.split()`` would break the content across tokens.
+    """
+    import shlex as _shlex
+
+    _handle_list, _handle_show, _handle_create, _handle_edit, _handle_delete = handlers
+    _handle_propose, _handle_candidates, _handle_approve, _handle_reject = (
+        promotion_handlers if promotion_handlers is not None else (None, None, None, None)
+    )
+    _argparse = argparse_module
+
+    def _tokenize(raw: str) -> list[str]:
+        if not raw:
+            return []
+        try:
+            return _shlex.split(raw, posix=True)
+        except ValueError:
+            # Unbalanced quote — fall back to whitespace split rather than crash.
+            return raw.split()
+
+    parts = user_input.split(maxsplit=1)
+    tail_raw = parts[1] if len(parts) >= 2 else ""
+    tokens = _tokenize(tail_raw)
+    sub = tokens[0].lower() if tokens else ""
+    rest = tokens[1:]
+
+    if cmd == "/memories":
+        sub = "list"
+        rest = []
+
+    if sub == "" or sub == "list":
+        p = _argparse.ArgumentParser(prog="/memory list", add_help=False)
+        p.add_argument("--scope", choices=("user", "project", "local"))
+        p.add_argument("--status", choices=("active", "candidate", "pending_review", "rejected", "archived"))
+        p.add_argument("--category", choices=("preference", "project_fact", "decision", "workflow_hint"))
+        p.add_argument("--namespace")
+        try:
+            args = p.parse_args(rest)
+        except SystemExit:
+            renderer.console.print(f"[{CHROME}]Usage: /memory list [--scope ...] [--status ...][/{CHROME}]\n")
+            return
+        _handle_list(db, args)
+        return
+
+    if sub == "show":
+        if not rest:
+            renderer.console.print(f"[{CHROME}]Usage: /memory show <fqn>[/{CHROME}]\n")
+            return
+        try:
+            _handle_show(db, _argparse.Namespace(fqn=rest[0]))
+        except SystemExit:
+            pass
+        return
+
+    if sub == "create":
+        p = _argparse.ArgumentParser(prog="/memory create", add_help=False)
+        p.add_argument("--content", required=True)
+        p.add_argument("--scope", required=True, choices=("user", "project", "local"))
+        p.add_argument(
+            "--category",
+            required=True,
+            choices=("preference", "project_fact", "decision", "workflow_hint"),
+        )
+        p.add_argument("--name")
+        p.add_argument("--project-slug", dest="project_slug")
+        p.add_argument(
+            "--status",
+            default="active",
+            choices=("active", "candidate", "pending_review", "rejected", "archived"),
+        )
+        try:
+            args = p.parse_args(rest)
+        except SystemExit:
+            renderer.console.print(
+                f"[{CHROME}]Usage: /memory create --content <txt> --scope <s> --category <c> "
+                f"[--name <n>] [--project-slug <p>][/{CHROME}]\n"
+            )
+            return
+        try:
+            _handle_create(db, args)
+        except SystemExit:
+            pass
+        return
+
+    if sub == "edit":
+        p = _argparse.ArgumentParser(prog="/memory edit", add_help=False)
+        p.add_argument("fqn")
+        p.add_argument("--content")
+        p.add_argument("--status", choices=("active", "candidate", "pending_review", "rejected", "archived"))
+        p.add_argument("--category", choices=("preference", "project_fact", "decision", "workflow_hint"))
+        try:
+            args = p.parse_args(rest)
+        except SystemExit:
+            renderer.console.print(
+                f"[{CHROME}]Usage: /memory edit <fqn> [--content <txt>] [--status ...] [--category ...][/{CHROME}]\n"
+            )
+            return
+        try:
+            _handle_edit(db, args)
+        except SystemExit:
+            pass
+        return
+
+    if sub == "delete":
+        if not rest:
+            renderer.console.print(f"[{CHROME}]Usage: /memory delete <fqn>[/{CHROME}]\n")
+            return
+        try:
+            _handle_delete(db, _argparse.Namespace(fqn=rest[0]))
+        except SystemExit:
+            pass
+        return
+
+    # Promotion / review subcommands (#920). Require both ``config`` and the
+    # promotion handlers so a caller that predates #920 degrades gracefully.
+    if sub in ("propose", "candidates", "approve", "reject"):
+        if config is None or _handle_propose is None:
+            renderer.console.print(
+                f"[{CHROME}]Memory promotion is unavailable in this context (no config).[/{CHROME}]\n"
+            )
+            return
+
+        if sub == "propose":
+            p = _argparse.ArgumentParser(prog="/memory propose", add_help=False)
+            p.add_argument("--content", required=True)
+            p.add_argument("--scope", required=True, choices=("user", "project", "local"))
+            p.add_argument(
+                "--category",
+                required=True,
+                choices=("preference", "project_fact", "decision", "workflow_hint"),
+            )
+            p.add_argument("--name")
+            p.add_argument("--project-slug", dest="project_slug")
+            p.add_argument("--proposer", default="user", choices=("user", "agent"))
+            p.add_argument("--proposer-id", dest="proposer_id", default=None)
+            p.add_argument("--conversation-id", dest="conversation_id", default=None)
+            p.add_argument("--message-id", dest="message_id", default=None)
+            try:
+                args = p.parse_args(rest)
+            except SystemExit:
+                renderer.console.print(
+                    f"[{CHROME}]Usage: /memory propose --content <txt> --scope <s> --category <c> "
+                    f"[--name <n>] [--project-slug <p>] [--proposer user|agent][/{CHROME}]\n"
+                )
+                return
+            try:
+                _handle_propose(config, db, args)
+            except SystemExit:
+                pass
+            return
+
+        if sub == "candidates":
+            p = _argparse.ArgumentParser(prog="/memory candidates", add_help=False)
+            p.add_argument(
+                "--status",
+                default="candidate",
+                choices=("candidate", "pending_review", "active", "rejected", "archived"),
+            )
+            p.add_argument("--namespace")
+            p.add_argument("--limit", type=int, default=None)
+            try:
+                args = p.parse_args(rest)
+            except SystemExit:
+                renderer.console.print(
+                    f"[{CHROME}]Usage: /memory candidates [--status ...] [--namespace ...] [--limit N][/{CHROME}]\n"
+                )
+                return
+            _handle_candidates(db, args)
+            return
+
+        if sub == "approve":
+            p = _argparse.ArgumentParser(prog="/memory approve", add_help=False)
+            p.add_argument("fqn")
+            p.add_argument("--edit-content", dest="edit_content", default=None)
+            p.add_argument(
+                "--edit-category",
+                dest="edit_category",
+                default=None,
+                choices=("preference", "project_fact", "decision", "workflow_hint"),
+            )
+            try:
+                args = p.parse_args(rest)
+            except SystemExit:
+                renderer.console.print(
+                    f"[{CHROME}]Usage: /memory approve <fqn> [--edit-content <txt>] [--edit-category ...][/{CHROME}]\n"
+                )
+                return
+            try:
+                _handle_approve(config, db, args)
+            except SystemExit:
+                pass
+            return
+
+        if sub == "reject":
+            p = _argparse.ArgumentParser(prog="/memory reject", add_help=False)
+            p.add_argument("fqn")
+            p.add_argument("--reason", required=True)
+            try:
+                args = p.parse_args(rest)
+            except SystemExit:
+                renderer.console.print(f"[{CHROME}]Usage: /memory reject <fqn> --reason <text>[/{CHROME}]\n")
+                return
+            try:
+                _handle_reject(config, db, args)
+            except SystemExit:
+                pass
+            return
+
+    renderer.console.print(
+        f"[{CHROME}]Usage: /memory "
+        f"{{list,show,create,edit,delete,propose,candidates,approve,reject}} [args][/{CHROME}]\n"
+    )
+
+
 async def _handle_mission_command(
     user_input: str,
     *,
@@ -6331,6 +6602,10 @@ async def _run_repl(
                     )
                     continue
 
+                elif cmd in ("/memory", "/memories"):
+                    _handle_memory_command(user_input, cmd=cmd, db=db, config=config)
+                    continue
+
                 elif cmd == "/artifact-check":
                     from ..services import artifact_health
 
@@ -6907,6 +7182,56 @@ async def _run_repl(
                     logger.debug("RAG retrieval failed in CLI", exc_info=True)
                     renderer.render_rag_status("failed")
 
+            # Memory recall (#921): inject active memories from user/project/local scopes.
+            _mr_config = getattr(config, "memory_recall", None)
+            if _mr_config is not None and _mr_config.enabled is not False and not _plan_active[0]:
+                try:
+                    from ..services.memory_recall import (
+                        format_memory_context,
+                        retrieve_memories,
+                        strip_memory_context,
+                    )
+
+                    # Strip stale memory context before fresh retrieval.
+                    extra_system_prompt = strip_memory_context(extra_system_prompt)
+
+                    _mr_emb = await _get_rag_embedding_service()
+                    _project_ns: str | None = None
+                    _mr_space_type: str | None = None
+                    _space_id_for_conv = conv.get("space_id")
+                    if _space_id_for_conv:
+                        # Any bound space participates in ``local`` scope; see
+                        # routers/chat.py for the full rationale.
+                        _mr_space_type = "local"
+                        try:
+                            from ..services import space_storage as _sp_storage
+
+                            _sp = _sp_storage.get_space(db, _space_id_for_conv)
+                            if _sp:
+                                _project_ns = _sp.get("name")
+                        except Exception:
+                            logger.debug("Could not resolve space for memory recall", exc_info=True)
+                    _mr_memories, _mr_reason = await retrieve_memories(
+                        query=expanded,
+                        db=db,
+                        embedding_service=_mr_emb,
+                        config=_mr_config,
+                        vec_manager=await _get_vec_manager(),
+                        space_type=_mr_space_type,
+                        project_namespace=_project_ns,
+                    )
+                    if _mr_memories:
+                        extra_system_prompt += format_memory_context(_mr_memories)
+                        renderer.render_memory_recall_status("ok", count=len(_mr_memories))
+                    else:
+                        if _mr_reason == "no_vec_support":
+                            renderer.render_memory_recall_status("no_vec_support")
+                        else:
+                            renderer.render_memory_recall_status("no_results", reason=_mr_reason)
+                except Exception:
+                    logger.debug("Memory recall failed in CLI", exc_info=True)
+                    renderer.render_memory_recall_status("failed")
+
             # Build message queue for queued follow-ups during agent loop
             msg_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
             if skill_msg_queue_ref is not None:
@@ -7412,48 +7737,29 @@ async def _compact_messages(
     db: Any,
     conversation_id: str,
 ) -> None:
-    """Summarize conversation history to reduce context size."""
+    """Summarize conversation history to reduce context size.
+
+    Delegates to the shared :mod:`anteroom.services.compaction` service.
+    Preserves the CLI's historical ``role="system"`` compact message shape
+    and its token-bearing content template.
+    """
+    from ..services.compaction import REPL_CONTENT_TEMPLATE, compact_messages
+
     if len(ai_messages) < 4:
         renderer.console.print(f"[{CHROME}]Not enough messages to compact[/{CHROME}]\n")
         return
 
-    original_count = len(ai_messages)
-    original_tokens = _estimate_tokens(ai_messages)
-
-    from ..services.agent_loop import _build_compaction_history
-
-    history_text = _build_compaction_history(ai_messages)
-
-    summary_prompt = (
-        "Summarize the following conversation concisely, preserving:\n"
-        "- Key decisions and conclusions\n"
-        "- File paths that were read, written, or edited\n"
-        "- Important code changes and their purpose\n"
-        "- Which steps of any multi-step plan have been COMPLETED (tool_result SUCCESS) vs remaining\n"
-        "- Current state of the task — what has been done and what is next\n"
-        "- Any errors encountered and how they were resolved\n\n" + history_text
+    renderer.console.print(f"[{CHROME}]Generating summary...[/{CHROME}]")
+    result = await compact_messages(
+        ai_service,
+        ai_messages,
+        role="system",
+        content_template=REPL_CONTENT_TEMPLATE,
     )
-
-    try:
-        renderer.console.print(f"[{CHROME}]Generating summary...[/{CHROME}]")
-        response = await ai_service.client.chat.completions.create(
-            model=ai_service.config.model,
-            messages=[{"role": "user", "content": summary_prompt}],
-            max_completion_tokens=1000,
-        )
-        summary = response.choices[0].message.content or "Conversation summary unavailable."
-    except Exception:
+    if not result.success:
         renderer.render_error("Failed to generate summary")
         return
 
-    ai_messages.clear()
-    compact_note = (
-        f"Previous conversation summary "
-        f"(auto-compacted from {original_count} messages, "
-        f"~{original_tokens:,} tokens):\n\n{summary}"
-    )
-    ai_messages.append({"role": "system", "content": compact_note})
-
     new_tokens = _estimate_tokens(ai_messages)
-    renderer.render_compact_done(original_count, 1)
-    renderer.console.print(f"  [{CHROME}]~{original_tokens:,} -> ~{new_tokens:,} tokens[/{CHROME}]\n")
+    renderer.render_compact_done(result.original_count, 1)
+    renderer.console.print(f"  [{CHROME}]~{result.original_tokens:,} -> ~{new_tokens:,} tokens[/{CHROME}]\n")

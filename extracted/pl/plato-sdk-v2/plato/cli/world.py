@@ -195,11 +195,29 @@ def world_publish(
     console.print(f"[cyan]Path:[/cyan] {pkg_path}")
     console.print()
 
-    # Build package
-    console.print("[cyan]Building package...[/cyan]")
+    # Build package. We use --no-build-isolation against the world's own
+    # .venv so the hatch schema hook can import world.py with all runtime
+    # deps available (fastmcp, opentelemetry, etc. for worlds that need
+    # them). Otherwise hatchling's isolated build env installs only
+    # [build-system.requires], the world module import fails, and we ship
+    # a wheel with stale or missing schema.json.
+    console.print("[cyan]Syncing world venv...[/cyan]")
     try:
+        for cmd in (
+            ["uv", "sync", "--no-dev", "--quiet"],
+            # Hatchling isn't a runtime dep so uv sync doesn't pull it;
+            # install it explicitly into the world's venv for the build.
+            ["uv", "pip", "install", "--quiet", "hatchling"],
+        ):
+            result = subprocess.run(cmd, cwd=pkg_path, capture_output=True, text=True)
+            if result.returncode != 0:
+                console.print(f"[red]Command failed ({' '.join(cmd)}):[/red]")
+                console.print(result.stderr)
+                raise typer.Exit(1)
+
+        console.print("[cyan]Building package...[/cyan]")
         result = subprocess.run(
-            ["uv", "build"],
+            ["uv", "build", "--no-build-isolation"],
             cwd=pkg_path,
             capture_output=True,
             text=True,
@@ -208,6 +226,9 @@ def world_publish(
             console.print("[red]Build failed:[/red]")
             console.print(result.stderr)
             raise typer.Exit(1)
+        if result.stdout:
+            # Surface the hook's "Generated schema.json..." line.
+            console.print(result.stdout.strip())
         console.print("[green]Build successful[/green]")
     except FileNotFoundError:
         console.print("[red]Error: uv not found. Install with: pip install uv[/red]")

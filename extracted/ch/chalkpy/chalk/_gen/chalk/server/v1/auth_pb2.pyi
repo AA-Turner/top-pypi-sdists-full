@@ -529,3 +529,25 @@ class UpdateLinkSessionResponse(_message.Message):
     ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class GetProjectInfoRequest(_message.Message):
+    __slots__ = ("project_id",)
+    PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
+    project_id: str
+    def __init__(self, project_id: _Optional[str] = ...) -> None: ...
+
+class ProjectInfo(_message.Message):
+    __slots__ = ("id", "name", "team_id")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    name: str
+    team_id: str
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., team_id: _Optional[str] = ...) -> None: ...
+
+class GetProjectInfoResponse(_message.Message):
+    __slots__ = ("project",)
+    PROJECT_FIELD_NUMBER: _ClassVar[int]
+    project: ProjectInfo
+    def __init__(self, project: _Optional[_Union[ProjectInfo, _Mapping]] = ...) -> None: ...

@@ -1061,6 +1061,45 @@ class OTSClient(BaseOTSClient):
     def update_chunks(self, request):
         return self._vectors_request_helper('UpdateChunks', request)
 
+    def list_memory_stores(self, request):
+        return self._vectors_request_helper('ListMemoryStores', request)
+
+    def get_memory_store(self, request):
+        return self._vectors_request_helper('GetMemoryStore', request)
+
+    def create_memory_store(self, request):
+        return self._vectors_request_helper('CreateMemoryStore', request)
+
+    def update_memory_store(self, request):
+        return self._vectors_request_helper('UpdateMemoryStore', request)
+
+    def delete_memory_store(self, request):
+        return self._vectors_request_helper('DeleteMemoryStore', request)
+
+    def add_memories(self, request):
+        return self._vectors_request_helper('AddMemories', request)
+
+    def search_memories(self, request):
+        return self._vectors_request_helper('SearchMemories', request)
+
+    def list_memories(self, request):
+        return self._vectors_request_helper('ListMemories', request)
+
+    def get_memory(self, request):
+        return self._vectors_request_helper('GetMemory', request)
+
+    def update_memory(self, request):
+        return self._vectors_request_helper('UpdateMemory', request)
+
+    def delete_memory(self, request):
+        return self._vectors_request_helper('DeleteMemory', request)
+
+    def list_memory_store_messages(self, request):
+        return self._vectors_request_helper('ListMemoryStoreMessages', request)
+
+    def list_memory_store_requests(self, request):
+        return self._vectors_request_helper('ListMemoryStoreRequests', request)
+
 class AsyncOTSClient(BaseOTSClient):
 
     DEFAULT_KEEPALIVE_TIMEOUT = 12
@@ -1985,4 +2024,43 @@ class AsyncOTSClient(BaseOTSClient):
 
     async def update_chunks(self, request):
         return await self._vectors_request_helper('UpdateChunks', request)
+
+    async def list_memory_stores(self, request):
+        return await self._vectors_request_helper('ListMemoryStores', request)
+
+    async def get_memory_store(self, request):
+        return await self._vectors_request_helper('GetMemoryStore', request)
+
+    async def create_memory_store(self, request):
+        return await self._vectors_request_helper('CreateMemoryStore', request)
+
+    async def update_memory_store(self, request):
+        return await self._vectors_request_helper('UpdateMemoryStore', request)
+
+    async def delete_memory_store(self, request):
+        return await self._vectors_request_helper('DeleteMemoryStore', request)
+
+    async def add_memories(self, request):
+        return await self._vectors_request_helper('AddMemories', request)
+
+    async def search_memories(self, request):
+        return await self._vectors_request_helper('SearchMemories', request)
+
+    async def list_memories(self, request):
+        return await self._vectors_request_helper('ListMemories', request)
+
+    async def get_memory(self, request):
+        return await self._vectors_request_helper('GetMemory', request)
+
+    async def update_memory(self, request):
+        return await self._vectors_request_helper('UpdateMemory', request)
+
+    async def delete_memory(self, request):
+        return await self._vectors_request_helper('DeleteMemory', request)
+
+    async def list_memory_store_messages(self, request):
+        return await self._vectors_request_helper('ListMemoryStoreMessages', request)
+
+    async def list_memory_store_requests(self, request):
+        return await self._vectors_request_helper('ListMemoryStoreRequests', request)
 

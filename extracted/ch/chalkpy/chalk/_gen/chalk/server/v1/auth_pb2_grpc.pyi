@@ -18,6 +18,8 @@ from chalk._gen.chalk.server.v1.auth_pb2 import (
     CreateVerificationTokenResponse,
     DeleteSessionRequest,
     DeleteSessionResponse,
+    GetProjectInfoRequest,
+    GetProjectInfoResponse,
     GetSessionAndUserRequest,
     GetSessionAndUserResponse,
     GetTokenRequest,
@@ -135,6 +137,11 @@ class AuthServiceStub:
         SelfServiceCreateTeamRequest,
         SelfServiceCreateTeamResponse,
     ]
+    GetProjectInfo: UnaryUnaryMultiCallable[
+        GetProjectInfoRequest,
+        GetProjectInfoResponse,
+    ]
+    """Only for use with auto-impersonation"""
 
 class AuthServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -252,5 +259,12 @@ class AuthServiceServicer(metaclass=ABCMeta):
         request: SelfServiceCreateTeamRequest,
         context: ServicerContext,
     ) -> SelfServiceCreateTeamResponse: ...
+    @abstractmethod
+    def GetProjectInfo(
+        self,
+        request: GetProjectInfoRequest,
+        context: ServicerContext,
+    ) -> GetProjectInfoResponse:
+        """Only for use with auto-impersonation"""
 
 def add_AuthServiceServicer_to_server(servicer: AuthServiceServicer, server: Server) -> None: ...

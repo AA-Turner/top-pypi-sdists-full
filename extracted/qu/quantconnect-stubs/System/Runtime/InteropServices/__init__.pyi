@@ -13,7 +13,6 @@ import System.Reflection
 import System.Runtime.ConstrainedExecution
 import System.Runtime.InteropServices
 import System.Runtime.InteropServices.ComTypes
-import System.Runtime.Serialization
 import System.Security
 
 System_Runtime_InteropServices_GCHandle = typing.Any
@@ -505,22 +504,12 @@ class Marshal(System.Object):
 
     @staticmethod
     @overload
-    def read_byte(ptr: typing.Any, ofs: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
     def read_int_16(ptr: System.IntPtr, ofs: int) -> int:
         ...
 
     @staticmethod
     @overload
     def read_int_16(ptr: System.IntPtr) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_16(ptr: typing.Any, ofs: int) -> int:
         ...
 
     @staticmethod
@@ -535,11 +524,6 @@ class Marshal(System.Object):
 
     @staticmethod
     @overload
-    def read_int_32(ptr: typing.Any, ofs: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
     def read_int_64(ptr: System.IntPtr, ofs: int) -> int:
         ...
 
@@ -550,22 +534,12 @@ class Marshal(System.Object):
 
     @staticmethod
     @overload
-    def read_int_64(ptr: typing.Any, ofs: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
     def read_int_ptr(ptr: System.IntPtr, ofs: int) -> System.IntPtr:
         ...
 
     @staticmethod
     @overload
     def read_int_ptr(ptr: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_ptr(ptr: typing.Any, ofs: int) -> System.IntPtr:
         ...
 
     @staticmethod
@@ -693,11 +667,6 @@ class Marshal(System.Object):
 
     @staticmethod
     @overload
-    def write_byte(ptr: typing.Any, ofs: int, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
     def write_int_16(ptr: System.IntPtr, ofs: int, val: int) -> None:
         ...
 
@@ -718,27 +687,12 @@ class Marshal(System.Object):
 
     @staticmethod
     @overload
-    def write_int_16(ptr: typing.Any, ofs: int, val: str) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_16(ptr: typing.Any, ofs: int, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
     def write_int_32(ptr: System.IntPtr, ofs: int, val: int) -> None:
         ...
 
     @staticmethod
     @overload
     def write_int_32(ptr: System.IntPtr, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_32(ptr: typing.Any, ofs: int, val: int) -> None:
         ...
 
     @staticmethod
@@ -753,22 +707,12 @@ class Marshal(System.Object):
 
     @staticmethod
     @overload
-    def write_int_64(ptr: typing.Any, ofs: int, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
     def write_int_ptr(ptr: System.IntPtr, ofs: int, val: System.IntPtr) -> None:
         ...
 
     @staticmethod
     @overload
     def write_int_ptr(ptr: System.IntPtr, val: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_ptr(ptr: typing.Any, ofs: int, val: System.IntPtr) -> None:
         ...
 
     @staticmethod
@@ -919,10 +863,6 @@ class ExternalException(System.SystemException):
     def __init__(self, message: str, error_code: int) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def to_string(self) -> str:
         ...
 
@@ -944,10 +884,6 @@ class COMException(System.Runtime.InteropServices.ExternalException):
 
     @overload
     def __init__(self, message: str, error_code: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
     def to_string(self) -> str:
@@ -1021,10 +957,6 @@ class InvalidOleVariantTypeException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -1751,10 +1683,6 @@ class MarshalDirectiveException(System.SystemException):
     def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class UnknownWrapper(System.Object):
     """This class has no documentation."""
@@ -2121,10 +2049,6 @@ class SafeArrayTypeMismatchException(System.SystemException):
     def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class ICustomMarshaler(metaclass=abc.ABCMeta):
     """This class has no documentation."""
@@ -2489,10 +2413,6 @@ class InvalidComObjectException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -3322,10 +3242,6 @@ class SafeArrayRankMismatchException(System.SystemException):
     def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class SEHException(System.Runtime.InteropServices.ExternalException):
     """This class has no documentation."""
@@ -3340,10 +3256,6 @@ class SEHException(System.Runtime.InteropServices.ExternalException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
     def can_resume(self) -> bool:

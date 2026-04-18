@@ -12,6 +12,7 @@ readme = "README.md"
 [dependencies]
 bytemuck = { workspace = true }
 either = { workspace = true }
+polars-utils = { workspace = true }
 serde = { workspace = true, optional = true }
 
 [dev-dependencies]

@@ -132,6 +132,8 @@ class PassConfig:
     """Enable async TP."""
     fuse_allreduce_rms: bool = None  # type: ignore[assignment]
     """Enable flashinfer allreduce fusion."""
+    fuse_minimax_qk_norm: bool = None  # type: ignore[assignment]
+    """Enable fused allreduce+RMSNorm for MiniMax QK norm."""
     enable_qk_norm_rope_fusion: bool = False
     """Enable fused Q/K RMSNorm + RoPE pass."""
 
@@ -282,7 +284,7 @@ class PassConfig:
         """
         enabled_fusions = [
             f.name[len("fuse_") :]
-            for f in fields(self)
+            for f in fields(self)  # type: ignore[arg-type]
             if getattr(self, f.name) and f.name.startswith("fuse_")
         ]
 
@@ -486,9 +488,10 @@ class CompilationConfig:
     If empty list [], no ops are excluded (suitable for full cudagraphs)."""
     compile_mm_encoder: bool = False
     """Whether or not to compile the multimodal encoder.
-    Currently, this only works for `Qwen2_5_vl` and `mLLaMa4` models
-    on selected platforms. Disabled by default until more models
-    are supported/tested to work."""
+    Currently, this only works for `Qwen2_5_vl` and `mLLaMa4` models on selected
+    platforms. It may also work for models loaded with the Transformers modeling backend
+    if the encoder is compilable. Disabled by default until more models are
+    supported/tested to work."""
 
     # Vision encoder CUDA graph
     cudagraph_mm_encoder: bool = False

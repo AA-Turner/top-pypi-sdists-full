@@ -142,11 +142,11 @@ fn normalize_toml_table_keys(val: toml::Value) -> toml::Value {
 
 /// Map markdownlint-specific option names to rumdl option names for a given rule.
 /// This handles incompatibilities between markdownlint and rumdl config schemas.
-/// Returns a new table with mapped options, or None if the entire config should be dropped.
+/// Returns a new table with mapped options.
 fn map_markdownlint_options_to_rumdl(
     rule_key: &str,
     table: toml::map::Map<String, toml::Value>,
-) -> Option<toml::map::Map<String, toml::Value>> {
+) -> toml::map::Map<String, toml::Value> {
     let mut mapped = toml::map::Map::new();
 
     match rule_key {
@@ -179,7 +179,7 @@ fn map_markdownlint_options_to_rumdl(
                     }
                 }
             }
-            Some(mapped)
+            mapped
         }
         "MD054" => {
             // MD054 (link-image-style) has fundamentally different config models
@@ -199,10 +199,10 @@ fn map_markdownlint_options_to_rumdl(
                     }
                 }
             }
-            Some(mapped)
+            mapped
         }
         // All other rules: pass through unchanged
-        _ => Some(table),
+        _ => table,
     }
 }
 
@@ -211,10 +211,14 @@ impl MarkdownlintConfig {
     /// Map to a SourcedConfig, tracking provenance as Markdownlint for all values.
     pub fn map_to_sourced_rumdl_config(&self, file_path: Option<&str>) -> SourcedConfig {
         let mut sourced_config = SourcedConfig::default();
-        let file = file_path.map(|s| s.to_string());
+        let file = file_path.map(std::string::ToString::to_string);
 
         // Extract the `default` key
-        let default_enabled = self.0.get("default").and_then(|v| v.as_bool()).unwrap_or(true);
+        let default_enabled = self
+            .0
+            .get("default")
+            .and_then(serde_yml::Value::as_bool)
+            .unwrap_or(true);
 
         let mut disabled_rules = Vec::new();
         let mut enabled_rules = Vec::new();
@@ -248,10 +252,7 @@ impl MarkdownlintConfig {
                 if let Some(tv) = toml_value {
                     if let toml::Value::Table(mut table) = tv {
                         // Apply markdownlint-to-rumdl option mapping
-                        table = match map_markdownlint_options_to_rumdl(&norm_rule_key, table) {
-                            Some(mapped) => mapped,
-                            None => continue, // Skip this rule entirely if mapping returns None
-                        };
+                        table = map_markdownlint_options_to_rumdl(&norm_rule_key, table);
 
                         // Special handling for MD007: Add style = "fixed" for markdownlint compatibility
                         if norm_rule_key == "MD007" && !table.contains_key("style") {
@@ -347,8 +348,8 @@ impl MarkdownlintConfig {
             sourced_config.global.enable = SourcedValue::new(enabled_rules, ConfigSource::ProjectConfig);
         }
 
-        if let Some(_f) = file {
-            sourced_config.loaded_files.push(_f);
+        if let Some(f) = file {
+            sourced_config.loaded_files.push(f);
         }
         sourced_config
     }
@@ -359,12 +360,16 @@ impl MarkdownlintConfig {
         file_path: Option<&str>,
     ) -> crate::config::SourcedConfigFragment {
         let mut fragment = crate::config::SourcedConfigFragment::default();
-        let file = file_path.map(|s| s.to_string());
+        let file = file_path.map(std::string::ToString::to_string);
 
         // Extract the `default` key: controls whether rules are enabled by default.
         // When true (or absent), all rules are enabled unless explicitly disabled.
         // When false, only rules explicitly set to true or configured with an object are enabled.
-        let default_enabled = self.0.get("default").and_then(|v| v.as_bool()).unwrap_or(true);
+        let default_enabled = self
+            .0
+            .get("default")
+            .and_then(serde_yml::Value::as_bool)
+            .unwrap_or(true);
 
         // Accumulate disabled and enabled rules
         let mut disabled_rules = Vec::new();
@@ -425,10 +430,7 @@ impl MarkdownlintConfig {
 
                     if let toml::Value::Table(mut table) = tv {
                         // Apply markdownlint-to-rumdl option mapping
-                        table = match map_markdownlint_options_to_rumdl(&norm_rule_key, table) {
-                            Some(mapped) => mapped,
-                            None => continue, // Skip this rule entirely if mapping returns None
-                        };
+                        table = map_markdownlint_options_to_rumdl(&norm_rule_key, table);
 
                         // Special handling for MD007: Add style = "fixed" for markdownlint compatibility
                         if norm_rule_key == "MD007" && !table.contains_key("style") {

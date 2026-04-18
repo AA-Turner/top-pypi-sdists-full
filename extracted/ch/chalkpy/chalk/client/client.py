@@ -1137,6 +1137,27 @@ class ChalkClient:
         """
         ...
 
+    def cancel_offline_query(
+        self,
+        offline_query_id: str,
+    ) -> None:
+        """Cancel an in-progress async offline query by its ID.
+
+        Parameters
+        ----------
+        offline_query_id
+            The ID of the offline query to cancel. Returns an error if the query
+            is not found or is not in a cancellable state (i.e. not WORKING or QUEUED).
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().cancel_offline_query(
+        ...     offline_query_id="oq_1234567890abcdef",
+        ... )
+        """
+        ...
+
     def run_scheduled_query(
         self,
         name: str,

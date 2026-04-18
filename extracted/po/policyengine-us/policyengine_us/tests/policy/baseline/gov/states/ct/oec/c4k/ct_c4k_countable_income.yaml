@@ -1,0 +1,211 @@
+- name: Case 1, employment income only.
+  period: 2025-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        age: 30
+        employment_income: 40_000
+      person2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: CT
+  output:
+    # 40,000 / 12 = 3,333.33
+    ct_c4k_countable_income: 3_333.33
+
+- name: Case 2, employment plus unearned income.
+  period: 2025-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        age: 30
+        employment_income: 30_000
+        social_security: 5_000
+      person2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: CT
+  output:
+    # (30,000 + 5,000) / 12 = 2,916.67
+    ct_c4k_countable_income: 2_916.67
+
+- name: Case 3, child support paid deducted.
+  period: 2025-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        age: 30
+        employment_income: 50_000
+        child_support_expense: 6_000
+      person2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: CT
+  output:
+    # (50,000 - 6,000) / 12 = 3,666.67
+    ct_c4k_countable_income: 3_666.67
+
+- name: Case 4, multiple income types.
+  period: 2025-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        age: 30
+        employment_income: 25_000
+        self_employment_income: 10_000
+        pension_income: 3_000
+        child_support_expense: 2_400
+      person2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: CT
+  output:
+    # (25,000 + 10,000 + 3,000 - 2,400) / 12 = 2,966.67
+    ct_c4k_countable_income: 2_966.67
+
+- name: Case 5, child support received excluded.
+  period: 2025-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        age: 30
+        employment_income: 20_000
+        child_support_received: 12_000
+      person2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: CT
+  output:
+    # child_support_received is excluded (not in sources list)
+    # 20,000 / 12 = 1,666.67
+    ct_c4k_countable_income: 1_666.67
+
+- name: Case 6, zero income.
+  period: 2025-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        age: 30
+      person2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: CT
+  output:
+    ct_c4k_countable_income: 0
+
+- name: Case 7, all counted income types combined.
+  period: 2025-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        age: 30
+        employment_income: 20_000
+        self_employment_income: 5_000
+        farm_income: 2_000
+        social_security: 3_000
+        pension_income: 1_000
+        unemployment_compensation: 500
+        alimony_income: 1_200
+        rental_income: 800
+        veterans_benefits: 600
+        disability_benefits: 400
+        child_support_expense: 3_000
+      person2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: CT
+  output:
+    # Sources: 20,000 + 5,000 + 2,000 + 3,000 + 1,000 + 500 + 1,200 + 800 + 600 + 400 = 34,500
+    # Deductions: 3,000 child support paid
+    # Annual countable: 34,500 - 3,000 = 31,500
+    # Monthly: 31,500 / 12 = 2,625
+    ct_c4k_countable_income: 2_625
+
+- name: Case 8, SNAP and EITC excluded.
+  period: 2025-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        age: 30
+        employment_income: 15_000
+        ssi: 9_000
+      person2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+        snap: 3_600
+    households:
+      household:
+        members: [person1, person2]
+        state_code: CT
+  output:
+    # Only employment_income is counted (15,000)
+    # SSI, SNAP are excluded (not in sources list)
+    # 15,000 / 12 = 1,250
+    ct_c4k_countable_income: 1_250
+
+- name: Case 9, child support paid exceeds income, countable floored at zero.
+  period: 2025-01
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        age: 30
+        employment_income: 5_000
+        child_support_expense: 8_000
+      person2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: CT
+  output:
+    # (5,000 - 8,000) / 12 = -250, floored at 0 by max_(income - deductions, 0)
+    ct_c4k_countable_income: 0

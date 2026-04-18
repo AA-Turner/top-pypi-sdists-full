@@ -1,6 +1,6 @@
 from collections import OrderedDict, namedtuple
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from jinja2 import BaseLoader, Environment
 
@@ -2130,6 +2130,21 @@ def run_landing_{{ name }}():
 {% if config.original_target_column %}
     df = df.rename(columns={"{{ config.original_target_column }}": TARGET_COLUMN})
 {% endif %}
+{% if config.filters %}
+    from customer_retention.core.compat import apply_sql_predicate
+{% for step in config.filters %}
+    df = apply_sql_predicate(df, {{ step.parameters.predicate | python_repr }})
+    print(f"  After user filter: {len(df):,}")
+{% endfor %}
+{% endif %}
+{% if config.lifecycle_enrichments %}
+    from customer_retention.stages.lifecycle.config import LifecycleEnrichmentConfig
+    from customer_retention.stages.lifecycle.enrich import enrich_lifecycle_dataset
+{% for step in config.lifecycle_enrichments %}
+    df = enrich_lifecycle_dataset(df, LifecycleEnrichmentConfig.from_dict({{ step.parameters.config | python_repr }}))
+    print(f"  After lifecycle enrichment: {len(df):,}")
+{% endfor %}
+{% endif %}
 {% if config.key_resolution_steps %}
     df = resolve_entity_key(df)
     print(f"  After key resolution: {len(df):,}")
@@ -2164,6 +2179,7 @@ from pathlib import Path
 from customer_retention.transforms import {{ ops | sort | join(', ') }}
 {% endif %}
 from customer_retention.core.compat import ensure_timestamp, safe_to_datetime, as_tz_naive
+from customer_retention.core.naming import sanitize_column_token
 from pandas.api.types import is_numeric_dtype
 {% if config.text_features %}
 from config import PRODUCTION_DIR, TARGET_COLUMN, FIT_MODE
@@ -2303,7 +2319,7 @@ def apply_event_aggregation_per_grid_date(df: pd.DataFrame) -> pd.DataFrame:
             cum_at_G["_cum_G"] = cum_at_G["_cum_G"].fillna(0)
 
             for window_str in AGGREGATION_WINDOWS:
-                col_name = f"{vc_col}_{value}_count_{window_str}"
+                col_name = f"{vc_col}_{sanitize_column_token(value)}_count_{window_str}"
                 if window_str == "all_time":
                     merged = cum_at_G.rename(columns={"_cum_G": col_name})
                 else:
@@ -2381,7 +2397,7 @@ def apply_event_aggregation(df: pd.DataFrame) -> pd.DataFrame:
         for _cvc_col, _cvc_values in CATEGORICAL_VALUE_COUNTS.items():
             for _cvc_value in _cvc_values:
                 _cvc_flag = (window_df[_cvc_col] == _cvc_value).astype(int)
-                parts.append(_cvc_flag.groupby(window_df[ENTITY_COLUMN]).sum().rename(f"{_cvc_col}_{_cvc_value}_count_{window}"))
+                parts.append(_cvc_flag.groupby(window_df[ENTITY_COLUMN]).sum().rename(f"{_cvc_col}_{sanitize_column_token(_cvc_value)}_count_{window}"))
         parts.append(window_df.groupby(ENTITY_COLUMN).size().rename(f"event_count_{window}"))
     if "feature_timestamp" in df.columns:
         parts.append(df.groupby(ENTITY_COLUMN)["feature_timestamp"].max().rename("feature_timestamp"))
@@ -2972,6 +2988,7 @@ class CodeRenderer:
         self._env.globals["provenance_key"] = provenance_key
         self._env.globals["partition_gold_steps"] = partition_gold_steps
         self._env.globals["sorted_landing_names"] = _sorted_landing_names
+        self._env.filters["python_repr"] = repr
 
     def set_docs_base(self, experiments_dir: str | None) -> None:
         global _docs_base
@@ -2982,6 +2999,10 @@ class CodeRenderer:
 
     def _render(self, template_key: str, **context) -> str:
         return self._env.get_template(self._TEMPLATE_MAP[template_key]).render(**context)
+
+    def template_versions(self) -> Dict[str, str]:
+        from .generation_manifest import template_versions_for
+        return template_versions_for(TEMPLATES)
 
     def render_config(self, config: PipelineConfig) -> str:
         return self._render("config", config=config)

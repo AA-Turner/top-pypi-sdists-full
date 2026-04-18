@@ -1,0 +1,2 @@
+import{O as e}from"./vendor-tanstack-BdbZ54cx.js";import{n as t}from"./service-DMnzmsuZ.js";var n={all:()=>[`collections`],workPoolTypes:()=>[...n.all(),`work-pool-types`]},r=()=>e({queryKey:n.workPoolTypes(),queryFn:async()=>{let e=await(await t()).GET(`/collections/views/{view}`,{params:{path:{view:`aggregate-worker-metadata`}}});if(!e.data)throw Error(`'data' expected`);return e.data}});export{r as t};
+//# sourceMappingURL=collections-Dzp5lRIA.js.map

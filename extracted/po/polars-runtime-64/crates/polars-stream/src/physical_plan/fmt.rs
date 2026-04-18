@@ -41,6 +41,8 @@ impl NodeStyle {
             | K::EquiJoin { .. }
             | K::SemiAntiJoin { .. }
             | K::Multiplexer { .. } => Self::MemoryIntensive,
+            #[cfg(feature = "iejoin")]
+            K::RangeJoin { .. } => Self::MemoryIntensive,
             #[cfg(feature = "merge_sorted")]
             K::MergeSorted { .. } => Self::MemoryIntensive,
             _ => Self::Generic,
@@ -196,7 +198,7 @@ fn visualize_plan_rec(
             &[][..],
         ),
         #[cfg(feature = "python")]
-        PhysNodeKind::PythonScan { .. } => ("python-scan".to_string(), &[][..]),
+        PhysNodeKind::PythonScan { .. } => ("streaming-python-scan".to_string(), &[][..]),
         PhysNodeKind::SinkMultiple { sinks } => {
             for sink in sinks {
                 visualize_plan_rec(*sink, phys_sm, expr_arena, visited, out);
@@ -434,8 +436,36 @@ fn visualize_plan_rec(
             format!("gather_every\\nn: {n}, offset: {offset}"),
             &[*input][..],
         ),
+        PhysNodeKind::ForwardFill { input, limit }
+        | PhysNodeKind::BackwardFill { input, limit } => (
+            {
+                let mut out = if matches!(kind, PhysNodeKind::ForwardFill { .. }) {
+                    String::from("forward_fill")
+                } else {
+                    String::from("backward_fill")
+                };
+                if let Some(limit) = limit {
+                    use std::fmt::Write;
+                    writeln!(&mut out).unwrap();
+                    write!(&mut out, "limit: {limit}").unwrap();
+                }
+                out
+            },
+            &[*input][..],
+        ),
+        #[cfg(feature = "interpolate")]
+        PhysNodeKind::Interpolate { input, method } => {
+            (format!("interpolate\\nmethod: {method:?}"), &[*input][..])
+        },
         PhysNodeKind::Rle(input) => ("rle".to_owned(), &[*input][..]),
         PhysNodeKind::RleId(input) => ("rle_id".to_owned(), &[*input][..]),
+        PhysNodeKind::SortedUnique { input, keys } => {
+            let mut out = String::from("sorted-unique\n");
+            for key in keys.iter() {
+                writeln!(&mut out, "{key}",).unwrap();
+            }
+            (out, &[*input][..])
+        },
         PhysNodeKind::PeakMinMax { input, is_peak_max } => (
             if *is_peak_max { "peak_max" } else { "peak_min" }.to_owned(),
             &[*input][..],
@@ -639,6 +669,20 @@ fn visualize_plan_rec(
 
             (s, from_ref(input))
         },
+
+        #[cfg(feature = "is_first_distinct")]
+        PhysNodeKind::IsFirstDistinct {
+            input,
+            out_name,
+            columns,
+        } => {
+            let mut s = String::new();
+            let mut f = EscapeLabel(&mut s);
+            writeln!(f, "is-first-distinct").unwrap();
+            writeln!(f, "key: {}", columns.join(", ")).unwrap();
+            write!(f, "out: {out_name}").unwrap();
+            (s, from_ref(input))
+        },
         PhysNodeKind::MergeJoin {
             input_left,
             input_right,
@@ -647,32 +691,21 @@ fn visualize_plan_rec(
             args,
             ..
         } => {
-            let mut label = "merge-join".to_string();
-            let how: &'static str = (&args.how).into();
-            write!(
-                label,
-                r"\nleft_on:\n{}",
-                left_on
-                    .iter()
-                    .map(|s| escape_graphviz(&s[..]))
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            )
-            .unwrap();
-            write!(
-                label,
-                r"\nright_on:\n{}",
-                right_on
-                    .iter()
-                    .map(|s| escape_graphviz(&s[..]))
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            )
-            .unwrap();
-            write!(label, r"\nhow: {}", escape_graphviz(how)).unwrap();
-            if args.nulls_equal {
-                write!(label, r"\njoin-nulls").unwrap();
-            }
+            let mut tmp_arena: Arena<AExpr> = Arena::with_capacity(2);
+            let left_on_exprs = left_on
+                .iter()
+                .map(|on| ExprIR::from_column_name(on.clone(), &mut tmp_arena))
+                .collect_vec();
+            let right_on_exprs = right_on
+                .iter()
+                .map(|on| ExprIR::from_column_name(on.clone(), &mut tmp_arena))
+                .collect_vec();
+            let label = fmt_join_label(
+                "merge-join",
+                &fmt_exprs_to_label(&left_on_exprs, &tmp_arena, FormatExprStyle::NoAliases),
+                &fmt_exprs_to_label(&right_on_exprs, &tmp_arena, FormatExprStyle::NoAliases),
+                args,
+            );
             (label, &[*input_left, *input_right][..])
         },
         PhysNodeKind::InMemoryJoin {
@@ -702,7 +735,6 @@ fn visualize_plan_rec(
                 PhysNodeKind::MergeJoin { .. } => "merge-join",
                 PhysNodeKind::EquiJoin { .. } => "equi-join",
                 PhysNodeKind::InMemoryJoin { .. } => "in-memory-join",
-                PhysNodeKind::CrossJoin { .. } => "cross-join",
                 PhysNodeKind::SemiAntiJoin {
                     output_bool: false, ..
                 } if args.how.is_semi() => "semi-join",
@@ -721,6 +753,32 @@ fn visualize_plan_rec(
                 base_label,
                 &fmt_exprs_to_label(left_on, expr_arena, FormatExprStyle::NoAliases),
                 &fmt_exprs_to_label(right_on, expr_arena, FormatExprStyle::NoAliases),
+                args,
+            );
+            (label, &[*input_left, *input_right][..])
+        },
+        #[cfg(feature = "iejoin")]
+        PhysNodeKind::RangeJoin {
+            input_left,
+            input_right,
+            left_on,
+            right_on,
+            args,
+            ..
+        } => {
+            let mut tmp_arena: Arena<AExpr> = Arena::with_capacity(3);
+            let left_on_exprs = left_on
+                .iter()
+                .map(|on| ExprIR::from_column_name(on.clone(), &mut tmp_arena))
+                .collect_vec();
+            let right_on_exprs = right_on
+                .iter()
+                .map(|on| ExprIR::from_column_name(on.clone(), &mut tmp_arena))
+                .collect_vec();
+            let label = fmt_join_label(
+                "range-join",
+                &fmt_exprs_to_label(&left_on_exprs, &tmp_arena, FormatExprStyle::NoAliases),
+                &fmt_exprs_to_label(&right_on_exprs, &tmp_arena, FormatExprStyle::NoAliases),
                 args,
             );
             (label, &[*input_left, *input_right][..])
@@ -757,6 +815,25 @@ fn visualize_plan_rec(
         PhysNodeKind::EwmVar { input, options: _ } => ("ewm-var".to_string(), &[*input][..]),
         #[cfg(feature = "ewma")]
         PhysNodeKind::EwmStd { input, options: _ } => ("ewm-std".to_string(), &[*input][..]),
+        #[cfg(any(
+            feature = "dtype-date",
+            feature = "dtype-datetime",
+            feature = "dtype-time"
+        ))]
+        PhysNodeKind::StrptimeInfer {
+            input,
+            dtype,
+            ambiguous_is_raise,
+            ..
+        } => {
+            let mut s = String::new();
+            let mut f = EscapeLabel(&mut s);
+            writeln!(f, "strptime-infer").unwrap();
+            writeln!(f, "dtype: {dtype}").unwrap();
+            let ambiguous = if *ambiguous_is_raise { "raise" } else { "null" };
+            write!(f, "ambiguous: {ambiguous}").unwrap();
+            (s, &[*input][..])
+        },
     };
 
     let node_id = node_key.data().as_ffi();

@@ -9,14 +9,17 @@ from pathlib import Path
 import pytest
 
 from anteroom.db import _SCHEMA, _VEC_METADATA_SCHEMA, has_vec_support
+from anteroom.services.artifact_storage import create_artifact
 from anteroom.services.storage import (
     create_conversation,
     create_message,
     delete_embeddings_for_conversation,
     get_embedding_stats,
     get_unembedded_messages,
+    search_similar_memory_artifacts,
     search_similar_messages,
     store_embedding,
+    store_memory_artifact_embedding,
 )
 from anteroom.services.vector_index import (
     VectorIndex,
@@ -749,3 +752,92 @@ class TestRebuildIndexRecovery:
 
         pending = db.execute_fetchall("SELECT message_id FROM message_embeddings WHERE status = 'pending'")
         assert len(pending) == 3
+
+
+def _seed_memory(db: _FakeThreadSafe, *, fqn: str, namespace: str, name: str, content: str) -> dict:
+    """Create a memory artifact with a known-shape metadata blob."""
+    import json
+
+    meta = {
+        "memory_scope": namespace if namespace in {"user", "local"} else "project",
+        "memory_status": "active",
+    }
+    art = create_artifact(db, fqn, "memory", namespace, name, content, metadata={})
+    # Overwrite metadata with a JSON blob (bypass memory_service to keep the
+    # test coupled only to storage + vector index behaviour).
+    db.execute("UPDATE artifacts SET metadata = ? WHERE id = ?", (json.dumps(meta), art["id"]))
+    db.commit()
+    return art
+
+
+@pytest.mark.skipif(not USEARCH_AVAILABLE, reason="usearch not available")
+class TestSearchSimilarMemoryArtifacts:
+    """Regression tests for the storage-layer memory search (#921).
+
+    These exercise the real ``VectorIndex.search()`` -> ``storage.search_similar_memory_artifacts``
+    path so the ``{"key", "distance"}`` adapter is validated end-to-end. Mocked
+    variants in ``test_memory_recall.py`` do not catch adapter bugs.
+    """
+
+    def test_returns_artifact_rows_with_distance(self) -> None:
+        db = _init_db()
+        vec_idx = _make_vec_index()
+        arts = []
+        for i in range(3):
+            emb = [0.0] * DIMS
+            emb[i] = 1.0
+            art = _seed_memory(
+                db,
+                fqn=f"@user/memory/pref-{i}",
+                namespace="user",
+                name=f"pref-{i}",
+                content=f"remembered preference number {i}",
+            )
+            store_memory_artifact_embedding(db, art["id"], emb, f"hash{i}", vec_index=vec_idx)
+            arts.append(art)
+
+        query = [0.0] * DIMS
+        query[0] = 1.0
+        results = search_similar_memory_artifacts(db, query, limit=2, vec_index=vec_idx)
+
+        assert len(results) >= 1
+        assert results[0]["id"] == arts[0]["id"]
+        assert results[0]["fqn"] == "@user/memory/pref-0"
+        assert results[0]["namespace"] == "user"
+        assert isinstance(results[0]["distance"], float)
+        assert results[0]["distance"] < 0.01
+
+    def test_filters_by_namespace(self) -> None:
+        db = _init_db()
+        vec_idx = _make_vec_index()
+        art_user = _seed_memory(db, fqn="@user/memory/a", namespace="user", name="a", content="user-scope content")
+        art_proj = _seed_memory(
+            db, fqn="@myproj/memory/b", namespace="myproj", name="b", content="project-scope content"
+        )
+        emb = [0.1] * DIMS
+        store_memory_artifact_embedding(db, art_user["id"], emb, "h1", vec_index=vec_idx)
+        store_memory_artifact_embedding(db, art_proj["id"], emb, "h2", vec_index=vec_idx)
+
+        # User-only visibility: the project memory must not surface.
+        results = search_similar_memory_artifacts(db, emb, limit=10, vec_index=vec_idx, namespaces=["user"])
+        fqns = {r["fqn"] for r in results}
+        assert fqns == {"@user/memory/a"}
+
+    def test_returns_empty_when_index_empty(self) -> None:
+        db = _init_db()
+        vec_idx = _make_vec_index()
+        assert search_similar_memory_artifacts(db, [0.1] * DIMS, vec_index=vec_idx) == []
+
+    def test_returns_empty_without_vec_index(self) -> None:
+        db = _init_db()
+        assert search_similar_memory_artifacts(db, [0.1] * DIMS) == []
+
+    def test_skips_non_memory_artifacts(self) -> None:
+        """An artifact of the wrong type indexed under the same id must not leak."""
+        db = _init_db()
+        vec_idx = _make_vec_index()
+        skill = create_artifact(db, "@user/skill/s", "skill", "user", "s", "skill content")
+        vec_idx.add(skill["id"], [0.1] * DIMS)
+
+        results = search_similar_memory_artifacts(db, [0.1] * DIMS, vec_index=vec_idx)
+        assert results == []

@@ -1,13 +1,16 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define tools for generating footprints.
+Tools for generating footprints.
 """
 
 import numpy as np
 
+from photutils.utils._deprecation import deprecated_positional_kwargs
+
 __all__ = ['circular_footprint']
 
 
+@deprecated_positional_kwargs(since='3.0', until='4.0')
 def circular_footprint(radius, dtype=int):
     """
     Create a circular footprint.
@@ -19,8 +22,9 @@ def circular_footprint(radius, dtype=int):
 
     Parameters
     ----------
-    radius : int
-        The radius of the circular footprint.
+    radius : int or float
+        The radius of the circular footprint. If float, must be a
+        positive finite whole number (e.g., 2.0 is accepted).
 
     dtype : data-type, optional
         The data type of the output `~numpy.ndarray`.
@@ -41,7 +45,7 @@ def circular_footprint(radius, dtype=int):
            [0, 1, 1, 1, 0],
            [0, 0, 1, 0, 0]])
     """
-    if ~np.isfinite(radius) or radius <= 0 or int(radius) != radius:
+    if not np.isfinite(radius) or radius <= 0 or int(radius) != radius:
         msg = 'radius must be a positive, finite integer greater than 0'
         raise ValueError(msg)
 

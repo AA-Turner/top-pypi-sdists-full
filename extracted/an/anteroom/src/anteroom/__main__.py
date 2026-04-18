@@ -2875,6 +2875,101 @@ def main() -> None:
     web_parser.add_argument("--port", type=int, default=None, dest="web_port", help="Port for web server")
     web_parser.add_argument("--debug", action="store_true", default=False, dest="web_debug", help="Enable debug mode")
 
+    # `aroom memory` subcommand
+    memory_parser = subparsers.add_parser("memory", help="Manage memory artifacts")
+    memory_sub = memory_parser.add_subparsers(dest="memory_action")
+
+    memory_list_parser = memory_sub.add_parser("list", help="List memory artifacts")
+    memory_list_parser.add_argument("--scope", choices=("user", "project", "local"))
+    memory_list_parser.add_argument(
+        "--status", choices=("active", "candidate", "pending_review", "rejected", "archived")
+    )
+    memory_list_parser.add_argument("--category", choices=("preference", "project_fact", "decision", "workflow_hint"))
+    memory_list_parser.add_argument("--namespace", help="Restrict by namespace (e.g. myproject)")
+
+    memory_show_parser = memory_sub.add_parser("show", help="Show a memory by FQN")
+    memory_show_parser.add_argument("fqn", help="Memory FQN, e.g. @user/memory/my-note")
+
+    memory_create_parser = memory_sub.add_parser("create", help="Create a new memory")
+    memory_create_parser.add_argument("--content", required=True, help="Memory content ('-' reads from stdin)")
+    memory_create_parser.add_argument("--scope", required=True, choices=("user", "project", "local"))
+    memory_create_parser.add_argument(
+        "--category",
+        required=True,
+        choices=("preference", "project_fact", "decision", "workflow_hint"),
+    )
+    memory_create_parser.add_argument("--name", help="Optional slug (auto-generated otherwise)")
+    memory_create_parser.add_argument("--project-slug", dest="project_slug", help="Required when --scope project")
+    memory_create_parser.add_argument(
+        "--status",
+        default="active",
+        choices=("active", "candidate", "pending_review", "rejected", "archived"),
+    )
+
+    memory_edit_parser = memory_sub.add_parser("edit", help="Edit an existing memory")
+    memory_edit_parser.add_argument("fqn", help="Memory FQN")
+    memory_edit_parser.add_argument("--content", help="Replace content ('-' reads from stdin)")
+    memory_edit_parser.add_argument(
+        "--status", choices=("active", "candidate", "pending_review", "rejected", "archived")
+    )
+    memory_edit_parser.add_argument("--category", choices=("preference", "project_fact", "decision", "workflow_hint"))
+
+    memory_delete_parser = memory_sub.add_parser("delete", help="Delete a memory by FQN")
+    memory_delete_parser.add_argument("fqn", help="Memory FQN")
+
+    # Promotion / review subcommands (#920)
+    memory_propose_parser = memory_sub.add_parser("propose", help="Propose a new memory candidate")
+    memory_propose_parser.add_argument("--content", required=True, help="Memory content ('-' reads from stdin)")
+    memory_propose_parser.add_argument("--scope", required=True, choices=("user", "project", "local"))
+    memory_propose_parser.add_argument(
+        "--category",
+        required=True,
+        choices=("preference", "project_fact", "decision", "workflow_hint"),
+    )
+    memory_propose_parser.add_argument("--name", help="Optional slug (auto-generated otherwise)")
+    memory_propose_parser.add_argument("--project-slug", dest="project_slug", help="Required when --scope project")
+    memory_propose_parser.add_argument(
+        "--proposer",
+        default="user",
+        choices=("user", "agent"),
+        help="Who is proposing (default: user)",
+    )
+    memory_propose_parser.add_argument(
+        "--proposer-id", dest="proposer_id", default=None, help="Optional stable id for the proposer"
+    )
+    memory_propose_parser.add_argument(
+        "--conversation-id", dest="conversation_id", default=None, help="Provenance: source conversation UUID"
+    )
+    memory_propose_parser.add_argument(
+        "--message-id", dest="message_id", default=None, help="Provenance: source message UUID"
+    )
+
+    memory_candidates_parser = memory_sub.add_parser("candidates", help="List memory review-queue candidates")
+    memory_candidates_parser.add_argument(
+        "--status",
+        default="candidate",
+        choices=("candidate", "pending_review", "active", "rejected", "archived"),
+    )
+    memory_candidates_parser.add_argument("--namespace", help="Restrict by namespace (e.g. myproject)")
+    memory_candidates_parser.add_argument("--limit", type=int, default=None, help="Return at most N entries")
+
+    memory_approve_parser = memory_sub.add_parser("approve", help="Approve a candidate memory")
+    memory_approve_parser.add_argument("fqn", help="Memory FQN")
+    memory_approve_parser.add_argument(
+        "--edit-content", dest="edit_content", default=None, help="Replace content before approving"
+    )
+    memory_approve_parser.add_argument(
+        "--edit-category",
+        dest="edit_category",
+        default=None,
+        choices=("preference", "project_fact", "decision", "workflow_hint"),
+        help="Replace category before approving",
+    )
+
+    memory_reject_parser = memory_sub.add_parser("reject", help="Reject a candidate memory")
+    memory_reject_parser.add_argument("fqn", help="Memory FQN")
+    memory_reject_parser.add_argument("--reason", required=True, help="Rejection reason (bounded by config)")
+
     # `aroom unpack` subcommand
     unpack_parser = subparsers.add_parser("unpack", help="Extract bundled tests, docs, and config to a directory")
     unpack_parser.add_argument("dest", help="Destination directory")
@@ -3079,6 +3174,12 @@ def main() -> None:
         from .cli.mission_cli import _run_mission
 
         _run_mission(config, args)
+        return
+
+    if args.command == "memory":
+        from .cli.memory_cli import _run_memory
+
+        _run_memory(config, args)
         return
 
     if args.command == "observe":

@@ -44,6 +44,8 @@ from abstra_internals.environment import (
     EDITOR_MODE,
     IS_DEVELOPMENT,
     IS_PRODUCTION,
+    NATS_CREDS,
+    NATS_URL,
     WORKER_LOG_TO_QUEUE,
 )
 from abstra_internals.logger import AbstraLogger
@@ -55,6 +57,10 @@ from abstra_internals.repositories.factory import (
 )
 from abstra_internals.settings import Settings
 from abstra_internals.stdio_patcher import StdioPatcher
+from abstra_internals.utils.nats_connection import (
+    NATSConnection,
+    NATSPersistentConnection,
+)
 from abstra_internals.utils.rabbitmq_connection import RabbitMQConnection
 from abstra_internals.utils.stdio_broadcast import StdioBroadcastPublisher
 
@@ -107,6 +113,7 @@ class ExecutorState:
         self.warmup_complete: bool = False
         self.executions_completed: int = 0
         self.verbose = verbose
+        self.nats_persistent: Optional[NATSPersistentConnection] = None
 
     def is_warmed_up(self) -> bool:
         return self.warmup_complete and self.controller is not None
@@ -164,6 +171,18 @@ def handle_warmup(
             state.repositories = build_editor_repositories(parent_executions_queue)
 
         state.controller = MainController(state.repositories)
+
+        if NATS_URL and NATS_CREDS:
+            try:
+                state.nats_persistent = NATSPersistentConnection(
+                    nats_url=NATS_URL,
+                    nats_creds=NATS_CREDS,
+                )
+            except Exception as e:
+                AbstraLogger.error(
+                    f"[Executor] NATS warmup failed (will retry on first execution): {e}"
+                )
+
         state.warmup_complete = True
 
         warmup_time = time.time() - warmup_start
@@ -203,6 +222,7 @@ def handle_execute(
         return
 
     rabbitmq_connection_to_close = None
+    nats_connection_to_close = None
     actual_connection = None
     try:
         Settings.set_root_path(root_path)
@@ -212,7 +232,34 @@ def handle_execute(
         thread.name = f"Executor[{request.worker_id}]"
 
         actual_connection = request.connection
-        if request.rabbitmq_params is not None:
+
+        # Use NATS for non-form executions. Forms use RabbitMQ session queues (WebSocket path).
+        is_form = request.stage.type_name == "form"
+        if (
+            NATS_URL
+            and NATS_CREDS
+            and request.rabbitmq_params is not None
+            and not is_form
+        ):
+            execution_id = request.rabbitmq_params.execution_id
+            if state.nats_persistent is None or not state.nats_persistent.is_alive:
+                state.nats_persistent = NATSPersistentConnection(
+                    nats_url=NATS_URL,
+                    nats_creds=NATS_CREDS,
+                )
+
+            nats_connection_to_close = NATSConnection(
+                nats_url=NATS_URL,
+                nats_creds=NATS_CREDS,
+                send_subject=f"{execution_id}.w2s",
+                recv_subject=f"{execution_id}.s2w",
+                execution_id=execution_id,
+                persistent=state.nats_persistent,
+            )
+            actual_connection = nats_connection_to_close
+
+        # RabbitMQ fallback
+        elif request.rabbitmq_params is not None:
             params = request.rabbitmq_params
             # Session queues: cloud-api's send = worker's recv, and vice versa
             if params.recv_queue and params.send_queue:
@@ -220,9 +267,6 @@ def handle_execute(
                     params.send_queue, params.recv_queue, params.execution_id
                 )
                 if params.queue_expire_ms is not None:
-                    # Log unusual values but always keep the cloud-api value.
-                    # Rejecting it and falling back to env-based default would cause
-                    # PRECONDITION_FAILED on queue re-declare (different x-expires).
                     if params.queue_expire_ms < 60_000:
                         AbstraLogger.warning(
                             f"[Executor] queue_expire_ms unusually low ({params.queue_expire_ms}ms), "
@@ -254,19 +298,14 @@ def handle_execute(
             )
             actual_connection = rabbitmq_connection_to_close
 
-        if WORKER_LOG_TO_QUEUE and rabbitmq_connection_to_close is not None:
-            set_execution_conn(rabbitmq_connection_to_close)
+        if WORKER_LOG_TO_QUEUE and actual_connection is not None:
+            set_execution_conn(actual_connection)
 
             if request.rabbitmq_params is not None:
                 broadcast_publisher = StdioBroadcastPublisher.get_or_create(
                     request.rabbitmq_params.connection_uri
                 )
                 set_broadcast_publisher(broadcast_publisher)
-
-            AbstraLogger.warning(
-                f"[Worker] ABSTRA_WORKER_LOG_TO_QUEUE=true, will send execution logs via RabbitMQ "
-                f"(execution_id={rabbitmq_connection_to_close.execution_id})"
-            )
 
         if actual_connection is None:
             raise Exception("No connection available")
@@ -331,13 +370,13 @@ def handle_execute(
         set_execution_conn(None)
 
         # 2. Send execution:ended signal so the server knows to close the queue
-        if WORKER_LOG_TO_QUEUE and rabbitmq_connection_to_close is not None:
+        if WORKER_LOG_TO_QUEUE and actual_connection is not None:
             ended_msg = {
                 "type": "execution:ended",
                 "execution_id": request.execution_id,
             }
             try:
-                rabbitmq_connection_to_close.send(json.dumps(ended_msg))
+                actual_connection.send(json.dumps(ended_msg))
             except Exception as e:
                 AbstraLogger.error(
                     f"[Executor] Error sending execution:ended via queue: {e}"
@@ -346,8 +385,13 @@ def handle_execute(
         # 3. Clear broadcast publisher
         set_broadcast_publisher(None)
 
-        # 4. Close the connection (RabbitMQ or multiprocessing)
-        if rabbitmq_connection_to_close is not None:
+        # 4. Close the connection (NATS, RabbitMQ, or multiprocessing)
+        if nats_connection_to_close is not None:
+            try:
+                nats_connection_to_close.close()
+            except Exception as e:
+                AbstraLogger.error(f"[Executor] Error closing NATS connection: {e}")
+        elif rabbitmq_connection_to_close is not None:
             try:
                 rabbitmq_connection_to_close.close()
             except Exception as e:

@@ -35,10 +35,6 @@ class InvalidFilterCriteriaException(System.ApplicationException):
     def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class ICustomAttributeProvider(metaclass=abc.ABCMeta):
     """This class has no documentation."""
@@ -907,10 +903,6 @@ class StrongNameKeyPair(System.Object, System.Runtime.Serialization.IDeserializa
     def __init__(self, key_pair_container: str) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class AssemblyName(System.Object, System.ICloneable, System.Runtime.Serialization.IDeserializationCallback, System.Runtime.Serialization.ISerializable):
     """This class has no documentation."""
@@ -1663,13 +1655,7 @@ class Assembly(System.Object, System.Reflection.ICustomAttributeProvider, System
         ...
 
     @staticmethod
-    @overload
     def load_from(assembly_file: str) -> System.Reflection.Assembly:
-        ...
-
-    @staticmethod
-    @overload
-    def load_from(assembly_file: str, hash_value: typing.List[int], hash_algorithm: System.Reflection.AssemblyHashAlgorithm) -> System.Reflection.Assembly:
         ...
 
     @overload
@@ -2245,16 +2231,7 @@ class AssemblyFlagsAttribute(System.Attribute):
     def assembly_flags(self) -> int:
         ...
 
-    @overload
     def __init__(self, assembly_flags: System.Reflection.AssemblyNameFlags) -> None:
-        ...
-
-    @overload
-    def __init__(self, flags: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, assembly_flags: int) -> None:
         ...
 
 
@@ -2271,10 +2248,6 @@ class TargetException(System.ApplicationException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -2934,10 +2907,6 @@ class CustomAttributeFormatException(System.FormatException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 

@@ -195,7 +195,7 @@ class ICommandHandler(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def process_commands(self) -> typing.Iterable[QuantConnect.Commands.CommandResultPacket]:
+    def process_commands(self) -> typing.Sequence[QuantConnect.Commands.CommandResultPacket]:
         """
         Process any commands in the queue
         
@@ -245,7 +245,7 @@ class BaseCommandHandler(System.Object, QuantConnect.Commands.ICommandHandler, m
         """Disposes of this instance"""
         ...
 
-    def get_commands(self) -> typing.Iterable[QuantConnect.Commands.ICommand]:
+    def get_commands(self) -> typing.Sequence[QuantConnect.Commands.ICommand]:
         """
         Get the commands to run
         
@@ -263,7 +263,7 @@ class BaseCommandHandler(System.Object, QuantConnect.Commands.ICommandHandler, m
         """
         ...
 
-    def process_commands(self) -> typing.Iterable[QuantConnect.Commands.CommandResultPacket]:
+    def process_commands(self) -> typing.Sequence[QuantConnect.Commands.CommandResultPacket]:
         """Will consumer and execute any command in the queue"""
         ...
 
@@ -535,7 +535,7 @@ class FileCommandHandler(QuantConnect.Commands.BaseCommandHandler):
         ...
 
     @staticmethod
-    def get_command_files() -> typing.Iterable[System.IO.FileInfo]:
+    def get_command_files() -> typing.Sequence[System.IO.FileInfo]:
         """
         Gets all the available command files
         
@@ -543,7 +543,7 @@ class FileCommandHandler(QuantConnect.Commands.BaseCommandHandler):
         """
         ...
 
-    def get_commands(self) -> typing.Iterable[QuantConnect.Commands.ICommand]:
+    def get_commands(self) -> typing.Sequence[QuantConnect.Commands.ICommand]:
         """
         Gets the next command in the queue
         

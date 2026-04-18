@@ -12,12 +12,11 @@ from astropy.nddata import NDData
 from astropy.table import Table
 from astropy.utils.exceptions import AstropyDeprecationWarning
 from numpy.testing import assert_allclose, assert_equal
-from scipy.integrate import dblquad
 
 from photutils import datasets
 from photutils.detection import find_peaks
-from photutils.psf import (EPSFBuilder, PRFAdapter, extract_stars,
-                           grid_from_epsfs, make_psf_model)
+from photutils.psf import (EPSFBuilder, extract_stars, grid_from_epsfs,
+                           make_psf_model)
 from photutils.psf.model_helpers import _integrate_model, _InverseShift
 
 
@@ -192,7 +191,7 @@ class TestGridFromEPSFs:
     Tests for `photutils.psf.utils.grid_from_epsfs`.
     """
 
-    def setup_class(self, cutout_size=25):
+    def setup_class(self, *, cutout_size=25):
         # make a set of 4 EPSF models
 
         self.cutout_size = cutout_size
@@ -249,7 +248,8 @@ class TestGridFromEPSFs:
         self.grid_xypos = [val['fiducial'] for val in quad_stars.values()]
 
     def test_basic_test_grid_from_epsfs(self):
-        psf_grid = grid_from_epsfs(self.epsfs)
+        with pytest.warns(AstropyDeprecationWarning):
+            psf_grid = grid_from_epsfs(self.epsfs)
 
         assert np.all(psf_grid.oversampling == self.epsfs[0].oversampling)
         assert psf_grid.data.shape == (4, psf_grid.oversampling[0] * 25 + 1,
@@ -260,7 +260,8 @@ class TestGridFromEPSFs:
         Test both options for setting PSF locations.
         """
         # default option x_0 and y_0s on input EPSFs
-        psf_grid = grid_from_epsfs(self.epsfs)
+        with pytest.warns(AstropyDeprecationWarning):
+            psf_grid = grid_from_epsfs(self.epsfs)
 
         assert psf_grid.meta['grid_xypos'] == [(0.0, 0.0), (1000.0, 1000.0),
                                                (0.0, 1000.0), (1000.0, 0.0)]
@@ -269,7 +270,8 @@ class TestGridFromEPSFs:
         grid_xypos = [(250.0, 250.0), (750.0, 750.0),
                       (250.0, 750.0), (750.0, 250.0)]
 
-        psf_grid = grid_from_epsfs(self.epsfs, grid_xypos=grid_xypos)
+        with pytest.warns(AstropyDeprecationWarning):
+            psf_grid = grid_from_epsfs(self.epsfs, grid_xypos=grid_xypos)
         assert psf_grid.meta['grid_xypos'] == grid_xypos
 
     def test_meta(self):
@@ -279,7 +281,8 @@ class TestGridFromEPSFs:
         keys = ['grid_xypos', 'oversampling', 'fill_value']
 
         # when 'meta' isn't provided, there should be just three keys
-        psf_grid = grid_from_epsfs(self.epsfs)
+        with pytest.warns(AstropyDeprecationWarning):
+            psf_grid = grid_from_epsfs(self.epsfs)
         for key in keys:
             assert key in psf_grid.meta
 
@@ -287,92 +290,10 @@ class TestGridFromEPSFs:
         # in the list above should be overwritten
         meta = {'grid_xypos': 0.0, 'oversampling': 0.0,
                 'fill_value': -999, 'extra_key': 'extra'}
-        psf_grid = grid_from_epsfs(self.epsfs, meta=meta)
+        with pytest.warns(AstropyDeprecationWarning):
+            psf_grid = grid_from_epsfs(self.epsfs, meta=meta)
         for key in [*keys, 'extra_key']:
             assert key in psf_grid.meta
         assert psf_grid.meta['grid_xypos'].sort() == self.grid_xypos.sort()
         assert_equal(psf_grid.meta['oversampling'], [4, 4])
         assert psf_grid.meta['fill_value'] == 0.0
-
-
-class TestPRFAdapter:
-    """
-    Tests for PRFAdapter.
-    """
-
-    def normalize_moffat(self, mof):
-        # this is the analytic value needed to get a total flux of 1
-        mof = mof.copy()
-        mof.amplitude = (mof.alpha - 1) / (np.pi * mof.gamma**2)
-        return mof
-
-    @pytest.mark.parametrize('adapterkwargs', [
-        {'xname': 'x_0', 'yname': 'y_0', 'fluxname': None,
-         'renormalize_psf': False},
-        {'xname': None, 'yname': None, 'fluxname': None,
-         'renormalize_psf': False},
-        {'xname': 'x_0', 'yname': 'y_0', 'fluxname': 'amplitude',
-         'renormalize_psf': False}])
-    def test_create_eval_prfadapter(self, adapterkwargs):
-        mof = Moffat2D(gamma=1, alpha=4.8)
-        with pytest.warns(AstropyDeprecationWarning):
-            prf = PRFAdapter(mof, **adapterkwargs)
-
-        # test that these work without errors
-        prf.x_0 = 0.5
-        prf.y_0 = -0.5
-        prf.flux = 1.2
-        prf(0, 0)
-
-    @pytest.mark.parametrize('adapterkwargs', [
-        {'xname': 'x_0', 'yname': 'y_0', 'fluxname': None,
-         'renormalize_psf': True},
-        {'xname': 'x_0', 'yname': 'y_0', 'fluxname': None,
-         'renormalize_psf': False},
-        {'xname': None, 'yname': None, 'fluxname': None,
-         'renormalize_psf': False}])
-    def test_prfadapter_integrates(self, adapterkwargs):
-        mof = Moffat2D(gamma=1.5, alpha=4.8)
-        if not adapterkwargs['renormalize_psf']:
-            mof = self.normalize_moffat(mof)
-        with pytest.warns(AstropyDeprecationWarning):
-            prf1 = PRFAdapter(mof, **adapterkwargs)
-
-        # first check that the PRF over a central grid ends up summing to the
-        # integrand over the whole PSF
-        xg, yg = np.meshgrid(*([(-1, 0, 1)] * 2))
-        evalmod = prf1(xg, yg)
-
-        if adapterkwargs['renormalize_psf']:
-            mof = self.normalize_moffat(mof)
-
-        integrand, itol = dblquad(mof, -1.5, 1.5, lambda _: -1.5,
-                                  lambda _: 1.5)
-        assert_allclose(np.sum(evalmod), integrand, atol=itol * 10)
-
-    @pytest.mark.parametrize('adapterkwargs', [
-        {'xname': 'x_0', 'yname': 'y_0', 'fluxname': None,
-         'renormalize_psf': False},
-        {'xname': None, 'yname': None, 'fluxname': None,
-         'renormalize_psf': False}])
-    def test_prfadapter_sizematch(self, adapterkwargs):
-        mof1 = self.normalize_moffat(Moffat2D(gamma=1, alpha=4.8))
-        with pytest.warns(AstropyDeprecationWarning):
-            prf1 = PRFAdapter(mof1, **adapterkwargs)
-
-        # now try integrating over differently-sampled PRFs
-        # and check that they match
-        mof2 = self.normalize_moffat(Moffat2D(gamma=2, alpha=4.8))
-        with pytest.warns(AstropyDeprecationWarning):
-            prf2 = PRFAdapter(mof2, **adapterkwargs)
-
-        xg1, yg1 = np.meshgrid(*([(-0.5, 0.5)] * 2))
-        xg2, yg2 = np.meshgrid(*([(-1.5, -0.5, 0.5, 1.5)] * 2))
-
-        eval11 = prf1(xg1, yg1)
-        eval22 = prf2(xg2, yg2)
-
-        _, itol = dblquad(mof1, -2, 2, lambda _: -2, lambda _: 2)
-        # it's a bit of a guess that the above itol is appropriate, but
-        # it should be close
-        assert_allclose(np.sum(eval11), np.sum(eval22), atol=itol * 100)

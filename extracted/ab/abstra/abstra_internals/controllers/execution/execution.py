@@ -1,5 +1,6 @@
 import gc
 import os
+import threading
 import traceback
 from pathlib import Path
 from typing import Literal, Optional, Tuple
@@ -54,8 +55,13 @@ class ExecutionController:
 
         with SDKContext(execution, self.client, self.repositories, self.user_jwt):
             status = DEFAULT_STATUS
+            create_thread = threading.Thread(
+                target=self.repositories.execution.create,
+                args=(execution,),
+                daemon=True,
+            )
             try:
-                self.repositories.execution.create(execution)
+                create_thread.start()
                 short_stage_id = self.stage.id.split("-")[0]
                 print(
                     f"[ABSTRA] {now_str()} - Execution started for stage {short_stage_id}"
@@ -82,6 +88,7 @@ class ExecutionController:
                 execution.teardown_tests()
                 print(f"[ABSTRA] {now_str()} - Execution {status}")
                 try:
+                    create_thread.join(timeout=10.0)
                     execution.set_status(status)
                     self.repositories.execution.update(execution)
                 except Exception as e_final:

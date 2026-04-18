@@ -5,7 +5,6 @@ import typing
 import System
 import System.ComponentModel
 import System.Net.Sockets
-import System.Runtime.Serialization
 
 
 class SocketError(IntEnum):
@@ -131,10 +130,6 @@ class SocketException(System.ComponentModel.Win32Exception):
 
     @overload
     def __init__(self, error_code: int, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 

@@ -12,4 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .pp_doclayout_v2 import PPDocLayoutV2
+from .pp_doclayout_v3 import PPDocLayoutV3
 from .rt_detr import RTDETR

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.52.1
+Version: 1.59.0
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -114,6 +114,33 @@ In retrieval-heavy workflows, that routinely cuts code-reading token usage by **
 
 Index once. Query cheaply. Keep moving.
 **Precision context beats brute-force context.**
+
+---
+
+## Compact output — the second token axis (MUNCH)
+
+Retrieval decides **what** to send. MUNCH decides **how to pack it**.
+
+Every tool response can be emitted in a purpose-built compact wire format
+instead of verbose JSON. Path prefixes are interned to short handles,
+homogeneous lists of dicts pack into single-character-tagged CSV rows, and
+per-column types are preserved so the decode is lossless.
+
+```python
+# any tool call accepts format=
+find_references(identifier="get_user", format="auto")
+# auto  — emit compact if savings ≥ 15%, otherwise JSON
+# compact — always compact
+# json    — never compact (back-compat passthrough)
+```
+
+Benchmark (v1.56.0): median **45.5%** bytes saved across 6 representative
+tools, peaks at **55.4%** on graph and outline responses. Full spec in
+[SPEC_MUNCH.md](SPEC_MUNCH.md); numbers and harness in
+[TOKEN_SAVINGS.md](TOKEN_SAVINGS.md).
+
+Encoding savings stack on top of retrieval savings — every byte off the wire
+is a byte the agent doesn't pay to read.
 
 ---
 
@@ -268,6 +295,10 @@ Send the model the code it needs, not 1,500 lines of collateral damage.
 ### Cross-language AST pattern matching
 
 `search_ast` brings structural code analysis to every language jCodeMunch indexes — write one query, match across all 70+ languages. **Preset anti-patterns** detect common problems without any configuration: `empty_catch` (silently swallowed errors), `bare_except` (catch-all handlers), `deeply_nested` (5+ control-flow levels), `nested_loops` (O(n³)+ performance risk), `god_function` (100+ line functions), `eval_exec` (injection-risk dynamic execution), `hardcoded_secret` (credential patterns in strings), `todo_fixme` (unfinished work markers), `magic_number` (unexplained numeric constants), and `reassigned_param` (overwritten function parameters). Run `category='all'` for a full sweep, or focus on `security`, `error_handling`, `complexity`, `performance`, or `maintenance`. **Custom queries** use a mini-DSL: `call:*.unwrap` (find method calls by glob), `string:/password/i` (regex over string literals), `comment:/TODO/i` (regex in comments), `nesting:5+`, `loops:3+`, `lines:80+` (threshold queries). Every match is attributed to its enclosing indexed symbol with complexity metadata — so you can see not just *where* the problem is, but *how bad* the surrounding function already is.
+
+### Multi-axis constraint queries
+
+`winnow_symbols` composes signals that every other tool exposes separately — kind, complexity, decorator, direct call references, file glob, name regex, git churn, and PageRank importance — into a single AND-intersected query. Agents stop making four or five calls and merging results by hand: "functions that call `db.Exec`, cyclomatic > 10, churned in the last 30 days, ranked by importance" resolves in one round trip. Supported axes expose their own operator set (`eq`, `in`, `matches`, `contains`, numeric comparisons); the window for churn-based filters is per-criterion. Results include per-symbol importance, complexity, and churn scores so the agent can explain *why* each survivor made the cut.
 
 ### Better engineering workflows
 

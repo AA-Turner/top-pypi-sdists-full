@@ -2974,8 +2974,7 @@ reflow-mode = "semantic-line-breaks"
         .filter(|d| {
             d.code
                 .as_ref()
-                .map(|c| matches!(c, NumberOrString::String(s) if s == "MD013"))
-                .unwrap_or(false)
+                .is_some_and(|c| matches!(c, NumberOrString::String(s) if s == "MD013"))
         })
         .collect();
 
@@ -3033,8 +3032,7 @@ reflow-mode = "semantic-line-breaks"
         .filter(|d| {
             d.code
                 .as_ref()
-                .map(|c| matches!(c, NumberOrString::String(s) if s == "MD013"))
-                .unwrap_or(false)
+                .is_some_and(|c| matches!(c, NumberOrString::String(s) if s == "MD013"))
         })
         .collect();
 
@@ -3104,8 +3102,7 @@ reflow-mode = "semantic-line-breaks"
         .filter(|d| {
             d.code
                 .as_ref()
-                .map(|c| matches!(c, NumberOrString::String(s) if s == "MD013"))
-                .unwrap_or(false)
+                .is_some_and(|c| matches!(c, NumberOrString::String(s) if s == "MD013"))
         })
         .collect();
 
@@ -3245,8 +3242,7 @@ reflow-mode = "semantic-line-breaks"
         .filter(|d| {
             d.code
                 .as_ref()
-                .map(|c| matches!(c, NumberOrString::String(s) if s == "MD013"))
-                .unwrap_or(false)
+                .is_some_and(|c| matches!(c, NumberOrString::String(s) if s == "MD013"))
         })
         .collect();
 
@@ -5536,7 +5532,11 @@ async fn test_hover_file_preview_truncates() {
     );
 
     // Create a target file with more than 15 lines
-    let long_content: String = (1..=30).map(|i| format!("Line {i}\n")).collect();
+    let long_content: String = (1..=30).fold(String::new(), |mut acc, i| {
+        use std::fmt::Write;
+        let _ = writeln!(acc, "Line {i}");
+        acc
+    });
     server.documents.write().await.insert(
         target_uri.clone(),
         DocumentEntry {

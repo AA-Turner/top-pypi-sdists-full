@@ -642,6 +642,14 @@ CREATE TABLE IF NOT EXISTS source_chunk_embeddings (
     created_at TEXT NOT NULL,
     FOREIGN KEY (chunk_id) REFERENCES source_chunks(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS memory_artifact_embeddings (
+    artifact_id TEXT PRIMARY KEY,
+    content_hash TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'embedded',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (artifact_id) REFERENCES artifacts(id) ON DELETE CASCADE
+);
 """
 
 
@@ -1360,10 +1368,25 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
     )
     # vec_source_chunks virtual table no longer needed (usearch replaces sqlite-vec)
 
+    # Ensure memory artifact embeddings metadata table exists (v1.165+)
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS memory_artifact_embeddings (
+            artifact_id TEXT PRIMARY KEY,
+            content_hash TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'embedded',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (artifact_id) REFERENCES artifacts(id) ON DELETE CASCADE
+        )"""
+    )
+
     # Add status column to embedding metadata tables for skip/fail tracking
     # DDL cannot use parameterized placeholders for identifiers in SQLite;
     # table names are validated against this hardcoded constant before interpolation.
-    allowed_embedding_tables = {"message_embeddings", "source_chunk_embeddings"}
+    allowed_embedding_tables = {
+        "message_embeddings",
+        "source_chunk_embeddings",
+        "memory_artifact_embeddings",
+    }
     embedding_tables = allowed_embedding_tables
     for emb_table in embedding_tables:
         assert emb_table in allowed_embedding_tables, f"Unexpected table in migration: {emb_table}"

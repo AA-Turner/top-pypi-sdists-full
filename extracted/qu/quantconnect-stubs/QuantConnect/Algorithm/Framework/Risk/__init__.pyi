@@ -14,7 +14,7 @@ import System
 class IRiskManagementModel(QuantConnect.Algorithm.Framework.INotifiedSecurityChanges, metaclass=abc.ABCMeta):
     """Algorithm framework model that manages an algorithm's risk/downside"""
 
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Manages the algorithm's risk at each time step
         
@@ -27,7 +27,7 @@ class IRiskManagementModel(QuantConnect.Algorithm.Framework.INotifiedSecurityCha
 class RiskManagementModel(System.Object, QuantConnect.Algorithm.Framework.Risk.IRiskManagementModel):
     """Provides a base class for risk management models"""
 
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Manages the algorithm's risk at each time step
         
@@ -61,7 +61,7 @@ class MaximumDrawdownPercentPerSecurity(QuantConnect.Algorithm.Framework.Risk.Ri
         """
         ...
 
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Manages the algorithm's risk at each time step
         
@@ -85,7 +85,7 @@ class TrailingStopRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.Risk
         """
         ...
 
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Manages the algorithm's risk at each time step
         
@@ -109,7 +109,7 @@ class MaximumSectorExposureRiskManagementModel(QuantConnect.Algorithm.Framework.
         """
         ...
 
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Manages the algorithm's risk at each time step
         
@@ -145,7 +145,7 @@ class MaximumDrawdownPercentPortfolio(QuantConnect.Algorithm.Framework.Risk.Risk
         """
         ...
 
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Manages the algorithm's risk at each time step
         
@@ -170,7 +170,7 @@ class MaximumUnrealizedProfitPercentPerSecurity(QuantConnect.Algorithm.Framework
         """
         ...
 
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Manages the algorithm's risk at each time step
         
@@ -191,7 +191,7 @@ class RiskManagementModelPythonWrapper(QuantConnect.Algorithm.Framework.Risk.Ris
         """
         ...
 
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Manages the algorithm's risk at each time step
         
@@ -261,7 +261,7 @@ class CompositeRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskMan
         """
         ...
 
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Manages the algorithm's risk at each time step.
         This method patches this call through the each of the wrapped models.
@@ -286,7 +286,7 @@ class CompositeRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskMan
 class NullRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
     """Provides an implementation of IRiskManagementModel that does nothing"""
 
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Manages the algorithm's risk at each time step
         

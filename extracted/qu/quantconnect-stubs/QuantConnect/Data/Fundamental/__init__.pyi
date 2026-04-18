@@ -11,7 +11,6 @@ import QuantConnect.Data.Market
 import QuantConnect.Data.UniverseSelection
 import QuantConnect.Securities
 import System
-import System.Collections.Generic
 
 QuantConnect_Data_Fundamental_MultiPeriodField_T = typing.TypeVar("QuantConnect_Data_Fundamental_MultiPeriodField_T")
 
@@ -389,7 +388,7 @@ class FinancialStatementsPeriodEndingDate(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, datetime.datetime]:
+    def get_period_values(self) -> typing.Dict[str, datetime.datetime]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -470,7 +469,7 @@ class FinancialStatementsFileDate(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, datetime.datetime]:
+    def get_period_values(self) -> typing.Dict[str, datetime.datetime]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -546,7 +545,7 @@ class FinancialStatementsAccessionNumber(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+    def get_period_values(self) -> typing.Dict[str, str]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -627,7 +626,7 @@ class FinancialStatementsFormType(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+    def get_period_values(self) -> typing.Dict[str, str]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -708,7 +707,7 @@ class PeriodAuditor(QuantConnect.Data.Fundamental.MultiPeriodField[str]):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+    def get_period_values(self) -> typing.Dict[str, str]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -789,7 +788,7 @@ class AuditorReportStatus(QuantConnect.Data.Fundamental.MultiPeriodField[str]):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+    def get_period_values(self) -> typing.Dict[str, str]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -870,7 +869,7 @@ class InventoryValuationMethod(QuantConnect.Data.Fundamental.MultiPeriodField[st
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+    def get_period_values(self) -> typing.Dict[str, str]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -951,7 +950,7 @@ class NumberOfShareHolders(QuantConnect.Data.Fundamental.MultiPeriodField[int]):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, int]:
+    def get_period_values(self) -> typing.Dict[str, int]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -1032,7 +1031,7 @@ class FinancialStatementsPeriodType(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+    def get_period_values(self) -> typing.Dict[str, str]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -1108,7 +1107,7 @@ class TotalRiskBasedCapital(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -1189,7 +1188,7 @@ class IncomeStatementFileDate(QuantConnect.Data.Fundamental.MultiPeriodField[dat
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, datetime.datetime]:
+    def get_period_values(self) -> typing.Dict[str, datetime.datetime]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -1270,7 +1269,7 @@ class AmortizationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -1346,7 +1345,7 @@ class SecuritiesAmortizationIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -1427,7 +1426,7 @@ class CostOfRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -1498,7 +1497,7 @@ class DepletionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -1574,7 +1573,7 @@ class DepreciationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -1655,7 +1654,7 @@ class DepreciationAndAmortizationIncomeStatement(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -1736,7 +1735,7 @@ class DepreciationAmortizationDepletionIncomeStatement(QuantConnect.Data.Fundame
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -1817,7 +1816,7 @@ class NetIncomeDiscontinuousOperationsIncomeStatement(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -1888,7 +1887,7 @@ class ExciseTaxesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -1969,7 +1968,7 @@ class NetIncomeExtraordinaryIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -2040,7 +2039,7 @@ class FeeRevenueAndOtherIncomeIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -2121,7 +2120,7 @@ class GeneralAndAdministrativeExpenseIncomeStatement(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -2202,7 +2201,7 @@ class GrossProfitIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -2283,7 +2282,7 @@ class InterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -2364,7 +2363,7 @@ class InterestExpenseNonOperatingIncomeStatement(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -2445,7 +2444,7 @@ class InterestIncomeAfterProvisionForLoanLossIncomeStatement(QuantConnect.Data.F
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -2526,7 +2525,7 @@ class InterestIncomeNonOperatingIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -2607,7 +2606,7 @@ class NetNonOperatingInterestIncomeExpenseIncomeStatement(QuantConnect.Data.Fund
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -2678,7 +2677,7 @@ class LossAdjustmentExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -2759,7 +2758,7 @@ class MinorityInterestsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -2840,7 +2839,7 @@ class NetIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -2921,7 +2920,7 @@ class NetIncomeCommonStockholdersIncomeStatement(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -3002,7 +3001,7 @@ class NetIncomeContinuousOperationsIncomeStatement(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -3083,7 +3082,7 @@ class NetInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -3154,7 +3153,7 @@ class NetInvestmentIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -3235,7 +3234,7 @@ class TotalRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -3316,7 +3315,7 @@ class NonInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -3397,7 +3396,7 @@ class NonInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -3478,7 +3477,7 @@ class OperatingExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -3559,7 +3558,7 @@ class OperatingIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -3640,7 +3639,7 @@ class OperatingRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -3721,7 +3720,7 @@ class OtherIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -3792,7 +3791,7 @@ class PolicyAcquisitionExpenseIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -3863,7 +3862,7 @@ class NetPolicyholderBenefitsAndClaimsIncomeStatement(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -3944,7 +3943,7 @@ class PreferredStockDividendsIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -4015,7 +4014,7 @@ class TotalPremiumsEarnedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -4096,7 +4095,7 @@ class PretaxIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -4177,7 +4176,7 @@ class TaxProvisionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -4253,7 +4252,7 @@ class CreditLossesProvisionIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -4334,7 +4333,7 @@ class ResearchAndDevelopmentIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -4415,7 +4414,7 @@ class SellingAndMarketingExpenseIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -4496,7 +4495,7 @@ class SellingGeneralAndAdministrationIncomeStatement(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -4577,7 +4576,7 @@ class SpecialIncomeChargesIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -4658,7 +4657,7 @@ class TotalExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -4739,7 +4738,7 @@ class InterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -4820,7 +4819,7 @@ class EBITIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -4901,7 +4900,7 @@ class EBITDAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -4972,7 +4971,7 @@ class NetIncomeContinuousOperationsNetMinorityInterestIncomeStatement(QuantConne
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -5043,7 +5042,7 @@ class CededPremiumsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -5124,7 +5123,7 @@ class CommissionExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -5195,7 +5194,7 @@ class CreditCardIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -5276,7 +5275,7 @@ class DividendIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -5357,7 +5356,7 @@ class EarningsFromEquityInterestIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -5428,7 +5427,7 @@ class EquipmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -5499,7 +5498,7 @@ class ExplorationDevelopmentAndMineralPropertyLeaseExpensesIncomeStatement(Quant
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -5575,7 +5574,7 @@ class FeesAndCommissionsIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -5646,7 +5645,7 @@ class ForeignExchangeTradingGainsIncomeStatement(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -5727,7 +5726,7 @@ class FuelIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -5798,7 +5797,7 @@ class FuelAndPurchasePowerIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -5879,7 +5878,7 @@ class GainOnSaleOfBusinessIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -5955,7 +5954,7 @@ class GainOnSaleOfPPEIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6036,7 +6035,7 @@ class GainOnSaleOfSecurityIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6107,7 +6106,7 @@ class GrossPremiumsWrittenIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6188,7 +6187,7 @@ class ImpairmentOfCapitalAssetsIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6259,7 +6258,7 @@ class IncreaseDecreaseInNetUnearnedPremiumReservesIncomeStatement(QuantConnect.D
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6330,7 +6329,7 @@ class InsuranceAndClaimsIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6406,7 +6405,7 @@ class InterestExpenseForDepositIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6477,7 +6476,7 @@ class InterestExpenseForFederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToRe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6553,7 +6552,7 @@ class InterestExpenseForLongTermDebtAndCapitalSecuritiesIncomeStatement(QuantCon
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6624,7 +6623,7 @@ class InterestExpenseForShortTermDebtIncomeStatement(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6700,7 +6699,7 @@ class InterestIncomeFromDepositsIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6771,7 +6770,7 @@ class InterestIncomeFromFederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToRe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6847,7 +6846,7 @@ class InterestIncomeFromLeasesIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6923,7 +6922,7 @@ class InterestIncomeFromLoansIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -6999,7 +6998,7 @@ class InterestIncomeFromLoansAndLeaseIncomeStatement(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -7080,7 +7079,7 @@ class InterestIncomeFromSecuritiesIncomeStatement(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -7151,7 +7150,7 @@ class InvestmentBankingProfitIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -7232,7 +7231,7 @@ class MaintenanceAndRepairsIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -7303,7 +7302,7 @@ class NetForeignExchangeGainLossIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -7374,7 +7373,7 @@ class NetOccupancyExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -7445,7 +7444,7 @@ class NetPremiumsWrittenIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -7516,7 +7515,7 @@ class NetRealizedGainLossOnInvestmentsIncomeStatement(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -7587,7 +7586,7 @@ class OccupancyAndEquipmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -7668,7 +7667,7 @@ class OperationAndMaintenanceIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -7744,7 +7743,7 @@ class OtherCustomerServicesIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -7820,7 +7819,7 @@ class OtherInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -7896,7 +7895,7 @@ class OtherInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -7977,7 +7976,7 @@ class OtherNonInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -8053,7 +8052,7 @@ class OtherSpecialChargesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -8134,7 +8133,7 @@ class OtherTaxesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -8190,7 +8189,7 @@ class PolicyholderBenefitsCededIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -8261,7 +8260,7 @@ class PolicyholderBenefitsGrossIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -8332,7 +8331,7 @@ class PolicyholderDividendsIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -8403,7 +8402,7 @@ class PolicyholderInterestIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -8484,7 +8483,7 @@ class ProfessionalExpenseAndContractServicesExpenseIncomeStatement(QuantConnect.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -8560,7 +8559,7 @@ class ProvisionForDoubtfulAccountsIncomeStatement(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -8641,7 +8640,7 @@ class RentAndLandingFeesIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -8722,7 +8721,7 @@ class RestructuringAndMergernAcquisitionIncomeStatement(QuantConnect.Data.Fundam
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -8803,7 +8802,7 @@ class SalariesAndWagesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -8874,7 +8873,7 @@ class SecuritiesActivitiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -8950,7 +8949,7 @@ class ServiceChargeOnDepositorAccountsIncomeStatement(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -9026,7 +9025,7 @@ class TradingGainLossIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -9097,7 +9096,7 @@ class TrustFeesbyCommissionsIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -9168,7 +9167,7 @@ class UnderwritingExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -9239,7 +9238,7 @@ class WriteOffIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -9315,7 +9314,7 @@ class OtherNonInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -9396,7 +9395,7 @@ class AmortizationOfIntangiblesIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -9477,7 +9476,7 @@ class NetIncomeFromContinuingAndDiscontinuedOperationIncomeStatement(QuantConnec
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -9548,7 +9547,7 @@ class NetIncomeFromTaxLossCarryforwardIncomeStatement(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -9629,7 +9628,7 @@ class OtherOperatingExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -9705,7 +9704,7 @@ class TotalMoneyMarketInvestmentsIncomeStatement(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -9786,7 +9785,7 @@ class ReconciledCostOfRevenueIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -9867,7 +9866,7 @@ class ReconciledDepreciationIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -9948,7 +9947,7 @@ class NormalizedIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10029,7 +10028,7 @@ class NetIncomeFromContinuingOperationNetMinorityInterestIncomeStatement(QuantCo
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10105,7 +10104,7 @@ class GainLossonSaleofAssetsIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10181,7 +10180,7 @@ class GainonSaleofLoansIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10252,7 +10251,7 @@ class GainonSaleofInvestmentPropertyIncomeStatement(QuantConnect.Data.Fundamenta
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10323,7 +10322,7 @@ class LossonExtinguishmentofDebtIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10404,7 +10403,7 @@ class EarningsfromEquityInterestNetOfTaxIncomeStatement(QuantConnect.Data.Fundam
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10485,7 +10484,7 @@ class NetIncomeIncludingNoncontrollingInterestsIncomeStatement(QuantConnect.Data
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10561,7 +10560,7 @@ class OtherunderPreferredStockDividendIncomeStatement(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10637,7 +10636,7 @@ class StaffCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10693,7 +10692,7 @@ class SocialSecurityCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10749,7 +10748,7 @@ class PensionCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10825,7 +10824,7 @@ class OtherOperatingIncomeTotalIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10896,7 +10895,7 @@ class IncomefromAssociatesandOtherParticipatingInterestsIncomeStatement(QuantCon
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -10967,7 +10966,7 @@ class TotalOtherFinanceCostIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11033,7 +11032,7 @@ class GrossDividendPaymentIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11104,7 +11103,7 @@ class FeesandCommissionIncomeIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11175,7 +11174,7 @@ class FeesandCommissionExpenseIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11231,7 +11230,7 @@ class NetTradingIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11287,7 +11286,7 @@ class OtherStaffCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11358,7 +11357,7 @@ class GainonInvestmentPropertiesIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11429,7 +11428,7 @@ class AverageDilutionEarningsIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11500,7 +11499,7 @@ class GainLossonFinancialInstrumentsDesignatedasCashFlowHedgesIncomeStatement(Qu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11571,7 +11570,7 @@ class GainLossonDerecognitionofAvailableForSaleFinancialAssetsIncomeStatement(Qu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11637,7 +11636,7 @@ class NegativeGoodwillImmediatelyRecognizedIncomeStatement(QuantConnect.Data.Fun
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11708,7 +11707,7 @@ class GainsLossesonFinancialInstrumentsDuetoFairValueAdjustmentsinHedgeAccountin
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11779,7 +11778,7 @@ class ImpairmentLossesReversalsFinancialInstrumentsNetIncomeStatement(QuantConne
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11850,7 +11849,7 @@ class ClaimsandPaidIncurredIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11921,7 +11920,7 @@ class ReinsuranceRecoveriesClaimsandBenefitsIncomeStatement(QuantConnect.Data.Fu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -11992,7 +11991,7 @@ class ChangeinInsuranceLiabilitiesNetofReinsuranceIncomeStatement(QuantConnect.D
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -12063,7 +12062,7 @@ class ChangeinInvestmentContractIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -12134,7 +12133,7 @@ class CreditRiskProvisionsIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -12195,7 +12194,7 @@ class WagesandSalariesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -12271,7 +12270,7 @@ class OtherNonOperatingIncomeExpensesIncomeStatement(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -12342,7 +12341,7 @@ class OtherNonOperatingIncomeIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -12413,7 +12412,7 @@ class OtherNonOperatingExpensesIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -12494,7 +12493,7 @@ class TotalUnusualItemsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -12575,7 +12574,7 @@ class TotalUnusualItemsExcludingGoodwillIncomeStatement(QuantConnect.Data.Fundam
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -12656,7 +12655,7 @@ class TaxRateForCalcsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -12737,7 +12736,7 @@ class TaxEffectOfUnusualItemsIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -12818,7 +12817,7 @@ class NormalizedEBITDAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -12889,7 +12888,7 @@ class StockBasedCompensationIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -12960,7 +12959,7 @@ class DilutedNIAvailtoComStockholdersIncomeStatement(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13031,7 +13030,7 @@ class InvestmentContractLiabilitiesIncurredIncomeStatement(QuantConnect.Data.Fun
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13102,7 +13101,7 @@ class ReinsuranceRecoveriesofInvestmentContractIncomeStatement(QuantConnect.Data
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13173,7 +13172,7 @@ class TotalDividendPaymentofEquitySharesIncomeStatement(QuantConnect.Data.Fundam
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13244,7 +13243,7 @@ class TotalDividendPaymentofNonEquitySharesIncomeStatement(QuantConnect.Data.Fun
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13315,7 +13314,7 @@ class ChangeinTheGrossProvisionforUnearnedPremiumsIncomeStatement(QuantConnect.D
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13386,7 +13385,7 @@ class ChangeinTheGrossProvisionforUnearnedPremiumsReinsurersShareIncomeStatement
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13457,7 +13456,7 @@ class ClaimsandChangeinInsuranceLiabilitiesIncomeStatement(QuantConnect.Data.Fun
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13528,7 +13527,7 @@ class ReinsuranceRecoveriesofInsuranceLiabilitiesIncomeStatement(QuantConnect.Da
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13599,7 +13598,7 @@ class TotalOperatingIncomeAsReportedIncomeStatement(QuantConnect.Data.Fundamenta
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13670,7 +13669,7 @@ class OtherGAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13741,7 +13740,7 @@ class OtherCostofRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13812,7 +13811,7 @@ class RentandLandingFeesCostofRevenueIncomeStatement(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13883,7 +13882,7 @@ class DDACostofRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -13954,7 +13953,7 @@ class RentExpenseSupplementalIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -14025,7 +14024,7 @@ class NormalizedPreTaxIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -14096,7 +14095,7 @@ class ResearchAndDevelopmentExpensesSupplementalIncomeStatement(QuantConnect.Dat
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -14167,7 +14166,7 @@ class DepreciationSupplementalIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -14238,7 +14237,7 @@ class AmortizationSupplementalIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -14309,7 +14308,7 @@ class TotalRevenueAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -14380,7 +14379,7 @@ class OperatingExpenseAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -14451,7 +14450,7 @@ class NormalizedIncomeAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -14522,7 +14521,7 @@ class NormalizedEBITDAAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -14593,7 +14592,7 @@ class NormalizedEBITAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -14664,7 +14663,7 @@ class NormalizedOperatingProfitAsReportedIncomeStatement(QuantConnect.Data.Funda
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -14735,7 +14734,7 @@ class EffectiveTaxRateAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -15719,7 +15718,7 @@ class BalanceSheetFileDate(QuantConnect.Data.Fundamental.MultiPeriodField[dateti
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, datetime.datetime]:
+    def get_period_values(self) -> typing.Dict[str, datetime.datetime]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -15800,7 +15799,7 @@ class AccountsPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -15881,7 +15880,7 @@ class AccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -15962,7 +15961,7 @@ class CurrentAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -16033,7 +16032,7 @@ class NonCurrentAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -16099,7 +16098,7 @@ class AccruedInvestmentIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -16180,7 +16179,7 @@ class AccumulatedDepreciationBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -16261,7 +16260,7 @@ class GainsLossesNotAffectingRetainedEarningsBalanceSheet(QuantConnect.Data.Fund
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -16342,7 +16341,7 @@ class AdditionalPaidInCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -16413,7 +16412,7 @@ class AllowanceForLoansAndLeaseLossesBalanceSheet(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -16484,7 +16483,7 @@ class AvailableForSaleSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -16565,7 +16564,7 @@ class CapitalStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -16646,7 +16645,7 @@ class CashBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -16717,7 +16716,7 @@ class CashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -16798,7 +16797,7 @@ class CashAndCashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -16869,7 +16868,7 @@ class CashAndDueFromBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -16945,7 +16944,7 @@ class CashCashEquivalentsAndFederalFundsSoldBalanceSheet(QuantConnect.Data.Funda
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -17026,7 +17025,7 @@ class CashCashEquivalentsAndMarketableSecuritiesBalanceSheet(QuantConnect.Data.F
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -17107,7 +17106,7 @@ class CommonStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -17188,7 +17187,7 @@ class CurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -17269,7 +17268,7 @@ class CurrentDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -17350,7 +17349,7 @@ class CurrentDebtAndCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundame
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -17431,7 +17430,7 @@ class CurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -17512,7 +17511,7 @@ class CurrentCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -17583,7 +17582,7 @@ class DeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -17664,7 +17663,7 @@ class DeferredCostsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -17745,7 +17744,7 @@ class NonCurrentDeferredLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -17826,7 +17825,7 @@ class CurrentDeferredLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -17897,7 +17896,7 @@ class DeferredPolicyAcquisitionCostsBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -17978,7 +17977,7 @@ class CurrentDeferredRevenueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -18059,7 +18058,7 @@ class NonCurrentDeferredRevenueBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -18130,7 +18129,7 @@ class DeferredTaxAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -18211,7 +18210,7 @@ class CurrentDeferredTaxesAssetsBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -18282,7 +18281,7 @@ class CurrentDeferredTaxesLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -18363,7 +18362,7 @@ class NonCurrentDeferredTaxesAssetsBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -18444,7 +18443,7 @@ class NonCurrentDeferredTaxesLiabilitiesBalanceSheet(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -18510,7 +18509,7 @@ class EquityInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -18576,7 +18575,7 @@ class FederalFundsPurchasedAndSecuritiesSoldUnderAgreementToRepurchaseBalanceShe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -18647,7 +18646,7 @@ class FederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToResellBalanceSheet(Q
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -18718,7 +18717,7 @@ class FixedMaturityInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -18779,7 +18778,7 @@ class FuturePolicyBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -18845,7 +18844,7 @@ class GeneralPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -18926,7 +18925,7 @@ class GoodwillBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19007,7 +19006,7 @@ class GoodwillAndOtherIntangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19078,7 +19077,7 @@ class GrossLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19159,7 +19158,7 @@ class GrossPPEBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19230,7 +19229,7 @@ class HeldToMaturitySecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19306,7 +19305,7 @@ class IncomeTaxPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19377,7 +19376,7 @@ class InterestBearingDepositsLiabilitiesBalanceSheet(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19458,7 +19457,7 @@ class InterestPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19529,7 +19528,7 @@ class InterestBearingDepositsAssetsBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19610,7 +19609,7 @@ class InventoryBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19691,7 +19690,7 @@ class InvestmentsAndAdvancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19757,7 +19756,7 @@ class LimitedPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19838,7 +19837,7 @@ class LongTermDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19919,7 +19918,7 @@ class LongTermDebtAndCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundam
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -19985,7 +19984,7 @@ class LongTermInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -20066,7 +20065,7 @@ class LongTermCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -20147,7 +20146,7 @@ class MinorityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -20218,7 +20217,7 @@ class MoneyMarketInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -20289,7 +20288,7 @@ class NetLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -20370,7 +20369,7 @@ class NetPPEBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -20441,7 +20440,7 @@ class NonInterestBearingDepositsBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -20522,7 +20521,7 @@ class CurrentNotesPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -20588,7 +20587,7 @@ class NotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -20659,7 +20658,7 @@ class NonCurrentNoteReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -20740,7 +20739,7 @@ class OtherCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -20821,7 +20820,7 @@ class OtherIntangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -20897,7 +20896,7 @@ class OtherShortTermInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -20978,7 +20977,7 @@ class PayablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21059,7 +21058,7 @@ class PayablesAndAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21130,7 +21129,7 @@ class PolicyReservesBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21191,7 +21190,7 @@ class PolicyholderFundsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21267,7 +21266,7 @@ class PreferredSecuritiesOutsideStockEquityBalanceSheet(QuantConnect.Data.Fundam
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21348,7 +21347,7 @@ class PreferredStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21429,7 +21428,7 @@ class PrepaidAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21500,7 +21499,7 @@ class NonCurrentPrepaidAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21581,7 +21580,7 @@ class ReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21642,7 +21641,7 @@ class ReinsuranceRecoverableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21723,7 +21722,7 @@ class RetainedEarningsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21784,7 +21783,7 @@ class SecuritiesLendingCollateralBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21845,7 +21844,7 @@ class SecurityAgreeToBeResellBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21906,7 +21905,7 @@ class SecuritySoldNotYetRepurchasedBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -21967,7 +21966,7 @@ class SeparateAccountAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22028,7 +22027,7 @@ class SeparateAccountBusinessBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22089,7 +22088,7 @@ class ShortTermInvestmentsAvailableForSaleBalanceSheet(QuantConnect.Data.Fundame
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22150,7 +22149,7 @@ class ShortTermInvestmentsHeldToMaturityBalanceSheet(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22211,7 +22210,7 @@ class ShortTermInvestmentsTradingBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22292,7 +22291,7 @@ class StockholdersEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22373,7 +22372,7 @@ class TotalTaxPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22454,7 +22453,7 @@ class TotalAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22525,7 +22524,7 @@ class TotalDepositsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22591,7 +22590,7 @@ class TotalInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22672,7 +22671,7 @@ class TotalNonCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22738,7 +22737,7 @@ class TotalPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22799,7 +22798,7 @@ class TradingAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22860,7 +22859,7 @@ class TradingLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -22926,7 +22925,7 @@ class TradingSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23007,7 +23006,7 @@ class TreasuryStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23078,7 +23077,7 @@ class UnearnedIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23149,7 +23148,7 @@ class UnearnedPremiumsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23220,7 +23219,7 @@ class UnpaidLossAndLossReserveBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23301,7 +23300,7 @@ class InvestedCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23382,7 +23381,7 @@ class CurrentDeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23463,7 +23462,7 @@ class NonCurrentDeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23539,7 +23538,7 @@ class SecuritiesAndInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23620,7 +23619,7 @@ class TotalLiabilitiesNetMinorityInterestBalanceSheet(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23701,7 +23700,7 @@ class TotalNonCurrentLiabilitiesNetMinorityInterestBalanceSheet(QuantConnect.Dat
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23782,7 +23781,7 @@ class TotalEquityGrossMinorityInterestBalanceSheet(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23843,7 +23842,7 @@ class GrossAccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23914,7 +23913,7 @@ class NonCurrentAccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -23990,7 +23989,7 @@ class AccruedInterestReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24061,7 +24060,7 @@ class AdvanceFromFederalHomeLoanBanksBalanceSheet(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24122,7 +24121,7 @@ class AllowanceForDoubtfulAccountsReceivableBalanceSheet(QuantConnect.Data.Funda
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24183,7 +24182,7 @@ class AllowanceForNotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24244,7 +24243,7 @@ class AssetsHeldForSaleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24305,7 +24304,7 @@ class AssetsOfDiscontinuedOperationsBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24366,7 +24365,7 @@ class BankIndebtednessBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24437,7 +24436,7 @@ class BankOwnedLifeInsuranceBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24498,7 +24497,7 @@ class SecurityBorrowedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24579,7 +24578,7 @@ class BuildingsAndImprovementsBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24650,7 +24649,7 @@ class CommercialLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24711,7 +24710,7 @@ class CommercialPaperBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24792,7 +24791,7 @@ class CommonStockEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24873,7 +24872,7 @@ class ConstructionInProgressBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -24944,7 +24943,7 @@ class ConsumerLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25005,7 +25004,7 @@ class MinimumPensionLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25066,7 +25065,7 @@ class CustomerAcceptancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25132,7 +25131,7 @@ class DefinedPensionBenefitBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25213,7 +25212,7 @@ class DerivativeProductLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25279,7 +25278,7 @@ class DerivativeAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25355,7 +25354,7 @@ class DividendsPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25431,7 +25430,7 @@ class EmployeeBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25492,7 +25491,7 @@ class FederalFundsPurchasedBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25558,7 +25557,7 @@ class FederalFundsSoldBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25629,7 +25628,7 @@ class FederalHomeLoanBankStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25695,7 +25694,7 @@ class FinancialAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25761,7 +25760,7 @@ class FinancialInstrumentsSoldUnderAgreementsToRepurchaseBalanceSheet(QuantConne
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25842,7 +25841,7 @@ class FinishedGoodsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25908,7 +25907,7 @@ class FlightFleetVehicleAndRelatedEquipmentsBalanceSheet(QuantConnect.Data.Funda
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -25974,7 +25973,7 @@ class ForeclosedAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26050,7 +26049,7 @@ class ForeignCurrencyTranslationAdjustmentsBalanceSheet(QuantConnect.Data.Fundam
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26121,7 +26120,7 @@ class InventoriesAdjustmentsAllowancesBalanceSheet(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26182,7 +26181,7 @@ class InvestmentsInOtherVenturesUnderEquityMethodBalanceSheet(QuantConnect.Data.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26263,7 +26262,7 @@ class LandAndImprovementsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26344,7 +26343,7 @@ class LeasesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26405,7 +26404,7 @@ class LiabilitiesOfDiscontinuedOperationsBalanceSheet(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26476,7 +26475,7 @@ class LineOfCreditBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26547,7 +26546,7 @@ class LoansHeldForSaleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26623,7 +26622,7 @@ class LoansReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26704,7 +26703,7 @@ class MachineryFurnitureEquipmentBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26765,7 +26764,7 @@ class MaterialsAndSuppliesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26836,7 +26835,7 @@ class MineralPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26907,7 +26906,7 @@ class MortgageLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -26968,7 +26967,7 @@ class MortgageAndConsumerloansBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27029,7 +27028,7 @@ class GrossNotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27105,7 +27104,7 @@ class OtherAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27176,7 +27175,7 @@ class OtherCapitalStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27257,7 +27256,7 @@ class OtherCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27328,7 +27327,7 @@ class OtherCurrentBorrowingsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27399,7 +27398,7 @@ class OtherEquityAdjustmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27475,7 +27474,7 @@ class OtherInventoriesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27536,7 +27535,7 @@ class OtherInvestedAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27617,7 +27616,7 @@ class OtherNonCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27693,7 +27692,7 @@ class OtherPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27764,7 +27763,7 @@ class OtherRealEstateOwnedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27840,7 +27839,7 @@ class OtherReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27916,7 +27915,7 @@ class NonCurrentPensionAndOtherPostretirementBenefitPlansBalanceSheet(QuantConne
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -27977,7 +27976,7 @@ class PolicyLoansBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28058,7 +28057,7 @@ class PreferredStockEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28119,7 +28118,7 @@ class PropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28190,7 +28189,7 @@ class CurrentProvisionsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28261,7 +28260,7 @@ class LongTermProvisionsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28337,7 +28336,7 @@ class RawMaterialsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28403,7 +28402,7 @@ class ReceivablesAdjustmentsAllowancesBalanceSheet(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28464,7 +28463,7 @@ class RegulatoryAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28525,7 +28524,7 @@ class RegulatoryLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28586,7 +28585,7 @@ class ReinsuranceBalancesPayableBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28667,7 +28666,7 @@ class RestrictedCashBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28738,7 +28737,7 @@ class RestrictedCashAndCashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28809,7 +28808,7 @@ class RestrictedCashAndInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28875,7 +28874,7 @@ class RestrictedCommonStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -28936,7 +28935,7 @@ class RestrictedInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -29012,7 +29011,7 @@ class TaxesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -29093,7 +29092,7 @@ class TotalCapitalizationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -29164,7 +29163,7 @@ class TotalDeferredCreditsAndOtherNonCurrentLiabilitiesBalanceSheet(QuantConnect
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -29225,7 +29224,7 @@ class UnbilledReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -29291,7 +29290,7 @@ class UnrealizedGainLossBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -29372,7 +29371,7 @@ class WorkInProcessBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -29453,7 +29452,7 @@ class OtherNonCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -29534,7 +29533,7 @@ class CapitalLeaseObligationsBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -29610,7 +29609,7 @@ class OtherLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -29691,7 +29690,7 @@ class OtherPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -29772,7 +29771,7 @@ class TangibleBookValueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -29853,7 +29852,7 @@ class TotalEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -29934,7 +29933,7 @@ class WorkingCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30015,7 +30014,7 @@ class TotalDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30081,7 +30080,7 @@ class CommonUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30142,7 +30141,7 @@ class ElectricUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30203,7 +30202,7 @@ class NaturalGasFuelAndOtherBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30269,7 +30268,7 @@ class NetUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30330,7 +30329,7 @@ class WaterProductionBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30391,7 +30390,7 @@ class OrdinarySharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30452,7 +30451,7 @@ class PreferredSharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30513,7 +30512,7 @@ class TreasurySharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30574,7 +30573,7 @@ class TradingAndOtherReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30640,7 +30639,7 @@ class EquityAttributableToOwnersOfParentBalanceSheet(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30701,7 +30700,7 @@ class SecuritiesLoanedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30782,7 +30781,7 @@ class NetTangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30843,7 +30842,7 @@ class DuefromRelatedPartiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30904,7 +30903,7 @@ class DuefromRelatedPartiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -30965,7 +30964,7 @@ class DuetoRelatedPartiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31026,7 +31025,7 @@ class DuetoRelatedPartiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31087,7 +31086,7 @@ class DuetoRelatedPartiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31148,7 +31147,7 @@ class InvestmentPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31209,7 +31208,7 @@ class InvestmentsinSubsidiariesatCostBalanceSheet(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31270,7 +31269,7 @@ class InvestmentsinAssociatesatCostBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31331,7 +31330,7 @@ class InvestmentsinJointVenturesatCostBalanceSheet(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31397,7 +31396,7 @@ class InvestmentinFinancialAssetsBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31458,7 +31457,7 @@ class FinanceLeaseReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31514,7 +31513,7 @@ class ConvertibleLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31575,7 +31574,7 @@ class BankLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31636,7 +31635,7 @@ class OtherLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31697,7 +31696,7 @@ class AccruedandDeferredIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31758,7 +31757,7 @@ class BankLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31819,7 +31818,7 @@ class OtherLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31880,7 +31879,7 @@ class OtherReservesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -31941,7 +31940,7 @@ class LoansandAdvancestoBankBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32002,7 +32001,7 @@ class LoansandAdvancestoCustomerBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32063,7 +32062,7 @@ class TreasuryBillsandOtherEligibleBillsBalanceSheet(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32124,7 +32123,7 @@ class EquitySharesInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32185,7 +32184,7 @@ class DepositsbyBankBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32246,7 +32245,7 @@ class CustomerAccountsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32307,7 +32306,7 @@ class ItemsinTheCourseofTransmissiontoOtherBanksBalanceSheet(QuantConnect.Data.F
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32368,7 +32367,7 @@ class TradingandFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32429,7 +32428,7 @@ class DebtSecuritiesinIssueBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32490,7 +32489,7 @@ class SubordinatedLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32551,7 +32550,7 @@ class ProvisionsTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32612,7 +32611,7 @@ class OperatingLeaseAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32673,7 +32672,7 @@ class ClaimsOutstandingBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32734,7 +32733,7 @@ class LiabilitiesHeldforSaleCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32795,7 +32794,7 @@ class LiabilitiesHeldforSaleNonCurrentBalanceSheet(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32856,7 +32855,7 @@ class DebtSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32917,7 +32916,7 @@ class TotalFinancialLeaseObligationsBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -32978,7 +32977,7 @@ class AccruedandDeferredIncomeCurrentBalanceSheet(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33039,7 +33038,7 @@ class AccruedandDeferredIncomeNonCurrentBalanceSheet(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33100,7 +33099,7 @@ class FinanceLeaseReceivablesCurrentBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33161,7 +33160,7 @@ class FinanceLeaseReceivablesNonCurrentBalanceSheet(QuantConnect.Data.Fundamenta
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33222,7 +33221,7 @@ class FinancialLiabilitiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33283,7 +33282,7 @@ class FinancialLiabilitiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33344,7 +33343,7 @@ class FinancialAssetsDesignatedasFairValueThroughProfitorLossTotalBalanceSheet(Q
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33405,7 +33404,7 @@ class TaxesAssetsCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33466,7 +33465,7 @@ class OtherEquityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33527,7 +33526,7 @@ class InterestBearingBorrowingsNonCurrentBalanceSheet(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33588,7 +33587,7 @@ class NonInterestBearingBorrowingsNonCurrentBalanceSheet(QuantConnect.Data.Funda
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33649,7 +33648,7 @@ class TradeandOtherPayablesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33710,7 +33709,7 @@ class NonInterestBearingBorrowingsCurrentBalanceSheet(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33771,7 +33770,7 @@ class PensionandOtherPostRetirementBenefitPlansCurrentBalanceSheet(QuantConnect.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33832,7 +33831,7 @@ class OtherLoanAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33893,7 +33892,7 @@ class AssetsPledgedasCollateralSubjecttoSaleorRepledgingTotalBalanceSheet(QuantC
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -33954,7 +33953,7 @@ class TaxAssetsTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34015,7 +34014,7 @@ class AdvancesfromCentralBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34076,7 +34075,7 @@ class DepositCertificatesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34137,7 +34136,7 @@ class NonInterestBearingBorrowingsTotalBalanceSheet(QuantConnect.Data.Fundamenta
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34198,7 +34197,7 @@ class OtherBorrowedFundsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34259,7 +34258,7 @@ class FinancialLiabilitiesDesignatedasFairValueThroughProfitorLossTotalBalanceSh
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34320,7 +34319,7 @@ class FinancialLiabilitiesMeasuredatAmortizedCostTotalBalanceSheet(QuantConnect.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34386,7 +34385,7 @@ class AccruedLiabilitiesTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34447,7 +34446,7 @@ class DeferredIncomeTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34508,7 +34507,7 @@ class DeferredTaxLiabilitiesTotalBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34569,7 +34568,7 @@ class ReinsuranceAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34630,7 +34629,7 @@ class DepositsMadeunderAssumedReinsuranceContractBalanceSheet(QuantConnect.Data.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34691,7 +34690,7 @@ class InsuranceContractAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34752,7 +34751,7 @@ class InsuranceContractLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34813,7 +34812,7 @@ class DepositsReceivedunderCededInsuranceContractBalanceSheet(QuantConnect.Data.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34874,7 +34873,7 @@ class InvestmentContractLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34935,7 +34934,7 @@ class PensionAndOtherPostretirementBenefitPlansTotalBalanceSheet(QuantConnect.Da
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -34996,7 +34995,7 @@ class LiabilitiesHeldforSaleTotalBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35057,7 +35056,7 @@ class HedgingAssetsCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35118,7 +35117,7 @@ class ConvertibleLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35179,7 +35178,7 @@ class BankLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35240,7 +35239,7 @@ class OtherLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35301,7 +35300,7 @@ class InsuranceFundsNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35362,7 +35361,7 @@ class DebtTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35423,7 +35422,7 @@ class ComTreShaNumBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35484,7 +35483,7 @@ class PreTreShaNumBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35565,7 +35564,7 @@ class NetDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35626,7 +35625,7 @@ class ShareIssuedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35687,7 +35686,7 @@ class AssetsHeldForSaleCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35748,7 +35747,7 @@ class AssetsHeldForSaleNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35809,7 +35808,7 @@ class BiologicalAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35870,7 +35869,7 @@ class CashRestrictedOrPledgedBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35931,7 +35930,7 @@ class ConvertibleLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -35992,7 +35991,7 @@ class FinancialOrDerivativeInvestmentCurrentLiabilitiesBalanceSheet(QuantConnect
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36053,7 +36052,7 @@ class OtherInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36114,7 +36113,7 @@ class TradeAndOtherReceivablesNonCurrentBalanceSheet(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36175,7 +36174,7 @@ class DueFromRelatedPartiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36236,7 +36235,7 @@ class UnallocatedSurplusBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36297,7 +36296,7 @@ class DebtDueInYear1BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36358,7 +36357,7 @@ class DebtDueInYear2BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36419,7 +36418,7 @@ class DebtDueInYear5BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36480,7 +36479,7 @@ class DebtDueBeyondBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36541,7 +36540,7 @@ class TotalDebtInMaturityScheduleBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36602,7 +36601,7 @@ class FixedAssetsRevaluationReserveBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36663,7 +36662,7 @@ class CurrentOtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36724,7 +36723,7 @@ class NonCurrentOtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36785,7 +36784,7 @@ class OtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36846,7 +36845,7 @@ class TotalLiabilitiesAsReportedBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -36907,7 +36906,7 @@ class TotalEquityAsReportedBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -38541,7 +38540,7 @@ class CashFlowFileDate(QuantConnect.Data.Fundamental.MultiPeriodField[datetime.d
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, datetime.datetime]:
+    def get_period_values(self) -> typing.Dict[str, datetime.datetime]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -38622,7 +38621,7 @@ class AmortizationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -38703,7 +38702,7 @@ class CapitalExpenditureCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -38784,7 +38783,7 @@ class CashDividendsPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -38860,7 +38859,7 @@ class CashFlowFromContinuingFinancingActivitiesCashFlowStatement(QuantConnect.Da
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -38936,7 +38935,7 @@ class CashFlowFromContinuingInvestingActivitiesCashFlowStatement(QuantConnect.Da
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -39012,7 +39011,7 @@ class CashFlowFromContinuingOperatingActivitiesCashFlowStatement(QuantConnect.Da
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -39083,7 +39082,7 @@ class CashFlowFromDiscontinuedOperationCashFlowStatement(QuantConnect.Data.Funda
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -39164,7 +39163,7 @@ class FinancingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -39245,7 +39244,7 @@ class InvestingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -39326,7 +39325,7 @@ class OperatingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -39407,7 +39406,7 @@ class BeginningCashPositionCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -39488,7 +39487,7 @@ class EndCashPositionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -39559,7 +39558,7 @@ class CashFromDiscontinuedFinancingActivitiesCashFlowStatement(QuantConnect.Data
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -39630,7 +39629,7 @@ class CashFromDiscontinuedInvestingActivitiesCashFlowStatement(QuantConnect.Data
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -39711,7 +39710,7 @@ class ChangeInAccountPayableCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -39792,7 +39791,7 @@ class ChangeInTaxPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -39873,7 +39872,7 @@ class ChangeInAccruedExpenseCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -39944,7 +39943,7 @@ class ChangeInAccruedInvestmentIncomeCashFlowStatement(QuantConnect.Data.Fundame
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -40025,7 +40024,7 @@ class ChangesInCashCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -40096,7 +40095,7 @@ class ChangeInDeferredAcquisitionCostsCashFlowStatement(QuantConnect.Data.Fundam
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -40167,7 +40166,7 @@ class ChangeInFederalFundsAndSecuritiesSoldForRepurchaseCashFlowStatement(QuantC
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -40238,7 +40237,7 @@ class ChangeInFundsWithheldCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -40319,7 +40318,7 @@ class ChangeInIncomeTaxPayableCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -40400,7 +40399,7 @@ class ChangeInInterestPayableCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -40481,7 +40480,7 @@ class ChangeInInventoryCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -40552,7 +40551,7 @@ class ChangeInLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -40623,7 +40622,7 @@ class ChangeInLossAndLossAdjustmentExpenseReservesCashFlowStatement(QuantConnect
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -40704,7 +40703,7 @@ class ChangeInPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -40785,7 +40784,7 @@ class ChangeInPayablesAndAccruedExpenseCashFlowStatement(QuantConnect.Data.Funda
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -40866,7 +40865,7 @@ class ChangeInPrepaidAssetsCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -40947,7 +40946,7 @@ class ChangeInReceivablesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -41018,7 +41017,7 @@ class ChangeInReinsuranceRecoverableOnPaidAndUnpaidLossesCashFlowStatement(Quant
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -41079,7 +41078,7 @@ class ChangeInRestrictedCashCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -41150,7 +41149,7 @@ class ChangeInTradingAccountSecuritiesCashFlowStatement(QuantConnect.Data.Fundam
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -41231,7 +41230,7 @@ class ChangeInWorkingCapitalCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -41312,7 +41311,7 @@ class DeferredIncomeTaxCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -41393,7 +41392,7 @@ class DeferredTaxCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -41464,7 +41463,7 @@ class DepletionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -41545,7 +41544,7 @@ class DepreciationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -41626,7 +41625,7 @@ class DepreciationAndAmortizationCashFlowStatement(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -41707,7 +41706,7 @@ class DepreciationAmortizationDepletionCashFlowStatement(QuantConnect.Data.Funda
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -41788,7 +41787,7 @@ class EffectOfExchangeRateChangesCashFlowStatement(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -41859,7 +41858,7 @@ class IncreaseDecreaseInDepositCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -41940,7 +41939,7 @@ class NetCommonStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -42021,7 +42020,7 @@ class NetIssuancePaymentsOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -42102,7 +42101,7 @@ class NetLongTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -42183,7 +42182,7 @@ class NetPreferredStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -42264,7 +42263,7 @@ class NetShortTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -42335,7 +42334,7 @@ class NetCashFromDiscontinuedOperationsCashFlowStatement(QuantConnect.Data.Funda
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -42411,7 +42410,7 @@ class NetForeignCurrencyExchangeGainLossCashFlowStatement(QuantConnect.Data.Fund
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -42492,7 +42491,7 @@ class NetIncomeFromContinuingOperationsCashFlowStatement(QuantConnect.Data.Funda
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -42563,7 +42562,7 @@ class PaymentForLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -42644,7 +42643,7 @@ class CommonStockPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -42720,7 +42719,7 @@ class PreferredStockPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -42801,7 +42800,7 @@ class LongTermDebtPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -42882,7 +42881,7 @@ class ShortTermDebtPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -42953,7 +42952,7 @@ class ProceedsFromLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -43034,7 +43033,7 @@ class ProceedsFromStockOptionExercisedCashFlowStatement(QuantConnect.Data.Fundam
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -43115,7 +43114,7 @@ class CommonStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -43196,7 +43195,7 @@ class LongTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -43277,7 +43276,7 @@ class PreferredStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -43358,7 +43357,7 @@ class ShortTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -43429,7 +43428,7 @@ class NetProceedsPaymentForLoanCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -43500,7 +43499,7 @@ class ProceedsPaymentInInterestBearingDepositsInBankCashFlowStatement(QuantConne
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -43581,7 +43580,7 @@ class PurchaseOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -43662,7 +43661,7 @@ class PurchaseOfInvestmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -43743,7 +43742,7 @@ class PurchaseOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -43824,7 +43823,7 @@ class PurchaseOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -43905,7 +43904,7 @@ class NetBusinessPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -43986,7 +43985,7 @@ class NetIntangiblesPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -44067,7 +44066,7 @@ class NetInvestmentPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamenta
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -44148,7 +44147,7 @@ class NetPPEPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -44229,7 +44228,7 @@ class SaleOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -44305,7 +44304,7 @@ class SaleOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -44386,7 +44385,7 @@ class SaleOfInvestmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -44467,7 +44466,7 @@ class SaleOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -44548,7 +44547,7 @@ class ChangesInAccountReceivablesCashFlowStatement(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -44629,7 +44628,7 @@ class AmortizationOfFinancingCostsAndDiscountsCashFlowStatement(QuantConnect.Dat
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -44710,7 +44709,7 @@ class AmortizationOfSecuritiesCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -44791,7 +44790,7 @@ class AssetImpairmentChargeCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -44862,7 +44861,7 @@ class ChangeInDividendPayableCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -44933,7 +44932,7 @@ class ChangeInDeferredChargesCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -45014,7 +45013,7 @@ class ChangeInOtherCurrentAssetsCashFlowStatement(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -45095,7 +45094,7 @@ class ChangeInOtherCurrentLiabilitiesCashFlowStatement(QuantConnect.Data.Fundame
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -45176,7 +45175,7 @@ class ChangeInOtherWorkingCapitalCashFlowStatement(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -45247,7 +45246,7 @@ class ChangeInUnearnedPremiumsCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -45328,7 +45327,7 @@ class CommonStockDividendPaidCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -45409,7 +45408,7 @@ class EarningsLossesFromEquityInvestmentsCashFlowStatement(QuantConnect.Data.Fun
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -45485,7 +45484,7 @@ class ExcessTaxBenefitFromStockBasedCompensationCashFlowStatement(QuantConnect.D
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -45566,7 +45565,7 @@ class GainLossOnInvestmentSecuritiesCashFlowStatement(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -45647,7 +45646,7 @@ class GainLossOnSaleOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -45728,7 +45727,7 @@ class GainLossOnSaleOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -45799,7 +45798,7 @@ class InterestCreditedOnPolicyholderDepositsCashFlowStatement(QuantConnect.Data.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -45870,7 +45869,7 @@ class CashFromDiscontinuedOperatingActivitiesCashFlowStatement(QuantConnect.Data
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -45951,7 +45950,7 @@ class OperatingGainsLossesCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -46032,7 +46031,7 @@ class NetOtherFinancingChargesCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -46113,7 +46112,7 @@ class NetOtherInvestingChangesCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -46194,7 +46193,7 @@ class OtherNonCashItemsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -46275,7 +46274,7 @@ class PensionAndEmployeeBenefitExpenseCashFlowStatement(QuantConnect.Data.Fundam
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -46356,7 +46355,7 @@ class PreferredStockDividendPaidCashFlowStatement(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -46427,7 +46426,7 @@ class ProceedsPaymentFederalFundsSoldAndSecuritiesPurchasedUnderAgreementToResel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -46498,7 +46497,7 @@ class ProvisionForLoanLeaseAndOtherLossesCashFlowStatement(QuantConnect.Data.Fun
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -46574,7 +46573,7 @@ class RealizedGainLossOnSaleOfLoansAndLeaseCashFlowStatement(QuantConnect.Data.F
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -46655,7 +46654,7 @@ class StockBasedCompensationCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -46736,7 +46735,7 @@ class UnrealizedGainLossOnInvestmentSecuritiesCashFlowStatement(QuantConnect.Dat
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -46797,7 +46796,7 @@ class UnrealizedGainsLossesOnDerivativesCashFlowStatement(QuantConnect.Data.Fund
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -46878,7 +46877,7 @@ class AmortizationOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -46959,7 +46958,7 @@ class IncomeTaxPaidSupplementalDataCashFlowStatement(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -47040,7 +47039,7 @@ class InterestPaidSupplementalDataCashFlowStatement(QuantConnect.Data.Fundamenta
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -47121,7 +47120,7 @@ class IssuanceOfCapitalStockCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -47202,7 +47201,7 @@ class IssuanceOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -47283,7 +47282,7 @@ class RepaymentOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -47364,7 +47363,7 @@ class RepurchaseOfCapitalStockCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -47445,7 +47444,7 @@ class FreeCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -47516,7 +47515,7 @@ class DecreaseInInterestBearingDepositsInBankCashFlowStatement(QuantConnect.Data
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -47587,7 +47586,7 @@ class IncreaseInInterestBearingDepositsInBankCashFlowStatement(QuantConnect.Data
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -47658,7 +47657,7 @@ class InterestReceivedCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -47729,7 +47728,7 @@ class InterestPaidCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -47800,7 +47799,7 @@ class PurchaseOfSubsidiariesCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -47871,7 +47870,7 @@ class PurchaseOfJointVentureAssociateCashFlowStatement(QuantConnect.Data.Fundame
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -47932,7 +47931,7 @@ class SaleOfSubsidiariesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48003,7 +48002,7 @@ class SaleOfJointVentureAssociateCashFlowStatement(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48074,7 +48073,7 @@ class IncreaseDecreaseInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundam
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48135,7 +48134,7 @@ class IncreaseInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48206,7 +48205,7 @@ class RepaymentInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48277,7 +48276,7 @@ class ShareOfAssociatesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48348,7 +48347,7 @@ class ProfitOnDisposalsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48419,7 +48418,7 @@ class ReorganizationOtherCostsCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48475,7 +48474,7 @@ class NetOutwardLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48551,7 +48550,7 @@ class IssueExpensesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48607,7 +48606,7 @@ class ChangeinDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.Data.Fun
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48683,7 +48682,7 @@ class CashFlowsfromusedinOperatingActivitiesDirectCashFlowStatement(QuantConnect
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48759,7 +48758,7 @@ class ClassesofCashReceiptsfromOperatingActivitiesCashFlowStatement(QuantConnect
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48835,7 +48834,7 @@ class OtherCashReceiptsfromOperatingActivitiesCashFlowStatement(QuantConnect.Dat
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48911,7 +48910,7 @@ class ClassesofCashPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -48982,7 +48981,7 @@ class PaymentstoSuppliersforGoodsandServicesCashFlowStatement(QuantConnect.Data.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49053,7 +49052,7 @@ class PaymentsonBehalfofEmployeesCashFlowStatement(QuantConnect.Data.Fundamental
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49129,7 +49128,7 @@ class OtherCashPaymentsfromOperatingActivitiesCashFlowStatement(QuantConnect.Dat
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49185,7 +49184,7 @@ class DividendsPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49256,7 +49255,7 @@ class DividendsReceivedDirectCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49327,7 +49326,7 @@ class InterestPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49398,7 +49397,7 @@ class InterestReceivedDirectCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49469,7 +49468,7 @@ class TaxesRefundPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49545,7 +49544,7 @@ class TotalAdjustmentsforNonCashItemsCashFlowStatement(QuantConnect.Data.Fundame
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49616,7 +49615,7 @@ class ImpairmentLossReversalRecognizedinProfitorLossCashFlowStatement(QuantConne
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49672,7 +49671,7 @@ class DividendPaidCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49733,7 +49732,7 @@ class DividendReceivedCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49804,7 +49803,7 @@ class TaxesRefundPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49875,7 +49874,7 @@ class OtherOperatingInflowsOutflowsofCashCashFlowStatement(QuantConnect.Data.Fun
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49931,7 +49930,7 @@ class CashAdvancesandLoansMadetoOtherPartiesCashFlowStatement(QuantConnect.Data.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -49992,7 +49991,7 @@ class CashReceiptsfromRepaymentofAdvancesandLoansMadetoOtherPartiesCashFlowState
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50063,7 +50062,7 @@ class DividendsReceivedCFICashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50134,7 +50133,7 @@ class InterestReceivedCFICashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50205,7 +50204,7 @@ class InterestPaidCFFCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50276,7 +50275,7 @@ class ChangeinAccruedIncomeCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50332,7 +50331,7 @@ class ChangeinFinancialAssetsCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50403,7 +50402,7 @@ class ChangeinAdvancesfromCentralBanksCashFlowStatement(QuantConnect.Data.Fundam
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50474,7 +50473,7 @@ class ChangeinFinancialLiabilitiesCashFlowStatement(QuantConnect.Data.Fundamenta
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50545,7 +50544,7 @@ class ChangeinInsuranceContractAssetsCashFlowStatement(QuantConnect.Data.Fundame
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50616,7 +50615,7 @@ class ChangeinReinsuranceReceivablesCashFlowStatement(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50687,7 +50686,7 @@ class ChangeinDeferredAcquisitionCostsNetCashFlowStatement(QuantConnect.Data.Fun
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50758,7 +50757,7 @@ class ChangeinInsuranceFundsCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50829,7 +50828,7 @@ class ChangeinInvestmentContractLiabilitiesCashFlowStatement(QuantConnect.Data.F
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50900,7 +50899,7 @@ class ChangeinInsuranceContractLiabilitiesCashFlowStatement(QuantConnect.Data.Fu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -50971,7 +50970,7 @@ class ProvisionandWriteOffofAssetsCashFlowStatement(QuantConnect.Data.Fundamenta
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51042,7 +51041,7 @@ class ReceiptsfromCustomersCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51113,7 +51112,7 @@ class ReceiptsfromGovernmentGrantsCashFlowStatement(QuantConnect.Data.Fundamenta
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51169,7 +51168,7 @@ class MinorityInterestCashFlowStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51250,7 +51249,7 @@ class CapExReportedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51321,7 +51320,7 @@ class CashReceiptsfromTaxRefundsCashFlowStatement(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51397,7 +51396,7 @@ class CashReceiptsfromDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51473,7 +51472,7 @@ class CashReceiptsfromLoansCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51549,7 +51548,7 @@ class CashReceiptsfromSecuritiesRelatedActivitiesCashFlowStatement(QuantConnect.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51620,7 +51619,7 @@ class CashReceiptsfromFeesandCommissionsCashFlowStatement(QuantConnect.Data.Fund
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51696,7 +51695,7 @@ class CashPaymentsforDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.D
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51767,7 +51766,7 @@ class CashPaymentsforLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51838,7 +51837,7 @@ class InterestandCommissionPaidCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51914,7 +51913,7 @@ class AllTaxesPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -51985,7 +51984,7 @@ class CashReceivedfromInsuranceActivitiesCashFlowStatement(QuantConnect.Data.Fun
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52056,7 +52055,7 @@ class PremiumReceivedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52127,7 +52126,7 @@ class ReinsuranceandOtherRecoveriesReceivedCashFlowStatement(QuantConnect.Data.F
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52198,7 +52197,7 @@ class PolicyholderDepositInvestmentReceivedCashFlowStatement(QuantConnect.Data.F
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52269,7 +52268,7 @@ class CashPaidforInsuranceActivitiesCashFlowStatement(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52340,7 +52339,7 @@ class ClaimsPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52411,7 +52410,7 @@ class CommissionPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52482,7 +52481,7 @@ class CashPaidtoReinsurersCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52553,7 +52552,7 @@ class OtherUnderwritingExpensesPaidCashFlowStatement(QuantConnect.Data.Fundament
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52624,7 +52623,7 @@ class CashDividendsForMinoritiesCashFlowStatement(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52695,7 +52694,7 @@ class CashGeneratedfromOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fu
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52766,7 +52765,7 @@ class FundFromOperationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52837,7 +52836,7 @@ class NetInvestmentPropertiesPurchaseAndSaleCashFlowStatement(QuantConnect.Data.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52908,7 +52907,7 @@ class PurchaseOfInvestmentPropertiesCashFlowStatement(QuantConnect.Data.Fundamen
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -52979,7 +52978,7 @@ class SaleOfInvestmentPropertiesCashFlowStatement(QuantConnect.Data.Fundamental.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -53050,7 +53049,7 @@ class OtherCashAdjustIncludedIntoChangeinCashCashFlowStatement(QuantConnect.Data
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -53121,7 +53120,7 @@ class OtherCashAdjustExcludeFromChangeinCashCashFlowStatement(QuantConnect.Data.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -53192,7 +53191,7 @@ class ChangeinCashSupplementalAsReportedCashFlowStatement(QuantConnect.Data.Fund
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -54343,7 +54342,7 @@ class EarningReportsPeriodEndingDate(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, datetime.datetime]:
+    def get_period_values(self) -> typing.Dict[str, datetime.datetime]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -54424,7 +54423,7 @@ class EarningReportsFileDate(QuantConnect.Data.Fundamental.MultiPeriodField[date
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, datetime.datetime]:
+    def get_period_values(self) -> typing.Dict[str, datetime.datetime]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -54500,7 +54499,7 @@ class EarningReportsAccessionNumber(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+    def get_period_values(self) -> typing.Dict[str, str]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -54581,7 +54580,7 @@ class EarningReportsFormType(QuantConnect.Data.Fundamental.MultiPeriodField[str]
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+    def get_period_values(self) -> typing.Dict[str, str]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -54662,7 +54661,7 @@ class EarningReportsPeriodType(QuantConnect.Data.Fundamental.MultiPeriodField[st
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+    def get_period_values(self) -> typing.Dict[str, str]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -54743,7 +54742,7 @@ class BasicContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -54824,7 +54823,7 @@ class BasicDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -54905,7 +54904,7 @@ class BasicExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -54976,7 +54975,7 @@ class BasicAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -55057,7 +55056,7 @@ class BasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -55138,7 +55137,7 @@ class DilutedContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -55219,7 +55218,7 @@ class DilutedDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -55300,7 +55299,7 @@ class DilutedExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -55371,7 +55370,7 @@ class DilutedAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -55452,7 +55451,7 @@ class DilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -55533,7 +55532,7 @@ class BasicAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -55614,7 +55613,7 @@ class DilutedAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -55695,7 +55694,7 @@ class DividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -55766,7 +55765,7 @@ class BasicEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -55847,7 +55846,7 @@ class ContinuingAndDiscontinuedBasicEPS(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -55918,7 +55917,7 @@ class TaxLossCarryforwardBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -55989,7 +55988,7 @@ class DilutedEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -56070,7 +56069,7 @@ class ContinuingAndDiscontinuedDilutedEPS(QuantConnect.Data.Fundamental.MultiPer
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -56141,7 +56140,7 @@ class TaxLossCarryforwardDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -56222,7 +56221,7 @@ class NormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -56303,7 +56302,7 @@ class NormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -56384,7 +56383,7 @@ class TotalDividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -56455,7 +56454,7 @@ class ReportedNormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -56526,7 +56525,7 @@ class ReportedNormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -56597,7 +56596,7 @@ class DividendCoverageRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -56830,7 +56829,7 @@ class RevenueGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -56901,7 +56900,7 @@ class OperationIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -56972,7 +56971,7 @@ class NetIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -57043,7 +57042,7 @@ class NetIncomeContOpsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -57109,7 +57108,7 @@ class CFOGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -57175,7 +57174,7 @@ class FCFGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -57246,7 +57245,7 @@ class OperationRevenueGrowth3MonthAvg(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -57327,7 +57326,7 @@ class GrossMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -57408,7 +57407,7 @@ class OperationMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -57489,7 +57488,7 @@ class PretaxMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -57570,7 +57569,7 @@ class NetMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -57651,7 +57650,7 @@ class TaxRate(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -57732,7 +57731,7 @@ class EBITMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -57813,7 +57812,7 @@ class EBITDAMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -57894,7 +57893,7 @@ class SalesPerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -57975,7 +57974,7 @@ class CurrentRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -58056,7 +58055,7 @@ class QuickRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -58137,7 +58136,7 @@ class LongTermDebtTotalCapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -58218,7 +58217,7 @@ class InterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -58299,7 +58298,7 @@ class LongTermDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -58380,7 +58379,7 @@ class FinancialLeverage(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -58461,7 +58460,7 @@ class TotalDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -58542,7 +58541,7 @@ class NormalizedNetProfitMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -58608,7 +58607,7 @@ class DaysInSales(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -58674,7 +58673,7 @@ class DaysInInventory(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -58740,7 +58739,7 @@ class DaysInPayment(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -58806,7 +58805,7 @@ class CashConversionCycle(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -58872,7 +58871,7 @@ class ReceivableTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -58938,7 +58937,7 @@ class InventoryTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59004,7 +59003,7 @@ class PaymentTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59070,7 +59069,7 @@ class FixAssetsTuronver(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59136,7 +59135,7 @@ class AssetsTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59202,7 +59201,7 @@ class ROE(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59268,7 +59267,7 @@ class ROA(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59334,7 +59333,7 @@ class ROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59390,7 +59389,7 @@ class FCFSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59446,7 +59445,7 @@ class FCFNetIncomeRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59502,7 +59501,7 @@ class CapExSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59583,7 +59582,7 @@ class DebtToAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59664,7 +59663,7 @@ class CommonEquityToAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59730,7 +59729,7 @@ class CapitalExpenditureAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59796,7 +59795,7 @@ class GrossProfitAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59852,7 +59851,7 @@ class GrossMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59908,7 +59907,7 @@ class PostTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -59964,7 +59963,7 @@ class PreTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60020,7 +60019,7 @@ class ProfitMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60076,7 +60075,7 @@ class ROE5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60132,7 +60131,7 @@ class ROA5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60188,7 +60187,7 @@ class AVG5YrsROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60254,7 +60253,7 @@ class NormalizedROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60310,7 +60309,7 @@ class RegressionGrowthOperatingRevenue5Years(QuantConnect.Data.Fundamental.Multi
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60371,7 +60370,7 @@ class CashRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60432,7 +60431,7 @@ class CashtoTotalAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60488,7 +60487,7 @@ class CapitalExpendituretoEBITDA(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60544,7 +60543,7 @@ class FCFtoCFO(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60610,7 +60609,7 @@ class StockholdersEquityGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60676,7 +60675,7 @@ class TotalAssetsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60742,7 +60741,7 @@ class TotalLiabilitiesGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60808,7 +60807,7 @@ class TotalDebtEquityRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60874,7 +60873,7 @@ class CashRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -60940,7 +60939,7 @@ class EBITDAGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -61006,7 +61005,7 @@ class CashFlowFromFinancingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -61072,7 +61071,7 @@ class CashFlowFromInvestingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -61138,7 +61137,7 @@ class CapExGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -61204,7 +61203,7 @@ class CurrentRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -61265,7 +61264,7 @@ class WorkingCapitalTurnoverRatio(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -61326,7 +61325,7 @@ class NetIncomePerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -61387,7 +61386,7 @@ class SolvencyRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -61448,7 +61447,7 @@ class ExpenseRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -61509,7 +61508,7 @@ class LossRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -61942,7 +61941,7 @@ class DilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -62013,7 +62012,7 @@ class DilutedContEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -62084,7 +62083,7 @@ class DPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -62155,7 +62154,7 @@ class EquityPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -62211,7 +62210,7 @@ class RegressionGrowthofDividends5Years(QuantConnect.Data.Fundamental.MultiPerio
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -62277,7 +62276,7 @@ class FCFPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -62348,7 +62347,7 @@ class BookValuePerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -62419,7 +62418,7 @@ class NormalizedDilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -62490,7 +62489,7 @@ class NormalizedBasicEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, float]:
+    def get_period_values(self) -> typing.Dict[str, float]:
         """
         Gets a dictionary of period names and values for the field
         
@@ -71168,7 +71167,7 @@ class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodF
         """
         ...
 
-    def get_period_names(self) -> typing.Iterable[str]:
+    def get_period_names(self) -> typing.Sequence[str]:
         """Gets the list of available period names for the field"""
         ...
 
@@ -71181,7 +71180,7 @@ class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodF
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, QuantConnect_Data_Fundamental_MultiPeriodField_T]:
+    def get_period_values(self) -> typing.Dict[str, QuantConnect_Data_Fundamental_MultiPeriodField_T]:
         """Gets a dictionary of period names and values for the field"""
         ...
 

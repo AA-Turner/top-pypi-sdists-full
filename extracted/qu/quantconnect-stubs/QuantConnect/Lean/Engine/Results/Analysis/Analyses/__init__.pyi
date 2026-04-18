@@ -528,7 +528,7 @@ class OrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analy
     by inspecting invalid order events for known message text fragments.
     """
 
-    def get_matching_order_events_messages(self, order_events: typing.List[QuantConnect.Orders.OrderEvent]) -> typing.Iterable[str]:
+    def get_matching_order_events_messages(self, order_events: typing.List[QuantConnect.Orders.OrderEvent]) -> typing.Sequence[str]:
         """
         Filters order_events to those with OrderStatus.INVALID status
         whose message contains all MessageAnalysis.expected_message_text fragments.

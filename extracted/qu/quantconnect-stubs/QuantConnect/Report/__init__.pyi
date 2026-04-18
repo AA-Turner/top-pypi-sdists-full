@@ -561,7 +561,7 @@ class DrawdownCollection(System.Object):
         ...
 
     @staticmethod
-    def get_drawdown_periods(curve: typing.Any, periods: int = 5) -> typing.Iterable[QuantConnect.Report.DrawdownPeriod]:
+    def get_drawdown_periods(curve: typing.Any, periods: int = 5) -> typing.Sequence[QuantConnect.Report.DrawdownPeriod]:
         """
         Gets the given drawdown periods from the equity curve and the set periods
         
@@ -724,7 +724,7 @@ class PortfolioLooper(System.Object, System.IDisposable):
         ...
 
     @staticmethod
-    def from_orders(equity_curve: typing.Any, orders: typing.List[QuantConnect.Orders.Order], algorithm_configuration: QuantConnect.AlgorithmConfiguration = None, live_series: bool = False) -> typing.Iterable[QuantConnect.Report.PointInTimePortfolio]:
+    def from_orders(equity_curve: typing.Any, orders: typing.List[QuantConnect.Orders.Order], algorithm_configuration: QuantConnect.AlgorithmConfiguration = None, live_series: bool = False) -> typing.Sequence[QuantConnect.Report.PointInTimePortfolio]:
         """
         Gets the point in time portfolio over multiple deployments
         
@@ -737,7 +737,7 @@ class PortfolioLooper(System.Object, System.IDisposable):
         ...
 
     @staticmethod
-    def get_history(symbols: typing.List[QuantConnect.Symbol], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: QuantConnect.Resolution) -> typing.Iterable[QuantConnect.Data.Slice]:
+    def get_history(symbols: typing.List[QuantConnect.Symbol], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: QuantConnect.Resolution) -> typing.Sequence[QuantConnect.Data.Slice]:
         """
         Gets the history for the given symbols from the start to the end
         

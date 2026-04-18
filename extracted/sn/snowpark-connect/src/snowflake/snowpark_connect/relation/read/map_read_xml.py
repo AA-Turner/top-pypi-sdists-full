@@ -14,6 +14,7 @@ from snowflake.snowpark._internal.xml_schema_inference import merge_struct_types
 from snowflake.snowpark.exceptions import SnowparkDataframeReaderException
 from snowflake.snowpark.functions import sql_expr
 from snowflake.snowpark.types import ArrayType, DataType, StructField, StructType
+from snowflake.snowpark_connect.config import get_string_session_config_param
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
@@ -40,7 +41,8 @@ XML_READ_MAX_PARALLEL = 32
 
 """
 This module reads XML files with Spark parity by:
-1. Requiring user-provided schema (schema inference is not yet supported)
+1. Using user-provided schema or Snowpark's XML schema inference (inferSchema=True
+   infers full types; inferSchema=False infers structure with all-StringType leaves)
 2. Enforcing case-sensitive field name matching (Spark behavior)
 3. Reconstructing data with proper structured types
 
@@ -166,7 +168,18 @@ def map_read_xml(
 
         # [SPARK PARITY] Transform data to match user schema and case sensitivity
         if df is not None and effective_schema is not None:
-            df = _apply_xml_schema(df, effective_schema)
+            # SNOW-3245148: Pass nullValue option to schema application to match Spark behavior.
+            # Values matching nullValue (or whitespace-only) are converted to NULL before
+            # type casting, preventing cast errors like "Failed to cast variant value to FIXED".
+            # Only enabled in "strict" mode to avoid breaking changes.
+            null_value = options.get("nullvalue") or ""
+            io_mode = (
+                get_string_session_config_param("snowpark.connect.io.validations.mode")
+                .strip()
+                .lower()
+                or "lenient"
+            )
+            df = _apply_xml_schema(df, effective_schema, null_value, io_mode)
 
     except SnowparkDataframeReaderException as e:
         # [SPARK PARITY] Return empty DataFrame if rowTag not found
@@ -266,12 +279,21 @@ def _validate_xml_options(options: XmlReaderConfig) -> None:
 def _apply_xml_schema(
     snowpark_df: snowpark.DataFrame,
     schema: StructType,
+    null_value: str = "",
+    io_mode: str = "lenient",
 ) -> snowpark.DataFrame:
     """
     Cast Snowpark XML output to match the given schema:
-    - Maps Snowpark column names to user or inferredschema field names
+    - Maps Snowpark column names to user or inferred schema field names
     - Applies case-sensitive matching where missing columns become NULL
     - Normalizes single-element arrays
+    - In strict mode: Pre-processes nullValue matches and whitespace-only values to NULL
+
+    Args:
+        snowpark_df: Input DataFrame from XML reader
+        schema: Target schema to apply
+        null_value: Value to treat as NULL (from nullValue option, default "")
+        io_mode: IO validations mode ("strict" or "lenient", default "lenient")
     """
     snowpark_columns = set(snowpark_df.columns)
     select_exprs = []
@@ -286,8 +308,12 @@ def _apply_xml_schema(
             select_exprs.append(sql_expr(f"NULL::{sf_type}").alias(f'"{field_name}"'))
             continue
 
-        normalized = _normalize_nested_schema(snowpark_col, field.datatype)
+        normalized = _normalize_nested_schema(
+            snowpark_col, field.datatype, null_value, io_mode
+        )
         sf_type = convert_sp_to_sf_type(field.datatype)
+        # [SNOW-3245148] In strict mode, normalize returns expression that converts
+        # nullValue matches and whitespace-only values to NULL, so casting will succeed.
         select_exprs.append(
             sql_expr(f"({normalized})::{sf_type}").alias(f'"{field_name}"')
         )
@@ -295,13 +321,17 @@ def _apply_xml_schema(
     return snowpark_df.select(*select_exprs)
 
 
-def _normalize_nested_schema(col_path: str, datatype: DataType) -> str:
+def _normalize_nested_schema(
+    col_path: str, datatype: DataType, null_value: str = "", io_mode: str = "lenient"
+) -> str:
     """
     Recursively normalize VARIANT data so it can cast to the expected structured type.
 
     Args:
         col_path: SQL path to column (e.g., 'reviews' or 'reviews:review')
         datatype: Expected datatype from user schema
+        null_value: Value to treat as NULL (from nullValue option)
+        io_mode: IO validations mode ("strict" or "lenient", default "lenient")
 
     Returns:
         SQL expression string with array normalization applied where needed
@@ -311,12 +341,13 @@ def _normalize_nested_schema(col_path: str, datatype: DataType) -> str:
       recurse into each element so nested structs/arrays are also normalized.
     - OBJECT_CONSTRUCT returns OBJECT type, which CANNOT cast to structured OBJECT(...)
     - OBJECT_CONSTRUCT_KEEP_NULL(...)::VARIANT returns VARIANT, which CAN cast to structured types
+    - [SNOW-3245148] In strict mode, pre-process nullValue matches to NULL before casting
     """
     if isinstance(datatype, ArrayType):
         arr_expr = f"IFF(IS_ARRAY({col_path}), {col_path}, ARRAY_CONSTRUCT({col_path}))"
         element_type = datatype.element_type
         if isinstance(element_type, (StructType, ArrayType)):
-            inner = _normalize_nested_schema("__e", element_type)
+            inner = _normalize_nested_schema("__e", element_type, null_value, io_mode)
             return f"TRANSFORM({arr_expr}, __e -> {inner})"
         return arr_expr
 
@@ -326,7 +357,9 @@ def _normalize_nested_schema(col_path: str, datatype: DataType) -> str:
         for field in datatype.fields:
             field_name = field._name
             nested_path = f"{col_path}['{field_name}']"
-            normalized = _normalize_nested_schema(nested_path, field.datatype)
+            normalized = _normalize_nested_schema(
+                nested_path, field.datatype, null_value, io_mode
+            )
             field_exprs.append(f"'{field_name}', {normalized}")
         # ::VARIANT suffix is KEY - allows casting to structured OBJECT(...)
         reconstructed = f"OBJECT_CONSTRUCT_KEEP_NULL({', '.join(field_exprs)})::VARIANT"
@@ -334,7 +367,27 @@ def _normalize_nested_schema(col_path: str, datatype: DataType) -> str:
         return f"IFF({col_path} IS NULL, NULL, {reconstructed})"
 
     else:
-        return col_path
+        # [SNOW-3245148] In strict mode, pre-process leaf values to NULL for:
+        # 1. Values matching nullValue option (after trimming)
+        # 2. Whitespace-only values (which can't be cast to numeric types)
+        # This ensures proper NULL handling before type casting, matching Spark behavior.
+        # In lenient mode (default), return the value as-is for backward compatibility.
+        if io_mode == "strict":
+            escaped_null_value = null_value.replace("'", "''")
+            # Convert VARIANT to VARCHAR for comparison, then check if:
+            # - After TRIM, it matches the nullValue
+            # - After TRIM, it's empty (whitespace-only case)
+            # If either condition is true, return NULL; otherwise return original VARIANT
+            return (
+                f"IFF("
+                f"TRIM({col_path}::VARCHAR) = '{escaped_null_value}' "
+                f"OR TRIM({col_path}::VARCHAR) = '', "
+                f"NULL, "
+                f"{col_path}"
+                f")"
+            )
+        else:
+            return col_path
 
 
 def _create_empty_dataframe_with_schema(
@@ -426,20 +479,60 @@ def _generate_list_of_files(
     """Return direct child .xml files under `path`, mapped back to stage paths."""
     result: list[str] = []
     stage_token = f"@{stage_name}"
+    path_suffix = path[len(stage_token) :]
+    listed_roots = [stage_url]
+    if not _is_external_stage_cloud_path(stage_url):
+        # LS on fully-qualified internal stages can return rows rooted at the
+        # unqualified stage name (for example, my_stage/...) while the input path
+        # uses DB.SCHEMA.MY_STAGE. Include both forms for matching.
+        listed_roots = [stage_name]
+        stage_leaf_name = stage_name.split(".")[-1]
+        if stage_leaf_name.lower() != stage_name.lower():
+            listed_roots.append(stage_leaf_name)
+    dir_roots = [(root, f"{root}{path_suffix}") for root in listed_roots]
 
-    dir_root = f"{path.replace(stage_token, stage_url, 1)}"
-    for f in files:
-        file_name = f[len(dir_root) :]  # part after dir root
-        if f == path[1:] or dir_root == f:
+    path_without_at = path[1:]
+    path_without_at_lower = path_without_at.lower()
+    for file in files:
+        file_lower = file.lower()
+        matched_pair = next(
+            (pair for pair in dir_roots if file_lower.startswith(pair[1].lower())),
+            None,
+        )
+        if file_lower == path_without_at_lower or any(
+            file_lower == dir_root.lower() for _, dir_root in dir_roots
+        ):
             result.append(path)
             continue
+
+        if matched_pair is None:
+            continue
+        matched_root, matched_dir_root = matched_pair
+        file_name = file[len(matched_dir_root) :]  # part after dir root
         # Direct child only + xml only
         if "/" in file_name.lstrip("/") or not file_name.lower().endswith(".xml"):
             continue
 
         # Map back to stage path format under original input path
-        result.append(f"@{f.replace(stage_url, stage_name)}")
+        result.append(
+            f"@{_replace_prefix_case_insensitive(file, matched_root, stage_name)}"
+        )
+    # If user did not specify a directory (no trailing slash) and no XML matched,
+    # preserve the original path as fallback so downstream read can handle it.
+    if not result and not path.endswith("/"):
+        return [path]
     return result
+
+
+def _replace_prefix_case_insensitive(
+    source: str,
+    prefix: str,
+    replacement: str,
+) -> str:
+    """Replace a prefix while ignoring case, preserving the source suffix."""
+    if source.lower().startswith(prefix.lower()):
+        return f"{replacement}{source[len(prefix):]}"
+    return source
 
 
 def _get_stage_url_prefix(stage_name: str, session: snowpark.Session) -> str | None:

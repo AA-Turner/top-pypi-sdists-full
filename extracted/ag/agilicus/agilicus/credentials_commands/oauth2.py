@@ -1,26 +1,19 @@
-from agilicus.agilicus_api import Oauth2Auth
+from agilicus import agilicus_api
+from agilicus.input_helpers import build_object_prefix
 
 
-def get_oauth2_auth(properties, pop=False):
-    existing = properties.get("oauth2", {})
-    # Find all oauth2_-prefixed items
-    matched = []
-    for key, value in properties.items():
-        parts = key.split("oauth2_", 2)
-        if len(parts) != 2:
-            continue
-        matched.append(key)
-        if value is None:
-            continue
-        if isinstance(value, tuple):
-            value = list(value)
-        existing[parts[1]] = value
+def get_oauth2_routing_auth(existing, properties, pop=False):
+    return build_object_prefix(
+        existing, properties, "oauth2_routing_", agilicus_api.Oauth2AuthRouting, pop=pop
+    )
 
-    if matched and pop:
-        for key in matched:
-            properties.pop(key)
 
-    if not existing:
-        return None
+def get_oauth2_auth(existing, properties, pop=False):
+    routing = get_oauth2_routing_auth(existing.get("routing", {}), properties, pop=True)
 
-    return Oauth2Auth(**existing)
+    result = build_object_prefix(
+        existing, properties, "oauth2_", agilicus_api.Oauth2Auth, pop=pop
+    )
+    if result and routing:
+        result.routing = routing
+    return result

@@ -7,11 +7,8 @@ import astropy.units as u
 import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
-from astropy.io import fits
 from astropy.nddata import NDData, StdDevUncertainty
-from astropy.table import Table
 from astropy.utils.exceptions import AstropyUserWarning
-from astropy.wcs import WCS
 from numpy.testing import assert_allclose, assert_array_less, assert_equal
 
 from photutils.aperture.circle import (CircularAnnulus, CircularAperture,
@@ -24,8 +21,7 @@ from photutils.aperture.rectangle import (RectangularAnnulus,
                                           RectangularAperture,
                                           SkyRectangularAnnulus,
                                           SkyRectangularAperture)
-from photutils.datasets import (get_path, make_4gaussians_image, make_gwcs,
-                                make_wcs)
+from photutils.datasets import make_4gaussians_image, make_gwcs, make_wcs
 from photutils.utils._optional_deps import (HAS_GWCS, HAS_MATPLOTLIB,
                                             HAS_REGIONS)
 
@@ -36,28 +32,31 @@ APERTURE_CL = [CircularAperture,
                RectangularAperture,
                RectangularAnnulus]
 
-TEST_APERTURES = list(zip(APERTURE_CL, ((3.0,),
-                                        (3.0, 5.0),
-                                        (3.0, 5.0, 1.0),
-                                        (3.0, 5.0, 4.0, 12.0 / 5.0, 1.0),
-                                        (5, 8, np.pi / 4),
-                                        (8, 12, 8, 16.0 / 3.0, np.pi / 8)),
+TEST_APERTURES = list(zip(APERTURE_CL,
+                          ({'r': 3.0},
+                           {'r_in': 3.0, 'r_out': 5.0},
+                           {'a': 3.0, 'b': 5.0, 'theta': 1.0},
+                           {'a_in': 3.0, 'a_out': 5.0, 'b_out': 4.0,
+                            'b_in': 12.0 / 5.0, 'theta': 1.0},
+                           {'w': 5, 'h': 8, 'theta': np.pi / 4},
+                           {'w_in': 8, 'w_out': 12, 'h_out': 8,
+                            'h_in': 16.0 / 3.0, 'theta': np.pi / 8}),
                           strict=True))
 
 
 @pytest.mark.parametrize(('aperture_class', 'params'), TEST_APERTURES)
 def test_outside_array(aperture_class, params):
     data = np.ones((10, 10), dtype=float)
-    aperture = aperture_class((-60, 60), *params)
+    aperture = aperture_class((-60, 60), **params)
     fluxtable = aperture_photometry(data, aperture)
-    # aperture is fully outside array:
+    # Aperture is fully outside array
     assert np.isnan(fluxtable['aperture_sum'])
 
 
 @pytest.mark.parametrize(('aperture_class', 'params'), TEST_APERTURES)
 def test_inside_array_simple(aperture_class, params):
     data = np.ones((40, 40), dtype=float)
-    aperture = aperture_class((20.0, 20.0), *params)
+    aperture = aperture_class((20.0, 20.0), **params)
     table1 = aperture_photometry(data, aperture, method='center',
                                  subpixels=10)
     table2 = aperture_photometry(data, aperture, method='subpixel',
@@ -77,7 +76,7 @@ def test_inside_array_simple(aperture_class, params):
 def test_aperture_plots(aperture_class, params):
     # This test should run without any errors, and there is no return
     # value.
-    aperture = aperture_class((20.0, 20.0), *params)
+    aperture = aperture_class((20.0, 20.0), **params)
     aperture.plot()
 
 
@@ -247,9 +246,9 @@ class BaseTestDifferentData:
         assert_allclose(table['aperture_sum'].value, self.true_flux)
         assert table['aperture_sum'].unit, self.fluxunit
 
-        assert np.all(table['xcenter'].value
+        assert np.all(table['x_center'].value
                       == np.transpose(self.position)[0])
-        assert np.all(table['ycenter'].value
+        assert np.all(table['y_center'].value
                       == np.transpose(self.position)[1])
 
 
@@ -267,7 +266,7 @@ def test_input_wcs():
     data = make_4gaussians_image()
     wcs = make_wcs(data.shape)
 
-    # hard wired positions in make_4gaussian_image
+    # Hard wired positions in make_4gaussian_image
     xypos = np.transpose(([160.0, 25.0, 150.0, 90.0],
                           [70.0, 40.0, 25.0, 60.0]))
     aper = CircularAperture(xypos, 3.0)
@@ -282,44 +281,11 @@ def test_input_wcs():
     assert 'sky_center' in phot3.colnames
 
 
-@pytest.mark.remote_data
-def test_wcs_based_photometry_to_catalog():
-    pathcat = get_path('spitzer_example_catalog.xml', location='remote')
-    pathhdu = get_path('spitzer_example_image.fits', location='remote')
-    hdu = fits.open(pathhdu)
-    data = u.Quantity(hdu[0].data, unit=hdu[0].header['BUNIT'])
-    wcs = WCS(hdu[0].header)
-
-    catalog = Table.read(pathcat)
-
-    pos_skycoord = SkyCoord(catalog['l'], catalog['b'], frame='galactic')
-
-    photometry_skycoord = aperture_photometry(
-        data, SkyCircularAperture(pos_skycoord, 4 * u.arcsec), wcs=wcs)
-
-    # Photometric unit conversion is needed to match the catalog
-    factor = (1.2 * u.arcsec) ** 2 / u.pixel
-    converted_aperture_sum = (photometry_skycoord['aperture_sum']
-                              * factor).to(u.mJy / u.pixel)
-
-    fluxes_catalog = catalog['f4_5'].filled()
-
-    # There shouldn't be large outliers, but some differences is OK, as
-    # fluxes_catalog is based on PSF photometry, etc.
-    assert_allclose(fluxes_catalog, converted_aperture_sum.value, rtol=1e0)
-
-    assert np.mean(np.fabs((fluxes_catalog - converted_aperture_sum.value)
-                           / fluxes_catalog)) < 0.1
-
-    # close the file
-    hdu.close()
-
-
 def test_wcs_based_photometry():
     data = make_4gaussians_image()
     wcs = make_wcs(data.shape)
 
-    # hard wired positions in make_4gaussian_image
+    # Hard wired positions in make_4gaussian_image
     pos_orig_pixel = u.Quantity(([160.0, 25.0, 150.0, 90.0],
                                  [70.0, 40.0, 25.0, 60.0]), unit=u.pixel)
 
@@ -387,17 +353,17 @@ def test_wcs_based_photometry():
     photometry_skycoord_rec = aperture_photometry(
         data, SkyRectangularAperture(pos_skycoord,
                                      6 * u.arcsec, 6 * u.arcsec,
-                                     0 * u.arcsec),
+                                     theta=0 * u.arcsec),
         method='subpixel', subpixels=20, wcs=wcs)
     photometry_skycoord_rec_4 = aperture_photometry(
         data, SkyRectangularAperture(pos_skycoord,
                                      4 * u.arcsec, 4 * u.arcsec,
-                                     0 * u.arcsec),
+                                     theta=0 * u.arcsec),
         method='subpixel', subpixels=20, wcs=wcs)
     photometry_skycoord_rec_s = aperture_photometry(
         data, SkyRectangularAperture(pos_skycoord_s,
                                      6 * u.arcsec, 6 * u.arcsec,
-                                     0 * u.arcsec),
+                                     theta=0 * u.arcsec),
         method='subpixel', subpixels=20, wcs=wcs)
     photometry_skycoord_rec_ann = aperture_photometry(
         data, SkyRectangularAnnulus(pos_skycoord, 4 * u.arcsec, 6 * u.arcsec,
@@ -505,7 +471,7 @@ def test_ellipse_exact_grid(x, y, r):
     """
     data = np.ones((10, 10))
 
-    aperture = EllipticalAperture((x, y), r, r, 0.0)
+    aperture = EllipticalAperture((x, y), a=r, b=r, theta=0.0)
     t = aperture_photometry(data, aperture, method='exact')
     actual = t['aperture_sum'][0] / (np.pi * r**2)
     assert_allclose(actual, 1)
@@ -650,7 +616,7 @@ def test_sky_aperture_repr():
 
 
 def test_rectangular_bbox():
-    # test odd sizes
+    # Test odd sizes
     width = 7
     height = 3
     a = RectangularAperture((50, 50), w=width, h=height, theta=0)
@@ -663,7 +629,7 @@ def test_rectangular_bbox():
                             theta=np.deg2rad(90.0))
     assert a.bbox.shape == (width, height)
 
-    # test even sizes
+    # Test even sizes
     width = 8
     height = 4
     a = RectangularAperture((50, 50), w=width, h=height, theta=0)
@@ -678,7 +644,7 @@ def test_rectangular_bbox():
 
 
 def test_elliptical_bbox():
-    # integer axes
+    # Integer axes
     a = 7
     b = 3
     ap = EllipticalAperture((50, 50), a=a, b=b, theta=0)
@@ -690,7 +656,7 @@ def test_elliptical_bbox():
     ap = EllipticalAperture((50, 50), a=a, b=b, theta=np.deg2rad(90.0))
     assert ap.bbox.shape == (2 * a + 1, 2 * b + 1)
 
-    # fractional axes
+    # Fractional axes
     a = 7.5
     b = 4.5
     ap = EllipticalAperture((50, 50), a=a, b=b, theta=0)
@@ -764,29 +730,29 @@ def test_to_sky_pixel(wcs_type):
 
 def test_scalar_aperture():
     """
-    Regression test to check that length-1 aperture list appends a "_0"
-    on the column names to be consistent with list inputs.
+    Regression test to check that a length-1 aperture list appends a
+    "_0" to the column names to be consistent with list inputs.
     """
     data = np.ones((20, 20), dtype=float)
 
     ap = CircularAperture((10, 10), r=3.0)
     colnames1 = aperture_photometry(data, ap, error=data).colnames
-    assert (colnames1 == ['id', 'xcenter', 'ycenter', 'aperture_sum',
+    assert (colnames1 == ['id', 'x_center', 'y_center', 'aperture_sum',
                           'aperture_sum_err'])
 
     colnames2 = aperture_photometry(data, [ap], error=data).colnames
-    assert (colnames2 == ['id', 'xcenter', 'ycenter', 'aperture_sum_0',
+    assert (colnames2 == ['id', 'x_center', 'y_center', 'aperture_sum_0',
                           'aperture_sum_err_0'])
 
     colnames3 = aperture_photometry(data, [ap, ap], error=data).colnames
-    assert (colnames3 == ['id', 'xcenter', 'ycenter', 'aperture_sum_0',
+    assert (colnames3 == ['id', 'x_center', 'y_center', 'aperture_sum_0',
                           'aperture_sum_err_0', 'aperture_sum_1',
                           'aperture_sum_err_1'])
 
 
 def test_nan_in_bbox():
     """
-    Regression test that non-finite data values outside of the aperture
+    Regression test that non-finite data values outside the aperture
     mask but within the bounding box do not affect the photometry.
     """
     data1 = np.ones((101, 101))
@@ -854,7 +820,7 @@ def test_nddata_input(units):
             continue
         assert_allclose(tbl1[column], tbl2[column])
 
-    match = 'keyword is be ignored. Its value is obtained from the input'
+    match = 'keyword is ignored. Its value is obtained from the input'
     with pytest.warns(AstropyUserWarning, match=match):
         aperture_photometry(nddata, aper, error=error)
 
@@ -977,7 +943,7 @@ class TestEllipseAnnulusRegionPhotometry(BaseTestRegionPhotometry):
                                                 theta)
         self.aperture = EllipticalAnnulus(position,
                                           a_in, a_out,
-                                          b_out, b_in,
+                                          b_out, b_in=b_in,
                                           theta=theta)
 
 
@@ -990,7 +956,7 @@ class TestRectangleRegionPhotometry(BaseTestRegionPhotometry):
         w = 8.0
         theta = (np.pi / 4.0) * u.rad
         self.region = RectanglePixelRegion(PixCoord(*position), w, h, theta)
-        self.aperture = RectangularAperture(position, w, h, theta)
+        self.aperture = RectangularAperture(position, w, h, theta=theta)
 
 
 @pytest.mark.skipif(not HAS_REGIONS, reason='regions is required')
@@ -1007,7 +973,7 @@ class TestRectangleAnnulusRegionPhotometry(BaseTestRegionPhotometry):
                                                   w_in, w_out, h_in, h_out,
                                                   theta)
         self.aperture = RectangularAnnulus(position, w_in, w_out,
-                                           h_out, h_in, theta)
+                                           h_out, h_in=h_in, theta=theta)
 
 
 @pytest.mark.skipif(not HAS_REGIONS, reason='regions is required')

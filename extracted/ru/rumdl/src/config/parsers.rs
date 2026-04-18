@@ -351,14 +351,14 @@ pub(super) fn parse_pyproject_toml(
                 // Track unknown keys under [tool.rumdl] for validation
                 fragment
                     .unknown_keys
-                    .push(("[tool.rumdl]".to_string(), key.to_string(), Some(path.to_string())));
+                    .push(("[tool.rumdl]".to_string(), key.clone(), Some(path.to_string())));
             }
         }
     }
 
     // 2. Handle [tool.rumdl.MDxxx] sections as rule-specific config (nested under [tool])
     if let Some(tool_table) = doc.get("tool").and_then(|t| t.as_table()) {
-        for (key, value) in tool_table.iter() {
+        for (key, value) in tool_table {
             if let Some(rule_name) = key.strip_prefix("rumdl.") {
                 // Try to resolve as a rule name (handles both canonical names and aliases)
                 if let Some(resolved_rule_name) = registry.resolve_rule_name(rule_name) {
@@ -387,8 +387,7 @@ pub(super) fn parse_pyproject_toml(
                             sv.push_override(toml_val, source, file.clone(), None);
                         }
                     }
-                } else if rule_name.to_ascii_uppercase().starts_with("MD")
-                    || rule_name.chars().any(|c| c.is_alphabetic())
+                } else if rule_name.to_ascii_uppercase().starts_with("MD") || rule_name.chars().any(char::is_alphabetic)
                 {
                     // Track unknown rule sections like [tool.rumdl.MD999] or [tool.rumdl.unknown-rule]
                     fragment.unknown_keys.push((
@@ -403,7 +402,7 @@ pub(super) fn parse_pyproject_toml(
 
     // 3. Handle [tool.rumdl.MDxxx] sections as top-level keys (e.g., [tool.rumdl.MD007] or [tool.rumdl.line-length])
     if let Some(doc_table) = doc.as_table() {
-        for (key, value) in doc_table.iter() {
+        for (key, value) in doc_table {
             if let Some(rule_name) = key.strip_prefix("tool.rumdl.") {
                 // Try to resolve as a rule name (handles both canonical names and aliases)
                 if let Some(resolved_rule_name) = registry.resolve_rule_name(rule_name) {
@@ -432,8 +431,7 @@ pub(super) fn parse_pyproject_toml(
                             sv.push_override(toml_val, source, file.clone(), None);
                         }
                     }
-                } else if rule_name.to_ascii_uppercase().starts_with("MD")
-                    || rule_name.chars().any(|c| c.is_alphabetic())
+                } else if rule_name.to_ascii_uppercase().starts_with("MD") || rule_name.chars().any(char::is_alphabetic)
                 {
                     // Track unknown rule sections like [tool.rumdl.MD999] or [tool.rumdl.unknown-rule]
                     fragment.unknown_keys.push((
@@ -511,7 +509,7 @@ fn parse_global_key(
                 let values: Vec<String> = formatted_array
                     .iter()
                     .filter_map(|item| item.as_str())
-                    .map(|s| s.to_string())
+                    .map(std::string::ToString::to_string)
                     .collect();
 
                 let is_rule_list = matches!(norm_key, "enable" | "disable" | "extend-enable" | "extend-disable");
@@ -777,7 +775,7 @@ pub(super) fn parse_rumdl_toml(
     if let Some(global_item) = doc.get("global")
         && let Some(global_table) = global_item.as_table()
     {
-        for (key, value_item) in global_table.iter() {
+        for (key, value_item) in global_table {
             let norm_key = normalize_key(key);
             if !parse_global_key(
                 &norm_key,
@@ -802,7 +800,7 @@ pub(super) fn parse_rumdl_toml(
         && let Some(per_file_table) = per_file_item.as_table()
     {
         let mut per_file_map = HashMap::new();
-        for (pattern, value_item) in per_file_table.iter() {
+        for (pattern, value_item) in per_file_table {
             warn_comma_without_brace_in_pattern(pattern, &display_path);
             if let Some(toml_edit::Value::Array(formatted_array)) = value_item.as_value() {
                 let rules: Vec<String> = formatted_array
@@ -828,10 +826,10 @@ pub(super) fn parse_rumdl_toml(
         && let Some(per_file_table) = per_file_item.as_table()
     {
         let mut per_file_map = IndexMap::new();
-        for (pattern, value_item) in per_file_table.iter() {
+        for (pattern, value_item) in per_file_table {
             if let Some(toml_edit::Value::String(formatted_string)) = value_item.as_value() {
                 let flavor_str = formatted_string.value();
-                match MarkdownFlavor::deserialize(toml::Value::String(flavor_str.to_string())) {
+                match MarkdownFlavor::deserialize(toml::Value::String(flavor_str.clone())) {
                     Ok(flavor) => {
                         per_file_map.insert(pattern.to_string(), flavor);
                     }
@@ -860,7 +858,7 @@ pub(super) fn parse_rumdl_toml(
         // Convert the table to a proper TOML document for deserialization
         // We need to create a new document with just this section, properly formatted
         let mut cbt_doc = toml_edit::DocumentMut::new();
-        for (key, value) in cbt_table.iter() {
+        for (key, value) in cbt_table {
             cbt_doc[key] = value.clone();
         }
         let cbt_toml_str = cbt_doc.to_string();
@@ -897,9 +895,7 @@ pub(super) fn parse_rumdl_toml(
         }
 
         // Resolve rule name (handles both canonical names like "MD004" and aliases like "ul-style")
-        let norm_rule_name = if let Some(resolved) = registry.resolve_rule_name(key) {
-            resolved
-        } else {
+        let Some(norm_rule_name) = registry.resolve_rule_name(key) else {
             // Unknown rule - always track it for validation and suggestions
             fragment
                 .unknown_keys
@@ -909,14 +905,14 @@ pub(super) fn parse_rumdl_toml(
 
         if let Some(tbl) = item.as_table() {
             let rule_entry = fragment.rules.entry(norm_rule_name.clone()).or_default();
-            for (rk, rv_item) in tbl.iter() {
+            for (rk, rv_item) in tbl {
                 let norm_rk = normalize_key(rk);
 
                 // Special handling for severity - store in rule_entry.severity
                 if norm_rk == "severity" {
                     if let Some(toml_edit::Value::String(formatted_string)) = rv_item.as_value() {
                         let severity_str = formatted_string.value();
-                        match crate::rule::Severity::deserialize(toml::Value::String(severity_str.to_string())) {
+                        match crate::rule::Severity::deserialize(toml::Value::String(severity_str.clone())) {
                             Ok(severity) => {
                                 if let Some(ref mut sv) = rule_entry.severity {
                                     sv.push_override(severity, source, file.clone(), None);
@@ -943,7 +939,7 @@ pub(super) fn parse_rumdl_toml(
                     Some(toml_edit::Value::Array(formatted_array)) => {
                         // Convert toml_edit Array to toml::Value::Array
                         let mut values = Vec::new();
-                        for item in formatted_array.iter() {
+                        for item in formatted_array {
                             match item {
                                 toml_edit::Value::String(formatted) => {
                                     values.push(toml::Value::String(formatted.value().clone()))

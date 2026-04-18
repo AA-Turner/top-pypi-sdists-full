@@ -467,7 +467,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         """
         ...
 
-    def get_chart_updates(self, clear_chart_data: bool = False) -> typing.Iterable[QuantConnect.Chart]:
+    def get_chart_updates(self, clear_chart_data: bool = False) -> typing.Sequence[QuantConnect.Chart]:
         """
         Get the chart updates since the last request:
         
@@ -487,7 +487,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         ...
 
     @overload
-    def get_last_known_prices(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_last_known_prices(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Yields data to warmup a security for all it's subscribed data types
         
@@ -497,7 +497,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         ...
 
     @overload
-    def get_last_known_prices(self, symbols: typing.List[QuantConnect.Symbol]) -> QuantConnect.Data.Market.DataDictionary[typing.Iterable[QuantConnect.Data.BaseData]]:
+    def get_last_known_prices(self, symbols: typing.List[QuantConnect.Symbol]) -> QuantConnect.Data.Market.DataDictionary[typing.Sequence[QuantConnect.Data.BaseData]]:
         """
         Yields data to warm up multiple securities for all their subscribed data types
         

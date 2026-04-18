@@ -444,7 +444,7 @@ class MapFileRow(System.Object, System.IEquatable[QuantConnect_Data_Auxiliary_Ma
         ...
 
     @staticmethod
-    def read(file: str, market: str, security_type: QuantConnect.SecurityType, data_provider: QuantConnect.Interfaces.IDataProvider) -> typing.Iterable[QuantConnect.Data.Auxiliary.MapFileRow]:
+    def read(file: str, market: str, security_type: QuantConnect.SecurityType, data_provider: QuantConnect.Interfaces.IDataProvider) -> typing.Sequence[QuantConnect.Data.Auxiliary.MapFileRow]:
         """Reads in the map_file for the specified equity symbol"""
         ...
 
@@ -500,7 +500,7 @@ class MapFile(System.Object, typing.Iterable[QuantConnect.Data.Auxiliary.MapFile
         ...
 
     @staticmethod
-    def get_map_files(map_file_directory: str, market: str, security_type: QuantConnect.SecurityType, data_provider: QuantConnect.Interfaces.IDataProvider) -> typing.Iterable[QuantConnect.Data.Auxiliary.MapFile]:
+    def get_map_files(map_file_directory: str, market: str, security_type: QuantConnect.SecurityType, data_provider: QuantConnect.Interfaces.IDataProvider) -> typing.Sequence[QuantConnect.Data.Auxiliary.MapFile]:
         """
         Reads all the map files in the specified directory
         
@@ -538,7 +538,7 @@ class MapFile(System.Object, typing.Iterable[QuantConnect.Data.Auxiliary.MapFile
         """Determines if there's data for the requested date"""
         ...
 
-    def to_csv_lines(self) -> typing.Iterable[str]:
+    def to_csv_lines(self) -> typing.Sequence[str]:
         """
         Reads and writes each MapFileRow
         
@@ -652,7 +652,7 @@ class FactorFileZipHelper(System.Object):
         ...
 
     @staticmethod
-    def read_factor_file_zip(file: System.IO.Stream, map_file_resolver: QuantConnect.Data.Auxiliary.MapFileResolver, market: str, security_type: QuantConnect.SecurityType) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Data.Auxiliary.IFactorProvider]]:
+    def read_factor_file_zip(file: System.IO.Stream, map_file_resolver: QuantConnect.Data.Auxiliary.MapFileResolver, market: str, security_type: QuantConnect.SecurityType) -> typing.Sequence[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Data.Auxiliary.IFactorProvider]]:
         """Reads the zip bytes as text and parses as FactorFileRows to create FactorFiles"""
         ...
 
@@ -718,7 +718,7 @@ class FactorFile(typing.Generic[QuantConnect_Data_Auxiliary_FactorFile_T], Syste
         """
         ...
 
-    def get_file_format(self) -> typing.Iterable[str]:
+    def get_file_format(self) -> typing.Sequence[str]:
         """
         Writes this factor file data to an enumerable of csv lines
         
@@ -973,7 +973,7 @@ class LocalZipMapFileProvider(System.Object, QuantConnect.Interfaces.IMapFilePro
         ...
 
     def __init__(self) -> None:
-        """Creates a new instance of the LocalDiskFactorFileProvider"""
+        """Creates a new instance of the LocalZipMapFileProvider"""
         ...
 
     def get(self, auxiliary_data_key: QuantConnect.Data.Auxiliary.AuxiliaryDataKey) -> QuantConnect.Data.Auxiliary.MapFileResolver:
@@ -1012,7 +1012,7 @@ class MapFileZipHelper(System.Object):
         ...
 
     @staticmethod
-    def read_map_file_zip(file: System.IO.Stream, market: str, security_type: QuantConnect.SecurityType) -> typing.Iterable[QuantConnect.Data.Auxiliary.MapFile]:
+    def read_map_file_zip(file: System.IO.Stream, market: str, security_type: QuantConnect.SecurityType) -> typing.Sequence[QuantConnect.Data.Auxiliary.MapFile]:
         """Reads the zip bytes as text and parses as MapFileRows to create MapFiles"""
         ...
 
@@ -1275,7 +1275,7 @@ class MappingExtensions(System.Object):
         ...
 
     @staticmethod
-    def retrieve_all_mapped_symbol_in_date_range(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Iterable[QuantConnect.Data.Auxiliary.SymbolDateRange]:
+    def retrieve_all_mapped_symbol_in_date_range(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Sequence[QuantConnect.Data.Auxiliary.SymbolDateRange]:
         """
         Retrieves all Symbol from map files based on specific Symbol.
         
@@ -1286,7 +1286,7 @@ class MappingExtensions(System.Object):
         ...
 
     @staticmethod
-    def retrieve_symbol_historical_definitions_in_date_range(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start_date_time: typing.Union[datetime.datetime, datetime.date], end_date_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.Auxiliary.TickerDateRange]:
+    def retrieve_symbol_historical_definitions_in_date_range(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start_date_time: typing.Union[datetime.datetime, datetime.date], end_date_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Data.Auxiliary.TickerDateRange]:
         """
         Some historical provider supports ancient data. In fact, the ticker could be restructured to new one.
         

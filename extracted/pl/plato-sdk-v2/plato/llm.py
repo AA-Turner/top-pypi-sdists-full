@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import litellm
 from pydantic import BaseModel, Field
 
-from plato.otel import get_tracer
+from plato.otel import get_tracer, record_step_cost
 
 litellm.suppress_debug_info = True  # type: ignore[assignment]
 logging.getLogger("LiteLLM").setLevel(logging.WARNING)
@@ -479,6 +479,7 @@ def _emit_llm_span(
         ]
 
     with tracer.start_as_current_span(f"atif.step.{step_id}") as span:
+        span.set_attribute("atif.kind", "llm")
         span.set_attribute("atif.step.id", step_id)
         span.set_attribute("atif.step.source", atif_source)
         span.set_attribute("atif.step.message", response.text if response.text else last_user_msg)
@@ -504,6 +505,15 @@ def _emit_llm_span(
             span.set_attribute("atif.step.cost_usd", response.cost)
         if atif_tool_calls:
             span.set_attribute("atif.step.tool_calls", json.dumps(atif_tool_calls, default=str))
+
+        # Aggregate into the enclosing session_span() if any. No-op outside one.
+        record_step_cost(
+            cost_usd=response.cost or 0.0,
+            prompt_tokens=response.usage.prompt_tokens or 0,
+            completion_tokens=response.usage.completion_tokens or 0,
+            reasoning_tokens=response.usage.reasoning_tokens or 0,
+            model=model,
+        )
 
         # Extra attributes for LLM-specific tracing
         span.set_attribute("llm.duration_ms", duration_ms)

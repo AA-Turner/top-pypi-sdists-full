@@ -191,7 +191,7 @@ def test_upper_harmonics_sign():
     """
     Regression test for #1486/#1501.
     """
-    angle = 40.0 * np.pi / 180.0
+    angle = np.deg2rad(40.0)
     g1 = Gaussian2D(100.0, 75, 75, 15, 3, theta=angle)
     g2 = Gaussian2D(100.0, 75, 75, 10, 8, theta=angle)
 
@@ -199,7 +199,7 @@ def test_upper_harmonics_sign():
     y, x = np.mgrid[0:ny, 0:nx]
     data = g1(x, y) + g2(x, y)
     geometry = EllipseGeometry(x0=75, y0=75, sma=20, eps=0.9, pa=angle)
-    ellipse = Ellipse(data, geometry)
+    ellipse = Ellipse(data, geometry=geometry)
     isolist = ellipse.fit_image()
 
     # test image is "disky: disky isophotes have b4 > 0

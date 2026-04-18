@@ -190,7 +190,7 @@ def xxhash64_string(value: str, seed: int = DEFAULT_SEED) -> int:
     """hash a string using the 64-bit xxhash algorithm."""
 
     if value is None:
-        return DEFAULT_SEED
+        return seed
 
     encoded_s = value.encode("utf-8")
     return _hash_unsafe_bytes(encoded_s, 0, len(encoded_s), seed)
@@ -200,7 +200,7 @@ def xxhash64_int(value: int, seed: int = DEFAULT_SEED) -> int:
     """hash 32-bit integer using the 64-bit xxhash algorithm."""
 
     if value is None:
-        return DEFAULT_SEED
+        return seed
 
     hash_value = _to_int64(_to_int64(seed + PRIME64_5) + 4)
     hash_value = _to_int64(hash_value ^ _to_int64((value & 0xFFFFFFFF) * PRIME64_1))
@@ -215,7 +215,7 @@ def xxhash64_long(value: int, seed: int = DEFAULT_SEED) -> int:
     """hash a 64-bit integer using the 64-bit xxhash algorithm."""
 
     if value is None:
-        return DEFAULT_SEED
+        return seed
 
     hash_value = _to_int64(_to_int64(seed + PRIME64_5) + 8)
     hash_value = _to_int64(
@@ -232,16 +232,10 @@ def xxhash64_long(value: int, seed: int = DEFAULT_SEED) -> int:
 def xxhash64_float(value: float, seed: int = DEFAULT_SEED) -> int:
     """hash a float using the 64-bit xxhash algorithm."""
 
-    return (
-        DEFAULT_SEED if value is None else xxhash64_int(_float_to_int_bits(value), seed)
-    )
+    return seed if value is None else xxhash64_int(_float_to_int_bits(value), seed)
 
 
 def xxhash64_double(value: float, seed: int = DEFAULT_SEED) -> int:
     """hash a double using the 64-bit xxhash algorithm."""
 
-    return (
-        DEFAULT_SEED
-        if value is None
-        else xxhash64_long(_double_to_long_bits(value), seed)
-    )
+    return seed if value is None else xxhash64_long(_double_to_long_bits(value), seed)

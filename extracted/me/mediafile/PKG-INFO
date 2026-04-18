@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mediafile
-Version: 0.16.1
+Version: 0.16.2
 Summary: A simple, cross-format library for reading and writing media file metadata.
 License-Expression: MIT
 License-File: LICENSE

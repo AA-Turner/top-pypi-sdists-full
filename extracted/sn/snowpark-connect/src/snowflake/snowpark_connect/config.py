@@ -187,7 +187,6 @@ class GlobalConfig:
         # Test-only configuration: Force UDFs/UDTFs to be created in stored procedures
         # regardless of Python version compatibility. This helps test SPROC code paths in local CI.
         "snowpark.connect.test.force_create_sproc": "false",
-        "snowpark.connect.use_udf_for_unbase64": "false",
         "spark.sql.iceberg.merge-schema": "false",
     }
 
@@ -210,7 +209,6 @@ class GlobalConfig:
         "snowpark.connect.test.force_create_sproc",
         "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables",
         "snowpark.connect.sql.returnDmlMetadata",
-        "snowpark.connect.use_udf_for_unbase64",
         "spark.sql.iceberg.merge-schema",
     ]
 
@@ -343,7 +341,7 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "spark.sql.sources.partitionOverwriteMode",
     "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables",
     "snowpark.connect.sql.returnDmlMetadata",
-    "snowpark.connect.csv.continueOnError",
+    "snowpark.connect.csv.continueOnError",  # Deprecated: use .option("mode", "DROPMALFORMED")
     "spark.sql.parquet.inferTimestampNTZ.enabled",
     "snowpark.connect.io.validations.mode",
     "spark.sql.iceberg.merge-schema",
@@ -386,7 +384,7 @@ class SessionConfig:
         "spark.sql.sources.partitionOverwriteMode": "static",
         "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables": "false",
         "snowpark.connect.sql.returnDmlMetadata": "false",
-        "snowpark.connect.csv.continueOnError": "false",
+        "snowpark.connect.csv.continueOnError": "false",  # Deprecated
         "spark.sql.parquet.inferTimestampNTZ.enabled": "true",
         # IO validations mode: "lenient" (default) or "strict"
         # When "strict", enforce Spark-compatible validations (e.g., SPARK-35912)

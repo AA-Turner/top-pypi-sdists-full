@@ -3,26 +3,37 @@
 Configuration file for the pytest test suite.
 """
 
+from importlib.metadata import packages_distributions, requires, version
+
+from packaging.requirements import Requirement
+
+from photutils.utils._optional_deps import _DIST_TO_IMPORT
+
 try:
     from pytest_astropy_header.display import (PYTEST_HEADER_MODULES,
                                                TESTED_VERSIONS)
-    ASTROPY_HEADER = True
 except ImportError:
-    ASTROPY_HEADER = False
+    PYTEST_HEADER_MODULES = {}
+    TESTED_VERSIONS = {}
 
 
-def pytest_configure(config):
-    if ASTROPY_HEADER:
-        config.option.astropy_header = True
+def pytest_configure():
+    """
+    Configure pytest settings.
+    """
+    # Resolve the distribution name for this package
+    import_name = __package__
+    dist_name = packages_distributions().get(import_name, [import_name])[0]
 
-        # Customize the following lines to add/remove entries from the
-        # list of packages for which version numbers are displayed when
-        # running the tests.
-        PYTEST_HEADER_MODULES.clear()
-        deps = ['NumPy', 'SciPy', 'Matplotlib', 'Astropy', 'Regions',
-                'skimage', 'GWCS', 'Bottleneck', 'tqdm', 'Rasterio', 'Shapely']
-        for dep in deps:
-            PYTEST_HEADER_MODULES[dep] = dep.lower()
+    # Collect all dependency import names (core + 'all' extra)
+    dep_names = set()
+    for req_str in (requires(dist_name) or []):
+        req = Requirement(req_str)
+        if not req.marker or req.marker.evaluate({'extra': 'all'}):
+            dep_names.add(_DIST_TO_IMPORT.get(req.name, req.name))
 
-        from photutils import __version__
-        TESTED_VERSIONS['photutils'] = __version__
+    PYTEST_HEADER_MODULES.clear()
+    for dep in sorted(dep_names):
+        PYTEST_HEADER_MODULES[dep] = dep
+
+    TESTED_VERSIONS[dist_name] = version(dist_name)

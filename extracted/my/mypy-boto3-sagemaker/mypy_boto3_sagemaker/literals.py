@@ -87,6 +87,7 @@ __all__ = (
     "ClusterEventResourceTypeType",
     "ClusterInstanceStatusType",
     "ClusterInstanceTypeType",
+    "ClusterInterfaceTypeType",
     "ClusterKubernetesTaintEffectType",
     "ClusterNodeProvisioningModeType",
     "ClusterNodeRecoveryType",
@@ -1006,6 +1007,7 @@ ClusterInstanceTypeType = Literal[
     "ml.trn2.3xlarge",
     "ml.trn2.48xlarge",
 ]
+ClusterInterfaceTypeType = Literal["efa", "efa-only"]
 ClusterKubernetesTaintEffectType = Literal["NoExecute", "NoSchedule", "PreferNoSchedule"]
 ClusterNodeProvisioningModeType = Literal["Continuous"]
 ClusterNodeRecoveryType = Literal["Automatic", "None"]
@@ -2775,6 +2777,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",

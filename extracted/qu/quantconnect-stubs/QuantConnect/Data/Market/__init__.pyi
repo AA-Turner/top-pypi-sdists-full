@@ -1958,7 +1958,7 @@ class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], 
         """
         ...
 
-    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T]]:
+    def get_items(self) -> typing.Sequence[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T]]:
         """
         Gets all the items in the dictionary
         

@@ -23,21 +23,27 @@ from snowflake.snowpark.types import (
     VariantType,
 )
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap, ColumnNames
-from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.config import (
+    auto_uppercase_non_column_identifiers,
+    global_config,
+)
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.expression.map_sql_expression import NILARY_FUNCTIONS
 from snowflake.snowpark_connect.expression.typer import ExpressionTyper
 from snowflake.snowpark_connect.typed_column import TypedColumn
+from snowflake.snowpark_connect.utils.cache import analyze_memo_get
 from snowflake.snowpark_connect.utils.context import (
     capture_attribute_name,
     get_current_grouping_columns,
     get_is_evaluating_sql,
     get_outer_dataframes,
     get_plan_id_map,
+    get_spark_session_id,
     is_lambda_being_resolved,
     resolve_lca_alias,
+    set_plan_id_map,
 )
 from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
@@ -225,10 +231,15 @@ def _find_column_with_qualifier_match(
                 # e.g., for "t5.t5.i1", when i=1, prefix=['t5'] matches suffix of ('mydb1', 't5')
                 # If valid, the remaining parts (name_parts[i+1:]) will be treated as
                 # struct/map/array field access (e.g., ['i1'] is a field in column t5)
+                normalize = (
+                    str.upper
+                    if auto_uppercase_non_column_identifiers()
+                    else lambda s: s
+                )
                 for qual in candidate_qualifiers:
-                    if len(qual.parts) >= len(prefix_parts) and qual.parts[
-                        -len(prefix_parts) :
-                    ] == tuple(prefix_parts):
+                    if len(qual.parts) >= len(prefix_parts) and tuple(
+                        normalize(p) for p in qual.parts[-len(prefix_parts) :]
+                    ) == tuple(normalize(p) for p in prefix_parts):
                         is_valid_reference = True
                         break
 
@@ -567,8 +578,16 @@ def map_unresolved_attribute(
 
     if has_plan_id:
         plan_id = exp.unresolved_attribute.plan_id
-        # get target dataframe and column mapping
         target_df_container = get_plan_id_map(plan_id)
+        if target_df_container is None:
+            # Lazy fallback to analyze_memo: when analyze_memo returns a cache
+            # hit in map_relation, child nodes are not re-processed, so their
+            # plan_ids are missing from the intra-request plan_id_map. Expressions
+            # can reference those descendant plan_ids, so we resolve them on
+            # demand from the cross-request analyze_memo cache.
+            target_df_container = analyze_memo_get((get_spark_session_id(), plan_id))
+            if target_df_container is not None:
+                set_plan_id_map(plan_id, target_df_container)
         assert (
             target_df_container is not None
         ), f"resolving an attribute of a unresolved dataframe {plan_id}"

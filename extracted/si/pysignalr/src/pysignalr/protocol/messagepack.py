@@ -9,6 +9,7 @@ import orjson
 
 from pysignalr.messages import CancelInvocationMessage
 from pysignalr.messages import CloseMessage
+from pysignalr.messages import CompletionClientStreamMessage
 from pysignalr.messages import CompletionMessage
 from pysignalr.messages import HandshakeRequestMessage
 from pysignalr.messages import HandshakeResponseMessage
@@ -88,7 +89,19 @@ class MessagepackProtocol(Protocol):
         Returns:
             bytes: The raw representation of the message.
         """
-        if isinstance(message, CompletionMessage):
+        # NOTE: Per SignalR spec, the handshake is always JSON, even for MessagePack connections.
+        if isinstance(message, HandshakeRequestMessage):
+            return orjson.dumps(message.dump()) + b'\x1e'
+
+        if isinstance(message, CompletionClientStreamMessage):
+            # Client-stream end: always void completion (ResultKind=2).
+            raw_message = [
+                MessageType.completion.value,
+                message.headers or {},
+                message.invocation_id,
+                2,
+            ]
+        elif isinstance(message, CompletionMessage):
             raw_message = self._encode_completion(message)
         else:
             raw_message = []

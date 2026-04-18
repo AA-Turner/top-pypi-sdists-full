@@ -6,7 +6,6 @@ import inspect
 import json
 import time
 import unittest.mock
-from pathlib import Path
 from types import SimpleNamespace
 
 import anthropic
@@ -19,6 +18,7 @@ from braintrust.integrations.anthropic.tracing import (
     _get_metadata_from_kwargs,
     _log_message_to_span,
 )
+from braintrust.integrations.test_utils import verify_autoinstrument_script
 from braintrust.span_types import SpanTypeAttribute
 from braintrust.test_helpers import find_span_by_name, find_spans_by_type, init_test_logger
 
@@ -38,11 +38,6 @@ STRUCTURED_OUTPUT_SCHEMA = {
 }
 PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=="
 PDF_BASE64 = "JVBERi0xLjAKMSAwIG9iago8PC9UeXBlL0NhdGFsb2cvUGFnZXMgMiAwIFI+PmVuZG9iagoyIDAgb2JqCjw8L1R5cGUvUGFnZXMvS2lkc1szIDAgUl0vQ291bnQgMT4+ZW5kb2JqCjMgMCBvYmoKPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXT4+ZW5kb2JqCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZg0KMDAwMDAwMDAxMCAwMDAwMCBuDQowMDAwMDAwMDUzIDAwMDAwIG4NCjAwMDAwMDAxMDIgMDAwMDAgbg0KdHJhaWxlcgo8PC9TaXplIDQvUm9vdCAxIDAgUj4+CnN0YXJ0eHJlZgoxNDkKJUVPRg=="
-
-
-@pytest.fixture(scope="module")
-def vcr_cassette_dir():
-    return str(Path(__file__).resolve().parent / "cassettes")
 
 
 def _get_client():
@@ -1282,6 +1277,11 @@ def test_setup_creates_spans(memory_logger):
     assert span["metadata"]["cache_creation_ephemeral_5m_input_tokens"] == ephemeral_5m
     assert span["metadata"]["cache_creation_ephemeral_1h_input_tokens"] == ephemeral_1h
     assert "service_tier" not in metrics
+
+
+class TestAutoInstrumentAnthropic:
+    def test_auto_instrument_anthropic(self):
+        verify_autoinstrument_script("test_auto_anthropic.py")
 
 
 def test_extract_anthropic_usage_preserves_nested_numeric_fields():

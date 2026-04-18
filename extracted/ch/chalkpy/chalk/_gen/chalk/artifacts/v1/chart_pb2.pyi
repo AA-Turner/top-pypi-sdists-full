@@ -79,6 +79,10 @@ class MetricKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     METRIC_KIND_GPU_THROTTLE_REASONS: _ClassVar[MetricKind]
     METRIC_KIND_GPU_FP16_ACTIVITY: _ClassVar[MetricKind]
     METRIC_KIND_GPU_COUNT: _ClassVar[MetricKind]
+    METRIC_KIND_PULL_QUERY_QUEUE_DEPTH: _ClassVar[MetricKind]
+    METRIC_KIND_PULL_QUERY_OLDEST_UNACKED_AGE: _ClassVar[MetricKind]
+    METRIC_KIND_PULL_QUERY_PROCESSED: _ClassVar[MetricKind]
+    METRIC_KIND_PULL_QUERY_LATENCY: _ClassVar[MetricKind]
 
 class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -255,6 +259,10 @@ METRIC_KIND_GPU_TEMPERATURE_CELSIUS: MetricKind
 METRIC_KIND_GPU_THROTTLE_REASONS: MetricKind
 METRIC_KIND_GPU_FP16_ACTIVITY: MetricKind
 METRIC_KIND_GPU_COUNT: MetricKind
+METRIC_KIND_PULL_QUERY_QUEUE_DEPTH: MetricKind
+METRIC_KIND_PULL_QUERY_OLDEST_UNACKED_AGE: MetricKind
+METRIC_KIND_PULL_QUERY_PROCESSED: MetricKind
+METRIC_KIND_PULL_QUERY_LATENCY: MetricKind
 FILTER_KIND_UNSPECIFIED: FilterKind
 FILTER_KIND_FEATURE_STATUS: FilterKind
 FILTER_KIND_FEATURE_NAME: FilterKind

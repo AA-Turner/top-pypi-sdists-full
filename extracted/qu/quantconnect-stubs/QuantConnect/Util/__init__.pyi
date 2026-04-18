@@ -323,7 +323,7 @@ class LeanData(System.Object):
     """The different SecurityType used for data paths"""
 
     @staticmethod
-    def aggregate_quote_bars(bars: typing.List[QuantConnect.Data.Market.QuoteBar], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: datetime.timedelta) -> typing.Iterable[QuantConnect.Data.Market.QuoteBar]:
+    def aggregate_quote_bars(bars: typing.List[QuantConnect.Data.Market.QuoteBar], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: datetime.timedelta) -> typing.Sequence[QuantConnect.Data.Market.QuoteBar]:
         """
         Aggregates a list of second/minute bars at the requested resolution
         
@@ -335,7 +335,7 @@ class LeanData(System.Object):
         ...
 
     @staticmethod
-    def aggregate_ticks(ticks: typing.List[QuantConnect.Data.Market.Tick], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: datetime.timedelta) -> typing.Iterable[QuantConnect.Data.Market.QuoteBar]:
+    def aggregate_ticks(ticks: typing.List[QuantConnect.Data.Market.Tick], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: datetime.timedelta) -> typing.Sequence[QuantConnect.Data.Market.QuoteBar]:
         """
         Aggregates a list of ticks at the requested resolution
         
@@ -347,7 +347,7 @@ class LeanData(System.Object):
         ...
 
     @staticmethod
-    def aggregate_ticks_to_trade_bars(ticks: typing.List[QuantConnect.Data.Market.Tick], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: datetime.timedelta) -> typing.Iterable[QuantConnect.Data.Market.TradeBar]:
+    def aggregate_ticks_to_trade_bars(ticks: typing.List[QuantConnect.Data.Market.Tick], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: datetime.timedelta) -> typing.Sequence[QuantConnect.Data.Market.TradeBar]:
         """
         Aggregates a list of ticks at the requested resolution
         
@@ -359,7 +359,7 @@ class LeanData(System.Object):
         ...
 
     @staticmethod
-    def aggregate_trade_bars(bars: typing.List[QuantConnect.Data.Market.TradeBar], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: datetime.timedelta) -> typing.Iterable[QuantConnect.Data.Market.TradeBar]:
+    def aggregate_trade_bars(bars: typing.List[QuantConnect.Data.Market.TradeBar], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: datetime.timedelta) -> typing.Sequence[QuantConnect.Data.Market.TradeBar]:
         """
         Aggregates a list of second/minute bars at the requested resolution
         
@@ -1020,7 +1020,7 @@ class BusyBlockingCollection(typing.Generic[QuantConnect_Util_BusyBlockingCollec
         ...
 
     @overload
-    def get_consuming_enumerable(self) -> typing.Iterable[QuantConnect_Util_BusyBlockingCollection_T]:
+    def get_consuming_enumerable(self) -> typing.Sequence[QuantConnect_Util_BusyBlockingCollection_T]:
         """
         Provides a consuming enumerable for items in this collection.
         
@@ -1029,7 +1029,7 @@ class BusyBlockingCollection(typing.Generic[QuantConnect_Util_BusyBlockingCollec
         ...
 
     @overload
-    def get_consuming_enumerable(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect_Util_BusyBlockingCollection_T]:
+    def get_consuming_enumerable(self, cancellation_token: System.Threading.CancellationToken) -> typing.Sequence[QuantConnect_Util_BusyBlockingCollection_T]:
         """
         Provides a consuming enumerable for items in this collection.
         
@@ -1104,7 +1104,7 @@ class BusyCollection(typing.Generic[QuantConnect_Util_BusyCollection_T], System.
         ...
 
     @overload
-    def get_consuming_enumerable(self) -> typing.Iterable[QuantConnect_Util_BusyCollection_T]:
+    def get_consuming_enumerable(self) -> typing.Sequence[QuantConnect_Util_BusyCollection_T]:
         """
         Provides a consuming enumerable for items in this collection.
         
@@ -1113,7 +1113,7 @@ class BusyCollection(typing.Generic[QuantConnect_Util_BusyCollection_T], System.
         ...
 
     @overload
-    def get_consuming_enumerable(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect_Util_BusyCollection_T]:
+    def get_consuming_enumerable(self, cancellation_token: System.Threading.CancellationToken) -> typing.Sequence[QuantConnect_Util_BusyCollection_T]:
         """
         Provides a consuming enumerable for items in this collection.
         
@@ -1910,7 +1910,7 @@ class ExpressionBuilder(System.Object):
     """Provides methods for constructing expressions at runtime"""
 
     @staticmethod
-    def as_enumerable(expression: typing.Any) -> typing.Iterable[Expression]:
+    def as_enumerable(expression: typing.Any) -> typing.Sequence[Expression]:
         """
         Converts the specified expression into an enumerable of expressions by walking the expression tree
         
@@ -2128,7 +2128,7 @@ class PythonUtil(System.Object):
     """The python exception stack trace line shift to use"""
 
     @staticmethod
-    def convert_to_symbols(input: typing.Any) -> typing.Iterable[QuantConnect.Symbol]:
+    def convert_to_symbols(input: typing.Any) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Convert Python input to a list of Symbols
         
@@ -2168,7 +2168,7 @@ class PythonUtil(System.Object):
         ...
 
     @staticmethod
-    def to_coarse_fundamental_selector(py_object: typing.Any) -> typing.Callable[[typing.Iterable[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.Iterable[QuantConnect.Symbol]]:
+    def to_coarse_fundamental_selector(py_object: typing.Any) -> typing.Callable[[typing.Sequence[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.Sequence[QuantConnect.Symbol]]:
         """
         Encapsulates a python method in coarse fundamental universe selector.
         
@@ -2178,7 +2178,7 @@ class PythonUtil(System.Object):
         ...
 
     @staticmethod
-    def to_fine_fundamental_selector(py_object: typing.Any) -> typing.Callable[[typing.Iterable[QuantConnect.Data.Fundamental.FineFundamental]], typing.Iterable[QuantConnect.Symbol]]:
+    def to_fine_fundamental_selector(py_object: typing.Any) -> typing.Callable[[typing.Sequence[QuantConnect.Data.Fundamental.FineFundamental]], typing.Sequence[QuantConnect.Symbol]]:
         """
         Encapsulates a python method in fine fundamental universe selector.
         

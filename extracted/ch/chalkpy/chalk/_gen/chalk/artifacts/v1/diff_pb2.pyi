@@ -1,5 +1,6 @@
 from chalk._gen.chalk.artifacts.v1 import cdc_pb2 as _cdc_pb2
 from chalk._gen.chalk.artifacts.v1 import chart_pb2 as _chart_pb2
+from chalk._gen.chalk.artifacts.v1 import cron_aggregate_backfill_pb2 as _cron_aggregate_backfill_pb2
 from chalk._gen.chalk.artifacts.v1 import cron_query_pb2 as _cron_query_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
 from chalk._gen.chalk.graph.v2 import sources_pb2 as _sources_pb2
@@ -32,6 +33,7 @@ class ExportDiff(_message.Message):
         "crons",
         "charts",
         "cdc_sources",
+        "cron_aggregate_backfills",
     )
     FEATURE_SETS_FIELD_NUMBER: _ClassVar[int]
     RESOLVERS_FIELD_NUMBER: _ClassVar[int]
@@ -46,6 +48,7 @@ class ExportDiff(_message.Message):
     CRONS_FIELD_NUMBER: _ClassVar[int]
     CHARTS_FIELD_NUMBER: _ClassVar[int]
     CDC_SOURCES_FIELD_NUMBER: _ClassVar[int]
+    CRON_AGGREGATE_BACKFILLS_FIELD_NUMBER: _ClassVar[int]
     feature_sets: FeatureSetCollectionDiff
     resolvers: ResolverCollectionDiff
     stream_resolvers: StreamResolverCollectionDiff
@@ -59,6 +62,7 @@ class ExportDiff(_message.Message):
     crons: CronQueryCollectionDiff
     charts: ChartCollectionDiff
     cdc_sources: CDCSourceCollectionDiff
+    cron_aggregate_backfills: CronAggregateBackfillCollectionDiff
     def __init__(
         self,
         feature_sets: _Optional[_Union[FeatureSetCollectionDiff, _Mapping]] = ...,
@@ -74,6 +78,7 @@ class ExportDiff(_message.Message):
         crons: _Optional[_Union[CronQueryCollectionDiff, _Mapping]] = ...,
         charts: _Optional[_Union[ChartCollectionDiff, _Mapping]] = ...,
         cdc_sources: _Optional[_Union[CDCSourceCollectionDiff, _Mapping]] = ...,
+        cron_aggregate_backfills: _Optional[_Union[CronAggregateBackfillCollectionDiff, _Mapping]] = ...,
     ) -> None: ...
 
 class FeatureSetCollectionDiff(_message.Message):
@@ -496,5 +501,35 @@ class CDCSourceModified(_message.Message):
         self,
         before: _Optional[_Union[_cdc_pb2.CDCSource, _Mapping]] = ...,
         after: _Optional[_Union[_cdc_pb2.CDCSource, _Mapping]] = ...,
+        changed_fields: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class CronAggregateBackfillCollectionDiff(_message.Message):
+    __slots__ = ("added", "removed", "modified")
+    ADDED_FIELD_NUMBER: _ClassVar[int]
+    REMOVED_FIELD_NUMBER: _ClassVar[int]
+    MODIFIED_FIELD_NUMBER: _ClassVar[int]
+    added: _containers.RepeatedCompositeFieldContainer[_cron_aggregate_backfill_pb2.CronAggregateBackfill]
+    removed: _containers.RepeatedCompositeFieldContainer[_cron_aggregate_backfill_pb2.CronAggregateBackfill]
+    modified: _containers.RepeatedCompositeFieldContainer[CronAggregateBackfillModified]
+    def __init__(
+        self,
+        added: _Optional[_Iterable[_Union[_cron_aggregate_backfill_pb2.CronAggregateBackfill, _Mapping]]] = ...,
+        removed: _Optional[_Iterable[_Union[_cron_aggregate_backfill_pb2.CronAggregateBackfill, _Mapping]]] = ...,
+        modified: _Optional[_Iterable[_Union[CronAggregateBackfillModified, _Mapping]]] = ...,
+    ) -> None: ...
+
+class CronAggregateBackfillModified(_message.Message):
+    __slots__ = ("before", "after", "changed_fields")
+    BEFORE_FIELD_NUMBER: _ClassVar[int]
+    AFTER_FIELD_NUMBER: _ClassVar[int]
+    CHANGED_FIELDS_FIELD_NUMBER: _ClassVar[int]
+    before: _cron_aggregate_backfill_pb2.CronAggregateBackfill
+    after: _cron_aggregate_backfill_pb2.CronAggregateBackfill
+    changed_fields: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        before: _Optional[_Union[_cron_aggregate_backfill_pb2.CronAggregateBackfill, _Mapping]] = ...,
+        after: _Optional[_Union[_cron_aggregate_backfill_pb2.CronAggregateBackfill, _Mapping]] = ...,
         changed_fields: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
     ) -> None: ...

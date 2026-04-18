@@ -3,56 +3,61 @@
 #
 
 import re
+import textwrap
 from typing import Any
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 
-import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
 from snowflake.snowpark import Column, DataFrame, DataFrameReader, Session
 from snowflake.snowpark._internal.analyzer import analyzer_utils
-from snowflake.snowpark._internal.analyzer.analyzer_utils import (
-    quote_name_without_upper_casing,
-)
 from snowflake.snowpark._internal.type_utils import convert_sf_to_sp_type
+from snowflake.snowpark._internal.utils import (
+    TempObjectType,
+    random_name_for_temp_object,
+)
 from snowflake.snowpark.types import (
     ArrayType,
-    BooleanType,
     DataType,
-    DateType,
     MapType,
-    NullType,
     StringType,
     StructField,
     StructType,
     TimestampTimeZone,
     TimestampType,
     VariantType,
-    _FractionalType,
-    _IntegralType,
-    _NumericType,
 )
 from snowflake.snowpark_connect.config import (
     get_boolean_session_config_param,
     global_config,
+    str_to_bool,
 )
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation.read.map_read_partitioned_file import (
+    _discover_partition_columns,
     _read_partitioned_file_with_partitions,
+    use_external_table,
 )
 from snowflake.snowpark_connect.relation.read.metadata_utils import (
     add_filename_metadata_to_reader,
+    populate_metadata,
 )
 from snowflake.snowpark_connect.relation.read.reader_config import ReaderWriterConfig
 from snowflake.snowpark_connect.relation.read.utils import (
+    _load_file_with_copy_into,
+    _norm,
     apply_metadata_exclusion_pattern,
+    extract_relative_file_path,
+    generate_stage_path_groups,
+    normalize_stage_path,
     rename_columns_as_snowflake_standard,
 )
+from snowflake.snowpark_connect.type_mapping import map_type_to_snowflake_type
 from snowflake.snowpark_connect.type_support import emulate_integral_types
 from snowflake.snowpark_connect.utils.io_utils import cached_file_format
-from snowflake.snowpark_connect.utils.schema_utils import datatypes_equal
+from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
@@ -296,7 +301,11 @@ def _reconstruct_schema(node: dict[str, Any]) -> DataType:
                 continue
             child_type = _reconstruct_schema(child)
             if child_type:
-                fields.append(StructField(key, child_type, nullable=True))
+                # Quote with exact case so Snowpark does not uppercase the name
+                # when building the OBJECT(...) cast SQL. FLATTEN preserves the
+                # original JSON key case (lowercase for Parquet files).
+                quoted_key = analyzer_utils.quote_name(key, keep_case=True)
+                fields.append(StructField(quoted_key, child_type, nullable=True))
         return StructType(fields, structured=True)
 
     if leaf_type:
@@ -339,40 +348,8 @@ def _build_struct_from_paths(
     return _reconstruct_schema(tree)
 
 
-def _detect_map_type(
-    session: Session,
-    temp_view_name: str,
-    column_name: str,
-    path_type_pairs: list[tuple[str, str]],
-    input_expr: str | None = None,
-) -> MapType | None:
-    """
-    Detect if a VARIANT column is actually a Parquet map (vectorized scanner fallback).
-
-    When the non-vectorized scanner is used, maps are detected via the
-    ``key_value`` array pattern in ``_reconstruct_schema`` (which handles
-    nested struct/map values recursively).  This function provides a fallback
-    for the vectorized scanner, where map keys appear as individual JSON
-    fields and need a heuristic (key cardinality) to distinguish from structs.
-
-    Handles maps with both leaf-type values (e.g. Map<String, Int>) and
-    complex-type values (e.g. Map<String, Struct<...>>).
-
-    Returns MapType(StringType(), value_type) if detected, else None.
-    """
-    effective_input = input_expr or column_name
-    # Top-level paths: no dots and not array indices like [0], [1].
-    # Bracket-quoted keys like ['1'] or ['my_key'] ARE top-level map keys
-    # (Snowflake FLATTEN uses this notation for numeric-string and special-char keys).
-    top_level = [
-        (p, t)
-        for p, t in path_type_pairs
-        if "." not in p and not re.fullmatch(r"\[\d+\]", p)
-    ]
-    if not top_level:
-        return None
-
-    leaf_types = {
+_LEAF_TYPES = frozenset(
+    {
         "INTEGER",
         "VARCHAR",
         "DOUBLE",
@@ -388,41 +365,14 @@ def _detect_map_type(
         "NULL_VALUE",
         "NULL",
     }
+)
 
-    top_types = {t for _, t in top_level if t not in ("NULL_VALUE", "NULL")}
-    all_leaf = top_types <= leaf_types
-    all_complex = top_types <= {"OBJECT", "ARRAY"}
 
-    if not all_leaf and not all_complex:
-        return None
-
-    try:
-        # Count total distinct keys vs max keys in any single row.
-        # GROUP BY the variant value to approximate per-row grouping.
-        query = (
-            f"WITH per_row AS ("
-            f"  SELECT {effective_input} AS v, COUNT(f.key) AS key_cnt"
-            f"  FROM {temp_view_name},"
-            f"  LATERAL FLATTEN(input => {effective_input}) f"
-            f"  GROUP BY {effective_input}"
-            f") "
-            f"SELECT"
-            f"  (SELECT COUNT(DISTINCT f.key) FROM {temp_view_name},"
-            f"   LATERAL FLATTEN(input => {effective_input}) f) AS total_distinct,"
-            f"  (SELECT MAX(key_cnt) FROM per_row) AS max_per_row"
-        )
-        result = session.sql(query).collect()
-        total_distinct = result[0]["TOTAL_DISTINCT"]
-        max_per_row = result[0]["MAX_PER_ROW"]
-    except Exception:
-        return None
-
-    if total_distinct is None or max_per_row is None:
-        return None
-    if total_distinct <= max_per_row:
-        return None  # same keys every row → struct
-
-    # It's a map. Infer value type from FLATTEN results.
+def _infer_map_value_type(
+    path_type_pairs: list[tuple[str, str]],
+    top_level: list[tuple[str, str]],
+    all_leaf: bool,
+) -> DataType:
     if all_leaf:
         value_types = {t for _, t in top_level if t != "NULL_VALUE"}
         has_nulls = any(t == "NULL_VALUE" for _, t in top_level)
@@ -440,80 +390,164 @@ def _detect_map_type(
         # Complex values (OBJECT/ARRAY): infer value schema from nested paths.
         # Strip the map key prefix from nested paths and build the value type.
         top_keys = {p for p, _ in top_level}
-        nested_pairs = []
-        for p, t in path_type_pairs:
-            if "." in p:
-                key, rest = p.split(".", 1)
-                if key in top_keys:
-                    nested_pairs.append((rest, t))
-
+        nested_pairs = [
+            (rest, t)
+            for p, t in path_type_pairs
+            if "." in p
+            for key, rest in [p.split(".", 1)]
+            if key in top_keys
+        ]
         if nested_pairs:
             value_type = _build_struct_from_paths(nested_pairs)
             if value_type is None:
                 value_type = VariantType()
         else:
             value_type = VariantType()
+    return value_type
 
-    return MapType(StringType(), value_type)
 
-
-def discover_variant_schema(
+def _discover_all_variant_schemas(
     session: Session,
     temp_view_name: str,
-    column_name: str,
-    input_expr: str | None = None,
-) -> DataType | None:
+    columns: list[tuple[int, str, str | None]],
+) -> dict[int, DataType | None]:
     """
-    Discover the schema of a VARIANT column using Snowflake's FLATTEN.
+    Discover struct/map schemas for multiple columns in a single SQL round-trip.
+
+    Uses UNPIVOT to rotate all target columns into rows, then a single
+    recursive LATERAL FLATTEN produces ``(col_name, path, data_type)`` triples
+    for every column at once.
+
+    We cannot reliably distinguish between struct and map types, and must use
+    key cardinality as a heuristic. A second non-recursive flatten CTE computes this
+    for each column.
 
     Args:
         session: Snowpark session
         temp_view_name: Name of temp view containing the data
-        column_name: Column name in the view
-        input_expr: Optional SQL expression to use as FLATTEN input instead of
-            the raw column name. Used for STRING columns where the input needs
-            to be wrapped in TRY_PARSE_JSON().
+        columns: List of (column_index, column_name, input_expr_or_None)
+            tuples.  If set, `input_expr` overrides the column name used
+            as the FLATTEN input.
 
     Returns:
-        - MapType if the column looks like a Parquet map (varying keys per row)
-        - StructType if the column has consistent keys (struct-like)
-        - None if discovery fails
+        Dict mapping column index to the discovered ``DataType``, or ``None``
+        when discovery fails for that column.
     """
-    effective_input = input_expr or column_name
-    try:
+    if not columns:
+        return {}
 
-        def run_query(flatten_input: str):
-            query = (
-                f"SELECT DISTINCT f.path, TYPEOF(f.value) AS data_type "
-                f"FROM {temp_view_name}, "
-                f"LATERAL FLATTEN(input => {flatten_input}, recursive => true) f "
-                f"ORDER BY f.path"
-            )
-            return session.sql(query).collect()
+    # Build a CTE that normalises every target column to VARIANT and
+    # aliases it to a stable name (_c0, _c1, ...) so the UNPIVOT is clean.
+    alias_map: dict[str, int] = {}  # maps unpivot alias -> original column
+    cte_cols: list[str] = []
+    unpivot_names: list[str] = []
+    for idx, col_name, input_expr in columns:
+        alias = f"_C{idx}"
+        alias_map[alias] = idx
+        effective = input_expr or col_name
+        cte_cols.append(f"{effective} AS {alias}")
+        unpivot_names.append(alias)
 
-        result = run_query(effective_input)
+    unpivot_list = ", ".join(unpivot_names)
 
-        # Convert results to path/type pairs
-        path_type_pairs = []
-        for row in result:
-            path_type_pairs.append((row["PATH"], row["DATA_TYPE"]))
-
-        # Check if this is a Parquet map before building a struct
-        map_type = _detect_map_type(
-            session,
-            temp_view_name,
-            column_name,
-            path_type_pairs,
-            input_expr=effective_input,
+    cte_col_list = ", ".join(cte_cols)
+    # This query is split into a few components:
+    # 1. _src: UNPIVOT rotates N columns into N rows per original row, each tagged with _col_name and
+    #          holding the VARIANT value in _val.
+    # 2. _paths: Recursive FLATTEN to get full paths/types of sub-fields.
+    # 3. _keys: Non-recursive FLATTEN to compute number of distinct key entries across the whole column,
+    #           and the max number of keys in any single row.
+    # 4. Join paths with cardinality stats; LEFT JOIN so every column appears even when cardinality data
+    # #         is absent for that column.
+    query = textwrap.dedent(
+        f"""
+        WITH _src AS (
+            SELECT {cte_col_list} FROM {temp_view_name}
+        ),
+        _unpivoted AS (
+            SELECT _col_name, _val
+            FROM _src UNPIVOT(_val FOR _col_name IN ({unpivot_list}))
+            WHERE IS_OBJECT(_val) OR IS_ARRAY(_val)
+        ),
+        _paths AS (
+            SELECT DISTINCT _col_name, f.path, TYPEOF(f.value) AS data_type
+            FROM _unpivoted,
+            LATERAL FLATTEN(input => _val, recursive => true) f
+        ),
+        _keys AS (
+            SELECT _col_name, _val, f.key
+            FROM _unpivoted,
+            LATERAL FLATTEN(input => _val) f
+        ),
+        _distinct_keys AS (
+            SELECT _col_name, COUNT(DISTINCT key) AS total_distinct
+            FROM _keys GROUP BY _col_name
+        ),
+        _max_per_row AS (
+            SELECT _col_name, MAX(key_cnt) AS max_per_row FROM (
+                SELECT _col_name, _val, COUNT(key) AS key_cnt
+                FROM _keys GROUP BY _col_name, _val
+            ) GROUP BY _col_name
         )
-        if map_type is not None:
-            return map_type
+        SELECT p._col_name, p.path, p.data_type,
+            dk.total_distinct, mpr.max_per_row
+        FROM _paths p
+        LEFT JOIN _distinct_keys dk ON p._col_name = dk._col_name
+        LEFT JOIN _max_per_row mpr ON p._col_name = mpr._col_name
+        ORDER BY p._col_name, p.path
+        """
+    )
 
-        schema = _build_struct_from_paths(path_type_pairs)
-        return schema
-
+    try:
+        rows = session.sql(query).collect()
     except Exception:
-        return None
+        # Exceptions here shouldn't be possible. If we encounter one, gracefully fail by
+        # returning None for each column, indicating that discovery failed.
+        return {idx: None for _, idx in alias_map.items()}
+
+    # Group rows by column alias.
+    per_col: dict[str, list] = {alias: [] for alias in alias_map}
+    # Dict of aliases to a flag representing whether it may be a MAP type under the cardinality heuristic.
+    column_may_be_map: dict[str, bool] = {}
+    for row in rows:
+        alias = row["_COL_NAME"]
+        if alias in per_col:
+            per_col[alias].append((row["PATH"], row["DATA_TYPE"]))
+            # If there are more total distinct keys than the max number of keys in
+            # any given row, then we can safely assume it's a MAP rather than a struct.
+            column_may_be_map[alias] = row["TOTAL_DISTINCT"] > row["MAX_PER_ROW"]
+
+    # Determine the final type for each column.
+    result: dict[int, DataType | None] = {}
+    for alias, idx in alias_map.items():
+        pairs = per_col[alias]
+        if not pairs:
+            result[idx] = None
+            continue
+
+        if column_may_be_map.get(alias, False):
+            # Top-level paths: no dots and not array indices like [0], [1].
+            # Bracket-quoted keys like ['1'] or ['my_key'] ARE top-level map keys
+            # (Snowflake FLATTEN uses this notation for numeric-string and special-char keys).
+            top_level = [
+                (p, t)
+                for p, t in pairs
+                if "." not in p and not re.fullmatch(r"\[\d+\]", p)
+            ]
+            if top_level:
+                top_types = {t for _, t in top_level if t not in ("NULL_VALUE", "NULL")}
+                all_leaf = top_types <= _LEAF_TYPES
+                all_complex = top_types <= {"OBJECT", "ARRAY"}
+
+                if all_leaf or all_complex:
+                    result[idx] = MapType(
+                        StringType(),
+                        _infer_map_value_type(pairs, top_level, all_leaf),
+                    )
+                    continue
+        # If some criteria for the column potentially being a map failed, just infer as struct.
+        result[idx] = _build_struct_from_paths(pairs)
+    return result
 
 
 def _merge_variant_schemas(
@@ -525,7 +559,11 @@ def _merge_variant_schemas(
     For each VARIANT or JSON-string column in the DataFrame, attempt to discover
     its struct schema.  Returns a list of DataTypes with VARIANT/STRING columns
     replaced by discovered StructTypes.
-    Uses parallel execution for better performance with multiple columns.
+
+    Issues a single UNPIVOT + FLATTEN query covering all candidate columns. Since
+    this code path uses the non-vectorized scanner, map keys appear as individual
+    JSON fields, and can only be distinguished from struct types by a heuristic
+    (key cardinality).
 
     STRING columns are included because the write path casts structured types
     to VARIANT before COPY INTO, and Snowflake serializes VARIANT as JSON
@@ -536,9 +574,7 @@ def _merge_variant_schemas(
         session: Snowpark session
         sampled_df: Pre-sampled DataFrame to use for schema discovery
     """
-    import os
     import uuid
-    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     # Identify VARIANT and STRING columns as candidates for discovery.
     # For STRING columns, we'll use TRY_PARSE_JSON as the FLATTEN input.
@@ -552,65 +588,54 @@ def _merge_variant_schemas(
     if not discovery_columns:
         return [field.datatype for field in df.schema.fields]
 
-    discovered_schemas: dict[int, StructType | None] = {}
-    max_workers = min(
-        len(discovery_columns),
-        int(os.environ.get("SNOWPARK_CONNECT_SCHEMA_DISCOVERY_WORKERS", "8")),
-    )
+    batch_columns = [
+        (idx, col_name, f"TRY_PARSE_JSON({col_name})" if needs_parse else None)
+        for idx, col_name, needs_parse in discovery_columns
+    ]
 
     temp_table_name = f"_VARIANT_SCHEMA_DISCOVERY_{uuid.uuid4().hex}"
     sampled_df.write.save_as_table(temp_table_name, table_type="temporary")
 
-    def discover_for_column(item):
-        idx, col_name, needs_parse = item
-        expr = f"TRY_PARSE_JSON({col_name})" if needs_parse else None
-        return idx, discover_variant_schema(
-            session, temp_table_name, col_name, input_expr=expr
-        )
-
     try:
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(discover_for_column, item): item
-                for item in discovery_columns
-            }
-            for future in as_completed(futures):
-                idx, schema = future.result()
-                discovered_schemas[idx] = schema
+        discovered_schemas = _discover_all_variant_schemas(
+            session, temp_table_name, batch_columns
+        )
     finally:
         session.sql(f"DROP TABLE IF EXISTS {temp_table_name}").collect()
 
-    # Retry with full (un-sampled) data for columns that returned None
-    variant_only = [
-        (idx, name) for idx, name, needs_parse in discovery_columns if not needs_parse
-    ]
+    # Retry with full (un-sampled) data for VARIANT columns that returned None.
     missing_columns = [
-        (idx, name) for idx, name in variant_only if discovered_schemas.get(idx) is None
+        (idx, name, input_expr)
+        for idx, name, input_expr in batch_columns
+        if input_expr is None and discovered_schemas.get(idx) is None
     ]
     if missing_columns:
         temp_table_name_full = f"_VARIANT_SCHEMA_DISCOVERY_{uuid.uuid4().hex}_full"
         df.write.save_as_table(temp_table_name_full, table_type="temporary")
         try:
-            for idx, col_name in missing_columns:
-                discovered_schemas[idx] = discover_variant_schema(
-                    session, temp_table_name_full, col_name
-                )
+            full_results = _discover_all_variant_schemas(
+                session, temp_table_name_full, missing_columns
+            )
+            discovered_schemas.update(full_results)
         finally:
             session.sql(f"DROP TABLE IF EXISTS {temp_table_name_full}").collect()
 
-    # Build result types, replacing VARIANT/STRING with discovered schemas
-    result_types = []
-    for idx, field in enumerate(df.schema.fields):
-        if idx in discovered_schemas:
-            schema = discovered_schemas[idx]
-            if schema:
-                result_types.append(schema)
-            else:
-                result_types.append(field.datatype)
-        else:
-            result_types.append(field.datatype)
-
-    return result_types
+    # Build result types, replacing VARIANT/STRING with discovered schemas.
+    return [
+        discovered_schemas[idx]
+        if (
+            idx in discovered_schemas
+            and discovered_schemas[idx]
+            # Only accept complex types (StructType/ArrayType/MapType) from discovery.
+            # Primitive types discovered via FLATTEN (e.g. BooleanType from "true"/"false"
+            # strings) are unreliable — the Parquet column is physically STRING and may
+            # contain non-castable values like \N null markers. INFER_SCHEMA's type is
+            # always more trustworthy for primitives.
+            and isinstance(discovered_schemas[idx], (StructType, ArrayType, MapType))
+        )
+        else field.datatype
+        for idx, field in enumerate(df.schema.fields)
+    ]
 
 
 def _create_nvs_sample(
@@ -645,29 +670,418 @@ def _create_nvs_sample(
         return None
 
 
-def _create_vs_sample(
+def _discover_parquet_column_types(
+    df: DataFrame,
     session: Session,
     path: str,
     file_format_options: dict[str, Any],
-    sample_size: int,
-) -> DataFrame | None:
-    """Create a sampled DataFrame using the vectorized Parquet scanner.
+    rows_to_infer: int,
+    snowpark_options: dict[str, Any],
+    main_uses_vs: bool,
+) -> list[DataType]:
+    """Discover column types for a no-schema parquet read via FLATTEN-based schema discovery.
 
-    The vectorized scanner preserves NULL values in its output, which is
-    needed to detect null map values that the NVS scanner omits.  This
-    sample is used only for the null-value check in map columns.
+    Uses a NVS (non-vectorized scanner) sample when the main read uses the vectorized
+    scanner — NVS preserves the physical Parquet MAP encoding (key_value array pattern)
+    which allows ``_reconstruct_schema`` to distinguish maps from structs. Falls back
+    to a regular sample if NVS is unavailable.
 
-    Returns None if the read fails for any reason.
+    Args:
+        df: Lazy DataFrame from the main parquet read (used for schema fields).
+        session: Snowpark session.
+        path: Stage path to the parquet file/directory (for NVS sampling).
+        file_format_options: Parquet file format options.
+        rows_to_infer: Number of rows to sample for schema discovery.
+        snowpark_options: Reader options (FORMAT_NAME, PATTERN, etc.).
+        main_uses_vs: Whether the main read uses the vectorized scanner. When True,
+            a separate NVS sample is taken because the vectorized scanner flattens
+            Parquet MAP columns into JSON objects (keys become field names), making
+            it impossible to distinguish a MAP from a STRUCT during FLATTEN-based
+            discovery. The NVS preserves the physical Parquet MAP encoding as a
+            key_value array, which _reconstruct_schema uses to detect maps. When
+            False, the main read is already NVS so no separate sample is needed.
+
+    Returns:
+        List of DataTypes aligned with ``df.schema.fields`` — VARIANT/STRING columns
+        replaced by discovered StructType/ArrayType/MapType where possible.
     """
+    sampled_df = df.sample(n=rows_to_infer)
+    nvs_sampled_df = (
+        _create_nvs_sample(
+            session, path, file_format_options, rows_to_infer, snowpark_options
+        )
+        if main_uses_vs
+        else None
+    )
+    return _merge_variant_schemas(
+        df,
+        session,
+        nvs_sampled_df if nvs_sampled_df is not None else sampled_df,
+    )
+
+
+def _get_parquet_file_schema(
+    session: Session,
+    path: str,
+    snowpark_options: dict,
+) -> StructType | None:
+    """Infer parquet schema from file metadata (no data loaded)."""
     try:
-        vs_options = {**file_format_options, "USE_VECTORIZED_SCANNER": True}
-        vs_format = cached_file_format(session, "parquet", vs_options)
-        vs_df = session.read.options(
-            {"FORMAT_NAME": vs_format, "ENFORCE_EXISTING_FILE_FORMAT": True}
-        ).parquet(path)
-        return vs_df.sample(n=sample_size)
+        return session.read.options(snowpark_options).parquet(path).schema
     except Exception:
         return None
+
+
+def _infer_merged_file_schema(
+    session: Session,
+    stage_file_groups: list[tuple[str, list[str]]],
+    snowpark_options: dict,
+) -> StructType | None:
+    """Infer a union schema across multiple parquet files using INFER_SCHEMA with FILES.
+
+    For each (stage, files) group, calls INFER_SCHEMA with the FILES parameter so
+    Snowflake returns the union of columns across all listed files in a single query.
+    Schemas from different stage groups are then merged by column name (first-seen type
+    wins for overlapping columns).
+
+    Returns the merged StructType, or None if inference fails for all groups.
+    """
+    seen: dict[str, StructField] = {}
+    ordered_names: list[str] = []
+
+    for stage, files in stage_file_groups:
+        if files:
+            relative_files = [extract_relative_file_path(path, stage) for path in files]
+            opts = {
+                **snowpark_options,
+                "INFER_SCHEMA_OPTIONS": {"FILES": relative_files},
+            }
+        else:
+            opts = snowpark_options
+
+        try:
+            group_schema = session.read.options(opts).parquet(stage).schema
+        except Exception:
+            logger.debug(
+                "INFER_SCHEMA merge: skipping stage group %r (%d files): %s",
+                stage,
+                len(files) if files else 0,
+                files[:3] if files else [],
+                exc_info=True,
+            )
+            continue
+
+        for field in group_schema.fields:
+            col_key = _norm(analyzer_utils.unquote_if_quoted(field.name))
+            if col_key not in seen:
+                seen[col_key] = field
+                ordered_names.append(col_key)
+
+    if not seen:
+        return None
+    return StructType([seen[n] for n in ordered_names])
+
+
+def _build_parquet_stage_groups(
+    paths: list[str],
+) -> list[tuple[str, list[str]]]:
+    """Build (stage, files) groups for parquet COPY INTO.
+
+    COPY INTO can load from a stage prefix with ``files=[]`` — there is no need
+    to expand directory paths to individual files.  This function checks each
+    path:
+
+    - **Directory path** (does NOT end with ``.parquet``): use the full path as
+      ``stage`` and ``files=[]``.  COPY INTO will load every file under that
+      stage prefix that matches the active PATTERN / FILE_FORMAT.
+    - **Specific file** (ends with ``.parquet``): extract the stage root and
+      pass the file as a relative path in ``files``.  Multiple files from the
+      same stage are batched together via :func:`generate_stage_path_groups`.
+
+    This avoids issuing a separate ``LIST`` command (which can be slow and may
+    fail for stages with non-standard access patterns) and correctly handles
+    the trailing-slash directory paths that the read layer produces for local
+    directory reads.
+    """
+    dir_groups: list[tuple[str, list[str]]] = []
+    file_paths: list[str] = []
+
+    for path in paths:
+        raw = normalize_stage_path(path)  # strips quotes and trailing slash
+        # A trailing slash on the original (pre-normalized) path means the
+        # caller identified this as a directory (e.g. local dir named
+        # ``data.parquet/``).  Only classify as a single-file path when
+        # there is no trailing slash AND the name ends with ``.parquet``.
+        is_dir_path = path.strip("'").endswith("/")
+        if not is_dir_path and raw.lower().endswith(".parquet"):
+            file_paths.append(path)
+        else:
+            dir_groups.append((path, []))
+
+    result: list[tuple[str, list[str]]] = dir_groups
+    if file_paths:
+        result = result + generate_stage_path_groups(file_paths)
+    return result
+
+
+def _remap_partition_columns(
+    partition_columns: list[str],
+    partition_types: dict[str, DataType],
+    user_schema: StructType,
+) -> tuple[list[str], dict[str, DataType], list[str]]:
+    """Map discovered partition column names to user-schema names/types.
+
+    Returns ``(user_names, user_types, file_names)`` where:
+    - ``user_names``: partition column names as in the user schema (or discovered).
+    - ``user_types``: ``{user_name: DataType}``.
+    - ``file_names``: actual directory segment names from METADATA$FILENAME
+      (used for SPLIT_PART matching — may differ in case from user schema names).
+    """
+    user_schema_lookup: dict[str, StructField] = {
+        _norm(analyzer_utils.unquote_if_quoted(f.name)): f for f in user_schema.fields
+    }
+    user_names: list[str] = []
+    user_types: dict[str, DataType] = {}
+    file_names: list[str] = []
+
+    for col_name in partition_columns:
+        raw_file = analyzer_utils.unquote_if_quoted(col_name)
+        file_names.append(raw_file)
+        user_field = user_schema_lookup.get(_norm(raw_file))
+        if user_field is not None:
+            raw_user = analyzer_utils.unquote_if_quoted(user_field.name)
+            user_names.append(raw_user)
+            user_types[raw_user] = user_field.datatype
+        else:
+            user_names.append(raw_file)
+            user_types[raw_file] = partition_types[col_name]
+
+    return user_names, user_types, file_names
+
+
+def _build_parquet_typed_transformations(
+    schema: StructType,
+    infer_ntz: bool,
+    file_schema: StructType | None,
+    partition_col_name_set: set[str],
+    session: snowpark.Session,
+) -> tuple[list[str], list[Column], StructType]:
+    """Build COPY INTO transformations for a parquet schema.
+
+    Returns ``(target_cols, transforms, loading_schema)`` where:
+
+    - ``loading_schema``: *schema* with complex fields using their coerced cast types
+      (NTZ timestamps inside complex types replaced by LTZ via ``_transform_complex_type``).
+
+    Per-field logic:
+    - Partition column → skipped (added by _load_file_with_copy_into).
+    - Complex type → ``$1:"file_col"::{sf_type}`` when the file stores native
+      complex types, or ``PARSE_JSON(TO_VARCHAR($1:"file_col"))::{sf_type}``
+      when the file schema reports StringType (Snowflake's write path stores
+      complex types as JSON strings). With structured TRY_CAST support,
+      uses ``TRY_CAST(... AS {sf_type} PERMISSIVE)`` instead of direct cast.
+    - StringType → ``TO_VARCHAR($1:"file_col")``.
+    - NTZ timestamp + infer_ntz=False → CONVERT_TIMEZONE to LTZ.
+    - Other primitives → ``$1:"file_col"::TYPE``.
+
+    Field names from *file_schema* are looked up case-insensitively to handle
+    case-differing column names (VARIANT access is case-sensitive).
+
+    For complex columns, ``_transform_complex_type`` strips any embedded SQL
+    quotes from field names (``strip_quotes=True``) and replaces TIMESTAMP_NTZ
+    with TIMESTAMP_LTZ (PARSE_JSON always produces LTZ from JSON timestamps). Field names
+    in the OBJECT cast are produced via ``map_type_to_snowflake_type(structured=True)``
+    to match the original JSON keys in the Parquet file.
+    """
+    from snowflake.snowpark.functions import sql_expr
+
+    session_tz = global_config.spark_sql_session_timeZone
+    ltz_type = TimestampType(TimestampTimeZone.LTZ)
+
+    file_type_lookup: dict[str, DataType] = {}
+    if file_schema is not None:
+        for f in file_schema.fields:
+            raw = analyzer_utils.unquote_if_quoted(f.name)
+            file_type_lookup[_norm(raw)] = f.datatype
+
+    target_cols: list[str] = []
+    transforms: list[Column] = []
+    loading_fields: list[StructField] = []
+
+    for field in schema.fields:
+        raw_user = analyzer_utils.unquote_if_quoted(field.name)
+        if _norm(raw_user) in partition_col_name_set:
+            continue
+
+        quoted_name = analyzer_utils.quote_name_without_upper_casing(raw_user)
+        target_cols.append(quoted_name)
+        dt = field.datatype
+
+        # caseSensitive=false: GET_IGNORE_CASE handles any column casing across
+        # all files. caseSensitive=true: use quoted $1:"col" for exact match.
+        if not global_config.spark_sql_caseSensitive:
+            source_expr = f"GET_IGNORE_CASE($1, '{raw_user}')"
+        else:
+            source_expr = f'$1:"{raw_user}"'
+
+        if isinstance(dt, (StructType, ArrayType, MapType)):
+            variant_dt = _transform_complex_type(
+                dt, strip_quotes=True, coerce_ntz_to_ltz=True
+            )
+            use_permissive = getattr(session, "_has_structured_try_cast", False)
+
+            file_dt = file_type_lookup.get(_norm(raw_user))
+            needs_json_parse = isinstance(file_dt, StringType)
+
+            if needs_json_parse:
+                parsed = sql_expr(f"PARSE_JSON(TO_VARCHAR({source_expr}))")
+            else:
+                parsed = sql_expr(source_expr)
+
+            if use_permissive:
+                transforms.append(parsed.try_cast(variant_dt, permissive=True))
+            else:
+                transforms.append(parsed.cast(variant_dt))
+            loading_fields.append(StructField(quoted_name, variant_dt, field.nullable))
+        elif isinstance(dt, StringType):
+            transforms.append(sql_expr(f"TO_VARCHAR({source_expr})"))
+            loading_fields.append(StructField(quoted_name, dt, field.nullable))
+        elif (
+            isinstance(dt, TimestampType)
+            and dt.tz == TimestampTimeZone.NTZ
+            and not infer_ntz
+        ):
+            # Treat NTZ as UTC instant, convert to LTZ (matches Spark behavior)
+            expr = (
+                f"CONVERT_TIMEZONE('UTC', '{session_tz}', "
+                f"{source_expr}::TIMESTAMP_NTZ)::TIMESTAMP_LTZ"
+            )
+            transforms.append(sql_expr(expr))
+            loading_fields.append(StructField(quoted_name, ltz_type, field.nullable))
+        else:
+            # Parquet cells are VARIANT in the scan; cast to the target scalar type with
+            # SQL :: (structured OBJECT/ARRAY/MAP are handled in the branch above).
+            type_sql = map_type_to_snowflake_type(dt, structured=True)
+            transforms.append(sql_expr(f"{source_expr}::{type_sql}"))
+            loading_fields.append(StructField(quoted_name, dt, field.nullable))
+
+    return target_cols, transforms, StructType(loading_fields)
+
+
+def _copy_into_parquet_and_read(
+    schema: StructType,
+    infer_ntz: bool,
+    file_schema: StructType | None,
+    partition_col_name_set: set[str],
+    reader: snowpark.DataFrameReader,
+    session: snowpark.Session,
+    temp_table_name: str,
+    stage_file_groups: list[tuple[str, list[str]]],
+    file_format_options: dict[str, Any],
+    partition_columns: list[str] | None,
+    partition_types: dict[str, DataType] | None,
+    partition_file_col_names: list[str] | None,
+    needs_metadata: bool,
+) -> DataFrame:
+    """Build typed COPY INTO transforms, load all stage groups, and return session.table().
+
+    Common pattern shared by the user-schema and no-schema COPY INTO paths:
+    1. ``_build_parquet_typed_transformations`` — derive per-column transforms
+       (primitives: ``$1:"col"::TYPE``; complex: conditional ``PARSE_JSON``
+       when file stores JSON strings, then cast or ``TRY_CAST(...PERMISSIVE)``;
+       NTZ: CONVERT_TIMEZONE to LTZ)
+    2. ``_load_file_with_copy_into`` loop — load each (stage, files) group into temp table
+    3. ``session.table(temp_table_name)`` — return lazy DataFrame over loaded data
+
+    The first ``_load_file_with_copy_into`` call creates the temp table; subsequent
+    calls skip the creation check via ``table_already_exists=True``.
+    """
+    target_cols, transforms, loading_schema = _build_parquet_typed_transformations(
+        schema, infer_ntz, file_schema, partition_col_name_set, session
+    )
+
+    for i, (stage, files) in enumerate(stage_file_groups):
+        _load_file_with_copy_into(
+            reader=reader,
+            session=session,
+            target=temp_table_name,
+            stage_file_paths=files,
+            stage=stage,
+            schema=loading_schema,
+            file_format_options=file_format_options,
+            file_format="parquet",
+            target_columns=target_cols,
+            transformations=transforms,
+            partition_columns=partition_columns,
+            partition_types=partition_types,
+            partition_file_col_names=partition_file_col_names,
+            needs_metadata=needs_metadata,
+            table_already_exists=(i > 0),
+        )
+
+    result_df = session.table(temp_table_name)
+    return result_df
+
+
+def _build_no_schema_result(
+    df: DataFrame,
+    discovered_types: list[DataType],
+    spark_column_names: list[str],
+    snowpark_column_names: list[str],
+    main_uses_vs: bool,
+    can_be_cached: bool,
+) -> DataFrameContainer:
+    """Apply post-load fixups to a no-schema DataFrame and build a DataFrameContainer.
+
+    For columns where FLATTEN-based schema discovery resolved VARIANT or STRING to a
+    complex type (StructType/ArrayType/MapType):
+
+    - **VARIANT → complex**: kept as-is. The COPY INTO transform already cast the column
+      to the correct structured type (OBJECT/ARRAY/MAP). SAS serializes structured columns
+      via Arrow ``pa.string()`` and uses ``snowpark_column_types`` to declare the target
+      Spark type — applying an additional ``::ARRAY/::OBJECT`` cast here would cause
+      "Unsupported arrow type string" errors for structured StructType/MapType.
+    - **STRING → complex**: wraps the column in ``PARSE_JSON(...)`` to convert the
+      JSON-encoded string (written by the Snowflake COPY INTO write path) to VARIANT,
+      which SAS can then present as the discovered complex type via ``snowpark_column_types``.
+    """
+    from snowflake.snowpark.functions import sql_expr
+
+    cast_columns = []
+    has_casts = False
+    for col_name, field, discovered_type in zip(
+        df.columns, df.schema.fields, discovered_types
+    ):
+        is_variant = isinstance(field.datatype, VariantType)
+        is_string = isinstance(field.datatype, StringType)
+        is_complex_discovered = (
+            (isinstance(discovered_type, StructType) and discovered_type.structured)
+            or isinstance(discovered_type, ArrayType)
+            or isinstance(discovered_type, MapType)
+        )
+        if is_complex_discovered and is_variant:
+            # Keep VARIANT as-is — PARSE_JSON in COPY INTO transforms already ensures
+            # proper JSON structure. SAS serializes VARIANT via Arrow pa.string() and
+            # uses snowpark_column_types to declare the target Spark type. Casting to
+            # ::ARRAY/::OBJECT would cause "Unsupported arrow type string" for structured
+            # StructType/MapType. MapType in VS=false key_value format also skips cast.
+            cast_columns.append(df[col_name])
+        elif is_complex_discovered and is_string:
+            # String → complex: PARSE_JSON to produce VARIANT; no further cast needed.
+            raw_name = analyzer_utils.unquote_if_quoted(col_name)
+            cast_columns.append(sql_expr(f'PARSE_JSON("{raw_name}")').alias(col_name))
+            has_casts = True
+        else:
+            cast_columns.append(df[col_name])
+
+    result_df = df.select(cast_columns) if has_casts else df
+    return DataFrameContainer.create_with_column_mapping(
+        dataframe=result_df,
+        spark_column_names=spark_column_names,
+        snowpark_column_names=snowpark_column_names,
+        snowpark_column_types=[emulate_integral_types(t) for t in discovered_types],
+        can_be_cached=can_be_cached,
+    )
 
 
 def map_read_parquet(
@@ -690,6 +1104,9 @@ def map_read_parquet(
     file_format_options = _parse_parquet_snowpark_options(converted_snowpark_options)
     raw_options = rel.read.data_source.options
     assert len(paths) > 0, "Read PARQUET expects at least one path"
+    # Use canonicalized reader config (lowercase keys) so .option("mergeSchema"|"mergeschema"|"MERGESCHEMA", ...)
+    # all work; raw protobuf options keep Spark casing and miss lowercased keys.
+    merge_schema = str_to_bool(str(options.config.get("mergeschema", "false")))
 
     snowpark_options = {
         # Setting these two options prevents a significant number of additional CREATE TEMPORARY
@@ -709,54 +1126,143 @@ def map_read_parquet(
 
     apply_metadata_exclusion_pattern(snowpark_options)
 
-    reader = add_filename_metadata_to_reader(
-        session.read.options(snowpark_options), raw_options
+    reader = session.read.options(snowpark_options)
+    infer_ntz = get_boolean_session_config_param(
+        "spark.sql.parquet.inferTimestampNTZ.enabled"
     )
 
-    if len(paths) == 1:
-        (
-            df,
-            partition_columns,
-            read_using_external_table,
-        ) = _read_parquet_with_partitions(
-            session, reader, paths[0], schema, snowpark_options, raw_options
+    # ── Branch A: External table (single path only) ──────────────────────────
+    # External tables are created against a single stage path (LOCATION = @stage/prefix)
+    # so multiple paths cannot use this branch. When Spark issues a read across multiple
+    # partitioned directories or files, it always falls through to Branch B (COPY INTO).
+    # This has always been a single-path-only path — multiple paths were never supported.
+    if len(paths) == 1 and use_external_table(session, paths[0]):
+        ext_reader = add_filename_metadata_to_reader(reader, raw_options)
+        df, partition_columns, _ = _read_parquet_with_partitions(
+            session, ext_reader, paths[0], schema, snowpark_options, raw_options
         )
-        can_be_cached = not read_using_external_table
-    else:
-        is_merge_schema = options.config.get("mergeschema")
-        (
-            df,
-            partition_columns,
-            read_using_external_table,
-        ) = _read_parquet_with_partitions(
-            session, reader, paths[0], schema, snowpark_options, raw_options
-        )
-        can_be_cached = not read_using_external_table
-        schema_cols = df.columns
-        for p in paths[1:]:
-            reader._user_schema = None
-            partition_df, _, read_using_external_table = _read_parquet_with_partitions(
-                session, reader, p, schema, snowpark_options, raw_options
-            )
-            df = df.union_all_by_name(
-                partition_df,
-                allow_missing_columns=True,
-            )
-            can_be_cached = can_be_cached and not read_using_external_table
 
-        if not is_merge_schema:
-            df = df.select(*schema_cols)
+        if schema is not None:
+            # External table already applied the schema during DDL creation.
+            schema_types = [f.datatype for f in df.schema.fields]
+            spark_column_names = [
+                analyzer_utils.unquote_if_quoted(c) for c in df.columns
+            ]
+            renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
+                df, rel.common.plan_id
+            )
+            return DataFrameContainer.create_with_column_mapping(
+                dataframe=renamed_df,
+                spark_column_names=spark_column_names,
+                snowpark_column_names=snowpark_column_names,
+                snowpark_column_types=[
+                    emulate_integral_types(dt) for dt in schema_types
+                ],
+                can_be_cached=False,
+            )
+
+        # No schema: infer types via FLATTEN-based schema discovery.
+        if not infer_ntz:
+            df = _cast_ntz_to_ltz(df)
+        spark_column_names = [analyzer_utils.unquote_if_quoted(c) for c in df.columns]
+        renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
+            df, rel.common.plan_id
+        )
+        rows_to_infer = int(options.config.get("rowstoinferschema", 1000))
+        main_uses_vs = str(
+            file_format_options.get("USE_VECTORIZED_SCANNER", "true")
+        ).lower() in ("true", "1")
+        discovered_types = _discover_parquet_column_types(
+            df,
+            session,
+            paths[0],
+            file_format_options,
+            rows_to_infer,
+            snowpark_options,
+            main_uses_vs,
+        )
+        return _build_no_schema_result(
+            df=renamed_df,
+            discovered_types=discovered_types,
+            spark_column_names=spark_column_names,
+            snowpark_column_names=snowpark_column_names,
+            main_uses_vs=main_uses_vs,
+            can_be_cached=False,
+        )
+
+    # ── Branch B: COPY INTO ───────────────────────────────────────────────────
+    needs_metadata = populate_metadata(raw_options)
+    partition_columns, partition_types = _discover_partition_columns(
+        session, paths[0], "parquet"
+    )
+    temp_table_name = random_name_for_temp_object(TempObjectType.TABLE)
+    stage_file_groups = _build_parquet_stage_groups(paths)
 
     if schema is not None:
-        if read_using_external_table:
-            # External table path already applies the user schema during table
-            # creation (column types, partition columns).  Skip reconciliation
-            # and use the DataFrame's types as-is.
-            schema_types = [f.datatype for f in df.schema.fields]
-        else:
-            # Non-external-table path: reconcile columns with user schema.
-            df, schema_types = _handle_partition_columns(df, partition_columns, schema)
+        # ── User-schema path ──
+        # file_schema is needed for two reasons:
+        # 1. Conditional PARSE_JSON: Snowflake's Parquet write path stores
+        #    complex types (struct/array/map) as JSON strings (StringType in
+        #    file). When the file schema reports StringType for a column the
+        #    user expects as a complex type, the COPY INTO transform must wrap
+        #    the value in PARSE_JSON(TO_VARCHAR(...)) before casting to the
+        #    structured type; without it the cast returns NULL.
+        # We infer from only the first file (paths[0]) to avoid the overhead
+        # of reading schema from every file. Files written by the same
+        # Snowflake write path will have a consistent schema, and Spark
+        # itself does not infer/merge schemas when a user schema is provided.
+        file_schema = _get_parquet_file_schema(session, paths[0], snowpark_options)
+        partition_col_name_set = {
+            _norm(analyzer_utils.unquote_if_quoted(c)) for c in partition_columns
+        }
+        user_part_names, user_part_types, file_part_names = _remap_partition_columns(
+            partition_columns, partition_types, schema
+        )
+        df = _copy_into_parquet_and_read(
+            schema=schema,
+            infer_ntz=infer_ntz,
+            file_schema=file_schema,
+            partition_col_name_set=partition_col_name_set,
+            reader=reader,
+            session=session,
+            temp_table_name=temp_table_name,
+            stage_file_groups=stage_file_groups,
+            file_format_options=file_format_options,
+            partition_columns=user_part_names if partition_columns else None,
+            partition_types=user_part_types if partition_columns else None,
+            partition_file_col_names=file_part_names if partition_columns else None,
+            needs_metadata=needs_metadata,
+        )
+
+        # Build schema_types from the user-provided schema so the Spark client
+        # sees exactly the types the user requested, not the internal Snowflake
+        # table types (which may differ due to timestamp coercion, etc.).
+        # Complex types need quote-stripping because user schemas arrive with
+        # SQL-quoted field names (e.g. '"city"') from map_json_schema_to_snowpark,
+        # but Snowflake returns unquoted keys in data. Stripping quotes ensures
+        # _show_string_spark matches fields by name correctly; without it struct
+        # fields display as NULL.
+        schema_col_lookup = {
+            _norm(analyzer_utils.unquote_if_quoted(f.name)): (
+                _transform_complex_type(f.datatype, strip_quotes=True)
+                if isinstance(f.datatype, (StructType, ArrayType, MapType))
+                else f.datatype
+            )
+            for f in schema.fields
+        }
+        # Include discovered partition types so partition columns not in the
+        # user schema report their inferred type (e.g. IntegerType) instead
+        # of falling back to StringType.
+        if user_part_types:
+            for pname, ptype in user_part_types.items():
+                norm_pname = _norm(pname)
+                if norm_pname not in schema_col_lookup:
+                    schema_col_lookup[norm_pname] = ptype
         spark_column_names = [analyzer_utils.unquote_if_quoted(c) for c in df.columns]
+        schema_types = [
+            schema_col_lookup.get(_norm(name), StringType())
+            for name in spark_column_names
+        ]
         renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
             df, rel.common.plan_id
         )
@@ -765,246 +1271,172 @@ def map_read_parquet(
             spark_column_names=spark_column_names,
             snowpark_column_names=snowpark_column_names,
             snowpark_column_types=[emulate_integral_types(dt) for dt in schema_types],
-            can_be_cached=can_be_cached,
+            can_be_cached=True,
         )
 
-    # No user schema: infer types via FLATTEN-based schema discovery.
-    infer_ntz = get_boolean_session_config_param(
-        "spark.sql.parquet.inferTimestampNTZ.enabled"
-    )
-    if not infer_ntz:
-        df = _cast_ntz_to_ltz(df)
-    spark_column_names = [analyzer_utils.unquote_if_quoted(c) for c in df.columns]
-    renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
-        df, rel.common.plan_id
-    )
-
+    # ── No-schema path ──
+    # Use the existing sample-based schema discovery, then load via typed COPY INTO.
     rows_to_infer = int(options.config.get("rowstoinferschema", 1000))
-    sampled_df = df.sample(n=rows_to_infer)
-
-    # NVS-based map discovery only works when the main df uses the vectorized
-    # scanner (native map format).  When the main df uses NVS (VS=false), the
-    # data is in key_value array format which can't be CAST to MAP types.
     main_uses_vs = str(
         file_format_options.get("USE_VECTORIZED_SCANNER", "true")
     ).lower() in ("true", "1")
 
-    # Use the non-vectorized scanner so that Parquet MAP encoding is preserved
-    # as key_value arrays, letting _reconstruct_schema distinguish maps from structs.
-    nvs_sampled_df = (
-        _create_nvs_sample(
-            session, paths[0], file_format_options, rows_to_infer, snowpark_options
-        )
-        if main_uses_vs
-        else None
-    )
-
-    discovered_types = _merge_variant_schemas(
-        df,
+    # base_df is lazy — only used for schema fields and sampling.
+    base_df = session.read.options(snowpark_options).parquet(paths[0])
+    discovered_types = _discover_parquet_column_types(
+        base_df,
         session,
-        nvs_sampled_df if nvs_sampled_df is not None else sampled_df,
+        paths[0],
+        file_format_options,
+        rows_to_infer,
+        snowpark_options,
+        main_uses_vs,
     )
 
-    from snowflake.snowpark.functions import builtin
-
-    parse_json = builtin("PARSE_JSON")
-    cast_columns = []
-    has_casts = False
-    cast_base_df = renamed_df
-    for col_name, field, discovered_type in zip(
-        cast_base_df.columns, cast_base_df.schema.fields, discovered_types
-    ):
-        is_variant = isinstance(field.datatype, VariantType)
-        is_string = isinstance(field.datatype, StringType)
-        is_complex_discovered = (
-            (isinstance(discovered_type, StructType) and discovered_type.structured)
-            or isinstance(discovered_type, ArrayType)
-            or isinstance(discovered_type, MapType)
+    # When mergeSchema is enabled and there are multiple paths, use INFER_SCHEMA
+    # with FILES to get the union schema across all files. Columns from paths[0]
+    # use FLATTEN-discovered types (resolves VARIANT → ARRAY/STRUCT/MAP); columns
+    # only in other files use the INFER_SCHEMA type directly (primitives are
+    # correct; complex types stay as VariantType — acceptable limitation).
+    if merge_schema and len(paths) > 1:
+        merged_file_schema = _infer_merged_file_schema(
+            session, stage_file_groups, snowpark_options
         )
-
-        if is_complex_discovered and is_variant:
-            # When VS=false, the data is in key_value format for maps.
-            # CAST to MapType only works on native map format (VS=true).
-            if not main_uses_vs and isinstance(discovered_type, MapType):
-                cast_columns.append(cast_base_df[col_name])
-                continue
-            cast_columns.append(
-                cast_base_df[col_name].try_cast(discovered_type).alias(col_name)
-            )
-            has_casts = True
-        elif is_complex_discovered and is_string:
-            cast_columns.append(
-                parse_json(cast_base_df[col_name])
-                .try_cast(discovered_type)
-                .alias(col_name)
-            )
-            has_casts = True
+        if merged_file_schema is not None:
+            base_type_lookup = {
+                _norm(analyzer_utils.unquote_if_quoted(f.name)): dt
+                for f, dt in zip(base_df.schema.fields, discovered_types)
+            }
+            merged_col_names = []
+            merged_types = []
+            for field in merged_file_schema.fields:
+                col_normed = _norm(analyzer_utils.unquote_if_quoted(field.name))
+                merged_col_names.append(analyzer_utils.unquote_if_quoted(field.name))
+                merged_types.append(base_type_lookup.get(col_normed, field.datatype))
+            effective_file_schema = merged_file_schema
         else:
-            cast_columns.append(cast_base_df[col_name])
+            merged_col_names = [
+                analyzer_utils.unquote_if_quoted(f.name) for f in base_df.schema.fields
+            ]
+            merged_types = discovered_types
+            effective_file_schema = base_df.schema
+    else:
+        merged_col_names = [
+            analyzer_utils.unquote_if_quoted(f.name) for f in base_df.schema.fields
+        ]
+        merged_types = discovered_types
+        effective_file_schema = base_df.schema
 
-    if has_casts:
-        cast_base_df = cast_base_df.select(cast_columns)
+    discovered_schema = StructType(
+        [
+            StructField(analyzer_utils.quote_name_without_upper_casing(name), dt, True)
+            for name, dt in zip(merged_col_names, merged_types)
+        ]
+    )
 
-    return DataFrameContainer.create_with_column_mapping(
-        dataframe=cast_base_df,
+    no_schema_partition_col_name_set = (
+        {_norm(analyzer_utils.unquote_if_quoted(c)) for c in partition_columns}
+        if partition_columns
+        else set()
+    )
+    # effective_file_schema is passed for the same reason as the user-schema
+    # path: Snowflake writes complex types as JSON strings (StringType in
+    # file), so the COPY INTO transform needs to know when to apply
+    # PARSE_JSON(TO_VARCHAR(...)) before casting to the structured type.
+    df = _copy_into_parquet_and_read(
+        schema=discovered_schema,
+        infer_ntz=infer_ntz,
+        file_schema=effective_file_schema,
+        partition_col_name_set=no_schema_partition_col_name_set,
+        reader=reader,
+        session=session,
+        temp_table_name=temp_table_name,
+        stage_file_groups=stage_file_groups,
+        file_format_options=file_format_options,
+        partition_columns=partition_columns if partition_columns else None,
+        partition_types=partition_types if partition_columns else None,
+        partition_file_col_names=None,
+        needs_metadata=needs_metadata,
+    )
+
+    # Build type list matching the table column order produced by
+    # _load_file_with_copy_into: data columns (partitions excluded) →
+    # partition columns → metadata.  Uses the *discovered* types (not the
+    # loading types which may differ, e.g. VariantType or LTZ coercion).
+    if partition_columns:
+        part_norm = {
+            _norm(analyzer_utils.unquote_if_quoted(c)) for c in partition_columns
+        }
+        all_types = [
+            dt
+            for name, dt in zip(merged_col_names, merged_types)
+            if _norm(name) not in part_norm
+        ]
+        all_types += [partition_types[c] for c in partition_columns]
+    else:
+        all_types = list(merged_types)
+    if needs_metadata:
+        all_types.append(StringType())
+
+    spark_column_names = [analyzer_utils.unquote_if_quoted(c) for c in df.columns]
+    renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
+        df, rel.common.plan_id
+    )
+    return _build_no_schema_result(
+        df=renamed_df,
+        discovered_types=all_types,
         spark_column_names=spark_column_names,
         snowpark_column_names=snowpark_column_names,
-        snowpark_column_types=[emulate_integral_types(t) for t in discovered_types],
-        can_be_cached=can_be_cached,
+        main_uses_vs=main_uses_vs,
+        can_be_cached=True,
     )
 
 
-def _handle_partition_columns(
-    df: DataFrame,
-    partition_columns: list[str],
-    provided_schema: StructType,
-) -> tuple[DataFrame, list[DataType]]:
+def _transform_complex_type(
+    dt: DataType,
+    *,
+    strip_quotes: bool = False,
+    coerce_ntz_to_ltz: bool = False,
+) -> DataType:
+    """Recursive tree walk over complex types applying optional transformations.
+
+    Parameters
+    ----------
+    strip_quotes:
+        Strip embedded SQL quotes from struct field names.  User-provided
+        schemas arrive with quoted names (e.g. ``'"city"'``) from
+        ``map_json_schema_to_snowpark``.  Stripping produces raw keys
+        (e.g. ``city``) matching the dict keys Snowpark Python uses when
+        formatting results.  ``_is_column=False`` prevents
+        ``ColumnIdentifier`` from uppercasing the name, while
+        ``case_sensitive_name`` still produces the correct double-quoted
+        SQL identifier for the CAST expression.
+    coerce_ntz_to_ltz:
+        Replace TIMESTAMP_NTZ with TIMESTAMP_LTZ.  Snowflake's VARIANT/JSON
+        path (PARSE_JSON) always produces TIMESTAMP_LTZ regardless of the
+        original Parquet timestamp type.  When building the COPY INTO cast
+        expression for complex columns, we must use LTZ to match what
+        PARSE_JSON actually returns, otherwise the COPY INTO fails with a
+        type mismatch error.
     """
-    Reconcile partition columns with a user-provided schema.
-
-    Spark always places partition columns at the end of the output, even if
-    the user schema lists them earlier (see ``PartitioningUtils.mergeDataAndPartitionSchema``).
-
-    When reading partitioned parquet with a user schema:
-    1. Data columns appear first, in user-schema order
-    2. Partition columns appear last, in partition discovery order
-    3. User-specified types are applied to partition columns via casting
-    4. Partition columns not in the user schema are still appended
-    5. Schema fields not in the data become NULL columns
-
-    Column name matching respects ``spark.sql.caseSensitive`` (default false).
-    When case-insensitive, names are compared via their unquoted lowercase form
-    while the *original* DataFrame column name is preserved for SQL generation.
-    """
-    case_sensitive = get_boolean_session_config_param("spark.sql.caseSensitive")
-
-    def _normalize(name: str) -> str:
-        if case_sensitive:
-            return name
-        return analyzer_utils.unquote_if_quoted(name).lower()
-
-    partition_columns = [
-        quote_name_without_upper_casing(col) for col in partition_columns
-    ]
-
-    # Map normalized name -> original quoted name for partition columns.
-    partition_lookup: dict[str, str] = {
-        _normalize(col): col for col in partition_columns
-    }
-
-    # Map normalized name -> (original_name, datatype) for actual DataFrame columns.
-    actual_lookup: dict[str, tuple[str, DataType]] = {
-        _normalize(field.name): (field.name, field.datatype)
-        for field in df.schema.fields
-    }
-
-    schema_columns: list[Column] = []
-    schema_types: list[DataType] = []
-
-    # Map user-specified types for partition columns (by normalized key).
-    partition_user_types: dict[str, tuple[DataType, str]] = {}
-
-    # Phase 1: data columns from user schema (skip partition columns).
-    # Spark always places partition columns at the end, regardless of
-    # where the user positions them in the schema.
-    for field in provided_schema.fields:
-        norm_key = _normalize(field.name)
-        target_type = field.datatype
-        user_name = field.name
-
-        if norm_key in partition_lookup:
-            partition_user_types[norm_key] = (target_type, user_name)
-            continue
-
-        if norm_key in actual_lookup:
-            actual_col_name, source_type = actual_lookup[norm_key]
-            col_expr = snowpark_fn.col(actual_col_name)
-            reported_type = target_type
-            is_complex_target = isinstance(
-                target_type, (StructType, ArrayType, MapType)
-            )
-            is_castable_source = isinstance(source_type, (VariantType, StringType))
-
-            if is_complex_target and is_castable_source:
-                # Use TRY_CAST with PERMISSIVE to gracefully handle schema
-                # differences: extra fields in the data are dropped, missing
-                # fields become NULL (matching Spark's behavior).
-                cast_type = _normalize_complex_type_for_cast(target_type)
-                src_expr = (
-                    snowpark_fn.parse_json(col_expr)
-                    if isinstance(source_type, StringType)
-                    else col_expr
-                )
-                col_expr = src_expr.try_cast(cast_type, permissive=True).alias(
-                    user_name
-                )
-                # Report the normalized type so Arrow field names match the
-                # unquoted keys returned by Snowflake's JSON output.
-                reported_type = cast_type
-            else:
-                # Primitive columns: reject incompatible types (e.g. STRING
-                # requested as DOUBLE) to match Spark's Parquet physical type
-                # validation.  Compatible types pass through without casting.
-                if not datatypes_equal(source_type, target_type, ignore_nullable=True):
-                    _validate_column_type(actual_col_name, source_type, target_type)
-                if actual_col_name != user_name:
-                    col_expr = col_expr.alias(user_name)
-
-            schema_columns.append(col_expr)
-            schema_types.append(reported_type)
-
-        else:
-            col_expr = snowpark_fn.lit(None)
-            if isinstance(target_type, (StructType, ArrayType, MapType)):
-                cast_type = _normalize_complex_type_for_cast(target_type)
-                col_expr = col_expr.cast(cast_type)
-            schema_columns.append(col_expr.alias(user_name))
-            schema_types.append(
-                _normalize_complex_type_for_cast(target_type)
-                if isinstance(target_type, (StructType, ArrayType, MapType))
-                else target_type
-            )
-
-    # Phase 2: partition columns at the end (matching Spark behavior).
-    # Use user-specified types when available, inferred types otherwise.
-    for partition_col in partition_columns:
-        norm_key = _normalize(partition_col)
-        if norm_key in partition_user_types:
-            target_type, user_name = partition_user_types[norm_key]
-            actual_col_name = partition_lookup[norm_key]
-            source_type = actual_lookup[norm_key][1]
-            cast_expr = _cast_partition_column(
-                source_type, target_type, actual_col_name, user_name
-            )
-            schema_columns.append(cast_expr)
-            schema_types.append(target_type)
-        else:
-            schema_columns.append(snowpark_fn.col(partition_col))
-            schema_types.append(actual_lookup[norm_key][1])
-
-    return df.select(*schema_columns), schema_types
-
-
-def _normalize_complex_type_for_cast(dt: DataType) -> DataType:
-    """Normalize field names in complex types so that CAST SQL matches JSON keys.
-
-    User-provided schemas pass through ``map_json_schema_to_snowpark`` which
-    quotes field names via ``quote_name(name, keep_case=True)``, producing
-    strings like ``'"city"'``.  The underlying JSON keys in Variant data are
-    unquoted (e.g. ``city``).
-
-    We strip quoting so that ``StructField.name`` returns the raw key (e.g.
-    ``city``) matching the dict keys Snowpark Python uses when formatting
-    results.  Setting ``_is_column=False`` prevents ``ColumnIdentifier`` from
-    uppercasing the name, while ``case_sensitive_name`` still produces the
-    correct double-quoted SQL identifier for the CAST expression.
-    """
+    if (
+        coerce_ntz_to_ltz
+        and isinstance(dt, TimestampType)
+        and dt.tz == TimestampTimeZone.NTZ
+    ):
+        return TimestampType(TimestampTimeZone.LTZ)
     if isinstance(dt, StructType):
         return StructType(
             [
                 StructField(
-                    analyzer_utils.unquote_if_quoted(f.name),
-                    _normalize_complex_type_for_cast(f.datatype),
+                    analyzer_utils.unquote_if_quoted(f.name)
+                    if strip_quotes
+                    else f.name,
+                    _transform_complex_type(
+                        f.datatype,
+                        strip_quotes=strip_quotes,
+                        coerce_ntz_to_ltz=coerce_ntz_to_ltz,
+                    ),
                     f.nullable,
                     _is_column=False,
                 )
@@ -1014,104 +1446,28 @@ def _normalize_complex_type_for_cast(dt: DataType) -> DataType:
         )
     if isinstance(dt, ArrayType):
         return ArrayType(
-            _normalize_complex_type_for_cast(dt.element_type),
+            _transform_complex_type(
+                dt.element_type,
+                strip_quotes=strip_quotes,
+                coerce_ntz_to_ltz=coerce_ntz_to_ltz,
+            ),
             structured=dt.structured,
         )
     if isinstance(dt, MapType):
         return MapType(
-            _normalize_complex_type_for_cast(dt.key_type),
-            _normalize_complex_type_for_cast(dt.value_type),
+            _transform_complex_type(
+                dt.key_type,
+                strip_quotes=strip_quotes,
+                coerce_ntz_to_ltz=coerce_ntz_to_ltz,
+            ),
+            _transform_complex_type(
+                dt.value_type,
+                strip_quotes=strip_quotes,
+                coerce_ntz_to_ltz=coerce_ntz_to_ltz,
+            ),
             structured=dt.structured,
         )
     return dt
-
-
-def _snowflake_type_sql(dt: DataType) -> str:
-    """Generate a Snowflake SQL type signature for use in TRY_CAST expressions.
-
-    Expects types that have been processed by ``_normalize_complex_type_for_cast``
-    so that struct field names are unquoted.  Uses ``case_sensitive_name`` to
-    produce properly double-quoted SQL identifiers (e.g. ``"id"``).
-
-    Example output: ``OBJECT("id" VARCHAR, "name" VARCHAR)``
-    """
-    from snowflake.snowpark_connect.type_mapping import map_type_to_snowflake_type
-
-    if isinstance(dt, StructType):
-        fields = ", ".join(
-            f"{f.column_identifier.case_sensitive_name} "
-            f"{_snowflake_type_sql(f.datatype)}"
-            for f in dt.fields
-        )
-        return f"OBJECT({fields})"
-    if isinstance(dt, ArrayType):
-        return f"ARRAY({_snowflake_type_sql(dt.element_type)})"
-    if isinstance(dt, MapType):
-        return f"MAP({_snowflake_type_sql(dt.key_type)}, {_snowflake_type_sql(dt.value_type)})"
-    return map_type_to_snowflake_type(dt)
-
-
-def _validate_column_type(
-    col_name: str,
-    source_type: DataType,
-    target_type: DataType,
-) -> None:
-    """
-    Validate that a parquet data column's type is compatible with the schema type.
-    Raises an error if types are incompatible (e.g. STRING in file but DOUBLE requested).
-    """
-    if not datatypes_equal(source_type, target_type, ignore_nullable=True):
-        exception = ValueError(
-            f"Parquet column cannot be converted due to incompatible types. "
-            f"Column [{col_name}], Expected: {target_type}, Found: {source_type}"
-        )
-        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-        raise exception
-
-
-def _cast_partition_column(
-    original_type: DataType,
-    cast_type: DataType,
-    col_name: str,
-    output_name: str | None = None,
-) -> Column:
-    """Cast a partition column from its inferred type to the user-requested type.
-
-    ``col_name`` is the actual DataFrame column name (for SQL references).
-    ``output_name`` is the user-schema name for the output alias; defaults to
-    ``col_name`` when not provided.
-    """
-    alias = output_name or col_name
-
-    if original_type == cast_type:
-        col_expr = snowpark_fn.col(col_name)
-        return col_expr.alias(alias) if alias != col_name else col_expr
-
-    if isinstance(original_type, NullType):
-        return snowpark_fn.lit(None).alias(alias)
-
-    match original_type, cast_type:
-        case (_FractionalType(), _IntegralType()) | (_NumericType(), BooleanType()):
-            exception = ValueError(
-                f"Failed to cast value from `{original_type}` to `{cast_type}` "
-                f"for partition column `{col_name}`"
-            )
-            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-            raise exception
-        case StringType(), DateType():
-            # Snowflake's AUTO format detection handles ISO-8601 (yyyy-MM-dd)
-            # used by Hive-style partitioning, plus other common formats.
-            return snowpark_fn.builtin("try_to_date")(snowpark_fn.col(col_name)).alias(
-                alias
-            )
-        case (_NumericType(), DateType()) | (_NumericType(), TimestampType()):
-            return snowpark_fn.lit(None).alias(alias)
-        case StringType(), TimestampType():
-            return snowpark_fn.builtin("try_to_timestamp")(
-                snowpark_fn.col(col_name)
-            ).alias(alias)
-        case _, _:
-            return snowpark_fn.col(col_name).cast(cast_type).alias(alias)
 
 
 def _read_parquet_with_partitions(
@@ -1181,7 +1537,10 @@ _parquet_file_format_allowed_options = {
 
 
 def _parse_parquet_snowpark_options(snowpark_options: dict[str, Any]) -> dict[str, Any]:
-    file_format_options = dict()
+    # Default USE_VECTORIZED_SCANNER to True — Snowflake's file format default is False,
+    # but the vectorized scanner is significantly faster and required for correct Arrow
+    # type output for complex columns. Users can override via read options.
+    file_format_options: dict[str, Any] = {"USE_VECTORIZED_SCANNER": True}
     for key, value in snowpark_options.items():
         upper_key = key.upper()
         if upper_key in _parquet_file_format_allowed_options:

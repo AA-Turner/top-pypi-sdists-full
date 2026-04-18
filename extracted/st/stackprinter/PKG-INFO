@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: stackprinter
-Version: 0.2.12
+Version: 0.2.13
 Summary: Debug-friendly stack traces, with variable values and semantic highlighting
 Home-page: https://github.com/cknd/stackprinter
 Author: cknd
@@ -11,6 +11,15 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.4
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 <img src="https://raw.githubusercontent.com/cknd/stackprinter/master/darkbg.png" width="500">
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cua-computer-server
-Version: 0.3.34
+Version: 0.3.35
 Summary: Server component for the Computer-Use Interface (CUI) framework powering Cua
 Author-Email: TryCua <gh@trycua.com>
 License: MIT

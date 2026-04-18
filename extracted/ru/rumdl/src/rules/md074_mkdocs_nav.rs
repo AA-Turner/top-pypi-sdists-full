@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
 
 mod md074_config;
-pub use md074_config::{MD074Config, NavValidation};
+pub(super) use md074_config::{MD074Config, NavValidation};
 
 /// Cache mapping mkdocs.yml paths to content hashes.
 /// Re-validates when file content changes (self-invalidating for LSP mode).
@@ -112,9 +112,8 @@ impl MD074MkDocsNav {
     fn collect_docs_files_recursive(current_dir: &Path, root_docs_dir: &Path) -> HashSet<PathBuf> {
         let mut files = HashSet::new();
 
-        let entries = match std::fs::read_dir(current_dir) {
-            Ok(entries) => entries,
-            Err(_) => return files,
+        let Ok(entries) = std::fs::read_dir(current_dir) else {
+            return files;
         };
 
         for entry in entries.flatten() {
@@ -206,8 +205,7 @@ impl MD074MkDocsNav {
         let mut warnings = Vec::new();
         let mkdocs_file = mkdocs_path
             .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| "mkdocs.yml".to_string());
+            .map_or_else(|| "mkdocs.yml".to_string(), |n| n.to_string_lossy().to_string());
 
         // Get docs_dir relative to mkdocs.yml location
         let mkdocs_dir = mkdocs_path.parent().unwrap_or(Path::new("."));
@@ -301,7 +299,7 @@ impl MD074MkDocsNav {
                             file_path.trim_end_matches('/')
                         )
                     } else {
-                        file_path.to_string()
+                        file_path.clone()
                     };
                     let yaml_line = Self::find_nav_line_in_yaml(yaml_content, file_path);
                     let line_info = yaml_line.map_or(String::new(), |l| format!(", line {l}"));

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import os
@@ -789,15 +790,40 @@ class TestRunner:
         return True
 
     async def _write_file_to_vm(self, remote_path: str, content: str, *, mkdir: bool = False) -> None:
-        """Write content to a file on the VM using base64 to avoid shell escaping issues."""
+        """Write content to a file on the VM using chunked base64 to avoid ARG_MAX limits."""
         if not self.world_env:
             raise RuntimeError("world_env must be initialized")
-        import base64
-
         b64 = base64.b64encode(content.encode()).decode()
-        prefix = f"mkdir -p $(dirname {remote_path}) && " if mkdir else ""
+        q_path = shlex.quote(remote_path)
+        prefix = f"mkdir -p $(dirname {q_path}) && " if mkdir else ""
+
+        if not b64:
+            result = await self.world_env.execute(f"{prefix}: > {q_path}", timeout=30)
+            if result.exit_code != 0:
+                raise RuntimeError(f"Failed to write {remote_path}: {result.stderr}")
+            return
+
+        q_tmp = shlex.quote(f"{remote_path}.b64tmp")
+        chunk_size = 65536
+        chunks = [b64[i : i + chunk_size] for i in range(0, len(b64), chunk_size)]
+
         result = await self.world_env.execute(
-            f"{prefix}echo '{b64}' | base64 -d > {remote_path}",
+            f"{prefix}printf '%s' '{chunks[0]}' > {q_tmp}",
+            timeout=30,
+        )
+        if result.exit_code != 0:
+            raise RuntimeError(f"Failed to write {remote_path}: {result.stderr}")
+
+        for chunk in chunks[1:]:
+            result = await self.world_env.execute(
+                f"printf '%s' '{chunk}' >> {q_tmp}",
+                timeout=30,
+            )
+            if result.exit_code != 0:
+                raise RuntimeError(f"Failed to write {remote_path}: {result.stderr}")
+
+        result = await self.world_env.execute(
+            f"base64 -d < {q_tmp} > {q_path} && rm -f {q_tmp}",
             timeout=30,
         )
         if result.exit_code != 0:

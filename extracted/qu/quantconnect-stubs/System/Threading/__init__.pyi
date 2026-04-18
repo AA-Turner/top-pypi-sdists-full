@@ -631,10 +631,6 @@ class WaitHandleCannotBeOpenedException(System.ApplicationException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class SynchronizationContext(System.Object):
     """This class has no documentation."""
@@ -935,13 +931,7 @@ class ThreadPool(System.Object):
     PENDING_WORK_ITEM_COUNT: int
 
     @staticmethod
-    @overload
     def bind_handle(os_handle: System.Runtime.InteropServices.SafeHandle) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def bind_handle(os_handle: System.IntPtr) -> bool:
         ...
 
     @staticmethod
@@ -1022,10 +1012,6 @@ class ThreadStateException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -1531,10 +1517,6 @@ class ThreadInterruptedException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class ThreadStartException(System.SystemException):
     """This class has no documentation."""
@@ -1640,32 +1622,18 @@ class Overlapped(System.Object):
     def __init__(self, offset_lo: int, offset_hi: int, h_event: System.IntPtr, ar: System.IAsyncResult) -> None:
         ...
 
-    @overload
-    def __init__(self, offset_lo: int, offset_hi: int, h_event: int, ar: System.IAsyncResult) -> None:
-        ...
-
     @staticmethod
     def free(native_overlapped_ptr: typing.Any) -> None:
         ...
 
-    @overload
     def pack(self, iocb: typing.Callable[[int, int, typing.Any], typing.Any], user_data: typing.Any) -> typing.Any:
-        ...
-
-    @overload
-    def pack(self, iocb: typing.Callable[[int, int, typing.Any], typing.Any]) -> typing.Any:
         ...
 
     @staticmethod
     def unpack(native_overlapped_ptr: typing.Any) -> System.Threading.Overlapped:
         ...
 
-    @overload
     def unsafe_pack(self, iocb: typing.Callable[[int, int, typing.Any], typing.Any], user_data: typing.Any) -> typing.Any:
-        ...
-
-    @overload
-    def unsafe_pack(self, iocb: typing.Callable[[int, int, typing.Any], typing.Any]) -> typing.Any:
         ...
 
 
@@ -1718,10 +1686,6 @@ class LockRecursionException(System.Exception):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -1911,10 +1875,6 @@ class SynchronizationLockException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
@@ -2155,10 +2115,6 @@ class AbandonedMutexException(System.SystemException):
     def __init__(self, message: str, inner: System.Exception, location: int, handle: System.Threading.WaitHandle) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class SemaphoreFullException(System.SystemException):
     """This class has no documentation."""
@@ -2173,10 +2129,6 @@ class SemaphoreFullException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 

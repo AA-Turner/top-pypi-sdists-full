@@ -1,7 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define tools for calculating the properties of sources defined by an
-Aperture.
+Tools for calculating properties of sources defined by an Aperture.
 """
 
 import functools
@@ -14,26 +13,47 @@ import numpy as np
 from astropy.nddata import NDData, StdDevUncertainty
 from astropy.stats import (SigmaClip, biweight_location, biweight_midvariance,
                            mad_std)
-from astropy.table import QTable
 from astropy.utils import lazyproperty
 from astropy.utils.exceptions import AstropyUserWarning
 
 from photutils.aperture import Aperture, SkyAperture, region_to_aperture
 from photutils.aperture.core import _aperture_metadata
+from photutils.morphology import gini as gini_func
+from photutils.utils._deprecation import (create_empty_deprecated_qtable,
+                                          deprecated_getattr,
+                                          deprecated_positional_kwargs)
 from photutils.utils._misc import _get_meta
-from photutils.utils._moments import _moments, _moments_central
+from photutils.utils._moments import _image_moments
 from photutils.utils._quantity_helpers import process_quantities
 
 __all__ = ['ApertureStats']
 
 
-# default table columns for `to_table()` output
-DEFAULT_COLUMNS = ['id', 'xcentroid', 'ycentroid', 'sky_centroid',
+# Default table columns for `to_table()` output
+DEFAULT_COLUMNS = ['id', 'x_centroid', 'y_centroid', 'sky_centroid',
                    'sum', 'sum_err', 'sum_aper_area', 'center_aper_area',
                    'min', 'max', 'mean', 'median', 'mode', 'std',
                    'mad_std', 'var', 'biweight_location',
-                   'biweight_midvariance', 'fwhm', 'semimajor_sigma',
-                   'semiminor_sigma', 'orientation', 'eccentricity']
+                   'biweight_midvariance', 'fwhm', 'semimajor_axis',
+                   'semiminor_axis', 'orientation', 'eccentricity']
+
+# Remove in 4.0
+_DEPRECATED_ATTRIBUTES: dict = {
+    'covar_sigx2': 'covariance_xx',
+    'covar_sigxy': 'covariance_xy',
+    'covar_sigy2': 'covariance_yy',
+    'cxx': 'ellipse_cxx',
+    'cxy': 'ellipse_cxy',
+    'cyy': 'ellipse_cyy',
+    'data_sumcutout': 'data_sum_cutout',
+    'error_sumcutout': 'error_sum_cutout',
+    'get_id': 'select_id',
+    'get_ids': 'select_ids',
+    'semimajor_sigma': 'semimajor_axis',
+    'semiminor_sigma': 'semiminor_axis',
+    'xcentroid': 'x_centroid',
+    'ycentroid': 'y_centroid',
+}
 
 
 def as_scalar(method):
@@ -95,7 +115,7 @@ class ApertureStats:
         The total error array corresponding to the input ``data``
         array. ``error`` is assumed to include *all* sources of
         error, including the Poisson error of the sources (see
-        `~photutils.utils.calc_total_error`) . ``error`` must have
+        `~photutils.utils.calc_total_error`). ``error`` must have
         the same shape as the input ``data``. If ``data`` is a
         `~astropy.units.Quantity` array then ``error`` must be a
         `~astropy.units.Quantity` array (and vice versa) with identical
@@ -128,10 +148,10 @@ class ApertureStats:
     sum_method : {'exact', 'center', 'subpixel'}, optional
         The method used to determine the overlap of the aperture on
         the pixel grid. This method is used only for calculating the
-        ``sum``, ``sum_error``, ``sum_aper_area``, ``data_sumcutout``,
-        and ``error_sumcutout`` properties. All other properties use the
-        "center" aperture mask method. Not all options are available for
-        all aperture types. The following methods are available:
+        ``sum``, ``sum_error``, ``sum_aper_area``, ``data_sum_cutout``,
+        and ``error_sum_cutout`` properties. All other properties use
+        the "center" aperture mask method. Not all options are available
+        for all aperture types. The following methods are available:
 
         * ``'exact'`` (default):
           The exact fractional overlap of the aperture and each pixel is
@@ -158,7 +178,7 @@ class ApertureStats:
         ``subpixels**2`` subpixels. This keyword is ignored unless
         ``sum_method='subpixel'``.
 
-    local_bkg : float, `~numpy.ndarray`,  `~astropy.units.Quantity`, or `None`
+    local_bkg : float, `~numpy.ndarray`, `~astropy.units.Quantity`, or `None`
         The per-pixel local background values to subtract from the data
         before performing measurements. If input as an array, the order
         of ``local_bkg`` values corresponds to the order of the input
@@ -196,7 +216,7 @@ class ApertureStats:
     The input ``sum_method`` and ``subpixels`` keywords are used
     to determine the aperture-mask method when calculating the
     sum-related properties: ``sum``, ``sum_error``, ``sum_aper_area``,
-    ``data_sumcutout``, and ``error_sumcutout``. The default is
+    ``data_sum_cutout``, and ``error_sum_cutout``. The default is
     ``sum_method='exact'``, which produces exact aperture-weighted
     photometry.
 
@@ -210,9 +230,9 @@ class ApertureStats:
     >>> data = make_4gaussians_image()
     >>> aper = CircularAperture((150, 25), 8)
     >>> aperstats = ApertureStats(data, aper)
-    >>> print(aperstats.xcentroid)  # doctest: +FLOAT_CMP
+    >>> print(aperstats.x_centroid)  # doctest: +FLOAT_CMP
     149.99080259251238
-    >>> print(aperstats.ycentroid)  # doctest: +FLOAT_CMP
+    >>> print(aperstats.y_centroid)  # doctest: +FLOAT_CMP
     24.97484633000507
     >>> print(aperstats.centroid)  # doctest: +FLOAT_CMP
     [149.99080259  24.97484633]
@@ -229,10 +249,10 @@ class ApertureStats:
     >>> print(aperstats.sum_aper_area) # doctest: +FLOAT_CMP
     201.0619298297468 pix2
 
-    >>> # more than one aperture position
+    >>> # More than one aperture position
     >>> aper2 = CircularAperture(((150, 25), (90, 60)), 10)
     >>> aperstats2 = ApertureStats(data, aper2)
-    >>> print(aperstats2.xcentroid)  # doctest: +FLOAT_CMP
+    >>> print(aperstats2.x_centroid)  # doctest: +FLOAT_CMP
     [149.98470724  89.97893946]
     >>> print(aperstats2.sum)  # doctest: +FLOAT_CMP
     [10177.62548482 36653.97704059]
@@ -260,7 +280,7 @@ class ApertureStats:
             msg = 'A wcs is required when using a SkyAperture'
             raise ValueError(msg)
 
-        # convert region to aperture if necessary
+        # Convert region to aperture if necessary
         if not isinstance(aperture, Aperture):
             aperture = region_to_aperture(aperture)
         self.aperture = aperture
@@ -307,9 +327,9 @@ class ApertureStats:
         nddata_attr = {'error': error, 'mask': mask, 'wcs': wcs}
         for key, value in nddata_attr.items():
             if value is not None:
-                warnings.warn(f'The {key!r} keyword will be ignored. Its '
-                              'value is obtained from the input NDData '
-                              'object.', AstropyUserWarning)
+                msg = (f'The {key!r} keyword will be ignored. Its value '
+                       'is obtained from the input NDData object.')
+                warnings.warn(msg, AstropyUserWarning)
 
         mask = data.mask
         wcs = data.wcs
@@ -340,7 +360,7 @@ class ApertureStats:
             raise TypeError(msg)
         return aperture
 
-    def _validate_array(self, array, name, ndim=2, shape=True):
+    def _validate_array(self, array, name, *, ndim=2, shape=True):
         if name == 'mask' and array is np.ma.nomask:
             array = None
         if array is not None:
@@ -357,17 +377,26 @@ class ApertureStats:
     def _lazyproperties(self):
         """
         A list of all class lazyproperties (even in superclasses).
-        """
-        def islazyproperty(obj):
-            return isinstance(obj, lazyproperty)
 
-        return [i[0] for i in inspect.getmembers(self.__class__,
-                                                 predicate=islazyproperty)]
+        The result is cached on the class to avoid repeated
+        introspection via `inspect.getmembers`.
+        """
+        cls = self.__class__
+        attr = '_cached_lazyproperties'
+        # Subclasses get their own lazyproperty list
+        if attr not in cls.__dict__:
+            def islazyproperty(obj):
+                return isinstance(obj, lazyproperty)
+
+            setattr(cls, attr,
+                    [i[0] for i in inspect.getmembers(
+                        cls, predicate=islazyproperty)])
+        return getattr(cls, attr)
 
     @property
     def properties(self):
         """
-        A sorted list of built-in source properties.
+        A sorted list of the built-in source properties.
         """
         lazyproperties = [name for name in self._lazyproperties if not
                           name.startswith('_')]
@@ -382,7 +411,7 @@ class ApertureStats:
 
         newcls = object.__new__(self.__class__)
 
-        # attributes defined in __init__ that are copied directly to the
+        # Attributes defined in __init__ that are copied directly to the
         # new class
         init_attr = ('_data', '_data_unit', '_error', '_mask', '_wcs',
                      'sigma_clip', 'sum_method', 'subpixels',
@@ -390,26 +419,26 @@ class ApertureStats:
         for attr in init_attr:
             setattr(newcls, attr, getattr(self, attr))
 
-        # need to slice _aperture and _ids;
+        # Need to slice _aperture and _ids;
         # aperture determines isscalar (needed below)
         attrs = ('aperture', '_ids')
         for attr in attrs:
             setattr(newcls, attr, getattr(self, attr)[index])
 
-        # slice evaluated lazyproperty objects
+        # Slice evaluated lazyproperty objects
         keys = set(self.__dict__.keys()) & set(self._lazyproperties)
         keys.add('_local_bkg')  # iterable defined in __init__
         for key in keys:
             value = self.__dict__[key]
 
-            # do not insert attributes that are always scalar (e.g.,
+            # Do not insert attributes that are always scalar (e.g.,
             # isscalar, n_apertures), i.e., not an array/list for each
             # source
             if np.isscalar(value):
                 continue
 
             try:
-                # keep most _<attrs> as length-1 iterables
+                # Keep most _<attrs> as length-1 iterables
                 if (newcls.isscalar and key.startswith('_')
                         and key != '_pixel_aperture'):
                     if isinstance(value, np.ndarray):
@@ -419,9 +448,9 @@ class ApertureStats:
                 else:
                     val = value[index]
             except TypeError:
-                # apply fancy indices (e.g., array/list or bool
-                # mask) to lists
-                # see https://numpy.org/doc/stable/release/1.20.0-notes.html
+                # Apply fancy indices (e.g., array/list or bool mask) to
+                # lists.
+                # See https://numpy.org/doc/stable/release/1.20.0-notes.html
                 # #arraylike-objects-which-do-not-define-len-and-getitem
                 arr = np.empty(len(value), dtype=object)
                 arr[:] = list(value)
@@ -448,6 +477,11 @@ class ApertureStats:
     def __iter__(self):
         for item in range(len(self)):
             yield self.__getitem__(item)
+
+    # Remove in 4.0
+    def __getattr__(self, name):
+        return deprecated_getattr(self, name, _DEPRECATED_ATTRIBUTES,
+                                  since='3.0', until='4.0')
 
     @lazyproperty
     def isscalar(self):
@@ -503,7 +537,7 @@ class ApertureStats:
             _ids = np.array((_ids,))
         return _ids
 
-    def get_id(self, id_num):
+    def select_id(self, id_num):
         """
         Return a new `ApertureStats` object for the input ID number
         only.
@@ -519,9 +553,9 @@ class ApertureStats:
             A new `ApertureStats` object containing only the source with
             the input ID number.
         """
-        return self.get_ids(id_num)
+        return self.select_ids(id_num)
 
-    def get_ids(self, id_nums):
+    def select_ids(self, id_nums):
         """
         Return a new `ApertureStats` object for the input ID numbers
         only.
@@ -546,7 +580,8 @@ class ApertureStats:
         indices = sorter[np.searchsorted(self.id, id_nums, sorter=sorter)]
         return self[indices]
 
-    def to_table(self, columns=None):
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
+    def to_table(self, *, columns=None):
         """
         Create a `~astropy.table.QTable` of source properties.
 
@@ -571,13 +606,16 @@ class ApertureStats:
         else:
             table_columns = columns
 
-        tbl = QTable()
+        # Replace with QTable in 4.0
+        tbl = create_empty_deprecated_qtable(
+            _DEPRECATED_ATTRIBUTES, since='3.0', until='4.0')
+
         tbl.meta.update(self.meta)  # keep tbl.meta type
 
         for column in table_columns:
             values = getattr(self, column)
 
-            # column assignment requires an object with a length
+            # Column assignment requires an object with a length
             if self.isscalar:
                 values = (values,)
 
@@ -587,7 +625,7 @@ class ApertureStats:
     @lazyproperty
     def n_apertures(self):
         """
-        The number of positions in the input aperture.
+        The number of positions for the input aperture.
         """
         if self.isscalar:
             return 1
@@ -644,7 +682,7 @@ class ApertureStats:
     def _data_cutouts(self):
         """
         The local-background-subtracted unmasked data cutouts using the
-        aperture bounding box, always as a iterable.
+        aperture bounding box, always as an iterable.
         """
         cutouts = []
         for (slices, local_bkg) in zip(self._overlap_slices,
@@ -652,7 +690,7 @@ class ApertureStats:
             if slices[0] is None:
                 cutout = None  # no aperture overlap with the data
             else:
-                # copy is needed to preserve input data because masks are
+                # Copy is needed to preserve input data because masks are
                 # applied to these cutouts later
                 cutout = (self._data[slices[0]].astype(float, copy=True)
                           - local_bkg)
@@ -694,8 +732,8 @@ class ApertureStats:
                 mask_cutout = np.array([False])
                 weight_cutout = np.array([np.nan])
             else:
-                # create a mask of non-finite ``data`` values combined
-                # with the input ``mask`` array.
+                # Create a mask of non-finite ``data`` values combined
+                # with the input ``mask`` array
                 data_mask = ~np.isfinite(data_cutout)
                 if self._mask is not None:
                     data_mask |= self._mask[slc_large]
@@ -704,7 +742,7 @@ class ApertureStats:
                 aperweight_cutout = apermask.data[slc_small]
                 weight_cutout = aperweight_cutout * ~data_mask
 
-                # apply the aperture mask; for "exact" and "subpixel"
+                # Apply the aperture mask; for "exact" and "subpixel"
                 # this is an expanded boolean mask using the aperture
                 # mask zero values
                 mask_cutout = (aperweight_cutout == 0) | data_mask
@@ -714,25 +752,25 @@ class ApertureStats:
                     # data_cutout will have zeros where mask_cutout is True
                     data_cutout *= ~mask_cutout
                 else:
-                    # to input a mask, SigmaClip needs a MaskedArray
+                    # To input a mask, SigmaClip needs a MaskedArray
                     data_cutout_ma = np.ma.masked_array(data_cutout,
                                                         mask=mask_cutout)
                     data_sigclip = self.sigma_clip(data_cutout_ma)
 
-                    # define a mask of only the sigma-clipped pixels
+                    # Define a mask of only the sigma-clipped pixels
                     sigclip_mask = data_sigclip.mask & ~mask_cutout
                     weight_cutout *= ~sigclip_mask
 
                     mask_cutout = data_sigclip.mask
                     data_cutout = data_sigclip.filled(0.0)
 
-                # need to apply the aperture weights
+                # Need to apply the aperture weights
                 data_cutout *= aperweight_cutout
 
                 if self._error is None:
                     variance_cutout = None
                 else:
-                    # apply the exact weights and total mask;
+                    # Apply the exact weights and total mask;
                     # error_cutout will have zeros where mask_cutout is True
                     variance = self._error[slc_large]**2
                     variance_cutout = (variance * aperweight_cutout
@@ -744,7 +782,7 @@ class ApertureStats:
             weight_cutouts.append(weight_cutout)
             overlaps.append(overlap)
 
-        # use zip (instead of np.transpose) because these may contain
+        # Use zip (instead of np.transpose) because these may contain
         # arrays that have different shapes
         return list(zip(data_cutouts, variance_cutouts, mask_cutouts,
                         weight_cutouts, overlaps, strict=True))
@@ -829,7 +867,7 @@ class ApertureStats:
 
     @lazyproperty
     @as_scalar
-    def data_sumcutout(self):
+    def data_sum_cutout(self):
         """
         A 2D aperture-weighted cutout from the data using the aperture
         mask with the input ``sum_method`` method as a
@@ -887,7 +925,7 @@ class ApertureStats:
 
     @lazyproperty
     @as_scalar
-    def error_sumcutout(self):
+    def error_sum_cutout(self):
         """
         A 2D aperture-weighted error cutout using the aperture mask with
         the input ``sum_method`` method as a `~numpy.ma.MaskedArray`.
@@ -912,9 +950,9 @@ class ApertureStats:
 
         The aperture mask weights are for the "center" method.
 
-        The mask is `True` for pixels outside of the aperture mask,
-        pixels from the input ``mask``, non-finite ``data`` values (NaN
-        and inf), and sigma-clipped pixels.
+        The mask is `True` for pixels outside the aperture mask, pixels
+        from the input ``mask``, non-finite ``data`` values (NaN and
+        inf), and sigma-clipped pixels.
         """
         return self._make_masked_array_center(
             list(zip(*self._aperture_cutouts_center, strict=True))[3])
@@ -927,9 +965,9 @@ class ApertureStats:
 
         The aperture mask weights are for the ``sum_method`` method.
 
-        The mask is `True` for pixels outside of the aperture mask,
-        pixels from the input ``mask``, non-finite ``data`` values (NaN
-        and inf), and sigma-clipped pixels.
+        The mask is `True` for pixels outside the aperture mask, pixels
+        from the input ``mask``, non-finite ``data`` values (NaN and
+        inf), and sigma-clipped pixels.
         """
         return self._make_masked_array(list(zip(*self._aperture_cutouts,
                                                 strict=True))[3])
@@ -1005,8 +1043,8 @@ class ApertureStats:
         """
         Spatial moments up to 3rd order of the source.
         """
-        return np.array([_moments(arr, order=3) for arr in
-                         self._moment_data_cutout])
+        return np.array([_image_moments(arr, order=3)
+                         for arr in self._moment_data_cutout])
 
     @lazyproperty
     @as_scalar
@@ -1018,7 +1056,7 @@ class ApertureStats:
         cutout_centroid = self.cutout_centroid
         if self.isscalar:
             cutout_centroid = cutout_centroid[np.newaxis, :]
-        return np.array([_moments_central(arr, center=(xcen_, ycen_), order=3)
+        return np.array([_image_moments(arr, center=(xcen_, ycen_), order=3)
                          for arr, xcen_, ycen_ in
                          zip(self._moment_data_cutout, cutout_centroid[:, 0],
                              cutout_centroid[:, 1], strict=True)])
@@ -1037,12 +1075,12 @@ class ApertureStats:
         if self.isscalar:
             moments = moments[np.newaxis, :]
 
-        # ignore divide-by-zero RuntimeWarning
+        # Ignore divide-by-zero RuntimeWarning
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
-            ycentroid = moments[:, 1, 0] / moments[:, 0, 0]
-            xcentroid = moments[:, 0, 1] / moments[:, 0, 0]
-        return np.transpose((xcentroid, ycentroid))
+            y_centroid = moments[:, 1, 0] / moments[:, 0, 0]
+            x_centroid = moments[:, 0, 1] / moments[:, 0, 0]
+        return np.transpose((x_centroid, y_centroid))
 
     @lazyproperty
     @as_scalar
@@ -1057,46 +1095,46 @@ class ApertureStats:
         return self.cutout_centroid + origin
 
     @lazyproperty
-    def _xcentroid(self):
+    def _x_centroid(self):
         """
         The ``x`` coordinate of the centroid, always as an iterable.
         """
-        xcentroid = np.transpose(self.centroid)[0]
+        x_centroid = np.transpose(self.centroid)[0]
         if self.isscalar:
-            xcentroid = (xcentroid,)
-        return xcentroid
+            x_centroid = (x_centroid,)
+        return x_centroid
 
     @lazyproperty
     @as_scalar
-    def xcentroid(self):
+    def x_centroid(self):
         """
         The ``x`` coordinate of the centroid.
 
         The centroid is computed as the center of mass of the unmasked
         pixels within the aperture.
         """
-        return self._xcentroid
+        return self._x_centroid
 
     @lazyproperty
-    def _ycentroid(self):
+    def _y_centroid(self):
         """
         The ``y`` coordinate of the centroid, always as an iterable.
         """
-        ycentroid = np.transpose(self.centroid)[1]
+        y_centroid = np.transpose(self.centroid)[1]
         if self.isscalar:
-            ycentroid = (ycentroid,)
-        return ycentroid
+            y_centroid = (y_centroid,)
+        return y_centroid
 
     @lazyproperty
     @as_scalar
-    def ycentroid(self):
+    def y_centroid(self):
         """
         The ``y`` coordinate of the centroid.
 
         The centroid is computed as the center of mass of the unmasked
         pixels within the aperture.
         """
-        return self._ycentroid
+        return self._y_centroid
 
     @lazyproperty
     @as_scalar
@@ -1112,7 +1150,7 @@ class ApertureStats:
         """
         if self._wcs is None:
             return self._null_object
-        return self._wcs.pixel_to_world(self.xcentroid, self.ycentroid)
+        return self._wcs.pixel_to_world(self.x_centroid, self.y_centroid)
 
     @lazyproperty
     @as_scalar
@@ -1148,7 +1186,7 @@ class ApertureStats:
 
         Note that the aperture bounding box is calculated using the
         exact size of the aperture, which may be slightly larger than
-        the aperture mask calculated using the "center" mode.
+        the aperture mask calculated using the "center" method.
         """
         return self._bbox
 
@@ -1156,7 +1194,7 @@ class ApertureStats:
     @as_scalar
     def _bbox_bounds(self):
         """
-        The bounding box x/y minimum and maximum bounds.
+        The bounding box x and y minimum and maximum bounds.
         """
         bbox = self.bbox
         if self.isscalar:
@@ -1169,7 +1207,7 @@ class ApertureStats:
     @as_scalar
     def bbox_xmin(self):
         """
-        The minimum ``x`` pixel index of the bounding box.
+        The minimum ``x``-pixel index of the bounding box.
         """
         return np.transpose(self._bbox_bounds)[0]
 
@@ -1177,7 +1215,7 @@ class ApertureStats:
     @as_scalar
     def bbox_xmax(self):
         """
-        The maximum ``x`` pixel index of the bounding box.
+        The maximum ``x``-pixel index of the bounding box.
 
         Note that this value is inclusive, unlike numpy slice indices.
         """
@@ -1187,7 +1225,7 @@ class ApertureStats:
     @as_scalar
     def bbox_ymin(self):
         """
-        The minimum ``y`` pixel index of the bounding box.
+        The minimum ``y``-pixel index of the bounding box.
         """
         return np.transpose(self._bbox_bounds)[2]
 
@@ -1195,13 +1233,13 @@ class ApertureStats:
     @as_scalar
     def bbox_ymax(self):
         """
-        The maximum ``y`` pixel index of the bounding box.
+        The maximum ``y``-pixel index of the bounding box.
 
         Note that this value is inclusive, unlike numpy slice indices.
         """
         return np.transpose(self._bbox_bounds)[3]
 
-    def _calculate_stats(self, stat_func, unit=None):
+    def _calculate_stats(self, stat_func, *, unit=None):
         """
         Apply the input ``stat_func`` to the 1D array of unmasked data
         values in the aperture.
@@ -1270,7 +1308,7 @@ class ApertureStats:
         if self.sum_method == 'center':
             return self._calculate_stats(np.sum)
 
-        data_values = self._get_values(self.data_sumcutout)
+        data_values = self._get_values(self.data_sum_cutout)
         result = np.array([np.sum(arr) for arr in data_values])
         if self._data_unit is not None:
             result <<= self._data_unit
@@ -1280,7 +1318,7 @@ class ApertureStats:
     @as_scalar
     def sum_err(self):
         r"""
-        The uncertainty of `sum` , propagated from the input ``error``
+        The uncertainty of `sum`, propagated from the input ``error``
         array.
 
         ``sum_err`` is the quadrature sum of the total errors over the
@@ -1448,7 +1486,7 @@ class ApertureStats:
         moments = self.moments_central
         if self.isscalar:
             moments = moments[np.newaxis, :]
-        # ignore divide-by-zero RuntimeWarning
+        # Ignore divide-by-zero RuntimeWarning
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             mu_norm = moments / moments[:, 0, 0][:, np.newaxis, np.newaxis]
@@ -1462,12 +1500,12 @@ class ApertureStats:
         # incrementally increasing the diagonal elements by 1/12.
         delta = 1.0 / 12
         delta2 = delta**2
-        # ignore RuntimeWarning from NaN values in covar
+        # Ignore RuntimeWarning from NaN values in covar
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             covar_det = np.linalg.det(covar)
 
-            # covariance should be positive semidefinite
+            # Covariance should be positive semidefinite
             idx = np.where(covar_det < 0)[0]
             covar[idx] = np.array([[np.nan, np.nan], [np.nan, np.nan]])
 
@@ -1497,24 +1535,24 @@ class ApertureStats:
         """
         eigvals = np.empty((self.n_apertures, 2))
         eigvals.fill(np.nan)
-        # np.linalg.eivals requires finite input values
+        # np.linalg.eigvalsh requires finite input values
         idx = np.unique(np.where(np.isfinite(self._covariance))[0])
-        eigvals[idx] = np.linalg.eigvals(self._covariance[idx])
+        eigvals[idx] = np.linalg.eigvalsh(self._covariance[idx])
 
-        # check for negative variance
+        # Check for negative variance
         # (just in case covariance matrix is not positive semidefinite)
-        idx2 = np.unique(np.where(eigvals < 0)[0])  # pragma: no cover
-        eigvals[idx2] = (np.nan, np.nan)  # pragma: no cover
+        idx2 = np.unique(np.where(eigvals < 0)[0])
+        eigvals[idx2] = (np.nan, np.nan)
 
-        # sort each eigenvalue pair in descending order
-        eigvals.sort(axis=1)
+        # Sort each eigenvalue pair in descending order
+        # (eigvalsh returns values in ascending order)
         eigvals = np.fliplr(eigvals)
 
         return eigvals * u.pix**2
 
     @lazyproperty
     @as_scalar
-    def semimajor_sigma(self):
+    def semimajor_axis(self):
         """
         The 1-sigma standard deviation along the semimajor axis of the
         2D Gaussian function that has the same second-order central
@@ -1523,12 +1561,11 @@ class ApertureStats:
         eigvals = self.covariance_eigvals
         if self.isscalar:
             eigvals = eigvals[np.newaxis, :]
-        # this matches SourceExtractor's A parameter
         return np.sqrt(eigvals[:, 0])
 
     @lazyproperty
     @as_scalar
-    def semiminor_sigma(self):
+    def semiminor_axis(self):
         """
         The 1-sigma standard deviation along the semiminor axis of the
         2D Gaussian function that has the same second-order central
@@ -1537,7 +1574,6 @@ class ApertureStats:
         eigvals = self.covariance_eigvals
         if self.isscalar:
             eigvals = eigvals[np.newaxis, :]
-        # this matches SourceExtractor's B parameter
         return np.sqrt(eigvals[:, 1])
 
     @lazyproperty
@@ -1555,11 +1591,11 @@ class ApertureStats:
                          & = 2 \sqrt{\ln(2) \ (a^2 + b^2)}
 
         where :math:`a` and :math:`b` are the 1-sigma lengths of the
-        semimajor (`semimajor_sigma`) and semiminor (`semiminor_sigma`)
+        semimajor (`semimajor_axis`) and semiminor (`semiminor_axis`)
         axes, respectively.
         """
-        return 2.0 * np.sqrt(np.log(2.0) * (self.semimajor_sigma**2
-                                            + self.semiminor_sigma**2))
+        return 2.0 * np.sqrt(np.log(2.0) * (self.semimajor_axis**2
+                                            + self.semiminor_axis**2))
 
     @lazyproperty
     @as_scalar
@@ -1609,7 +1645,7 @@ class ApertureStats:
         where :math:`a` and :math:`b` are the lengths of the semimajor
         and semiminor axes, respectively.
         """
-        return self.semimajor_sigma / self.semiminor_sigma
+        return self.semimajor_axis / self.semiminor_axis
 
     @lazyproperty
     @as_scalar
@@ -1625,11 +1661,11 @@ class ApertureStats:
         where :math:`a` and :math:`b` are the lengths of the semimajor
         and semiminor axes, respectively.
         """
-        return 1.0 - (self.semiminor_sigma / self.semimajor_sigma)
+        return 1.0 - (self.semiminor_axis / self.semimajor_axis)
 
     @lazyproperty
     @as_scalar
-    def covar_sigx2(self):
+    def covariance_xx(self):
         r"""
         The ``(0, 0)`` element of the `covariance` matrix, representing
         :math:`\sigma_x^2`, in units of pixel**2.
@@ -1638,7 +1674,7 @@ class ApertureStats:
 
     @lazyproperty
     @as_scalar
-    def covar_sigy2(self):
+    def covariance_yy(self):
         r"""
         The ``(1, 1)`` element of the `covariance` matrix, representing
         :math:`\sigma_y^2`, in units of pixel**2.
@@ -1647,7 +1683,7 @@ class ApertureStats:
 
     @lazyproperty
     @as_scalar
-    def covar_sigxy(self):
+    def covariance_xy(self):
         r"""
         The ``(0, 1)`` and ``(1, 0)`` elements of the `covariance`
         matrix, representing :math:`\sigma_x \sigma_y`, in units of
@@ -1657,7 +1693,7 @@ class ApertureStats:
 
     @lazyproperty
     @as_scalar
-    def cxx(self):
+    def ellipse_cxx(self):
         r"""
         Coefficient for ``x**2`` in the generalized ellipse equation in
         units of pixel**(-2).
@@ -1675,12 +1711,12 @@ class ApertureStats:
         `SourceExtractor`_ reports that the isophotal limit of a source
         is well represented by :math:`R \approx 3`.
         """
-        return ((np.cos(self.orientation) / self.semimajor_sigma)**2
-                + (np.sin(self.orientation) / self.semiminor_sigma)**2)
+        return ((np.cos(self.orientation) / self.semimajor_axis)**2
+                + (np.sin(self.orientation) / self.semiminor_axis)**2)
 
     @lazyproperty
     @as_scalar
-    def cyy(self):
+    def ellipse_cyy(self):
         r"""
         Coefficient for ``y**2`` in the generalized ellipse equation in
         units of pixel**(-2).
@@ -1698,12 +1734,12 @@ class ApertureStats:
         `SourceExtractor`_ reports that the isophotal limit of a source
         is well represented by :math:`R \approx 3`.
         """
-        return ((np.sin(self.orientation) / self.semimajor_sigma)**2
-                + (np.cos(self.orientation) / self.semiminor_sigma)**2)
+        return ((np.sin(self.orientation) / self.semimajor_axis)**2
+                + (np.cos(self.orientation) / self.semiminor_axis)**2)
 
     @lazyproperty
     @as_scalar
-    def cxy(self):
+    def ellipse_cxy(self):
         r"""
         Coefficient for ``x * y`` in the generalized ellipse equation in
         units of pixel**(-2).
@@ -1722,8 +1758,8 @@ class ApertureStats:
         is well represented by :math:`R \approx 3`.
         """
         return (2.0 * np.cos(self.orientation) * np.sin(self.orientation)
-                * ((1.0 / self.semimajor_sigma**2)
-                   - (1.0 / self.semiminor_sigma**2)))
+                * ((1.0 / self.semimajor_axis**2)
+                   - (1.0 / self.semiminor_axis**2)))
 
     @lazyproperty
     @as_scalar
@@ -1733,35 +1769,23 @@ class ApertureStats:
         <https://en.wikipedia.org/wiki/Gini_coefficient>`_ of the
         unmasked pixel values within the aperture.
 
-        The Gini coefficient is calculated using the prescription from
-        `Lotz et al. 2004
+        The Gini coefficient of the distribution of absolute flux values
+        is calculated using the prescription from `Lotz et al. 2004
         <https://ui.adsabs.harvard.edu/abs/2004AJ....128..163L/abstract>`_
-        as:
+        (Eq. 6) as:
 
         .. math::
 
-            G = \frac{1}{\left | \bar{x} \right | n (n - 1)}
+            G = \frac{1}{\overline{|x|} \, n \, (n - 1)}
                 \sum^{n}_{i} (2i - n - 1) \left | x_i \right |
 
-        where :math:`\bar{x}` is the mean over pixel values :math:`x_i`
-        within the aperture.
+        where :math:`\overline{|x|}` is the mean of the absolute value
+        of all pixel values :math:`x_i`. If the sum of all pixel values
+        is zero, the Gini coefficient is zero.
 
-        The Gini coefficient is a way of measuring the inequality in a
-        given set of values. In the context of galaxy morphology, it
-        measures how the light of a galaxy image is distributed among
-        its pixels. A Gini coefficient value of 0 corresponds to a
-        galaxy image with the light evenly distributed over all pixels
-        while a Gini coefficient value of 1 represents a galaxy image
-        with all its light concentrated in just one pixel.
+        Negative pixel values are used via their absolute value. Invalid
+        values (NaN and inf) in the input are automatically excluded
+        from the calculation. If only a single finite pixel remains
+        after filtering, the Gini coefficient is 0.0.
         """
-        gini = []
-        for arr in self._data_values_center:
-            if np.all(np.isnan(arr)):
-                gini.append(np.nan)
-                continue
-            npix = np.size(arr)
-            normalization = np.abs(np.mean(arr)) * npix * (npix - 1)
-            kernel = ((2.0 * np.arange(1, npix + 1) - npix - 1)
-                      * np.abs(np.sort(arr)))
-            gini.append(np.sum(kernel) / normalization)
-        return np.array(gini)
+        return np.array([gini_func(arr) for arr in self._data_values_center])

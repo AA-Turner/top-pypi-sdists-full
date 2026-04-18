@@ -19,7 +19,6 @@ Regular paragraph with **bold text** and *italic text* and `inline code` that ne
     fs::write(&file_path, content).unwrap();
 
     // Create config file enabling reflow
-    // TODO: Fix backwards compatibility - enable-reflow should also work
     let config_path = dir.path().join(".rumdl.toml");
     let config_content = r#"
 [MD013]
@@ -168,7 +167,6 @@ For more information, see [our documentation](https://example.com/very/long/url/
     fs::write(&file_path, content).unwrap();
 
     // Create config with specific settings
-    // TODO: Fix backwards compatibility - enable-reflow should also work
     let config_path = dir.path().join(".rumdl.toml");
     let config_content = r#"
 [MD013]
@@ -220,7 +218,7 @@ tables = true
             // Allow slightly more for list items and lines with URLs
             let is_list_item = line.trim_start().starts_with("- ")
                 || line.trim_start().starts_with("* ")
-                || line.trim_start().chars().next().is_some_and(|c| c.is_numeric());
+                || line.trim_start().chars().next().is_some_and(char::is_numeric);
             let contains_url = line.contains("http://") || line.contains("https://");
             let limit = if is_list_item || contains_url { 80 } else { 50 };
 

@@ -255,14 +255,55 @@ class WorldLauncher:
         )
 
     async def write_file(self, remote_path: str, content: str) -> None:
-        """Write a file into the runtime via ``runtime.exec``."""
+        """Write a file into the runtime via ``runtime.exec``.
+
+        Uses chunked base64 encoding to avoid hitting ARG_MAX limits on
+        large payloads (e.g. structured-execution configs with inline step
+        instructions can exceed 128 KB).
+        """
         await self.start()
 
         encoded = base64.b64encode(content.encode()).decode()
-        dir_path = str(Path(remote_path).parent)
+        q_dir = shlex.quote(str(Path(remote_path).parent))
+        q_path = shlex.quote(remote_path)
+
+        if not encoded:
+            code, _, stderr = await self.runtime.exec(
+                self.runtime_info.runtime_id,
+                f"mkdir -p {q_dir} && : > {q_path}",
+                timeout=30,
+            )
+            if code != 0:
+                raise RuntimeError(f"Failed to write {remote_path}: {stderr}")
+            return
+
+        q_tmp = shlex.quote(f"{remote_path}.b64tmp")
+        chunk_size = 65536
+        chunks = [encoded[i : i + chunk_size] for i in range(0, len(encoded), chunk_size)]
+
+        # First chunk: create directory and write (truncate)
         code, _, stderr = await self.runtime.exec(
             self.runtime_info.runtime_id,
-            f"mkdir -p {dir_path} && echo '{encoded}' | base64 -d > {remote_path}",
+            f"mkdir -p {q_dir} && printf '%s' '{chunks[0]}' > {q_tmp}",
+            timeout=30,
+        )
+        if code != 0:
+            raise RuntimeError(f"Failed to write {remote_path}: {stderr}")
+
+        # Remaining chunks: append
+        for chunk in chunks[1:]:
+            code, _, stderr = await self.runtime.exec(
+                self.runtime_info.runtime_id,
+                f"printf '%s' '{chunk}' >> {q_tmp}",
+                timeout=30,
+            )
+            if code != 0:
+                raise RuntimeError(f"Failed to write {remote_path}: {stderr}")
+
+        # Decode and clean up
+        code, _, stderr = await self.runtime.exec(
+            self.runtime_info.runtime_id,
+            f"base64 -d < {q_tmp} > {q_path} && rm -f {q_tmp}",
             timeout=30,
         )
         if code != 0:

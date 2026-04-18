@@ -8,7 +8,6 @@ import System
 import System.Collections.Generic
 import System.ComponentModel
 import System.ComponentModel.DataAnnotations
-import System.Runtime.Serialization
 
 IServiceProvider = typing.Any
 
@@ -908,10 +907,6 @@ class ValidationException(System.Exception):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 

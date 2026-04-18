@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: plantuml-markdown
-Version: 3.11.1
+Version: 3.11.2
 Summary: A PlantUML plugin for Markdown
 Home-page: https://github.com/mikitex70/plantuml-markdown
 Author: Michele Tessaro
@@ -14,11 +14,12 @@ Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Filters
 Classifier: Topic :: Text Processing :: Markup :: HTML
+Requires-Python: >=3.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: Markdown
-Requires-Dist: requests
-Requires-Dist: six
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: license-file
 
 [![Build Status](https://travis-ci.org/mikitex70/plantuml-markdown.svg?branch=master)](https://travis-ci.org/mikitex70/plantuml-markdown)
 

@@ -345,10 +345,6 @@ class SerializationException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class IDeserializationCallback(metaclass=abc.ABCMeta):
     """This class has no documentation."""

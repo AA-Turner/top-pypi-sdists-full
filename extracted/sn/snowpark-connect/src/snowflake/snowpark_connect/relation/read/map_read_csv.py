@@ -4,6 +4,7 @@
 
 import copy
 import logging
+import warnings
 from typing import Any
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
@@ -120,6 +121,19 @@ def map_read_csv(
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
     else:
+        # Read mode before convert_to_snowpark_args() pops it.
+        mode = options.config.get("mode", "PERMISSIVE")
+
+        # Deprecated: snowpark.connect.csv.continueOnError → use mode=DROPMALFORMED.
+        if get_boolean_session_config_param("snowpark.connect.csv.continueOnError"):
+            warnings.warn(
+                "snowpark.connect.csv.continueOnError is deprecated. "
+                "Use .option('mode', 'DROPMALFORMED') instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            mode = "DROPMALFORMED"
+
         converted_snowpark_options = options.convert_to_snowpark_args()
         parse_header = converted_snowpark_options.get("PARSE_HEADER", False)
         file_format_options = _parse_csv_snowpark_options(converted_snowpark_options)
@@ -134,6 +148,19 @@ def map_read_csv(
         snowpark_reader_options[
             "INFER_SCHEMA_OPTIONS"
         ] = converted_snowpark_options.get("INFER_SCHEMA_OPTIONS", {})
+
+        # Always use ON_ERROR=CONTINUE for schema inference so that corrupted
+        # records don't abort type detection (SNOW-3308282).
+        # Gate behind ENABLE_SCOS_FEATURE until the parameter is available on
+        # all deployments.
+        enable_scos_feature = getattr(session, "_enable_scos_feature", False)
+        if enable_scos_feature:
+            snowpark_reader_options["INFER_SCHEMA_OPTIONS"]["ON_ERROR"] = "CONTINUE"
+
+        # If mode=DROPMALFORMED, propagate ON_ERROR=CONTINUE to the top-level
+        # reader options so COPY INTO skips bad rows during loading (SNOW-3308282).
+        if enable_scos_feature and mode.upper() == "DROPMALFORMED":
+            snowpark_reader_options["ON_ERROR"] = "CONTINUE"
 
         # Use Try_cast to avoid schema inference errors
         if snowpark_reader_options.get("INFER_SCHEMA", False):
@@ -201,9 +228,7 @@ def map_read_csv(
                 )
         else:
             # Use copy into approach for parallel loading.
-            copy_into_on_error = get_boolean_session_config_param(
-                "snowpark.connect.csv.continueOnError"
-            )
+            copy_into_on_error = snowpark_reader_options.get("ON_ERROR") == "CONTINUE"
             if len(paths) == 1 and copy_into_on_error:
                 stage_df, _ = _read_csv_with_partitions(
                     session,
@@ -301,6 +326,7 @@ def map_read_csv(
                         schema=copy_into_schema,
                         file_format_options=file_format_options,
                         file_format="csv",
+                        on_error=snowpark_reader_options.get("ON_ERROR"),
                     )
 
         if schema is None and not str_to_bool(

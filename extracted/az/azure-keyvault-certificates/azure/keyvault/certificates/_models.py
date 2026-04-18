@@ -61,22 +61,30 @@ class AdministratorContact(object):
 
     @property
     def email(self) -> Optional[str]:
-        """:rtype: str or None"""
+        """Email address of the issuer.
+
+        :rtype: str or None"""
         return self._email
 
     @property
     def first_name(self) -> Optional[str]:
-        """:rtype: str or None"""
+        """First name of the issuer.
+
+        :rtype: str or None"""
         return self._first_name
 
     @property
     def last_name(self) -> Optional[str]:
-        """:rtype: str or None"""
+        """Last name of the issuer.
+
+        :rtype: str or None"""
         return self._last_name
 
     @property
     def phone(self) -> Optional[str]:
-        """:rtype: str or None"""
+        """Phone number of the issuer.
+
+        :rtype: str or None"""
         return self._phone
 
 
@@ -86,10 +94,10 @@ class CertificateOperationError(object):
     :param str code: The error code.
     :param str message: The error message.
     :param inner_error: The error object itself
-    :type inner_error: ~azure.keyvault.certificates.CertificateOperationError
+    :type inner_error: ~azure.keyvault.certificates.CertificateOperationError or None
     """
 
-    def __init__(self, code: str, message: str, inner_error: "CertificateOperationError") -> None:
+    def __init__(self, code: str, message: str, inner_error: "Optional[CertificateOperationError]" = None) -> None:
         self._code = code
         self._message = message
         self._inner_error = inner_error
@@ -102,7 +110,7 @@ class CertificateOperationError(object):
         return cls(
             code=error_bundle.code,  # type: ignore
             message=error_bundle.message,  # type: ignore
-            inner_error=cls._from_error_bundle(error_bundle.inner_error),  # type: ignore
+            inner_error=cls._from_error_bundle(error_bundle.inner_error) if error_bundle.inner_error else None,
         )
 
     @property
@@ -124,11 +132,11 @@ class CertificateOperationError(object):
         return self._message
 
     @property
-    def inner_error(self) -> "CertificateOperationError":
+    def inner_error(self) -> "Optional[CertificateOperationError]":
         """The error itself.
 
         :returns: The error itself.
-        :rtype: ~azure.keyvault.certificates.CertificateOperationError
+        :rtype: ~azure.keyvault.certificates.CertificateOperationError or None
         """
         return self._inner_error
 
@@ -702,6 +710,12 @@ class CertificatePolicy(object):
     :keyword san_user_principal_names: Subject alternative user principal names of the X509 object. Either subject or
         one of the subject alternative name parameters are required for creating a certificate.
     :paramtype san_user_principal_names: list[str] or None
+    :keyword san_ip_addresses: Subject alternative IP addresses of the X509 object. Supports IPv4 and IPv6. Either
+        subject or one of the subject alternative name parameters are required for creating a certificate.
+    :paramtype san_ip_addresses: list[str] or None
+    :keyword san_uris: Subject alternative URIs of the X509 object. Either subject or one of the subject alternative
+        name parameters are required for creating a certificate.
+    :paramtype san_uris: list[str] or None
     :keyword exportable: Indicates if the private key can be exported. For valid values, see KeyType.
     :paramtype exportable: bool or None
     :keyword key_type: The type of key pair to be used for the certificate.
@@ -754,6 +768,8 @@ class CertificatePolicy(object):
         self._san_emails = kwargs.pop("san_emails", None) or None
         self._san_dns_names = kwargs.pop("san_dns_names", None) or None
         self._san_user_principal_names = kwargs.pop("san_user_principal_names", None) or None
+        self._san_ip_addresses = kwargs.pop("san_ip_addresses", None) or None
+        self._san_uris = kwargs.pop("san_uris", None) or None
 
     @classmethod
     def get_default(cls) -> "CertificatePolicy":
@@ -806,6 +822,8 @@ class CertificatePolicy(object):
             or self.san_emails
             or self.san_user_principal_names
             or self.san_dns_names
+            or self.san_ip_addresses
+            or self.san_uris
             or self.validity_in_months
         ):
             if self.key_usage:
@@ -819,7 +837,11 @@ class CertificatePolicy(object):
                 subject=self.subject,
                 ekus=self.enhanced_key_usage,
                 subject_alternative_names=models.SubjectAlternativeNames(
-                    emails=self.san_emails, upns=self.san_user_principal_names, dns_names=self.san_dns_names
+                    emails=self.san_emails,
+                    upns=self.san_user_principal_names,
+                    dns_names=self.san_dns_names,
+                    ip_addresses=self.san_ip_addresses,
+                    uris=self.san_uris,
                 ),
                 key_usage=key_usage,
                 validity_in_months=self.validity_in_months,
@@ -917,6 +939,16 @@ class CertificatePolicy(object):
             ),
             san_dns_names=(
                 x509_certificate_properties.subject_alternative_names.dns_names
+                if x509_certificate_properties and x509_certificate_properties.subject_alternative_names
+                else None
+            ),
+            san_ip_addresses=(
+                x509_certificate_properties.subject_alternative_names.ip_addresses
+                if x509_certificate_properties and x509_certificate_properties.subject_alternative_names
+                else None
+            ),
+            san_uris=(
+                x509_certificate_properties.subject_alternative_names.uris
                 if x509_certificate_properties and x509_certificate_properties.subject_alternative_names
                 else None
             ),
@@ -1034,6 +1066,24 @@ class CertificatePolicy(object):
         return self._san_user_principal_names
 
     @property
+    def san_ip_addresses(self) -> Optional[List[str]]:
+        """The subject alternative IP addresses. Supports IPv4 and IPv6.
+
+        :returns: The subject alternative IP addresses, as a list.
+        :rtype: list[str] or None
+        """
+        return self._san_ip_addresses
+
+    @property
+    def san_uris(self) -> Optional[List[str]]:
+        """The subject alternative URIs.
+
+        :returns: The subject alternative URIs, as a list.
+        :rtype: list[str] or None
+        """
+        return self._san_uris
+
+    @property
     def validity_in_months(self) -> Optional[int]:
         """The duration that the certificate is valid for in months.
 
@@ -1134,17 +1184,23 @@ class CertificateContact(object):
 
     @property
     def email(self) -> Optional[str]:
-        """:rtype: str or None"""
+        """Email address of a contact for the certificate.
+
+        :rtype: str or None"""
         return self._email
 
     @property
     def name(self) -> Optional[str]:
-        """:rtype: str or None"""
+        """Name of a contact for the certificate.
+
+        :rtype: str or None"""
         return self._name
 
     @property
     def phone(self) -> Optional[str]:
-        """:rtype: str or None"""
+        """Phone number of a contact for the certificate.
+
+        :rtype: str or None"""
         return self._phone
 
 

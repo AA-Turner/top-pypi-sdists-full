@@ -82,6 +82,7 @@ __all__ = (
     "ConstantTypeType",
     "ContributionAnalysisDirectionType",
     "ContributionAnalysisSortTypeType",
+    "ControlSortDirectionType",
     "CrossDatasetTypesType",
     "CustomContentImageScalingConfigurationType",
     "CustomContentTypeType",
@@ -565,6 +566,7 @@ ContributionAnalysisSortTypeType = Literal[
     "DEVIATION_FROM_EXPECTED",
     "PERCENTAGE_DIFFERENCE",
 ]
+ControlSortDirectionType = Literal["ASC", "DESC", "USER_DEFINED_ORDER"]
 CrossDatasetTypesType = Literal["ALL_DATASETS", "SINGLE_DATASET"]
 CustomContentImageScalingConfigurationType = Literal[
     "DO_NOT_SCALE", "FIT_TO_HEIGHT", "FIT_TO_WIDTH", "SCALE_TO_VISUAL"
@@ -668,6 +670,7 @@ DataSourceTypeType = Literal[
     "REDSHIFT",
     "S3",
     "S3_KNOWLEDGE_BASE",
+    "S3_TABLES",
     "SALESFORCE",
     "SERVICENOW",
     "SHAREPOINT",

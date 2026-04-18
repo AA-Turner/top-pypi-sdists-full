@@ -275,7 +275,16 @@ def _process_cte_relations(cte_relations):
         _having_condition.set(None)
         try:
             cte_plan_id = gen_sql_plan_id()
-            cte_proto = map_logical_plan_relation(cte._2(), cte_plan_id)
+            # Isolate plan names from CTE definition processing so they don't
+            # leak into the parent scope.  Without this, set_sql_plan_name
+            # inside the SubqueryAlias case registers the CTE name with the
+            # *definition* plan_id.  Later, ORDER BY / WHERE / GROUP BY
+            # expressions that use qualified references (e.g. t.a) would
+            # resolve to this stale definition plan_id instead of falling
+            # through to qualifier-based column matching, causing
+            # RESOLVED_REFERENCE_COLUMN_NOT_FOUND errors (SNOW-2206240).
+            with push_sql_scope():
+                cte_proto = map_logical_plan_relation(cte._2(), cte_plan_id)
             _ctes.get()[name] = cte_proto
         finally:
             _having_condition.set(saved_having)

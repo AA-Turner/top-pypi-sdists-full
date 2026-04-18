@@ -45,10 +45,6 @@ class RegexMatchTimeoutException(System.TimeoutException, System.Runtime.Seriali
     def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class ValueMatch:
     """This class has no documentation."""
@@ -396,10 +392,6 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
 
     @overload
     def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout: datetime.timedelta) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
     @staticmethod

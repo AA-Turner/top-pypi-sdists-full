@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: html-for-docx
-Version: 1.1.4
+Version: 1.1.5
 Summary: Convert HTML to Docx easily and fastly
 Home-page: https://github.com/dfop02/html4docx
-Download-URL: https://github.com/dfop02/html4docx/archive/1.1.4.tar.gz
+Download-URL: https://github.com/dfop02/html4docx/archive/1.1.5.tar.gz
 Author: Diogo Fernandes
 Author-email: diogofernandesop@gmail.com
 Maintainer: Diogo Fernandes

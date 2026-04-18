@@ -47,7 +47,7 @@ class OptionContractUniverse(QuantConnect.Data.UniverseSelection.UserDefinedUniv
         """
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Returns the symbols defined by the user for this universe
         
@@ -86,7 +86,7 @@ class OptionChainedUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selec
         """
         ...
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates the universes for this algorithm. Called once after IAlgorithm.Initialize
         

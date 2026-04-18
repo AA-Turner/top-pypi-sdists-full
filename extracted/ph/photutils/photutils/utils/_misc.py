@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define tools to get the installed astropy and photutils versions.
+Tools for getting the installed astropy and photutils versions.
 """
 
 import sys
@@ -34,7 +34,7 @@ def _get_version_info():
     return versions
 
 
-def _get_date(utc=False):
+def _get_date(*, utc=False):
     """
     Return a string of the current date/time.
 
@@ -48,11 +48,16 @@ def _get_date(utc=False):
     result : str
         The current date/time.
     """
-    now = datetime.now().astimezone() if not utc else datetime.now(UTC)
+    try:
+        now = datetime.now().astimezone() if not utc else datetime.now(UTC)
+    except OSError:
+        # System timezone may be unavailable on some configurations;
+        # fall back to UTC
+        now = datetime.now(UTC)
     return now.strftime('%Y-%m-%d %H:%M:%S %Z')
 
 
-def _get_meta(utc=False):
+def _get_meta(*, utc=False):
     """
     Return a metadata dictionary with the package versions and current
     date/time.

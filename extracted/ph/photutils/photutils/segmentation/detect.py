@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define tools for detecting sources in an image.
+Tools for detecting sources in an image.
 """
 
 import warnings
@@ -12,9 +12,10 @@ from scipy.ndimage import label as ndi_label
 
 from photutils.segmentation.core import SegmentationImage
 from photutils.segmentation.utils import _make_binary_structure
+from photutils.utils._deprecation import deprecated_renamed_argument
 from photutils.utils._parameters import (SigmaClipSentinelDefault,
                                          create_default_sigmaclip)
-from photutils.utils._quantity_helpers import process_quantities
+from photutils.utils._quantity_helpers import check_units, process_quantities
 from photutils.utils._stats import nanmean, nanstd
 from photutils.utils.exceptions import NoDetectionsWarning
 
@@ -24,7 +25,8 @@ __all__ = ['detect_sources', 'detect_threshold']
 SIGMA_CLIP = SigmaClipSentinelDefault(sigma=3.0, maxiters=10)
 
 
-def detect_threshold(data, nsigma, *, background=None, error=None, mask=None,
+@deprecated_renamed_argument('nsigma', 'n_sigma', '3.0', until='4.0')
+def detect_threshold(data, n_sigma, *, background=None, error=None, mask=None,
                      sigma_clip=SIGMA_CLIP):
     """
     Calculate a pixel-wise threshold image that can be used to detect
@@ -40,7 +42,7 @@ def detect_threshold(data, nsigma, *, background=None, error=None, mask=None,
     data : 2D `~numpy.ndarray`
         The 2D array of the image.
 
-    nsigma : float
+    n_sigma : float
         The number of standard deviations per pixel above the
         ``background`` for which to consider a pixel as possibly being
         part of a source.
@@ -127,7 +129,7 @@ def detect_threshold(data, nsigma, *, background=None, error=None, mask=None,
         raise ValueError(msg)
 
     threshold = (np.broadcast_to(background, data.shape)
-                 + np.broadcast_to(error * nsigma, data.shape))
+                 + np.broadcast_to(error * n_sigma, data.shape))
 
     if unit:
         threshold <<= unit
@@ -135,12 +137,12 @@ def detect_threshold(data, nsigma, *, background=None, error=None, mask=None,
     return threshold
 
 
-def _detect_sources(data, threshold, npixels, footprint, inverse_mask, *,
+def _detect_sources(data, threshold, n_pixels, footprint, inverse_mask, *,
                     relabel=True, return_segmimg=True):
     """
     Detect sources above a specified threshold value in an image.
 
-    Detected sources must have ``npixels`` connected pixels that are
+    Detected sources must have ``n_pixels`` connected pixels that are
     each greater than the ``threshold`` value in the input ``data``.
 
     This function is the core algorithm for detecting sources in
@@ -163,10 +165,10 @@ def _detect_sources(data, threshold, npixels, footprint, inverse_mask, *,
         array, then ``threshold`` must have the same units as ``data``.
         A 2D ``threshold`` array must have the same shape as ``data``.
 
-    npixels : int
+    n_pixels : int
         The minimum number of connected pixels, each greater than
         ``threshold``, that an object must have to be detected.
-        ``npixels`` must be a positive integer.
+        ``n_pixels`` must be a positive integer.
 
     footprint : array_like
         A footprint that defines feature connections. As an example,
@@ -199,7 +201,7 @@ def _detect_sources(data, threshold, npixels, footprint, inverse_mask, *,
         is `False`, then a 2D `~numpy.ndarray` segmentation image is
         returned. If no sources are found then `None` is returned.
     """
-    # ignore RuntimeWarning caused by > comparison when data contains NaNs
+    # Ignore RuntimeWarning caused by > comparison when data contains NaNs
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', category=RuntimeWarning)
         segment_img = data > threshold
@@ -207,7 +209,7 @@ def _detect_sources(data, threshold, npixels, footprint, inverse_mask, *,
     if inverse_mask is not None:
         segment_img &= inverse_mask
 
-    # return None if threshold was too high to detect any sources
+    # Return None if threshold was too high to detect any sources
     if np.count_nonzero(segment_img) == 0:
         return None
 
@@ -216,7 +218,7 @@ def _detect_sources(data, threshold, npixels, footprint, inverse_mask, *,
     segment_img, nlabels = ndi_label(segment_img, structure=footprint)
     labels = np.arange(nlabels, dtype=segment_img.dtype) + 1
 
-    # remove objects with less than npixels
+    # Remove objects with less than n_pixels
     # NOTE: making cutout images and setting their pixels to 0 is
     # ~10x faster than using segment_img directly and ~50% faster
     # than using ndimage.sum_labels.
@@ -226,7 +228,7 @@ def _detect_sources(data, threshold, npixels, footprint, inverse_mask, *,
     for label, slc in zip(labels, slices, strict=True):
         cutout = segment_img[slc]
         segment_mask = (cutout == label)
-        if np.count_nonzero(segment_mask) < npixels:
+        if np.count_nonzero(segment_mask) < n_pixels:
             cutout[segment_mask] = 0
             continue
         segm_labels.append(label)
@@ -236,7 +238,7 @@ def _detect_sources(data, threshold, npixels, footprint, inverse_mask, *,
         return None
 
     if relabel:
-        # relabel the segmentation image with consecutive numbers;
+        # Relabel the segmentation image with consecutive numbers;
         # ndimage.label returns segment_img with dtype = np.int32
         # unless the input array has more than 2**31 - 1 pixels
         nlabels = len(segm_labels)
@@ -257,18 +259,19 @@ def _detect_sources(data, threshold, npixels, footprint, inverse_mask, *,
         segm.__dict__['_deblend_label_map'] = {}
         return segm
 
-    # this is used by deblend_sources
+    # This is used by deblend_sources
     if len(labels) == 1:
         return None
 
     return segment_img
 
 
-def detect_sources(data, threshold, npixels, *, connectivity=8, mask=None):
+@deprecated_renamed_argument('npixels', 'n_pixels', '3.0', until='4.0')
+def detect_sources(data, threshold, n_pixels, *, connectivity=8, mask=None):
     """
     Detect sources above a specified threshold value in an image.
 
-    Detected sources must have ``npixels`` connected pixels that are
+    Detected sources must have ``n_pixels`` connected pixels that are
     each greater than the ``threshold`` value in the input ``data``. The
     input ``mask`` can be used to mask pixels in the input data. Masked
     pixels will not be included in any source.
@@ -291,10 +294,10 @@ def detect_sources(data, threshold, npixels, *, connectivity=8, mask=None):
         array, then ``threshold`` must have the same units as ``data``.
         A 2D ``threshold`` array must have the same shape as ``data``.
 
-    npixels : int
+    n_pixels : int
         The minimum number of connected pixels, each greater than
         ``threshold``, that an object must have to be detected.
-        ``npixels`` must be a positive integer.
+        ``n_pixels`` must be a positive integer.
 
     connectivity : {4, 8}, optional
         The type of pixel connectivity used in determining how pixels
@@ -332,41 +335,40 @@ def detect_sources(data, threshold, npixels, *, connectivity=8, mask=None):
 
         import matplotlib.pyplot as plt
         from astropy.convolution import convolve
-        from astropy.stats import sigma_clipped_stats
         from astropy.visualization import simple_norm
+        from photutils.background import Background2D, MedianBackground
         from photutils.datasets import make_100gaussians_image
         from photutils.segmentation import (detect_sources,
                                             make_2dgaussian_kernel)
 
-        # make a simulated image
+        # Make a simulated image
         data = make_100gaussians_image()
 
-        # use sigma-clipped statistics to (roughly) estimate the background
-        # background noise levels
-        mean, _, std = sigma_clipped_stats(data)
+        # Estimate the background using Background2D and subtract it
+        bkg_estimator = MedianBackground()
+        bkg = Background2D(data, (50, 50), filter_size=(3, 3),
+                           bkg_estimator=bkg_estimator)
+        data -= bkg.background  # subtract the background
 
-        # subtract the background
-        data -= mean
-
-        # detect the sources
-        threshold = 3. * std
-        kernel = make_2dgaussian_kernel(3.0, size=3)  # FWHM = 3.
+        # Convolve the data
+        kernel = make_2dgaussian_kernel(3.0, size=5)
         convolved_data = convolve(data, kernel)
-        segm = detect_sources(convolved_data, threshold, npixels=5)
 
-        # plot the image and the segmentation image
+        # Detect the sources
+        threshold = 1.5 * bkg.background_rms  # set the detection threshold
+        segment_map = detect_sources(convolved_data, threshold, n_pixels=10)
+
+        # Plot the image and the segmentation image
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 10))
-        norm = simple_norm(data, 'sqrt', percent=99.)
-        ax1.imshow(data, origin='lower', interpolation='nearest',
-                   norm=norm)
-        ax2.imshow(segm.data, origin='lower', interpolation='nearest',
-                   cmap=segm.make_cmap(seed=1234))
-        plt.tight_layout()
+        norm = simple_norm(data, 'sqrt', percent=99.5)
+        ax1.imshow(data, norm=norm, origin='lower')
+        segment_map.imshow(ax=ax2)
+        fig.tight_layout()
     """
-    _ = process_quantities((data, threshold), ('data', 'threshold'))
+    check_units((data, threshold), ('data', 'threshold'))
 
-    if (npixels <= 0) or (int(npixels) != npixels):
-        msg = f'npixels must be a positive integer, got {npixels!r}'
+    if (n_pixels <= 0) or (int(n_pixels) != n_pixels):
+        msg = f'n_pixels must be a positive integer, got {n_pixels!r}'
         raise ValueError(msg)
 
     if mask is not None:
@@ -383,10 +385,12 @@ def detect_sources(data, threshold, npixels, *, connectivity=8, mask=None):
 
     footprint = _make_binary_structure(data.ndim, connectivity)
 
-    segm = _detect_sources(data, threshold, npixels, footprint,
+    segm = _detect_sources(data, threshold, n_pixels, footprint,
                            inverse_mask, relabel=True, return_segmimg=True)
 
     if segm is None:
-        warnings.warn('No sources were found.', NoDetectionsWarning)
+        msg = ('No sources were found. Try lowering the threshold or '
+               'pixels parameters.')
+        warnings.warn(msg, NoDetectionsWarning)
 
     return segm

@@ -31,8 +31,9 @@ from collections import OrderedDict
 import json
 import logging
 import math
+from pathlib import Path
+import warnings
 
-from defusedxml.ElementTree import parse as defused_parse
 import numpy as np
 
 from pyedb.dotnet.database.edb_data.layer_data import (
@@ -41,6 +42,7 @@ from pyedb.dotnet.database.edb_data.layer_data import (
     layer_cast,
 )
 from pyedb.dotnet.database.general import convert_py_list_to_net_list
+from pyedb.dotnet.database.utilities.layer_utils import clear_is_owner
 from pyedb.generic.general_methods import ET, generate_unique_name
 from pyedb.misc.aedtlib_personalib_install import write_pretty_xml
 from pyedb.misc.decorators import deprecated_property
@@ -54,6 +56,12 @@ class LayerCollection(object):
 
         if edb_object:
             self._edb_object = self._pedb.core.Cell.LayerCollection(edb_object)
+            # Bug fix: when wrapping an existing LayerCollection, all layer objects
+            # have IsOwner=True which causes EDBLayer_Cleanup to be called in the
+            # destructor and triggers memory access violations during GC.
+            # Clear ownership on every layer immediately after construction.
+            for layer in self._edb_object.Layers(self._pedb.core.Cell.LayerTypeSet.AllLayerSet):
+                clear_is_owner(layer)
         else:
             self._edb_object = self._pedb.core.Cell.LayerCollection()
 
@@ -81,6 +89,9 @@ class LayerCollection(object):
     def refresh_layer_collection(self):
         """Refresh layer collection from Edb. This method is run on demand after all edit operations on stackup."""
         self._edb_object = self._pedb.core.Cell.LayerCollection(self._pedb.layout.layer_collection)
+        # Clear ownership on all layers to prevent EDBLayer_Cleanup destructor access violations
+        for layer in self._edb_object.Layers(self._pedb.core.Cell.LayerTypeSet.AllLayerSet):
+            clear_is_owner(layer)
         self._lc = self._edb_object
 
     def _add_layer(self, add_method, base_layer_name="", **kwargs):
@@ -120,6 +131,11 @@ class LayerCollection(object):
             obj = obj if method_top_bottom(obj._edb_object) else False
         elif method_above_below:
             obj = obj if method_above_below(obj._edb_object, base_layer_name) else False
+
+        # Bug Release 2016.1 fix: Call clear_is_owner AFTER layer is successfully added to collection
+        if obj:
+            clear_is_owner(obj._edb_object)
+
         self.update_layout()
         return obj
 
@@ -223,6 +239,7 @@ class LayerCollection(object):
         return self._add_layer(add_method="add_layer_bottom", **kwargs)
 
     def set_layer_clone(self, layer_clone):
+        # Fixing Ansys release 26.1 bug
         lc = self._pedb.core.Cell.LayerCollection()  # empty layer collection
         lc.SetMode(self._edb_object.GetMode())
         if self.mode.lower() == "laminate":
@@ -236,6 +253,8 @@ class LayerCollection(object):
             if i.id == layer_clone.id:  # replace layer
                 add_method(layer_clone._edb_object)
                 obj = layer_clone
+                # Clear is_owner AFTER layer is added to new LayerCollection
+                clear_is_owner(layer_clone._edb_object)
             else:  # keep existing layer
                 add_method(i._edb_object)
         # Add non stackup layers
@@ -243,6 +262,8 @@ class LayerCollection(object):
             if i.id == layer_clone.id:
                 lc.AddLayerBottom(layer_clone._edb_object)
                 obj = layer_clone
+                # Clear is_owner AFTER layer is added to new LayerCollection
+                clear_is_owner(layer_clone._edb_object)
             else:
                 lc.AddLayerBottom(i._edb_object)
 
@@ -256,7 +277,12 @@ class LayerCollection(object):
     @property
     @deprecated_property("use layers property instead.")
     def stackup_layers(self):
-        """Retrieve the dictionary of signal and dielectric layers."""
+        """Retrieve the dictionary of signal and dielectric layers.
+
+        .. deprecated:: 0.71.0
+           Use :attr: layers property instead.
+
+        """
         return self.layers
 
     @property
@@ -295,7 +321,7 @@ class LayerCollection(object):
         if obj.IsNull():
             raise ValueError("Layer with name '{}' was not found.".format(name))
         else:
-            return layer_cast(self._pedb, obj.Clone())
+            return layer_cast(self._pedb, obj)  # layer_cast/LayerEdbClass already clones internally
 
 
 class Stackup(LayerCollection):
@@ -586,7 +612,10 @@ class Stackup(LayerCollection):
     @property
     def _edb_layer_list(self):
         layer_list = list(self._layer_collection.Layers(self._pedb.core.Cell.LayerTypeSet.AllLayerSet))
-        return [i.Clone() for i in layer_list]
+        clones = [i.Clone() for i in layer_list]
+        for c in clones:
+            clear_is_owner(c)
+        return clones
 
     @property
     def signal_layers(self):
@@ -644,9 +673,13 @@ class Stackup(LayerCollection):
             layers = [
                 i.Clone() for i in list(list(lc_readonly.Layers(self._pedb.core.Cell.LayerTypeSet.StackupLayerSet)))
             ]
+            for layer in layers:
+                clear_is_owner(layer)
             non_stackup = [
                 i.Clone() for i in list(list(lc_readonly.Layers(self._pedb.core.Cell.LayerTypeSet.NonStackupLayerSet)))
             ]
+            for layer in non_stackup:
+                clear_is_owner(layer)
             _lc = self._pedb.core.Cell.LayerCollection()
             mode = lc_readonly.GetMode()
             _lc.SetMode(lc_readonly.GetMode())
@@ -694,6 +727,7 @@ class Stackup(LayerCollection):
             self._edb_value(0),
             "",
         )
+        clear_is_owner(result)
         self.refresh_layer_collection()
         return result
 
@@ -732,6 +766,7 @@ class Stackup(LayerCollection):
             _layer_type = self._pedb.core.Cell.LayerType.UndefinedLayerType
 
         result = self._pedb.core.Cell.layer(layer_name, _layer_type)
+        clear_is_owner(result)
         self.refresh_layer_collection()
         return result
 
@@ -1069,13 +1104,16 @@ class Stackup(LayerCollection):
             max_elevation = 0.0
             for layer in lc.Layers(self._pedb.core.Cell.LayerTypeSet.StackupLayerSet):
                 if "RadBox" not in layer.GetName():  # Ignore RadBox
-                    lower_elevation = layer.Clone().GetLowerElevation() * 1.0e6
-                    upper_elevation = layer.Clone().GetUpperElevation() * 1.0e6
+                    _tmp_clone = layer.Clone()
+                    clear_is_owner(_tmp_clone)
+                    lower_elevation = _tmp_clone.GetLowerElevation() * 1.0e6
+                    upper_elevation = _tmp_clone.GetUpperElevation() * 1.0e6
                     max_elevation = max([max_elevation, lower_elevation, upper_elevation])
 
             non_stackup_layers = []
             for layer in lc.Layers(self._pedb.core.Cell.LayerTypeSet.AllLayerSet):
                 cloned_layer = layer.Clone()
+                clear_is_owner(cloned_layer)
                 if not cloned_layer.IsStackupLayer():
                     non_stackup_layers.append(cloned_layer)
                     continue
@@ -1093,11 +1131,15 @@ class Stackup(LayerCollection):
                         cloned_layer.SetTopBottomAssociation(self._pedb.core.Cell.TopBottomAssociation.TopAssociated)
                     new_lc.AddStackupLayerAtElevation(cloned_layer)
 
-            vialayers = [
-                lay for lay in lc.Layers(self._pedb.core.Cell.LayerTypeSet.StackupLayerSet) if lay.Clone().IsViaLayer()
-            ]
+            vialayers = []
+            for lay in lc.Layers(self._pedb.core.Cell.LayerTypeSet.StackupLayerSet):
+                _tmp = lay.Clone()
+                clear_is_owner(_tmp)
+                if _tmp.IsViaLayer():
+                    vialayers.append(lay)
             for layer in vialayers:
                 cloned_via_layer = layer.Clone()
+                clear_is_owner(cloned_via_layer)
                 upper_ref_name = cloned_via_layer.GetRefLayerName(True)
                 lower_ref_name = cloned_via_layer.GetRefLayerName(False)
                 upper_ref = [
@@ -1131,6 +1173,7 @@ class Stackup(LayerCollection):
                 cmp = pyaedt_cmp.edbcomponent
                 cmp_type = cmp.GetComponentType()
                 cmp_prop = cmp.GetComponentProperty().Clone()
+                clear_is_owner(cmp_prop)
                 try:
                     if (
                         cmp_prop.GetSolderBallProperty().GetPlacement()
@@ -1200,7 +1243,7 @@ class Stackup(LayerCollection):
     def _remove_solder_pec(self, layer_name):
         for _, val in self._pedb.components.instances.items():
             if val.solder_ball_height and val.placement_layer == layer_name:
-                comp_prop = val.component_property.core
+                comp_prop = val._get_component_property_clone()
                 port_property = comp_prop.GetPortProperty().Clone()
                 port_property.SetReferenceSizeAuto(False)
                 port_property.SetReferenceSize(self._edb_value(0.0), self._edb_value(0.0))
@@ -2105,7 +2148,7 @@ class Stackup(LayerCollection):
 
             if val.roughness_enabled:
                 roughness_models[name] = {}
-                model = val.get_roughness_model("top")
+                model = val._get_roughness_model("top")
                 if model.ToString().endswith("GroissRoughnessModel"):
                     roughness_models[name]["GroissSurfaceRoughness"] = {"Roughness": model.get_Roughness().ToDouble()}
                 else:
@@ -2113,7 +2156,7 @@ class Stackup(LayerCollection):
                         "HallHuraySurfaceRatio": model.get_NoduleRadius().ToDouble(),
                         "NoduleRadius": model.get_SurfaceRatio().ToDouble(),
                     }
-                model = val.get_roughness_model("bottom")
+                model = val._get_roughness_model("bottom")
                 if model.ToString().endswith("GroissRoughnessModel"):
                     roughness_models[name]["GroissBottomSurfaceRoughness"] = {
                         "Roughness": model.get_Roughness().ToDouble()
@@ -2123,7 +2166,7 @@ class Stackup(LayerCollection):
                         "HallHuraySurfaceRatio": model.get_NoduleRadius().ToDouble(),
                         "NoduleRadius": model.get_SurfaceRatio().ToDouble(),
                     }
-                model = val.get_roughness_model("side")
+                model = val._get_roughness_model("side")
                 if model.ToString().endswith("GroissRoughnessModel"):
                     roughness_models[name]["GroissSideSurfaceRoughness"] = {
                         "Roughness": model.get_Roughness().ToDouble()
@@ -2175,7 +2218,7 @@ class Stackup(LayerCollection):
                     material.loss_tanget = material_properties["DielectricLossTangent"]
         return True
 
-    def _import_xml(self, file_path):
+    def _import_xml(self, file_path: str | Path):
         """Load stackup from a XML file.
 
         Parameters
@@ -2191,62 +2234,18 @@ class Stackup(LayerCollection):
         try:
             import matplotlib.colors as colors
         except ImportError:
-            raise ImportError(
+            warnings.warn(
                 "Matplotlib library is required for plotting. "
-                "Please install it using 'pip install pyedb[graphics]' or 'pip install matplotlib'."
+                "Please install it using 'pip install pyedb[graphics]' "
+                "or 'pip install matplotlib'.",
+                UserWarning,
             )
+        from pyedb.xml_parser.xml_parser import XmlParser
 
-        tree = ET.parse(file_path)
-        root = tree.getroot()
-        stackup = root.find("Stackup")
-        stackup_dict = {}
-        if stackup.find("Materials"):
-            mats = []
-            for m in stackup.find("Materials").findall("Material"):
-                temp = dict()
-                for i in list(m):
-                    value = list(i)[0].text
-                    temp[i.tag] = value
-                mat = {"name": m.attrib["Name"]}
-                temp_dict = {
-                    "Permittivity": "permittivity",
-                    "Conductivity": "conductivity",
-                    "DielectricLossTangent": "dielectric_loss_tangent",
-                }
-                for i in temp_dict.keys():
-                    value = temp.get(i, None)
-                    if value:
-                        mat[temp_dict[i]] = value
-                mats.append(mat)
-            stackup_dict["materials"] = mats
+        file_path = Path(file_path)
 
-        stackup_section = stackup.find("Layers")
-        if stackup_section:
-            length_unit = stackup_section.attrib["LengthUnit"]
-            layers = []
-            for l in stackup.find("Layers").findall("Layer"):
-                temp = l.attrib
-                layer = dict()
-                temp_dict = {
-                    "Name": "name",
-                    "Color": "color",
-                    "Material": "material",
-                    "Thickness": "thickness",
-                    "Type": "type",
-                    "FillMaterial": "fill_material",
-                }
-                for i in temp_dict.keys():
-                    value = temp.get(i, None)
-                    if value:
-                        if i == "Thickness":
-                            value = str(round(float(value), 6)) + length_unit
-                        value = "signal" if value == "conductor" else value
-                        if i == "Color":
-                            value = [int(x * 255) for x in list(colors.to_rgb(value))]
-                        layer[temp_dict[i]] = value
-                layers.append(layer)
-            stackup_dict["layers"] = layers
-        cfg = {"stackup": stackup_dict}
+        xml = XmlParser.load_xml_file(file_path)
+        cfg = xml.to_dict()
         self._pedb.configuration.load(cfg)
         return self._pedb.configuration.run()
 

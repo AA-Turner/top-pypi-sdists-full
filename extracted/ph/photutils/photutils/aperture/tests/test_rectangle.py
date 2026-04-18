@@ -14,6 +14,7 @@ from photutils.aperture.rectangle import (RectangularAnnulus,
                                           SkyRectangularAnnulus,
                                           SkyRectangularAperture)
 from photutils.aperture.tests.test_aperture_common import BaseTestAperture
+from photutils.utils._optional_deps import HAS_MATPLOTLIB
 
 POSITIONS = [(10, 20), (30, 40), (50, 60), (70, 80)]
 RA, DEC = np.transpose(POSITIONS)
@@ -46,6 +47,14 @@ class TestRectangularAperture(BaseTestAperture):
         assert isinstance(self.aperture.theta, u.Quantity)
         assert self.aperture.theta.unit == u.rad
 
+    @pytest.mark.skipif(not HAS_MATPLOTLIB, reason='matplotlib is required')
+    def test_to_patch_nonscalar(self):
+        """
+        Test that _to_patch returns a list for non-scalar apertures.
+        """
+        patches = self.aperture._to_patch()
+        assert isinstance(patches, list)
+
 
 class TestRectangularAnnulus(BaseTestAperture):
     aperture = RectangularAnnulus(POSITIONS, w_in=10.0, w_out=20.0, h_out=17,
@@ -59,7 +68,7 @@ class TestRectangularAnnulus(BaseTestAperture):
             RectangularAnnulus(POSITIONS, w_in=radius, w_out=20.0, h_out=17,
                                theta=np.pi / 3)
 
-        match = '"w_out" must be greater than "w_in"'
+        match = "'w_out' must be greater than 'w_in'"
         with pytest.raises(ValueError, match=match):
             RectangularAnnulus(POSITIONS, w_in=10.0, w_out=radius, h_out=17,
                                theta=np.pi / 3)
@@ -83,6 +92,23 @@ class TestRectangularAnnulus(BaseTestAperture):
     def test_theta(self):
         assert isinstance(self.aperture.theta, u.Quantity)
         assert self.aperture.theta.unit == u.rad
+
+    def test_h_in_greater_than_h_out(self):
+        """
+        Test that a ValueError is raised when h_in >= h_out.
+        """
+        match = "'h_out' must be greater than 'h_in'"
+        with pytest.raises(ValueError, match=match):
+            RectangularAnnulus(POSITIONS, w_in=10.0, w_out=20.0, h_out=5.0,
+                               h_in=8.0, theta=np.pi / 3)
+
+    @pytest.mark.skipif(not HAS_MATPLOTLIB, reason='matplotlib is required')
+    def test_to_patch_nonscalar(self):
+        """
+        Test that _to_patch returns a list for non-scalar apertures.
+        """
+        patches = self.aperture._to_patch()
+        assert isinstance(patches, list)
 
 
 class TestSkyRectangularAperture(BaseTestAperture):
@@ -123,7 +149,7 @@ class TestSkyRectangularAnnulus(BaseTestAperture):
                                   w_out=20.0 * UNIT, h_out=17.0 * UNIT,
                                   theta=60 * u.deg)
 
-        match = '"w_out" must be greater than "w_in"'
+        match = "'w_out' must be greater than 'w_in'"
         with pytest.raises(ValueError, match=match):
             SkyRectangularAnnulus(SKYCOORD, w_in=10.0 * UNIT,
                                   w_out=radius * UNIT, h_out=17.0 * UNIT,
@@ -146,6 +172,16 @@ class TestSkyRectangularAnnulus(BaseTestAperture):
         assert aper == self.aperture
         aper.w_in = 2.0 * UNIT
         assert aper != self.aperture
+
+    def test_h_in_greater_than_h_out(self):
+        """
+        Test that a ValueError is raised when h_in >= h_out.
+        """
+        match = "'h_out' must be greater than 'h_in'"
+        with pytest.raises(ValueError, match=match):
+            SkyRectangularAnnulus(SKYCOORD, w_in=10.0 * UNIT,
+                                  w_out=20.0 * UNIT, h_out=5.0 * UNIT,
+                                  h_in=8.0 * UNIT, theta=60 * u.deg)
 
 
 def test_rectangle_theta_quantity():

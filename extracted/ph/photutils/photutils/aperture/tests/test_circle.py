@@ -38,7 +38,7 @@ class TestCircularAperture(BaseTestAperture):
         for patch in my_patches:
             assert isinstance(patch, Patch)
 
-        # test creating a legend with these patches
+        # Test creating a legend with these patches
         plt.legend(my_patches, list(range(len(my_patches))))
 
     @staticmethod
@@ -73,9 +73,10 @@ class TestCircularAnnulus(BaseTestAperture):
         for p in my_patches:
             assert isinstance(p, Patch)
 
-        # make sure I can create a legend with these patches
+        # Test creating a legend with these patches
         labels = list(range(len(my_patches)))
-        plt.legend(my_patches, labels)
+        _, ax = plt.subplots()
+        ax.legend(my_patches, labels)
 
     @staticmethod
     @pytest.mark.parametrize('radius', RADII)
@@ -84,7 +85,7 @@ class TestCircularAnnulus(BaseTestAperture):
         with pytest.raises(ValueError, match=match):
             CircularAnnulus(POSITIONS, r_in=radius, r_out=7.0)
 
-        match = 'r_out must be greater than r_in'
+        match = "'r_out' must be greater than 'r_in'"
         with pytest.raises(ValueError, match=match):
             CircularAnnulus(POSITIONS, r_in=3.0, r_out=radius)
 
@@ -122,7 +123,7 @@ class TestSkyCircularAnnulus(BaseTestAperture):
         with pytest.raises(ValueError, match=match):
             SkyCircularAnnulus(SKYCOORD, r_in=radius * UNIT, r_out=7.0 * UNIT)
 
-        match = "'r_out' must be greater than zero"
+        match = "'r_out' must be greater than 'r_in'"
         with pytest.raises(ValueError, match=match):
             SkyCircularAnnulus(SKYCOORD, r_in=3.0 * UNIT, r_out=radius * UNIT)
 
@@ -131,6 +132,25 @@ class TestSkyCircularAnnulus(BaseTestAperture):
         assert aper == self.aperture
         aper.r_in = 2.0 * UNIT
         assert aper != self.aperture
+
+    @staticmethod
+    def test_r_out_less_than_r_in():
+        """
+        Test that a ValueError is raised when r_out <= r_in.
+        """
+        match = "'r_out' must be greater than 'r_in'"
+        with pytest.raises(ValueError, match=match):
+            SkyCircularAnnulus(SKYCOORD, r_in=7.0 * UNIT, r_out=3.0 * UNIT)
+
+    @staticmethod
+    def test_non_angle_quantity():
+        """
+        Test that a ValueError is raised when r_in has non-angular
+        units.
+        """
+        match = "'r_in' must have angular units"
+        with pytest.raises(ValueError, match=match):
+            SkyCircularAnnulus(SKYCOORD, r_in=0.5 * u.pix, r_out=7.0 * u.pix)
 
 
 def test_slicing():

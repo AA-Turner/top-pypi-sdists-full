@@ -1,14 +1,12 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define tools to convert between `regions.Region` and Aperture objects
-and between `shapely.geometry.Polygon` and `regions.PolygonRegion`
-objects.
+Tools for converting between `regions.Region` and Aperture objects and
+between `shapely.Polygon` and `regions.PolygonRegion` objects.
 """
 
 import astropy.units as u
 import numpy as np
 
-# prevent circular imports
 from photutils.aperture.circle import (CircularAnnulus, CircularAperture,
                                        SkyCircularAnnulus, SkyCircularAperture)
 from photutils.aperture.core import Aperture
@@ -22,10 +20,11 @@ from photutils.aperture.rectangle import (RectangularAnnulus,
 
 __all__ = ['aperture_to_region', 'region_to_aperture']
 
-__doctest_requires__ = {'region_to_aperture': ['regions'],
-                        'aperture_to_region': ['regions'],
-                        '_scalar_aperture_to_region': ['regions'],
-                        '_shapely_polygon_to_region': ['regions', 'shapely']}
+__doctest_requires__ = {'region_to_aperture': ['regions >= 0.12.dev'],
+                        'aperture_to_region': ['regions >= 0.12.dev'],
+                        '_scalar_aperture_to_region': ['regions >= 0.12.dev'],
+                        '_shapely_polygon_to_region': ['regions >= 0.12.dev',
+                                                       'shapely']}
 
 
 def region_to_aperture(region):
@@ -50,11 +49,11 @@ def region_to_aperture(region):
 
     Notes
     -----
-    The ellipse ``width`` and ``height`` region parameters represent the
-    full extent of the shapes and thus are divided by 2 when converting
-    to elliptical aperture objects, which are defined using the
-    semi-major (``a``) and semi-minor (``b``) axes. The ``width`` and
-    ``height`` parameters are mapped to the the semi-major (``a``) and
+    The ellipse ``width`` and ``height`` region parameters represent
+    the full extent of the shapes and thus are divided by 2 when
+    converting to elliptical aperture objects, which are defined using
+    the semi-major (``a``) and semi-minor (``b``) axes. The ``width``
+    and ``height`` parameters are mapped to the semi-major (``a``) and
     semi-minor (``b``) axes parameters, respectively, of the elliptical
     apertures.
 
@@ -265,8 +264,10 @@ def aperture_to_region(aperture):
     >>> aperture = CircularAperture(((10, 20), (30, 40)), r=5)
     >>> region = aperture_to_region(aperture)
     >>> region
-    <Regions([<CirclePixelRegion(center=PixCoord(x=10.0, y=20.0), radius=5.0)>,
-    <CirclePixelRegion(center=PixCoord(x=30.0, y=40.0), radius=5.0)>])>
+    <Regions([
+      <CirclePixelRegion(center=PixCoord(x=10.0, y=20.0), radius=5.0)>,
+      <CirclePixelRegion(center=PixCoord(x=30.0, y=40.0), radius=5.0)>
+    ])>
     """
     from regions import Regions
 
@@ -277,7 +278,7 @@ def aperture_to_region(aperture):
     if aperture.shape == ():
         return _scalar_aperture_to_region(aperture)
 
-    # multiple aperture positions return a Regions object
+    # Multiple aperture positions return a Regions object
     regs = [_scalar_aperture_to_region(aper) for aper in aperture]
     return Regions(regs)
 
@@ -372,22 +373,21 @@ def _scalar_aperture_to_region(aperture):
             aperture.h_in, aperture.h_out,
             angle=(aperture.theta + (90 * u.deg)))
 
-    else:  # pragma: no cover
+    else:
         msg = 'Cannot convert input aperture to a Region object'
         raise TypeError(msg)
 
     return region
 
 
-def _shapely_polygon_to_region(polygon, label=None):
+def _shapely_polygon_to_region(polygon, *, label=None, visual_kwargs=None):
     """
-    Convert a `shapely.geometry.polygon.Polygon` object to a
-    `regions.PolygonPixelRegion` object.
+    Convert a `shapely.Polygon` object to a `regions.PolygonPixelRegion`
+    object.
 
     Parameters
     ----------
-    polygon : `shapely.geometry.polygon.Polygon` \
-            or `shapely.geometry.MultiPolygon`
+    polygon : `shapely.Polygon` or `shapely.MultiPolygon`
         A Shapely Polygon or MultiPolygon object.
 
     label : str or `None`, optional
@@ -395,14 +395,19 @@ def _shapely_polygon_to_region(polygon, label=None):
         meta attribute of the returned `regions.PolygonPixelRegion`
         objects.
 
+    visual_kwargs : dict or `None`, optional
+        A dictionary of visual keyword arguments to pass to
+        `regions.RegionVisual`. If provided, the visual attributes will
+        be set on the returned region(s).
+
     Returns
     -------
     result : list of `regions.PolygonPixelRegion` or `regions.Regions`
-        If the polygon is a `shapely.geometry.polygon.Polygon`,
-        then a `regions.PolygonPixelRegion` object is returned. If
-        the polygon is a `shapely.geometry.MultiPolygon`, then a
-        `regions.Regions` object is returned containing one or more
-        `regions.PolygonPixelRegion` objects.
+        If the polygon is a `shapely.Polygon`, then a
+        `regions.PolygonPixelRegion` object is returned. If the polygon
+        is a `shapely.MultiPolygon`, then a `regions.Regions` object is
+        returned containing one or more `regions.PolygonPixelRegion`
+        objects.
 
     Notes
     -----
@@ -413,27 +418,30 @@ def _shapely_polygon_to_region(polygon, label=None):
 
     Examples
     --------
-    >>> from shapely.geometry import Polygon
+    >>> from shapely import Polygon
     >>> from photutils.aperture.converters import _shapely_polygon_to_region
     >>> polygon = Polygon([(1, 1), (3, 1), (2, 4), (1, 2)])
     >>> region = _shapely_polygon_to_region(polygon)
     >>> region
-    <PolygonPixelRegion(vertices=PixCoord(x=[1. 3. 2. 1.], y=[1. 1. 4. 2.]))>
+    <PolygonPixelRegion(vertices=PixCoord(x=[1.0 3.0 2.0 1.0],
+                                          y=[1.0 1.0 4.0 2.0]))>
     """
-    from regions import PixCoord, PolygonPixelRegion, Regions
-    from shapely.geometry import MultiPolygon, Polygon
+    from regions import PixCoord, PolygonPixelRegion, Regions, RegionVisual
+    from shapely import MultiPolygon, Polygon
 
     meta = {'label': label} if label is not None else None
+    visual = RegionVisual(visual_kwargs) if visual_kwargs else None
 
     if isinstance(polygon, Polygon):
         x, y = np.transpose(polygon.exterior.coords[:-1])
-        return PolygonPixelRegion(vertices=PixCoord(x=x, y=y), meta=meta)
+        return PolygonPixelRegion(vertices=PixCoord(x=x, y=y), meta=meta,
+                                  visual=visual)
     if isinstance(polygon, MultiPolygon):
         geoms = []
         for poly in polygon.geoms:
             x, y = np.transpose(poly.exterior.coords[:-1])
             geoms.append(PolygonPixelRegion(vertices=PixCoord(x=x, y=y),
-                                            meta=meta))
+                                            meta=meta, visual=visual))
         return Regions(geoms)
     msg = 'Input must be a Polygon or MultiPolygon object'
     raise TypeError(msg)

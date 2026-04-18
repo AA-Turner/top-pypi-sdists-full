@@ -179,12 +179,12 @@ class ApplicationParser(System.Object):
     """Command Line application parser"""
 
     @staticmethod
-    def get_parameter_or_default(options_object: System.Collections.Generic.IReadOnlyDictionary[str, System.Object], parameter: str, default_value: str) -> str:
+    def get_parameter_or_default(options_object: typing.Dict[str, System.Object], parameter: str, default_value: str) -> str:
         """Gets the parameter object from the given parameter. If it does not exists, it returns a default parameter object"""
         ...
 
     @staticmethod
-    def get_parameter_or_exit(options_object: System.Collections.Generic.IReadOnlyDictionary[str, System.Object], parameter: str) -> str:
+    def get_parameter_or_exit(options_object: typing.Dict[str, System.Object], parameter: str) -> str:
         """Gets the parameter object from the given parameter (if it exists)"""
         ...
 

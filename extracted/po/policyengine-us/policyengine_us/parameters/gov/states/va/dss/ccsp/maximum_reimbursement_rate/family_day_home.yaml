@@ -1,0 +1,30 @@
+description: Virginia sets this daily maximum reimbursement rate for family day homes under the Child Care Subsidy Program.
+
+metadata:
+  period: day
+  unit: currency-USD
+  label: Virginia CCSP family day home daily maximum reimbursement rate
+  breakdown:
+    - va_ccsp_ready_region
+  reference:
+    - title: VDOE Maximum Reimbursement Rates FY 2024
+      href: https://data.virginia.gov/dataset/general-child-care-subsidy-program-maximum-reimbursement-rates
+
+BLUE_RIDGE:
+  2023-08-01: 53
+CAPITAL_AREA:
+  2023-08-01: 62
+CENTRAL:
+  2023-08-01: 53
+CHESAPEAKE_BAY:
+  2023-08-01: 51
+NORTH_CENTRAL:
+  2023-08-01: 53
+SOUTHEASTERN:
+  2023-08-01: 54
+SOUTHSIDE:
+  2023-08-01: 49
+SOUTHWEST:
+  2023-08-01: 48
+WEST:
+  2023-08-01: 51

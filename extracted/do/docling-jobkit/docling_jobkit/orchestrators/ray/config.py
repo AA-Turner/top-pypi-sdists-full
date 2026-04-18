@@ -194,10 +194,25 @@ class RayOrchestratorConfig(BaseSettings):
     redis_operation_timeout: float = Field(
         default=30.0, description="Timeout for Redis operations in seconds"
     )
+    dispatcher_rpc_timeout: float = Field(
+        default=5.0,
+        description="Timeout in seconds for a single Ray dispatcher health-check RPC",
+    )
+    liveness_fail_after: float = Field(
+        default=90.0,
+        description=(
+            "Seconds of continuous unhealthiness before /livez reports failure "
+            "so Kubernetes is allowed to restart the pod"
+        ),
+    )
 
     # Health Checks
     enable_heartbeat: bool = Field(
         default=True, description="Enable dispatcher heartbeat monitoring"
+    )
+    heartbeat_interval: float = Field(
+        default=30.0,
+        description="Seconds between processing-heartbeat updates for active tasks",
     )
 
     # Resource Management & Memory Monitoring
@@ -245,5 +260,8 @@ class RayOrchestratorConfig(BaseSettings):
             self.redis_gate_concurrency = max(
                 1, self.redis_max_connections - self.redis_gate_reserved_connections
             )
+
+        if self.heartbeat_interval <= 0:
+            raise ValueError("heartbeat_interval must be > 0")
 
         return self

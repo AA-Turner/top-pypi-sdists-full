@@ -2,40 +2,21 @@
 
 from __future__ import annotations
 
-import abc
-from dataclasses import dataclass
-from typing import (
-    Any,
-    Generic,
-    MutableMapping,
-    Sequence,
-    Tuple,
-    TypeVar,
-    Union,
-)
+from typing import Any, Iterator, Sequence, TypeVar
 
 import pyarrow as pa
-from typing_extensions import Final, Self
+from typing_extensions import Protocol, Self, runtime_checkable
 
 from . import base
 from . import coordinates
 from . import data
 from . import options
 
-_DenseND = TypeVar("_DenseND", bound=data.DenseNDArray)
-"""A particular implementation of a collection of DenseNDArrays."""
-_RootSO = TypeVar("_RootSO", bound=base.SOMAObject)
-"""The root SomaObject type of the implementation."""
-
 _RO_AUTO = options.ResultOrder.AUTO
-#
-# Read types
-#
-
-_ReadData = TypeVar("_ReadData")
 
 
-class PointCloudDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
+@runtime_checkable
+class PointCloudDataFrame(base.SOMAObject, Protocol):
     """A specialized SOMA DataFrame for storing collections of points in
     multi-dimensional space.
 
@@ -47,21 +28,17 @@ class PointCloudDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
     Lifecycle: experimental
     """
 
-    __slots__ = ()
-    soma_type: Final = "SOMAPointCloudDataFrame"  # type: ignore[misc]
-
     @classmethod
-    @abc.abstractmethod
     def create(
         cls,
         uri: str,
         *,
         schema: pa.Schema,
-        coordinate_space: Union[Sequence[str], coordinates.CoordinateSpace] = (
+        domain: Sequence[tuple[Any, Any]],
+        coordinate_space: Sequence[str] | coordinates.CoordinateSpace = (
             "x",
             "y",
         ),
-        domain: Sequence[Tuple[Any, Any] | None] | None = None,
         platform_config: options.PlatformConfig | None = None,
         context: Any | None = None,
     ) -> Self:
@@ -84,20 +61,11 @@ class PointCloudDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
                 must define all columns, including columns to be named as index
                 columns.  If the schema includes types unsupported by the SOMA
                 implementation, an error will be raised.
+            domain: A sequence of tuples specifying the domain of each index column. Each
+                tuple must be a pair consisting of the minimum and maximum values storable
+                in the index column.
             coordinate_space: Either the coordinate space or the axis names for the
                 coordinate space the point cloud is defined on.
-            domain:
-                An optional sequence of tuples specifying the domain of each
-                index column. Each tuple must be a pair consisting of the
-                minimum and maximum values storable in the index column.
-                If provided, this sequence must have the same length as
-                ``index_column_names``, and the index-column domain will be as
-                specified.  If omitted entirely, or if ``None`` in a given
-                dimension, the corresponding index-column domain will use an
-                empty range, and data writes after that will fail with an
-                exception.  Unless you have a particular reason not to, you
-                should always provide the desired `domain` at create time: this
-                is an optional but strongly recommended parameter.
             platform_config: platform-specific configuration; keys are SOMA
                 implementation names.
             context: Other implementation-specific configuration.
@@ -107,11 +75,10 @@ class PointCloudDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     # Data operations
 
-    @abc.abstractmethod
     def read(
         self,
         coords: options.SparseDFCoords = (),
@@ -147,9 +114,8 @@ class PointCloudDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
-    @abc.abstractmethod
     def read_spatial_region(
         self,
         region: options.SpatialRegion | None = None,
@@ -162,10 +128,9 @@ class PointCloudDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
         result_order: options.ResultOrderStr = _RO_AUTO,
         value_filter: str | None = None,
         platform_config: options.PlatformConfig | None = None,
-    ) -> "SpatialRead[data.ReadIter[pa.Table]]":
+    ) -> "SpatialRead[pa.Table]":
         """Reads data intersecting an user-defined region of space into a
         :class:`SpatialRead` with data in Arrow tables.
-
 
         Args:
             region: The region to query. May be a box in the form
@@ -197,12 +162,11 @@ class PointCloudDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
-    @abc.abstractmethod
     def write(
         self,
-        values: Union[pa.RecordBatch, pa.Table],
+        values: pa.RecordBatch | pa.Table,
         *,
         platform_config: options.PlatformConfig | None = None,
     ) -> Self:
@@ -218,64 +182,62 @@ class PointCloudDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
             platform_config: platform-specific configuration; keys are SOMA
                 implementation names.
 
-        Returns: ``self``, to enable method chaining.
+        Returns:
+            ``self``, to enable method chaining.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     # Metadata operations
 
     @property
-    @abc.abstractmethod
     def schema(self) -> pa.Schema:
         """The schema of the data in this dataframe.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     @property
-    @abc.abstractmethod
-    def index_column_names(self) -> Tuple[str, ...]:
+    def index_column_names(self) -> tuple[str, ...]:
         """The names of the index (dimension) columns.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     @property
-    @abc.abstractmethod
     def coordinate_space(self) -> coordinates.CoordinateSpace:
         """Coordinate space for this point cloud.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     @coordinate_space.setter
-    @abc.abstractmethod
     def coordinate_space(self, value: coordinates.CoordinateSpace) -> None:
         """Coordinate space for this point cloud.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     @property
-    @abc.abstractmethod
-    def domain(self) -> Tuple[Tuple[Any, Any], ...]:
+    def domain(self) -> tuple[tuple[Any, Any], ...]:
         """The allowable range of values in each index column.
 
-        Returns: a tuple of minimum and maximum values, inclusive,
+        Returns:
+            A tuple of minimum and maximum values, inclusive,
             storable on each index column of the dataframe.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
 
-class GeometryDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
+@runtime_checkable
+class GeometryDataFrame(base.SOMAObject, Protocol):
     """A specialized SOMA object for storing complex geometries with spatial indexing.
 
     The ``GeometryDataFrame`` class is designed to store and manage geometric shapes such as
@@ -284,23 +246,16 @@ class GeometryDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
     Lifecycle: experimental
     """
 
-    __slots__ = ()
-    soma_type: Final = "SOMAGeometryDataFrame"  # type: ignore[misc]
-
     # Lifecycle
 
     @classmethod
-    @abc.abstractmethod
     def create(
         cls,
         uri: str,
         *,
         schema: pa.Schema,
-        coordinate_space: Union[Sequence[str], coordinates.CoordinateSpace] = (
-            "x",
-            "y",
-        ),
-        domain: Sequence[Tuple[Any, Any] | None] | None = None,
+        domain: Sequence[tuple[Any, Any] | None],
+        coordinate_space: Sequence[str] | coordinates.CoordinateSpace = ("x", "y"),
         platform_config: options.PlatformConfig | None = None,
         context: Any | None = None,
     ) -> Self:
@@ -323,16 +278,14 @@ class GeometryDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
                 must define all columns, including columns to be named as index
                 columns.  If the schema includes types unsupported by the SOMA
                 implementation, an error will be raised.
+            domain: A sequence of tuples specifying the domain of each index column. Each
+                tuple should be a pair consisting of the minimum and maximum values storable
+                in the index column. Two tuples must be provided for the ``soma_geometry``
+                column with the first tuple specifying the minimum and maximum values of
+                the width and the second tuple specifying the minimum and maximum values of the
+                height.
             coordinate_space: Either the coordinate space or the axis names for the
                 coordinate space the point cloud is defined on.
-            domain: An optional sequence of tuples specifying the domain of each
-                index column. Two tuples must be provided for the ``soma_geometry``
-                column which store the width followed by the height. Each tuple should
-                be a pair consisting of the minimum and maximum values storable in the
-                index column. If omitted entirely, or if ``None`` in a given dimension,
-                the corresponding index-column domain will use the minimum and maximum
-                possible values for the column's datatype.  This makes a dataframe
-                growable.
             platform_config: platform-specific configuration; keys are SOMA
                 implementation names.
             context: Other implementation-specific configuration.
@@ -342,11 +295,10 @@ class GeometryDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     # Data operations
 
-    @abc.abstractmethod
     def read(
         self,
         coords: options.SparseDFCoords = (),
@@ -377,14 +329,14 @@ class GeometryDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
                 for the particular SOMA implementation for details.
             platform_config: platform-specific configuration; keys are SOMA
                 implementation names.
+
         Returns:
             A :class:`ReadIter` of :class:`pa.Table`s.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
-    @abc.abstractmethod
     def read_spatial_region(
         self,
         region: options.SpatialRegion | None = None,
@@ -397,10 +349,9 @@ class GeometryDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
         result_order: options.ResultOrderStr = _RO_AUTO,
         value_filter: str | None = None,
         platform_config: options.PlatformConfig | None = None,
-    ) -> "SpatialRead[data.ReadIter[pa.Table]]":
+    ) -> "SpatialRead[pa.Table]":
         """Reads data intersecting an user-defined region of space into a
         :class:`SpatialRead` with data in Arrow tables.
-
 
         Args:
             region: The region to query. May be a box in the form
@@ -432,12 +383,11 @@ class GeometryDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
-    @abc.abstractmethod
     def write(
         self,
-        values: Union[pa.RecordBatch, pa.Table],
+        values: pa.RecordBatch | pa.Table,
         *,
         platform_config: options.PlatformConfig | None = None,
     ) -> Self:
@@ -453,69 +403,62 @@ class GeometryDataFrame(base.SOMAObject, metaclass=abc.ABCMeta):
             platform_config: platform-specific configuration; keys are SOMA
                 implementation names.
 
-        Returns: ``self``, to enable method chaining.
+        Returns:
+            ``self``, to enable method chaining.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     # Metadata operations
 
     @property
-    @abc.abstractmethod
     def schema(self) -> pa.Schema:
         """The schema of the data in this dataframe.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     @property
-    @abc.abstractmethod
-    def index_column_names(self) -> Tuple[str, ...]:
+    def index_column_names(self) -> tuple[str, ...]:
         """The names of the index (dimension) columns.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     @property
-    @abc.abstractmethod
     def coordinate_space(self) -> coordinates.CoordinateSpace:
         """Coordinate space for this geometry dataframe.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     @coordinate_space.setter
-    @abc.abstractmethod
     def coordinate_space(self, value: coordinates.CoordinateSpace) -> None:
         """Coordinate space for this geometry dataframe.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     @property
-    @abc.abstractmethod
-    def domain(self) -> Tuple[Tuple[Any, Any], ...]:
+    def domain(self) -> tuple[tuple[Any, Any], ...]:
         """The allowable range of values in each index column.
 
-        Returns: a tuple of minimum and maximum values, inclusive,
+        Returns:
+            A tuple of minimum and maximum values, inclusive,
             storable on each index column of the dataframe.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
 
-class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
-    base.SOMAObject,
-    Generic[_DenseND, _RootSO],
-    MutableMapping[str, _DenseND],
-    metaclass=abc.ABCMeta,
-):
+@runtime_checkable
+class MultiscaleImage(base.SOMAObject, Protocol):
     """A multiscale image with an extendable number of resolution levels.
 
     The multiscale image defines the top level properties. Each level must
@@ -527,24 +470,21 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
     Lifecycle: experimental
     """
 
-    # This class is implemented as a mixin to be used with SOMA classes.
-    # For example, a SOMA implementation would look like this:
-    #
-    #     # This type-ignore comment will always be needed due to limitations
-    #     # of type annotations; it is (currently) expected.
-    #     class MultiscaleImage(  # type: ignore[type-var]
-    #         ImplBaseCollection[ImplSOMAObject],
-    #         somacore.MultiscaleImage[ImplDenseNDArray, ImpSOMAObject],
-    #     ):
-    #         ...
+    # MutableMapping interface methods
 
-    soma_type: Final = "SOMAMultiscaleImage"  # type: ignore[misc]
-    __slots__ = ()
+    def __getitem__(self, key: str) -> data.DenseNDArray: ...
+
+    def __setitem__(self, key: str, value: data.DenseNDArray) -> None: ...
+
+    def __delitem__(self, key: str) -> None: ...
+
+    def __iter__(self) -> Iterator[str]: ...
+
+    def __len__(self) -> int: ...
 
     # Lifecycle
 
     @classmethod
-    @abc.abstractmethod
     def create(
         cls,
         uri: str,
@@ -553,10 +493,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
         level_shape: Sequence[int],
         level_key: str = "level0",
         level_uri: str | None = None,
-        coordinate_space: Union[Sequence[str], coordinates.CoordinateSpace] = (
-            "x",
-            "y",
-        ),
+        coordinate_space: Sequence[str] | coordinates.CoordinateSpace = ("x", "y"),
         data_axis_order: Sequence[str] | None = None,
         platform_config: options.PlatformConfig | None = None,
         context: Any | None = None,
@@ -592,16 +529,15 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
-    @abc.abstractmethod
     def add_new_level(
         self,
         key: str,
         *,
         uri: str | None = None,
         shape: Sequence[int],
-    ) -> _DenseND:
+    ) -> data.DenseNDArray:
         """Add a new level in the multi-scale image.
 
         Parameters are as in :meth:`data.DenseNDArray.create`. The provided shape will
@@ -610,13 +546,12 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
-    @abc.abstractmethod
     def set(
         self,
         key: str,
-        value: _DenseND,
+        value: data.DenseNDArray,
         *,
         use_relative_uri: bool | None = None,
     ) -> Self:
@@ -637,18 +572,18 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
                 is not possible at all, the collection should raise an error.
                 If ``False``, will always use an absolute URI.
 
-        Returns: ``self``, to enable method chaining.
+        Returns:
+            ``self``, to enable method chaining.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     # Data operations
 
-    @abc.abstractmethod
     def read_spatial_region(
         self,
-        level: Union[int, str],
+        level: int | str,
         region: options.SpatialRegion = (),
         *,
         channel_coords: options.DenseCoord = None,
@@ -680,112 +615,104 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
             region_coord_space: An optional coordinate space for the region being read.
                 The axis names must match the input axis names of the transform.
                 Defaults to ``None``, coordinate space will be inferred from transform.
-            data_axis_order: The order to return the data axes in. Use ``soma_channel``
-                to specify the location of the channel coordinate.
             result_order: The order data to return results, specified as a
                 :class:`~options.ResultOrder` or its string value. This is the result
                 order the data is read from disk. It may be permuted if
                 ``data_axis_order`` is not the default order.
+            data_axis_order: The order to return the data axes in. Use ``soma_channel``
+                to specify the location of the channel coordinate.
             platform_config: platform-specific configuration; keys are SOMA
                 implementation names.
 
         Returns:
             The data bounding the requested region as a :class:`SpatialRead` with
             :class:`pa.Tensor` data.
+
+        Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     # Metadata operations
 
     @property
-    @abc.abstractmethod
     def coordinate_space(self) -> coordinates.CoordinateSpace:
         """Coordinate space for this multiscale image.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     @coordinate_space.setter
-    @abc.abstractmethod
     def coordinate_space(self, value: coordinates.CoordinateSpace) -> None:
         """Coordinate space for this multiscale image.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     @property
-    @abc.abstractmethod
-    def data_axis_order(self) -> Tuple[str, ...]:
+    def data_axis_order(self) -> tuple[str, ...]:
         """The order of the axes for the images.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
-    @abc.abstractmethod
-    def get_transform_from_level(
-        self, level: Union[int, str]
-    ) -> coordinates.ScaleTransform:
+    def get_transform_from_level(self, level: int | str) -> coordinates.CoordinateTransform:
         """Returns the transformation from user requested level to image reference level.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
-    @abc.abstractmethod
-    def get_transform_to_level(
-        self, level: Union[int, str]
-    ) -> coordinates.ScaleTransform:
+    def get_transform_to_level(self, level: int | str) -> coordinates.CoordinateTransform:
         """Returns the transformation from the image reference level to the user
         requested level.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     @property
-    @abc.abstractmethod
     def has_channel_axis(self) -> bool:
         """Returns if the images have an explicit channel axis.
 
         Lifecycle: experimental.
         """
-        raise NotImplementedError()
+        ...
 
     @property
-    @abc.abstractmethod
     def level_count(self) -> int:
         """The number of image levels stored in the MultiscaleImage.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
-    @abc.abstractmethod
-    def level_shape(self, level: Union[int, str]) -> Tuple[int, ...]:
+    def level_shape(self, level: int | str) -> tuple[int, ...]:
         """The shape of the image at the specified level.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
     @property
-    @abc.abstractmethod
     def nchannels(self) -> int:
         """The number of channels.
 
         Lifecycle: experimental
         """
-        raise NotImplementedError()
+        ...
 
 
-@dataclass
-class SpatialRead(Generic[_ReadData]):
+_T = TypeVar("_T", covariant=True)
+
+
+@runtime_checkable
+class SpatialRead(Protocol[_T]):
     """Reader for spatial data.
 
-    Args:
+    Attributes:
         data: The data accessor.
         data_coordinate_space: The coordinate space the read data is defined on.
         output_coordinate_space: The requested output coordinate space.
@@ -795,25 +722,14 @@ class SpatialRead(Generic[_ReadData]):
     Lifecycle: experimental
     """
 
-    data: _ReadData
-    data_coordinate_space: coordinates.CoordinateSpace
-    output_coordinate_space: coordinates.CoordinateSpace
-    coordinate_transform: coordinates.CoordinateTransform
+    @property
+    def data(self) -> data.ReadIter[pa.Tensor] | pa.Tensor: ...
 
-    def __post_init__(self):
-        if (
-            self.data_coordinate_space.axis_names
-            != self.coordinate_transform.input_axes
-        ):
-            raise ValueError(
-                "Input coordinate transform axis names do not match the data coordinate "
-                "space."
-            )
-        if (
-            self.output_coordinate_space.axis_names
-            != self.coordinate_transform.output_axes
-        ):
-            raise ValueError(
-                "Output coordinate transform axis names do not match the output "
-                "coordinate space."
-            )
+    @property
+    def data_coordinate_space(self) -> coordinates.CoordinateSpace: ...
+
+    @property
+    def output_coordinate_space(self) -> coordinates.CoordinateSpace: ...
+
+    @property
+    def coordinate_transform(self) -> coordinates.CoordinateTransform: ...

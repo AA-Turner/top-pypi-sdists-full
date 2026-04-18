@@ -26,9 +26,7 @@ use std::collections::{HashMap, HashSet};
 /// Normalize a rule name to its canonical form (e.g., "line-length" -> "MD013").
 /// If the rule name is not recognized, returns it uppercase (for forward compatibility).
 fn normalize_rule_name(rule: &str) -> String {
-    markdownlint_to_rumdl_rule_key(rule)
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| rule.to_uppercase())
+    markdownlint_to_rumdl_rule_key(rule).map_or_else(|| rule.to_uppercase(), std::string::ToString::to_string)
 }
 
 fn has_inline_config_markers(content: &str) -> bool {
@@ -658,7 +656,7 @@ pub fn validate_inline_config_rules(content: &str) -> Vec<InlineConfigWarning> {
     use crate::config::{RULE_ALIAS_MAP, is_valid_rule_name, suggest_similar_key};
 
     let mut warnings = Vec::new();
-    let all_rule_names: Vec<String> = RULE_ALIAS_MAP.keys().map(|s| s.to_string()).collect();
+    let all_rule_names: Vec<String> = RULE_ALIAS_MAP.keys().map(std::string::ToString::to_string).collect();
 
     for (idx, line) in content.lines().enumerate() {
         let line_num = idx + 1;
@@ -686,7 +684,7 @@ pub fn validate_inline_config_rules(content: &str) -> Vec<InlineConfigWarning> {
                                     .map(|s| if s.starts_with("MD") { s } else { s.to_lowercase() });
                                 warnings.push(InlineConfigWarning {
                                     line_number: line_num,
-                                    rule_name: rule_name.to_string(),
+                                    rule_name: rule_name.clone(),
                                     comment_type: "configure-file".to_string(),
                                     suggestion,
                                 });

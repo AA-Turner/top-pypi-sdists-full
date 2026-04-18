@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define tools to perform PSF-fitting photometry.
+Tools for performing PSF-fitting photometry.
 """
 
 import contextlib
@@ -13,17 +13,21 @@ import numpy as np
 from astropy.modeling.fitting import TRFLSQFitter
 from astropy.nddata import NDData, StdDevUncertainty
 from astropy.table import QTable
-from astropy.utils import lazyproperty
 from astropy.utils.decorators import deprecated
 from astropy.utils.exceptions import AstropyUserWarning
 
 from photutils.background import LocalBackground
 from photutils.psf._components import (PSFDataProcessor, PSFFitter,
-                                       PSFResultsAssembler)
-from photutils.psf.groupers import SourceGrouper
-from photutils.psf.utils import (ModelImageMixin, _create_call_docstring,
+                                       PSFResultsAssembler,
+                                       _make_model_image_docstring,
+                                       _make_residual_image_docstring,
+                                       _ModelImageMaker)
+from photutils.psf.flags import decode_psf_flags
+from photutils.psf.utils import (_create_call_docstring,
                                  _get_psf_model_main_params, _make_mask,
                                  _validate_psf_model)
+from photutils.utils._deprecation import (deprecated_positional_kwargs,
+                                          deprecated_renamed_argument)
 from photutils.utils._parameters import as_pair
 from photutils.utils._progress_bars import add_progress_bar
 from photutils.utils._quantity_helpers import process_quantities
@@ -210,7 +214,7 @@ class _PSFParameterMapper:
         return table
 
 
-class PSFPhotometry(ModelImageMixin):
+class PSFPhotometry:
     """
     Class to perform PSF photometry.
 
@@ -232,12 +236,12 @@ class PSFPhotometry(ModelImageMixin):
     fit_shape : int or length-2 array_like
         The rectangular shape around the initial source position that
         will be used to define the PSF-fitting data. If ``fit_shape``
-        is a scalar then a square shape of size ``fit_shape`` will
-        be used. If ``fit_shape`` has two elements, they must be in
-        ``(ny, nx)`` order. Each element of ``fit_shape`` must be an odd
-        number. In general, ``fit_shape`` should be set to a small size
-        (e.g., ``(5, 5)``) that covers the region with the highest flux
-        signal-to-noise.
+        is a scalar then a square shape of size ``fit_shape`` will be
+        used. If ``fit_shape`` has two elements, they must be in ``(ny,
+        nx)`` order. Each element of ``fit_shape`` must be an odd number
+        greater than or equal to 3. In general, ``fit_shape`` should be
+        set to a small size (e.g., ``(5, 5)``) that covers the region
+        with the highest flux signal-to-noise.
 
     finder : callable or `~photutils.detection.StarFinderBase` or `None`, \
             optional
@@ -263,7 +267,7 @@ class PSFPhotometry(ModelImageMixin):
         are those that overlap with their neighbors. Sources that are
         grouped are fit simultaneously. The ``grouper`` must accept
         the x and y coordinates of the sources and return an integer
-        array of the group id numbers (starting from 1) indicating
+        array of the group ID numbers (starting from 1) indicating
         the group in which a given source belongs. If `None`, then no
         grouping is performed, i.e. each source is fit independently.
         The ``group_id`` values in ``init_params`` override this
@@ -277,8 +281,10 @@ class PSFPhotometry(ModelImageMixin):
 
     fitter_maxiters : int, optional
         The maximum number of iterations in which the ``fitter`` is
-        called for each source. The value can be increased if the fit is
-        not converging for sources.
+        called for each source. The value can be increased if the fit
+        is not converging for sources. This parameter is passed to the
+        ``fitter`` if it supports the ``maxiter`` parameter and ignored
+        otherwise.
 
     xy_bounds : `None`, float, or 2-tuple of float, optional
         The maximum distance in pixels that a fitted source can be from
@@ -296,7 +302,7 @@ class PSFPhotometry(ModelImageMixin):
         values are present in the ``init_params`` table, they will
         override this keyword.
 
-    localbkg_estimator : `~photutils.background.LocalBackground` or `None`, \
+    local_bkg_estimator : `~photutils.background.LocalBackground` or `None`, \
             optional
         The object used to estimate the local background around each
         source. If `None`, then no local background is subtracted. The
@@ -348,7 +354,7 @@ class PSFPhotometry(ModelImageMixin):
     can try a different Astropy fitter that returns parameter errors.
 
     The local background value around each source is optionally
-    estimated using the ``localbkg_estimator`` or obtained from the
+    estimated using the ``local_bkg_estimator`` or obtained from the
     ``local_bkg`` column in the input ``init_params`` table. This local
     background is then subtracted from the data over the ``fit_shape``
     region for each source before fitting the PSF model. For sources
@@ -356,7 +362,7 @@ class PSFPhotometry(ModelImageMixin):
     effectively be subtracted twice in the overlapping ``fit_shape``
     regions, even if the source ``grouper`` is input. This is not an
     issue if the sources are well-separated. However, for crowded
-    fields, please use the ``localbkg_estimator`` (or ``local_bkg``
+    fields, please use the ``local_bkg_estimator`` (or ``local_bkg``
     column in ``init_params``) with care.
 
     Care should be taken in defining the source groups. Simultaneously
@@ -369,33 +375,39 @@ class PSFPhotometry(ModelImageMixin):
     in a group exceeds the ``group_warning_threshold`` value.
     """
 
+    # Default value for parameter initialization (invalid sources)
+    _DEFAULT_PARAM_VALUE = np.nan
+
+    @deprecated_renamed_argument('localbkg_estimator',
+                                 'local_bkg_estimator', '3.0',
+                                 until='4.0')
     def __init__(self, psf_model, fit_shape, *, finder=None, grouper=None,
                  fitter=None, fitter_maxiters=100, xy_bounds=None,
-                 aperture_radius=None, localbkg_estimator=None,
+                 aperture_radius=None, local_bkg_estimator=None,
                  group_warning_threshold=25, progress_bar=False):
 
         self.psf_model = _validate_psf_model(psf_model)
         self._param_mapper = _PSFParameterMapper(self.psf_model)
 
-        self.fit_shape = as_pair('fit_shape', fit_shape, lower_bound=(1, 0),
+        self.fit_shape = as_pair('fit_shape', fit_shape, lower_bound=(1, 1),
                                  check_odd=True)
         self.finder = self._validate_callable(finder, 'finder')
-        self.grouper = self._validate_grouper(grouper)
+        self.grouper = self._validate_callable(grouper, 'grouper')
         if fitter is None:
             fitter = TRFLSQFitter()
         self.fitter = self._validate_callable(fitter, 'fitter')
         self.fitter_maxiters = self._validate_maxiters(fitter_maxiters)
         self.xy_bounds = self._validate_bounds(xy_bounds)
         self.aperture_radius = self._validate_radius(aperture_radius)
-        self.localbkg_estimator = self._validate_localbkg(
-            localbkg_estimator, 'localbkg_estimator')
+        self.local_bkg_estimator = self._validate_localbkg(
+            local_bkg_estimator, 'local_bkg_estimator')
         self.group_warning_threshold = group_warning_threshold
         self.progress_bar = progress_bar
 
         self._data_processor = PSFDataProcessor(
             self._param_mapper, self.fit_shape, finder=self.finder,
             aperture_radius=self.aperture_radius,
-            localbkg_estimator=self.localbkg_estimator,
+            local_bkg_estimator=self.local_bkg_estimator,
         )
 
         self._psf_fitter = PSFFitter(
@@ -411,7 +423,7 @@ class PSFPhotometry(ModelImageMixin):
         # used by the __repr__ method and the output table metadata
         self._attrs = ('psf_model', 'fit_shape', 'finder', 'grouper', 'fitter',
                        'fitter_maxiters', 'xy_bounds', 'aperture_radius',
-                       'localbkg_estimator', 'group_warning_threshold',
+                       'local_bkg_estimator', 'group_warning_threshold',
                        'progress_bar')
 
         self._reset_results()
@@ -436,16 +448,13 @@ class PSFPhotometry(ModelImageMixin):
             'fit_param_errs': None,
             'fit_error_indices': None,
             'fitted_models_table': None,
-            'npixfit': None,
+            'n_pixels_fit': None,
             'group_size': None,
             'invalid_reasons': None,
             'sum_abs_residuals': None,
             'cen_residuals': None,
             'reduced_chi2': None,
         }
-
-        # remove cached properties
-        self.__dict__.pop('_model_image_params', None)
 
     def _initialize_source_state_storage(self, n_sources):
         """
@@ -460,7 +469,7 @@ class PSFPhotometry(ModelImageMixin):
         nfitparam = len(self._param_mapper.fitted_param_names)
         self._state.update({
             'fit_param_errs': np.full((n_sources, nfitparam), np.nan),
-            'npixfit': np.zeros(n_sources, dtype=int),
+            'n_pixels_fit': np.zeros(n_sources, dtype=int),
             'invalid_reasons': [''] * n_sources,
             'sum_abs_residuals': np.full(n_sources, np.nan, dtype=float),
             'cen_residuals': np.full(n_sources, np.nan, dtype=float),
@@ -472,7 +481,7 @@ class PSFPhotometry(ModelImageMixin):
 
         # Initialize model parameter storage directly
         self._init_model_param_storage(n_sources)
-        self.fit_info = [{}] * n_sources
+        self.fit_info = [{} for _ in range(n_sources)]
 
     def _init_model_param_storage(self, n_sources):
         """
@@ -484,15 +493,13 @@ class PSFPhotometry(ModelImageMixin):
         """
         # get all parameter names from the PSF model
         model_params = list(self.psf_model.param_names)
-        flux_param = self._param_mapper.alias_to_model_param['flux']
 
         # initialize parameter value storage
         param_data = {}
         for model_param in model_params:
-            # initialize with appropriate defaults
-            default_val = (0.0 if model_param == flux_param else np.nan)
-
-            param_data[model_param] = np.full(n_sources, default_val)
+            # initialize all parameters with np.nan (for invalid sources)
+            param_data[model_param] = np.full(n_sources,
+                                              self._DEFAULT_PARAM_VALUE)
             param_data[f'{model_param}_fixed'] = [None] * n_sources
             param_data[f'{model_param}_bounds'] = [None] * n_sources
 
@@ -507,25 +514,26 @@ class PSFPhotometry(ModelImageMixin):
         Extract and store model parameters directly instead of storing
         the full model object.
 
+        This method updates the internal state container with model
+        parameter values, fixed flags, and bounds for a specific source.
+
         Parameters
         ----------
         row_index : int
             The index of the source in the results arrays.
 
         model : astropy.modeling.Model or None
-            The fitted model for this source, or None for invalid sources.
+            The fitted model for this source, or None for invalid
+            sources.
         """
         param_data = self._state['model_param_data']
-        flux_param = self._param_mapper.alias_to_model_param['flux']
 
         if model is None:
             # For invalid sources, use default template from psf_model
             template_model = self.psf_model
             for param_name in template_model.param_names:
-                if param_name == flux_param:
-                    param_data[param_name][row_index] = 0.0
-                else:
-                    param_data[param_name][row_index] = np.nan
+                # Set all parameters to np.nan for invalid sources
+                param_data[param_name][row_index] = self._DEFAULT_PARAM_VALUE
 
                 template_param = getattr(template_model, param_name)
                 param_data[f'{param_name}_fixed'][row_index] = (
@@ -570,27 +578,86 @@ class PSFPhotometry(ModelImageMixin):
         return make_repr(self, self._attrs)
 
     @staticmethod
+    def _validate_type(obj, name, expected_type):
+        """
+        Validate that object is of expected type.
+
+        Parameters
+        ----------
+        obj : object or None
+            Object to validate.
+
+        name : str
+            Name of the parameter for error messages.
+
+        expected_type : type or tuple of types
+            Expected type(s) for the object.
+
+        Returns
+        -------
+        obj : object or None
+            The validated object.
+
+        Raises
+        ------
+        error_type
+            If obj is not None and not an instance of expected_type.
+        """
+        if obj is not None and not isinstance(obj, expected_type):
+            type_name = expected_type.__name__
+            msg = f'{name} must be a {type_name} instance'
+            raise TypeError(msg)
+        return obj
+
+    @staticmethod
     def _validate_callable(obj, name):
         """
         Validate that the input object is callable.
+
+        Parameters
+        ----------
+        obj : object or None
+            Object to validate.
+
+        name : str
+            Name of the parameter for error messages.
+
+        Returns
+        -------
+        obj : object or None
+            The validated callable object.
+
+        Raises
+        ------
+        TypeError
+            If obj is not None and not callable.
         """
         if obj is not None and not callable(obj):
             msg = f'{name!r} must be a callable object'
             raise TypeError(msg)
         return obj
 
-    def _validate_grouper(self, grouper):
-        """
-        Validate the input ``grouper`` value.
-        """
-        if grouper is not None and not isinstance(grouper, SourceGrouper):
-            msg = 'grouper must be a SourceGrouper instance'
-            raise ValueError(msg)
-        return grouper
-
     def _validate_bounds(self, xy_bounds):
         """
         Validate the input ``xy_bounds`` value.
+
+        Parameters
+        ----------
+        xy_bounds : float, tuple of float, or None
+            The maximum distance(s) in pixels that fitted sources can be
+            from initial positions.
+
+        Returns
+        -------
+        xy_bounds : ndarray or None
+            The validated xy_bounds as a 2-element array, or None if
+            input was None.
+
+        Raises
+        ------
+        ValueError
+            If xy_bounds has incorrect shape, dimension, or contains
+            invalid values (non-positive or non-finite).
         """
         if xy_bounds is None:
             return xy_bounds
@@ -618,6 +685,22 @@ class PSFPhotometry(ModelImageMixin):
     def _validate_radius(radius):
         """
         Validate the input ``aperture_radius`` value.
+
+        Parameters
+        ----------
+        radius : float or None
+            The aperture radius value to validate.
+
+        Returns
+        -------
+        radius : float or None
+            The validated aperture radius.
+
+        Raises
+        ------
+        ValueError
+            If radius is not None and is not a strictly positive finite
+            scalar.
         """
         if radius is not None and (not np.isscalar(radius)
                                    or radius <= 0 or not np.isfinite(radius)):
@@ -627,55 +710,65 @@ class PSFPhotometry(ModelImageMixin):
 
     def _validate_localbkg(self, value, name):
         """
-        Validate the input ``localbkg_estimator`` value.
+        Validate the input ``local_bkg_estimator`` value.
+
+        Parameters
+        ----------
+        value : LocalBackground or None
+            The local background estimator to validate.
+
+        name : str
+            Name of the parameter for error messages.
+
+        Returns
+        -------
+        value : LocalBackground or None
+            The validated local background estimator.
+
+        Raises
+        ------
+        TypeError
+            If value is not None and not a LocalBackground instance.
         """
-        if value is not None and not isinstance(value, LocalBackground):
-            msg = 'localbkg_estimator must be a LocalBackground instance'
-            raise ValueError(msg)
+        value = self._validate_type(value, 'local_bkg_estimator',
+                                    LocalBackground)
         return self._validate_callable(value, name)
 
     def _validate_maxiters(self, maxiters):
         """
         Validate the input ``maxiters`` value.
+
+        Parameters
+        ----------
+        maxiters : int or None
+            Maximum number of fitter iterations to validate.
+
+        Returns
+        -------
+        maxiters : int or None
+            The validated maxiters value, or None if the fitter doesn't
+            support this parameter.
         """
         spec = inspect.signature(self.fitter.__call__)
         if 'maxiter' not in spec.parameters:
-            warnings.warn('"maxiters" will be ignored because it is not '
-                          'accepted by the input fitter __call__ method',
-                          AstropyUserWarning)
+            msg = ("'maxiters' will be ignored because it is not accepted "
+                   'by the input fitter __call__ method.')
+            warnings.warn(msg, AstropyUserWarning)
             maxiters = None
         return maxiters
-
-    def _validate_array(self, array, name, data_shape=None):
-        """
-        Validate input arrays (data, error, mask).
-
-        This method delegates to the data processor component.
-        """
-        return self._data_processor.validate_array(array, name, data_shape)
-
-    def _validate_init_params(self, init_params):
-        """
-        Validate the input init_params table.
-
-        This method delegates to the data processor component.
-        """
-        return self._data_processor.validate_init_params(init_params)
 
     def _sync_data_unit(self):
         """
         Synchronize data_unit between main class and components.
+
+        This method ensures that the data_unit attribute is consistent
+        between the PSFPhotometry instance and its internal component
+        objects (e.g., _data_processor).
+
+        This method modifies the internal state in-place.
         """
         if hasattr(self, '_data_processor'):
             self._data_processor.data_unit = self.data_unit
-
-    def _get_aper_fluxes(self, data, mask, init_params):
-        """
-        Estimate aperture fluxes at the initial (x, y) positions.
-
-        This method delegates to the data processor component.
-        """
-        return self._data_processor.get_aper_fluxes(data, mask, init_params)
 
     def _find_sources_if_needed(self, data, mask, init_params):
         """
@@ -689,15 +782,6 @@ class PSFPhotometry(ModelImageMixin):
             data, mask, init_params)
         self.finder_results = self._data_processor.finder_results
         return result
-
-    def _estimate_flux_and_bkg_if_needed(self, data, mask, init_params):
-        """
-        Estimate initial fluxes and backgrounds if not provided.
-
-        This method delegates to the data processor component.
-        """
-        return self._data_processor.estimate_flux_and_bkg_if_needed(
-            data, mask, init_params)
 
     def _group_sources(self, init_params):
         """
@@ -777,8 +861,8 @@ class PSFPhotometry(ModelImageMixin):
             if isinstance(init_params[colname], u.Quantity):
                 init_params[colname] = init_params[colname].value
 
-        init_params = self._estimate_flux_and_bkg_if_needed(data, mask,
-                                                            init_params)
+        add_flux_bkg = self._data_processor.estimate_flux_and_bkg_if_needed
+        init_params = add_flux_bkg(data, mask, init_params)
         init_params = self._group_sources(init_params)
 
         # check for large group sizes after grouping is complete
@@ -864,12 +948,15 @@ class PSFPhotometry(ModelImageMixin):
                                                  ('data', 'error'))
         self.data_unit = unit
         self._sync_data_unit()  # Sync with components
-        data = self._validate_array(data, 'data')
-        error = self._validate_array(error, 'error', data_shape=data.shape)
-        mask = self._validate_array(mask, 'mask', data_shape=data.shape)
+
+        data = self._data_processor.validate_array(data, 'data')
+        error = self._data_processor.validate_array(error, 'error',
+                                                    data_shape=data.shape)
+        mask = self._data_processor.validate_array(mask, 'mask',
+                                                   data_shape=data.shape)
         mask = _make_mask(data, mask)
 
-        init_params = self._validate_init_params(init_params)
+        init_params = self._data_processor.validate_init_params(init_params)
         init_params = self._build_initial_parameters(data, mask, init_params)
 
         if init_params is None:
@@ -877,71 +964,6 @@ class PSFPhotometry(ModelImageMixin):
             return None, None, None, None
 
         return data, mask, error, init_params
-
-    def _make_psf_model(self, sources):
-        """
-        Make a PSF model to fit a single source or several sources
-        within a group.
-
-        For groups, a dynamic flat PSF model is created that avoids the
-        performance and memory issues associated with the deeply-nested
-        parameter structure and tree traversal of Astropy
-        CompoundModels.
-        """
-        return self._psf_fitter.make_psf_model(sources)
-
-    def _get_fit_offsets(self):
-        """
-        Return cached (y_offsets, x_offsets) arrays for fit_shape.
-
-        This method delegates to the data processor component.
-        """
-        return self._data_processor.get_fit_offsets()
-
-    def _should_skip_source(self, row, data_shape):
-        """
-        Quick validation to skip obviously invalid sources early.
-
-        This method delegates to the data processor component.
-        """
-        return self._data_processor.should_skip_source(row, data_shape)
-
-    def _get_source_cutout_data(self, row, data, mask, y_offsets, x_offsets):
-        """
-        Extract per-source pixel indices and cutout data.
-
-        This method delegates to the data processor component.
-        """
-        return self._data_processor.get_source_cutout_data(
-            row, data, mask, y_offsets, x_offsets)
-
-    def _run_fitter(self, psf_model, xi, yi, cutout, error):
-        """
-        Fit the PSF model to the input cutout data.
-
-        This method delegates to the PSF fitter component.
-        """
-        return self._psf_fitter.run_fitter(psf_model, xi, yi, cutout, error)
-
-    def _extract_source_covariances(self, group_cov, num_sources, nfitparam):
-        """
-        Extract individual source covariance matrices from group
-        covariance.
-
-        This method delegates to the PSF fitter component.
-        """
-        return self._psf_fitter.extract_source_covariances(
-            group_cov, num_sources, nfitparam)
-
-    def _split_flat_model(self, flat_model, n_sources):
-        """
-        Split a flat model for grouped sources into individual source
-        models.
-
-        This method returns individual PSF models with parameters
-        extracted from the flat model's parameter values.
-        """
-        return self._psf_fitter.split_flat_model(flat_model, n_sources)
 
     def _ungroup_fit_results(self, row_indices, valid_mask, group_model,
                              group_fit_info):
@@ -991,7 +1013,7 @@ class PSFPhotometry(ModelImageMixin):
             source_param_errs = param_err_1d.reshape(num_valid, nfitparam)
 
             # Extract individual covariance matrices for each source
-            source_covs = self._extract_source_covariances(
+            source_covs = self._psf_fitter.extract_source_covariances(
                 param_cov, num_valid, nfitparam)
 
         # Split models and extract parameters
@@ -1000,7 +1022,8 @@ class PSFPhotometry(ModelImageMixin):
         else:
             # For grouped (flat) models, create individual models from
             # params
-            source_models = self._split_flat_model(group_model, num_valid)
+            source_models = self._psf_fitter.split_flat_model(group_model,
+                                                              num_valid)
 
         # Store results for each valid source
         valid_idx = 0
@@ -1027,8 +1050,8 @@ class PSFPhotometry(ModelImageMixin):
             valid_idx += 1
 
     def _calculate_residual_metrics(self, row_indices, valid_mask,
-                                    npixfit_full, cen_index_full, error=None,
-                                    xi_all=None, yi_all=None):
+                                    npixfit_full, cen_index_full, *,
+                                    error=None, xi_all=None, yi_all=None):
         """
         Calculate residual-based fit metrics for valid sources.
 
@@ -1193,7 +1216,7 @@ class PSFPhotometry(ModelImageMixin):
             source_groups = add_progress_bar(source_groups,
                                              desc='Fit source/group')
 
-        y_offsets, x_offsets = self._get_fit_offsets()
+        y_offsets, x_offsets = self._data_processor.get_fit_offsets()
         nfitparam_per_source = len(self._param_mapper.fitted_param_names)
 
         # sources are fit by groups in group ID order
@@ -1211,7 +1234,8 @@ class PSFPhotometry(ModelImageMixin):
             # Process all sources with pre-filtering optimization
             for row in source_group:
                 # Always use pre-filtering for all group sizes
-                should_skip, reason = self._should_skip_source(row, data.shape)
+                should_skip_source = self._data_processor.should_skip_source
+                should_skip, reason = should_skip_source(row, data.shape)
                 if should_skip:
                     res = {
                         'valid': False,
@@ -1223,8 +1247,8 @@ class PSFPhotometry(ModelImageMixin):
                         'cen_index': np.nan,
                     }
                 else:
-                    res = self._get_source_cutout_data(row, data, mask,
-                                                       y_offsets, x_offsets)
+                    res = self._data_processor.get_source_cutout_data(
+                        row, data, mask, y_offsets, x_offsets)
 
                 # Common processing for all sources
                 npixfit_full.append(res['npix'])
@@ -1250,8 +1274,8 @@ class PSFPhotometry(ModelImageMixin):
             # source ID order given by init_params.
             row_indices_arr = np.array(row_indices)
             self._state['group_size'][row_indices_arr] = group_size
-            self._state['npixfit'][row_indices_arr] = np.array(npixfit_full,
-                                                               dtype=int)
+            self._state['n_pixels_fit'][row_indices_arr] = np.array(
+                npixfit_full, dtype=int)
 
             for i, row_index in enumerate(row_indices):
                 reason = invalid_reasons[i]
@@ -1271,10 +1295,9 @@ class PSFPhotometry(ModelImageMixin):
             yi_concat = np.concatenate(yi_all)
             cutout_concat = np.concatenate(cutout_all)
             valid_sources = source_group[valid_mask]
-            psf_model = self._make_psf_model(valid_sources)
-            fit_model, fit_info = self._run_fitter(psf_model, xi_concat,
-                                                   yi_concat, cutout_concat,
-                                                   error)
+            psf_model = self._psf_fitter.make_psf_model(valid_sources)
+            fit_model, fit_info = self._psf_fitter.run_fitter(
+                psf_model, xi_concat, yi_concat, cutout_concat, error)
 
             # Ungroup and store per-source results. row_indices is used
             # to ensure that results are stored in the original source
@@ -1382,7 +1405,7 @@ class PSFPhotometry(ModelImageMixin):
         return self._results_assembler.calc_fit_metrics(
             results_tbl, sum_abs_residuals, cen_residuals, reduced_chi2)
 
-    def _define_flags(self, results_tbl, shape):
+    def _define_flags(self, results_tbl, shape, init_params):
         """
         Define per-source bitwise flags summarizing fit conditions.
 
@@ -1395,7 +1418,7 @@ class PSFPhotometry(ModelImageMixin):
 
         return self._results_assembler.define_flags(
             results_tbl, shape, fit_error_indices, self.fit_info,
-            fitted_models_table, valid_mask, invalid_reasons)
+            fitted_models_table, valid_mask, invalid_reasons, init_params)
 
     def _assemble_results_table(self, init_params, fit_params, data_shape):
         """
@@ -1405,7 +1428,7 @@ class PSFPhotometry(ModelImageMixin):
         """
         # prepare metadata attributes
         class_attrs = {'psf_model', 'finder', 'grouper', 'fitter',
-                       'localbkg_estimator'}
+                       'local_bkg_estimator'}
         metadata_attrs = {}
         for attr in self._attrs:
             value = getattr(self, attr)
@@ -1531,38 +1554,51 @@ class PSFPhotometry(ModelImageMixin):
         return tbl
 
     @staticmethod
-    def _results_to_init_params(results_tbl, reset_id=True):
+    def _results_to_init_params(results_tbl, *, remove_invalid=True,
+                                reset_ids=True):
         """
-        Create a table of the fitted model parameters from the results.
+        Convert PSF photometry results to initial parameters format.
 
-        The table columns are named according to those expected for the
-        initial parameters table. It can be used as the ``init_params``
-        for subsequent `PSFPhotometry` fits.
-
-        Rows that contain non-finite fitted values are removed.
+        This method extracts fitted parameters (columns ending with
+        '_fit') from the results table and renames them to initial
+        parameter format (ending with '_init'). This output can be used
+        as ``init_params`` for subsequent `PSFPhotometry` runs, allowing
+        iterative refinement of source positions and fluxes.
 
         This is a static helper method to allow it to be called by
-        IterativePSFPhotometry.
+        `~photutils.psf.IterativePSFPhotometry`.
 
         Parameters
         ----------
-        results_tbl : `~astropy.table.QTable`
+        results_tbl : `~astropy.table.QTable` or None
             The table of fit results from a previous `PSFPhotometry` run.
+            If None, returns None.
 
-        reset_id : bool, optional
-            If `True`, the 'id' column will be reset to a sequential
-            numbering starting from 1. If `False`, the 'id' column will
-            be copied as is from `results_tbl`. This is useful only in
-            the the case where there are non-finite fitted values in the
-            table, which would otherwise result in a non-sequential 'id'
-            column.
+        remove_invalid : bool, optional
+            If `True`, rows containing non-finite fitted values are
+            removed. Default is `True`.
+
+        reset_ids : bool, optional
+            If `True`, the 'id' column is reset to sequential numbering
+            starting from 1. If `False`, the 'id' values are preserved
+            from ``results_tbl``. This option is ignored if
+            ``remove_invalid`` is `False`. Default is `True`.
 
         Returns
         -------
-        init_params_tbl : `~astropy.table.QTable` or `None`
-            A table of initial parameters for the next `PSFPhotometry`
-            run, or `None` if `results_tbl` is `None`.
+        init_params_tbl : `~astropy.table.QTable` or None
+            A table with columns renamed from '*_fit' to '*_init',
+            suitable for use as ``init_params`` in a subsequent
+            `PSFPhotometry` call. Returns None if ``results_tbl`` is
+            None.
+
+        Notes
+        -----
+        Only the 'id' column and columns with '_fit' suffix are included
+        in the output. All other columns from the results table (e.g.,
+        quality metrics, flags) are excluded.
         """
+        # PSF photometry not yet run
         if results_tbl is None:
             return None
 
@@ -1572,54 +1608,67 @@ class PSFPhotometry(ModelImageMixin):
                 init_name = col_name.replace('_fit', '_init')
                 tbl[init_name] = results_tbl[col_name]
 
-        # remove rows that contain non-finite values
-        keep = np.all([np.isfinite(tbl[col]) for col in tbl.colnames], axis=0)
-        tbl = tbl[keep]
+        if remove_invalid:
+            # Remove rows with any non-finite fitted values
+            keep = np.all([np.isfinite(tbl[col])
+                           for col in tbl.colnames], axis=0)
+            tbl = tbl[keep]
 
-        # reset the 'id' column to a sequential numbering starting from 1
-        if reset_id:
-            tbl['id'] = np.arange(1, len(tbl) + 1)
+            if reset_ids:
+                tbl['id'] = np.arange(1, len(tbl) + 1)
 
         return tbl
 
     @staticmethod
-    def _results_to_model_params(results_tbl, param_mapper, reset_id=True):
+    def _results_to_model_params(results_tbl, param_mapper, *,
+                                 remove_invalid=True, reset_ids=True):
         """
-        Create a table of the fitted model parameters from the results.
+        Convert PSF photometry results to PSF model parameters format.
 
-        The table columns are named according to the PSF model parameter
-        names. It can also be used to reconstruct the fitted PSF models
-        for visualization or further analysis.
-
-        Rows that contain non-finite fitted values are removed.
+        This method extracts fitted parameters (columns ending with
+        '_fit') from the results table and renames them to match the
+        PSF model's parameter names (e.g., 'x_fit' → 'x_0', 'flux_fit'
+        → 'flux'). This output can be used to reconstruct fitted PSF
+        models for visualization or further analysis.
 
         This is a static helper method to allow it to be called by
-        IterativePSFPhotometry.
+        `~photutils.psf.IterativePSFPhotometry`.
 
         Parameters
         ----------
-        results_tbl : `~astropy.table.QTable`
+        results_tbl : `~astropy.table.QTable` or None
             The table of fit results from a previous `PSFPhotometry`
-            run.
-
-        reset_id : bool, optional
-            If `True`, the 'id' column will be reset to a sequential
-            numbering starting from 1. If `False`, the 'id' column will
-            be copied as is from `results_tbl`. This is useful only in
-            the the case where there are non-finite fitted values in the
-            table, which would otherwise result in a non-sequential 'id'
-            column.
+            run. If None, returns None.
 
         param_mapper : `_PSFParameterMapper`
-            The helper class that manages the mapping between PSF model
-            parameter names and table column names.
+            The helper class that manages the mapping between aliases
+            (e.g., 'x', 'flux') and PSF model parameter names (e.g.,
+            'x_0', 'flux').
+
+        remove_invalid : bool, optional
+            If `True`, rows containing non-finite fitted values are
+            removed. Default is `True`.
+
+        reset_ids : bool, optional
+            If `True`, the 'id' column is reset to sequential
+            numbering starting from 1. If `False`, the 'id' values are
+            preserved from ``results_tbl``. This option is ignored if
+            ``remove_invalid`` is `False`. Default is `True`.
 
         Returns
         -------
-        model_params_tbl : `~astropy.table.QTable` or `None`
-            A table of fitted model parameters, or `None` if
-            `results_tbl` is `None`.
+        model_params_tbl : `~astropy.table.QTable` or None
+            A table with columns renamed to match the PSF model's
+            parameter names, suitable for model reconstruction. Returns
+            None if ``results_tbl`` is None.
+
+        Notes
+        -----
+        Only the 'id' column and columns with '_fit' suffix are included
+        in the output. All other columns from the results table (e.g.,
+        initial parameters, quality metrics, flags) are excluded.
         """
+        # PSF photometry not yet run
         if results_tbl is None:
             return None
 
@@ -1631,17 +1680,18 @@ class PSFPhotometry(ModelImageMixin):
                     alias, alias)
                 tbl[model_param_name] = results_tbl[col_name]
 
-        # remove rows that contain non-finite values
-        keep = np.all([np.isfinite(tbl[col]) for col in tbl.colnames], axis=0)
-        tbl = tbl[keep]
+        if remove_invalid:
+            # Remove rows with any non-finite fitted values
+            keep = np.all([np.isfinite(tbl[col])
+                           for col in tbl.colnames], axis=0)
+            tbl = tbl[keep]
 
-        # reset the 'id' column to a sequential numbering starting from 1
-        if reset_id:
-            tbl['id'] = np.arange(1, len(tbl) + 1)
+            if reset_ids:
+                tbl['id'] = np.arange(1, len(tbl) + 1)
 
         return tbl
 
-    def results_to_init_params(self):
+    def results_to_init_params(self, *, remove_invalid=True, reset_ids=True):
         """
         Create a table of the fitted model parameters from the results.
 
@@ -1649,11 +1699,23 @@ class PSFPhotometry(ModelImageMixin):
         initial parameters table. It can be used as the ``init_params``
         for subsequent `PSFPhotometry` fits.
 
-        Rows that contain non-finite fitted values are removed.
-        """
-        return self._results_to_init_params(self.results, reset_id=True)
+        Parameters
+        ----------
+        remove_invalid : bool, optional
+            If `True`, rows that contain non-finite fitted values are
+            removed.
 
-    def results_to_model_params(self):
+        reset_ids : bool, optional
+            If `True`, the 'id' column will be reset to a sequential
+            numbering starting from 1. If `False`, the 'id' column will
+            remain unchanged from the results table. This option is
+            ignored if ``remove_invalid`` is `False`.
+        """
+        return self._results_to_init_params(self.results,
+                                            remove_invalid=remove_invalid,
+                                            reset_ids=reset_ids)
+
+    def results_to_model_params(self, *, remove_invalid=True, reset_ids=True):
         """
         Create a table of the fitted model parameters from the results.
 
@@ -1661,41 +1723,132 @@ class PSFPhotometry(ModelImageMixin):
         names. It can also be used to reconstruct the fitted PSF models
         for visualization or further analysis.
 
-        Rows that contain non-finite fitted values are removed.
+        Parameters
+        ----------
+        remove_invalid : bool, optional
+            If `True`, rows that contain non-finite fitted values are
+            removed.
+
+        reset_ids : bool, optional
+            If `True`, the 'id' column will be reset to a sequential
+            numbering starting from 1. If `False`, the 'id' column will
+            remain unchanged from the results table. This option is
+            ignored if ``remove_invalid`` is `False`.
         """
         return self._results_to_model_params(self.results,
                                              self._param_mapper,
-                                             reset_id=True)
+                                             remove_invalid=remove_invalid,
+                                             reset_ids=reset_ids)
 
-    @lazyproperty
-    def _model_image_params(self):
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
+    def decode_flags(self, return_bit_values=False):
         """
-        A helper property that provides the necessary parameters to
-        ModelImageMixin.
-        """
-        return {'psf_model': self.psf_model,
-                'model_params': self.results_to_model_params(),
-                'local_bkg': self.init_params['local_bkg'],
-                'progress_bar': self.progress_bar,
-                }
+        Decode the PSF photometry flags from the results table.
 
+        This is a convenience method that calls
+        `~photutils.psf.decode_psf_flags` with the 'flags' column
+        from the results table.
+
+        Parameters
+        ----------
+        return_bit_values : bool, optional
+            If `True`, return the decoded bit flags (integers) instead
+            of the flag descriptions (strings). Default is `False`.
+
+        Returns
+        -------
+        decoded : list of list of str or list of list of int
+            List of lists where each inner list contains the active flag
+            names (or bit values) for the corresponding source in the
+            results table. If no flags are set for a source, an empty
+            list is returned for that source.
+
+        Raises
+        ------
+        ValueError
+            If no results are available. Please run the PSFPhotometry
+            instance first.
+
+        See Also
+        --------
+        photutils.psf.decode_psf_flags
+
+        Examples
+        --------
+        Decode flags from PSF photometry results:
+
+        >>> import numpy as np
+        >>> from astropy.table import Table
+        >>> from photutils.psf import CircularGaussianPRF, PSFPhotometry
+        >>> yy, xx = np.mgrid[:21, :21]
+        >>> psf_model = CircularGaussianPRF(flux=1, x_0=10, y_0=10, fwhm=2)
+        >>> # Create a source with negative flux to trigger a flag
+        >>> m1 = CircularGaussianPRF(flux=100, x_0=10, y_0=10, fwhm=2)
+        >>> m2 = CircularGaussianPRF(flux=-50, x_0=5, y_0=5, fwhm=2)
+        >>> data = m1(xx, yy) + m2(xx, yy)
+        >>> init_params = Table({'x': [10, 5], 'y': [10, 5],
+        ...                      'flux': [100, 100]})
+        >>> photometry = PSFPhotometry(psf_model, (3, 3))
+        >>> results = photometry(data, init_params=init_params)
+        >>> decoded_flags = photometry.decode_flags()
+        >>> for i, flags in enumerate(decoded_flags):
+        ...     print(f'Source {i+1}: {flags}')  # doctest: +SKIP
+        Source 1: []
+        Source 2: ['negative_flux']
+        """
+        if self.results is None:
+            msg = ('No results available. Please run the PSFPhotometry '
+                   'instance first.')
+            raise ValueError(msg)
+
+        return decode_psf_flags(self.results['flags'],
+                                return_bit_values=return_bit_values)
+
+    def _get_model_image_params(self):
+        # Convert fitted parameters to model parameter names without
+        # filtering, so the row indices align with self.results
+        model_params = self.results_to_model_params(remove_invalid=False)
+
+        # Filter out invalid sources (those with NaN fitted values)
+        keep = np.all([np.isfinite(model_params[col])
+                       for col in model_params.colnames], axis=0)
+        model_params = model_params[keep]
+
+        # Extract local_bkg for the same valid sources
+        local_bkg = self.results['local_bkg'][keep]
+
+        return model_params, local_bkg
+
+    @deprecated_renamed_argument('include_localbkg', 'include_local_bkg',
+                                 '3.0', until='4.0')
+    @_make_model_image_docstring
     def make_model_image(self, shape, *, psf_shape=None,
-                         include_localbkg=False):
+                         include_local_bkg=False):
         if self.results is None:
             msg = ('No results available. Please run the PSFPhotometry '
                    'instance first.')
             raise ValueError(msg)
 
-        return ModelImageMixin.make_model_image(
-            self, shape, psf_shape=psf_shape,
-            include_localbkg=include_localbkg)
+        model_params, local_bkg = self._get_model_image_params()
+        maker = _ModelImageMaker(self.psf_model, model_params,
+                                 local_bkg=local_bkg,
+                                 progress_bar=self.progress_bar)
+        return maker.make_model_image(shape, psf_shape=psf_shape,
+                                      include_local_bkg=include_local_bkg)
 
+    @deprecated_renamed_argument('include_localbkg', 'include_local_bkg',
+                                 '3.0', until='4.0')
+    @_make_residual_image_docstring
     def make_residual_image(self, data, *, psf_shape=None,
-                            include_localbkg=False):
+                            include_local_bkg=False):
         if self.results is None:
             msg = ('No results available. Please run the PSFPhotometry '
                    'instance first.')
             raise ValueError(msg)
 
-        return ModelImageMixin.make_residual_image(
-            self, data, psf_shape=psf_shape, include_localbkg=include_localbkg)
+        model_params, local_bkg = self._get_model_image_params()
+        maker = _ModelImageMaker(self.psf_model, model_params,
+                                 local_bkg=local_bkg,
+                                 progress_bar=self.progress_bar)
+        return maker.make_residual_image(data, psf_shape=psf_shape,
+                                         include_local_bkg=include_local_bkg)

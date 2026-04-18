@@ -274,17 +274,21 @@ class OpenAIChatCompletionsClient(
         if has_audio and "modalities" not in sampling_args:
             sampling_args = {**sampling_args, "modalities": ["text"]}
 
+        extra_headers = kwargs.pop("extra_headers", None)
+
         if tools:
             response = await self.client.chat.completions.create(
                 model=model,
                 messages=prompt,
                 tools=tools,
+                extra_headers=extra_headers,
                 **normalize_sampling_args(sampling_args),
             )
         else:
             response = await self.client.chat.completions.create(
                 model=model,
                 messages=prompt,
+                extra_headers=extra_headers,
                 **normalize_sampling_args(sampling_args),
             )
         return response
@@ -437,8 +441,12 @@ class OpenAIChatCompletionsClient(
             if not (has_logprobs_obj or has_logprobs_dict):
                 return None
             prompt_ids = getattr(response, "prompt_token_ids")
-            prompt_mask = [0] * len(prompt_ids)
+            if prompt_ids is None:
+                return None
             completion_ids = getattr(response.choices[0], "token_ids")
+            if completion_ids is None:
+                return None
+            prompt_mask = [0] * len(prompt_ids)
             completion_mask = [1] * len(completion_ids)
             if has_logprobs_obj:
                 assert response.choices[0].logprobs.content is not None

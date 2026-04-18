@@ -407,7 +407,7 @@ class Insight(System.Object):
 
     @staticmethod
     @overload
-    def group(*insights: typing.Union[QuantConnect.Algorithm.Framework.Alphas.Insight, typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+    def group(*insights: typing.Union[QuantConnect.Algorithm.Framework.Alphas.Insight, typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Creates a new, unique group id and sets it on each insight
         
@@ -417,7 +417,7 @@ class Insight(System.Object):
 
     @staticmethod
     @overload
-    def group(insight: QuantConnect.Algorithm.Framework.Alphas.Insight) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+    def group(insight: QuantConnect.Algorithm.Framework.Alphas.Insight) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Creates a new, unique group id and sets it on each insight
         
@@ -544,7 +544,7 @@ class Insight(System.Object):
 class IAlphaModel(QuantConnect.Algorithm.Framework.INotifiedSecurityChanges, metaclass=abc.ABCMeta):
     """Algorithm framework model that produces insights"""
 
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Updates this alpha model with the latest data from the algorithm.
         This is called each time the algorithm receives data for subscribed securities
@@ -596,7 +596,7 @@ class AlphaModel(QuantConnect.Python.BasePythonWrapper[QuantConnect_Algorithm_Fr
         """
         ...
 
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Updates this alpha model with the latest data from the algorithm.
         This is called each time the algorithm receives data for subscribed securities
@@ -678,7 +678,7 @@ class MacdAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         """
         ...
 
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Determines an insight for each security based on it's current MACD signal
         
@@ -731,7 +731,7 @@ class BasePairsTradingAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaMo
         """
         ...
 
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Updates this alpha model with the latest data from the algorithm.
         This is called each time the algorithm receives data for subscribed securities
@@ -780,7 +780,7 @@ class ConstantAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         """
         ...
 
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Creates a constant insight for each security as specified via the constructor
         
@@ -866,7 +866,7 @@ class EmaCrossAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         """
         ...
 
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Updates this alpha model with the latest data from the algorithm.
         This is called each time the algorithm receives data for subscribed securities
@@ -899,7 +899,7 @@ class HistoricalReturnsAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaM
         """
         ...
 
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Updates this alpha model with the latest data from the algorithm.
         This is called each time the algorithm receives data for subscribed securities
@@ -936,7 +936,7 @@ class RsiAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         """
         ...
 
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Updates this alpha model with the latest data from the algorithm.
         This is called each time the algorithm receives data for subscribed securities
@@ -990,7 +990,7 @@ class PearsonCorrelationPairsTradingAlphaModel(QuantConnect.Algorithm.Framework.
 class NullAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
     """Provides a null implementation of an alpha model"""
 
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Updates this alpha model with the latest data from the algorithm.
         This is called each time the algorithm receives data for subscribed securities
@@ -1063,7 +1063,7 @@ class CompositeAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         """
         ...
 
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Updates this alpha model with the latest data from the algorithm.
         This is called each time the algorithm receives data for subscribed securities.
@@ -1101,7 +1101,7 @@ class AlphaModelPythonWrapper(QuantConnect.Algorithm.Framework.Alphas.AlphaModel
         """
         ...
 
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Updates this alpha model with the latest data from the algorithm.
         This is called each time the algorithm receives data for subscribed securities

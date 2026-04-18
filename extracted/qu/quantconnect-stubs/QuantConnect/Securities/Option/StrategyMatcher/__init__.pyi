@@ -367,23 +367,23 @@ class OptionPositionCollection(System.Object, typing.Iterable[QuantConnect.Secur
         """
         ...
 
-    def for_expiration(self, expiration: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+    def for_expiration(self, expiration: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
         """Returns the set of OptionPosition with the specified expiration"""
         ...
 
-    def for_right(self, right: QuantConnect.OptionRight) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+    def for_right(self, right: QuantConnect.OptionRight) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
         """Returns the set of OptionPosition with the specified right"""
         ...
 
-    def for_side(self, side: QuantConnect.PositionSide) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+    def for_side(self, side: QuantConnect.PositionSide) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
         """Returns the set of OptionPosition with the specified side"""
         ...
 
-    def for_strike(self, strike: float) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+    def for_strike(self, strike: float) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
         """Returns the set of OptionPosition with the specified strike"""
         ...
 
-    def for_symbols(self, symbols: typing.List[QuantConnect.Symbol]) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+    def for_symbols(self, symbols: typing.List[QuantConnect.Symbol]) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
         """Returns the set of OptionPosition with the specified symbols"""
         ...
 
@@ -477,7 +477,7 @@ class IOptionPositionCollectionEnumerator(metaclass=abc.ABCMeta):
     way you could prioritize the first 5 and then delay matching of the final 5.
     """
 
-    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
         """
         Enumerates the provided positions. Positions enumerated first are more
         likely to be matched than those appearing later in the enumeration.
@@ -496,7 +496,7 @@ class FunctionalOptionPositionCollectionEnumerator(System.Object, QuantConnect.S
         """
         ...
 
-    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
         """
         Enumerate the Option Positions Collection
         
@@ -775,7 +775,7 @@ class OptionStrategyLegDefinition(System.Object, typing.Iterable[QuantConnect.Se
         """
         ...
 
-    def match(self, options: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatcherOptions, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition], positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch]:
+    def match(self, options: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatcherOptions, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition], positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch]:
         """
         Yields all possible matches for this leg definition held within the collection of positions
         
@@ -905,7 +905,7 @@ class OptionStrategyDefinition(System.Object, typing.Iterable[QuantConnect.Secur
         ...
 
     @overload
-    def match(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch]:
+    def match(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch]:
         """
         Determines all possible matches for this definition using the provided positions.
         This includes OVERLAPPING matches. It's up to the actual matcher to make decisions based on which
@@ -914,7 +914,7 @@ class OptionStrategyDefinition(System.Object, typing.Iterable[QuantConnect.Secur
         ...
 
     @overload
-    def match(self, options: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatcherOptions, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch]:
+    def match(self, options: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatcherOptions, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch]:
         """
         Determines all possible matches for this definition using the provided positions.
         This includes OVERLAPPING matches. It's up to the actual matcher to make decisions based on which
@@ -950,7 +950,7 @@ class IOptionStrategyDefinitionEnumerator(metaclass=abc.ABCMeta):
     that are more favorable to be matched before matching less favorable definitions.
     """
 
-    def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
+    def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
         """Enumerates the definitions according to the implementation's own concept of favorability."""
         ...
 
@@ -961,7 +961,7 @@ class IdentityOptionStrategyDefinitionEnumerator(System.Object, QuantConnect.Sec
     definitions according to the order that they were provided to OptionStrategyMatcherOptions
     """
 
-    def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
+    def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
         """Enumerates the definitions in the same order as provided."""
         ...
 
@@ -969,7 +969,7 @@ class IdentityOptionStrategyDefinitionEnumerator(System.Object, QuantConnect.Sec
 class DefaultOptionPositionCollectionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionPositionCollectionEnumerator):
     """Provides a default implementation of the IOptionPositionCollectionEnumerator abstraction."""
 
-    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
         """Enumerates positions according to its default enumerator implementation."""
         ...
 
@@ -1284,7 +1284,7 @@ class OptionStrategyMatcherOptions(System.Object):
         """
         ...
 
-    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
         """
         Enumerates the specified positions according to the configured
         IOptionPositionCollectionEnumerator
@@ -1367,7 +1367,7 @@ class DescendingByLegCountOptionStrategyDefinitionEnumerator(System.Object, Quan
     requiring more leg matches first. This ensures more complex definitions are evaluated before simpler definitions.
     """
 
-    def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
+    def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
         """Enumerates definitions in descending order of OptionStrategyDefinition.leg_count"""
         ...
 
@@ -1416,7 +1416,7 @@ class AbsoluteRiskOptionPositionCollectionEnumerator(System.Object, QuantConnect
         """
         ...
 
-    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
         """
         Enumerates the provided positions. Positions enumerated first are more
         likely to be matched than those appearing later in the enumeration.

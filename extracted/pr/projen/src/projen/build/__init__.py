@@ -36,7 +36,9 @@ from .. import (
     Project as _Project_57d89203,
     Task as _Task_9fa875b6,
 )
-from ..github import GitIdentity as _GitIdentity_6effc3de
+from ..github import (
+    GitIdentity as _GitIdentity_6effc3de, GithubWorkflow as _GithubWorkflow_a1772357
+)
 from ..github.workflows import (
     ContainerOptions as _ContainerOptions_f50907af,
     Job as _Job_20ffcf45,
@@ -513,6 +515,15 @@ class BuildWorkflow(
         :stability: experimental
         '''
         return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workflow")
+    def workflow(self) -> "_GithubWorkflow_a1772357":
+        '''(experimental) The underlying GitHub Actions workflow.
+
+        :stability: experimental
+        '''
+        return typing.cast("_GithubWorkflow_a1772357", jsii.get(self, "workflow"))
 
 
 @jsii.data_type(

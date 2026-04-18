@@ -438,7 +438,7 @@ pub(crate) async fn extract_mixed_ocr_native(
         .iter()
         .filter(|b| b.byte_end <= native_text.len() && b.byte_start <= b.byte_end)
         .collect();
-    sorted_boundaries.sort_unstable_by(|a, b| b.byte_start.cmp(&a.byte_start));
+    sorted_boundaries.sort_unstable_by_key(|b| std::cmp::Reverse(b.byte_start));
 
     for boundary in sorted_boundaries {
         if let Some(ocr_text) = ocr_results.get(&boundary.page_number) {
@@ -602,7 +602,7 @@ pub(crate) async fn extract_with_ocr(
     // TATR requires mutable access so pages are processed sequentially after OCR.
     #[cfg(feature = "layout-detection")]
     let mut tatr_model = if layout_detections.is_some() {
-        crate::layout::take_or_create_tatr()
+        crate::layout::take_or_create_tatr(config.acceleration.as_ref())
     } else {
         None
     };

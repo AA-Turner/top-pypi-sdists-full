@@ -160,6 +160,86 @@ class TestScaffoldLocalArtifact:
             scaffold_local_artifact("rule", "r1", tmp_path, project=True)
 
 
+class TestMemoryScopeDerivation:
+    """Verify that load_local_artifacts derives FQN/namespace/metadata for memory
+    artifacts based on which discovery root produced them."""
+
+    def test_global_root_produces_user_scope(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
+        memories = tmp_path / _LOCAL_DIR / "memories"
+        memories.mkdir(parents=True)
+        (memories / "my-pref.md").write_text("I prefer dark mode")
+        load_local_artifacts(db, tmp_path)
+        row = db.execute("SELECT * FROM artifacts WHERE name = 'my-pref'").fetchone()
+        assert row is not None
+        assert row["namespace"] == "user"
+        assert row["fqn"] == "@user/memory/my-pref"
+        import json
+
+        meta = json.loads(row["metadata"])
+        assert meta["memory_scope"] == "user"
+        assert meta["memory_category"] == "project_fact"
+        assert meta["memory_status"] == "active"
+
+    def test_project_root_produces_project_scope(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
+        proj = tmp_path / "myproject"
+        memories = proj / ".anteroom" / _LOCAL_DIR / "memories"
+        memories.mkdir(parents=True)
+        (memories / "proj-note.md").write_text("project uses postgres")
+        load_local_artifacts(db, tmp_path, project_dir=proj)
+        row = db.execute("SELECT * FROM artifacts WHERE name = 'proj-note'").fetchone()
+        assert row is not None
+        assert row["namespace"] == "project"
+        assert row["fqn"] == "@project/memory/proj-note"
+        import json
+
+        meta = json.loads(row["metadata"])
+        assert meta["memory_scope"] == "project"
+
+    def test_space_root_produces_local_scope(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
+        space = tmp_path / "myspace"
+        memories = space / ".anteroom" / _LOCAL_DIR / "memories"
+        memories.mkdir(parents=True)
+        (memories / "space-note.md").write_text("space-local note")
+        load_local_artifacts(db, tmp_path, space_dirs=[space])
+        row = db.execute("SELECT * FROM artifacts WHERE name = 'space-note'").fetchone()
+        assert row is not None
+        assert row["namespace"] == "local"
+        assert row["fqn"] == "@local/memory/space-note"
+        import json
+
+        meta = json.loads(row["metadata"])
+        assert meta["memory_scope"] == "local"
+
+    def test_non_memory_types_unchanged(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
+        """Rules from global root should still use @local namespace."""
+        rules = tmp_path / _LOCAL_DIR / "rules"
+        rules.mkdir(parents=True)
+        (rules / "my-rule.md").write_text("a rule")
+        load_local_artifacts(db, tmp_path)
+        row = db.execute("SELECT * FROM artifacts WHERE name = 'my-rule'").fetchone()
+        assert row is not None
+        assert row["namespace"] == "local"
+        assert row["fqn"] == "@local/rule/my-rule"
+
+    def test_memory_metadata_has_all_fields(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
+        memories = tmp_path / _LOCAL_DIR / "memories"
+        memories.mkdir(parents=True)
+        (memories / "full-check.md").write_text("checking metadata fields")
+        load_local_artifacts(db, tmp_path)
+        row = db.execute("SELECT * FROM artifacts WHERE name = 'full-check'").fetchone()
+        import json
+
+        meta = json.loads(row["metadata"])
+        assert "memory_scope" in meta
+        assert "memory_category" in meta
+        assert "memory_status" in meta
+        assert "provenance" in meta
+        assert "created_by" in meta
+        assert "last_recalled_at" in meta
+        assert "recall_count" in meta
+        assert meta["recall_count"] == 0
+
+
 class TestLocalArtifactBundledSkills:
     def test_discover_bundled_skill(self, tmp_path: Path) -> None:
         skills_dir = tmp_path / "skills"

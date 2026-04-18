@@ -111,7 +111,7 @@ class QuantBook(QuantConnect.Algorithm.QCAlgorithm):
         ...
 
     @overload
-    def get_fundamental(self, symbols: typing.List[QuantConnect.Symbol], selector: str = None, start: typing.Optional[datetime.datetime] = None, end: typing.Optional[datetime.datetime] = None) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[typing.Any]]:
+    def get_fundamental(self, symbols: typing.List[QuantConnect.Symbol], selector: str = None, start: typing.Optional[datetime.datetime] = None, end: typing.Optional[datetime.datetime] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[typing.Any]]:
         """
         Get fundamental data from given symbols
         
@@ -127,7 +127,7 @@ class QuantBook(QuantConnect.Algorithm.QCAlgorithm):
         ...
 
     @overload
-    def get_fundamental(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], selector: str = None, start: typing.Optional[datetime.datetime] = None, end: typing.Optional[datetime.datetime] = None) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[typing.Any]]:
+    def get_fundamental(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], selector: str = None, start: typing.Optional[datetime.datetime] = None, end: typing.Optional[datetime.datetime] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[typing.Any]]:
         """
         Get fundamental data for a given symbol
         
@@ -143,7 +143,7 @@ class QuantBook(QuantConnect.Algorithm.QCAlgorithm):
         ...
 
     @overload
-    def get_fundamental(self, tickers: typing.List[str], selector: str = None, start: typing.Optional[datetime.datetime] = None, end: typing.Optional[datetime.datetime] = None) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[typing.Any]]:
+    def get_fundamental(self, tickers: typing.List[str], selector: str = None, start: typing.Optional[datetime.datetime] = None, end: typing.Optional[datetime.datetime] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[typing.Any]]:
         """
         Get fundamental data for a given set of tickers
         
@@ -237,7 +237,7 @@ class QuantBook(QuantConnect.Algorithm.QCAlgorithm):
         ...
 
     @overload
-    def indicator(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
+    def indicator(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
         """
         Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
         The symbol must exist in the Securities collection.
@@ -285,7 +285,7 @@ class QuantBook(QuantConnect.Algorithm.QCAlgorithm):
         ...
 
     @overload
-    def indicator(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
+    def indicator(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
         """
         Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
         The symbol must exist in the Securities collection.
@@ -339,7 +339,7 @@ class QuantBook(QuantConnect.Algorithm.QCAlgorithm):
         ...
 
     @overload
-    def indicator(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
+    def indicator(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
         """
         Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
         The symbol must exist in the Securities collection.
@@ -445,7 +445,7 @@ class QuantBook(QuantConnect.Algorithm.QCAlgorithm):
         ...
 
     @overload
-    def universe_history(self, universe: QuantConnect.Data.UniverseSelection.Universe, start: typing.Union[datetime.datetime, datetime.date], end: typing.Optional[datetime.datetime] = None, date_rule: QuantConnect.Scheduling.IDateRule = None) -> typing.Iterable[typing.Iterable[QuantConnect.Data.BaseData]]:
+    def universe_history(self, universe: QuantConnect.Data.UniverseSelection.Universe, start: typing.Union[datetime.datetime, datetime.date], end: typing.Optional[datetime.datetime] = None, date_rule: QuantConnect.Scheduling.IDateRule = None) -> typing.Sequence[typing.Sequence[QuantConnect.Data.BaseData]]:
         """
         Will return the universe selection data and will optionally perform selection
         

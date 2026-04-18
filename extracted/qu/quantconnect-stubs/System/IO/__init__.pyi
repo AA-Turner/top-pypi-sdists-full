@@ -427,10 +427,6 @@ class IOException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class FileLoadException(System.IO.IOException):
     """This class has no documentation."""
@@ -465,10 +461,6 @@ class FileLoadException(System.IO.IOException):
 
     @overload
     def __init__(self, message: str, file_name: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
@@ -996,12 +988,7 @@ class FileSystemInfo(System.MarshalByRefObject, System.Runtime.Serialization.ISe
     def unix_file_mode(self, value: System.IO.UnixFileMode) -> None:
         ...
 
-    @overload
     def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
     def create_as_symbolic_link(self, path_to_target: str) -> None:
@@ -1660,22 +1647,6 @@ class FileStream(System.IO.Stream):
 
     @overload
     def __init__(self, path: str, options: System.IO.FileStreamOptions) -> None:
-        ...
-
-    @overload
-    def __init__(self, handle: System.IntPtr, access: System.IO.FileAccess) -> None:
-        ...
-
-    @overload
-    def __init__(self, handle: System.IntPtr, access: System.IO.FileAccess, owns_handle: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, handle: System.IntPtr, access: System.IO.FileAccess, owns_handle: bool, buffer_size: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, handle: System.IntPtr, access: System.IO.FileAccess, owns_handle: bool, buffer_size: int, is_async: bool) -> None:
         ...
 
     def begin_read(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], typing.Any], state: typing.Any) -> System.IAsyncResult:
@@ -2670,10 +2641,6 @@ class EndOfStreamException(System.IO.IOException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class HandleInheritability(IntEnum):
     """This class has no documentation."""
@@ -3319,10 +3286,6 @@ class PathTooLongException(System.IO.IOException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
 
 class StringWriter(System.IO.TextWriter):
     """This class has no documentation."""
@@ -3666,10 +3629,6 @@ class DirectoryNotFoundException(System.IO.IOException):
     def __init__(self, message: str, directory_path: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
@@ -3838,10 +3797,6 @@ class FileNotFoundException(System.IO.IOException):
 
     @overload
     def __init__(self, message: str, file_name: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:

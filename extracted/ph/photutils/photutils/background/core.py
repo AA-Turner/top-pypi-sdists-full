@@ -1,16 +1,16 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define classes to estimate the background and background RMS in an array
-of any dimension.
+Tools for estimating the background and background RMS in an array of
+any dimension.
 """
 
 import abc
 import warnings
 
 import numpy as np
-from astropy.stats import SigmaClip, mad_std
+from astropy.stats import SigmaClip, biweight_location, biweight_scale, mad_std
 
-from photutils.extern.biweight import biweight_location, biweight_scale
+from photutils.utils._deprecation import deprecated_positional_kwargs
 from photutils.utils._parameters import (SigmaClipSentinelDefault,
                                          create_default_sigmaclip)
 from photutils.utils._repr import make_repr
@@ -33,38 +33,144 @@ __all__ = [
 
 SIGMA_CLIP = SigmaClipSentinelDefault(sigma=3.0, maxiters=10)
 
+_SIGMA_CLIP_PARAM_DOC = (
+    'sigma_clip : `astropy.stats.SigmaClip` or `None`, optional\n'
+    '    A `~astropy.stats.SigmaClip` object that defines the sigma\n'
+    '    clipping parameters. If `None` then no sigma clipping will be\n'
+    '    performed.'
+)
 
-class BackgroundBase(metaclass=abc.ABCMeta):
+
+def _insert_sigma_clip_doc(cls):
     """
-    Base class for classes that estimate scalar background values.
+    Class decorator that replaces the ``<sigma_clip_param>`` placeholder
+    in a class docstring with the shared ``sigma_clip`` parameter
+    description.
+    """
+    cls.__doc__ = cls.__doc__.replace(
+        '<sigma_clip_param>', _SIGMA_CLIP_PARAM_DOC,
+    )
+    return cls
+
+
+def _validate_sigma_clip(sigma_clip):
+    """
+    Validate and generate the ``sigma_clip`` parameter.
+
+    If ``sigma_clip`` is the sentinel default, a fresh
+    `~astropy.stats.SigmaClip` instance is created from its stored
+    parameters. `None` is accepted (meaning no sigma clipping). Any
+    other value must be a `~astropy.stats.SigmaClip` instance.
 
     Parameters
     ----------
-    sigma_clip : `astropy.stats.SigmaClip` or `None`, optional
-        A `~astropy.stats.SigmaClip` object that defines the sigma
-        clipping parameters. If `None` then no sigma clipping will be
+    sigma_clip : `~photutils.utils._parameters.SigmaClipSentinelDefault`,\
+            `~astropy.stats.SigmaClip`, or `None`
+        The value supplied to a base-class ``__init__``.
+
+    Returns
+    -------
+    sigma_clip : `~astropy.stats.SigmaClip` or `None`
+        A concrete `~astropy.stats.SigmaClip` instance, or `None`.
+    """
+    if sigma_clip is SIGMA_CLIP:
+        return create_default_sigmaclip(sigma=SIGMA_CLIP.sigma,
+                                        maxiters=SIGMA_CLIP.maxiters)
+    if not isinstance(sigma_clip, SigmaClip) and sigma_clip is not None:
+        msg = 'sigma_clip must be an astropy SigmaClip instance or None'
+        raise TypeError(msg)
+
+    return sigma_clip
+
+
+def _prepare_data(sigma_clip, data, axis):
+    """
+    Prepare input data for a background estimation step.
+
+    Applies sigma clipping when a `~astropy.stats.SigmaClip` instance is
+    provided, or fills masked-array fill values with NaN when the input
+    is a `~numpy.ma.MaskedArray` and sigma clipping is disabled.
+
+    Parameters
+    ----------
+    sigma_clip : `~astropy.stats.SigmaClip` or `None`
+        The sigma-clipping object to apply. If `None`, no clipping is
         performed.
+
+    data : array_like or `~numpy.ma.MaskedArray`
+        The input data array.
+
+    axis : int, tuple of int, or `None`
+        The axis along which sigma clipping is applied.
+
+    Returns
+    -------
+    data : `~numpy.ndarray`
+        The prepared data array, with masked or clipped values replaced
+        by NaN.
+    """
+    if sigma_clip is not None:
+        return sigma_clip(data, axis=axis, masked=False)
+
+    if isinstance(data, np.ma.MaskedArray):
+        # convert to ndarray with masked values replaced by NaN
+        return data.filled(np.nan)
+
+    return data
+
+
+def _apply_masked(result, masked):
+    """
+    Optionally wrap NaN values in a masked array.
+
+    Parameters
+    ----------
+    result : `~numpy.ndarray` or scalar
+        The computed background or background RMS value(s).
+
+    masked : bool
+        If `True` and ``result`` is an `~numpy.ndarray`, return a
+        `~numpy.ma.MaskedArray` with NaN values masked. Otherwise return
+        ``result`` unchanged.
+
+    Returns
+    -------
+    result : `~numpy.ndarray`, `~numpy.ma.MaskedArray`, or scalar
+        The result, optionally wrapped as a masked array.
+    """
+    if masked and isinstance(result, np.ndarray):
+        return np.ma.masked_where(np.isnan(result), result)
+    return result
+
+
+class _BackgroundCommonBase:
+    """
+    Internal mixin providing shared infrastructure for `BackgroundBase`
+    and `BackgroundRMSBase`.
+
+    This class is not part of the public API and should not be
+    instantiated directly or subclassed outside of this module.
     """
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __init__(self, sigma_clip=SIGMA_CLIP):
-        if sigma_clip is SIGMA_CLIP:
-            sigma_clip = create_default_sigmaclip(sigma=SIGMA_CLIP.sigma,
-                                                  maxiters=SIGMA_CLIP.maxiters)
-
-        if not isinstance(sigma_clip, SigmaClip) and sigma_clip is not None:
-            msg = 'sigma_clip must be an astropy SigmaClip instance or None'
-            raise TypeError(msg)
-
-        self.sigma_clip = sigma_clip
+        self.sigma_clip = _validate_sigma_clip(sigma_clip)
 
     def __repr__(self):
         return make_repr(self, ('sigma_clip',))
 
+
+class BackgroundBase(_BackgroundCommonBase, abc.ABC):
+    """
+    Base class for classes that estimate scalar background values.
+    """
+
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __call__(self, data, axis=None, masked=False):
         return self.calc_background(data, axis=axis, masked=masked)
 
     @abc.abstractmethod
-    def calc_background(self, data, axis=None, masked=False):
+    def calc_background(self, data, *, axis=None, masked=False):
         """
         Calculate the background value.
 
@@ -90,40 +196,19 @@ class BackgroundBase(metaclass=abc.ABCMeta):
             `~numpy.ma.MaskedArray` is returned. A scalar result is
             always returned as a float.
         """
-        raise NotImplementedError  # pragma: no cover
 
 
-class BackgroundRMSBase(metaclass=abc.ABCMeta):
+class BackgroundRMSBase(_BackgroundCommonBase, abc.ABC):
     """
     Base class for classes that estimate scalar background RMS values.
-
-    Parameters
-    ----------
-    sigma_clip : `astropy.stats.SigmaClip` or `None`, optional
-        A `~astropy.stats.SigmaClip` object that defines the sigma
-        clipping parameters. If `None` then no sigma clipping will be
-        performed.
     """
 
-    def __init__(self, sigma_clip=SIGMA_CLIP):
-        if sigma_clip is SIGMA_CLIP:
-            sigma_clip = create_default_sigmaclip(sigma=SIGMA_CLIP.sigma,
-                                                  maxiters=SIGMA_CLIP.maxiters)
-
-        if not isinstance(sigma_clip, SigmaClip) and sigma_clip is not None:
-            msg = 'sigma_clip must be an astropy SigmaClip instance or None'
-            raise TypeError(msg)
-
-        self.sigma_clip = sigma_clip
-
-    def __repr__(self):
-        return make_repr(self, ('sigma_clip',))
-
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __call__(self, data, axis=None, masked=False):
         return self.calc_background_rms(data, axis=axis, masked=masked)
 
     @abc.abstractmethod
-    def calc_background_rms(self, data, axis=None, masked=False):
+    def calc_background_rms(self, data, *, axis=None, masked=False):
         """
         Calculate the background RMS value.
 
@@ -149,9 +234,9 @@ class BackgroundRMSBase(metaclass=abc.ABCMeta):
             `~numpy.ma.MaskedArray` is returned. A scalar result is
             always returned as a float.
         """
-        raise NotImplementedError  # pragma: no cover
 
 
+@_insert_sigma_clip_doc
 class MeanBackground(BackgroundBase):
     """
     Class to calculate the background in an array as the (sigma-clipped)
@@ -159,10 +244,7 @@ class MeanBackground(BackgroundBase):
 
     Parameters
     ----------
-    sigma_clip : `astropy.stats.SigmaClip` or `None`, optional
-        A `~astropy.stats.SigmaClip` object that defines the sigma
-        clipping parameters. If `None` then no sigma clipping will be
-        performed.
+    <sigma_clip_param>
 
     Examples
     --------
@@ -170,7 +252,7 @@ class MeanBackground(BackgroundBase):
     >>> from photutils.background import MeanBackground
     >>> data = np.arange(100)
     >>> sigma_clip = SigmaClip(sigma=3.0)
-    >>> bkg = MeanBackground(sigma_clip)
+    >>> bkg = MeanBackground(sigma_clip=sigma_clip)
 
     The background value can be calculated by using the
     `calc_background` method, e.g.:
@@ -187,23 +269,17 @@ class MeanBackground(BackgroundBase):
     49.5
     """
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def calc_background(self, data, axis=None, masked=False):
-        if self.sigma_clip is not None:
-            data = self.sigma_clip(data, axis=axis, masked=False)
-        elif isinstance(data, np.ma.MaskedArray):
-            data = data.filled(np.nan)
-
-        # ignore RuntimeWarning where axis is all NaN
+        data = _prepare_data(self.sigma_clip, data, axis)
+        # Ignore RuntimeWarning where axis is all NaN
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             result = nanmean(data, axis=axis)
-
-        if masked and isinstance(result, np.ndarray):
-            result = np.ma.masked_where(np.isnan(result), result)
-
-        return result
+        return _apply_masked(result, masked)
 
 
+@_insert_sigma_clip_doc
 class MedianBackground(BackgroundBase):
     """
     Class to calculate the background in an array as the (sigma-clipped)
@@ -211,10 +287,7 @@ class MedianBackground(BackgroundBase):
 
     Parameters
     ----------
-    sigma_clip : `astropy.stats.SigmaClip` or `None`, optional
-        A `~astropy.stats.SigmaClip` object that defines the sigma
-        clipping parameters. If `None` then no sigma clipping will be
-        performed.
+    <sigma_clip_param>
 
     Examples
     --------
@@ -222,7 +295,7 @@ class MedianBackground(BackgroundBase):
     >>> from photutils.background import MedianBackground
     >>> data = np.arange(100)
     >>> sigma_clip = SigmaClip(sigma=3.0)
-    >>> bkg = MedianBackground(sigma_clip)
+    >>> bkg = MedianBackground(sigma_clip=sigma_clip)
 
     The background value can be calculated by using the
     `calc_background` method, e.g.:
@@ -239,24 +312,17 @@ class MedianBackground(BackgroundBase):
     49.5
     """
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def calc_background(self, data, axis=None, masked=False):
-        if self.sigma_clip is not None:
-            data = self.sigma_clip(data, axis=axis, masked=False)
-        elif isinstance(data, np.ma.MaskedArray):
-            # convert to ndarray with masked values replaced by NaN
-            data = data.filled(np.nan)
-
-        # ignore RuntimeWarning where axis is all NaN
+        data = _prepare_data(self.sigma_clip, data, axis)
+        # Ignore RuntimeWarning where axis is all NaN
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             result = nanmedian(data, axis=axis)
-
-        if masked and isinstance(result, np.ndarray):
-            result = np.ma.masked_where(np.isnan(result), result)
-
-        return result
+        return _apply_masked(result, masked)
 
 
+@_insert_sigma_clip_doc
 class ModeEstimatorBackground(BackgroundBase):
     """
     Class to calculate the background in an array using a mode estimator
@@ -265,15 +331,12 @@ class ModeEstimatorBackground(BackgroundBase):
     Parameters
     ----------
     median_factor : float, optional
-        The multiplicative factor for the data median. Defaults to 3.
+        The multiplicative factor for the median value. Defaults to 3.
 
     mean_factor : float, optional
-        The multiplicative factor for the data mean. Defaults to 2.
+        The multiplicative factor for the mean value. Defaults to 2.
 
-    sigma_clip : `astropy.stats.SigmaClip` or `None`, optional
-        A `~astropy.stats.SigmaClip` object that defines the sigma
-        clipping parameters. If `None` then no sigma clipping will be
-        performed.
+    <sigma_clip_param>
 
     Examples
     --------
@@ -299,6 +362,7 @@ class ModeEstimatorBackground(BackgroundBase):
     49.5
     """
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __init__(self, median_factor=3.0, mean_factor=2.0,
                  sigma_clip=SIGMA_CLIP):
         super().__init__(sigma_clip=sigma_clip)
@@ -309,25 +373,18 @@ class ModeEstimatorBackground(BackgroundBase):
         params = ('median_factor', 'mean_factor', 'sigma_clip')
         return make_repr(self, params)
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def calc_background(self, data, axis=None, masked=False):
-        if self.sigma_clip is not None:
-            data = self.sigma_clip(data, axis=axis, masked=False)
-        elif isinstance(data, np.ma.MaskedArray):
-            # convert to ndarray with masked values replaced by NaN
-            data = data.filled(np.nan)
-
-        # ignore RuntimeWarning where axis is all NaN
+        data = _prepare_data(self.sigma_clip, data, axis)
+        # Ignore RuntimeWarning where axis is all NaN
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             result = ((self.median_factor * nanmedian(data, axis=axis))
                       - (self.mean_factor * nanmean(data, axis=axis)))
-
-        if masked and isinstance(result, np.ndarray):
-            result = np.ma.masked_where(np.isnan(result), result)
-
-        return result
+        return _apply_masked(result, masked)
 
 
+@_insert_sigma_clip_doc
 class MMMBackground(ModeEstimatorBackground):
     """
     Class to calculate the background in an array using the DAOPHOT MMM
@@ -338,10 +395,7 @@ class MMMBackground(ModeEstimatorBackground):
 
     Parameters
     ----------
-    sigma_clip : `astropy.stats.SigmaClip` or `None`, optional
-        A `~astropy.stats.SigmaClip` object that defines the sigma
-        clipping parameters. If `None` then no sigma clipping will be
-        performed.
+    <sigma_clip_param>
 
     Examples
     --------
@@ -350,53 +404,6 @@ class MMMBackground(ModeEstimatorBackground):
     >>> data = np.arange(100)
     >>> sigma_clip = SigmaClip(sigma=3.0)
     >>> bkg = MMMBackground(sigma_clip=sigma_clip)
-
-    The background value can be calculated by using the
-    `~photutils.background.core.ModeEstimatorBackground.calc_background`
-    method, e.g.:
-
-    >>> bkg_value = bkg.calc_background(data)
-    >>> print(bkg_value)  # doctest: +FLOAT_CMP
-    49.5
-
-    Alternatively, the background value can be calculated by calling the
-    class instance as a function, e.g.:
-
-    >>> bkg_value = bkg(data)
-    >>> print(bkg_value)  # doctest: +FLOAT_CMP
-    49.5
-    """
-
-    def __init__(self, sigma_clip=SIGMA_CLIP):
-        super().__init__(median_factor=3.0, mean_factor=2.0,
-                         sigma_clip=sigma_clip)
-
-
-class SExtractorBackground(BackgroundBase):
-    """
-    Class to calculate the background in an array using the Source
-    Extractor algorithm.
-
-    The background is calculated using a mode estimator of the form
-    ``(2.5 * median) - (1.5 * mean)``. If ``(mean - median) / std >
-    0.3`` then the median is used instead.
-
-    .. _SourceExtractor: https://sextractor.readthedocs.io/en/latest/
-
-    Parameters
-    ----------
-    sigma_clip : `astropy.stats.SigmaClip` or `None`, optional
-        A `~astropy.stats.SigmaClip` object that defines the sigma
-        clipping parameters. If `None` then no sigma clipping will be
-        performed.
-
-    Examples
-    --------
-    >>> from astropy.stats import SigmaClip
-    >>> from photutils.background import SExtractorBackground
-    >>> data = np.arange(100)
-    >>> sigma_clip = SigmaClip(sigma=3.0)
-    >>> bkg = SExtractorBackground(sigma_clip)
 
     The background value can be calculated by using the
     `calc_background` method, e.g.:
@@ -413,44 +420,82 @@ class SExtractorBackground(BackgroundBase):
     49.5
     """
 
-    def calc_background(self, data, axis=None, masked=False):
-        if self.sigma_clip is not None:
-            data = self.sigma_clip(data, axis=axis, masked=False)
-        elif isinstance(data, np.ma.MaskedArray):
-            # convert to ndarray with masked values replaced by NaN
-            data = data.filled(np.nan)
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
+    def __init__(self, sigma_clip=SIGMA_CLIP):
+        super().__init__(median_factor=3.0, mean_factor=2.0,
+                         sigma_clip=sigma_clip)
 
-        # ignore RuntimeWarning where axis is all NaN
+
+@_insert_sigma_clip_doc
+class SExtractorBackground(BackgroundBase):
+    """
+    Class to calculate the background in an array using the Source
+    Extractor algorithm.
+
+    The background is calculated using a mode estimator of the form
+    ``(2.5 * median) - (1.5 * mean)``. If ``(mean - median) / std >
+    0.3`` then the median is used instead.
+
+    .. _SourceExtractor: https://sextractor.readthedocs.io/en/latest/
+
+    Parameters
+    ----------
+    <sigma_clip_param>
+
+    Examples
+    --------
+    >>> from astropy.stats import SigmaClip
+    >>> from photutils.background import SExtractorBackground
+    >>> data = np.arange(100)
+    >>> sigma_clip = SigmaClip(sigma=3.0)
+    >>> bkg = SExtractorBackground(sigma_clip=sigma_clip)
+
+    The background value can be calculated by using the
+    `calc_background` method, e.g.:
+
+    >>> bkg_value = bkg.calc_background(data)
+    >>> print(bkg_value)  # doctest: +FLOAT_CMP
+    49.5
+
+    Alternatively, the background value can be calculated by calling the
+    class instance as a function, e.g.:
+
+    >>> bkg_value = bkg(data)
+    >>> print(bkg_value)  # doctest: +FLOAT_CMP
+    49.5
+    """
+
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
+    def calc_background(self, data, axis=None, masked=False):
+        data = _prepare_data(self.sigma_clip, data, axis)
+        # Ignore RuntimeWarning where axis is all NaN
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
 
             _median = np.atleast_1d(nanmedian(data, axis=axis))
             _mean = np.atleast_1d(nanmean(data, axis=axis))
             _std = np.atleast_1d(nanstd(data, axis=axis))
-            bkg = (2.5 * _median) - (1.5 * _mean)
+            result = (2.5 * _median) - (1.5 * _mean)
 
-            # set the background to the mean where the std is zero
+            # Set the background to the mean where the std is zero
             mean_mask = _std == 0
-            bkg[mean_mask] = _mean[mean_mask]
+            result[mean_mask] = _mean[mean_mask]
 
-            # set the background to the median when the absolute
+            # Set the background to the median when the absolute
             # difference between the mean and median divided by the
             # standard deviation is greater than or equal to 0.3
-
             med_mask = (np.abs(_mean - _median) / _std) >= 0.3
             mask = np.logical_and(med_mask, np.logical_not(mean_mask))
-            bkg[mask] = _median[mask]
+            result[mask] = _median[mask]
 
-            # if bkg is a scalar, return it as a float
-            if bkg.shape == (1,) and axis is None:
-                bkg = bkg[0]
+            # If result is a scalar, return it as a float
+            if result.shape == (1,) and axis is None:
+                result = result[0]
 
-        if masked and isinstance(bkg, np.ndarray):
-            bkg = np.ma.masked_where(np.isnan(bkg), bkg)
-
-        return bkg
+        return _apply_masked(result, masked)
 
 
+@_insert_sigma_clip_doc
 class BiweightLocationBackground(BackgroundBase):
     """
     Class to calculate the background in an array using the biweight
@@ -466,10 +511,7 @@ class BiweightLocationBackground(BackgroundBase):
         Initial guess for the biweight location. Default value is
         `None`.
 
-    sigma_clip : `astropy.stats.SigmaClip` or `None`, optional
-        A `~astropy.stats.SigmaClip` object that defines the sigma
-        clipping parameters. If `None` then no sigma clipping will be
-        performed.
+    <sigma_clip_param>
 
     Examples
     --------
@@ -494,7 +536,8 @@ class BiweightLocationBackground(BackgroundBase):
     49.5
     """
 
-    def __init__(self, c=6, M=None, sigma_clip=SIGMA_CLIP):
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
+    def __init__(self, c=6.0, M=None, sigma_clip=SIGMA_CLIP):
         super().__init__(sigma_clip=sigma_clip)
         self.c = c
         self.M = M
@@ -503,25 +546,18 @@ class BiweightLocationBackground(BackgroundBase):
         params = ('c', 'M', 'sigma_clip')
         return make_repr(self, params)
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def calc_background(self, data, axis=None, masked=False):
-        if self.sigma_clip is not None:
-            data = self.sigma_clip(data, axis=axis, masked=False)
-        elif isinstance(data, np.ma.MaskedArray):
-            # convert to ndarray with masked values replaced by NaN
-            data = data.filled(np.nan)
-
-        # ignore RuntimeWarning where axis is all NaN
+        data = _prepare_data(self.sigma_clip, data, axis)
+        # Ignore RuntimeWarning where axis is all NaN
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             result = biweight_location(data, c=self.c, M=self.M, axis=axis,
                                        ignore_nan=True)
-
-        if masked and isinstance(result, np.ndarray):
-            result = np.ma.masked_where(np.isnan(result), result)
-
-        return result
+        return _apply_masked(result, masked)
 
 
+@_insert_sigma_clip_doc
 class StdBackgroundRMS(BackgroundRMSBase):
     """
     Class to calculate the background RMS in an array as the (sigma-
@@ -529,10 +565,7 @@ class StdBackgroundRMS(BackgroundRMSBase):
 
     Parameters
     ----------
-    sigma_clip : `astropy.stats.SigmaClip` or `None`, optional
-        A `~astropy.stats.SigmaClip` object that defines the sigma
-        clipping parameters. If `None` then no sigma clipping will be
-        performed.
+    <sigma_clip_param>
 
     Examples
     --------
@@ -540,7 +573,7 @@ class StdBackgroundRMS(BackgroundRMSBase):
     >>> from photutils.background import StdBackgroundRMS
     >>> data = np.arange(100)
     >>> sigma_clip = SigmaClip(sigma=3.0)
-    >>> bkgrms = StdBackgroundRMS(sigma_clip)
+    >>> bkgrms = StdBackgroundRMS(sigma_clip=sigma_clip)
 
     The background RMS value can be calculated by using the
     `calc_background_rms` method, e.g.:
@@ -557,24 +590,17 @@ class StdBackgroundRMS(BackgroundRMSBase):
     28.86607004772212
     """
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def calc_background_rms(self, data, axis=None, masked=False):
-        if self.sigma_clip is not None:
-            data = self.sigma_clip(data, axis=axis, masked=False)
-        elif isinstance(data, np.ma.MaskedArray):
-            # convert to ndarray with masked values replaced by NaN
-            data = data.filled(np.nan)
-
-        # ignore RuntimeWarning where axis is all NaN
+        data = _prepare_data(self.sigma_clip, data, axis)
+        # Ignore RuntimeWarning where axis is all NaN
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             result = nanstd(data, axis=axis)
-
-        if masked and isinstance(result, np.ndarray):
-            result = np.ma.masked_where(np.isnan(result), result)
-
-        return result
+        return _apply_masked(result, masked)
 
 
+@_insert_sigma_clip_doc
 class MADStdBackgroundRMS(BackgroundRMSBase):
     r"""
     Class to calculate the background RMS in an array as using the
@@ -593,10 +619,7 @@ class MADStdBackgroundRMS(BackgroundRMSBase):
 
     Parameters
     ----------
-    sigma_clip : `astropy.stats.SigmaClip` or `None`, optional
-        A `~astropy.stats.SigmaClip` object that defines the sigma
-        clipping parameters. If `None` then no sigma clipping will be
-        performed.
+    <sigma_clip_param>
 
     Examples
     --------
@@ -604,7 +627,7 @@ class MADStdBackgroundRMS(BackgroundRMSBase):
     >>> from photutils.background import MADStdBackgroundRMS
     >>> data = np.arange(100)
     >>> sigma_clip = SigmaClip(sigma=3.0)
-    >>> bkgrms = MADStdBackgroundRMS(sigma_clip)
+    >>> bkgrms = MADStdBackgroundRMS(sigma_clip=sigma_clip)
 
     The background RMS value can be calculated by using the
     `calc_background_rms` method, e.g.:
@@ -621,24 +644,17 @@ class MADStdBackgroundRMS(BackgroundRMSBase):
     37.06505546264005
     """
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def calc_background_rms(self, data, axis=None, masked=False):
-        if self.sigma_clip is not None:
-            data = self.sigma_clip(data, axis=axis, masked=False)
-        elif isinstance(data, np.ma.MaskedArray):
-            # convert to ndarray with masked values replaced by NaN
-            data = data.filled(np.nan)
-
-        # ignore RuntimeWarning where axis is all NaN
+        data = _prepare_data(self.sigma_clip, data, axis)
+        # Ignore RuntimeWarning where axis is all NaN
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             result = mad_std(data, axis=axis, ignore_nan=True)
-
-        if masked and isinstance(result, np.ndarray):
-            result = np.ma.masked_where(np.isnan(result), result)
-
-        return result
+        return _apply_masked(result, masked)
 
 
+@_insert_sigma_clip_doc
 class BiweightScaleBackgroundRMS(BackgroundRMSBase):
     """
     Class to calculate the background RMS in an array as the (sigma-
@@ -654,10 +670,7 @@ class BiweightScaleBackgroundRMS(BackgroundRMSBase):
         Initial guess for the biweight location. Default value is
         `None`.
 
-    sigma_clip : `astropy.stats.SigmaClip` or `None`, optional
-        A `~astropy.stats.SigmaClip` object that defines the sigma
-        clipping parameters. If `None` then no sigma clipping will be
-        performed.
+    <sigma_clip_param>
 
     Examples
     --------
@@ -682,6 +695,7 @@ class BiweightScaleBackgroundRMS(BackgroundRMSBase):
     30.09433848589339
     """
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __init__(self, c=9.0, M=None, sigma_clip=SIGMA_CLIP):
         super().__init__(sigma_clip=sigma_clip)
         self.c = c
@@ -691,20 +705,12 @@ class BiweightScaleBackgroundRMS(BackgroundRMSBase):
         params = ('c', 'M', 'sigma_clip')
         return make_repr(self, params)
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def calc_background_rms(self, data, axis=None, masked=False):
-        if self.sigma_clip is not None:
-            data = self.sigma_clip(data, axis=axis, masked=False)
-        elif isinstance(data, np.ma.MaskedArray):
-            # convert to ndarray with masked values replaced by NaN
-            data = data.filled(np.nan)
-
-        # ignore RuntimeWarning where axis is all NaN
+        data = _prepare_data(self.sigma_clip, data, axis)
+        # Ignore RuntimeWarning where axis is all NaN
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             result = biweight_scale(data, c=self.c, M=self.M, axis=axis,
                                     ignore_nan=True)
-
-        if masked and isinstance(result, np.ndarray):
-            result = np.ma.masked_where(np.isnan(result), result)
-
-        return result
+        return _apply_masked(result, masked)

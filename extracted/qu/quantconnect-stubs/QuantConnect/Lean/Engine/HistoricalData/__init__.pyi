@@ -41,7 +41,7 @@ class SynchronizingHistoryProvider(QuantConnect.Data.HistoryProviderBase, metacl
         """Gets the total number of data points emitted by this history provider"""
         ...
 
-    def create_slice_enumerable_from_subscriptions(self, subscriptions: typing.List[QuantConnect.Lean.Engine.DataFeeds.Subscription], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+    def create_slice_enumerable_from_subscriptions(self, subscriptions: typing.List[QuantConnect.Lean.Engine.DataFeeds.Subscription], slice_time_zone: typing.Any) -> typing.Sequence[QuantConnect.Data.Slice]:
         """
         Enumerates the subscriptions into slices
         
@@ -95,7 +95,7 @@ class SubscriptionDataReaderHistoryProvider(QuantConnect.Lean.Engine.HistoricalD
     def data_permission_manager(self, value: QuantConnect.Interfaces.IDataPermissionManager) -> None:
         ...
 
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Sequence[QuantConnect.Data.Slice]:
         """
         Gets the history for the requested securities
         
@@ -129,7 +129,7 @@ class BrokerageHistoryProvider(QuantConnect.Lean.Engine.HistoricalData.Synchroni
     a brokerage connection to retrieve historical data
     """
 
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Sequence[QuantConnect.Data.Slice]:
         """
         Gets the history for the requested securities
         
@@ -163,7 +163,7 @@ class MappedSynchronizingHistoryProvider(QuantConnect.Lean.Engine.HistoricalData
     """
 
     @overload
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Sequence[QuantConnect.Data.Slice]:
         """
         Gets the history for the requested securities
         
@@ -174,7 +174,7 @@ class MappedSynchronizingHistoryProvider(QuantConnect.Lean.Engine.HistoricalData
         ...
 
     @overload
-    def get_history(self, request: QuantConnect.Data.HistoryRequest) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_history(self, request: QuantConnect.Data.HistoryRequest) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Gets historical data for a single resolved history request.
         Implementations should assume the symbol is already correctly mapped.
@@ -201,7 +201,7 @@ class SineHistoryProvider(QuantConnect.Data.HistoryProviderBase):
         """
         ...
 
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Sequence[QuantConnect.Data.Slice]:
         """
         Gets the history for the requested securities
         
@@ -231,7 +231,7 @@ class HistoryProviderManager(QuantConnect.Data.HistoryProviderBase):
         """Gets the total number of data points emitted by this history provider"""
         ...
 
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Sequence[QuantConnect.Data.Slice]:
         """
         Gets the history for the requested securities
         
@@ -266,7 +266,7 @@ class FakeHistoryProvider(QuantConnect.Data.HistoryProviderBase):
         """Gets the total number of data points emitted by this history provider"""
         ...
 
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Sequence[QuantConnect.Data.Slice]:
         """
         Gets the history for the requested securities
         

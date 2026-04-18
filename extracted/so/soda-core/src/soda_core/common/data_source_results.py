@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, Protocol
 
 
@@ -57,8 +57,9 @@ class QueryResult:
 
 
 class QueryResultIterator:
-    def __init__(self, cursor: Cursor):
+    def __init__(self, cursor: Cursor, format_row: Callable[[Any], tuple]):
         self._cursor = cursor
+        self._format_row = format_row
 
     def __iter__(self) -> QueryResultIterator:
         return self
@@ -66,24 +67,19 @@ class QueryResultIterator:
     def __next__(self) -> Sequence[Any]:
         row = self._cursor.fetchone()
         if row is None:
-            self._cursor.close()
             raise StopIteration
-        return row
+        return self._format_row(row)
 
     @property
     def row_count(self) -> int:
-        """Returns the total number of rows in the result set."""
+        """Returns the total number of rows in the result set.
+
+        Note this field is not reliable on all datasources. DuckDB for example returns -1, and Oracle returns the number
+        of rows fetched so far.
+        """
         return self._cursor.rowcount
 
     @property
     def columns(self) -> dict[str, Any]:
         """Returns the columns metadata as a dictionary mapping column names to type codes."""
         return {column[0]: column[1] for column in self._cursor.description}
-
-
-class UpdateResult:
-    def __init__(
-        self,
-        result: object,
-    ):
-        self.results: object = result

@@ -48,6 +48,13 @@ def is_debug() -> bool:
     return _DEBUG
 
 
+MERGIFY_API_DEFAULT_URL = "https://api.mergify.com"
+
+
+def get_mergify_api_url() -> str:
+    return os.getenv("MERGIFY_API_URL", MERGIFY_API_DEFAULT_URL)
+
+
 async def check_for_status(response: httpx.Response) -> None:
     if response.status_code < 400:
         return
@@ -156,6 +163,19 @@ async def get_default_create_as_draft() -> bool:
         return False
 
     return result == "true"
+
+
+async def get_default_revision_history() -> bool:
+    try:
+        result = await git(
+            "config",
+            "--get",
+            "mergify-cli.stack-revision-history",
+        )
+    except CommandError:
+        return True
+
+    return result != "false"
 
 
 async def _get_default_remote_branch() -> tuple[str, str]:

@@ -2404,7 +2404,7 @@ class InstallerApi(object):
             ['application/json'])  # noqa: E501
 
         # Authentication setting
-        auth_settings = ['agentAuth', 'urlAuth', 'userAuth']  # noqa: E501
+        auth_settings = ['agentAuth', 'userAuth']  # noqa: E501
 
         return self.api_client.call_api(
             '/v2/clusters/{cluster_id}/downloads/credentials', 'GET',

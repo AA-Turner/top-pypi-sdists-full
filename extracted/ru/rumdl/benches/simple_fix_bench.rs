@@ -1,7 +1,8 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use rumdl_lib::lint_context::LintContext;
 use rumdl_lib::rule::Rule;
 use rumdl_lib::rules::*;
+use std::hint::black_box;
 
 /// Generate test content with common markdown issues
 fn generate_test_content() -> String {
@@ -57,7 +58,7 @@ fn bench_common_fixes(c: &mut Criterion) {
 
     // MD018 - No space after hash
     c.bench_function("MD018 missing space atx fix", |b| {
-        let rule = MD018NoMissingSpaceAtx;
+        let rule = MD018NoMissingSpaceAtx::default();
         b.iter(|| rule.fix(black_box(&ctx)))
     });
 
@@ -80,13 +81,7 @@ fn bench_string_approaches(c: &mut Criterion) {
 
     // Approach 1: trim_end + collect
     c.bench_function("trim_end_collect", |b| {
-        b.iter(|| {
-            content
-                .lines()
-                .map(|line| line.trim_end())
-                .collect::<Vec<_>>()
-                .join("\n")
-        })
+        b.iter(|| content.lines().map(str::trim_end).collect::<Vec<_>>().join("\n"))
     });
 
     // Approach 2: manual iteration with capacity

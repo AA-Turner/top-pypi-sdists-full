@@ -14,12 +14,14 @@ from autogen.beta.tools.tool import Tool
 
 from ._resolve import resolve_variable
 
+IMAGE_GENERATION_TOOL_NAME = "image_generation"
+
 
 @dataclass(slots=True)
 class ImageGenerationToolSchema(ToolSchema):
     """Schema for the image_generation builtin tool (OpenAI Responses API)."""
 
-    type: str = field(default="image_generation", init=False)
+    type: str = field(default=IMAGE_GENERATION_TOOL_NAME, init=False)
     quality: Literal["low", "medium", "high", "auto"] | None = None
     size: str | None = None
     background: Literal["transparent", "opaque", "auto"] | None = None
@@ -35,7 +37,7 @@ class ImageGenerationTool(Tool):
     Only supported with ``OpenAIResponsesConfig`` — raises ``UnsupportedToolError``
     when used with ``OpenAIConfig`` (Chat Completions API).
 
-    Generated images are returned as ``list[bytes]`` via ``reply.images``.
+    Generated images are returned as ``list[BinaryResult]`` via ``reply.files``.
 
     Args:
         quality: Image quality — ``"low"``, ``"medium"``, ``"high"``, or ``"auto"``.
@@ -46,7 +48,10 @@ class ImageGenerationTool(Tool):
         partial_images: Number of partial images to stream (1–3).
     """
 
-    __slots__ = "_params"
+    __slots__ = (
+        "_params",
+        "name",
+    )
 
     def __init__(
         self,
@@ -71,6 +76,8 @@ class ImageGenerationTool(Tool):
             self._params["output_compression"] = output_compression
         if partial_images is not None:
             self._params["partial_images"] = partial_images
+
+        self.name = IMAGE_GENERATION_TOOL_NAME
 
     async def schemas(self, context: "Context") -> list[ImageGenerationToolSchema]:
         resolved = {k: resolve_variable(v, context, param_name=k) for k, v in self._params.items()}

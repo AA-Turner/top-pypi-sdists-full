@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect
-Version: 3.6.26
+Version: 3.6.27
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
 Project-URL: Documentation, https://docs.prefect.io
@@ -37,7 +37,6 @@ Requires-Dist: cyclopts>=4.8.0
 Requires-Dist: dateparser<2.0.0,>=1.1.1
 Requires-Dist: docker<8.0,>=4.0
 Requires-Dist: exceptiongroup>=1.0.0
-Requires-Dist: fakeredis<2.35.0
 Requires-Dist: fastapi<1.0.0,>=0.111.0
 Requires-Dist: fsspec>=2022.5.0
 Requires-Dist: graphviz>=0.20.1
@@ -60,7 +59,7 @@ Requires-Dist: pydantic!=2.11.0,!=2.11.1,!=2.11.2,!=2.11.3,!=2.11.4,<3.0.0,>=2.1
 Requires-Dist: pydantic-core<3.0.0,>=2.12.0
 Requires-Dist: pydantic-extra-types<3.0.0,>=2.8.2
 Requires-Dist: pydantic-settings!=2.9.0,<3.0.0,>2.2.1
-Requires-Dist: pydocket>=0.17.7
+Requires-Dist: pydocket>=0.19.0
 Requires-Dist: python-dateutil<3.0.0,>=2.8.2
 Requires-Dist: python-slugify<9.0,>=5.0
 Requires-Dist: pytz<2027,>=2021.1

@@ -591,7 +591,7 @@ class Order(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
-    def create_positions(self, securities: QuantConnect.Securities.SecurityManager) -> typing.Iterable[QuantConnect.Securities.Positions.IPosition]:
+    def create_positions(self, securities: QuantConnect.Securities.SecurityManager) -> typing.Sequence[QuantConnect.Securities.Positions.IPosition]:
         """
         Creates an enumerable containing each position resulting from executing this order.
         

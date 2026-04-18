@@ -202,7 +202,7 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         """
         ...
 
-    def step(self, args: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter]) -> typing.Iterable[QuantConnect.Optimizer.Parameters.ParameterSet]:
+    def step(self, args: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter]) -> typing.Sequence[QuantConnect.Optimizer.Parameters.ParameterSet]:
         """
         Enumerate all possible arrangements
         

@@ -33,6 +33,24 @@ from snowflake.snowpark_connect.utils.sequence import next_unique_num
 ALREADY_QUOTED = re.compile('^(".+")$', re.DOTALL)
 
 
+def union_restorable_name(name: str) -> str:
+    """
+    Convert a spark column name to a normalized key for the columns_to_restore dict in unionByName.
+    Handles column names containing double quotes by escaping and quoting them.
+    SNOW-3340914
+    """
+    should_uppercase = not global_config.spark_sql_caseSensitive
+    updated_name = quote_and_escape_double_quotes(name)
+    return updated_name.upper() if should_uppercase else updated_name
+
+
+def quote_and_escape_double_quotes(name: str) -> str:
+    if ALREADY_QUOTED.match(name):
+        return name
+    escaped_name = name.replace('"', '""')
+    return f'"{escaped_name}"'
+
+
 def schema_getter(df: DataFrame) -> Callable[[], StructType]:
     schema_property = type(df).schema
     getter = schema_property.func
@@ -650,7 +668,15 @@ class ColumnNameMap:
         for c in self.columns:
             column_name = self._normalized_spark_name(c.spark_name)
             if column_name in spark_name_to_snowpark_name_map:
-                index = spark_name_to_snowpark_name_map[column_name].popleft()
+                pending = spark_name_to_snowpark_name_map[column_name]
+                if not pending:
+                    # The visible occurrence of this column was already replaced by an
+                    # earlier iteration.  This is a hidden duplicate introduced by a
+                    # using-style join (e.g. left.join(right, on="id")), which tracks
+                    # both the left- and right-hand copies of the join key internally.
+                    # Drop the hidden duplicate so the replacement is not emitted twice.
+                    continue
+                index = pending.popleft()
                 removed_index.add(index)
                 spark_columns.append(new_spark_columns[index])
                 snowpark_columns.append(new_snowpark_columns[index])

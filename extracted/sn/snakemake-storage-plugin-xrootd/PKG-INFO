@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: snakemake-storage-plugin-xrootd
-Version: 1.0.0
+Version: 1.1.0
 Summary: A Snakemake storage plugin for XRootD storage
-Project-URL: Source code, https://github.com/snakemake/snakemake-storage-plugin-xrootd
+Project-URL: Repository, https://github.com/snakemake/snakemake-storage-plugin-xrootd
 Project-URL: Documentation, https://snakemake.github.io/snakemake-plugin-catalog/plugins/storage/xrootd.html
 Author-email: Chris Burr <christopher.burr@cern.ch>, Johannes Koester <johannes.koester@uni-due.de>, Matthew Monk <matthew.david.monk@cern.ch>
 License-File: LICENSE
 Requires-Python: >=3.11
+Requires-Dist: reretry<0.12,>=0.11.8
 Requires-Dist: snakemake-interface-common<2,>=1.15.0
 Requires-Dist: snakemake-interface-storage-plugins<5,>=4.1.0
 Requires-Dist: xrootd<6,>=5.6

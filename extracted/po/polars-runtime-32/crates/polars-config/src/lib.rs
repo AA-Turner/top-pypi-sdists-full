@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
 mod engine;
 mod parse;
 mod spill_format;
+pub mod spill_path;
 mod spill_policy;
 
 pub use engine::Engine;
@@ -29,6 +30,10 @@ const DEFAULT_IDEAL_MORSEL_SIZE: u64 = 100_000;
 const ENGINE_AFFINITY: &str = "POLARS_ENGINE_AFFINITY";
 const DEFAULT_ENGINE_AFFINITY: Engine = Engine::Auto;
 
+const PARQUET_BINARY_STATISTICS_TRUNCATE_LENGTH: &str =
+    "POLARS_PARQUET_BINARY_STATISTICS_TRUNCATE_LEN";
+const DEFAULT_PARQUET_BINARY_STATISTICS_TRUNCATE_LENGTH: u64 = 64;
+
 // Private.
 const VERBOSE_SENSITIVE: &str = "POLARS_VERBOSE_SENSITIVE";
 const DEFAULT_VERBOSE_SENSITIVE: bool = false;
@@ -40,13 +45,22 @@ const IMPORT_INTERVAL_AS_STRUCT: &str = "POLARS_IMPORT_INTERVAL_AS_STRUCT";
 const DEFAULT_IMPORT_INTERVAL_AS_STRUCT: bool = false;
 
 const OOC_DRIFT_THRESHOLD: &str = "POLARS_OOC_DRIFT_THRESHOLD";
-const DEFAULT_OOC_DRIFT_THRESHOLD: u64 = 64 * 1024 * 1024;
+const DEFAULT_OOC_DRIFT_THRESHOLD: u64 = 4 * 1024 * 1024;
 
 const OOC_SPILL_POLICY: &str = "POLARS_OOC_SPILL_POLICY";
 const DEFAULT_OOC_SPILL_POLICY: SpillPolicy = SpillPolicy::NoSpill;
 
 const OOC_SPILL_FORMAT: &str = "POLARS_OOC_SPILL_FORMAT";
 const DEFAULT_OOC_SPILL_FORMAT: SpillFormat = SpillFormat::Ipc;
+
+const OOC_MEMORY_BUDGET_FRACTION: &str = "POLARS_OOC_MEMORY_BUDGET_FRACTION";
+const DEFAULT_OOC_MEMORY_BUDGET_FRACTION: f64 = 0.8;
+
+const OOC_SPILL_MIN_BYTES: &str = "POLARS_OOC_SPILL_MIN_BYTES";
+const DEFAULT_OOC_SPILL_MIN_BYTES: u64 = 100 * 1024; // 100 KB
+
+const JOIN_SAMPLE_LIMIT: &str = "POLARS_JOIN_SAMPLE_LIMIT";
+const DEFAULT_JOIN_SAMPLE_LIMIT: u64 = 10_000_000;
 
 static KNOWN_OPTIONS: &[&str] = &[
     // Public.
@@ -56,6 +70,7 @@ static KNOWN_OPTIONS: &[&str] = &[
     IDEAL_MORSEL_SIZE,
     STREAMING_CHUNK_SIZE,
     ENGINE_AFFINITY,
+    PARQUET_BINARY_STATISTICS_TRUNCATE_LENGTH,
     /*
     Not yet supported public options:
 
@@ -85,6 +100,9 @@ static KNOWN_OPTIONS: &[&str] = &[
     OOC_DRIFT_THRESHOLD,
     OOC_SPILL_POLICY,
     OOC_SPILL_FORMAT,
+    OOC_MEMORY_BUDGET_FRACTION,
+    OOC_SPILL_MIN_BYTES,
+    JOIN_SAMPLE_LIMIT,
 ];
 
 pub struct Config {
@@ -94,14 +112,17 @@ pub struct Config {
     warn_unstable: AtomicBool,
     ideal_morsel_size: AtomicU64,
     engine_affinity: AtomicU8,
+    parquet_binary_statistics_truncate_length: AtomicU64,
 
     // Private.
     verbose_sensitive: AtomicBool,
     force_async: AtomicBool,
     import_interval_as_struct: AtomicBool,
-    ooc_drift_threshold: AtomicU64,
     ooc_spill_policy: AtomicU8,
     ooc_spill_format: AtomicU8,
+    ooc_memory_budget_fraction: AtomicU64,
+    ooc_spill_min_bytes: AtomicU64,
+    join_sample_limit: AtomicU64,
 }
 
 impl Config {
@@ -113,14 +134,21 @@ impl Config {
             warn_unstable: AtomicBool::new(DEFAULT_WARN_UNSTABLE),
             ideal_morsel_size: AtomicU64::new(DEFAULT_IDEAL_MORSEL_SIZE),
             engine_affinity: AtomicU8::new(DEFAULT_ENGINE_AFFINITY as u8),
+            parquet_binary_statistics_truncate_length: AtomicU64::new(
+                DEFAULT_PARQUET_BINARY_STATISTICS_TRUNCATE_LENGTH,
+            ),
 
             // Private.
             verbose_sensitive: AtomicBool::new(DEFAULT_VERBOSE_SENSITIVE),
             force_async: AtomicBool::new(DEFAULT_FORCE_ASYNC),
             import_interval_as_struct: AtomicBool::new(DEFAULT_IMPORT_INTERVAL_AS_STRUCT),
-            ooc_drift_threshold: AtomicU64::new(DEFAULT_OOC_DRIFT_THRESHOLD),
             ooc_spill_policy: AtomicU8::new(DEFAULT_OOC_SPILL_POLICY as u8),
             ooc_spill_format: AtomicU8::new(DEFAULT_OOC_SPILL_FORMAT as u8),
+            ooc_memory_budget_fraction: AtomicU64::new(
+                DEFAULT_OOC_MEMORY_BUDGET_FRACTION.to_bits(),
+            ),
+            ooc_spill_min_bytes: AtomicU64::new(DEFAULT_OOC_SPILL_MIN_BYTES),
+            join_sample_limit: AtomicU64::new(DEFAULT_JOIN_SAMPLE_LIMIT),
         };
         cfg.reload_env_vars();
         cfg
@@ -169,6 +197,13 @@ impl Config {
                     .unwrap_or(DEFAULT_ENGINE_AFFINITY) as u8,
                 Ordering::Relaxed,
             ),
+            PARQUET_BINARY_STATISTICS_TRUNCATE_LENGTH => {
+                self.parquet_binary_statistics_truncate_length.store(
+                    val.and_then(|x| parse::parse_u64(var, x))
+                        .unwrap_or(DEFAULT_PARQUET_BINARY_STATISTICS_TRUNCATE_LENGTH),
+                    Ordering::Relaxed,
+                )
+            },
 
             // Private flags.
             VERBOSE_SENSITIVE => self.verbose_sensitive.store(
@@ -186,7 +221,7 @@ impl Config {
                     .unwrap_or(DEFAULT_IMPORT_INTERVAL_AS_STRUCT),
                 Ordering::Relaxed,
             ),
-            OOC_DRIFT_THRESHOLD => self.ooc_drift_threshold.store(
+            OOC_DRIFT_THRESHOLD => OOC_DRIFT_THRESHOLD_ATOMIC.store(
                 val.and_then(|x| parse::parse_u64(var, x))
                     .unwrap_or(DEFAULT_OOC_DRIFT_THRESHOLD),
                 Ordering::Relaxed,
@@ -201,7 +236,22 @@ impl Config {
                     .unwrap_or(DEFAULT_OOC_SPILL_FORMAT) as u8,
                 Ordering::Relaxed,
             ),
-
+            OOC_MEMORY_BUDGET_FRACTION => self.ooc_memory_budget_fraction.store(
+                val.and_then(|x| parse::parse_f64(var, x))
+                    .unwrap_or(DEFAULT_OOC_MEMORY_BUDGET_FRACTION)
+                    .to_bits(),
+                Ordering::Relaxed,
+            ),
+            OOC_SPILL_MIN_BYTES => self.ooc_spill_min_bytes.store(
+                val.and_then(|x| parse::parse_u64(var, x))
+                    .unwrap_or(DEFAULT_OOC_SPILL_MIN_BYTES),
+                Ordering::Relaxed,
+            ),
+            JOIN_SAMPLE_LIMIT => self.join_sample_limit.store(
+                val.and_then(|x| parse::parse_u64(var, x))
+                    .unwrap_or(DEFAULT_JOIN_SAMPLE_LIMIT),
+                Ordering::Relaxed,
+            ),
             _ => {
                 if var.starts_with("POLARS_") {
                     if self.warn_unknown_config.load(Ordering::Relaxed) {
@@ -234,6 +284,12 @@ impl Config {
         Engine::from_discriminant(self.engine_affinity.load(Ordering::Relaxed))
     }
 
+    /// Target byte length to truncate statistics to for binary/string columns in parquet.
+    pub fn parquet_binary_statistics_truncate_length(&self) -> u64 {
+        self.parquet_binary_statistics_truncate_length
+            .load(Ordering::Relaxed)
+    }
+
     /// Whether we should do verbose printing on sensitive information.
     pub fn verbose_sensitive(&self) -> bool {
         self.verbose_sensitive.load(Ordering::Relaxed)
@@ -248,7 +304,7 @@ impl Config {
     }
 
     pub fn ooc_drift_threshold(&self) -> u64 {
-        self.ooc_drift_threshold.load(Ordering::Relaxed)
+        get_ooc_drift_threshold()
     }
 
     pub fn ooc_spill_policy(&self) -> SpillPolicy {
@@ -258,9 +314,38 @@ impl Config {
     pub fn ooc_spill_format(&self) -> SpillFormat {
         SpillFormat::from_discriminant(self.ooc_spill_format.load(Ordering::Relaxed))
     }
+
+    pub fn ooc_memory_budget_fraction(&self) -> f64 {
+        f64::from_bits(self.ooc_memory_budget_fraction.load(Ordering::Relaxed))
+    }
+
+    pub fn ooc_spill_min_bytes(&self) -> u64 {
+        self.ooc_spill_min_bytes.load(Ordering::Relaxed)
+    }
+
+    pub fn ooc_spill_dir(&self) -> std::path::PathBuf {
+        if let Ok(dir) = std::env::var("POLARS_OOC_SPILL_DIR") {
+            std::path::PathBuf::from(dir)
+        } else {
+            spill_path::default_ooc_spill_dir()
+        }
+    }
+
+    pub fn join_sample_limit(&self) -> u64 {
+        self.join_sample_limit.load(Ordering::Relaxed)
+    }
 }
 
 pub fn config() -> &'static Config {
     static CONFIG: LazyLock<Config> = LazyLock::new(Config::new);
     &CONFIG
+}
+
+// Has to be a standalone because LazyLock may not be called from allocator.
+// Plus, it's faster this way.
+static OOC_DRIFT_THRESHOLD_ATOMIC: AtomicU64 = AtomicU64::new(DEFAULT_OOC_DRIFT_THRESHOLD);
+
+#[inline(always)]
+pub fn get_ooc_drift_threshold() -> u64 {
+    OOC_DRIFT_THRESHOLD_ATOMIC.load(Ordering::Relaxed)
 }

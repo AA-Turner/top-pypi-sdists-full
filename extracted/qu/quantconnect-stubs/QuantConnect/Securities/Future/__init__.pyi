@@ -59,7 +59,7 @@ class FutureExchange(QuantConnect.Securities.SecurityExchange):
 class EmptyFutureChainProvider(System.Object, QuantConnect.Interfaces.IFutureChainProvider):
     """An implementation of IFutureChainProvider that always returns an empty list of contracts"""
 
-    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Gets the list of future contracts for a given underlying symbol
         

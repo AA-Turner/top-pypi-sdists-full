@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: instana
-Version: 3.12.0
+Version: 3.13.0
 Summary: Python Distributed Tracing & Metrics Sensor for Instana.
 Project-URL: Documentation, https://ibm.biz/monitoring-python
 Project-URL: Issues, https://github.com/instana/python-sensor/issues
 Project-URL: Source, https://github.com/instana/python-sensor
-Author: Instana Team Python Tracer Engineers
+Author-email: Instana Python Tracer Engineers <pythonrubyinstana@ibm.com>
 License-Expression: MIT
 License-File: LICENSE
 Keywords: distributed-tracing,metrics,monitoring,opentelemetry,performance,tracing
@@ -39,6 +39,7 @@ Requires-Dist: requests>=2.6.0
 Requires-Dist: typing-extensions>=4.12.2
 Requires-Dist: urllib3>=1.26.5
 Provides-Extra: dev
+Requires-Dist: gunicorn; extra == 'dev'
 Requires-Dist: pre-commit>=3.0.0; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'

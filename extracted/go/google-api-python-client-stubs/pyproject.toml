@@ -1,0 +1,48 @@
+[project]
+name = "google-api-python-client-stubs"
+version = "1.35.0"
+description = "Type stubs for google-api-python-client"
+authors = [ 
+    { name = "Henrik Bruåsdal", email = "henrik.bruasdal@gmail.com" },
+]
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+repository = "https://github.com/henribru/google-api-python-client-stubs"
+classifiers = [
+   "Typing :: Stubs Only",
+]
+dependencies = [
+    "google-api-python-client>=2.194.0",
+    "types-httplib2>=0.22.0.2",
+    "typing-extensions>=3.10.0",
+]
+requires-python = ">=3.7"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.17.0 ; python_full_version >= '3.9'",
+    "ruff>=0.12.4",
+    "stubdefaulter>=0.1.0",
+]
+
+[tool.ruff.lint]
+select = ["UP", "I"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = [
+    "apiclient",
+    "googleapiclient",
+]
+
+[tool.mypy]
+warn_unused_ignores = true
+
+[tool.uv.build-backend]
+module-name = ["googleapiclient-stubs", "apiclient-stubs"]
+module-root = ""
+
+[build-system]
+requires = ["uv_build>=0.8.0,<0.9.0"]
+build-backend = "uv_build"

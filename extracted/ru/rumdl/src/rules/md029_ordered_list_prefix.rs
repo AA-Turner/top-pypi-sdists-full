@@ -8,7 +8,8 @@ use std::collections::HashMap;
 use toml;
 
 mod md029_config;
-pub use md029_config::{ListStyle, MD029Config};
+pub use md029_config::ListStyle;
+pub(super) use md029_config::MD029Config;
 
 /// Type alias for grouped list items: (list_id, items) where items are (line_num, LineInfo, ListItemInfo)
 type ListItemGroup<'a> = (
@@ -56,7 +57,7 @@ impl MD029OrderedListPrefix {
         // For explicit style configurations, always use the configured style
         let style = match self.config.style {
             ListStyle::OneOrOrdered | ListStyle::Consistent => detected_style.unwrap_or(ListStyle::OneOne),
-            _ => self.config.style.clone(),
+            _ => self.config.style,
         };
 
         match style {
@@ -167,7 +168,7 @@ impl MD029OrderedListPrefix {
             items.sort_by_key(|(line_num, _, _)| *line_num);
         }
         // Sort groups by their first item's line number for deterministic output
-        result.sort_by_key(|(_, items)| items.first().map(|(ln, _, _)| *ln).unwrap_or(0));
+        result.sort_by_key(|(_, items)| items.first().map_or(0, |(ln, _, _)| *ln));
 
         result
     }
@@ -222,7 +223,7 @@ impl MD029OrderedListPrefix {
             }
 
             // Determine style for this group
-            let detected_style = if let Some(doc_style) = document_wide_style.clone() {
+            let detected_style = if let Some(doc_style) = document_wide_style {
                 Some(doc_style)
             } else if self.config.style == ListStyle::OneOrOrdered {
                 Some(Self::detect_list_style(&items, start_value))
@@ -233,7 +234,7 @@ impl MD029OrderedListPrefix {
             // Check each item using the CommonMark start value
             for (idx, (line_num, line_info, list_item)) in items.iter().enumerate() {
                 if let Some(actual_num) = Self::parse_marker_number(&list_item.marker) {
-                    let expected_num = self.get_expected_number(idx, detected_style.clone(), start_value);
+                    let expected_num = self.get_expected_number(idx, detected_style, start_value);
 
                     if actual_num != expected_num {
                         let marker_start = line_info.byte_offset + list_item.marker_column;
@@ -349,7 +350,7 @@ impl Rule for MD029OrderedListPrefix {
         // Process each CommonMark-defined list group with its start value
         for (list_id, items) in list_groups {
             let start_value = ctx.list_start_values.get(&list_id).copied().unwrap_or(1);
-            self.check_commonmark_list_group(ctx, &items, &mut warnings, document_wide_style.clone(), start_value);
+            self.check_commonmark_list_group(ctx, &items, &mut warnings, document_wide_style, start_value);
         }
 
         // Sort warnings by line number for deterministic output
@@ -462,8 +463,8 @@ mod tests {
         assert_eq!(result.len(), 2); // Should have warnings for items 3 and 2
 
         // Verify the warnings have correct content
-        assert!(result[0].message.contains("3") && result[0].message.contains("expected 2"));
-        assert!(result[1].message.contains("2") && result[1].message.contains("expected 3"));
+        assert!(result[0].message.contains('3') && result[0].message.contains("expected 2"));
+        assert!(result[1].message.contains('2') && result[1].message.contains("expected 3"));
     }
 
     #[test]
@@ -486,7 +487,7 @@ mod tests {
         assert_eq!(result.len(), 99, "Should have warnings for items 2-100 (99 items)");
 
         // First wrong item: "5. Item 2" (expected 2)
-        assert!(result[0].message.contains("5") && result[0].message.contains("expected 2"));
+        assert!(result[0].message.contains('5') && result[0].message.contains("expected 2"));
     }
 
     #[test]
@@ -523,7 +524,7 @@ mod tests {
         let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 1, "Mixed style should produce one warning");
-        assert!(result[0].message.contains("1") && result[0].message.contains("expected 3"));
+        assert!(result[0].message.contains('1') && result[0].message.contains("expected 3"));
     }
 
     #[test]

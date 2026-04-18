@@ -58,7 +58,7 @@ NAME = "netius"
 identification of both the clients and the services this
 value may be prefixed or suffixed """
 
-VERSION = "1.53.6"
+VERSION = "1.53.7"
 """ The version value that identifies the version of the
 current infra-structure, all of the services and clients
 may share this value """
@@ -175,15 +175,18 @@ SSL_ERROR_NAMES = {
 various SSL errors and their string representation """
 
 SSL_SILENT_REASONS = (
-    "WRONG_VERSION_NUMBER",
-    "RECORD_LAYER_FAILURE",
-    "NO_SHARED_CIPHER",
-    "UNKNOWN_PROTOCOL",
-    "HTTP_REQUEST",
-    "VERSION_TOO_LOW",
     "BAD_KEY_SHARE",
+    "HTTP_REQUEST",
+    "NO_SHARED_CIPHER",
+    "NO_SUITABLE_SIGNATURE_ALGORITHM",
+    "PEER_DID_NOT_RETURN_A_CERTIFICATE",
+    "RECORD_LAYER_FAILURE",
     "SSLV3_ALERT_BAD_CERTIFICATE",
     "SSLV3_ALERT_CERTIFICATE_UNKNOWN",
+    "TLSV1_ALERT_UNKNOWN_CA",
+    "UNKNOWN_PROTOCOL",
+    "VERSION_TOO_LOW",
+    "WRONG_VERSION_NUMBER",
 )
 """ The list containing the SSL reasons that should be silenced
 while still making the connection dropped as they are expected

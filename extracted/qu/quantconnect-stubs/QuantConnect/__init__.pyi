@@ -68,7 +68,7 @@ class Compression(System.Object):
 
     @staticmethod
     @overload
-    def get_zip_entry_file_names(zip_file_name: str) -> typing.Iterable[str]:
+    def get_zip_entry_file_names(zip_file_name: str) -> typing.Sequence[str]:
         """
         Returns the entry file names contained in a zip file
         
@@ -79,7 +79,7 @@ class Compression(System.Object):
 
     @staticmethod
     @overload
-    def get_zip_entry_file_names(zip_file_stream: System.IO.Stream) -> typing.Iterable[str]:
+    def get_zip_entry_file_names(zip_file_stream: System.IO.Stream) -> typing.Sequence[str]:
         """
         Return the entry file names contained in a zip file
         
@@ -110,7 +110,7 @@ class Compression(System.Object):
 
     @staticmethod
     @overload
-    def un_tar(stream: System.IO.Stream, is_tar_gz: bool) -> typing.Iterable[System.Collections.Generic.KeyValuePair[str, typing.List[int]]]:
+    def un_tar(stream: System.IO.Stream, is_tar_gz: bool) -> typing.Sequence[System.Collections.Generic.KeyValuePair[str, typing.List[int]]]:
         """
         Enumerate through the files of a TAR and get a list of KVP names-byte arrays
         
@@ -122,7 +122,7 @@ class Compression(System.Object):
 
     @staticmethod
     @overload
-    def un_tar(source: str) -> typing.Iterable[System.Collections.Generic.KeyValuePair[str, typing.List[int]]]:
+    def un_tar(source: str) -> typing.Sequence[System.Collections.Generic.KeyValuePair[str, typing.List[int]]]:
         """
         Enumerate through the files of a TAR and get a list of KVP names-byte arrays.
         
@@ -191,7 +191,7 @@ class Compression(System.Object):
 
     @staticmethod
     @overload
-    def unzip(filename: str) -> typing.Iterable[System.Collections.Generic.KeyValuePair[str, typing.List[str]]]:
+    def unzip(filename: str) -> typing.Sequence[System.Collections.Generic.KeyValuePair[str, typing.List[str]]]:
         """
         Streams the unzipped file as key value pairs of file name to file contents.
         NOTE: When the returned enumerable finishes enumerating, the zip stream will be
@@ -205,7 +205,7 @@ class Compression(System.Object):
 
     @staticmethod
     @overload
-    def unzip(stream: System.IO.Stream) -> typing.Iterable[System.Collections.Generic.KeyValuePair[str, typing.List[str]]]:
+    def unzip(stream: System.IO.Stream) -> typing.Sequence[System.Collections.Generic.KeyValuePair[str, typing.List[str]]]:
         """
         Lazily unzips the specified stream
         
@@ -2794,19 +2794,6 @@ class Chart(System.Object):
         """
         ...
 
-    @overload
-    def __init__(self, name: str, type: QuantConnect.ChartType = ...) -> None:
-        """
-        Chart Constructor:
-        
-        
-        ChartType is now obsolete and ignored in charting. Please use Series indexes instead by setting index in the series constructor.
-        
-        :param name: Name of the Chart
-        :param type: Type of the chart
-        """
-        ...
-
     def add_series(self, series: QuantConnect.BaseSeries) -> None:
         """
         Add a reference to this chart series:
@@ -3317,12 +3304,12 @@ class AlgorithmConfiguration(System.Object):
         ...
 
     @property
-    def parameters(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+    def parameters(self) -> typing.Dict[str, str]:
         """The parameters used by the algorithm"""
         ...
 
     @parameters.setter
-    def parameters(self, value: System.Collections.Generic.IReadOnlyDictionary[str, str]) -> None:
+    def parameters(self, value: typing.Dict[str, str]) -> None:
         ...
 
     @property
@@ -3371,7 +3358,7 @@ class AlgorithmConfiguration(System.Object):
         ...
 
     @overload
-    def __init__(self, name: str, tags: System.Collections.Generic.ISet[str], account_currency: str, brokerage_name: QuantConnect.Brokerages.BrokerageName, account_type: QuantConnect.AccountType, parameters: System.Collections.Generic.IReadOnlyDictionary[str, str], start_date: typing.Union[datetime.datetime, datetime.date], end_date: typing.Union[datetime.datetime, datetime.date], out_of_sample_max_end_date: typing.Optional[datetime.datetime], out_of_sample_days: int = 0, trading_days_per_year: int = 0) -> None:
+    def __init__(self, name: str, tags: System.Collections.Generic.ISet[str], account_currency: str, brokerage_name: QuantConnect.Brokerages.BrokerageName, account_type: QuantConnect.AccountType, parameters: typing.Dict[str, str], start_date: typing.Union[datetime.datetime, datetime.date], end_date: typing.Union[datetime.datetime, datetime.date], out_of_sample_max_end_date: typing.Optional[datetime.datetime], out_of_sample_days: int = 0, trading_days_per_year: int = 0) -> None:
         """Initializes a new instance of the AlgorithmConfiguration class"""
         ...
 
@@ -3806,7 +3793,7 @@ class DataDownloaderGetParameters(System.Object):
 class IDataDownloader(metaclass=abc.ABCMeta):
     """Data Downloader Interface for pulling data from a remote source."""
 
-    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Get historical data enumerable for a single symbol, type and resolution given this start and end time (in UTC).
         
@@ -3828,7 +3815,7 @@ class TradingCalendar(System.Object):
         """
         ...
 
-    def get_days_by_type(self, type: QuantConnect.TradingDayType, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.TradingDay]:
+    def get_days_by_type(self, type: QuantConnect.TradingDayType, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.TradingDay]:
         """
         Method returns TradingDay of the specified type (TradingDayType) that contains trading events associated with the range of dates
         
@@ -3857,7 +3844,7 @@ class TradingCalendar(System.Object):
         """
         ...
 
-    def get_trading_days(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.TradingDay]:
+    def get_trading_days(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.TradingDay]:
         """
         Method returns TradingDay that contains trading events associated with the range of dates
         
@@ -4016,7 +4003,7 @@ class Extensions(System.Object):
         ...
 
     @staticmethod
-    def convert_to_symbol_enumerable(py_object: typing.Any) -> typing.Iterable[QuantConnect.Symbol]:
+    def convert_to_symbol_enumerable(py_object: typing.Any) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Gets Enumerable of Symbol from a PyObject
         
@@ -4039,7 +4026,7 @@ class Extensions(System.Object):
 
     @staticmethod
     @overload
-    def create_future_chain(algorithm: QuantConnect.Interfaces.IAlgorithm, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], filter: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_future_chain(algorithm: QuantConnect.Interfaces.IAlgorithm, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], filter: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates a FuturesChainUniverse for a given symbol
         
@@ -4052,7 +4039,7 @@ class Extensions(System.Object):
 
     @staticmethod
     @overload
-    def create_future_chain(algorithm: QuantConnect.Interfaces.IAlgorithm, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], filter: typing.Callable[[QuantConnect.Securities.FutureFilterUniverse], QuantConnect.Securities.FutureFilterUniverse], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_future_chain(algorithm: QuantConnect.Interfaces.IAlgorithm, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], filter: typing.Callable[[QuantConnect.Securities.FutureFilterUniverse], QuantConnect.Securities.FutureFilterUniverse], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates a FuturesChainUniverse for a given symbol
         
@@ -4875,7 +4862,7 @@ class Extensions(System.Object):
         ...
 
     @staticmethod
-    def order_targets_by_margin_impact(targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget], algorithm: QuantConnect.Interfaces.IAlgorithm, target_is_delta: bool = False) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+    def order_targets_by_margin_impact(targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget], algorithm: QuantConnect.Interfaces.IAlgorithm, target_is_delta: bool = False) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
         Returns an ordered enumerable where position reducing orders are executed first
         and the remaining orders are executed in decreasing order value.
@@ -4966,7 +4953,7 @@ class Extensions(System.Object):
         ...
 
     @staticmethod
-    def read_lines(data_provider: QuantConnect.Interfaces.IDataProvider, file: str) -> typing.Iterable[str]:
+    def read_lines(data_provider: QuantConnect.Interfaces.IDataProvider, file: str) -> typing.Sequence[str]:
         """
         Helper method to stream read lines from a file
         
@@ -5987,16 +5974,16 @@ class SymbolRepresentation(System.Object):
         def expiration_date(self, value: datetime.datetime) -> None:
             ...
 
-    OPTION_CODE_LOOKUP: System.Collections.Generic.IReadOnlyDictionary[str, System.Tuple[int, QuantConnect.OptionRight]]
+    OPTION_CODE_LOOKUP: typing.Dict[str, System.Tuple[int, QuantConnect.OptionRight]]
     """
     A dictionary that maps option symbols to a tuple containing the option series number and the option right (Call or Put).
     The key represents a single character option symbol, and the value contains the series number and the associated option right.
     """
 
-    FUTURES_MONTH_CODE_LOOKUP: System.Collections.Generic.IReadOnlyDictionary[str, int]
+    FUTURES_MONTH_CODE_LOOKUP: typing.Dict[str, int]
     """Provides a lookup dictionary for mapping futures month codes to their corresponding numeric values."""
 
-    FUTURES_MONTH_LOOKUP: System.Collections.Generic.IReadOnlyDictionary[int, str]
+    FUTURES_MONTH_LOOKUP: typing.Dict[int, str]
     """Provides a lookup dictionary for mapping numeric values to their corresponding futures month codes."""
 
     @staticmethod
@@ -6978,7 +6965,7 @@ class Currencies(System.Object):
     NULL_CURRENCY: str = "QCC"
     """Null currency used when a real one is not required"""
 
-    CURRENCY_SYMBOLS: System.Collections.Generic.IReadOnlyDictionary[str, str] = ...
+    CURRENCY_SYMBOLS: typing.Dict[str, str] = ...
     """A mapping of currency codes to their display symbols"""
 
     STABLE_PAIRS_GDAX: System.Collections.Generic.HashSet[str] = ...
@@ -7196,7 +7183,7 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, Qu
         """
         ...
 
-    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue]]:
+    def get_items(self) -> typing.Sequence[System.Collections.Generic.KeyValuePair[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue]]:
         """
         Gets all the items in the dictionary
         
@@ -8034,7 +8021,7 @@ class DataUniverseDownloaderGetParameters(QuantConnect.DataDownloaderGetParamete
         """
         ...
 
-    def create_data_downloader_get_parameters(self) -> typing.Iterable[System.ValueTuple[datetime.datetime, typing.Iterable[QuantConnect.DataDownloaderGetParameters]]]:
+    def create_data_downloader_get_parameters(self) -> typing.Sequence[System.ValueTuple[datetime.datetime, typing.Sequence[QuantConnect.DataDownloaderGetParameters]]]:
         """Creates data download parameters for each day in the range."""
         ...
 
@@ -8199,7 +8186,7 @@ class Time(System.Object):
         ...
 
     @staticmethod
-    def date_time_range(_from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], step: datetime.timedelta) -> typing.Iterable[datetime.datetime]:
+    def date_time_range(_from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], step: datetime.timedelta) -> typing.Sequence[datetime.datetime]:
         """
         Define an enumerable date time range using the given time step
         
@@ -8240,7 +8227,7 @@ class Time(System.Object):
         ...
 
     @staticmethod
-    def each_day(_from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
+    def each_day(_from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[datetime.datetime]:
         """
         Define an enumerable date range and return each date as a datetime object in the date range
         
@@ -8252,7 +8239,7 @@ class Time(System.Object):
 
     @staticmethod
     @overload
-    def each_tradeable_day(securities: System.Collections.Generic.ICollection[QuantConnect.Securities.Security], _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
+    def each_tradeable_day(securities: System.Collections.Generic.ICollection[QuantConnect.Securities.Security], _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[datetime.datetime]:
         """
         Define an enumerable date range of tradeable dates - skip the holidays and weekends when securities in this algorithm don't trade.
         
@@ -8265,7 +8252,7 @@ class Time(System.Object):
 
     @staticmethod
     @overload
-    def each_tradeable_day(security: QuantConnect.Securities.Security, _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], extended_market_hours: bool = False) -> typing.Iterable[datetime.datetime]:
+    def each_tradeable_day(security: QuantConnect.Securities.Security, _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], extended_market_hours: bool = False) -> typing.Sequence[datetime.datetime]:
         """
         Define an enumerable date range of tradeable dates - skip the holidays and weekends when securities in this algorithm don't trade.
         
@@ -8279,7 +8266,7 @@ class Time(System.Object):
 
     @staticmethod
     @overload
-    def each_tradeable_day(exchange: QuantConnect.Securities.SecurityExchangeHours, _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], extended_market_hours: bool = False) -> typing.Iterable[datetime.datetime]:
+    def each_tradeable_day(exchange: QuantConnect.Securities.SecurityExchangeHours, _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], extended_market_hours: bool = False) -> typing.Sequence[datetime.datetime]:
         """
         Define an enumerable date range of tradeable dates - skip the holidays and weekends when securities in this algorithm don't trade.
         
@@ -8292,7 +8279,7 @@ class Time(System.Object):
         ...
 
     @staticmethod
-    def each_tradeable_day_in_time_zone(exchange: QuantConnect.Securities.SecurityExchangeHours, _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], time_zone: typing.Any, include_extended_market_hours: bool = True) -> typing.Iterable[datetime.datetime]:
+    def each_tradeable_day_in_time_zone(exchange: QuantConnect.Securities.SecurityExchangeHours, _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], time_zone: typing.Any, include_extended_market_hours: bool = True) -> typing.Sequence[datetime.datetime]:
         """
         Define an enumerable date range of tradeable dates but expressed in a different time zone.
         
@@ -9658,6 +9645,11 @@ class Messages(System.Object):
     class PythonCommon(System.Object):
         """Provides user-facing common messages for the Python namespace classes"""
 
+        @staticmethod
+        def attribute_not_implemented(attribute: str, python_type: typing.Any) -> str:
+            """Returns a string message saying the given attribute must be implemented on the given Python type"""
+            ...
+
     class MarginCallModelPythonWrapper(System.Object):
         """Provides user-facing common messages for the Python.MarginCallModelPythonWrapper namespace classes"""
 
@@ -9670,8 +9662,29 @@ class Messages(System.Object):
         pandas_module_not_imported: str = "pandas module was not imported."
         """String message saying: Pandas module was not imported"""
 
+        @staticmethod
+        def convert_to_dictionary_failed(source_type: str, target_type: str, reason: str) -> str:
+            """
+            Returns a string message saying ConvertToDictionary() method cannot be used to convert the given source
+            type into the given target type. It also contains the reason why this method cannot be used
+            """
+            ...
+
     class PandasData(System.Object):
         """Provides user-facing common messages for the Python.PandasData namespace classes"""
+
+        @staticmethod
+        def duplicate_key(duplicate_key: str, type: str) -> str:
+            """
+            Returns a string message saying the given key was duplicated in the given
+            type class
+            """
+            ...
+
+        @staticmethod
+        def key_not_found_in_series(key: str) -> str:
+            """Returns a string message saying the given key does not exist in series dictionary"""
+            ...
 
     class PythonInitializer(System.Object):
         """Provides user-facing common messages for the Python.PythonInitializer namespace classes"""
@@ -9682,14 +9695,82 @@ class Messages(System.Object):
         ended: str = "ended"
         """String message saying: ended"""
 
+        @staticmethod
+        def failed_to_find_system_packages_configuration(virtual_env_path: str, config_file: System.IO.FileInfo) -> str:
+            """Returns a string message saying it was impossible to find system package configuration"""
+            ...
+
+        @staticmethod
+        def python_path_not_found(python_path: str) -> str:
+            """Returns a string message saying it was impossible to find the given python path"""
+            ...
+
+        @staticmethod
+        def system_packages_configuration_found(virtual_env_path: str, include_system_packages: bool) -> str:
+            """
+            Returns a string message saying the Python Initializer will use the system packages found
+            in the virtual environment path
+            """
+            ...
+
+        @staticmethod
+        def unable_to_locate_algorithm(algorithm_location: str) -> str:
+            """Returns a string message saying it was impossible to find algorithm location path"""
+            ...
+
+        @staticmethod
+        def virutal_environment_not_found(virtual_env_path: str) -> str:
+            """Returns a string message saying the given path to virtual environment does not exist"""
+            ...
+
     class PythonWrapper(System.Object):
         """Provides user-facing common messages for the Python.PythonWrapper namespace classes"""
 
         expected_interface_type_parameter: str = "expected an interface type parameter."
         """String message saying: expected and interface type parameter"""
 
+        @staticmethod
+        def interface_not_fully_implemented(interface_name: str, python_type_name: str, missing_members: typing.List[str]) -> str:
+            """
+            Returns a string message saying the given interface must be fully implemented. It also advises the user
+            on the missing methods in its interface
+            """
+            ...
+
     class BasePythonWrapper(System.Object):
         """Provides user-facing common messages for the Python.BasePythonWrapper{TInterface} class"""
+
+        @staticmethod
+        def invalid_dictionary_key_type(python_method_name: str, expected_type: typing.Type, actual_py_type: typing.Any) -> str:
+            ...
+
+        @staticmethod
+        def invalid_dictionary_value_type(python_method_name: str, expected_type: typing.Type, actual_py_type: typing.Any) -> str:
+            ...
+
+        @staticmethod
+        def invalid_iterable(python_method_name: str, expected_type: typing.Type, actual_py_type: typing.Any) -> str:
+            ...
+
+        @staticmethod
+        def invalid_method_iterable_item_type(python_method_name: str, expected_type: typing.Type, actual_py_type: typing.Any) -> str:
+            ...
+
+        @staticmethod
+        def invalid_out_parameter_type(python_method_name: str, index: int, expected_type: typing.Type, actual_py_type: typing.Any) -> str:
+            ...
+
+        @staticmethod
+        def invalid_return_type(python_name: str, expected_type: typing.Type, actual_py_type: typing.Any, is_method: bool = True) -> str:
+            ...
+
+        @staticmethod
+        def invalid_return_type_for_method_with_out_parameters(python_method_name: str, py_value_type: typing.Any) -> str:
+            ...
+
+        @staticmethod
+        def invalid_return_type_tuple_size_for_method_with_out_parameters(python_method_name: str, expected_size: int, actual_size: int) -> str:
+            ...
 
     class IndicatorDataPoint(System.Object):
         """Provides user-facing messages for the Indicators.IndicatorDataPoint class and its consumers or related classes"""

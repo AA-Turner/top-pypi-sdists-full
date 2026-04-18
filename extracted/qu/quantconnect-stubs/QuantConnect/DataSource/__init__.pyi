@@ -5147,7 +5147,7 @@ class NasdaqBitfinexDownloader(System.Object, QuantConnect.IDataDownloader):
         """
         ...
 
-    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Get historical data enumerable for Bitfinex from Nasdaq
         
@@ -20344,7 +20344,7 @@ class CoinGeckoUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection
         """
         ...
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
         """
         Creates a new fundamental universe using this class's selection functions
         
@@ -20353,7 +20353,7 @@ class CoinGeckoUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection
         """
         ...
 
-    def selector(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: typing.List[QuantConnect.DataSource.CoinGecko]) -> typing.Iterable[QuantConnect.Symbol]:
+    def selector(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: typing.List[QuantConnect.DataSource.CoinGecko]) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Defines the CoinGecko selection function.
         

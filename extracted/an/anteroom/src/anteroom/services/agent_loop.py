@@ -11,6 +11,14 @@ from dataclasses import dataclass
 from typing import Any, AsyncGenerator
 
 from .ai_service import AIService
+from .compaction import (
+    AGENT_LOOP_CONTENT_TEMPLATE,
+    PROACTIVE_COMPACTION_MSG_THRESHOLD,
+    PROACTIVE_COMPACTION_TOKEN_THRESHOLD,
+)
+from .compaction import (
+    compact_messages as _shared_compact_messages,
+)
 from .context_trust import wrap_untrusted
 from .token_budget import BudgetCheckResult, check_all_budgets
 from .tool_result_compact import compact_tool_output
@@ -31,8 +39,12 @@ class AgentEvent:
 
 _DEFAULT_TOOL_OUTPUT_MAX_CHARS = 2000
 _DEFAULT_TOOL_TIMEOUT = 300  # 5 minutes hard cap per tool execution
-_PROACTIVE_COMPACTION_MSG_THRESHOLD = 80  # fallback: compact when messages exceed this count
-_PROACTIVE_COMPACTION_TOKEN_THRESHOLD = 90_000  # compact when estimated tokens exceed this
+
+# Proactive compaction thresholds live in the shared compaction module;
+# re-exported here under their historical private names for compatibility
+# with any external references.
+_PROACTIVE_COMPACTION_MSG_THRESHOLD = PROACTIVE_COMPACTION_MSG_THRESHOLD
+_PROACTIVE_COMPACTION_TOKEN_THRESHOLD = PROACTIVE_COMPACTION_TOKEN_THRESHOLD
 
 
 def _humanize_tool_brief(tool_name: str, arguments: dict[str, Any]) -> str:
@@ -111,103 +123,24 @@ def _truncate_large_tool_outputs(
     return truncated_any
 
 
-def _build_compaction_history(messages: list[dict[str, Any]]) -> str:
-    """Build a structured history string for the compaction summary prompt.
-
-    Includes tool call outcomes (not just names) so the AI can distinguish
-    completed steps from pending ones after compaction.
-    """
-    history_text = []
-    # Map tool_call_id -> tool name for annotating tool result messages
-    tool_id_to_name: dict[str, str] = {}
-    for msg in messages:
-        for tc in msg.get("tool_calls", []):
-            tc_id = tc.get("id", "")
-            func = tc.get("function", {})
-            if tc_id and func.get("name"):
-                tool_id_to_name[tc_id] = func["name"]
-
-    for msg in messages:
-        role = msg.get("role", "unknown")
-        content = msg.get("content", "")
-
-        if role == "tool":
-            tc_id = msg.get("tool_call_id", "")
-            tool_name = tool_id_to_name.get(tc_id, "unknown")
-            try:
-                result = json.loads(content) if isinstance(content, str) and content else {}
-            except (json.JSONDecodeError, ValueError):
-                result = {"raw": content}
-            if isinstance(result, dict) and "error" in result:
-                snippet = str(result["error"])[:200]
-                history_text.append(f"  tool_result: {tool_name} -> ERROR: {snippet}")
-            else:
-                safe_content = content if isinstance(content, str) else ""
-                snippet = safe_content[:200] + "..." if len(safe_content) > 200 else safe_content
-                history_text.append(f"  tool_result: {tool_name} -> SUCCESS: {snippet}")
-            continue
-
-        if isinstance(content, str) and content:
-            truncated = content[:500] + "..." if len(content) > 500 else content
-            history_text.append(f"{role}: {truncated}")
-
-        for tc in msg.get("tool_calls", []):
-            func = tc.get("function", {})
-            name = func.get("name", "?")
-            args_raw = func.get("arguments", "")
-            try:
-                args = json.loads(args_raw) if args_raw else {}
-                args_preview = ", ".join(f"{k}={str(v)[:40]!r}" for k, v in list(args.items())[:3])
-            except (json.JSONDecodeError, ValueError):
-                args_preview = args_raw[:80]
-            history_text.append(f"  tool_call: {name}({args_preview})")
-
-    return "\n".join(history_text)
-
-
 async def _compact_messages(
     ai_service: AIService,
     messages: list[dict[str, Any]],
 ) -> bool:
-    """Summarize conversation history to reduce context size. Returns True on success."""
-    if len(messages) < 4:
-        return False
+    """Summarize conversation history to reduce context size. Returns True on success.
 
-    history_text = _build_compaction_history(messages)
-
-    summary_prompt = (
-        "Summarize the following conversation concisely, preserving:\n"
-        "- Key decisions and conclusions\n"
-        "- File paths that were read, written, or edited\n"
-        "- Important code changes and their purpose\n"
-        "- Which steps of any multi-step plan have been COMPLETED (tool_result SUCCESS) vs remaining\n"
-        "- Current state of the task — what has been done and what is next\n"
-        "- Any errors encountered and how they were resolved\n\n" + history_text
+    Thin wrapper around :func:`services.compaction.compact_messages` that
+    preserves the historical ``bool`` return used by this module's loop
+    control. Produces the exact same compacted message shape as before
+    (``role: "user"`` with the agent-loop content template).
+    """
+    result = await _shared_compact_messages(
+        ai_service,
+        messages,
+        role="user",
+        content_template=AGENT_LOOP_CONTENT_TEMPLATE,
     )
-
-    try:
-        result = await ai_service.complete(
-            messages=[{"role": "user", "content": summary_prompt}],
-            max_completion_tokens=1000,
-        )
-        summary = result or "Conversation summary unavailable."
-    except Exception:
-        logger.exception("Failed to generate compaction summary")
-        return False
-
-    original_count = len(messages)
-    messages.clear()
-    messages.append(
-        {
-            "role": "user",
-            "content": (
-                f"[Previous conversation summary (auto-compacted from {original_count} messages)]\n\n"
-                f"{summary}\n\nPlease continue from where we left off."
-            ),
-        }
-    )
-    logger.info("Compacted %d messages into summary for context recovery", original_count)
-    return True
+    return result.success
 
 
 async def _execute_tool(

@@ -32,6 +32,7 @@ __all__ = (
     "ConfigCapabilityTypeType",
     "ContactScheduledWaiterName",
     "ContactStatusType",
+    "ContactUpdatedWaiterName",
     "CriticalityType",
     "EirpUnitsType",
     "EndpointStatusType",
@@ -42,19 +43,26 @@ __all__ = (
     "EphemerisTypeType",
     "FrequencyUnitsType",
     "GroundStationServiceName",
+    "ListAntennasPaginatorName",
     "ListConfigsPaginatorName",
+    "ListContactVersionsPaginatorName",
     "ListContactsPaginatorName",
     "ListDataflowEndpointGroupsPaginatorName",
     "ListEphemeridesPaginatorName",
+    "ListGroundStationReservationsPaginatorName",
     "ListGroundStationsPaginatorName",
     "ListMissionProfilesPaginatorName",
     "ListSatellitesPaginatorName",
+    "MaintenanceTypeType",
     "PaginatorName",
     "PolarizationType",
     "RegionName",
+    "ReservationTypeType",
     "ResourceServiceName",
     "ServiceName",
     "TelemetrySinkTypeType",
+    "VersionFailureReasonCodeType",
+    "VersionStatusType",
     "WaiterName",
 )
 
@@ -99,6 +107,7 @@ ContactStatusType = Literal[
     "SCHEDULED",
     "SCHEDULING",
 ]
+ContactUpdatedWaiterName = Literal["contact_updated"]
 CriticalityType = Literal["PREFERRED", "REMOVED", "REQUIRED"]
 EirpUnitsType = Literal["dBW"]
 EndpointStatusType = Literal["created", "creating", "deleted", "deleting", "failed"]
@@ -153,15 +162,35 @@ EphemerisSourceType = Literal["CUSTOMER_PROVIDED", "SPACE_TRACK"]
 EphemerisStatusType = Literal["DISABLED", "ENABLED", "ERROR", "EXPIRED", "INVALID", "VALIDATING"]
 EphemerisTypeType = Literal["AZ_EL", "OEM", "SERVICE_MANAGED", "TLE"]
 FrequencyUnitsType = Literal["GHz", "MHz", "kHz"]
+ListAntennasPaginatorName = Literal["list_antennas"]
 ListConfigsPaginatorName = Literal["list_configs"]
+ListContactVersionsPaginatorName = Literal["list_contact_versions"]
 ListContactsPaginatorName = Literal["list_contacts"]
 ListDataflowEndpointGroupsPaginatorName = Literal["list_dataflow_endpoint_groups"]
 ListEphemeridesPaginatorName = Literal["list_ephemerides"]
+ListGroundStationReservationsPaginatorName = Literal["list_ground_station_reservations"]
 ListGroundStationsPaginatorName = Literal["list_ground_stations"]
 ListMissionProfilesPaginatorName = Literal["list_mission_profiles"]
 ListSatellitesPaginatorName = Literal["list_satellites"]
+MaintenanceTypeType = Literal["PLANNED", "UNPLANNED"]
 PolarizationType = Literal["LEFT_HAND", "NONE", "RIGHT_HAND"]
+ReservationTypeType = Literal["CONTACT", "MAINTENANCE"]
 TelemetrySinkTypeType = Literal["KINESIS_DATA_STREAM"]
+VersionFailureReasonCodeType = Literal[
+    "AZEL_EPHEMERIS_INVALID_STATUS",
+    "AZEL_EPHEMERIS_NOT_FOUND",
+    "AZEL_EPHEMERIS_TIME_RANGE_INVALID",
+    "AZEL_EPHEMERIS_WRONG_GROUND_STATION",
+    "EPHEMERIS_NOT_ENABLED",
+    "EPHEMERIS_NOT_FOUND",
+    "EPHEMERIS_TIME_RANGE_INVALID",
+    "INTERNAL_ERROR",
+    "INVALID_SATELLITE_ARN",
+    "INVALID_UPDATE_CONTACT_REQUEST",
+    "NOT_ONBOARDED_TO_AZEL_EPHEMERIS",
+    "SATELLITE_DOES_NOT_MATCH_EPHEMERIS",
+]
+VersionStatusType = Literal["ACTIVE", "FAILED_TO_UPDATE", "SUPERSEDED", "UPDATING"]
 GroundStationServiceName = Literal["groundstation"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -265,6 +294,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -280,6 +310,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -306,13 +337,13 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -346,13 +377,13 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -403,6 +434,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -500,6 +532,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",
@@ -516,6 +549,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -527,7 +561,9 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -549,6 +585,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -561,6 +598,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -583,15 +621,18 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_antennas",
     "list_configs",
+    "list_contact_versions",
     "list_contacts",
     "list_dataflow_endpoint_groups",
     "list_ephemerides",
+    "list_ground_station_reservations",
     "list_ground_stations",
     "list_mission_profiles",
     "list_satellites",
 ]
-WaiterName = Literal["contact_scheduled"]
+WaiterName = Literal["contact_scheduled", "contact_updated"]
 RegionName = Literal[
     "af-south-1",
     "ap-northeast-2",

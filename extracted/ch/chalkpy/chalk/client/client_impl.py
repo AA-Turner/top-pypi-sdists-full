@@ -2904,6 +2904,20 @@ https://docs.chalk.ai/cli/apply
             include_historical=include_historical,
         )
 
+    def cancel_offline_query(
+        self,
+        offline_query_id: str,
+    ) -> None:
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+        client_grpc.cancel_offline_query(offline_query_id=offline_query_id)
+
     def prompt_evaluation(
         self,
         prompts: list[Prompt | str],

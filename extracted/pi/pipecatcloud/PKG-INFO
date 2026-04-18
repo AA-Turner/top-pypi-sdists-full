@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: pipecatcloud
-Version: 0.4.4
+Version: 0.5.0
 Summary: Cloud hosting for Pipecat AI applications
 License: BSD 2-Clause License
 Project-URL: Website, https://docs.pipecat.daily.co/
 Keywords: pipecat,pipecat-ai,voice,ai,llm
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp<4.0.0,>=3.11.12
@@ -18,7 +18,7 @@ Requires-Dist: synchronicity<1.0.0,>=0.11
 Requires-Dist: toml~=0.10.2
 Requires-Dist: questionary~=2.1.0
 Provides-Extra: pipecat
-Requires-Dist: pipecat-ai>=0.0.79; extra == "pipecat"
+Requires-Dist: pipecat-ai>=1.0.0; extra == "pipecat"
 Dynamic: license-file
 
 <h1><div align="center">

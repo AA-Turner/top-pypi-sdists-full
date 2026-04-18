@@ -99,8 +99,9 @@ def _sanitize_branch_name(branch: str) -> str:
     """
     # Replace @ with _at_ for readability
     sanitized = branch.replace("@", "_at_")
-    # Replace any remaining invalid characters with underscores
-    sanitized = re.sub(r"[^a-z0-9_-]", "_", sanitized.lower())
+    # Replace hyphens, slashes, and any other invalid characters with underscores.
+    # This matches the branch normalization in deploy_obproject.py.
+    sanitized = re.sub(r"[^a-z0-9_]", "_", sanitized.lower())
     # Collapse multiple underscores
     sanitized = re.sub(r"_+", "_", sanitized)
     # Remove leading/trailing underscores
@@ -378,7 +379,17 @@ class Asset:
             server = conf["OBP_API_SERVER"]
             self.base_url = f"https://{server}"
         else:
-            self.base_url = os.path.dirname(os.environ.get("OBP_INTEGRATIONS_URL"))
+            integrations_url = os.environ.get("OBP_INTEGRATIONS_URL")
+            if integrations_url:
+                self.base_url = os.path.dirname(integrations_url)
+            else:
+                raise RuntimeError(
+                    "Cannot determine asset API server.\n"
+                    f"  OBP_API_SERVER in metaflow config: {conf.get('OBP_API_SERVER', '<not set>')}\n"
+                    f"  OBP_INTEGRATIONS_URL env var: {integrations_url!r}\n"
+                    f"  OBP_PERIMETER in metaflow config: {conf.get('OBP_PERIMETER', '<not set>')}\n"
+                    f"  Metaflow config keys: {list(conf.keys())}"
+                )
 
     @property
     def meta(self):
@@ -621,3 +632,208 @@ class Asset:
             return get_model_asset(*args, **common)
         else:
             return consume_model_asset(*args, **common, entity_ref=self.entity_ref)
+
+    def _promote_single(self, source_branch, target_branch, name, kind,
+                        instance="latest", with_aliases=False):
+        """
+        Internal: promote one asset instance from source to target branch.
+        Both branches must be pre-sanitized.
+        """
+        # Read from source
+        if kind == "data":
+            src = get_data_asset(
+                self.base_url, self.service_headers,
+                perimeter=self.perimeter, project=self.project,
+                branch=source_branch, asset=name, instance=instance,
+            )
+            props = src.get("data_properties", {})
+            asset_kind = props.get("data_kind")
+        else:
+            src = get_model_asset(
+                self.base_url, self.service_headers,
+                perimeter=self.perimeter, project=self.project,
+                branch=source_branch, asset=name, instance=instance,
+            )
+            props = src.get("model_properties", {})
+            asset_kind = props.get("model_kind")
+
+        annotations = dict(props.get("annotations") or {})
+        blobs = props.get("blobs") or []
+        tags_list = src.get("tags") or []
+        tags = {t["key"]: t["value"] for t in tags_list}
+        description = src.get("asset", {}).get("description", "")
+        source_id = src.get("id", "")
+
+        # Add promotion lineage
+        annotations["promoted_from_branch"] = source_branch
+        annotations["promoted_from_instance"] = source_id
+
+        result = register_asset(
+            self.base_url,
+            self.service_headers,
+            perimeter=self.perimeter,
+            project=self.project,
+            branch=target_branch,
+            name=name,
+            kind=kind,
+            entity_ref=self.entity_ref,
+            description=description,
+            data_asset_kind=asset_kind if kind == "data" else None,
+            model_asset_kind=asset_kind if kind == "models" else None,
+            blobs=blobs,
+            annotations=annotations,
+            tags=tags if tags else None,
+        )
+
+        if with_aliases:
+            # register_asset doesn't return the new instance ID,
+            # so read it back from the target branch
+            if kind == "data":
+                new = get_data_asset(
+                    self.base_url, self.service_headers,
+                    perimeter=self.perimeter, project=self.project,
+                    branch=target_branch, asset=name, instance="latest",
+                )
+            else:
+                new = get_model_asset(
+                    self.base_url, self.service_headers,
+                    perimeter=self.perimeter, project=self.project,
+                    branch=target_branch, asset=name, instance="latest",
+                )
+            self._copy_aliases(source_branch, target_branch, name, kind,
+                               new.get("id", ""))
+
+        return result
+
+    def _copy_aliases(self, source_branch, target_branch, name, kind,
+                      target_instance_id):
+        """Copy all aliases from source branch to target, pointing to the promoted instance."""
+        base = (f"/v1/perimeters/{self.perimeter}/projects/{self.project}"
+                f"/branches")
+        try:
+            aliases_resp = _make_request(
+                self.base_url, self.service_headers, "GET",
+                f"{base}/{source_branch}/{kind}/{name}/aliases",
+            )
+        except Exception:
+            return
+
+        for alias in aliases_resp.get("aliases", []):
+            try:
+                _make_request(
+                    self.base_url, self.service_headers, "PUT",
+                    f"{base}/{target_branch}/{kind}/{name}/aliases/{alias['name']}",
+                    {
+                        "instance_id": target_instance_id,
+                        "entity_ref": dict(self.entity_ref),
+                    },
+                )
+            except Exception:
+                pass  # best-effort
+
+
+def promote_assets(project, source, target, kinds=None, asset=None,
+                   instance="latest", with_aliases=False):
+    """
+    Promote assets from one branch to another.
+
+    Reads asset instances from `source` branch and re-registers them on
+    `target` branch with the same blob references, annotations, and tags.
+    The underlying data (S3 objects, Metaflow artifacts) is NOT copied --
+    only the metadata pointer is created on the target branch.
+
+    Args:
+        project: Project name
+        source: Source branch name (will be sanitized)
+        target: Target branch name (will be sanitized)
+        kinds: List of asset types to promote, e.g. ["data", "models"].
+               Defaults to both.
+        asset: If set, promote only this specific asset name.
+               Otherwise promotes all assets on the source branch.
+        instance: Which instance to promote ("latest", instance ID,
+                  or "@alias"). Defaults to "latest".
+        with_aliases: If True, copy aliases from the source branch that
+                  point to the promoted instance. Default False.
+
+    Returns:
+        Dict with "promoted" (list of dicts) and "errors" (list of dicts)
+
+    Example::
+
+        from obproject.assets import promote_assets
+
+        # Promote everything from feature branch to main
+        result = promote_assets('my_project', source='feature-v2', target='main')
+
+        # Promote only models
+        result = promote_assets('my_project', source='feature-v2', target='main',
+                                kinds=['models'])
+
+        # Promote a specific validated model with its aliases
+        result = promote_assets('my_project', source='feature-v2', target='main',
+                                asset='classifier', instance='@validated',
+                                with_aliases=True)
+    """
+    source = _sanitize_branch_name(source)
+    target = _sanitize_branch_name(target)
+    if kinds is None:
+        kinds = ["data", "models"]
+
+    entity_ref = {"entity_kind": "task", "entity_id": "obproject/promote"}
+    client = Asset(project=project, branch=target, entity_ref=entity_ref)
+
+    promoted = []
+    errors = []
+
+    if asset:
+        # Promote a single named asset — try each requested kind
+        for kind in kinds:
+            try:
+                client._promote_single(source, target, asset, kind, instance,
+                                       with_aliases=with_aliases)
+                promoted.append({"kind": kind, "name": asset})
+            except Exception as e:
+                errors.append({"kind": kind, "name": asset, "error": str(e)})
+        return {"promoted": promoted, "errors": errors}
+
+    # Promote all assets on the source branch
+    for kind in kinds:
+        try:
+            if kind == "data":
+                result = list_data_assets(
+                    client.base_url, client.service_headers,
+                    perimeter=client.perimeter, project=project,
+                    branch=source,
+                )
+            else:
+                result = list_model_assets(
+                    client.base_url, client.service_headers,
+                    perimeter=client.perimeter, project=project,
+                    branch=source,
+                )
+        except Exception as e:
+            errors.append({"kind": kind, "error": str(e)})
+            continue
+
+        assets = result.get("items", [])
+        for entry in assets:
+            asset_info = entry.get("asset", entry)
+            asset_name = asset_info.get("name") or asset_info.get("id")
+            if not asset_name:
+                continue
+            try:
+                client._promote_single(source, target, asset_name, kind, instance,
+                                       with_aliases=with_aliases)
+                promoted.append({"kind": kind, "name": asset_name})
+            except Exception as e:
+                errors.append({"kind": kind, "name": asset_name, "error": str(e)})
+
+    if not promoted and not errors:
+        import warnings
+        warnings.warn(
+            f"No assets found on source branch '{source}'. "
+            f"Was teardown-branch already run? "
+            f"Promotion must happen before teardown."
+        )
+
+    return {"promoted": promoted, "errors": errors}

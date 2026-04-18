@@ -310,6 +310,14 @@ class Session:
         )
         session._started = True
         await session.start_heartbeat()
+
+        desktop = session.desktop_env
+        if desktop:
+            try:
+                await desktop.sdk.status()
+            except Exception:
+                logger.warning("Desktop agent API not ready after session creation")
+
         return session
 
     @classmethod
@@ -589,7 +597,8 @@ class Session:
                     alias=ctx.alias,
                     artifact_id=ctx.artifact_id,
                     simulator=ctx.simulator,
-                    status="running",  # Environments are running after from_envs completes
+                    status="running",
+                    is_desktop=bool(ctx.is_desktop),
                 )
                 for ctx in env_contexts
             ]
@@ -606,6 +615,14 @@ class Session:
         """
         for env in self.envs:
             if env.alias == alias:
+                return env
+        return None
+
+    @property
+    def desktop_env(self) -> Environment | None:
+        """The desktop VM environment, or None."""
+        for env in self.envs:
+            if env.is_desktop:
                 return env
         return None
 
@@ -1013,6 +1030,7 @@ class Session:
             raise RuntimeError("Backend did not return job_id for new environment")
 
         job_id = response.env.job_id
+        is_desktop = bool(response.env.is_desktop)
 
         # Wait for the job to be ready if requested
         mesh_ip: str | None = None
@@ -1042,6 +1060,7 @@ class Session:
             alias=env.alias,
             artifact_id=response.env.artifact_id,
             simulator=getattr(env, "simulator", None),
+            is_desktop=is_desktop,
         )
 
         # Add to context's envs list
@@ -1063,6 +1082,7 @@ class Session:
             simulator=getattr(env, "simulator", None),
             status="running",  # Newly added environments are running
             mesh_ip=mesh_ip,
+            is_desktop=is_desktop,
         )
 
         logger.debug(f"Added job {job_id} (alias={env.alias}) to session {self.session_id}")
@@ -1196,8 +1216,16 @@ class Session:
         Raises:
             RuntimeError: If login fails.
             ImportError: If playwright is not installed.
+            RuntimeError: If session contains a desktop environment.
         """
         self._check_closed()
+
+        if self.desktop_env is not None:
+            raise RuntimeError(
+                "This session contains a desktop environment. "
+                "Use desktop.sdk.login(session) instead of session.login(browser). "
+                "See desktop_env property for details."
+            )
 
         import importlib.util
 

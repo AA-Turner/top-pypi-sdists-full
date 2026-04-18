@@ -6,7 +6,6 @@ an agent is created without a model parameter.
 """
 
 import time
-from pathlib import Path
 
 import pytest
 from braintrust import logger, setup_pydantic_ai
@@ -18,11 +17,6 @@ from pydantic_ai import Agent, ModelSettings
 PROJECT_NAME = "test-pydantic-ai-logfire"
 MODEL = "openai:gpt-4o-mini"
 TEST_PROMPT = "What is 2+2? Answer with just the number."
-
-
-@pytest.fixture(scope="module")
-def vcr_cassette_dir():
-    return str(Path(__file__).resolve().parent / "cassettes")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -72,7 +66,7 @@ async def test_no_model_agent_run_with_logfire(memory_logger):
     assert agent_span is not None, "agent_run span not found"
     assert chat_span is not None, "chat span not found"
 
-    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert agent_span["metadata"]["model"] == "gpt-4o-mini"
     assert agent_span["metadata"]["provider"] == "openai"
     assert TEST_PROMPT in str(agent_span["input"])

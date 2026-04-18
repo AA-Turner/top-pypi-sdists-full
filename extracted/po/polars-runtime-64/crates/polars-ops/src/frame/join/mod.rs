@@ -18,7 +18,9 @@ use std::hash::Hash;
 pub use args::*;
 use arrow::trusted_len::TrustedLen;
 #[cfg(feature = "asof_join")]
-pub use asof::{AsOfOptions, AsofJoin, AsofJoinBy, AsofStrategy};
+pub use asof::{
+    _check_asof_columns, _join_asof_dispatch, AsOfOptions, AsofJoin, AsofJoinBy, AsofStrategy,
+};
 pub use cross_join::CrossJoin;
 #[cfg(feature = "chunked_ids")]
 use either::Either;
@@ -326,7 +328,7 @@ pub trait DataFrameJoinOps: IntoDf {
                     },
                 },
                 #[cfg(feature = "iejoin")]
-                JoinType::IEJoin => {
+                JoinType::IEJoin | JoinType::Range => {
                     unreachable!()
                 },
                 JoinType::Cross => {
@@ -372,7 +374,7 @@ pub trait DataFrameJoinOps: IntoDf {
                 ComputeError: "asof join not supported for join on multiple keys"
             ),
             #[cfg(feature = "iejoin")]
-            JoinType::IEJoin => {
+            JoinType::IEJoin | JoinType::Range => {
                 unreachable!()
             },
             JoinType::Cross => {

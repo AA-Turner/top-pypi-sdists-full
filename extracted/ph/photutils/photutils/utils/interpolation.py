@@ -1,10 +1,13 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Define tools for interpolating data.
+Tools for interpolating data.
 """
 
 import numpy as np
 from scipy.spatial import cKDTree
+
+from photutils.utils._deprecation import (deprecated_positional_kwargs,
+                                          deprecated_renamed_argument)
 
 __all__ = ['ShepardIDWInterpolator']
 
@@ -21,8 +24,8 @@ class ShepardIDWInterpolator:
     ----------
     coordinates : float, 1D array_like, or NxM array_like
         Coordinates of the known data points. In general, it is expected
-        that these coordinates are in a form of a NxM-like array where N
-        is the number of points and M is dimension of the coordinate
+        that these coordinates are in a form of an NxM-like array where
+        N is the number of points and M is dimension of the coordinate
         space. When M=1 (1D space), then the ``coordinates`` parameter
         may be entered as a 1D array or, if only one data point is
         available, ``coordinates`` can be a scalar number representing
@@ -116,6 +119,7 @@ class ShepardIDWInterpolator:
         0.8912073600614354
     """
 
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __init__(self, coordinates, values, weights=None, leafsize=10):
         coordinates = np.asarray(coordinates)
         if coordinates.ndim == 0:  # scalar coordinate
@@ -155,8 +159,11 @@ class ShepardIDWInterpolator:
         self.weights = weights
         self.kdtree = cKDTree(coordinates, leafsize=leafsize)
 
-    def __call__(self, positions, n_neighbors=8, eps=0.0, power=1.0, reg=0.0,
-                 conf_dist=1.0e-12, dtype=float):
+    @deprecated_renamed_argument('reg', 'regularization', '3.0',
+                                 until='4.0')
+    @deprecated_positional_kwargs(since='3.0', until='4.0')
+    def __call__(self, positions, n_neighbors=8, eps=0.0, power=1.0,
+                 regularization=0.0, conf_dist=1.0e-12, dtype=float):
         """
         Evaluate the interpolator at the given positions.
 
@@ -165,12 +172,12 @@ class ShepardIDWInterpolator:
         positions : float, 1D array_like, or NxM array_like
             Coordinates of the position(s) at which the interpolator
             should be evaluated. In general, it is expected that these
-            coordinates are in a form of a NxM-like array where N is the
-            number of points and M is dimension of the coordinate space.
-            When M=1 (1D space), then the ``positions`` parameter may be
-            input as a 1D-like array or, if only one data point is
-            available, ``positions`` can be a scalar number representing
-            the 1D coordinate of the data point.
+            coordinates are in a form of an NxM-like array where N is
+            the number of points and M is dimension of the coordinate
+            space. When M=1 (1D space), then the ``positions`` parameter
+            may be input as a 1D-like array or, if only one data
+            point is available, ``positions`` can be a scalar number
+            representing the 1D coordinate of the data point.
 
             .. note::
                 If the dimensionality of the ``positions`` argument is
@@ -197,7 +204,7 @@ class ShepardIDWInterpolator:
             The power of the inverse distance used for the interpolation
             weights. See the Notes section for more details.
 
-        reg : float, optional
+        regularization : float, optional
             The regularization parameter. It may be used to control the
             smoothness of the interpolator. See the Notes section for
             more details.
@@ -207,13 +214,20 @@ class ShepardIDWInterpolator:
             use the value of the closest data point instead of
             attempting to interpolate. This is used to avoid
             singularities at the known data points, especially if
-            ``reg`` is 0.0.
+            ``regularization`` is 0.0.
 
         dtype : data-type, optional
             The data type of the output interpolated values. If `None`
             then the type will be inferred from the type of the
             ``values`` parameter used during the initialization of the
             interpolator.
+
+        Returns
+        -------
+        result : float or `~numpy.ndarray`
+            The interpolated value(s). A scalar is returned when a
+            single position is provided; otherwise a 1D array is
+            returned.
         """
         n_neighbors = int(n_neighbors)
         if n_neighbors < 1:
@@ -225,14 +239,14 @@ class ShepardIDWInterpolator:
 
         positions = np.asanyarray(positions)
         if positions.ndim == 0:
-            # assume we have a single 1D coordinate
+            # Assume we have a single 1D coordinate
             if self.coords_ndim != 1:
                 msg = ('The dimensionality of the input position does '
                        'not match the dimensionality of the coordinates '
                        'used to initialize the interpolator.')
                 raise ValueError(msg)
         elif positions.ndim == 1:
-            # assume we have a single point
+            # Assume we have a single point
             if self.coords_ndim not in (1, positions.shape[-1]):
                 msg = ('The input position was provided as a 1D array, '
                        'but its length does not match the dimensionality '
@@ -245,44 +259,66 @@ class ShepardIDWInterpolator:
             raise ValueError(msg)
 
         positions = np.reshape(positions, (-1, self.coords_ndim))
-        npositions = positions.shape[0]
+        n_positions = positions.shape[0]
 
         distances, idx = self.kdtree.query(positions, k=n_neighbors, eps=eps)
 
         if n_neighbors == 1:
-            return self.values[idx]
+            result = self.values[idx]
+            return result.item() if n_positions == 1 else result
 
         if dtype is None:
             dtype = self.values.dtype
 
-        interp_values = np.zeros(npositions, dtype=dtype)
-        for k in range(npositions):
-            valid_idx = np.isfinite(distances[k])
-            idk = idx[k][valid_idx]
-            dk = distances[k][valid_idx]
+        # distances and idx have shape (n_positions, n_neighbors). Mask
+        # for valid (finite) distances; invalid entries arise when
+        # n_neighbors exceeds the number of known data points.
+        valid = np.isfinite(distances)
 
-            if dk.shape[0] == 0:
-                interp_values[k] = np.nan
-                continue
+        # Replace non-finite distances and out-of-bound indices with
+        # safe values so that vectorized indexing and arithmetic do not
+        # raise errors; the ``valid`` mask zeroes them out later.
+        safe_distances = np.where(valid, distances, 1.0)
+        safe_idx = np.where(valid, idx, 0)
 
-            if conf_dist is not None:
-                # check if we are close to a known data point
-                confused = (dk <= conf_dist)
-                if np.any(confused):
-                    interp_values[k] = self.values[idk[confused][0]]
-                    continue
+        # Inverse distance weights: w_i = 1 / (d_i^power + reg) The
+        # errstate context suppresses divide-by-zero warnings that occur
+        # when a query point coincides with a data point (distance = 0
+        # and reg = 0); these are handled by the conf_dist override.
+        with np.errstate(invalid='ignore', divide='ignore'):
+            weights = np.where(valid,
+                               1.0 / (safe_distances ** power
+                                      + regularization),
+                               0.0)
 
-            w = 1.0 / ((dk**power) + reg)
+            # Apply external (user-supplied) weights
             if self.weights is not None:
-                w *= self.weights[idk]
+                weights *= np.where(valid, self.weights[safe_idx], 0.0)
 
-            wtot = np.sum(w)
-            if wtot > 0.0:
-                interp_values[k] = np.dot(w, self.values[idk]) / wtot
-            else:
-                interp_values[k] = np.nan
+            # Gather neighbor values and compute the weighted average
+            neighbor_values = self.values[safe_idx]
+            weights_tot = np.sum(weights, axis=1)
+            weighted_sum = np.sum(weights * neighbor_values, axis=1)
 
-        if len(interp_values) == 1:
+            # Where total weight is positive, compute interpolation;
+            # otherwise return NaN (covers both the "no valid
+            # neighbours" and "all-zero external weights" cases).
+            interp_values = np.where(weights_tot > 0.0,
+                                     weighted_sum / weights_tot,
+                                     np.nan).astype(dtype)
+
+        # Confusion-distance override: if the nearest neighbour is
+        # closer than ``conf_dist``, return its value directly instead
+        # of interpolating (avoids singularities when reg == 0).
+        if conf_dist is not None:
+            min_dist = distances[:, 0]
+            confused = np.isfinite(min_dist) & (min_dist <= conf_dist)
+            if np.any(confused):
+                interp_values[confused] = self.values[
+                    idx[confused, 0]
+                ].astype(dtype)
+
+        if n_positions == 1:
             return interp_values[0]
 
         return interp_values

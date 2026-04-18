@@ -338,7 +338,6 @@ pub(super) fn parse_links_images_pulldown<'a>(
                     id: footnote_id.to_string(),
                     line: line_num,
                     byte_offset: range.start,
-                    byte_end: range.end,
                 });
             }
             _ => {}
@@ -444,11 +443,7 @@ pub(super) fn finalize_links_and_images<'a>(
         {
             // Inline links inside MkDocs admonitions/tabs that pulldown-cmark missed
             // because it treated the indented content as code blocks.
-            let url = cap
-                .get(2)
-                .or_else(|| cap.get(3))
-                .map(|m| m.as_str().trim())
-                .unwrap_or("");
+            let url = cap.get(2).or_else(|| cap.get(3)).map_or("", |m| m.as_str().trim());
             result.links.push(ParsedLink {
                 line: line_num,
                 start_col: col_start,
@@ -514,11 +509,7 @@ pub(super) fn finalize_links_and_images<'a>(
         {
             // Inline images inside MkDocs admonitions/tabs that pulldown-cmark missed
             // because it treated the indented content as code blocks.
-            let url = cap
-                .get(2)
-                .or_else(|| cap.get(3))
-                .map(|m| m.as_str().trim())
-                .unwrap_or("");
+            let url = cap.get(2).or_else(|| cap.get(3)).map_or("", |m| m.as_str().trim());
             result.images.push(ParsedImage {
                 line: line_num,
                 start_col: col_start,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lxml
-Version: 6.0.4
+Version: 6.1.0
 Summary: Powerful and Pythonic XML processing library combining libxml2/libxslt with the ElementTree API.
 Home-page: https://lxml.de/
 Author: lxml dev team
@@ -70,17 +70,35 @@ build the sources, see the build instructions on the project home page.
 
 
 After an official release of a new stable series, bug fixes may become available at
-https://github.com/lxml/lxml/tree/lxml-6.0 .
-Running ``pip install https://github.com/lxml/lxml/archive/refs/heads/lxml-6.0.tar.gz``
+https://github.com/lxml/lxml/tree/lxml-6.1 .
+Running ``pip install https://github.com/lxml/lxml/archive/refs/heads/lxml-6.1.tar.gz``
 will install the unreleased branch state as soon as a maintenance branch has been established.
 Note that this requires Cython to be installed at an appropriate version for the build.
 
-6.0.4 (2026-04-12)
+6.1.0 (2026-04-17)
 ==================
+
+This release fixes a possible external entity injection (XXE) vulnerability in
+``iterparse()`` and the ``ETCompatXMLParser``.
+
+Features added
+--------------
+
+* GH#486: The HTML ARIA accessibility attributes were added to the set of safe attributes
+  in ``lxml.html.defs``.  This allows ``lxml_html_clean`` to pass them through.
+  Patch by oomsveta.
+
+* The default chunk size for reading from file-likes in ``iterparse()`` is now configurable
+  with a new ``chunk_size`` argument.
 
 Bugs fixed
 ----------
 
-* LP#2148019: Spurious MemoryError during namespace cleanup.
+* LP#2146291: The ``resolve_entities`` option was still set to ``True`` for
+  ``iterparse`` and ``ETCompatXMLParser``, allowing for external entity injection (XXE)
+  when using these parsers without setting this option explicitly.
+  The default was now changed to ``'internal'`` only (as for the normal XML and HTML parsers
+  since lxml 5.0).
+  Issue found by Sihao Qiu as CVE-2026-41066.
 
 

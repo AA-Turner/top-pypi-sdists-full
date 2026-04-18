@@ -20,7 +20,7 @@ use std::collections::HashSet;
 ///
 /// Does NOT include:
 /// - Abbreviations that commonly end sentences (etc., Inc., Ph.D., U.S.)
-pub const DEFAULT_ABBREVIATIONS: &[&str] = &[
+const DEFAULT_ABBREVIATIONS: &[&str] = &[
     // Titles - always have period, always followed by a name
     "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st",
     // Latin - always written with periods, introduce examples/references
@@ -131,14 +131,9 @@ pub fn is_cjk_char(c: char) -> bool {
     )
 }
 
-/// Check if a character is sentence-ending punctuation (ASCII or CJK)
-pub fn is_sentence_ending_punctuation(c: char) -> bool {
-    matches!(c, '.' | '!' | '?') || is_cjk_sentence_ending(c)
-}
-
 /// Check if a character is closing punctuation that can follow sentence-ending punctuation
 /// This includes closing quotes, parentheses, and brackets
-pub fn is_trailing_close_punctuation(c: char) -> bool {
+fn is_trailing_close_punctuation(c: char) -> bool {
     is_closing_quote(c) || matches!(c, ')' | ']' | '}')
 }
 
@@ -168,7 +163,7 @@ pub fn is_after_sentence_ending(text: &str, match_start: usize) -> bool {
 ///
 /// Note: `match_start` is a byte position (from regex). This function handles
 /// multi-byte UTF-8 characters correctly by working with character iterators.
-pub fn is_after_sentence_ending_with_abbreviations(
+fn is_after_sentence_ending_with_abbreviations(
     text: &str,
     match_start: usize,
     abbreviations: &HashSet<String>,
@@ -179,9 +174,8 @@ pub fn is_after_sentence_ending_with_abbreviations(
 
     // Safely get the portion of the text before the spaces
     // match_start is a byte position, so we need to ensure it's a valid char boundary
-    let before = match text.get(..match_start) {
-        Some(s) => s,
-        None => return false, // Invalid byte position
+    let Some(before) = text.get(..match_start) else {
+        return false; // Invalid byte position
     };
 
     // Collect chars for iteration (we need random access for some checks)

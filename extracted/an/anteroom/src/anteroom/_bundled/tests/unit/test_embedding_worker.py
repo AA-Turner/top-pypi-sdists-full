@@ -1216,3 +1216,84 @@ class TestEmbeddingWorkerRecovery:
             await worker.run_forever()
 
         mock_probe.assert_not_called()
+
+
+class TestMemoryArtifactEmbeddings:
+    """Tests for _process_pending_memory_artifacts (#921)."""
+
+    def _make_worker(self, db=None, service=None, vec_manager=None):
+        db = db or MagicMock()
+        service = service or AsyncMock()
+        return EmbeddingWorker(db, service, batch_size=10, vec_manager=vec_manager)
+
+    @pytest.mark.asyncio
+    async def test_picks_up_unembedded_memories(self) -> None:
+        service = AsyncMock()
+        service.embed_batch = AsyncMock(return_value=[[0.1, 0.2], [0.3, 0.4]])
+
+        memories = [
+            {"id": "a1", "fqn": "@user/memory/x", "content": "a long enough memory", "content_hash": "h1"},
+            {"id": "a2", "fqn": "@user/memory/y", "content": "another long memory", "content_hash": "h2"},
+        ]
+        vec_manager = MagicMock()
+        vec_manager.memories = MagicMock()
+
+        with patch("anteroom.services.embedding_worker.storage") as mock_storage:
+            # Messages/source-chunks paths return nothing so only memory path fires.
+            mock_storage.get_unembedded_messages = MagicMock(return_value=[])
+            mock_storage.get_unembedded_source_chunks = MagicMock(return_value=[])
+            mock_storage.get_unembedded_memory_artifacts = MagicMock(return_value=memories)
+            mock_storage.store_memory_artifact_embedding = MagicMock()
+
+            worker = self._make_worker(service=service, vec_manager=vec_manager)
+            count = await worker.process_pending()
+
+        assert count == 2
+        assert mock_storage.store_memory_artifact_embedding.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_skips_short_memories(self) -> None:
+        service = AsyncMock()
+
+        memories = [{"id": "a1", "fqn": "@user/memory/x", "content": "tiny", "content_hash": "h"}]
+
+        with patch("anteroom.services.embedding_worker.storage") as mock_storage:
+            mock_storage.get_unembedded_messages = MagicMock(return_value=[])
+            mock_storage.get_unembedded_source_chunks = MagicMock(return_value=[])
+            mock_storage.get_unembedded_memory_artifacts = MagicMock(return_value=memories)
+            mock_storage.mark_memory_artifact_embedding_skipped = MagicMock()
+
+            worker = self._make_worker(service=service)
+            count = await worker.process_pending()
+
+        assert count == 0
+        service.embed_batch.assert_not_called()
+        mock_storage.mark_memory_artifact_embedding_skipped.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_repair_pass_covers_memory_table(self) -> None:
+        """The repair sweep must include memory_artifact_embeddings, not just source_chunks."""
+        vec_manager = MagicMock()
+        vec_manager.source_chunks = MagicMock()
+        vec_manager.source_chunks.contains = MagicMock(return_value=True)
+        vec_manager.memories = MagicMock()
+        # Simulate stale row in memory table (index says missing)
+        vec_manager.memories.contains = MagicMock(return_value=False)
+
+        db = MagicMock()
+
+        # Return stale row for memory table; no rows for source_chunks
+        def _fetch(sql, *args, **kwargs):
+            if "memory_artifact_embeddings" in sql:
+                return [{"artifact_id": "a1"}]
+            return []
+
+        db.execute_fetchall = MagicMock(side_effect=_fetch)
+        db.execute = MagicMock()
+        db.commit = MagicMock()
+
+        worker = self._make_worker(db=db, vec_manager=vec_manager)
+        worker._repair_stale_embeddings()
+        # Confirm the update on memory_artifact_embeddings happened.
+        update_calls = [c for c in db.execute.call_args_list if "memory_artifact_embeddings" in c.args[0]]
+        assert update_calls, "repair pass must update memory_artifact_embeddings"

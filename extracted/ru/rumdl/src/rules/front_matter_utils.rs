@@ -47,76 +47,6 @@ pub enum FrontMatterType {
 pub struct FrontMatterUtils;
 
 impl FrontMatterUtils {
-    /// Check if a line is inside front matter content
-    pub fn is_in_front_matter(content: &str, line_num: usize) -> bool {
-        let lines: Vec<&str> = content.lines().collect();
-        if line_num >= lines.len() {
-            return false;
-        }
-
-        let mut in_standard_front_matter = false;
-        let mut in_toml_front_matter = false;
-        let mut in_json_front_matter = false;
-        let mut in_malformed_front_matter1 = false;
-        let mut in_malformed_front_matter2 = false;
-
-        for (i, line) in lines.iter().enumerate() {
-            if i > line_num {
-                break;
-            }
-
-            // Check if current line is a closing delimiter before updating state
-            if i == line_num
-                && i > 0
-                && ((in_standard_front_matter && STANDARD_FRONT_MATTER_END.is_match(line))
-                    || (in_toml_front_matter && TOML_FRONT_MATTER_END.is_match(line))
-                    || (in_json_front_matter && JSON_FRONT_MATTER_END.is_match(line))
-                    || (in_malformed_front_matter1 && MALFORMED_FRONT_MATTER_END1.is_match(line))
-                    || (in_malformed_front_matter2 && MALFORMED_FRONT_MATTER_END2.is_match(line)))
-            {
-                return false; // Closing delimiter is not part of front matter content
-            }
-
-            // Standard YAML front matter handling
-            if i == 0 && STANDARD_FRONT_MATTER_START.is_match(line) {
-                in_standard_front_matter = true;
-            } else if STANDARD_FRONT_MATTER_END.is_match(line) && in_standard_front_matter && i > 0 {
-                in_standard_front_matter = false;
-            }
-            // TOML front matter handling
-            else if i == 0 && TOML_FRONT_MATTER_START.is_match(line) {
-                in_toml_front_matter = true;
-            } else if TOML_FRONT_MATTER_END.is_match(line) && in_toml_front_matter && i > 0 {
-                in_toml_front_matter = false;
-            }
-            // JSON front matter handling
-            else if i == 0 && JSON_FRONT_MATTER_START.is_match(line) {
-                in_json_front_matter = true;
-            } else if JSON_FRONT_MATTER_END.is_match(line) && in_json_front_matter && i > 0 {
-                in_json_front_matter = false;
-            }
-            // Malformed front matter type 1 (- --)
-            else if i == 0 && MALFORMED_FRONT_MATTER_START1.is_match(line) {
-                in_malformed_front_matter1 = true;
-            } else if MALFORMED_FRONT_MATTER_END1.is_match(line) && in_malformed_front_matter1 && i > 0 {
-                in_malformed_front_matter1 = false;
-            }
-            // Malformed front matter type 2 (-- -)
-            else if i == 0 && MALFORMED_FRONT_MATTER_START2.is_match(line) {
-                in_malformed_front_matter2 = true;
-            } else if MALFORMED_FRONT_MATTER_END2.is_match(line) && in_malformed_front_matter2 && i > 0 {
-                in_malformed_front_matter2 = false;
-            }
-        }
-
-        // Return true if we're in any type of front matter
-        in_standard_front_matter
-            || in_toml_front_matter
-            || in_json_front_matter
-            || in_malformed_front_matter1
-            || in_malformed_front_matter2
-    }
-
     /// Check if a content contains front matter with a specific field
     pub fn has_front_matter_field(content: &str, field_prefix: &str) -> bool {
         let field_name = field_prefix.trim_end_matches(':');
@@ -431,62 +361,6 @@ impl FrontMatterUtils {
 
         0
     }
-
-    /// Fix malformed front matter
-    pub fn fix_malformed_front_matter(content: &str) -> String {
-        let lines: Vec<&str> = content.lines().collect();
-        if lines.len() < 3 {
-            return content.to_string();
-        }
-
-        let mut result = Vec::new();
-        let mut in_front_matter = false;
-        let mut is_malformed = false;
-
-        for (i, line) in lines.iter().enumerate() {
-            // Handle front matter start
-            if i == 0 {
-                if STANDARD_FRONT_MATTER_START.is_match(line) {
-                    // Standard front matter - keep as is
-                    in_front_matter = true;
-                    result.push(line.to_string());
-                } else if MALFORMED_FRONT_MATTER_START1.is_match(line) || MALFORMED_FRONT_MATTER_START2.is_match(line) {
-                    // Malformed front matter - fix it
-                    in_front_matter = true;
-                    is_malformed = true;
-                    result.push("---".to_string());
-                } else {
-                    // Regular line
-                    result.push(line.to_string());
-                }
-                continue;
-            }
-
-            // Handle front matter end
-            if in_front_matter {
-                if STANDARD_FRONT_MATTER_END.is_match(line) {
-                    // Standard front matter end - keep as is
-                    in_front_matter = false;
-                    result.push(line.to_string());
-                } else if (MALFORMED_FRONT_MATTER_END1.is_match(line) || MALFORMED_FRONT_MATTER_END2.is_match(line))
-                    && is_malformed
-                {
-                    // Malformed front matter end - fix it
-                    in_front_matter = false;
-                    result.push("---".to_string());
-                } else {
-                    // Content inside front matter
-                    result.push(line.to_string());
-                }
-                continue;
-            }
-
-            // Regular line
-            result.push(line.to_string());
-        }
-
-        result.join("\n")
-    }
 }
 
 #[cfg(test)]
@@ -551,22 +425,6 @@ mod tests {
             FrontMatterUtils::detect_front_matter_type("---\ntitle: Test"),
             FrontMatterType::None
         );
-    }
-
-    #[test]
-    fn test_is_in_front_matter() {
-        let content = "---\ntitle: Test\nauthor: Me\n---\nContent here";
-
-        // The implementation considers opening delimiter and content lines as inside front matter
-        // but the closing delimiter triggers the exit from front matter state
-        assert!(FrontMatterUtils::is_in_front_matter(content, 0)); // Opening ---
-        assert!(FrontMatterUtils::is_in_front_matter(content, 1)); // title line
-        assert!(FrontMatterUtils::is_in_front_matter(content, 2)); // author line
-        assert!(!FrontMatterUtils::is_in_front_matter(content, 3)); // Closing --- (not part of front matter)
-        assert!(!FrontMatterUtils::is_in_front_matter(content, 4)); // Content
-
-        // Out of bounds
-        assert!(!FrontMatterUtils::is_in_front_matter(content, 100));
     }
 
     #[test]
@@ -689,32 +547,6 @@ mod tests {
 
         // Too short
         assert_eq!(FrontMatterUtils::get_front_matter_end_line("--"), 0);
-    }
-
-    #[test]
-    fn test_fix_malformed_front_matter() {
-        // Fix malformed type 1
-        let malformed1 = "- --\ntitle: Test\n- --\nContent";
-        let fixed1 = FrontMatterUtils::fix_malformed_front_matter(malformed1);
-        assert!(fixed1.starts_with("---\ntitle: Test\n---"));
-
-        // Fix malformed type 2
-        let malformed2 = "-- -\ntitle: Test\n-- -\nContent";
-        let fixed2 = FrontMatterUtils::fix_malformed_front_matter(malformed2);
-        assert!(fixed2.starts_with("---\ntitle: Test\n---"));
-
-        // Don't change valid front matter
-        let valid = "---\ntitle: Test\n---\nContent";
-        let unchanged = FrontMatterUtils::fix_malformed_front_matter(valid);
-        assert_eq!(unchanged, valid);
-
-        // No front matter
-        let no_fm = "# Regular content";
-        assert_eq!(FrontMatterUtils::fix_malformed_front_matter(no_fm), no_fm);
-
-        // Too short
-        let short = "--";
-        assert_eq!(FrontMatterUtils::fix_malformed_front_matter(short), short);
     }
 
     #[test]

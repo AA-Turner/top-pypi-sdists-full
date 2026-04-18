@@ -39,7 +39,6 @@ from ....sandbox.errors import (
     ExecTimeoutError,
     ExecTransportError,
     ExposedPortUnavailableError,
-    InvalidManifestPathError,
     WorkspaceArchiveReadError,
     WorkspaceArchiveWriteError,
     WorkspaceReadNotFoundError,
@@ -51,6 +50,7 @@ from ....sandbox.session import SandboxSession, SandboxSessionState
 from ....sandbox.session.base_sandbox_session import BaseSandboxSession
 from ....sandbox.session.dependencies import Dependencies
 from ....sandbox.session.manager import Instrumentation
+from ....sandbox.session.runtime_helpers import RESOLVE_WORKSPACE_PATH_HELPER, RuntimeHelperScript
 from ....sandbox.session.sandbox_client import BaseSandboxClient, BaseSandboxClientOptions
 from ....sandbox.snapshot import SnapshotBase, SnapshotSpec, resolve_snapshot
 from ....sandbox.types import ExecResult, ExposedPortEndpoint, User
@@ -125,21 +125,7 @@ def _resolve_manifest_root(manifest: Manifest | None) -> Manifest:
 
     if manifest.root == _DEFAULT_MANIFEST_ROOT:
         return manifest.model_copy(update={"root": DEFAULT_VERCEL_WORKSPACE_ROOT})
-
-    root = Path(manifest.root)
-    default_root = Path(DEFAULT_VERCEL_WORKSPACE_ROOT)
-    if not root.is_absolute() or root == default_root or default_root in root.parents:
-        return manifest
-
-    raise ConfigurationError(
-        message=(
-            "Vercel sandboxes require manifest.root to stay within "
-            f"{DEFAULT_VERCEL_WORKSPACE_ROOT!r}"
-        ),
-        error_code=ErrorCode.SANDBOX_CONFIG_INVALID,
-        op="start",
-        context={"backend": "vercel", "manifest_root": manifest.root},
-    )
+    return manifest
 
 
 def _validate_network_policy(value: object) -> NetworkPolicy | None:
@@ -292,28 +278,11 @@ class VercelSandboxSession(BaseSandboxSession):
             self._reject_user_arg(op="exec", user=user)
         return super()._prepare_exec_command(*command, shell=shell, user=user)
 
-    def normalize_path(self, path: Path | str) -> Path:
-        # Keep normalization lexical so host filesystem quirks do not rewrite sandbox paths.
-        if isinstance(path, str):
-            path = Path(path)
+    async def _validate_path_access(self, path: Path | str, *, for_write: bool = False) -> Path:
+        return await self._validate_remote_path_access(path, for_write=for_write)
 
-        root = PurePosixPath(os.path.normpath(self.state.manifest.root))
-        normalized = PurePosixPath(
-            os.path.normpath(
-                str(path) if path.is_absolute() else str(root / PurePosixPath(*path.parts))
-            )
-        )
-        try:
-            normalized.relative_to(root)
-        except ValueError as exc:
-            reason: Literal["absolute", "escape_root"] = (
-                "absolute" if path.is_absolute() else "escape_root"
-            )
-            raise InvalidManifestPathError(rel=path, reason=reason, cause=exc) from exc
-        return Path(str(normalized))
-
-    async def _normalize_path_for_io(self, path: Path | str) -> Path:
-        return self.normalize_path(path)
+    def _runtime_helpers(self) -> tuple[RuntimeHelperScript, ...]:
+        return (RESOLVE_WORKSPACE_PATH_HELPER,)
 
     def _validate_tar_bytes(self, raw: bytes) -> None:
         try:
@@ -324,44 +293,23 @@ class VercelSandboxSession(BaseSandboxSession):
         except (tarfile.TarError, OSError) as exc:
             raise ValueError("invalid tar stream") from exc
 
-    async def _ensure_workspace_root(self) -> None:
-        root = Path(self.state.manifest.root)
-        sandbox = await self._ensure_sandbox()
+    async def _prepare_backend_workspace(self) -> None:
+        root = PurePosixPath(os.path.normpath(self.state.manifest.root))
         try:
+            sandbox = await self._ensure_sandbox()
             finished = await sandbox.run_command("mkdir", ["-p", "--", root.as_posix()])
         except Exception as exc:
-            raise WorkspaceStartError(path=root, cause=exc) from exc
-        if finished.exit_code != 0:
-            raise WorkspaceStartError(
-                path=root,
-                context={
-                    "exit_code": finished.exit_code,
-                    "stdout": await finished.stdout(),
-                    "stderr": await finished.stderr(),
-                },
-            )
-        try:
-            finished = await sandbox.run_command("test", ["-d", root.as_posix()])
-        except Exception as exc:
-            raise WorkspaceStartError(path=root, cause=exc) from exc
-        if finished.exit_code != 0:
-            raise WorkspaceStartError(
-                path=root,
-                context={
-                    "exit_code": finished.exit_code,
-                    "stdout": await finished.stdout(),
-                    "stderr": await finished.stderr(),
-                },
-            )
+            raise WorkspaceStartError(path=Path(str(root)), cause=exc) from exc
 
-    async def start(self) -> None:
-        try:
-            await self._ensure_workspace_root()
-        except WorkspaceStartError:
-            raise
-        except Exception as exc:
-            raise WorkspaceStartError(path=Path(self.state.manifest.root), cause=exc) from exc
-        await super().start()
+        if finished.exit_code != 0:
+            raise WorkspaceStartError(
+                path=Path(str(root)),
+                context={
+                    "exit_code": finished.exit_code,
+                    "stdout": await finished.stdout(),
+                    "stderr": await finished.stderr(),
+                },
+            )
 
     async def _ensure_sandbox(self, *, source: Any | None = None) -> Any:
         sandbox = self._sandbox
@@ -615,8 +563,8 @@ class VercelSandboxSession(BaseSandboxSession):
         if user is not None:
             self._reject_user_arg(op="read", user=user)
 
+        normalized_path = await self._validate_path_access(path)
         sandbox = await self._ensure_sandbox()
-        normalized_path = await self._normalize_path_for_io(path)
         try:
             payload = await sandbox.read_file(str(normalized_path))
         except Exception as exc:
@@ -635,7 +583,7 @@ class VercelSandboxSession(BaseSandboxSession):
         if user is not None:
             self._reject_user_arg(op="write", user=user)
 
-        normalized_path = await self._normalize_path_for_io(path)
+        normalized_path = await self._validate_path_access(path, for_write=True)
         payload = data.read()
         if isinstance(payload, str):
             payload = payload.encode("utf-8")

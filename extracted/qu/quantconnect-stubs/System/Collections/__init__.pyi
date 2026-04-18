@@ -703,30 +703,6 @@ class Hashtable(System.Object, System.Collections.IDictionary, System.Runtime.Se
     def __init__(self, d: System.Collections.IDictionary, load_factor: float, equality_comparer: System.Collections.IEqualityComparer) -> None:
         ...
 
-    @overload
-    def __init__(self, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, d: System.Collections.IDictionary, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int, load_factor: float, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, d: System.Collections.IDictionary, load_factor: float, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
     def __len__(self) -> int:
         ...
 

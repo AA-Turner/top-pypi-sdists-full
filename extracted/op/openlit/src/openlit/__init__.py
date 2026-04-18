@@ -136,6 +136,7 @@ def init(
     evals_logs_export=True,
     max_content_length=None,
     custom_span_attributes=None,
+    custom_metrics_attributes=None,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
@@ -169,6 +170,10 @@ def init(
         custom_span_attributes (dict): Custom key-value attributes applied to every auto-instrumented
                                        span. Values must be valid OTel attribute types (str, int,
                                        float, bool, or sequences thereof). Optional.
+        custom_metrics_attributes (dict): Custom key-value attributes applied to every metric
+                                          recording. Useful for grouping metrics by custom tags
+                                          (e.g., client ID, team, project). Values must be valid
+                                          OTel attribute types. Optional.
     """
     disabled_instrumentors = normalize_instrumentor_names(disabled_instrumentors)
     logger.info("Starting openLIT initialization...")
@@ -242,9 +247,7 @@ def init(
     ]
     for invalid_name in invalid_instrumentors:
         lower_name = invalid_name.lower()
-        suggestions = [
-            k for k in MODULE_NAME_MAP if lower_name in k or k in lower_name
-        ]
+        suggestions = [k for k in MODULE_NAME_MAP if lower_name in k or k in lower_name]
         if suggestions:
             logger.warning(
                 "Invalid instrumentor name '%s'. Did you mean: %s?",
@@ -327,6 +330,7 @@ def init(
             evals_logs_export,
             max_content_length,
             custom_span_attributes,
+            custom_metrics_attributes,
         )
 
         # Create instrumentor instances dynamically

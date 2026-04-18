@@ -186,7 +186,7 @@ class LevelOneServiceManager(System.Object, System.IDisposable):
         """Releases all resources used by the LevelOneServiceManager."""
         ...
 
-    def get_subscribed_symbols(self) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_subscribed_symbols(self) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Returns subscribed symbols
         

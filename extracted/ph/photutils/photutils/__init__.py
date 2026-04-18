@@ -12,19 +12,20 @@ try:
 except ImportError:
     __version__ = ''
 
-
-# Set the bibtex entry to the article referenced in CITATION.rst.
-def _get_bibtex():
-    import os
-    citation_file = os.path.join(os.path.dirname(__file__), 'CITATION.rst')
-
-    with open(citation_file) as citation:
-        refs = citation.read().split('@software')[1:]
-        if len(refs) == 0:
-            return ''
-        return f'@software{refs[0]}'
+from .utils._deprecation import use_future_column_names  # noqa: F401
 
 
-__citation__ = __bibtex__ = _get_bibtex()
+future_column_names = False
+"""
+If `True`, all photutils functions return standard
+`~astropy.table.QTable` (or `~astropy.table.Table`) instances with the
+new column names instead of deprecated-column subclasses. Set this to
+`True` after updating your code to use the new column names to verify
+compatibility with the 4.0 behavior.
 
-del _get_bibtex
+For a scoped override that does not affect the global flag, use
+`photutils.use_future_column_names` as a context manager::
+
+    with photutils.use_future_column_names():
+        table = cat.to_table()  # returns a plain QTable
+"""

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from data_designer.config.analysis.column_profilers import (  # noqa: F401
         JudgeScoreProfilerConfig,
     )
+    from data_designer.config.base import SkipConfig  # noqa: F401
     from data_designer.config.column_configs import (  # noqa: F401
         CustomColumnConfig,
         EmbeddingColumnConfig,
@@ -57,7 +58,7 @@ if TYPE_CHECKING:
         ProcessorType,
         SchemaTransformProcessorConfig,
     )
-    from data_designer.config.run_config import RunConfig, ThrottleConfig  # noqa: F401
+    from data_designer.config.run_config import JinjaRenderingEngine, RunConfig, ThrottleConfig  # noqa: F401
     from data_designer.config.sampler_constraints import (  # noqa: F401
         ColumnInequalityConstraint,
         ConstraintType,
@@ -125,6 +126,8 @@ _MOD_UTILS = f"{_MOD_BASE}.utils"
 _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     # analysis.column_profilers
     "JudgeScoreProfilerConfig": (f"{_MOD_BASE}.analysis.column_profilers", "JudgeScoreProfilerConfig"),
+    # base
+    "SkipConfig": (f"{_MOD_BASE}.base", "SkipConfig"),
     # column_configs
     "CustomColumnConfig": (_MOD_COLUMN_CONFIGS, "CustomColumnConfig"),
     "EmbeddingColumnConfig": (_MOD_COLUMN_CONFIGS, "EmbeddingColumnConfig"),
@@ -172,6 +175,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "ProcessorType": (_MOD_PROCESSORS, "ProcessorType"),
     "SchemaTransformProcessorConfig": (_MOD_PROCESSORS, "SchemaTransformProcessorConfig"),
     # run_config
+    "JinjaRenderingEngine": (f"{_MOD_BASE}.run_config", "JinjaRenderingEngine"),
     "RunConfig": (f"{_MOD_BASE}.run_config", "RunConfig"),
     "ThrottleConfig": (f"{_MOD_BASE}.run_config", "ThrottleConfig"),
     # sampler_constraints

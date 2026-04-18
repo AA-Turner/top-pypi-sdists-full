@@ -1,13 +1,16 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Provide tools for including noise in simulated data.
+Tools for including noise in simulated data.
 """
 
 import numpy as np
 
+from photutils.utils._deprecation import deprecated_positional_kwargs
+
 __all__ = ['apply_poisson_noise', 'make_noise_image']
 
 
+@deprecated_positional_kwargs(since='3.0', until='4.0')
 def apply_poisson_noise(data, seed=None):
     """
     Apply Poisson noise to an array, where the value of each element in
@@ -30,7 +33,8 @@ def apply_poisson_noise(data, seed=None):
     Returns
     -------
     result : `~numpy.ndarray`
-        The data array after applying Poisson noise.
+        The data array after applying Poisson noise. The output array
+        will have the same dtype as the input ``data``.
 
     See Also
     --------
@@ -50,9 +54,9 @@ def apply_poisson_noise(data, seed=None):
 
         # plot the images
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 8))
-        ax1.imshow(data1, origin='lower', interpolation='nearest')
+        ax1.imshow(data1, origin='lower')
         ax1.set_title('Original image')
-        ax2.imshow(data2, origin='lower', interpolation='nearest')
+        ax2.imshow(data2, origin='lower')
         ax2.set_title('Original image with Poisson noise applied')
     """
     data = np.asanyarray(data)
@@ -62,9 +66,10 @@ def apply_poisson_noise(data, seed=None):
 
     rng = np.random.default_rng(seed)
 
-    return rng.poisson(data)
+    return rng.poisson(data).astype(data.dtype)
 
 
+@deprecated_positional_kwargs(since='3.0', until='4.0')
 def make_noise_image(shape, distribution='gaussian', mean=None, stddev=None,
                      seed=None):
     r"""
@@ -125,27 +130,27 @@ def make_noise_image(shape, distribution='gaussian', mean=None, stddev=None,
 
         # plot the images
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
-        ax1.imshow(image1, origin='lower', interpolation='nearest')
+        ax1.imshow(image1, origin='lower')
         ax1.set_title(r'Gaussian noise ($\mu=0$, $\sigma=5.$)')
-        ax2.imshow(image2, origin='lower', interpolation='nearest')
+        ax2.imshow(image2, origin='lower')
         ax2.set_title(r'Poisson noise ($\mu=5$)')
     """
     if mean is None:
-        msg = '"mean" must be input'
+        msg = "'mean' must be input"
         raise ValueError(msg)
 
     rng = np.random.default_rng(seed)
 
     if distribution == 'gaussian':
         if stddev is None:
-            msg = '"stddev" must be input for Gaussian noise'
+            msg = "'stddev' must be input for Gaussian noise"
             raise ValueError(msg)
         image = rng.normal(loc=mean, scale=stddev, size=shape)
     elif distribution == 'poisson':
         image = rng.poisson(lam=mean, size=shape)
     else:
         msg = (f'Invalid distribution: {distribution}. Use either '
-               '"gaussian" or "poisson".')
+               "'gaussian' or 'poisson'.")
         raise ValueError(msg)
 
     return image

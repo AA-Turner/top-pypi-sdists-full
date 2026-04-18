@@ -20,9 +20,11 @@ from verifiers import setup_logging
 from verifiers.types import (
     ClientConfig,
     ClientType,
+    Endpoint,
     EndpointClientConfig,
     EvalConfig,
     EvalRunConfig,
+    _validate_extra_headers_value,
 )
 from verifiers.utils.eval_utils import (
     get_log_level,
@@ -88,6 +90,58 @@ PROVIDER_CONFIGS: dict[str, dict[str, str]] = {
 DEFAULT_PROVIDER = "prime"
 
 
+def merge_sampling_args(
+    sampling_args: dict[str, Any] | None,
+    *,
+    max_tokens: int | None = None,
+    temperature: float | None = None,
+    prefer_existing_keys: bool = True,
+    include_none_max_tokens: bool = False,
+) -> dict[str, Any]:
+    merged_sampling_args = dict(sampling_args or {})
+
+    if (not prefer_existing_keys or "max_tokens" not in merged_sampling_args) and (
+        include_none_max_tokens or max_tokens is not None
+    ):
+        merged_sampling_args["max_tokens"] = max_tokens
+
+    if temperature is not None and (
+        not prefer_existing_keys or "temperature" not in merged_sampling_args
+    ):
+        merged_sampling_args["temperature"] = temperature
+
+    return merged_sampling_args
+
+
+def build_extra_headers(raw: dict[str, Any]) -> dict[str, str]:
+    eval_headers_table: dict[str, str] = {}
+    raw_headers = raw.get("headers")
+    if raw_headers is not None:
+        eval_headers_table = _validate_extra_headers_value(raw_headers)
+
+    raw_header_values = raw.get("header")
+    if raw_header_values is None:
+        raw_header_values = []
+    if not isinstance(raw_header_values, list):
+        raise ValueError("'header' must be a list of 'Name: Value' strings")
+
+    eval_headers_from_list: dict[str, str] = {}
+    for header_value in raw_header_values:
+        if not isinstance(header_value, str):
+            raise ValueError(
+                f"Each 'header' entry must be a string 'Name: Value', got: {header_value!r}"
+            )
+        if ":" not in header_value:
+            raise ValueError(f"--header must be 'Name: Value', got: {header_value!r}")
+        key, value = header_value.split(":", 1)
+        key, value = key.strip(), value.strip()
+        if not key:
+            raise ValueError("--header name cannot be empty")
+        eval_headers_from_list[key] = value
+
+    return {**eval_headers_table, **eval_headers_from_list}
+
+
 def get_env_eval_defaults(env_id: str) -> dict[str, Any]:
     """Get eval config defaults from the environment module's pyproject.toml.
 
@@ -145,7 +199,7 @@ def get_env_eval_defaults(env_id: str) -> dict[str, Any]:
     return defaults
 
 
-def main():
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "env_id_or_config",
@@ -267,6 +321,13 @@ def main():
         ),
     )
     parser.add_argument(
+        "--output-dir",
+        "-o",
+        type=str,
+        default=None,
+        help="Custom output directory for evaluation results and logs",
+    )
+    parser.add_argument(
         "--verbose", "-v", default=False, action="store_true", help="Verbose output"
     )
     parser.add_argument(
@@ -357,6 +418,12 @@ def main():
         help="Do not start env servers when evaluating environments",
     )
     parser.add_argument(
+        "--num-workers",
+        "-w",
+        default="auto",
+        help='Number of env server worker processes ("auto" = concurrency // 256, or an integer)',
+    )
+    parser.add_argument(
         "--abbreviated-summary",
         "-A",
         default=False,
@@ -369,7 +436,18 @@ def main():
         default=None,
         help="Heartbeat URL for uptime monitoring",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = build_parser()
+    if argv is None:
+        return parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None):
+    args = parse_args(argv)
 
     if args.debug:  # only set up console logging in debug mode
         setup_logging(get_log_level(args.verbose))
@@ -466,7 +544,7 @@ def main():
         api_key_override = raw_api_key_var is not None
         api_base_url_override = raw_api_base_url is not None
         client_type_override = raw_client_type is not None
-        endpoint_group: list[dict[str, str]] | None = None
+        endpoint_group: list[Endpoint] | None = None
         resolved_endpoint_id: str | None = None
 
         if endpoint_lookup_id in endpoints:
@@ -546,24 +624,23 @@ def main():
             )
 
         # Merge sampling args
-        merged_sampling_args: dict = {}
-        if raw.get("sampling_args") is not None:
-            merged_sampling_args.update(raw["sampling_args"])
-        if "max_tokens" not in merged_sampling_args:
-            merged_sampling_args["max_tokens"] = raw.get("max_tokens")
-        raw_temp = raw.get("temperature")
-        if raw_temp is not None and "temperature" not in merged_sampling_args:
-            merged_sampling_args["temperature"] = raw_temp
-        # Build headers
-        merged_headers: dict[str, str] = {}
-        for h in raw.get("header") or []:
-            if ":" not in h:
-                raise ValueError(f"--header must be 'Name: Value', got: {h!r}")
-            k, v = h.split(":", 1)
-            k, v = k.strip(), v.strip()
-            if not k:
-                raise ValueError("--header name cannot be empty")
-            merged_headers[k] = v
+        merged_sampling_args = merge_sampling_args(
+            raw.get("sampling_args"),
+            max_tokens=raw.get("max_tokens"),
+            temperature=raw.get("temperature"),
+            include_none_max_tokens=True,
+        )
+        # Build headers: registry < [[eval]] headers table < header list / --header
+        eval_headers_merged = build_extra_headers(raw)
+
+        registry_headers_base: dict[str, str] = {}
+        if endpoint_group is not None:
+            registry_headers_base = dict(endpoint_group[0].get("extra_headers", {}))
+
+        merged_headers: dict[str, str] = {
+            **registry_headers_base,
+            **eval_headers_merged,
+        }
 
         primary_api_base_url = api_base_url
         if not isinstance(primary_api_base_url, str):
@@ -581,12 +658,15 @@ def main():
             endpoint_configs = [
                 EndpointClientConfig(
                     api_key_var=(
-                        resolved_api_key_var if api_key_override else endpoint["key"]
+                        resolved_api_key_var if api_key_override else ep["key"]
                     ),
-                    api_base_url=endpoint["url"],
-                    extra_headers=merged_headers,
+                    api_base_url=ep["url"],
+                    extra_headers={
+                        **dict(ep.get("extra_headers", {})),
+                        **eval_headers_merged,
+                    },
                 )
-                for endpoint in endpoint_group
+                for ep in endpoint_group
             ]
 
         assert primary_api_base_url is not None
@@ -596,6 +676,7 @@ def main():
             api_base_url=primary_api_base_url,
             endpoint_configs=endpoint_configs,
             extra_headers=merged_headers,
+            extra_headers_from_state={"X-Session-ID": "example_id"},
         )
 
         # Backward-compatible TOML field: resume_path
@@ -619,6 +700,7 @@ def main():
                 num_examples=num_examples,
                 rollouts_per_example=rollouts_per_example,
                 env_dir_path=raw.get("env_dir_path", DEFAULT_ENV_DIR_PATH),
+                output_dir=raw.get("output_dir"),
             )
             if auto_resume_path is not None:
                 resume_path = auto_resume_path
@@ -636,6 +718,7 @@ def main():
             env_id=env_id,
             env_args=raw.get("env_args", {}),
             env_dir_path=raw.get("env_dir_path", DEFAULT_ENV_DIR_PATH),
+            output_dir=raw.get("output_dir"),
             extra_env_kwargs=raw.get("extra_env_kwargs", {}),
             endpoint_id=resolved_endpoint_id,
             model=model,
@@ -645,6 +728,7 @@ def main():
             rollouts_per_example=rollouts_per_example,
             max_concurrent=raw.get("max_concurrent", DEFAULT_MAX_CONCURRENT),
             max_retries=raw.get("max_retries", 0),
+            num_workers=raw.get("num_workers", "auto"),
             disable_env_server=raw.get("disable_env_server", False),
             verbose=raw.get("verbose", False),
             debug=raw.get("debug", False),

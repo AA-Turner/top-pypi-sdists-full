@@ -942,7 +942,7 @@ class StatisticsBuilder(System.Object):
     """The StatisticsBuilder class creates summary and rolling statistics from trades, equity and benchmark points"""
 
     @staticmethod
-    def create_benchmark_differences(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]], from_date: typing.Union[datetime.datetime, datetime.date], to_date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
+    def create_benchmark_differences(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]], from_date: typing.Union[datetime.datetime, datetime.date], to_date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
         """
         Yields pairs of date and percentage change for the period
         
@@ -977,7 +977,7 @@ class StatisticsBuilder(System.Object):
         ...
 
     @staticmethod
-    def preprocess_performance_values(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]) -> typing.Iterable[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
+    def preprocess_performance_values(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]) -> typing.Sequence[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
         """
         Skips the first two entries from the given points and divides each entry by 100
         

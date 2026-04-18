@@ -7,11 +7,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from typing import Any, Callable, Optional
 
-from soda_core.common.data_source_results import (
-    QueryResult,
-    QueryResultIterator,
-    UpdateResult,
-)
+from soda_core.common.data_source_results import QueryResult, QueryResultIterator
 from soda_core.common.logging_constants import soda_logger
 
 logger: logging.Logger = soda_logger
@@ -92,7 +88,7 @@ class DataSourceConnection(ABC):
 
             cursor.execute(sql)
             rows = cursor.fetchall()
-            formatted_rows = self.format_rows(rows)
+            formatted_rows = self._format_rows(rows)
             truncated_rows = self.truncate_rows(formatted_rows)
             headers = [self._execute_query_get_result_row_column_name(c) for c in cursor.description]
             # The tabulate can crash if the rows contain non-ASCII characters.
@@ -117,8 +113,11 @@ class DataSourceConnection(ABC):
         finally:
             cursor.close()
 
-    def format_rows(self, rows: list[tuple]) -> list[tuple]:
+    def _format_rows(self, rows: list[tuple]) -> list[tuple]:
         return rows
+
+    def _format_row(self, row: tuple) -> tuple:
+        return row
 
     def truncate_sql(self, sql: str) -> str:
         """Truncate large strings in sql to a reasonable length."""
@@ -143,7 +142,7 @@ class DataSourceConnection(ABC):
     def _execute_query_get_result_row_column_name(self, column) -> str:
         return column.name
 
-    def execute_update(self, sql: str, log_query: bool = True) -> UpdateResult:
+    def execute_update(self, sql: str, log_query: bool = True) -> int:
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
@@ -154,10 +153,15 @@ class DataSourceConnection(ABC):
         finally:
             cursor.close()
 
-    def _cursor_execute_update_and_commit(self, cursor: Any, sql: str):
-        updates = cursor.execute(sql)
+    def _cursor_execute_update_and_commit(self, cursor: Any, sql: str) -> int:
+        cursor.execute(sql)
+        try:
+            rowcount = cursor.rowcount
+            rowcount = rowcount if isinstance(rowcount, int) and rowcount >= 0 else 0
+        except Exception:
+            rowcount = 0
         self.commit()
-        return updates
+        return rowcount
 
     def execute_query_one_by_one(
         self,
@@ -198,7 +202,7 @@ class DataSourceConnection(ABC):
             logger.debug(f"SQL query iterate:\n{sql}")
         try:
             cursor.execute(sql)
-            yield QueryResultIterator(cursor)
+            yield QueryResultIterator(cursor, self._format_row)
         finally:
             cursor.close()
 

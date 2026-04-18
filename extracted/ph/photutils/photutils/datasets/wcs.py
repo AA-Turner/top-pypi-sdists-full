@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Provide tools for making example WCS objects.
+Tools for making example WCS objects.
 """
 
 import astropy.units as u
@@ -9,11 +9,14 @@ from astropy import coordinates as coord
 from astropy.modeling import models
 from astropy.wcs import WCS
 
+from photutils.utils._deprecation import deprecated_positional_kwargs
+
 __all__ = ['make_gwcs', 'make_wcs']
 
 __doctest_requires__ = {'make_gwcs': ['gwcs']}
 
 
+@deprecated_positional_kwargs(since='3.0', until='4.0')
 def make_wcs(shape, galactic=False):
     """
     Create a simple celestial `~astropy.wcs.WCS` object in either the
@@ -77,9 +80,11 @@ def make_wcs(shape, galactic=False):
     return wcs
 
 
+@deprecated_positional_kwargs(since='3.0', until='4.0')
 def make_gwcs(shape, galactic=False):
     """
-    Create a simple celestial gWCS object in the ICRS coordinate frame.
+    Create a simple celestial gWCS object in either the ICRS or Galactic
+    coordinate frame.
 
     This function requires the `gwcs
     <https://github.com/spacetelescope/gwcs>`_ package.

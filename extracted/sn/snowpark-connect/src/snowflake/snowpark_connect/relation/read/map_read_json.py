@@ -59,6 +59,9 @@ from snowflake.snowpark_connect.relation.read.metadata_utils import (
     add_filename_metadata_to_reader,
     populate_metadata,
 )
+from snowflake.snowpark_connect.relation.read.reader_config import (
+    apply_drop_malformed_on_error,
+)
 from snowflake.snowpark_connect.relation.read.utils import (
     _load_file_with_copy_into,
     apply_metadata_exclusion_pattern,
@@ -107,6 +110,20 @@ def _get_max_workers() -> int:
         # We can have more workers than CPU count, this is an IO-intensive task
         max_workers = min(16, os.cpu_count() * 2)
     return max_workers
+
+
+def _get_io_validations_mode() -> str:
+    """Get the IO validations mode from session config.
+
+    Returns:
+        "strict" or "lenient" (default)
+    """
+    return (
+        get_string_session_config_param("snowpark.connect.io.validations.mode")
+        .strip()
+        .lower()
+        or "lenient"
+    )
 
 
 _json_file_format_allowed_options = {
@@ -460,12 +477,7 @@ def map_read_json(
     # This is controlled by snowpark.connect.io.validations.mode:
     # - "lenient" (default): preserve original nullable settings
     # - "strict": convert all fields to nullable (Spark behavior)
-    io_validations_mode = (
-        get_string_session_config_param("snowpark.connect.io.validations.mode")
-        .strip()
-        .lower()
-        or "lenient"
-    )
+    io_validations_mode = _get_io_validations_mode()
 
     if schema is not None and io_validations_mode == "strict":
         schema = _make_schema_nullable(schema)
@@ -494,6 +506,10 @@ def map_read_json(
         compression = snowpark_options.get("compression", "auto")
         split_size_mb = snowpark_options.pop("splitsizemb", 2)
         mode = snowpark_options.pop("mode", "PERMISSIVE")
+        if mode.upper() == "DROPMALFORMED" and getattr(
+            session, "_enable_scos_feature", False
+        ):
+            apply_drop_malformed_on_error(snowpark_options)
         relax_types_to_infer_schema = (
             snowpark_options.pop("relaxtypestoinferschema", False)
             or _integral_types_conversion_enabled
@@ -505,7 +521,14 @@ def map_read_json(
             attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
             raise exception
         result_can_be_cached = True
-        if parallel_load_json_file and compression in ("auto", "AUTO", "none", "NONE"):
+        if parallel_load_json_file and compression in (
+            "auto",
+            "AUTO",
+            "none",
+            "NONE",
+            "bz2",
+            "BZ2",
+        ):
             # TODO: SNOW-3022765 Add read partitioned files support for reading bz2 file
             df = read_single_bz2_file(
                 session,
@@ -535,6 +558,7 @@ def map_read_json(
                 schema,
                 relax_types_to_infer_schema,
                 infer_schema_all_files,
+                mode=mode,
             )
 
         spark_column_names = get_spark_column_names_from_snowpark_columns(df.columns)
@@ -674,6 +698,24 @@ def _build_json_typed_transformations(
     return target_cols, transforms
 
 
+def _spark_mode_to_on_error(mode: str) -> str | None:
+    """Map Spark JSON read mode to Snowflake COPY INTO ON_ERROR value.
+
+    Spark modes:
+    - PERMISSIVE (default): use Snowflake default (no explicit ON_ERROR)
+    - DROPMALFORMED: continue on errors, filter out all-NULL rows afterward
+    - FAILFAST: abort on first error
+
+    # TODO: SNOW-3293434 enable copy on error permissive mode
+    """
+    upper = mode.upper()
+    if upper == "FAILFAST":
+        return "ABORT_STATEMENT"
+    if upper == "DROPMALFORMED":
+        return "CONTINUE"
+    return None
+
+
 def read_normal_json_files(
     session: snowpark.Session,
     paths: list[str],
@@ -684,6 +726,7 @@ def read_normal_json_files(
     schema: StructType | None,
     relax_types_to_infer_schema: bool,
     infer_schema_all_files: bool = True,
+    mode: str = "PERMISSIVE",
 ) -> snowpark.DataFrame:
     # Read the normal JSON files, support metadata population
 
@@ -748,6 +791,7 @@ def read_normal_json_files(
             final_schema, session, file_format_options
         )
 
+        on_error = _spark_mode_to_on_error(mode)
         _load_file_with_copy_into(
             reader=reader,
             session=session,
@@ -757,6 +801,7 @@ def read_normal_json_files(
             schema=final_schema,
             file_format_options=file_format_options,
             file_format="json",
+            on_error=on_error,
             partition_columns=partition_columns if partition_columns else None,
             partition_types=partition_types if partition_columns else None,
             needs_metadata=needs_metadata,
@@ -974,7 +1019,17 @@ def merge_json_schema(
         and current_schema != NullType()
         and schema.type_name() != current_schema.type_name()
     ):
-        current_schema = merge_different_types(schema, current_schema)
+        # SNOW-3245123/SNOW-3245124: Preserve ArrayType/StructType/MapType when
+        # encountering empty content (empty list [], empty dict {}, empty string,
+        # or whitespace). Non-empty content proceeds with normal type inference.
+        if isinstance(schema, (ArrayType, StructType, MapType)) and (
+            (isinstance(content, list) and not content)
+            or (isinstance(content, dict) and not content)
+            or (isinstance(content, str) and not content.strip())
+        ):
+            current_schema = schema  # Preserve existing complex type for empty content
+        else:
+            current_schema = merge_different_types(schema, current_schema)
 
     if isinstance(current_schema, StructType) or isinstance(current_schema, ArrayType):
         current_schema.structured = True
@@ -1027,7 +1082,19 @@ def merge_row_schema(
                     if isinstance(next_level_content, datetime):
                         next_level_content = str(next_level_content)
                     next_level_content = json.loads(next_level_content)
-                if isinstance(next_level_content, dict):
+                # SNOW-3245124: Preserve existing StructType/MapType when
+                # encountering empty content (empty dict {}, None, empty string,
+                # or whitespace). Non-empty content proceeds with normal type inference.
+                if isinstance(sf.datatype, (StructType, MapType)) and (
+                    (isinstance(next_level_content, dict) and not next_level_content)
+                    or next_level_content is None
+                    or (
+                        isinstance(next_level_content, str)
+                        and not next_level_content.strip()
+                    )
+                ):
+                    pass  # Preserve existing structured type for empty content
+                elif isinstance(next_level_content, dict):
                     sf.datatype = merge_json_schema(
                         next_level_content,
                         None
@@ -1098,7 +1165,17 @@ def merge_row_schema(
                     decoded_content = json.loads(content)
                     if isinstance(decoded_content, list):
                         content = decoded_content
-                if not isinstance(content, list) or col_name in string_nodes_finalized:
+                # SNOW-3245123: Preserve ArrayType when encountering empty content
+                # (empty list [], empty string, whitespace). Non-empty non-list
+                # content converts to StringType.
+                if isinstance(sf.datatype, ArrayType) and (
+                    (isinstance(content, list) and not content)
+                    or (isinstance(content, str) and not content.strip())
+                ):
+                    pass  # Preserve existing ArrayType for empty content
+                elif (
+                    not isinstance(content, list) or col_name in string_nodes_finalized
+                ):
                     sf.datatype = StringType()
                     string_nodes_finalized.add(col_name)
                 else:

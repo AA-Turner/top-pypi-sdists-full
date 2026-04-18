@@ -4,12 +4,14 @@
 
 import datetime
 import functools
+import inspect
 import math
 import operator
 import random
 import re
 import string
 import sys
+import tempfile
 import time
 import uuid
 from collections import defaultdict
@@ -17,9 +19,10 @@ from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Context, Decimal
-from functools import reduce
+from functools import partial, reduce
+from pathlib import Path
 from typing import List, Optional
-from urllib.parse import quote, unquote
+from urllib.parse import quote
 
 import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
 from google.protobuf.message import Message
@@ -123,7 +126,6 @@ from snowflake.snowpark_connect.typed_column import (
     TypedColumnWithDeferredCast,
     TypedColumnWithDeferredWindowBuilder,
 )
-from snowflake.snowpark_connect.utils import sfdb_udfs
 from snowflake.snowpark_connect.utils.context import (
     add_sql_aggregate_function,
     get_current_grouping_columns,
@@ -152,7 +154,14 @@ from snowflake.snowpark_connect.utils.udf_cache import (
     register_cached_sql_udf,
 )
 from snowflake.snowpark_connect.utils.variant_utils import scala_udf_arg_to_variant
-from snowflake.snowpark_connect.utils.xxhash64 import DEFAULT_SEED
+from snowflake.snowpark_connect.utils.xxhash64 import (
+    DEFAULT_SEED,
+    xxhash64_double,
+    xxhash64_float,
+    xxhash64_int,
+    xxhash64_long,
+    xxhash64_string,
+)
 
 MAX_UINT64 = 2**64 - 1
 MAX_INT64 = 2**63 - 1
@@ -2202,51 +2211,12 @@ def map_unresolved_function(
             elem_type = snowpark_typed_args[0].typ
             result_type = ArrayType(elem_type)
 
-            fallback_to_udf = True
+            elem_variant = snowpark_fn.cast(elem, VariantType())
 
-            if isinstance(count._expression, Literal):
-                count_value = count._expression.value
-                fallback_to_udf = False
-
-                if count_value is None:
-                    result_exp = snowpark_fn.lit(None).cast(result_type)
-                elif count_value <= 0:
-                    result_exp = snowpark_fn.array_construct().cast(result_type)
-                elif count_value <= 16:
-                    # count_value is small enough to initialize the array directly in memory
-                    elem_variant = snowpark_fn.cast(elem, VariantType())
-                    result_exp = snowpark_fn.array_construct(
-                        *([elem_variant] * count_value)
-                    ).cast(result_type)
-                else:
-                    fallback_to_udf = True
-
-            if fallback_to_udf:
-
-                @cached_udf(
-                    input_types=[VariantType(), LongType()],
-                    return_type=ArrayType(),
-                )
-                def _array_repeat(elem, n):
-                    if n is None:
-                        return None
-                    if n < 0:
-                        return []
-                    return [elem] * n
-
-                elem_variant = snowpark_fn.cast(elem, VariantType())
-
-                result_exp = (
-                    snowpark_fn.when(
-                        count.is_null(), snowpark_fn.lit(None).cast(result_type)
-                    )
-                    .when(count <= 0, snowpark_fn.array_construct().cast(result_type))
-                    .otherwise(
-                        snowpark_fn.cast(
-                            _array_repeat(elem_variant, count), result_type
-                        )
-                    )
-                )
+            result_exp = snowpark_fn.cast(
+                snowpark_fn.call_function("ARRAY_REPEAT", elem_variant, count),
+                result_type,
+            )
         case "array_size":
             # When array_size function is called it utilizes Size class
             # https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/collectionOperations.scala#L166
@@ -2491,21 +2461,23 @@ def map_unresolved_function(
                 base64_encoding_function(snowpark_args[0]), lambda: [StringType()]
             )
         case "bin":
-            match snowpark_typed_args[0].typ:
-                case StringType():
-                    bin_arg = snowpark_fn.try_cast(snowpark_args[0], LongType())
-                case type_ if isinstance(type_, _FractionalType):
-                    bin_arg = snowpark_fn.cast(
-                        snowpark_fn.when(
-                            snowpark_args[0] < 0, snowpark_fn.ceil(snowpark_args[0])
-                        ).otherwise(snowpark_fn.floor(snowpark_args[0])),
-                        LongType(),
-                    )
-                case _:
-                    bin_arg = snowpark_fn.cast(snowpark_args[0], LongType())
 
-            result_exp = snowpark_fn.call_function(sfdb_udfs.bin_long, bin_arg)
-            result_type = StringType()
+            @cached_udf(
+                input_types=[VariantType()],
+                return_type=StringType(),
+            )
+            def _to_bin_udf(intval):
+                try:
+                    intval = int(intval)
+                except (ValueError, TypeError):
+                    return None
+
+                return format(intval if intval >= 0 else (1 << 64) + intval, "b")
+
+            result_exp = TypedColumn(
+                _to_bin_udf(snowpark_fn.cast(snowpark_args[0], VariantType())),
+                lambda: [StringType()],
+            )
         case "bit_and":
             bit_and_agg_function = snowpark_fn.function("BITAND_AGG")
             result_exp = bit_and_agg_function(snowpark_args[0])
@@ -2660,9 +2632,17 @@ def map_unresolved_function(
             result_exp = _bitmap_construct_agg_udaf(snowpark_args[0])
             result_type = BinaryType()
         case "bitmap_count":
-            result_exp = snowpark_fn.call_function(
-                sfdb_udfs.bitmap_count, snowpark_args[0]
-            )
+
+            @cached_udf(input_types=[BinaryType()], return_type=LongType())
+            def _bitmap_count(bitmap: Optional[bytes]) -> Optional[int]:
+                if bitmap is None:
+                    return None
+
+                return functools.reduce(
+                    lambda acc, el: acc + bin(el).count("1"), list(bitmap), 0
+                )
+
+            result_exp = _bitmap_count(snowpark_args[0])
             result_type = LongType()
         case "bitmap_or_agg":
 
@@ -2809,11 +2789,9 @@ def map_unresolved_function(
                 )
         case "cbrt":
             spark_function_name = f"CBRT({snowpark_arg_names[0]})"
-            result_exp = snowpark_fn.when(
-                snowpark_args[0] < 0,
-                -snowpark_fn.pow(-snowpark_args[0], snowpark_fn.lit(1 / 3)),
-            ).otherwise(snowpark_fn.pow(snowpark_args[0], snowpark_fn.lit(1 / 3)))
-            result_exp = TypedColumn(result_exp, lambda: [DoubleType()])
+            result_exp = TypedColumn(
+                snowpark_fn.cbrt(snowpark_args[0]), lambda: [DoubleType()]
+            )
         case "ceil" | "ceiling":
             if len(snowpark_args) == 1:
                 fn_name = (
@@ -3292,17 +3270,26 @@ def map_unresolved_function(
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
 
-            if isinstance(snowpark_typed_args[0].typ, BinaryType):
-                result_exp = snowpark_fn.call_function(
-                    sfdb_udfs.crc32_binary, snowpark_args[0]
-                )
-            else:
-                result_exp = snowpark_fn.call_function(
-                    sfdb_udfs.crc32_string,
-                    snowpark_fn.cast(snowpark_args[0], StringType()),
-                )
+            @cached_udf(
+                input_types=[snowpark_typed_args[0].typ],
+                return_type=LongType(),
+            )
+            def _crc32(data):
+                import zlib
 
+                if data is None:
+                    return None
+
+                if isinstance(data, bytes) or isinstance(data, bytearray):
+                    crc32_value = zlib.crc32(data)
+                else:
+                    crc32_value = zlib.crc32(data.encode("utf-8"))
+
+                return crc32_value
+
+            result_exp = _crc32(snowpark_args[0])
             result_type = LongType()
+
         case "csc":
             spark_function_name = f"CSC({snowpark_arg_names[0]})"
             csc_base = snowpark_fn.when(
@@ -4823,34 +4810,39 @@ def map_unresolved_function(
             # Spark returns a 32bit value when Snowflakes hash generates 64bit. We have to perform integral overflow to ensure that the value is within the range.
             result_exp = apply_integral_overflow(result_exp, result_type, force=True)
         case "hex":
-            data = snowpark_fn.cast(snowpark_args[0], VariantType())
-
             # We need as many 'X' as there are digits. The longest possible 'long' type has 16 digits.
             format_string = "FMXXXXXXXXXXXXXXXX"
 
             # Hex supports string, binary, integer/long.
-            # We can use TO_CHAR for numbers and HEX_ENCODE for string and binary
-            result_exp = (
-                snowpark_fn.when(
-                    snowpark_fn.is_integer(data),
-                    snowpark_fn.to_char(
-                        # The cast to integer is done because to_char in snowflake doesn't take
-                        # two arguments for certain other types.
-                        snowpark_fn.cast(data, LongType()),
-                        format_string,
-                    ),
+            # Dispatch at compile time based on known input type rather than
+            # casting to VARIANT and using runtime IS_INTEGER/IS_DOUBLE checks.
+            arg_type = snowpark_typed_args[0].typ
+            if isinstance(arg_type, _IntegralType):
+                result_exp = snowpark_fn.to_char(
+                    snowpark_fn.cast(snowpark_args[0], LongType()),
+                    format_string,
                 )
-                .when(
-                    snowpark_fn.is_double(data),
-                    snowpark_fn.to_char(
-                        # While float/double aren't officially supported in the spark documentation, they work.
-                        # They are treated as integer, but after floor.
-                        snowpark_fn.cast(snowpark_fn.floor(data), LongType()),
-                        format_string,
+            elif isinstance(arg_type, (FloatType, DoubleType, DecimalType)):
+                # Non-integral numeric types: truncate toward zero, then cast to long.
+                # PySpark uses Java's (long) cast which truncates toward zero,
+                # not FLOOR (which rounds toward negative infinity).
+                result_exp = snowpark_fn.to_char(
+                    snowpark_fn.cast(
+                        snowpark_fn.function("TRUNCATE")(
+                            snowpark_args[0], snowpark_fn.lit(0)
+                        ),
+                        LongType(),
                     ),
+                    format_string,
                 )
-                .otherwise(snowpark_fn.function("HEX_ENCODE")(*snowpark_args))
-            )
+            elif isinstance(arg_type, BooleanType):
+                # PySpark hex(boolean) encodes the strings "true"/"false" as hex.
+                result_exp = snowpark_fn.function("HEX_ENCODE")(
+                    snowpark_fn.cast(snowpark_args[0], StringType())
+                )
+            else:
+                # StringType, BinaryType
+                result_exp = snowpark_fn.function("HEX_ENCODE")(*snowpark_args)
             result_type = StringType()
         case "histogram_numeric":
             aggregate_input_typ = snowpark_typed_args[0].typ
@@ -5142,6 +5134,7 @@ def map_unresolved_function(
 
             result_type = BinaryType()
         case "hll_union":
+            # TODO(SNOW-1974083): Snowflake lacks scalar hll_union; uses SQL UDF workaround instead of native hll_combine
             fn = register_cached_sql_udf(
                 ["binary", "binary"],
                 "binary",
@@ -6033,10 +6026,10 @@ def map_unresolved_function(
             )
 
             key_type = _find_common_type(
-                list(map(lambda x: x.typ.key_type, snowpark_typed_args[::2]))
+                list(map(lambda x: x.typ.key_type, snowpark_typed_args))
             )
             value_type = _find_common_type(
-                list(map(lambda x: x.typ.value_type, snowpark_typed_args[1::2]))
+                list(map(lambda x: x.typ.value_type, snowpark_typed_args))
             )
 
             input_args = [snowpark_fn.cast(arg, StructType()) for arg in snowpark_args]
@@ -6079,23 +6072,6 @@ def map_unresolved_function(
             key_type = snowpark_typed_args[0].typ.key_type
             value_type = snowpark_typed_args[0].typ.value_type
 
-            arg_type = snowpark_typed_args[0].typ
-            if not isinstance(arg_type, MapType):
-                exception = TypeError(
-                    f"map_entries requires a MapType argument, got {arg_type}"
-                )
-                attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
-                raise exception
-
-            # SNOW-2040715
-            @cached_udf(input_types=[arg_type], return_type=ArrayType(StructType()))
-            def _map_entries(obj: dict):
-                if obj is None:
-                    raise TypeError(
-                        f"[snowpark_connect::type_mismatch] Expected MapType but received {obj} instead."
-                    )
-                return [{"key": key, "value": value} for key, value in obj.items()]
-
             result_type = ArrayType(
                 StructType(
                     [
@@ -6104,14 +6080,9 @@ def map_unresolved_function(
                     ]
                 )
             )
-            result_exp = snowpark_fn.when(
-                snowpark_fn.function("map_size")(snowpark_args[0]).isNull(),
-                snowpark_fn.lit(None),
-            ).otherwise(
-                snowpark_fn.cast(
-                    _map_entries(snowpark_args[0]),
-                    result_type,
-                )
+            result_exp = snowpark_fn.cast(
+                snowpark_fn.call_function("MAP_ENTRIES", snowpark_args[0]),
+                result_type,
             )
         case "map_from_arrays":
             keys_type = snowpark_typed_args[0].typ
@@ -6266,28 +6237,16 @@ def map_unresolved_function(
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
 
-            def _map_values(obj: dict) -> list:
-                if obj is None:
-                    return None
-                return list(obj.values())
-
-            map_values = cached_udf(
-                _map_values, return_type=ArrayType(), input_types=[StructType()]
-            )
-
-            # Handle NULL input directly at expression level
             if isinstance(arg_type, NullType):
-                # If input is NULL literal, return NULL
                 result_exp = snowpark_fn.lit(None)
                 result_type = ArrayType(NullType())
             else:
-                result_exp = snowpark_fn.when(
-                    snowpark_args[0].is_null(), snowpark_fn.lit(None)
-                ).otherwise(
-                    snowpark_fn.cast(
-                        map_values(snowpark_fn.cast(snowpark_args[0], StructType())),
-                        ArrayType(arg_type.value_type),
-                    )
+                entries = snowpark_fn.call_function("MAP_ENTRIES", snowpark_args[0])
+                result_exp = snowpark_fn.cast(
+                    snowpark_fn.function("transform")(
+                        entries, snowpark_fn.sql_expr("x -> x:value")
+                    ),
+                    ArrayType(arg_type.value_type),
                 )
                 result_type = ArrayType(arg_type.value_type)
         case "mask":
@@ -8079,7 +8038,7 @@ def map_unresolved_function(
         case "sec":
             spark_function_name = f"SEC({snowpark_arg_names[0]})"
             result_exp = snowpark_fn.when(
-                snowpark_fn.is_null(snowpark_args[0]), snowpark_fn.lit(NAN)
+                snowpark_fn.is_null(snowpark_args[0]), snowpark_fn.lit(None)
             ).otherwise(
                 snowpark_fn.coalesce(
                     _divnull(snowpark_fn.lit(1.0), snowpark_fn.cos(snowpark_args[0])),
@@ -9853,6 +9812,7 @@ def map_unresolved_function(
             )
             result_type = BinaryType()
         case "try_avg":
+            # TODO(SNOW-2097962): Return Infinity instead of NULL on overflow by using COALESCE(TRY_CAST(...), 'inf'::real)
             # Snowflake raises an error when a value that cannot be cast into a numeric is passed to AVG. Spark treats these as NULL values and
             # does not throw an error. Additionally, Spark returns NULL when this calculation results in an overflow, whereas Snowflake raises a "TypeError".
             # Matching Spark behavior on both is handled within try_sum_implementation.
@@ -10405,54 +10365,28 @@ def map_unresolved_function(
             result_exp = snowpark_fn.lit(spark_typ.simpleString())
             result_type = StringType()
         case "unbase64":
+            base64_decoding_function = snowpark_fn.function("TRY_BASE64_DECODE_BINARY")
 
-            # Workaround for SNOW-3194655
-            if global_config.snowpark_connect_use_udf_for_unbase64:
+            unbase_arg = snowpark_args[0]
+            if snowpark_typed_args[0].typ == BinaryType():
+                unbase_arg = snowpark_fn.to_varchar(unbase_arg, "UTF-8")
 
-                @cached_udf(
-                    input_types=[StringType()],
-                    return_type=BinaryType(),
-                )
-                def _unbase64_udf(s: str) -> bytes:
-                    import base64
-                    import re
+            # Remove all characters that are not base64 characters, as Spark does.
+            cleaned = snowpark_fn.regexp_replace(unbase_arg, "[^A-Za-z0-9+/=]", "")
 
-                    if s is None:
-                        return None
-                    cleaned = re.sub(r"[^A-Za-z0-9+/=]", "", s)
-                    padded = cleaned + "=" * (-len(cleaned) % 4)
-                    return base64.b64decode(padded)
+            padded = snowpark_fn.rpad(
+                cleaned,
+                snowpark_fn.ceil(snowpark_fn.length(cleaned) / snowpark_fn.lit(4))
+                * snowpark_fn.lit(4),
+                snowpark_fn.lit("="),
+            )
+            decoded = base64_decoding_function(padded)
 
-                unbase_arg = snowpark_args[0]
-                if snowpark_typed_args[0].typ == BinaryType():
-                    unbase_arg = snowpark_fn.to_varchar(unbase_arg, "UTF-8")
-
-                result_exp = _unbase64_udf(unbase_arg)
-            else:
-                base64_decoding_function = snowpark_fn.function(
-                    "TRY_BASE64_DECODE_BINARY"
-                )
-
-                unbase_arg = snowpark_args[0]
-                if snowpark_typed_args[0].typ == BinaryType():
-                    unbase_arg = snowpark_fn.to_varchar(unbase_arg, "UTF-8")
-
-                # Remove all characters that are not base64 characters, as Spark does.
-                cleaned = snowpark_fn.regexp_replace(unbase_arg, "[^A-Za-z0-9+/=]", "")
-
-                padded = snowpark_fn.rpad(
-                    cleaned,
-                    snowpark_fn.ceil(snowpark_fn.length(cleaned) / snowpark_fn.lit(4))
-                    * snowpark_fn.lit(4),
-                    snowpark_fn.lit("="),
-                )
-                decoded = base64_decoding_function(padded)
-
-                raise_fn = _raise_error_helper(BinaryType(), IllegalArgumentException)
-                result_exp = snowpark_fn.when(
-                    unbase_arg.is_not_null() & decoded.is_null(),
-                    raise_fn(snowpark_fn.lit("Invalid input")),
-                ).otherwise(decoded)
+            raise_fn = _raise_error_helper(BinaryType(), IllegalArgumentException)
+            result_exp = snowpark_fn.when(
+                unbase_arg.is_not_null() & decoded.is_null(),
+                raise_fn(snowpark_fn.lit("Invalid input")),
+            ).otherwise(decoded)
 
             result_type = BinaryType()
         case "unhex":
@@ -10577,11 +10511,15 @@ def map_unresolved_function(
             def _url_decode(encoded_url: Optional[str]) -> Optional[str]:
                 if encoded_url is None:
                     return None
-                try:
-                    # Handle both + and %20 encoding for spaces
-                    return unquote(encoded_url.replace("+", " "))
-                except Exception:
-                    return None
+                import re
+                from urllib.parse import unquote
+
+                invalid = re.search(r"%(?![0-9A-Fa-f]{2})", encoded_url)
+                if invalid:
+                    raise ValueError(
+                        f"[CANNOT_DECODE_URL] Cannot decode the url: {encoded_url}"
+                    )
+                return unquote(encoded_url.replace("+", " "))
 
             result_exp = _url_decode(snowpark_args[0])
             result_type = StringType()
@@ -10747,7 +10685,7 @@ def map_unresolved_function(
 
             # Snowflake returns Decimal(x, 0), but Spark expects LongType() always
             result_type = LongType()
-            result_exp.cast(result_type)
+            result_exp = snowpark_fn.cast(result_exp, result_type)
         case "window":
             (window_duration, start_time) = _extract_window_args(exp)
             spark_function_name = "window"
@@ -10808,44 +10746,80 @@ def map_unresolved_function(
             result_type = StringType()
             result_exp = _create_xpath_expression("xpath_string", "STRING")
         case "xxhash64":
+            import snowflake.snowpark_connect.utils.xxhash64 as xxhash64
+
+            xxhash64_src_file = Path(__file__).parent.parent / "utils" / "xxhash64.py"
+
+            # In the notebook environment, the physical file may not be where it's expected, if not found
+            # then temporarily create in another location.
+            if not xxhash64_src_file.exists():
+                xxhash64_src_bytes = inspect.getsource(xxhash64).encode("utf-8")
+                sub_dir = (
+                    Path(tempfile.gettempdir())
+                    / "snowflake"
+                    / "snowpark_connect"
+                    / "utils"
+                )
+                xxhash64_src_file = sub_dir / "xxhash64.py"
+                # If the file doesn't exist (from a prior run) or it's a different size, then recreate.
+                # Otherwise we can use the previously created xxhash64 source file.
+                if (
+                    not xxhash64_src_file.exists()
+                    or xxhash64_src_file.stat().st_size != len(xxhash64_src_bytes)
+                ):
+                    sub_dir.mkdir(parents=True, exist_ok=True)
+                    xxhash64_src_file.write_bytes(xxhash64_src_bytes)
+
+            xxhash_udf_imports = [
+                (
+                    str(xxhash64_src_file),
+                    "snowflake.snowpark_connect.utils.xxhash64",
+                )
+            ]
+
+            xxhash_udf = partial(
+                cached_udf, return_type=LongType(), imports=xxhash_udf_imports
+            )
+
             result_exp = snowpark_fn.lit(DEFAULT_SEED)
 
             for arg in snowpark_typed_args:
                 match arg.typ:
                     case IntegerType() | ShortType() | ByteType() | BooleanType():
-                        hash_result = snowpark_fn.call_function(
-                            sfdb_udfs.xxhash64_int,
-                            snowpark_fn.cast(arg.col, IntegerType()),
-                            result_exp,
+                        xxhash64_udf_int = xxhash_udf(
+                            xxhash64_int, input_types=[LongType(), LongType()]
+                        )
+
+                        result_exp = xxhash64_udf_int(
+                            snowpark_fn.cast(arg.col, LongType()), result_exp
                         )
                     case FloatType():
-                        hash_result = snowpark_fn.call_function(
-                            sfdb_udfs.xxhash64_float, arg.col, result_exp
+                        xxhash64_udf_float = xxhash_udf(
+                            xxhash64_float, input_types=[FloatType(), LongType()]
                         )
+
+                        result_exp = xxhash64_udf_float(arg.col, result_exp)
                     case DoubleType():
-                        hash_result = snowpark_fn.call_function(
-                            sfdb_udfs.xxhash64_double, arg.col, result_exp
+                        xxhash64_udf_double = xxhash_udf(
+                            xxhash64_double, input_types=[DoubleType(), LongType()]
                         )
+
+                        result_exp = xxhash64_udf_double(arg.col, result_exp)
                     case LongType():
-                        hash_result = snowpark_fn.call_function(
-                            sfdb_udfs.xxhash64_long, arg.col, result_exp
+                        xxhash64_udf_long = xxhash_udf(
+                            xxhash64_long, input_types=[LongType(), LongType()]
                         )
-                    case BinaryType():
-                        hash_result = snowpark_fn.call_function(
-                            sfdb_udfs.xxhash64_bytes, arg.col, result_exp
-                        )
+
+                        result_exp = xxhash64_udf_long(arg.col, result_exp)
                     case _:
-                        hash_result = snowpark_fn.call_function(
-                            sfdb_udfs.xxhash64_string,
-                            snowpark_fn.cast(arg.col, StringType()),
-                            result_exp,
+                        xxhash64_udf_str = xxhash_udf(
+                            xxhash64_string, input_types=[StringType(), LongType()]
                         )
 
-                result_exp = snowpark_fn.when(arg.col.isNull(), result_exp).otherwise(
-                    hash_result
-                )
-
-            result_type = LongType()
+                        result_exp = xxhash64_udf_str(
+                            snowpark_fn.cast(arg.col, StringType()), result_exp
+                        )
+                result_type = LongType()
         case "year":
             if isinstance(snowpark_typed_args[0].typ, StringType):
                 result_exp = snowpark_fn.year(
@@ -10900,9 +10874,27 @@ def map_unresolved_function(
             return map_cast(cast_exp, column_mapping, typer, from_type_cast=True)
 
         case "luhn_check":
-            result_exp = snowpark_fn.call_function(
-                sfdb_udfs.luhn_check, snowpark_args[0]
-            )
+
+            @cached_udf(input_types=[StringType()], return_type=BooleanType())
+            def _luhn_check(input_number: str) -> bool:
+                if input_number is None:
+                    return None
+                else:
+                    input_number = input_number.replace(" ", "")
+                    if not input_number.isdigit():
+                        return False
+
+                    digits = list(map(int, input_number))
+
+                    for i in range(len(digits) - 2, -1, -2):
+                        digits[i] *= 2
+                        if digits[i] > 9:
+                            digits[i] -= 9
+
+                    total_sum = sum(digits)
+                    return total_sum % 10 == 0
+
+            result_exp = _luhn_check(snowpark_args[0])
             result_type = BooleanType()
 
         case other:
@@ -11474,16 +11466,6 @@ def _resolve_function_with_lambda(
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
 
-    def _map_to_array(m: dict) -> Optional[list]:
-        # confirm that m is a dict and not a sqlNullWrapper
-        if m is None or not hasattr(m, "items"):
-            return None
-        # Convert sqlNullWrapper values to None to avoid serialization errors
-        return [
-            {"key": k, "value": (None if getattr(v, "is_sql_null", False) else v)}
-            for k, v in m.items()
-        ]
-
     def _randomize_lambda_args_names(message: Message, suffix: str | None = None):
         if suffix is None:
             suffix = uuid.uuid4().hex
@@ -11654,9 +11636,6 @@ def _resolve_function_with_lambda(
             The input lambda is converted to a single argument Snowflake lambda.
             """
 
-            _map_to_array_udf = cached_udf(
-                _map_to_array, input_types=[VariantType()], return_type=ArrayType()
-            )
             key_type, val_type = _get_map_types(arg1_tc)
 
             lambda_exp = exp.unresolved_function.arguments[1]
@@ -11683,13 +11662,13 @@ def _resolve_function_with_lambda(
                 else "get(x, 'key')"
             )
             transform_sql = fn_sql.replace(l_arg1, key_exp).replace(
-                l_arg2, "strip_null_value(get(x, 'value'))"
+                l_arg2, "get(x, 'value')"
             )
             transform_exp = snowpark_fn.sql_expr(f"x -> ({transform_sql})::boolean")
             last_win_dedup = global_config.spark_sql_mapKeyDedupPolicy == "LAST_WIN"
             reduce_exp = snowpark_fn.function("reduce")(
                 snowpark_fn.function("filter")(
-                    _map_to_array_udf(snowpark_fn.cast(arg1_tc.col, VariantType())),
+                    snowpark_fn.call_function("MAP_ENTRIES", arg1_tc.col),
                     transform_exp,
                 ),
                 snowpark_fn.object_construct(),
@@ -11697,7 +11676,7 @@ def _resolve_function_with_lambda(
                     # value is cast to variant because object_insert doesn't allow structured types,
                     # and structured types are not coercible to variant
                     # TODO: allow structured types in object_insert?
-                    f"(acc, e) -> object_insert(acc, e:key, e:value::variant, {last_win_dedup})"
+                    f"(acc, e) -> object_insert(acc, e:key, nvl(e:value::variant, parse_json('null')), {last_win_dedup})"
                 ),
             )
             result_type = arg1_tc.typ
@@ -11854,18 +11833,9 @@ def _resolve_function_with_lambda(
                     )
                     raise exception
         case "transform_keys":
-            _map_to_array_udf = cached_udf(
-                _map_to_array,
-                input_types=[VariantType()],
-                return_type=ArrayType(),
-                packages=[],
-            )
             key_type, val_type = _get_map_types(arg1_tc)
 
             lambda_exp = exp.unresolved_function.arguments[1]
-            # Due to lack of direct equivalent API in Snowflake, we need to transform the lambda expression
-            # Rather than traversing the entire lambda AST, we use string manipulation on the query
-            # We randomize lambda argument names to minimize the risk of accidental replacements in the query
             _randomize_lambda_args_names(lambda_exp)
             ([lambda_body_name], fn_body) = _resolve_lambda(
                 lambda_exp,
@@ -11886,17 +11856,14 @@ def _resolve_function_with_lambda(
                 else "get(x, 'key')"
             )
             fn_sql_with_replaced_args = fn_sql.replace(l_arg1, key_exp).replace(
-                l_arg2, "strip_null_value(get(x, 'value'))"
+                l_arg2, "get(x, 'value')"
             )
             last_win_dedup = global_config.spark_sql_mapKeyDedupPolicy == "LAST_WIN"
             reduce_exp = snowpark_fn.function("reduce")(
-                _map_to_array_udf(snowpark_fn.cast(arg1_tc.col, VariantType())),
+                snowpark_fn.call_function("MAP_ENTRIES", arg1_tc.col),
                 snowpark_fn.object_construct(),
                 snowpark_fn.sql_expr(
-                    # value is cast to variant because object_insert doesn't allow structured types,
-                    # and structured types are not coercible to variant
-                    # TODO: allow structured types in object_insert?
-                    f"(acc, x) -> object_insert(acc, {fn_sql_with_replaced_args}, x:value::variant, {last_win_dedup})"
+                    f"(acc, x) -> object_insert(acc, {fn_sql_with_replaced_args}, nvl(x:value::variant, parse_json('null')), {last_win_dedup})"
                 ),
             )
             result_type = MapType(fn_body.typ, val_type)
@@ -11910,18 +11877,9 @@ def _resolve_function_with_lambda(
             ]
 
         case "transform_values":
-            _map_to_array_udf = cached_udf(
-                _map_to_array,
-                input_types=[VariantType()],
-                return_type=ArrayType(),
-                packages=[],
-            )
             key_type, val_type = _get_map_types(arg1_tc)
 
             lambda_exp = exp.unresolved_function.arguments[1]
-            # Due to lack of direct equivalent API in Snowflake, we need to transform the lambda expression
-            # Rather than traversing the entire lambda AST, we use string manipulation on the query
-            # We randomize lambda argument names to minimize the risk of accidental replacements in the query
             _randomize_lambda_args_names(lambda_exp)
             ([lambda_body_name], fn_body) = _resolve_lambda(
                 lambda_exp,
@@ -11942,16 +11900,13 @@ def _resolve_function_with_lambda(
                 else "get(x, 'key')"
             )
             fn_sql_with_replaced_args = fn_sql.replace(l_arg1, key_exp).replace(
-                l_arg2, "strip_null_value(get(x, 'value'))"
+                l_arg2, "get(x, 'value')"
             )
             last_win_dedup = global_config.spark_sql_mapKeyDedupPolicy == "LAST_WIN"
             reduce_exp = snowpark_fn.function("reduce")(
-                _map_to_array_udf(snowpark_fn.cast(arg1_tc.col, VariantType())),
+                snowpark_fn.call_function("MAP_ENTRIES", arg1_tc.col),
                 snowpark_fn.object_construct(),
                 snowpark_fn.sql_expr(
-                    # value is cast to variant because object_insert doesn't allow structured types,
-                    # and structured types are not coercible to variant
-                    # TODO: allow structured types in object_insert?
                     f"(acc, x) -> object_insert(acc, x:key, nvl(({fn_sql_with_replaced_args})::variant, parse_json('null')), {last_win_dedup})"
                 ),
             )

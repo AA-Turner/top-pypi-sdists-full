@@ -687,7 +687,7 @@ class BaseData(System.Object, QuantConnect.Data.IBaseData, metaclass=abc.ABCMeta
         ...
 
     @staticmethod
-    def deserialize_message(serialized: str) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def deserialize_message(serialized: str) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Deserialize the message from the data server
         
@@ -1181,33 +1181,23 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         ...
 
     @overload
-    def get(self, type: typing.Any, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
-        """
-        Gets the data of the specified symbol and type.
-        
-        :param type: The type of data we seek
-        :param symbol: The specific symbol was seek
-        :returns: The data point for the requested symbol.
-        """
-        ...
-
-    @overload
-    def get(self, type: typing.Any) -> typing.Any:
-        """
-        Gets the data of the specified data type.
-        
-        :param type: The type of data we seek
-        :returns: The data dictionary for the requested data type.
-        """
-        ...
-
-    @overload
     def get(self, type: typing.Type) -> typing.Any:
         """
         Gets the data of the specified type.
         
         :param type: The type of data we seek
         :returns: The DataDictionary{T} instance for the requested type.
+        """
+        ...
+
+    @overload
+    def get(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
+        """
+        Gets the data of the specified symbol and type.
+        
+        :param type: The type of data we seek
+        :param symbol: The specific symbol was seek
+        :returns: The data point for the requested symbol.
         """
         ...
 
@@ -1219,7 +1209,7 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         """
         ...
 
-    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, typing.Any]]:
+    def get_items(self) -> typing.Sequence[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, typing.Any]]:
         """
         Gets all the items in the dictionary
         
@@ -1381,7 +1371,7 @@ class DataQueueHandlerSubscriptionManager(System.Object, System.IDisposable, met
         ...
 
     @overload
-    def get_subscribed_symbols(self) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_subscribed_symbols(self) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Returns subscribed symbols
         
@@ -1390,7 +1380,7 @@ class DataQueueHandlerSubscriptionManager(System.Object, System.IDisposable, met
         ...
 
     @overload
-    def get_subscribed_symbols(self, tick_type: QuantConnect.TickType) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_subscribed_symbols(self, tick_type: QuantConnect.TickType) -> typing.Sequence[QuantConnect.Symbol]:
         """
         Retrieves the list of unique Symbol instances that are currently subscribed for a specific TickType.
         
@@ -1532,7 +1522,7 @@ class DownloaderExtensions(System.Object):
     """Contains extension methods for the Downloader functionality."""
 
     @staticmethod
-    def get_data_downloader_parameter_for_all_mapped_symbols(data_downloader_parameter: QuantConnect.DataDownloaderGetParameters, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, exchange_time_zone: typing.Any) -> typing.Iterable[QuantConnect.DataDownloaderGetParameters]:
+    def get_data_downloader_parameter_for_all_mapped_symbols(data_downloader_parameter: QuantConnect.DataDownloaderGetParameters, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, exchange_time_zone: typing.Any) -> typing.Sequence[QuantConnect.DataDownloaderGetParameters]:
         """
         Get DataDownloaderGetParameters for all mapped Symbol with appropriate ticker name in specific date time range.
         
@@ -2073,7 +2063,7 @@ class HistoryProviderBase(System.Object, QuantConnect.Interfaces.IHistoryProvide
         """Gets the total number of data points emitted by this history provider"""
         ...
 
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Sequence[QuantConnect.Data.Slice]:
         """
         Gets the history for the requested securities
         
@@ -2616,7 +2606,7 @@ class SliceExtensions(System.Object):
 
     @staticmethod
     @overload
-    def get(slices: typing.List[QuantConnect.Data.Slice], type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None) -> typing.Iterable[typing.Any]:
+    def get(slices: typing.List[QuantConnect.Data.Slice], type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None) -> typing.Sequence[typing.Any]:
         """
         Gets the data dictionaries or points of the requested type in each slice
         
@@ -2629,7 +2619,7 @@ class SliceExtensions(System.Object):
 
     @staticmethod
     @overload
-    def get(slices: typing.List[QuantConnect.Data.Slice], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Iterable[QuantConnect.Data.Market.TradeBar]:
+    def get(slices: typing.List[QuantConnect.Data.Slice], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Sequence[QuantConnect.Data.Market.TradeBar]:
         """
         Gets an enumerable of TradeBar for the given symbol. This method does not verify
         that the specified symbol points to a TradeBar
@@ -2642,7 +2632,7 @@ class SliceExtensions(System.Object):
 
     @staticmethod
     @overload
-    def get(slices: typing.List[QuantConnect.Data.Slice], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], field: typing.Callable[[QuantConnect.Data.BaseData], float]) -> typing.Iterable[float]:
+    def get(slices: typing.List[QuantConnect.Data.Slice], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], field: typing.Callable[[QuantConnect.Data.BaseData], float]) -> typing.Sequence[float]:
         """
         Gets an enumerable of decimal by accessing the slice for the symbol and then retrieving the specified
         field on each piece of data
@@ -2655,7 +2645,7 @@ class SliceExtensions(System.Object):
         ...
 
     @staticmethod
-    def get_universe_data(slices: typing.List[QuantConnect.Data.Slice]) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.UniverseSelection.BaseDataCollection]]:
+    def get_universe_data(slices: typing.List[QuantConnect.Data.Slice]) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.UniverseSelection.BaseDataCollection]]:
         """
         Gets the data dictionaries or points of the requested type in each slice
         
@@ -2701,7 +2691,7 @@ class SliceExtensions(System.Object):
         ...
 
     @staticmethod
-    def ticks(slices: typing.List[QuantConnect.Data.Slice]) -> typing.Iterable[QuantConnect.Data.Market.Ticks]:
+    def ticks(slices: typing.List[QuantConnect.Data.Slice]) -> typing.Sequence[QuantConnect.Data.Market.Ticks]:
         """
         Selects into the slice and returns the Ticks that have data in order
         
@@ -2721,7 +2711,7 @@ class SliceExtensions(System.Object):
         ...
 
     @staticmethod
-    def trade_bars(slices: typing.List[QuantConnect.Data.Slice]) -> typing.Iterable[QuantConnect.Data.Market.TradeBars]:
+    def trade_bars(slices: typing.List[QuantConnect.Data.Slice]) -> typing.Sequence[QuantConnect.Data.Market.TradeBars]:
         """
         Selects into the slice and returns the TradeBars that have data in order
         
@@ -2808,7 +2798,7 @@ class HistoryExtensions(System.Object):
     """Helper extension methods for objects related with Histotical data"""
 
     @staticmethod
-    def split_history_request_with_updated_mapped_symbol(request: QuantConnect.Data.HistoryRequest, map_file_provider: QuantConnect.Interfaces.IMapFileProvider) -> typing.Iterable[QuantConnect.Data.HistoryRequest]:
+    def split_history_request_with_updated_mapped_symbol(request: QuantConnect.Data.HistoryRequest, map_file_provider: QuantConnect.Interfaces.IMapFileProvider) -> typing.Sequence[QuantConnect.Data.HistoryRequest]:
         """
         Split HistoryRequest on several request with update mapped symbol.
         

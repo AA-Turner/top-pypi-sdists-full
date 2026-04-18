@@ -6024,6 +6024,14 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZON_EBSCSI_DRIVER_POLICY_V2 = "AMAZON_EBSCSI_DRIVER_POLICY_V2"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_EBSCSI_DRIVER_EKS_CLUSTER_SCOPED_POLICY = "AMAZON_EBSCSI_DRIVER_EKS_CLUSTER_SCOPED_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

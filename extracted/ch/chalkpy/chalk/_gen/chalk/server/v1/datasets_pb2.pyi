@@ -387,6 +387,7 @@ class DeleteDatasetResponse(_message.Message):
 class MaterializedAggregateTileMeta(_message.Message):
     __slots__ = (
         "id",
+        "environment_id",
         "deployment_id",
         "operation_id",
         "aggregate_backfill_id",
@@ -403,12 +404,12 @@ class MaterializedAggregateTileMeta(_message.Message):
         "total_rows",
         "created_at",
         "updated_at",
-        "environment_id",
         "materialization_key_json",
         "output_schema_bytes_base64",
         "source_meta_json",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     AGGREGATE_BACKFILL_ID_FIELD_NUMBER: _ClassVar[int]
@@ -425,11 +426,11 @@ class MaterializedAggregateTileMeta(_message.Message):
     TOTAL_ROWS_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
-    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     MATERIALIZATION_KEY_JSON_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_SCHEMA_BYTES_BASE64_FIELD_NUMBER: _ClassVar[int]
     SOURCE_META_JSON_FIELD_NUMBER: _ClassVar[int]
     id: int
+    environment_id: str
     deployment_id: str
     operation_id: str
     aggregate_backfill_id: str
@@ -446,13 +447,13 @@ class MaterializedAggregateTileMeta(_message.Message):
     total_rows: int
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
-    environment_id: str
     materialization_key_json: str
     output_schema_bytes_base64: str
     source_meta_json: str
     def __init__(
         self,
         id: _Optional[int] = ...,
+        environment_id: _Optional[str] = ...,
         deployment_id: _Optional[str] = ...,
         operation_id: _Optional[str] = ...,
         aggregate_backfill_id: _Optional[str] = ...,
@@ -469,21 +470,22 @@ class MaterializedAggregateTileMeta(_message.Message):
         total_rows: _Optional[int] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
-        environment_id: _Optional[str] = ...,
         materialization_key_json: _Optional[str] = ...,
         output_schema_bytes_base64: _Optional[str] = ...,
         source_meta_json: _Optional[str] = ...,
     ) -> None: ...
 
 class MaterializedAggregateTileFileMeta(_message.Message):
-    __slots__ = ("id", "deployment_id", "file_ordinal", "row_count", "uri", "created_at")
+    __slots__ = ("id", "environment_id", "deployment_id", "file_ordinal", "row_count", "uri", "created_at")
     ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     FILE_ORDINAL_FIELD_NUMBER: _ClassVar[int]
     ROW_COUNT_FIELD_NUMBER: _ClassVar[int]
     URI_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     id: int
+    environment_id: str
     deployment_id: str
     file_ordinal: int
     row_count: int
@@ -492,6 +494,7 @@ class MaterializedAggregateTileFileMeta(_message.Message):
     def __init__(
         self,
         id: _Optional[int] = ...,
+        environment_id: _Optional[str] = ...,
         deployment_id: _Optional[str] = ...,
         file_ordinal: _Optional[int] = ...,
         row_count: _Optional[int] = ...,
@@ -500,27 +503,47 @@ class MaterializedAggregateTileFileMeta(_message.Message):
     ) -> None: ...
 
 class ListMaterializedAggregateTilesRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("cursor", "limit")
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    cursor: str
+    limit: int
+    def __init__(self, cursor: _Optional[str] = ..., limit: _Optional[int] = ...) -> None: ...
 
 class ListMaterializedAggregateTilesResponse(_message.Message):
-    __slots__ = ("tiles",)
+    __slots__ = ("tiles", "next_cursor")
     TILES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     tiles: _containers.RepeatedCompositeFieldContainer[MaterializedAggregateTileMeta]
-    def __init__(self, tiles: _Optional[_Iterable[_Union[MaterializedAggregateTileMeta, _Mapping]]] = ...) -> None: ...
+    next_cursor: str
+    def __init__(
+        self,
+        tiles: _Optional[_Iterable[_Union[MaterializedAggregateTileMeta, _Mapping]]] = ...,
+        next_cursor: _Optional[str] = ...,
+    ) -> None: ...
 
 class ListMaterializedAggregateTileFilesRequest(_message.Message):
-    __slots__ = ("manifest_id",)
+    __slots__ = ("manifest_id", "cursor", "limit")
     MANIFEST_ID_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
     manifest_id: int
-    def __init__(self, manifest_id: _Optional[int] = ...) -> None: ...
+    cursor: str
+    limit: int
+    def __init__(
+        self, manifest_id: _Optional[int] = ..., cursor: _Optional[str] = ..., limit: _Optional[int] = ...
+    ) -> None: ...
 
 class ListMaterializedAggregateTileFilesResponse(_message.Message):
-    __slots__ = ("files",)
+    __slots__ = ("files", "next_cursor")
     FILES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     files: _containers.RepeatedCompositeFieldContainer[MaterializedAggregateTileFileMeta]
+    next_cursor: str
     def __init__(
-        self, files: _Optional[_Iterable[_Union[MaterializedAggregateTileFileMeta, _Mapping]]] = ...
+        self,
+        files: _Optional[_Iterable[_Union[MaterializedAggregateTileFileMeta, _Mapping]]] = ...,
+        next_cursor: _Optional[str] = ...,
     ) -> None: ...
 
 class DeleteMaterializedAggregateTileRequest(_message.Message):

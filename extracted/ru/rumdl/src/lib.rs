@@ -1,3 +1,52 @@
+#![warn(unreachable_pub)]
+#![warn(clippy::pedantic)]
+// Style-only pedantic lints we don't enforce. Each one generated >5 occurrences
+// that were either deliberate design choices or too noisy for the value
+// delivered. Categories that flag potential bugs stay on.
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::if_not_else)]
+#![allow(clippy::similar_names)]
+#![allow(clippy::wildcard_imports)]
+#![allow(clippy::case_sensitive_file_extension_comparisons)]
+#![allow(clippy::doc_link_with_quotes)]
+#![allow(clippy::needless_raw_string_hashes)]
+#![allow(clippy::trivially_copy_pass_by_ref)]
+#![allow(clippy::struct_excessive_bools)]
+#![allow(clippy::fn_params_excessive_bools)]
+#![allow(clippy::elidable_lifetime_names)]
+#![allow(clippy::return_self_not_must_use)]
+#![allow(clippy::redundant_else)]
+#![allow(clippy::single_match_else)]
+#![allow(clippy::needless_continue)]
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::ignored_unit_patterns)]
+#![allow(clippy::unreadable_literal)]
+#![allow(clippy::implicit_hasher)]
+#![allow(clippy::ref_option)]
+#![allow(clippy::struct_field_names)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::unnested_or_patterns)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_possible_wrap)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_lossless)]
+#![allow(clippy::items_after_statements)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::format_push_string)]
+// Test smoke-constructors like `let _formatter = Foo;` fire this lint,
+// but are acceptable: they verify the type exists without asserting behavior.
+#![allow(clippy::no_effect_underscore_binding)]
+// Style-only: `Default::default()` vs `T::default()`. Both are readable.
+#![allow(clippy::default_trait_access)]
+// Style-only: `"".to_string()` vs `String::new()`. Tests favor the former
+// for symmetry with non-empty string literals.
+#![allow(clippy::manual_string_new)]
+
 pub mod code_block_tools;
 pub mod config;
 pub mod doc_comment_lint;
@@ -36,7 +85,7 @@ pub mod performance;
 #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
 pub mod wasm;
 
-pub use rules::heading_utils::{Heading, HeadingStyle};
+pub use rules::heading_utils::HeadingStyle;
 pub use rules::*;
 
 pub use crate::lint_context::{LineInfo, LintContext, ListItemInfo};
@@ -237,10 +286,11 @@ pub fn build_file_index_only(
 /// avoiding duplicate parsing.
 ///
 /// Returns: (warnings, FileIndex) - the FileIndex contains headings/links for cross-file rules
+#[cfg_attr(test, allow(unused_variables))]
 pub fn lint_and_index(
     content: &str,
     rules: &[Box<dyn Rule>],
-    _verbose: bool,
+    verbose: bool,
     flavor: crate::config::MarkdownFlavor,
     source_file: Option<std::path::PathBuf>,
     config: Option<&crate::config::Config>,
@@ -249,9 +299,6 @@ pub fn lint_and_index(
     // Compute content hash for change detection
     let content_hash = compute_content_hash(content);
     let mut file_index = crate::workspace_index::FileIndex::with_hash(content_hash);
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let _overall_start = Instant::now();
 
     // Early return for empty content
     if content.is_empty() {
@@ -278,13 +325,13 @@ pub fn lint_and_index(
         .collect();
 
     // Calculate skipped rules count before consuming applicable_rules
-    let _total_rules = rules.len();
-    let _applicable_count = applicable_rules.len();
+    #[cfg(not(test))]
+    let total_rules = rules.len();
+    #[cfg(not(test))]
+    let applicable_count = applicable_rules.len();
 
     #[cfg(not(target_arch = "wasm32"))]
     let profile_rules = std::env::var("RUMDL_PROFILE_RULES").is_ok();
-    #[cfg(target_arch = "wasm32")]
-    let profile_rules = false;
 
     // Automatic inline config support: merge inline overrides into config once,
     // then recreate only the affected rules. Works for ALL rules without per-rule changes.
@@ -311,7 +358,7 @@ pub fn lint_and_index(
 
     for rule in &applicable_rules {
         #[cfg(not(target_arch = "wasm32"))]
-        let _rule_start = Instant::now();
+        let rule_start = Instant::now();
 
         // Skip rules that indicate they should be skipped (opt-in rules, content-based skipping)
         if rule.should_skip(&lint_ctx) {
@@ -321,8 +368,7 @@ pub fn lint_and_index(
         // Use recreated rule if inline config overrides exist for this rule
         let effective_rule: &dyn crate::rule::Rule = recreated_rules
             .get(rule.name())
-            .map(|r| r.as_ref())
-            .unwrap_or(rule.as_ref());
+            .map_or(rule.as_ref(), std::convert::AsRef::as_ref);
 
         // Run single-file check with the effective rule (possibly with inline config applied)
         let result = effective_rule.check(&lint_ctx);
@@ -387,13 +433,13 @@ pub fn lint_and_index(
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let rule_duration = _rule_start.elapsed();
+            let rule_duration = rule_start.elapsed();
             if profile_rules {
                 eprintln!("[RULE] {:6} {:?}", rule.name(), rule_duration);
             }
 
             #[cfg(not(test))]
-            if _verbose && rule_duration.as_millis() > 500 {
+            if verbose && rule_duration.as_millis() > 500 {
                 log::debug!("Rule {} took {:?}", rule.name(), rule_duration);
             }
         }
@@ -412,10 +458,10 @@ pub fn lint_and_index(
     }
 
     #[cfg(not(test))]
-    if _verbose {
-        let skipped_rules = _total_rules - _applicable_count;
+    if verbose {
+        let skipped_rules = total_rules - applicable_count;
         if skipped_rules > 0 {
-            log::debug!("Skipped {skipped_rules} of {_total_rules} rules based on content analysis");
+            log::debug!("Skipped {skipped_rules} of {total_rules} rules based on content analysis");
         }
     }
 
