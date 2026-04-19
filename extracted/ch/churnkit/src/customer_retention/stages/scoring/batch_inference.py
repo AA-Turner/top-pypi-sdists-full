@@ -62,6 +62,10 @@ class BatchInferenceConfig:
     schema: Optional[str] = None
     model_name: Optional[str] = None
     feature_table: Optional[str] = None  # default: f"{catalog}.{schema}.customer_features"
+    customer_table: Optional[str] = None  # default: f"{catalog}.{schema}.gold_customers".
+    # Source for entity IDs to score. Accepts snapshot-grained tables like
+    # ``gold_features_{CN}`` — ``_run_databricks`` dedupes to one row per
+    # entity before feature-store lookup.
     target_table: str = "predictions"
     audit_table: str = "inference_audit_log"
 
@@ -71,6 +75,13 @@ class BatchInferenceConfig:
     output_dir: Optional[Path] = None
     dataset_name: Optional[str] = None
     entity_id_columns: List[str] = field(default_factory=list)
+
+    # Scope filter (NB00 / ProjectContext.sample_filters).
+    # A Spark-SQL-style boolean expression that narrows the entity population to
+    # the subset in force during exploration / training. Applied distributed
+    # via ``df.filter(expr)`` on Databricks and ``safe_query(df, expr)`` locally
+    # — a single narrow projection, no shuffle, no extra Spark jobs.
+    filter_expression: Optional[str] = None
 
 
 @dataclass
@@ -214,9 +225,21 @@ def _run_databricks(config: BatchInferenceConfig) -> BatchInferenceResult:
 
     logger.info("Databricks batch inference: model=%s feature_table=%s", model_uri, feature_table)
 
-    # Build entity_df with PIT timestamp
-    df_customers = spark.table(f"{config.catalog}.{config.schema}.gold_customers")
-    entity_df = df_customers.select("entity_id").withColumn(
+    # Build entity_df with PIT timestamp. The scope filter is applied before
+    # the entity projection so scoring only covers the population defined in
+    # NB00 (ProjectContext.sample_filters). ``.filter(sql_expr)`` is a narrow
+    # projection — no shuffle, no extra Spark jobs, pushdown-friendly.
+    # ``.distinct()`` then collapses snapshot-grained gold tables (one row per
+    # (entity, point-in-time)) to one row per entity — one bounded shuffle over
+    # the entity population, idempotent for already-unique customer tables.
+    customer_table = (
+        config.customer_table or f"{config.catalog}.{config.schema}.gold_customers"
+    )
+    df_customers = spark.table(customer_table)
+    if config.filter_expression:
+        df_customers = df_customers.filter(config.filter_expression)
+        logger.info("Applied scope filter: %s", config.filter_expression)
+    entity_df = df_customers.select("entity_id").distinct().withColumn(
         "inference_timestamp",
         lit(inference_ts).cast(TimestampType()),
     )
@@ -385,6 +408,11 @@ def _run_local(config: BatchInferenceConfig) -> BatchInferenceResult:
 
     # Customer fallback chain (order preserved from the original cell)
     df_customers = _load_local_customers(storage, base, dataset_name)
+    if config.filter_expression:
+        from customer_retention.core.compat import safe_query
+
+        df_customers = safe_query(df_customers, config.filter_expression)
+        logger.info("Applied scope filter: %s", config.filter_expression)
 
     entity_col_candidates = config.entity_id_columns or ["customer_id"]
     entity_col = entity_col_candidates[0]

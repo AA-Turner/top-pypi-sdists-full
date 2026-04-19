@@ -324,13 +324,17 @@ class TestApplyExecutionProfile:
     def test_workflow_binding_when_matched(self) -> None:
         from pathlib import Path
 
+        from anteroom.services.workflow_registry import WorkflowRef
+
         wf = _StubWorkflow(id="matched", steps=[_StubStep(runner="cli_claude")])
         profile = ExecutionProfile(name="test", preferred_runners=["cli_claude"])
         plan = _make_plan(self._item("t1"))
         resolved = Path("/workflows/matched.yaml")
+        # #924: apply_execution_profile now calls resolve_workflow from
+        # workflow_registry (returns a WorkflowRef, not a Path).
         with patch(
-            "anteroom.services.workflow_resolution.resolve_workflow_path",
-            return_value=resolved,
+            "anteroom.services.workflow_registry.resolve_workflow",
+            return_value=WorkflowRef(id="matched", path=resolved, source="built_in"),
         ):
             new_plan, _ = apply_execution_profile(plan, profile, workflows=[wf])
         item = new_plan.items[0]
@@ -414,13 +418,16 @@ class TestApplyExecutionProfile:
         """Profile-selected workflows must store resolved paths, not bare IDs."""
         from pathlib import Path
 
+        from anteroom.services.workflow_registry import WorkflowRef
+
         wf = _StubWorkflow(id="issue_delivery", steps=[_StubStep(runner="cli_claude")])
         profile = ExecutionProfile(name="test", preferred_runners=["cli_claude"])
         plan = _make_plan(self._item("t1"))
         resolved = Path("/pkg/workflows/examples/issue_delivery.yaml")
+        # #924: apply_execution_profile now calls resolve_workflow.
         with patch(
-            "anteroom.services.workflow_resolution.resolve_workflow_path",
-            return_value=resolved,
+            "anteroom.services.workflow_registry.resolve_workflow",
+            return_value=WorkflowRef(id="issue_delivery", path=resolved, source="example"),
         ):
             new_plan, _ = apply_execution_profile(plan, profile, workflows=[wf])
         path = new_plan.items[0].adapter_config["workflow_path"]

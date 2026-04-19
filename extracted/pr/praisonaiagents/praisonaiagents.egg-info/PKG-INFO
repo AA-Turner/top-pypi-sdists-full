@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: praisonaiagents
-Version: 1.6.9
+Version: 1.6.21
 Summary: Praison AI agents for completing complex tasks with Self Reflection Agents
 Author: Mervin Praison
 Requires-Python: >=3.10
@@ -9,6 +9,7 @@ Requires-Dist: pydantic>=2.10.0
 Requires-Dist: rich
 Requires-Dist: openai>=1.68.2
 Requires-Dist: posthog>=3.0.0
+Requires-Dist: PyYAML>=6.0
 Requires-Dist: aiohttp>=3.8.0
 Provides-Extra: mcp
 Requires-Dist: mcp>=1.20.0; extra == "mcp"
@@ -92,6 +93,10 @@ Requires-Dist: praisonaiagents[crawl]; extra == "all"
 </div>
 
 PraisonAI 🦞 — **Hire a 24/7 AI Workforce.** Stop writing boilerplate and start shipping autonomous agents that research, plan, and execute tasks across your apps. From one agent to an entire organization, deployed in 5 lines of code.
+
+```bash
+curl -fsSL https://praison.ai/install.sh | bash
+```
 
 <div align="center">
   <br>

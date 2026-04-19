@@ -1,811 +1,489 @@
-from uuid import uuid4
+from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
-import responses
-from pydantic import BaseModel
 
-from scrapegraph_py.client import Client
-from tests.utils import generate_mock_api_key
+from scrapegraph_py import (
+    CrawlRequest,
+    ExtractRequest,
+    FetchConfig,
+    HistoryFilter,
+    HtmlFormatConfig,
+    ImagesFormatConfig,
+    JsonFormatConfig,
+    LinksFormatConfig,
+    MarkdownFormatConfig,
+    MonitorCreateRequest,
+    ScrapeGraphAI,
+    ScrapeRequest,
+    ScreenshotFormatConfig,
+    SearchRequest,
+)
 
-
-@pytest.fixture
-def mock_api_key():
-    return generate_mock_api_key()
-
-
-@pytest.fixture
-def mock_uuid():
-    return str(uuid4())
-
-
-@responses.activate
-def test_smartscraper_with_url(mock_api_key):
-    # Mock the API response
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/smartscraper",
-        json={
-            "request_id": str(uuid4()),
-            "status": "completed",
-            "result": {"description": "Example domain."},
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.smartscraper(
-            website_url="https://example.com", user_prompt="Describe this page."
-        )
-        assert response["status"] == "completed"
+API_KEY = "test-sgai-key"
+BASE_URL = "https://api.scrapegraphai.com/v2"
 
 
-@responses.activate
-def test_smartscraper_with_html(mock_api_key):
-    # Mock the API response
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/smartscraper",
-        json={
-            "request_id": str(uuid4()),
-            "status": "completed",
-            "result": {"description": "Test content."},
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.smartscraper(
-            website_html="<html><body><p>Test content</p></body></html>",
-            user_prompt="Extract info",
-        )
-        assert response["status"] == "completed"
+def mock_response(body: dict, status: int = 200, headers: dict | None = None) -> MagicMock:
+    resp = MagicMock(spec=httpx.Response)
+    resp.status_code = status
+    resp.is_success = 200 <= status < 300
+    resp.json.return_value = body
+    resp.headers = headers or {}
+    return resp
 
 
-@responses.activate
-def test_smartscraper_with_headers(mock_api_key):
-    # Mock the API response
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/smartscraper",
-        json={
-            "request_id": str(uuid4()),
-            "status": "completed",
-            "result": {"description": "Example domain."},
-        },
-    )
+class TestScrape:
+    def test_success(self):
+        body = {
+            "results": {"markdown": {"data": ["# Hello"]}},
+            "metadata": {"contentType": "text/html"},
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)) as mock:
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.scrape(ScrapeRequest(url="https://example.com"))
 
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Cookie": "session=123",
-    }
+            assert res.status == "success"
+            assert res.data.results == body["results"]
+            assert res.data.metadata.content_type == "text/html"
+            assert res.elapsed_ms >= 0
 
-    with Client(api_key=mock_api_key) as client:
-        response = client.smartscraper(
-            website_url="https://example.com",
-            user_prompt="Describe this page.",
-            headers=headers,
-        )
-        assert response["status"] == "completed"
+            mock.assert_called_once()
+            _, kwargs = mock.call_args
+            assert "example.com" in kwargs["json"]["url"]
 
-
-@responses.activate
-def test_get_smartscraper(mock_api_key, mock_uuid):
-    responses.add(
-        responses.GET,
-        f"https://api.scrapegraphai.com/v1/smartscraper/{mock_uuid}",
-        json={
-            "request_id": mock_uuid,
-            "status": "completed",
-            "result": {"data": "test"},
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.get_smartscraper(mock_uuid)
-        assert response["status"] == "completed"
-        assert response["request_id"] == mock_uuid
-
-
-@responses.activate
-def test_smartscraper_with_pagination(mock_api_key):
-    # Mock the API response for pagination request
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/smartscraper",
-        json={
-            "request_id": str(uuid4()),
-            "status": "completed",
-            "result": {
-                "products": [
-                    {"name": "Product 1", "price": "$10"},
-                    {"name": "Product 2", "price": "$20"},
-                    {"name": "Product 3", "price": "$30"},
-                ]
-            },
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.smartscraper(
-            website_url="https://example.com/products",
-            user_prompt="Extract product information",
-            total_pages=3,
-        )
-        assert response["status"] == "completed"
-        assert "products" in response["result"]
-        assert len(response["result"]["products"]) == 3
-
-
-@responses.activate
-def test_smartscraper_with_pagination_and_scrolls(mock_api_key):
-    # Mock the API response for pagination with scrolls
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/smartscraper",
-        json={
-            "request_id": str(uuid4()),
-            "status": "completed",
-            "result": {
-                "products": [
-                    {"name": "Product 1", "price": "$10"},
-                    {"name": "Product 2", "price": "$20"},
-                    {"name": "Product 3", "price": "$30"},
-                    {"name": "Product 4", "price": "$40"},
-                    {"name": "Product 5", "price": "$50"},
-                ]
-            },
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.smartscraper(
-            website_url="https://example.com/products",
-            user_prompt="Extract product information from paginated results",
-            total_pages=5,
-            number_of_scrolls=10,
-        )
-        assert response["status"] == "completed"
-        assert "products" in response["result"]
-        assert len(response["result"]["products"]) == 5
-
-
-@responses.activate
-def test_smartscraper_with_pagination_and_all_features(mock_api_key):
-    # Mock the API response for pagination with all features
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/smartscraper",
-        json={
-            "request_id": str(uuid4()),
-            "status": "completed",
-            "result": {
-                "products": [
-                    {"name": "Product 1", "price": "$10", "rating": 4.5},
-                    {"name": "Product 2", "price": "$20", "rating": 4.0},
-                ]
-            },
-        },
-    )
-
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Cookie": "session=123",
-    }
-
-    class ProductSchema(BaseModel):
-        name: str
-        price: str
-        rating: float
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.smartscraper(
-            website_url="https://example.com/products",
-            user_prompt="Extract product information with ratings",
-            headers=headers,
-            output_schema=ProductSchema,
-            number_of_scrolls=5,
-            total_pages=2,
-        )
-        assert response["status"] == "completed"
-        assert "products" in response["result"]
-
-
-@responses.activate
-def test_get_credits(mock_api_key):
-    responses.add(
-        responses.GET,
-        "https://api.scrapegraphai.com/v1/credits",
-        json={"remaining_credits": 100, "total_credits_used": 50},
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.get_credits()
-        assert response["remaining_credits"] == 100
-        assert response["total_credits_used"] == 50
-
-
-@responses.activate
-def test_submit_feedback(mock_api_key):
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/feedback",
-        json={"status": "success"},
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.submit_feedback(
-            request_id=str(uuid4()), rating=5, feedback_text="Great service!"
-        )
-        assert response["status"] == "success"
-
-
-@responses.activate
-def test_network_error(mock_api_key):
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/smartscraper",
-        body=ConnectionError("Network error"),
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        with pytest.raises(ConnectionError):
-            client.smartscraper(
-                website_url="https://example.com", user_prompt="Describe this page."
+    def test_with_fetch_config_js_mode(self):
+        body = {
+            "results": {"markdown": {"data": ["# Hello"]}},
+            "metadata": {"contentType": "text/html", "provider": "playwright"},
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)) as mock:
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.scrape(
+                ScrapeRequest(
+                    url="https://example.com",
+                    fetch_config=FetchConfig(
+                        mode="js",
+                        stealth=True,
+                        timeout=45000,
+                        wait=2000,
+                        scrolls=3,
+                    ),
+                    formats=[MarkdownFormatConfig()],
+                )
             )
 
+            assert res.status == "success"
+            _, kwargs = mock.call_args
+            assert kwargs["json"]["fetchConfig"]["mode"] == "js"
+            assert kwargs["json"]["fetchConfig"]["stealth"] is True
+            assert kwargs["json"]["fetchConfig"]["timeout"] == 45000
 
-@responses.activate
-def test_markdownify(mock_api_key):
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/markdownify",
-        json={
-            "request_id": str(uuid4()),
-            "status": "completed",
-            "result": "# Example Page\n\nThis is markdown content.",
-        },
-    )
+    def test_with_fetch_config_headers_cookies(self):
+        body = {
+            "results": {"html": {"data": ["<html></html>"]}},
+            "metadata": {"contentType": "text/html"},
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)) as mock:
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.scrape(
+                ScrapeRequest(
+                    url="https://example.com",
+                    fetch_config=FetchConfig(
+                        mode="fast",
+                        headers={"X-Custom": "test"},
+                        cookies={"session": "abc123"},
+                    ),
+                    formats=[HtmlFormatConfig()],
+                )
+            )
 
-    with Client(api_key=mock_api_key) as client:
-        response = client.markdownify(website_url="https://example.com")
-        assert response["status"] == "completed"
-        assert "# Example Page" in response["result"]
+            assert res.status == "success"
+            _, kwargs = mock.call_args
+            assert kwargs["json"]["fetchConfig"]["headers"] == {"X-Custom": "test"}
+            assert kwargs["json"]["fetchConfig"]["cookies"] == {"session": "abc123"}
 
-
-@responses.activate
-def test_markdownify_with_headers(mock_api_key):
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/markdownify",
-        json={
-            "request_id": str(uuid4()),
-            "status": "completed",
-            "result": "# Example Page\n\nThis is markdown content.",
-        },
-    )
-
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Cookie": "session=123",
-    }
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.markdownify(
-            website_url="https://example.com", headers=headers
-        )
-        assert response["status"] == "completed"
-        assert "# Example Page" in response["result"]
-
-
-@responses.activate
-def test_get_markdownify(mock_api_key, mock_uuid):
-    responses.add(
-        responses.GET,
-        f"https://api.scrapegraphai.com/v1/markdownify/{mock_uuid}",
-        json={
-            "request_id": mock_uuid,
-            "status": "completed",
-            "result": "# Example Page\n\nThis is markdown content.",
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.get_markdownify(mock_uuid)
-        assert response["status"] == "completed"
-        assert response["request_id"] == mock_uuid
-
-
-@responses.activate
-def test_searchscraper(mock_api_key):
-    # Mock the API response
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/searchscraper",
-        json={
-            "request_id": str(uuid4()),
-            "status": "completed",
-            "result": {"answer": "Python 3.12 is the latest version."},
-            "reference_urls": ["https://www.python.org/downloads/"],
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.searchscraper(
-            user_prompt="What is the latest version of Python?"
-        )
-        assert response["status"] == "completed"
-        assert "answer" in response["result"]
-        assert "reference_urls" in response
-        assert isinstance(response["reference_urls"], list)
-
-
-@responses.activate
-def test_searchscraper_with_headers(mock_api_key):
-    # Mock the API response
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/searchscraper",
-        json={
-            "request_id": str(uuid4()),
-            "status": "completed",
-            "result": {"answer": "Python 3.12 is the latest version."},
-            "reference_urls": ["https://www.python.org/downloads/"],
-        },
-    )
-
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Cookie": "session=123",
-    }
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.searchscraper(
-            user_prompt="What is the latest version of Python?",
-            headers=headers,
-        )
-        assert response["status"] == "completed"
-        assert "answer" in response["result"]
-        assert "reference_urls" in response
-        assert isinstance(response["reference_urls"], list)
-
-
-@responses.activate
-def test_get_searchscraper(mock_api_key, mock_uuid):
-    responses.add(
-        responses.GET,
-        f"https://api.scrapegraphai.com/v1/searchscraper/{mock_uuid}",
-        json={
-            "request_id": mock_uuid,
-            "status": "completed",
-            "result": {"answer": "Python 3.12 is the latest version."},
-            "reference_urls": ["https://www.python.org/downloads/"],
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.get_searchscraper(mock_uuid)
-        assert response["status"] == "completed"
-        assert response["request_id"] == mock_uuid
-        assert "answer" in response["result"]
-        assert "reference_urls" in response
-        assert isinstance(response["reference_urls"], list)
-
-
-@responses.activate
-def test_crawl(mock_api_key):
-    # Mock the API response
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/crawl",
-        json={
-            "id": str(uuid4()),
-            "status": "processing",
-            "message": "Crawl job started",
-        },
-    )
-
-    schema = {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "Test Schema",
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-            "age": {"type": "integer"},
-        },
-        "required": ["name"],
-    }
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.crawl(
-            url="https://example.com",
-            prompt="Extract company information",
-            data_schema=schema,
-            cache_website=True,
-            depth=2,
-            max_pages=5,
-            same_domain_only=True,
-            batch_size=1,
-        )
-        assert response["status"] == "processing"
-        assert "id" in response
-
-
-@responses.activate
-def test_crawl_with_minimal_params(mock_api_key):
-    # Mock the API response
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/crawl",
-        json={
-            "id": str(uuid4()),
-            "status": "processing",
-            "message": "Crawl job started",
-        },
-    )
-
-    schema = {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "Test Schema",
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-        },
-        "required": ["name"],
-    }
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.crawl(
-            url="https://example.com",
-            prompt="Extract company information",
-            data_schema=schema,
-        )
-        assert response["status"] == "processing"
-        assert "id" in response
-
-
-@responses.activate
-def test_get_crawl(mock_api_key, mock_uuid):
-    responses.add(
-        responses.GET,
-        f"https://api.scrapegraphai.com/v1/crawl/{mock_uuid}",
-        json={
-            "id": mock_uuid,
-            "status": "completed",
-            "result": {
-                "llm_result": {
-                    "company": {
-                        "name": "Example Corp",
-                        "description": "A technology company",
-                    },
-                    "services": [
-                        {
-                            "service_name": "Web Development",
-                            "description": "Custom web solutions",
-                        }
+    def test_multiple_formats(self):
+        body = {
+            "results": {
+                "markdown": {"data": ["# Title"]},
+                "html": {"data": ["<h1>Title</h1>"]},
+                "links": {"data": ["https://example.com/page1"]},
+                "images": {"data": ["https://example.com/image.png"]},
+            },
+            "metadata": {"contentType": "text/html"},
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)) as mock:
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.scrape(
+                ScrapeRequest(
+                    url="https://example.com",
+                    formats=[
+                        MarkdownFormatConfig(mode="reader"),
+                        HtmlFormatConfig(mode="prune"),
+                        LinksFormatConfig(),
+                        ImagesFormatConfig(),
                     ],
-                    "legal": {
-                        "privacy_policy": "Privacy policy content",
-                        "terms_of_service": "Terms of service content",
-                    },
-                }
+                )
+            )
+
+            assert res.status == "success"
+            assert res.data.results["markdown"] is not None
+            assert res.data.results["links"] is not None
+
+    def test_json_format_with_schema(self):
+        body = {
+            "results": {
+                "json": {"data": {"title": "Example", "price": 99.99}},
             },
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.get_crawl(mock_uuid)
-        assert response["status"] == "completed"
-        assert response["id"] == mock_uuid
-        assert "result" in response
-        assert "llm_result" in response["result"]
-
-
-@responses.activate
-def test_crawl_markdown_mode(mock_api_key):
-    """Test crawl in markdown conversion mode (no AI processing)"""
-    # Mock the API response
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/crawl",
-        json={
-            "id": str(uuid4()),
-            "status": "processing",
-            "message": "Markdown crawl job started",
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.crawl(
-            url="https://example.com",
-            extraction_mode=False,  # Markdown conversion mode
-            depth=2,
-            max_pages=3,
-            same_domain_only=True,
-            sitemap=True,
-        )
-        assert response["status"] == "processing"
-        assert "id" in response
-
-
-@responses.activate
-def test_crawl_markdown_mode_validation(mock_api_key):
-    """Test that markdown mode rejects prompt and data_schema parameters"""
-    with Client(api_key=mock_api_key) as client:
-        # Should raise validation error when prompt is provided in markdown mode
-        try:
-            client.crawl(
-                url="https://example.com",
-                extraction_mode=False,
-                prompt="This should not be allowed",
-            )
-            assert False, "Should have raised validation error"
-        except Exception as e:
-            assert "Prompt should not be provided when extraction_mode=False" in str(e)
-
-        # Should raise validation error when data_schema is provided in markdown mode
-        try:
-            client.crawl(
-                url="https://example.com",
-                extraction_mode=False,
-                data_schema={"type": "object"},
-            )
-            assert False, "Should have raised validation error"
-        except Exception as e:
-            assert (
-                "Data schema should not be provided when extraction_mode=False"
-                in str(e)
+            "metadata": {"contentType": "text/html"},
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)) as mock:
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.scrape(
+                ScrapeRequest(
+                    url="https://example.com",
+                    formats=[
+                        JsonFormatConfig(
+                            prompt="Extract product info",
+                            schema={"type": "object", "properties": {"title": {"type": "string"}}},
+                        ),
+                    ],
+                )
             )
 
+            assert res.status == "success"
+            _, kwargs = mock.call_args
+            assert kwargs["json"]["formats"][0]["prompt"] == "Extract product info"
+            assert kwargs["json"]["formats"][0]["schema"] is not None
 
-# ============================================================================
-# SCRAPE TESTS
-# ============================================================================
+    def test_screenshot_format(self):
+        body = {
+            "results": {"screenshot": {"data": {"url": "https://..."}}},
+            "metadata": {"contentType": "text/html"},
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)) as mock:
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.scrape(
+                ScrapeRequest(
+                    url="https://example.com",
+                    formats=[ScreenshotFormatConfig(full_page=True, width=1920, height=1080)],
+                )
+            )
+
+            assert res.status == "success"
+            _, kwargs = mock.call_args
+            assert kwargs["json"]["formats"][0]["fullPage"] is True
+            assert kwargs["json"]["formats"][0]["width"] == 1920
+
+    def test_http_401_error(self):
+        with patch.object(
+            httpx.Client, "request", return_value=mock_response({"detail": "Invalid key"}, 401)
+        ):
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.scrape(ScrapeRequest(url="https://example.com"))
+
+            assert res.status == "error"
+            assert "Invalid or missing API key" in res.error
+
+    def test_http_402_error(self):
+        with patch.object(httpx.Client, "request", return_value=mock_response({}, 402)):
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.scrape(ScrapeRequest(url="https://example.com"))
+
+            assert res.status == "error"
+            assert "Insufficient credits" in res.error
+
+    def test_http_429_error(self):
+        with patch.object(httpx.Client, "request", return_value=mock_response({}, 429)):
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.scrape(ScrapeRequest(url="https://example.com"))
+
+            assert res.status == "error"
+            assert "Rate limited" in res.error
+
+    def test_timeout_error(self):
+        with patch.object(httpx.Client, "request", side_effect=httpx.TimeoutException("timeout")):
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.scrape(ScrapeRequest(url="https://example.com"))
+
+            assert res.status == "error"
+            assert "timed out" in res.error
 
 
-@responses.activate
-def test_scrape_basic(mock_api_key):
-    """Test basic scrape request"""
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/scrape",
-        json={
-            "scrape_request_id": str(uuid4()),
+class TestExtract:
+    def test_success(self):
+        body = {
+            "raw": "Example Domain",
+            "json": {"title": "Example"},
+            "usage": {"promptTokens": 100, "completionTokens": 50},
+            "metadata": {},
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)) as mock:
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.extract(
+                ExtractRequest(
+                    url="https://example.com",
+                    prompt="What is this page about?",
+                )
+            )
+
+            assert res.status == "success"
+            assert res.data.json_data == {"title": "Example"}
+
+    def test_with_schema(self):
+        body = {
+            "raw": None,
+            "json": {"name": "Test"},
+            "usage": {"promptTokens": 10, "completionTokens": 5},
+            "metadata": {},
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)) as mock:
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.extract(
+                ExtractRequest(
+                    url="https://example.com",
+                    prompt="Extract data",
+                    schema={"type": "object"},
+                )
+            )
+
+            assert res.status == "success"
+            _, kwargs = mock.call_args
+            assert kwargs["json"]["schema"] == {"type": "object"}
+
+
+class TestSearch:
+    def test_success(self):
+        body = {
+            "results": [{"url": "https://...", "title": "Result", "content": "..."}],
+            "metadata": {"search": {}, "pages": {}},
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)):
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.search(SearchRequest(query="test query", num_results=5))
+
+            assert res.status == "success"
+            assert len(res.data.results) == 1
+
+    def test_with_extraction(self):
+        body = {
+            "results": [],
+            "json": {"summary": "Test"},
+            "metadata": {"search": {}, "pages": {}},
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)) as mock:
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.search(
+                SearchRequest(
+                    query="test",
+                    prompt="Summarize results",
+                )
+            )
+
+            assert res.status == "success"
+            _, kwargs = mock.call_args
+            assert kwargs["json"]["prompt"] == "Summarize results"
+
+
+class TestCrawl:
+    def test_start(self):
+        body = {"id": "crawl-123", "status": "running", "total": 0, "finished": 0, "pages": []}
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)) as mock:
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.crawl.start(
+                CrawlRequest(
+                    url="https://example.com",
+                    max_pages=10,
+                    max_depth=2,
+                )
+            )
+
+            assert res.status == "success"
+            assert res.data.id == "crawl-123"
+            _, kwargs = mock.call_args
+            assert kwargs["json"]["maxPages"] == 10
+            assert kwargs["json"]["maxDepth"] == 2
+
+    def test_get(self):
+        body = {"id": "crawl-123", "status": "completed", "total": 5, "finished": 5, "pages": []}
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)):
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.crawl.get("crawl-123")
+
+            assert res.status == "success"
+            assert res.data.status == "completed"
+
+    def test_stop(self):
+        with patch.object(httpx.Client, "request", return_value=mock_response({})):
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.crawl.stop("crawl-123")
+            assert res.status == "success"
+
+    def test_delete(self):
+        with patch.object(httpx.Client, "request", return_value=mock_response({})):
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.crawl.delete("crawl-123")
+            assert res.status == "success"
+
+
+class TestMonitor:
+    def test_create(self):
+        body = {
+            "cronId": "mon-123",
+            "scheduleId": "sch-456",
+            "interval": "0 * * * *",
+            "status": "active",
+            "config": {},
+            "createdAt": "2024-01-01T00:00:00Z",
+            "updatedAt": "2024-01-01T00:00:00Z",
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)) as mock:
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.monitor.create(
+                MonitorCreateRequest(
+                    url="https://example.com",
+                    name="Test Monitor",
+                    interval="0 * * * *",
+                )
+            )
+
+            assert res.status == "success"
+            assert res.data.cron_id == "mon-123"
+
+    def test_list(self):
+        body = [
+            {
+                "cronId": "mon-1",
+                "scheduleId": "sch-1",
+                "interval": "0 * * * *",
+                "status": "active",
+                "config": {},
+                "createdAt": "2024-01-01T00:00:00Z",
+                "updatedAt": "2024-01-01T00:00:00Z",
+            },
+            {
+                "cronId": "mon-2",
+                "scheduleId": "sch-2",
+                "interval": "0 */2 * * *",
+                "status": "active",
+                "config": {},
+                "createdAt": "2024-01-01T00:00:00Z",
+                "updatedAt": "2024-01-01T00:00:00Z",
+            },
+        ]
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)):
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.monitor.list()
+            assert res.status == "success"
+            assert len(res.data) == 2
+            assert res.data[0].cron_id == "mon-1"
+            assert res.data[1].cron_id == "mon-2"
+
+
+class TestHistory:
+    def test_list(self):
+        body = {
+            "data": [
+                {
+                    "id": "req-1",
+                    "service": "scrape",
+                    "status": "completed",
+                    "error": None,
+                    "elapsedMs": 100,
+                    "createdAt": "2024-01-01T00:00:00Z",
+                    "requestParentId": None,
+                    "params": {},
+                    "result": {},
+                }
+            ],
+            "pagination": {"page": 1, "limit": 20, "total": 100},
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)) as mock:
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.history.list(HistoryFilter(limit=5, service="scrape"))
+
+            assert res.status == "success"
+            assert res.data.pagination.total == 100
+
+    def test_get(self):
+        body = {
+            "id": "req-1",
+            "service": "scrape",
             "status": "completed",
-            "html": "<html><body><h1>Example Page</h1><p>This is HTML content.</p></body></html>",
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.scrape(website_url="https://example.com")
-        assert response["status"] == "completed"
-        assert "html" in response
-        assert "<h1>Example Page</h1>" in response["html"]
-
-
-@responses.activate
-def test_scrape_with_heavy_js(mock_api_key):
-    """Test scrape request with heavy JavaScript rendering"""
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/scrape",
-        json={
-            "scrape_request_id": str(uuid4()),
-            "status": "completed",
-            "html": "<html><body><div id='app'>JavaScript rendered content</div></body></html>",
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.scrape(
-            website_url="https://example.com",
-            render_heavy_js=True
-        )
-        assert response["status"] == "completed"
-        assert "html" in response
-        assert "JavaScript rendered content" in response["html"]
+            "error": None,
+            "elapsedMs": 100,
+            "createdAt": "2024-01-01T00:00:00Z",
+            "requestParentId": None,
+            "params": {},
+            "result": {},
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)):
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.history.get("req-1")
+            assert res.status == "success"
 
 
-@responses.activate
-def test_scrape_with_headers(mock_api_key):
-    """Test scrape request with custom headers"""
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/scrape",
-        json={
-            "scrape_request_id": str(uuid4()),
-            "status": "completed",
-            "html": "<html><body><p>Content with custom headers</p></body></html>",
-        },
-    )
+class TestCreditsAndHealth:
+    def test_credits(self):
+        body = {
+            "remaining": 1000,
+            "used": 500,
+            "plan": "pro",
+            "jobs": {"crawl": {"used": 1, "limit": 10}, "monitor": {"used": 2, "limit": 5}},
+        }
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)):
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.credits()
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Cookie": "session=123"
-    }
+            assert res.status == "success"
+            assert res.data.remaining == 1000
+            assert res.data.plan == "pro"
 
-    with Client(api_key=mock_api_key) as client:
-        response = client.scrape(
-            website_url="https://example.com",
-            headers=headers
-        )
-        assert response["status"] == "completed"
-        assert "html" in response
+    def test_health(self):
+        body = {"status": "ok", "uptime": 12345}
+        with patch.object(httpx.Client, "request", return_value=mock_response(body)):
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            res = sgai.health()
 
-
-@responses.activate
-def test_scrape_with_all_options(mock_api_key):
-    """Test scrape request with all options enabled"""
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/scrape",
-        json={
-            "scrape_request_id": str(uuid4()),
-            "status": "completed",
-            "html": "<html><body><div>Full featured content</div></body></html>",
-        },
-    )
-
-    headers = {
-        "User-Agent": "Custom Agent",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-    }
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.scrape(
-            website_url="https://example.com",
-            render_heavy_js=True,
-            headers=headers
-        )
-        assert response["status"] == "completed"
-        assert "html" in response
+            assert res.status == "success"
+            assert res.data.status == "ok"
 
 
-@responses.activate
-def test_get_scrape(mock_api_key, mock_uuid):
-    """Test get scrape result"""
-    responses.add(
-        responses.GET,
-        f"https://api.scrapegraphai.com/v1/scrape/{mock_uuid}",
-        json={
-            "scrape_request_id": mock_uuid,
-            "status": "completed",
-            "html": "<html><body><p>Retrieved HTML content</p></body></html>",
-        },
-    )
+class TestClientInit:
+    def test_missing_api_key_raises(self):
+        with patch.dict("os.environ", {}, clear=True):
+            with pytest.raises(ValueError, match="API key required"):
+                ScrapeGraphAI()
 
-    with Client(api_key=mock_api_key) as client:
-        response = client.get_scrape(mock_uuid)
-        assert response["status"] == "completed"
-        assert response["scrape_request_id"] == mock_uuid
-        assert "html" in response
+    def test_api_key_from_env(self):
+        with patch.dict("os.environ", {"SGAI_API_KEY": "env-key"}):
+            sgai = ScrapeGraphAI()
+            assert sgai._api_key == "env-key"
+
+    def test_explicit_api_key(self):
+        sgai = ScrapeGraphAI(api_key="explicit-key")
+        assert sgai._api_key == "explicit-key"
 
 
-@responses.activate
-def test_scrape_error_response(mock_api_key):
-    """Test scrape error response handling"""
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/scrape",
-        json={
-            "error": "Website not accessible",
-            "status": "error"
-        },
-        status=400
-    )
+class TestCamelCaseSerialization:
+    def test_snake_to_camel(self):
+        with patch.object(httpx.Client, "request", return_value=mock_response({})) as mock:
+            sgai = ScrapeGraphAI(api_key=API_KEY)
+            sgai.scrape(
+                ScrapeRequest(
+                    url="https://example.com",
+                    content_type="application/pdf",
+                    fetch_config=FetchConfig(
+                        mode="js",
+                        timeout=30000,
+                    ),
+                )
+            )
 
-    with Client(api_key=mock_api_key) as client:
-        with pytest.raises(Exception):
-            client.scrape(website_url="https://inaccessible-site.com")
-
-
-@responses.activate
-def test_scrape_processing_status(mock_api_key):
-    """Test scrape processing status response"""
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/scrape",
-        json={
-            "scrape_request_id": str(uuid4()),
-            "status": "processing",
-            "message": "Scrape job started"
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.scrape(website_url="https://example.com")
-        assert response["status"] == "processing"
-        assert "scrape_request_id" in response
-
-
-@responses.activate
-def test_scrape_complex_html_response(mock_api_key):
-    """Test scrape with complex HTML response"""
-    complex_html = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Complex Page</title>
-        <style>
-            body { font-family: Arial, sans-serif; }
-        </style>
-    </head>
-    <body>
-        <header>
-            <nav>
-                <ul>
-                    <li><a href="#home">Home</a></li>
-                    <li><a href="#about">About</a></li>
-                </ul>
-            </nav>
-        </header>
-        <main>
-            <h1>Welcome</h1>
-            <p>This is a complex HTML page with multiple elements.</p>
-            <div class="content">
-                <img src="image.jpg" alt="Sample image">
-                <table>
-                    <tr><td>Data 1</td><td>Data 2</td></tr>
-                </table>
-            </div>
-        </main>
-        <script>
-            console.log('JavaScript loaded');
-        </script>
-    </body>
-    </html>
-    """
-    
-    responses.add(
-        responses.POST,
-        "https://api.scrapegraphai.com/v1/scrape",
-        json={
-            "scrape_request_id": str(uuid4()),
-            "status": "completed",
-            "html": complex_html,
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.scrape(website_url="https://complex-example.com")
-        assert response["status"] == "completed"
-        assert "html" in response
-        assert "<!DOCTYPE html>" in response["html"]
-        assert "<title>Complex Page</title>" in response["html"]
-        assert "<script>" in response["html"]
-        assert "<style>" in response["html"]
-
-
-@responses.activate
-def test_healthz(mock_api_key):
-    """Test health check endpoint"""
-    responses.add(
-        responses.GET,
-        "https://api.scrapegraphai.com/v1/healthz",
-        json={
-            "status": "healthy",
-            "message": "Service is operational"
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.healthz()
-        assert response["status"] == "healthy"
-        assert "message" in response
-
-
-@responses.activate
-def test_healthz_unhealthy(mock_api_key):
-    """Test health check endpoint when service is unhealthy"""
-    responses.add(
-        responses.GET,
-        "https://api.scrapegraphai.com/v1/healthz",
-        json={
-            "status": "unhealthy",
-            "message": "Service is experiencing issues"
-        },
-    )
-
-    with Client(api_key=mock_api_key) as client:
-        response = client.healthz()
-        assert response["status"] == "unhealthy"
-        assert "message" in response
+            _, kwargs = mock.call_args
+            body = kwargs["json"]
+            assert "contentType" in body
+            assert "content_type" not in body
+            assert "fetchConfig" in body
+            assert "fetch_config" not in body

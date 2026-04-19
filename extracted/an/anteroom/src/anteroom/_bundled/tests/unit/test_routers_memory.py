@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from typing import Any
 
 import pytest
 from fastapi import FastAPI
@@ -485,3 +486,180 @@ class TestApproveRejectEndpoints:
         assert first.status_code == 200
         second = client.post(f"/api/memory/{fqn}/reject", json={"reason": "stale again"})
         assert second.status_code == 409
+
+
+# ---------------------------------------------------------------------------
+# Pin / unpin endpoints (#625)
+# ---------------------------------------------------------------------------
+
+
+class TestPinEndpoints:
+    def test_pin_sets_pinned_true(self, client: TestClient, db: ThreadSafeConnection) -> None:
+        create_memory(db, "x", scope="user", category="preference", name="pin-e1")
+        resp = client.post("/api/memory/@user/memory/pin-e1/pin", json={})
+        assert resp.status_code == 200
+        assert resp.json()["metadata"]["pinned"] is True
+
+    def test_unpin_sets_pinned_false(self, client: TestClient, db: ThreadSafeConnection) -> None:
+        create_memory(db, "x", scope="user", category="preference", name="pin-e2")
+        client.post("/api/memory/@user/memory/pin-e2/pin", json={})
+        resp = client.post("/api/memory/@user/memory/pin-e2/unpin", json={})
+        assert resp.status_code == 200
+        assert resp.json()["metadata"]["pinned"] is False
+
+    def test_pin_missing_returns_404(self, client: TestClient) -> None:
+        resp = client.post("/api/memory/@user/memory/no-such/pin", json={})
+        assert resp.status_code == 404
+
+    def test_unpin_missing_returns_404(self, client: TestClient) -> None:
+        resp = client.post("/api/memory/@user/memory/no-such/unpin", json={})
+        assert resp.status_code == 404
+
+    def test_pin_bad_fqn_returns_400(self, client: TestClient) -> None:
+        resp = client.post("/api/memory/@user/memory/../pin", json={})
+        assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Retention endpoints (#625)
+# ---------------------------------------------------------------------------
+
+
+def _retention_client_with_policy(db: ThreadSafeConnection, **kwargs: Any) -> TestClient:
+    """Build a TestClient whose ``app.state.config.memory.retention`` is a
+    real ``MemoryRetentionConfig`` (not a default). This exercises the
+    ``_retention_config(request)`` lookup path, not the fallback."""
+    from anteroom.config import AIConfig, AppConfig, MemoryConfig, MemoryRetentionConfig
+
+    cfg = AppConfig(ai=AIConfig(base_url="x", api_key="y", model="m"))
+    cfg.memory = MemoryConfig(retention=MemoryRetentionConfig(**kwargs))
+    app = FastAPI()
+    app.include_router(router, prefix="/api")
+    app.state.db = db
+    app.state.config = cfg
+    return TestClient(app)
+
+
+class TestRetentionPreviewEndpoint:
+    def test_preview_empty_when_policy_disabled(self, db: ThreadSafeConnection) -> None:
+        create_memory(db, "x", scope="user", category="preference", name="prev1", status="rejected")
+        client = _retention_client_with_policy(db, enabled=False)
+        resp = client.get("/api/memory/retention-preview")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["dry_run"] is True
+        assert body["purged_count"] == 0
+        assert body["items"] == []
+
+    def test_preview_lists_candidates_when_enabled(self, db: ThreadSafeConnection) -> None:
+        create_memory(db, "x", scope="user", category="preference", name="prev2", status="rejected")
+        client = _retention_client_with_policy(db, enabled=True, purge_statuses=["rejected"])
+        resp = client.get("/api/memory/retention-preview")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["dry_run"] is True
+        assert body["purged_count"] == 1
+        assert body["items"][0]["reason"] == "status"
+
+    def test_preview_does_not_delete(self, client: TestClient, db: ThreadSafeConnection) -> None:
+        from anteroom.services.memory_service import get_memory
+
+        create_memory(db, "x", scope="user", category="preference", name="prev3")
+        client.get("/api/memory/retention-preview")
+        assert get_memory(db, "@user/memory/prev3") is not None
+
+    def test_preview_ordering_regression(self, client: TestClient) -> None:
+        """Route registration order: the literal ``retention-preview`` path
+        must beat the ``{fqn:path}`` catchall. Before the #625 fix this
+        request would have returned 400 'Invalid memory FQN' because
+        ``retention-preview`` would be parsed as an FQN and fail the regex."""
+        resp = client.get("/api/memory/retention-preview")
+        assert resp.status_code == 200
+        assert "items" in resp.json()
+
+
+class TestRetentionPurgeEndpoint:
+    def test_purge_without_confirm_returns_400(self, db: ThreadSafeConnection) -> None:
+        client = _retention_client_with_policy(db, enabled=True, purge_statuses=["rejected"])
+        resp = client.post("/api/memory/retention-purge", json={"confirm": False})
+        assert resp.status_code == 400
+
+    def test_purge_missing_confirm_is_422(self, db: ThreadSafeConnection) -> None:
+        client = _retention_client_with_policy(db, enabled=True, purge_statuses=["rejected"])
+        resp = client.post("/api/memory/retention-purge", json={})
+        assert resp.status_code == 422  # Pydantic required field
+
+    def test_purge_with_confirm_removes_candidates(self, db: ThreadSafeConnection) -> None:
+        from anteroom.services.memory_service import get_memory
+
+        create_memory(db, "x", scope="user", category="preference", name="pg1", status="rejected")
+        client = _retention_client_with_policy(db, enabled=True, purge_statuses=["rejected"])
+        resp = client.post("/api/memory/retention-purge", json={"confirm": True})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["dry_run"] is False
+        assert body["purged_count"] == 1
+        assert get_memory(db, "@user/memory/pg1") is None
+
+    def test_purge_with_policy_disabled_is_noop(self, db: ThreadSafeConnection) -> None:
+        from anteroom.services.memory_service import get_memory
+
+        create_memory(db, "x", scope="user", category="preference", name="pg2", status="rejected")
+        client = _retention_client_with_policy(db, enabled=False)
+        resp = client.post("/api/memory/retention-purge", json={"confirm": True})
+        assert resp.status_code == 200
+        assert resp.json()["purged_count"] == 0
+        assert get_memory(db, "@user/memory/pg2") is not None
+
+    def test_purge_stamps_reviewer_identity_from_request(self, db: ThreadSafeConnection) -> None:
+        """Reviewer identity flows from the auth layer (request.state.user_id)
+        into the PurgeResult.purged_by field in the response body."""
+        from starlette.middleware.base import BaseHTTPMiddleware
+
+        create_memory(db, "x", scope="user", category="preference", name="pgr1", status="rejected")
+        client = _retention_client_with_policy(db, enabled=True, purge_statuses=["rejected"])
+
+        # Inject the middleware that the production auth layer would — stamp
+        # a user_id onto request.state so _reviewer_id_from_request picks it up.
+        class _StampUserIdMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request: Any, call_next: Any) -> Any:
+                request.state.user_id = "alice-session-uid"
+                return await call_next(request)
+
+        client.app.user_middleware = []
+        client.app.middleware_stack = None
+        client.app.add_middleware(_StampUserIdMiddleware)
+        client.app.build_middleware_stack()
+
+        resp = client.post("/api/memory/retention-purge", json={"confirm": True})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["purged_count"] == 1
+        assert body["purged_by"] == "alice-session-uid"
+
+    def test_purge_falls_back_to_config_identity_when_state_absent(self, db: ThreadSafeConnection) -> None:
+        """When no session user_id is stamped on request.state,
+        _reviewer_id_from_request falls back to app.state.config.identity.user_id."""
+        create_memory(db, "x", scope="user", category="preference", name="pgr2", status="rejected")
+        client = _retention_client_with_policy(db, enabled=True, purge_statuses=["rejected"])
+        # Set a real identity on app.state.config.identity.
+        from unittest.mock import MagicMock
+
+        identity = MagicMock()
+        identity.user_id = "install-owner-uid"
+        client.app.state.config.identity = identity
+
+        resp = client.post("/api/memory/retention-purge", json={"confirm": True})
+        assert resp.status_code == 200
+        assert resp.json()["purged_by"] == "install-owner-uid"
+
+    def test_preview_response_does_not_include_purged_by_when_unset(self, db: ThreadSafeConnection) -> None:
+        """The preview path does not supply a reviewer_id, so purged_by
+        in the response is null. This also exercises the key being present
+        in the payload envelope even when None."""
+        client = _retention_client_with_policy(db, enabled=True, purge_statuses=["rejected"])
+        resp = client.get("/api/memory/retention-preview")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "purged_by" in body
+        assert body["purged_by"] is None

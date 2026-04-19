@@ -633,8 +633,21 @@ class Asset:
         else:
             return consume_model_asset(*args, **common, entity_ref=self.entity_ref)
 
+    def _set_alias(self, branch, name, kind, instance_id, alias):
+        """Set an alias on a specific instance."""
+        base = (f"/v1/perimeters/{self.perimeter}/projects/{self.project}"
+                f"/branches")
+        _make_request(
+            self.base_url, self.service_headers, "PUT",
+            f"{base}/{branch}/{kind}/{name}/aliases/{alias}",
+            {
+                "instance_id": instance_id,
+                "entity_ref": dict(self.entity_ref),
+            },
+        )
+
     def _promote_single(self, source_branch, target_branch, name, kind,
-                        instance="latest", with_aliases=False):
+                        instance="latest", with_aliases=False, alias=None):
         """
         Internal: promote one asset instance from source to target branch.
         Both branches must be pre-sanitized.
@@ -685,7 +698,9 @@ class Asset:
             tags=tags if tags else None,
         )
 
-        if with_aliases:
+        # Read back the new instance ID if we need to set aliases
+        new_instance_id = None
+        if with_aliases or alias:
             # register_asset doesn't return the new instance ID,
             # so read it back from the target branch
             if kind == "data":
@@ -700,8 +715,14 @@ class Asset:
                     perimeter=self.perimeter, project=self.project,
                     branch=target_branch, asset=name, instance="latest",
                 )
+            new_instance_id = new.get("id", "")
+
+        if with_aliases:
             self._copy_aliases(source_branch, target_branch, name, kind,
-                               new.get("id", ""))
+                               new_instance_id)
+
+        if alias and new_instance_id:
+            self._set_alias(target_branch, name, kind, new_instance_id, alias)
 
         return result
 
@@ -732,8 +753,11 @@ class Asset:
                 pass  # best-effort
 
 
+DEFAULT_PROMOTION_ALIASES = ["candidate", "validated", "production"]
+
+
 def promote_assets(project, source, target, kinds=None, asset=None,
-                   instance="latest", with_aliases=False):
+                   instance="latest", with_aliases=False, alias="candidate"):
     """
     Promote assets from one branch to another.
 
@@ -754,6 +778,11 @@ def promote_assets(project, source, target, kinds=None, asset=None,
                   or "@alias"). Defaults to "latest".
         with_aliases: If True, copy aliases from the source branch that
                   point to the promoted instance. Default False.
+        alias: Alias to set on the promoted instance on the target branch.
+               Defaults to "candidate". Must be one of the allowed promotion
+               aliases (default: candidate, validated, production). Set to
+               None to skip alias creation. Configure allowed aliases in
+               obproject.toml under [promotion] aliases.
 
     Returns:
         Dict with "promoted" (list of dicts) and "errors" (list of dicts)
@@ -762,22 +791,47 @@ def promote_assets(project, source, target, kinds=None, asset=None,
 
         from obproject.assets import promote_assets
 
-        # Promote everything from feature branch to main
+        # Promote with @candidate alias (default)
         result = promote_assets('my_project', source='feature-v2', target='main')
 
-        # Promote only models
-        result = promote_assets('my_project', source='feature-v2', target='main',
-                                kinds=['models'])
+        # Promote with @validated alias after quality gates pass
+        result = promote_assets('my_project', source='main', target='main',
+                                asset='classifier', instance='@candidate',
+                                alias='validated')
 
-        # Promote a specific validated model with its aliases
-        result = promote_assets('my_project', source='feature-v2', target='main',
+        # Promote to @production after approval
+        result = promote_assets('my_project', source='main', target='main',
                                 asset='classifier', instance='@validated',
-                                with_aliases=True)
+                                alias='production')
     """
     source = _sanitize_branch_name(source)
     target = _sanitize_branch_name(target)
     if kinds is None:
         kinds = ["data", "models"]
+
+    # Validate alias against allowed promotion aliases
+    allowed_aliases = DEFAULT_PROMOTION_ALIASES
+    try:
+        import os
+        toml_path = os.path.join(os.getcwd(), "obproject.toml")
+        if os.path.exists(toml_path):
+            try:
+                import tomllib as toml
+            except ImportError:
+                import toml
+            with open(toml_path, "rb") as f:
+                cfg = toml.load(f) if hasattr(toml, 'load') else toml.loads(f.read().decode())
+            configured = cfg.get("promotion", {}).get("aliases")
+            if configured:
+                allowed_aliases = configured
+    except Exception:
+        pass
+
+    if alias is not None and alias not in allowed_aliases:
+        raise ValueError(
+            f"Alias '{alias}' is not in the allowed promotion aliases: {allowed_aliases}. "
+            f"Configure [promotion] aliases in obproject.toml to customize."
+        )
 
     entity_ref = {"entity_kind": "task", "entity_id": "obproject/promote"}
     client = Asset(project=project, branch=target, entity_ref=entity_ref)
@@ -790,8 +844,8 @@ def promote_assets(project, source, target, kinds=None, asset=None,
         for kind in kinds:
             try:
                 client._promote_single(source, target, asset, kind, instance,
-                                       with_aliases=with_aliases)
-                promoted.append({"kind": kind, "name": asset})
+                                       with_aliases=with_aliases, alias=alias)
+                promoted.append({"kind": kind, "name": asset, "alias": alias})
             except Exception as e:
                 errors.append({"kind": kind, "name": asset, "error": str(e)})
         return {"promoted": promoted, "errors": errors}
@@ -823,8 +877,8 @@ def promote_assets(project, source, target, kinds=None, asset=None,
                 continue
             try:
                 client._promote_single(source, target, asset_name, kind, instance,
-                                       with_aliases=with_aliases)
-                promoted.append({"kind": kind, "name": asset_name})
+                                       with_aliases=with_aliases, alias=alias)
+                promoted.append({"kind": kind, "name": asset_name, "alias": alias})
             except Exception as e:
                 errors.append({"kind": kind, "name": asset_name, "error": str(e)})
 

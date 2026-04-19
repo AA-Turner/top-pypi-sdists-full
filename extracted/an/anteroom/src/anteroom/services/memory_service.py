@@ -74,6 +74,8 @@ _MUTABLE_METADATA_FIELDS: Final = frozenset(
         "reviewed_at",
         "rejected_reason",
         "lineage",
+        # #625 retention — pin flag is load-bearing for eviction policy.
+        "pinned",
     }
 )
 
@@ -310,6 +312,13 @@ def _validate_mutable_metadata(fields: dict[str, Any]) -> None:
                 if opt_key in entry and entry[opt_key] is not None and not isinstance(entry[opt_key], str):
                     raise ValueError(f"lineage[{idx}].{opt_key} must be a string or None")
 
+    if "pinned" in fields:
+        value = fields["pinned"]
+        # ``isinstance(True, int)`` is True, so check bool explicitly to
+        # reject int/float inputs that would silently truthy-convert.
+        if not isinstance(value, bool):
+            raise ValueError("pinned must be a bool")
+
 
 # ---------------------------------------------------------------------------
 # CRUD
@@ -361,6 +370,22 @@ def get_memory(db: ThreadSafeConnection, fqn: str) -> dict[str, Any] | None:
     memory service from reading other artifact types.
     """
     return _fetch_memory_or_none(db, fqn)
+
+
+def get_memory_provenance(db: ThreadSafeConnection, fqn: str) -> dict[str, Any] | None:
+    """Return the ``provenance`` dict stored on a memory's metadata.
+
+    Helper for #925 lineage resolution. Returns ``None`` when the memory
+    does not exist or has no provenance recorded. Values are returned as
+    stored (conversation_id, message_id, etc.) without transformation.
+    """
+    mem = _fetch_memory_or_none(db, fqn)
+    if mem is None:
+        return None
+    prov = (mem.get("metadata") or {}).get("provenance")
+    if not isinstance(prov, dict):
+        return None
+    return dict(prov)
 
 
 def list_memories(
@@ -452,3 +477,26 @@ def delete_memory(db: ThreadSafeConnection, fqn: str) -> bool:
     if not existing:
         return False
     return delete_artifact(db, existing["id"])
+
+
+# ---------------------------------------------------------------------------
+# Pin / unpin (#625)
+# ---------------------------------------------------------------------------
+
+
+def pin_memory(db: ThreadSafeConnection, fqn: str) -> dict[str, Any] | None:
+    """Mark a memory as pinned so retention workers will skip it by default.
+
+    Returns the updated artifact dict, or ``None`` if the FQN does not
+    resolve to a memory artifact.
+    """
+    return update_memory_metadata(db, fqn, pinned=True)
+
+
+def unpin_memory(db: ThreadSafeConnection, fqn: str) -> dict[str, Any] | None:
+    """Remove the pin flag from a memory.
+
+    Returns the updated artifact dict, or ``None`` if the FQN does not
+    resolve to a memory artifact.
+    """
+    return update_memory_metadata(db, fqn, pinned=False)

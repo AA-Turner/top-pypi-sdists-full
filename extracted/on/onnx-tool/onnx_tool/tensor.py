@@ -1,5 +1,3 @@
-import warnings
-
 import numpy
 import onnx
 
@@ -50,10 +48,12 @@ def onnxdtype2npdtype(data_type):
         return numpy.int8
     if data_type == onnx.TensorProto.UINT8:
         return numpy.uint8
+    if data_type == onnx.TensorProto.UINT16:
+        return numpy.uint16
     if data_type == onnx.TensorProto.BOOL:
         return numpy.bool_
     if data_type == onnx.TensorProto.STRING:
-        return numpy.string_
+        return numpy.bytes_
 
 
 def type_of_tensor(tensor):
@@ -77,11 +77,13 @@ def npdtype2onnxdtype(npdtype):
         return onnx.TensorProto.INT8
     if npdtype == numpy.uint8:
         return onnx.TensorProto.UINT8
+    if npdtype == numpy.uint16:
+        return onnx.TensorProto.UINT16
     if npdtype == numpy.bool_:
         return onnx.TensorProto.BOOL
     if npdtype == numpy.bytes_:
         return onnx.TensorProto.STRING
-    if npdtype.type == numpy.string_:
+    if npdtype == numpy.bytes_:
         return onnx.TensorProto.STRING
 
 
@@ -107,8 +109,7 @@ def tensorproto2ndarray(initial):
 
         elif ndtype == numpy.float64:
             arr = numpy.fromiter(initial.double_data, dtype=ndtype)
-
-        elif ndtype == numpy.string_:
+        elif ndtype == numpy.bytes_:
             arr = numpy.array(initial.string_data, dtype=ndtype)
     else:
         arr = numpy.frombuffer(initial.raw_data, dtype=ndtype)
@@ -382,7 +383,8 @@ class Tensor():
             self.name = t.name
             self.proto = t
             self.numpy = tensorproto2ndarray(t)
-            self.shape = self.numpy.shape
+            # NOTE: The shape of the tensor should be a list.
+            self.shape = list(self.numpy.shape)
             self.type = STATIC_TENSOR
             self.dtype = self.numpy.dtype.type
         else:
@@ -474,7 +476,7 @@ class Tensor():
         if self.numpy is None:
             dtype = npdtype2onnxdtype(self.dtype)
         else:
-            dtype = npdtype2onnxdtype(self.numpy.dtype)
+            dtype = npdtype2onnxdtype(self.numpy.dtype.type)
         if self.name == '':
             return None
         # shape = [int(i) for i in shape]
@@ -515,4 +517,13 @@ def create_dynamic_Tensor(name: str, ndarray: numpy.ndarray):
     t.shape = t.numpy.shape
     t.dtype = t.numpy.dtype.type
     t.proto = t.make_value_proto()
+    return t
+
+def create_tensor(name: str, type, shape, dtype):
+    t = Tensor(name)
+    t.type = type
+    t.numpy = None
+    t.shape = shape
+    t.proto = t.make_value_proto()
+    t.dtype = dtype
     return t

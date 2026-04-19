@@ -1680,7 +1680,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode;
 
-/* "av/codec/context.pxd":33
+/* "av/codec/context.pxd":26
  *     cdef readonly HWAccel hwaccel
  *     cdef public dict options
  *     cpdef open(self, bint strict=?)             # <<<<<<<<<<<<<<
@@ -1692,7 +1692,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open {
   int strict;
 };
 
-/* "av/codec/context.pxd":36
+/* "av/codec/context.pxd":29
  * 
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)             # <<<<<<<<<<<<<<
@@ -1704,7 +1704,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode {
   struct __pyx_obj_2av_5frame_Frame *frame;
 };
 
-/* "av/codec/context.pxd":37
+/* "av/codec/context.pxd":30
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)
  *     cpdef decode(self, Packet packet=?)             # <<<<<<<<<<<<<<
@@ -1718,7 +1718,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode {
 struct __pyx_t_2av_9container_4core_timeout_info;
 typedef struct __pyx_t_2av_9container_4core_timeout_info __pyx_t_2av_9container_4core_timeout_info;
 
-/* "av/container/core.pxd":11
+/* "av/container/core.pxd":12
  * 
  * # Interrupt callback information, times are in seconds.
  * ctypedef struct timeout_info:             # <<<<<<<<<<<<<<
@@ -1882,7 +1882,6 @@ struct __pyx_obj_2av_6packet_Packet {
   struct __pyx_obj_2av_6buffer_Buffer __pyx_base;
   struct AVPacket *ptr;
   struct __pyx_obj_2av_6stream_Stream *_stream;
-  struct __pyx_obj_2av_6buffer_ByteSource *source;
 };
 
 
@@ -1957,8 +1956,6 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_5codec_7context_CodecContext *__pyx_vtab;
   struct AVCodecContext *ptr;
-  int extradata_set;
-  int _template_initialized;
   int stream_index;
   struct AVCodecParserContext *parser;
   int is_open;
@@ -1966,6 +1963,7 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel;
   PyObject *options;
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel_ctx;
+  uint8_t _ctxflags;
   struct __pyx_obj_2av_5frame_Frame *_next_frame;
 };
 
@@ -2068,24 +2066,22 @@ struct __pyx_obj_2av_6format_ContainerFormat {
 };
 
 
-/* "av/container/core.pxd":16
+/* "av/container/core.pxd":17
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- *     cdef readonly bint writeable
  *     cdef lib.AVFormatContext *ptr
+ *     cdef readonly object name
 */
 struct __pyx_obj_2av_9container_4core_Container {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_9container_4core_Container *__pyx_vtab;
-  int writeable;
   struct AVFormatContext *ptr;
   PyObject *name;
   PyObject *metadata_encoding;
   PyObject *metadata_errors;
   struct __pyx_obj_2av_9container_4pyio_PyIOFile *file;
   int buffer_size;
-  int input_was_opened;
   PyObject *io_open;
   PyObject *open_files;
   struct __pyx_obj_2av_6format_ContainerFormat *format;
@@ -2095,6 +2091,7 @@ struct __pyx_obj_2av_9container_4core_Container {
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel;
   struct __pyx_obj_2av_9container_7streams_StreamContainer *streams;
   PyObject *metadata;
+  uint8_t _myflag;
   PyObject *open_timeout;
   PyObject *read_timeout;
   __pyx_t_2av_9container_4core_timeout_info interrupt_callback_info;
@@ -2105,13 +2102,11 @@ struct __pyx_obj_2av_9container_4core_Container {
  * 
  * 
  * cdef class OutputContainer(Container):             # <<<<<<<<<<<<<<
- *     cdef bint _started
- *     cdef bint _done
+ *     cdef lib.AVPacket *packet_ptr
+ *     cpdef start_encoding(self)
 */
 struct __pyx_obj_2av_9container_6output_OutputContainer {
   struct __pyx_obj_2av_9container_4core_Container __pyx_base;
-  int _started;
-  int _done;
   struct AVPacket *packet_ptr;
 };
 
@@ -2253,7 +2248,6 @@ struct __pyx_vtabstruct_2av_5codec_7context_CodecContext {
   PyObject *(*_setup_encoded_packet)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_setup_decoded_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_5frame_Frame *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_recv_packet)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
-  PyObject *(*_send_packet_and_recv)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_recv_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
   PyObject *(*_transfer_hwframe)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_5frame_Frame *);
   struct __pyx_obj_2av_5frame_Frame *(*_alloc_next_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
@@ -2346,12 +2340,12 @@ struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer {
 static struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *__pyx_vtabptr_2av_9container_7streams_StreamContainer;
 
 
-/* "av/container/core.pxd":16
+/* "av/container/core.pxd":17
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- *     cdef readonly bint writeable
  *     cdef lib.AVFormatContext *ptr
+ *     cdef readonly object name
 */
 
 struct __pyx_vtabstruct_2av_9container_4core_Container {
@@ -2363,7 +2357,7 @@ struct __pyx_vtabstruct_2av_9container_4core_Container {
 static struct __pyx_vtabstruct_2av_9container_4core_Container *__pyx_vtabptr_2av_9container_4core_Container;
 
 
-/* "av/container/output.py":31
+/* "av/container/output.py":36
  * 
  * @cython.cclass
  * class OutputContainer(Container):             # <<<<<<<<<<<<<<
@@ -2468,6 +2462,14 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_CallMethO(PyObject *func, PyObject
 #define __Pyx_PyObject_FastCall(func, args, nargs)  __Pyx_PyObject_FastCallDict(func, args, (size_t)(nargs), NULL)
 static CYTHON_INLINE PyObject* __Pyx_PyObject_FastCallDict(PyObject *func, PyObject * const*args, size_t nargs, PyObject *kwargs);
 
+/* PyErrExceptionMatches.proto (used by GetAttr3) */
+#if CYTHON_FAST_THREAD_STATE
+#define __Pyx_PyErr_ExceptionMatches(err) __Pyx_PyErr_ExceptionMatchesInState(__pyx_tstate, err)
+static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err);
+#else
+#define __Pyx_PyErr_ExceptionMatches(err)  PyErr_ExceptionMatches(err)
+#endif
+
 /* PyThreadStateGet.proto (used by PyErrFetchRestore) */
 #if CYTHON_FAST_THREAD_STATE
 #define __Pyx_PyThreadState_declare  PyThreadState *__pyx_tstate;
@@ -2486,7 +2488,7 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_FastCallDict(PyObject *func, PyObj
 #define __Pyx_PyErr_CurrentExceptionType()  PyErr_Occurred()
 #endif
 
-/* PyErrFetchRestore.proto */
+/* PyErrFetchRestore.proto (used by GetAttr3) */
 #if CYTHON_FAST_THREAD_STATE
 #define __Pyx_PyErr_Clear() __Pyx_ErrRestore(NULL, NULL, NULL)
 #define __Pyx_ErrRestoreWithState(type, value, tb)  __Pyx_ErrRestoreInState(PyThreadState_GET(), type, value, tb)
@@ -2510,6 +2512,16 @@ static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject 
 #define __Pyx_ErrRestore(type, value, tb)  PyErr_Restore(type, value, tb)
 #define __Pyx_ErrFetch(type, value, tb)  PyErr_Fetch(type, value, tb)
 #endif
+
+/* PyObjectGetAttrStr.proto (used by GetAttr3) */
+#if CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name);
+#else
+#define __Pyx_PyObject_GetAttrStr(o,n) PyObject_GetAttr(o,n)
+#endif
+
+/* GetAttr3.proto */
+static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *, PyObject *, PyObject *);
 
 /* GetException.proto */
 #if CYTHON_FAST_THREAD_STATE
@@ -2619,13 +2631,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyDict_Items(PyObject* d);
 
 /* PyObjectCallOneArg.proto (used by CallUnboundCMethod0) */
 static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObject *arg);
-
-/* PyObjectGetAttrStr.proto (used by UnpackUnboundCMethod) */
-#if CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name);
-#else
-#define __Pyx_PyObject_GetAttrStr(o,n) PyObject_GetAttr(o,n)
-#endif
 
 /* UnpackUnboundCMethod.proto (used by CallUnboundCMethod0) */
 typedef struct {
@@ -2774,14 +2779,6 @@ static CYTHON_INLINE PyObject* __Pyx_CallUnboundCMethod1(__Pyx_CachedCFunction* 
 
 /* PyKeyError_Check.proto */
 #define __Pyx_PyExc_KeyError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_KeyError)
-
-/* PyErrExceptionMatches.proto */
-#if CYTHON_FAST_THREAD_STATE
-#define __Pyx_PyErr_ExceptionMatches(err) __Pyx_PyErr_ExceptionMatchesInState(__pyx_tstate, err)
-static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err);
-#else
-#define __Pyx_PyErr_ExceptionMatches(err)  PyErr_ExceptionMatches(err)
-#endif
 
 /* PyTypeError_Check.proto */
 #define __Pyx_PyExc_TypeError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_TypeError)
@@ -3283,23 +3280,24 @@ static const char __pyx_k_filename[] = "filename";
 static const char __pyx_k_mimetype[] = "mimetype";
 /* #### Code section: decls ### */
 static int __pyx_pf_2av_9container_6output_15OutputContainer___cinit__(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_args, CYTHON_UNUSED PyObject *__pyx_v_kwargs); /* proto */
-static void __pyx_pf_2av_9container_6output_15OutputContainer_2__dealloc__(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_codec_name, PyObject *__pyx_v_rate, PyObject *__pyx_v_options, PyObject *__pyx_v_kwargs); /* proto */
-static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15OutputContainer_6add_mux_stream(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_codec_name, PyObject *__pyx_v_rate, PyObject *__pyx_v_kwargs); /* proto */
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_from_template(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, struct __pyx_obj_2av_6stream_Stream *__pyx_v_template, PyObject *__pyx_v_opaque, PyObject *__pyx_v_kwargs); /* proto */
-static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15OutputContainer_10_add_stream_without_codec_from_template(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, struct __pyx_obj_2av_6stream_Stream *__pyx_v_template, PyObject *__pyx_v_kwargs); /* proto */
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachment(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_name, PyObject *__pyx_v_mimetype, PyObject *__pyx_v_data); /* proto */
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_stream(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_codec_name, PyObject *__pyx_v_options); /* proto */
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16start_encoding(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self); /* proto */
+static void __pyx_pf_2av_9container_6output_15OutputContainer_2__del__(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self); /* proto */
+static void __pyx_pf_2av_9container_6output_15OutputContainer_4__dealloc__(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_6add_stream(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_codec_name, PyObject *__pyx_v_rate, PyObject *__pyx_v_options, PyObject *__pyx_v_kwargs); /* proto */
+static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15OutputContainer_8add_mux_stream(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_codec_name, PyObject *__pyx_v_rate, PyObject *__pyx_v_kwargs); /* proto */
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_10add_stream_from_template(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, struct __pyx_obj_2av_6stream_Stream *__pyx_v_template, PyObject *__pyx_v_opaque, PyObject *__pyx_v_kwargs); /* proto */
+static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15OutputContainer_12_add_stream_without_codec_from_template(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, struct __pyx_obj_2av_6stream_Stream *__pyx_v_template, PyObject *__pyx_v_kwargs); /* proto */
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_attachment(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_name, PyObject *__pyx_v_mimetype, PyObject *__pyx_v_data); /* proto */
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16add_data_stream(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_codec_name, PyObject *__pyx_v_options); /* proto */
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_18start_encoding(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_codecs___get__(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_19default_video_codec___get__(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_19default_audio_codec___get__(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22default_subtitle_codec___get__(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_18close(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_packets); /* proto */
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet); /* proto */
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_24__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_26__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20close(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_packets); /* proto */
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_24mux_one(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet); /* proto */
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_26__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_28__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_tp_new_2av_9container_6output_OutputContainer(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 /* #### Code section: late_includes ### */
 /* #### Code section: module_state ### */
@@ -3347,7 +3345,7 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_items;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
-  PyObject *__pyx_string_tab[76];
+  PyObject *__pyx_string_tab[77];
   PyObject *__pyx_number_tab[5];
 /* #### Code section: module_state_contents ### */
 /* CodeObjectCache.module_state_decls */
@@ -3405,55 +3403,56 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_bit_rate __pyx_string_tab[24]
 #define __pyx_n_u_bit_rate_tolerance __pyx_string_tab[25]
 #define __pyx_n_u_cline_in_traceback __pyx_string_tab[26]
-#define __pyx_n_u_codec_name __pyx_string_tab[27]
-#define __pyx_n_u_data __pyx_string_tab[28]
-#define __pyx_n_u_encode __pyx_string_tab[29]
-#define __pyx_n_u_flags __pyx_string_tab[30]
-#define __pyx_n_u_fsencode __pyx_string_tab[31]
-#define __pyx_n_u_getLogger __pyx_string_tab[32]
-#define __pyx_n_u_getstate __pyx_string_tab[33]
-#define __pyx_n_u_height __pyx_string_tab[34]
-#define __pyx_n_u_items __pyx_string_tab[35]
-#define __pyx_n_u_logging __pyx_string_tab[36]
-#define __pyx_n_u_main __pyx_string_tab[37]
-#define __pyx_n_u_mimetype __pyx_string_tab[38]
-#define __pyx_n_u_module __pyx_string_tab[39]
-#define __pyx_n_u_mux_one __pyx_string_tab[40]
-#define __pyx_n_u_name __pyx_string_tab[41]
-#define __pyx_n_u_name_2 __pyx_string_tab[42]
-#define __pyx_n_u_opaque __pyx_string_tab[43]
-#define __pyx_n_u_options __pyx_string_tab[44]
-#define __pyx_n_u_os __pyx_string_tab[45]
-#define __pyx_n_u_packet __pyx_string_tab[46]
-#define __pyx_n_u_packets __pyx_string_tab[47]
-#define __pyx_n_u_pop __pyx_string_tab[48]
-#define __pyx_n_u_pyx_state __pyx_string_tab[49]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[50]
-#define __pyx_n_u_qualname __pyx_string_tab[51]
-#define __pyx_n_u_rate __pyx_string_tab[52]
-#define __pyx_n_u_reduce __pyx_string_tab[53]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[54]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[55]
-#define __pyx_n_u_set_name __pyx_string_tab[56]
-#define __pyx_n_u_setdefault __pyx_string_tab[57]
-#define __pyx_n_u_setstate __pyx_string_tab[58]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[59]
-#define __pyx_n_u_start_encoding __pyx_string_tab[60]
-#define __pyx_n_u_template __pyx_string_tab[61]
-#define __pyx_n_u_test __pyx_string_tab[62]
-#define __pyx_n_u_time_base __pyx_string_tab[63]
-#define __pyx_n_u_type __pyx_string_tab[64]
-#define __pyx_n_u_update __pyx_string_tab[65]
-#define __pyx_n_u_values __pyx_string_tab[66]
-#define __pyx_n_u_video __pyx_string_tab[67]
-#define __pyx_n_u_w __pyx_string_tab[68]
-#define __pyx_n_u_warning __pyx_string_tab[69]
-#define __pyx_n_u_width __pyx_string_tab[70]
-#define __pyx_kp_b_PyObject_AVDictionary_PyObject_P __pyx_string_tab[71]
-#define __pyx_kp_b_int_int_int___pyx_skip_dispatch __pyx_string_tab[72]
-#define __pyx_kp_b_struct___pyx_obj_2av_10dictionar __pyx_string_tab[73]
-#define __pyx_kp_b_struct___pyx_obj_2av_5codec_7con __pyx_string_tab[74]
-#define __pyx_kp_b_struct___pyx_obj_2av_6stream_Str __pyx_string_tab[75]
+#define __pyx_n_u_closed __pyx_string_tab[27]
+#define __pyx_n_u_codec_name __pyx_string_tab[28]
+#define __pyx_n_u_data __pyx_string_tab[29]
+#define __pyx_n_u_encode __pyx_string_tab[30]
+#define __pyx_n_u_flags __pyx_string_tab[31]
+#define __pyx_n_u_fsencode __pyx_string_tab[32]
+#define __pyx_n_u_getLogger __pyx_string_tab[33]
+#define __pyx_n_u_getstate __pyx_string_tab[34]
+#define __pyx_n_u_height __pyx_string_tab[35]
+#define __pyx_n_u_items __pyx_string_tab[36]
+#define __pyx_n_u_logging __pyx_string_tab[37]
+#define __pyx_n_u_main __pyx_string_tab[38]
+#define __pyx_n_u_mimetype __pyx_string_tab[39]
+#define __pyx_n_u_module __pyx_string_tab[40]
+#define __pyx_n_u_mux_one __pyx_string_tab[41]
+#define __pyx_n_u_name __pyx_string_tab[42]
+#define __pyx_n_u_name_2 __pyx_string_tab[43]
+#define __pyx_n_u_opaque __pyx_string_tab[44]
+#define __pyx_n_u_options __pyx_string_tab[45]
+#define __pyx_n_u_os __pyx_string_tab[46]
+#define __pyx_n_u_packet __pyx_string_tab[47]
+#define __pyx_n_u_packets __pyx_string_tab[48]
+#define __pyx_n_u_pop __pyx_string_tab[49]
+#define __pyx_n_u_pyx_state __pyx_string_tab[50]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[51]
+#define __pyx_n_u_qualname __pyx_string_tab[52]
+#define __pyx_n_u_rate __pyx_string_tab[53]
+#define __pyx_n_u_reduce __pyx_string_tab[54]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[55]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[56]
+#define __pyx_n_u_set_name __pyx_string_tab[57]
+#define __pyx_n_u_setdefault __pyx_string_tab[58]
+#define __pyx_n_u_setstate __pyx_string_tab[59]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[60]
+#define __pyx_n_u_start_encoding __pyx_string_tab[61]
+#define __pyx_n_u_template __pyx_string_tab[62]
+#define __pyx_n_u_test __pyx_string_tab[63]
+#define __pyx_n_u_time_base __pyx_string_tab[64]
+#define __pyx_n_u_type __pyx_string_tab[65]
+#define __pyx_n_u_update __pyx_string_tab[66]
+#define __pyx_n_u_values __pyx_string_tab[67]
+#define __pyx_n_u_video __pyx_string_tab[68]
+#define __pyx_n_u_w __pyx_string_tab[69]
+#define __pyx_n_u_warning __pyx_string_tab[70]
+#define __pyx_n_u_width __pyx_string_tab[71]
+#define __pyx_kp_b_PyObject_AVDictionary_PyObject_P __pyx_string_tab[72]
+#define __pyx_kp_b_int_int_int___pyx_skip_dispatch __pyx_string_tab[73]
+#define __pyx_kp_b_struct___pyx_obj_2av_10dictionar __pyx_string_tab[74]
+#define __pyx_kp_b_struct___pyx_obj_2av_5codec_7con __pyx_string_tab[75]
+#define __pyx_kp_b_struct___pyx_obj_2av_6stream_Str __pyx_string_tab[76]
 #define __pyx_int_0 __pyx_number_tab[0]
 #define __pyx_int_480 __pyx_number_tab[1]
 #define __pyx_int_640 __pyx_number_tab[2]
@@ -3496,7 +3495,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9container_4core_Container);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9container_6output_OutputContainer);
   Py_CLEAR(clear_module_state->__pyx_type_2av_9container_6output_OutputContainer);
-  for (int i=0; i<76; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<77; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<5; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* #### Code section: module_state_clear_end ### */
@@ -3537,7 +3536,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9container_4core_Container);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9container_6output_OutputContainer);
   Py_VISIT(traverse_module_state->__pyx_type_2av_9container_6output_OutputContainer);
-  for (int i=0; i<76; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<77; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<5; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* #### Code section: module_state_traverse_end ### */
@@ -3580,8 +3579,8 @@ static PyObject *__pyx_f_2av_9container_6output_close_output(struct __pyx_obj_2a
  * @cython.cfunc
  * def close_output(self: OutputContainer):
  *     self.streams = StreamContainer()             # <<<<<<<<<<<<<<
- *     if self._started and not self._done:
- *         # We must only ever call av_write_trailer *once*, otherwise we get a
+ *     if self._myflag & 12 == 4:  # enum.started and not enum.done
+ *         # If the underlying Python IO file was already closed (e.g. during GC
 */
   __pyx_t_2 = NULL;
   __pyx_t_3 = 1;
@@ -3601,45 +3600,91 @@ static PyObject *__pyx_f_2av_9container_6output_close_output(struct __pyx_obj_2a
   /* "av/container/output.py":18
  * def close_output(self: OutputContainer):
  *     self.streams = StreamContainer()
- *     if self._started and not self._done:             # <<<<<<<<<<<<<<
+ *     if self._myflag & 12 == 4:  # enum.started and not enum.done             # <<<<<<<<<<<<<<
+ *         # If the underlying Python IO file was already closed (e.g. during GC
+ *         # finalization where cycle ordering is undefined), skip the trailer.
+*/
+  __pyx_t_4 = ((__pyx_v_self->__pyx_base._myflag & 12) == 4);
+  if (__pyx_t_4) {
+
+    /* "av/container/output.py":21
+ *         # If the underlying Python IO file was already closed (e.g. during GC
+ *         # finalization where cycle ordering is undefined), skip the trailer.
+ *         if self.file is not None and getattr(self.file.file, "closed", False):             # <<<<<<<<<<<<<<
+ *             self._myflag |= 8  # enum.done = True
+ *             return
+*/
+    __pyx_t_5 = (((PyObject *)__pyx_v_self->__pyx_base.file) != Py_None);
+    if (__pyx_t_5) {
+    } else {
+      __pyx_t_4 = __pyx_t_5;
+      goto __pyx_L5_bool_binop_done;
+    }
+    __pyx_t_1 = __pyx_v_self->__pyx_base.file->file;
+    __Pyx_INCREF(__pyx_t_1);
+    __pyx_t_2 = __Pyx_GetAttr3(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_closed, Py_False); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 21, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 21, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __pyx_t_4 = __pyx_t_5;
+    __pyx_L5_bool_binop_done:;
+    if (__pyx_t_4) {
+
+      /* "av/container/output.py":22
+ *         # finalization where cycle ordering is undefined), skip the trailer.
+ *         if self.file is not None and getattr(self.file.file, "closed", False):
+ *             self._myflag |= 8  # enum.done = True             # <<<<<<<<<<<<<<
+ *             return
+ *         # We must only ever call av_write_trailer *once*, otherwise we get a
+*/
+      __pyx_v_self->__pyx_base._myflag = (__pyx_v_self->__pyx_base._myflag | 8);
+
+      /* "av/container/output.py":23
+ *         if self.file is not None and getattr(self.file.file, "closed", False):
+ *             self._myflag |= 8  # enum.done = True
+ *             return             # <<<<<<<<<<<<<<
  *         # We must only ever call av_write_trailer *once*, otherwise we get a
  *         # segmentation fault. Therefore no matter whether it succeeds or not
 */
-  if (__pyx_v_self->_started) {
-  } else {
-    __pyx_t_4 = __pyx_v_self->_started;
-    goto __pyx_L4_bool_binop_done;
-  }
-  __pyx_t_5 = (!__pyx_v_self->_done);
-  __pyx_t_4 = __pyx_t_5;
-  __pyx_L4_bool_binop_done:;
-  if (__pyx_t_4) {
+      __Pyx_XDECREF(__pyx_r);
+      __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+      goto __pyx_L0;
 
-    /* "av/container/output.py":22
+      /* "av/container/output.py":21
+ *         # If the underlying Python IO file was already closed (e.g. during GC
+ *         # finalization where cycle ordering is undefined), skip the trailer.
+ *         if self.file is not None and getattr(self.file.file, "closed", False):             # <<<<<<<<<<<<<<
+ *             self._myflag |= 8  # enum.done = True
+ *             return
+*/
+    }
+
+    /* "av/container/output.py":27
  *         # segmentation fault. Therefore no matter whether it succeeds or not
- *         # we must absolutely set self._done.
+ *         # we must absolutely set enum.done.
  *         try:             # <<<<<<<<<<<<<<
  *             self.err_check(lib.av_write_trailer(self.ptr))
  *         finally:
 */
     /*try:*/ {
 
-      /* "av/container/output.py":23
- *         # we must absolutely set self._done.
+      /* "av/container/output.py":28
+ *         # we must absolutely set enum.done.
  *         try:
  *             self.err_check(lib.av_write_trailer(self.ptr))             # <<<<<<<<<<<<<<
  *         finally:
  *             if self.file is None and not (self.ptr.oformat.flags & lib.AVFMT_NOFILE):
 */
-      __pyx_t_6 = ((struct __pyx_vtabstruct_2av_9container_6output_OutputContainer *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.err_check(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), av_write_trailer(__pyx_v_self->__pyx_base.ptr)); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 23, __pyx_L7_error)
+      __pyx_t_6 = ((struct __pyx_vtabstruct_2av_9container_6output_OutputContainer *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.err_check(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), av_write_trailer(__pyx_v_self->__pyx_base.ptr)); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 28, __pyx_L8_error)
     }
 
-    /* "av/container/output.py":25
+    /* "av/container/output.py":30
  *             self.err_check(lib.av_write_trailer(self.ptr))
  *         finally:
  *             if self.file is None and not (self.ptr.oformat.flags & lib.AVFMT_NOFILE):             # <<<<<<<<<<<<<<
  *                 lib.avio_closep(cython.address(self.ptr.pb))
- *             self._done = True
+ *             self._myflag |= 8  # enum.done = True
 */
     /*finally:*/ {
       /*normal exit:*/{
@@ -3647,42 +3692,42 @@ static PyObject *__pyx_f_2av_9container_6output_close_output(struct __pyx_obj_2a
         if (__pyx_t_5) {
         } else {
           __pyx_t_4 = __pyx_t_5;
-          goto __pyx_L10_bool_binop_done;
+          goto __pyx_L11_bool_binop_done;
         }
         __pyx_t_5 = (!((__pyx_v_self->__pyx_base.ptr->oformat->flags & AVFMT_NOFILE) != 0));
         __pyx_t_4 = __pyx_t_5;
-        __pyx_L10_bool_binop_done:;
+        __pyx_L11_bool_binop_done:;
         if (__pyx_t_4) {
 
-          /* "av/container/output.py":26
+          /* "av/container/output.py":31
  *         finally:
  *             if self.file is None and not (self.ptr.oformat.flags & lib.AVFMT_NOFILE):
  *                 lib.avio_closep(cython.address(self.ptr.pb))             # <<<<<<<<<<<<<<
- *             self._done = True
+ *             self._myflag |= 8  # enum.done = True
  * 
 */
           (void)(avio_closep((&__pyx_v_self->__pyx_base.ptr->pb)));
 
-          /* "av/container/output.py":25
+          /* "av/container/output.py":30
  *             self.err_check(lib.av_write_trailer(self.ptr))
  *         finally:
  *             if self.file is None and not (self.ptr.oformat.flags & lib.AVFMT_NOFILE):             # <<<<<<<<<<<<<<
  *                 lib.avio_closep(cython.address(self.ptr.pb))
- *             self._done = True
+ *             self._myflag |= 8  # enum.done = True
 */
         }
 
-        /* "av/container/output.py":27
+        /* "av/container/output.py":32
  *             if self.file is None and not (self.ptr.oformat.flags & lib.AVFMT_NOFILE):
  *                 lib.avio_closep(cython.address(self.ptr.pb))
- *             self._done = True             # <<<<<<<<<<<<<<
+ *             self._myflag |= 8  # enum.done = True             # <<<<<<<<<<<<<<
  * 
  * 
 */
-        __pyx_v_self->_done = 1;
-        goto __pyx_L8;
+        __pyx_v_self->__pyx_base._myflag = (__pyx_v_self->__pyx_base._myflag | 8);
+        goto __pyx_L9;
       }
-      __pyx_L7_error:;
+      __pyx_L8_error:;
       /*exception exit:*/{
         __Pyx_PyThreadState_declare
         __Pyx_PyThreadState_assign
@@ -3700,50 +3745,50 @@ static PyObject *__pyx_f_2av_9container_6output_close_output(struct __pyx_obj_2a
         __pyx_t_6 = __pyx_lineno; __pyx_t_7 = __pyx_clineno; __pyx_t_8 = __pyx_filename;
         {
 
-          /* "av/container/output.py":25
+          /* "av/container/output.py":30
  *             self.err_check(lib.av_write_trailer(self.ptr))
  *         finally:
  *             if self.file is None and not (self.ptr.oformat.flags & lib.AVFMT_NOFILE):             # <<<<<<<<<<<<<<
  *                 lib.avio_closep(cython.address(self.ptr.pb))
- *             self._done = True
+ *             self._myflag |= 8  # enum.done = True
 */
           __pyx_t_5 = (((PyObject *)__pyx_v_self->__pyx_base.file) == Py_None);
           if (__pyx_t_5) {
           } else {
             __pyx_t_4 = __pyx_t_5;
-            goto __pyx_L15_bool_binop_done;
+            goto __pyx_L16_bool_binop_done;
           }
           __pyx_t_5 = (!((__pyx_v_self->__pyx_base.ptr->oformat->flags & AVFMT_NOFILE) != 0));
           __pyx_t_4 = __pyx_t_5;
-          __pyx_L15_bool_binop_done:;
+          __pyx_L16_bool_binop_done:;
           if (__pyx_t_4) {
 
-            /* "av/container/output.py":26
+            /* "av/container/output.py":31
  *         finally:
  *             if self.file is None and not (self.ptr.oformat.flags & lib.AVFMT_NOFILE):
  *                 lib.avio_closep(cython.address(self.ptr.pb))             # <<<<<<<<<<<<<<
- *             self._done = True
+ *             self._myflag |= 8  # enum.done = True
  * 
 */
             (void)(avio_closep((&__pyx_v_self->__pyx_base.ptr->pb)));
 
-            /* "av/container/output.py":25
+            /* "av/container/output.py":30
  *             self.err_check(lib.av_write_trailer(self.ptr))
  *         finally:
  *             if self.file is None and not (self.ptr.oformat.flags & lib.AVFMT_NOFILE):             # <<<<<<<<<<<<<<
  *                 lib.avio_closep(cython.address(self.ptr.pb))
- *             self._done = True
+ *             self._myflag |= 8  # enum.done = True
 */
           }
 
-          /* "av/container/output.py":27
+          /* "av/container/output.py":32
  *             if self.file is None and not (self.ptr.oformat.flags & lib.AVFMT_NOFILE):
  *                 lib.avio_closep(cython.address(self.ptr.pb))
- *             self._done = True             # <<<<<<<<<<<<<<
+ *             self._myflag |= 8  # enum.done = True             # <<<<<<<<<<<<<<
  * 
  * 
 */
-          __pyx_v_self->_done = 1;
+          __pyx_v_self->__pyx_base._myflag = (__pyx_v_self->__pyx_base._myflag | 8);
         }
         __Pyx_XGIVEREF(__pyx_t_12);
         __Pyx_XGIVEREF(__pyx_t_13);
@@ -3757,15 +3802,15 @@ static PyObject *__pyx_f_2av_9container_6output_close_output(struct __pyx_obj_2a
         __pyx_lineno = __pyx_t_6; __pyx_clineno = __pyx_t_7; __pyx_filename = __pyx_t_8;
         goto __pyx_L1_error;
       }
-      __pyx_L8:;
+      __pyx_L9:;
     }
 
     /* "av/container/output.py":18
  * def close_output(self: OutputContainer):
  *     self.streams = StreamContainer()
- *     if self._started and not self._done:             # <<<<<<<<<<<<<<
- *         # We must only ever call av_write_trailer *once*, otherwise we get a
- *         # segmentation fault. Therefore no matter whether it succeeds or not
+ *     if self._myflag & 12 == 4:  # enum.started and not enum.done             # <<<<<<<<<<<<<<
+ *         # If the underlying Python IO file was already closed (e.g. during GC
+ *         # finalization where cycle ordering is undefined), skip the trailer.
 */
   }
 
@@ -3791,7 +3836,7 @@ static PyObject *__pyx_f_2av_9container_6output_close_output(struct __pyx_obj_2a
   return __pyx_r;
 }
 
-/* "av/container/output.py":32
+/* "av/container/output.py":37
  * @cython.cclass
  * class OutputContainer(Container):
  *     def __cinit__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -3842,7 +3887,7 @@ static int __pyx_pf_2av_9container_6output_15OutputContainer___cinit__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "av/container/output.py":33
+  /* "av/container/output.py":38
  * class OutputContainer(Container):
  *     def __cinit__(self, *args, **kwargs):
  *         self.streams = StreamContainer()             # <<<<<<<<<<<<<<
@@ -3855,7 +3900,7 @@ static int __pyx_pf_2av_9container_6output_15OutputContainer___cinit__(struct __
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9container_7streams_StreamContainer, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 33, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 38, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __Pyx_GIVEREF((PyObject *)__pyx_t_1);
@@ -3864,14 +3909,14 @@ static int __pyx_pf_2av_9container_6output_15OutputContainer___cinit__(struct __
   __pyx_v_self->__pyx_base.streams = ((struct __pyx_obj_2av_9container_7streams_StreamContainer *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/container/output.py":34
+  /* "av/container/output.py":39
  *     def __cinit__(self, *args, **kwargs):
  *         self.streams = StreamContainer()
  *         self.metadata = {}             # <<<<<<<<<<<<<<
  *         with cython.nogil:
  *             self.packet_ptr = lib.av_packet_alloc()
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 34, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->__pyx_base.metadata);
@@ -3879,7 +3924,7 @@ static int __pyx_pf_2av_9container_6output_15OutputContainer___cinit__(struct __
   __pyx_v_self->__pyx_base.metadata = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/container/output.py":35
+  /* "av/container/output.py":40
  *         self.streams = StreamContainer()
  *         self.metadata = {}
  *         with cython.nogil:             # <<<<<<<<<<<<<<
@@ -3892,17 +3937,17 @@ static int __pyx_pf_2av_9container_6output_15OutputContainer___cinit__(struct __
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "av/container/output.py":36
+        /* "av/container/output.py":41
  *         self.metadata = {}
  *         with cython.nogil:
  *             self.packet_ptr = lib.av_packet_alloc()             # <<<<<<<<<<<<<<
  * 
- *     def __dealloc__(self):
+ *     def __del__(self):
 */
         __pyx_v_self->packet_ptr = av_packet_alloc();
       }
 
-      /* "av/container/output.py":35
+      /* "av/container/output.py":40
  *         self.streams = StreamContainer()
  *         self.metadata = {}
  *         with cython.nogil:             # <<<<<<<<<<<<<<
@@ -3919,7 +3964,7 @@ static int __pyx_pf_2av_9container_6output_15OutputContainer___cinit__(struct __
       }
   }
 
-  /* "av/container/output.py":32
+  /* "av/container/output.py":37
  * @cython.cclass
  * class OutputContainer(Container):
  *     def __cinit__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -3940,53 +3985,93 @@ static int __pyx_pf_2av_9container_6output_15OutputContainer___cinit__(struct __
   return __pyx_r;
 }
 
-/* "av/container/output.py":38
+/* "av/container/output.py":43
  *             self.packet_ptr = lib.av_packet_alloc()
  * 
- *     def __dealloc__(self):             # <<<<<<<<<<<<<<
+ *     def __del__(self):             # <<<<<<<<<<<<<<
  *         close_output(self)
- *         with cython.nogil:
+ * 
 */
 
 /* Python wrapper */
-static void __pyx_pw_2av_9container_6output_15OutputContainer_3__dealloc__(PyObject *__pyx_v_self); /*proto*/
-static void __pyx_pw_2av_9container_6output_15OutputContainer_3__dealloc__(PyObject *__pyx_v_self) {
+static void __pyx_pw_2av_9container_6output_15OutputContainer_3__del__(PyObject *__pyx_v_self); /*proto*/
+static void __pyx_pw_2av_9container_6output_15OutputContainer_3__del__(PyObject *__pyx_v_self) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
   __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("__dealloc__ (wrapper)", 0);
+  __Pyx_RefNannySetupContext("__del__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  __pyx_pf_2av_9container_6output_15OutputContainer_2__dealloc__(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self));
+  __pyx_pf_2av_9container_6output_15OutputContainer_2__del__(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
 }
 
-static void __pyx_pf_2av_9container_6output_15OutputContainer_2__dealloc__(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self) {
+static void __pyx_pf_2av_9container_6output_15OutputContainer_2__del__(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self) {
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("__dealloc__", 0);
+  __Pyx_RefNannySetupContext("__del__", 0);
 
-  /* "av/container/output.py":39
+  /* "av/container/output.py":44
+ * 
+ *     def __del__(self):
+ *         close_output(self)             # <<<<<<<<<<<<<<
  * 
  *     def __dealloc__(self):
- *         close_output(self)             # <<<<<<<<<<<<<<
- *         with cython.nogil:
- *             lib.av_packet_free(cython.address(self.packet_ptr))
 */
   if (unlikely(((PyObject *)__pyx_v_self) == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "cannot pass None into a C function argument that is declared 'not None'");
-    __PYX_ERR(0, 39, __pyx_L1_error)
+    __PYX_ERR(0, 44, __pyx_L1_error)
   }
-  __pyx_t_1 = __pyx_f_2av_9container_6output_close_output(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 39, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_9container_6output_close_output(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/container/output.py":40
- *     def __dealloc__(self):
+  /* "av/container/output.py":43
+ *             self.packet_ptr = lib.av_packet_alloc()
+ * 
+ *     def __del__(self):             # <<<<<<<<<<<<<<
  *         close_output(self)
+ * 
+*/
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_WriteUnraisable("av.container.output.OutputContainer.__del__", __pyx_clineno, __pyx_lineno, __pyx_filename, 1, 0);
+  __pyx_L0:;
+  __Pyx_RefNannyFinishContext();
+}
+
+/* "av/container/output.py":46
+ *         close_output(self)
+ * 
+ *     def __dealloc__(self):             # <<<<<<<<<<<<<<
+ *         with cython.nogil:
+ *             lib.av_packet_free(cython.address(self.packet_ptr))
+*/
+
+/* Python wrapper */
+static void __pyx_pw_2av_9container_6output_15OutputContainer_5__dealloc__(PyObject *__pyx_v_self); /*proto*/
+static void __pyx_pw_2av_9container_6output_15OutputContainer_5__dealloc__(PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__dealloc__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_pf_2av_9container_6output_15OutputContainer_4__dealloc__(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+}
+
+static void __pyx_pf_2av_9container_6output_15OutputContainer_4__dealloc__(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self) {
+
+  /* "av/container/output.py":47
+ * 
+ *     def __dealloc__(self):
  *         with cython.nogil:             # <<<<<<<<<<<<<<
  *             lib.av_packet_free(cython.address(self.packet_ptr))
  * 
@@ -3997,8 +4082,8 @@ static void __pyx_pf_2av_9container_6output_15OutputContainer_2__dealloc__(struc
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "av/container/output.py":41
- *         close_output(self)
+        /* "av/container/output.py":48
+ *     def __dealloc__(self):
  *         with cython.nogil:
  *             lib.av_packet_free(cython.address(self.packet_ptr))             # <<<<<<<<<<<<<<
  * 
@@ -4007,9 +4092,9 @@ static void __pyx_pf_2av_9container_6output_15OutputContainer_2__dealloc__(struc
         av_packet_free((&__pyx_v_self->packet_ptr));
       }
 
-      /* "av/container/output.py":40
+      /* "av/container/output.py":47
+ * 
  *     def __dealloc__(self):
- *         close_output(self)
  *         with cython.nogil:             # <<<<<<<<<<<<<<
  *             lib.av_packet_free(cython.address(self.packet_ptr))
  * 
@@ -4024,24 +4109,18 @@ static void __pyx_pf_2av_9container_6output_15OutputContainer_2__dealloc__(struc
       }
   }
 
-  /* "av/container/output.py":38
- *             self.packet_ptr = lib.av_packet_alloc()
+  /* "av/container/output.py":46
+ *         close_output(self)
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
- *         close_output(self)
  *         with cython.nogil:
+ *             lib.av_packet_free(cython.address(self.packet_ptr))
 */
 
   /* function exit code */
-  goto __pyx_L0;
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_WriteUnraisable("av.container.output.OutputContainer.__dealloc__", __pyx_clineno, __pyx_lineno, __pyx_filename, 1, 0);
-  __pyx_L0:;
-  __Pyx_RefNannyFinishContext();
 }
 
-/* "av/container/output.py":43
+/* "av/container/output.py":50
  *             lib.av_packet_free(cython.address(self.packet_ptr))
  * 
  *     def add_stream(self, codec_name, rate=None, options: dict | None = None, **kwargs):             # <<<<<<<<<<<<<<
@@ -4050,15 +4129,15 @@ static void __pyx_pf_2av_9container_6output_15OutputContainer_2__dealloc__(struc
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_5add_stream(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_7add_stream(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_4add_stream, "add_stream(codec_name, rate=None)\n\n        Creates a new stream from a codec name and returns it.\n        Supports video, audio, and subtitle streams.\n\n        :param codec_name: The name of a codec.\n        :type codec_name: str\n        :param dict options: Stream options.\n        :param \\**kwargs: Set attributes for the stream.\n        :rtype: The new :class:`~av.stream.Stream`.\n\n        ");
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_5add_stream(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_6add_stream, "add_stream(codec_name, rate=None)\n\n        Creates a new stream from a codec name and returns it.\n        Supports video, audio, and subtitle streams.\n\n        :param codec_name: The name of a codec.\n        :type codec_name: str\n        :param dict options: Stream options.\n        :param \\**kwargs: Set attributes for the stream.\n        :rtype: The new :class:`~av.stream.Stream`.\n\n        ");
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_7add_stream(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -4093,44 +4172,44 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_codec_name,&__pyx_mstate_global->__pyx_n_u_rate,&__pyx_mstate_global->__pyx_n_u_options,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 43, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 50, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 50, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 50, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 50, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "add_stream", 1) < (0)) __PYX_ERR(0, 43, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "add_stream", 1) < (0)) __PYX_ERR(0, 50, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject*)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("add_stream", 0, 1, 3, i); __PYX_ERR(0, 43, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("add_stream", 0, 1, 3, i); __PYX_ERR(0, 50, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 50, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 50, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 50, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -4143,7 +4222,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("add_stream", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 43, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("add_stream", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 50, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4155,8 +4234,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_options), (&PyDict_Type), 1, "options", 2))) __PYX_ERR(0, 43, __pyx_L1_error)
-  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_codec_name, __pyx_v_rate, __pyx_v_options, __pyx_v_kwargs);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_options), (&PyDict_Type), 1, "options", 2))) __PYX_ERR(0, 50, __pyx_L1_error)
+  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_6add_stream(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_codec_name, __pyx_v_rate, __pyx_v_options, __pyx_v_kwargs);
 
   /* function exit code */
   goto __pyx_L0;
@@ -4176,7 +4255,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_codec_name, PyObject *__pyx_v_rate, PyObject *__pyx_v_options, PyObject *__pyx_v_kwargs) {
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_6add_stream(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_codec_name, PyObject *__pyx_v_rate, PyObject *__pyx_v_options, PyObject *__pyx_v_kwargs) {
   struct __pyx_obj_2av_5codec_5codec_Codec *__pyx_v_codec_obj = 0;
   struct AVCodec const *__pyx_v_codec;
   struct AVStream *__pyx_v_stream;
@@ -4211,7 +4290,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("add_stream", 0);
 
-  /* "av/container/output.py":57
+  /* "av/container/output.py":64
  *         """
  * 
  *         codec_obj: Codec = Codec(codec_name, "w")             # <<<<<<<<<<<<<<
@@ -4224,13 +4303,13 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
     PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_v_codec_name, __pyx_mstate_global->__pyx_n_u_w};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5codec_5codec_Codec, __pyx_callargs+__pyx_t_3, (3-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 57, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 64, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __pyx_v_codec_obj = ((struct __pyx_obj_2av_5codec_5codec_Codec *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/container/output.py":58
+  /* "av/container/output.py":65
  * 
  *         codec_obj: Codec = Codec(codec_name, "w")
  *         codec: cython.pointer[cython.const[lib.AVCodec]] = codec_obj.ptr             # <<<<<<<<<<<<<<
@@ -4240,7 +4319,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
   __pyx_t_4 = __pyx_v_codec_obj->ptr;
   __pyx_v_codec = __pyx_t_4;
 
-  /* "av/container/output.py":61
+  /* "av/container/output.py":68
  * 
  *         # Assert that this format supports the requested codec.
  *         if not lib.avformat_query_codec(             # <<<<<<<<<<<<<<
@@ -4250,7 +4329,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
   __pyx_t_5 = (!(avformat_query_codec(__pyx_v_self->__pyx_base.ptr->oformat, __pyx_v_codec->id, FF_COMPLIANCE_NORMAL) != 0));
   if (unlikely(__pyx_t_5)) {
 
-    /* "av/container/output.py":64
+    /* "av/container/output.py":71
  *             self.ptr.oformat, codec.id, lib.FF_COMPLIANCE_NORMAL
  *         ):
  *             raise ValueError(             # <<<<<<<<<<<<<<
@@ -4259,18 +4338,18 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
     __pyx_t_2 = NULL;
 
-    /* "av/container/output.py":65
+    /* "av/container/output.py":72
  *         ):
  *             raise ValueError(
  *                 f"{self.format.name!r} format does not support {codec_obj.name!r} codec"             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-    __pyx_t_6 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_self->__pyx_base.format->name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 65, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_self->__pyx_base.format->name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 72, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_codec_obj), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 65, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_codec_obj), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 72, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_7), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 65, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_7), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 72, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_9[0] = __pyx_t_6;
@@ -4278,7 +4357,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
     __pyx_t_9[2] = __pyx_t_8;
     __pyx_t_9[3] = __pyx_mstate_global->__pyx_kp_u_codec;
     __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_9, 4, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 25 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8) + 6, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8));
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 65, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 72, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -4288,14 +4367,14 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 64, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 64, __pyx_L1_error)
+    __PYX_ERR(0, 71, __pyx_L1_error)
 
-    /* "av/container/output.py":61
+    /* "av/container/output.py":68
  * 
  *         # Assert that this format supports the requested codec.
  *         if not lib.avformat_query_codec(             # <<<<<<<<<<<<<<
@@ -4304,7 +4383,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
   }
 
-  /* "av/container/output.py":69
+  /* "av/container/output.py":76
  * 
  *         # Create new stream in the AVFormatContext, set AVCodecContext values.
  *         stream: cython.pointer[lib.AVStream] = lib.avformat_new_stream(self.ptr, codec)             # <<<<<<<<<<<<<<
@@ -4313,7 +4392,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
   __pyx_v_stream = avformat_new_stream(__pyx_v_self->__pyx_base.ptr, __pyx_v_codec);
 
-  /* "av/container/output.py":70
+  /* "av/container/output.py":77
  *         # Create new stream in the AVFormatContext, set AVCodecContext values.
  *         stream: cython.pointer[lib.AVStream] = lib.avformat_new_stream(self.ptr, codec)
  *         ctx: cython.pointer[lib.AVCodecContext] = lib.avcodec_alloc_context3(codec)             # <<<<<<<<<<<<<<
@@ -4322,7 +4401,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
   __pyx_v_ctx = avcodec_alloc_context3(__pyx_v_codec);
 
-  /* "av/container/output.py":73
+  /* "av/container/output.py":80
  * 
  *         # Now lets set some more sane video defaults
  *         if codec.type == lib.AVMEDIA_TYPE_VIDEO:             # <<<<<<<<<<<<<<
@@ -4332,7 +4411,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
   switch (__pyx_v_codec->type) {
     case AVMEDIA_TYPE_VIDEO:
 
-    /* "av/container/output.py":74
+    /* "av/container/output.py":81
  *         # Now lets set some more sane video defaults
  *         if codec.type == lib.AVMEDIA_TYPE_VIDEO:
  *             ctx.pix_fmt = lib.AV_PIX_FMT_YUV420P             # <<<<<<<<<<<<<<
@@ -4341,59 +4420,59 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
     __pyx_v_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
 
-    /* "av/container/output.py":75
+    /* "av/container/output.py":82
  *         if codec.type == lib.AVMEDIA_TYPE_VIDEO:
  *             ctx.pix_fmt = lib.AV_PIX_FMT_YUV420P
  *             ctx.width = kwargs.pop("width", 640)             # <<<<<<<<<<<<<<
  *             ctx.height = kwargs.pop("height", 480)
  *             ctx.bit_rate = kwargs.pop("bit_rate", 0)
 */
-    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_width, __pyx_mstate_global->__pyx_int_640); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_width, __pyx_mstate_global->__pyx_int_640); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 75, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 82, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_ctx->width = __pyx_t_10;
 
-    /* "av/container/output.py":76
+    /* "av/container/output.py":83
  *             ctx.pix_fmt = lib.AV_PIX_FMT_YUV420P
  *             ctx.width = kwargs.pop("width", 640)
  *             ctx.height = kwargs.pop("height", 480)             # <<<<<<<<<<<<<<
  *             ctx.bit_rate = kwargs.pop("bit_rate", 0)
  *             ctx.bit_rate_tolerance = kwargs.pop("bit_rate_tolerance", 128000)
 */
-    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_height, __pyx_mstate_global->__pyx_int_480); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_height, __pyx_mstate_global->__pyx_int_480); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 76, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 83, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_ctx->height = __pyx_t_10;
 
-    /* "av/container/output.py":77
+    /* "av/container/output.py":84
  *             ctx.width = kwargs.pop("width", 640)
  *             ctx.height = kwargs.pop("height", 480)
  *             ctx.bit_rate = kwargs.pop("bit_rate", 0)             # <<<<<<<<<<<<<<
  *             ctx.bit_rate_tolerance = kwargs.pop("bit_rate_tolerance", 128000)
  *             try:
 */
-    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_bit_rate, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_bit_rate, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 77, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 84, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_ctx->bit_rate = __pyx_t_10;
 
-    /* "av/container/output.py":78
+    /* "av/container/output.py":85
  *             ctx.height = kwargs.pop("height", 480)
  *             ctx.bit_rate = kwargs.pop("bit_rate", 0)
  *             ctx.bit_rate_tolerance = kwargs.pop("bit_rate_tolerance", 128000)             # <<<<<<<<<<<<<<
  *             try:
  *                 to_avrational(kwargs.pop("time_base"), cython.address(ctx.time_base))
 */
-    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_bit_rate_tolerance, __pyx_mstate_global->__pyx_int_128000); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_bit_rate_tolerance, __pyx_mstate_global->__pyx_int_128000); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 85, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 85, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_ctx->bit_rate_tolerance = __pyx_t_10;
 
-    /* "av/container/output.py":79
+    /* "av/container/output.py":86
  *             ctx.bit_rate = kwargs.pop("bit_rate", 0)
  *             ctx.bit_rate_tolerance = kwargs.pop("bit_rate_tolerance", 128000)
  *             try:             # <<<<<<<<<<<<<<
@@ -4409,19 +4488,19 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
       __Pyx_XGOTREF(__pyx_t_13);
       /*try:*/ {
 
-        /* "av/container/output.py":80
+        /* "av/container/output.py":87
  *             ctx.bit_rate_tolerance = kwargs.pop("bit_rate_tolerance", 128000)
  *             try:
  *                 to_avrational(kwargs.pop("time_base"), cython.address(ctx.time_base))             # <<<<<<<<<<<<<<
  *             except KeyError:
  *                 pass
 */
-        __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_time_base, ((PyObject *)NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 80, __pyx_L4_error)
+        __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_time_base, ((PyObject *)NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_1);
-        __pyx_f_2av_5utils_to_avrational(__pyx_t_1, (&__pyx_v_ctx->time_base)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 80, __pyx_L4_error)
+        __pyx_f_2av_5utils_to_avrational(__pyx_t_1, (&__pyx_v_ctx->time_base)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 87, __pyx_L4_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-        /* "av/container/output.py":79
+        /* "av/container/output.py":86
  *             ctx.bit_rate = kwargs.pop("bit_rate", 0)
  *             ctx.bit_rate_tolerance = kwargs.pop("bit_rate_tolerance", 128000)
  *             try:             # <<<<<<<<<<<<<<
@@ -4440,7 +4519,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "av/container/output.py":81
+      /* "av/container/output.py":88
  *             try:
  *                 to_avrational(kwargs.pop("time_base"), cython.address(ctx.time_base))
  *             except KeyError:             # <<<<<<<<<<<<<<
@@ -4454,7 +4533,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
       }
       goto __pyx_L6_except_error;
 
-      /* "av/container/output.py":79
+      /* "av/container/output.py":86
  *             ctx.bit_rate = kwargs.pop("bit_rate", 0)
  *             ctx.bit_rate_tolerance = kwargs.pop("bit_rate_tolerance", 128000)
  *             try:             # <<<<<<<<<<<<<<
@@ -4475,29 +4554,29 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
       __pyx_L9_try_end:;
     }
 
-    /* "av/container/output.py":83
+    /* "av/container/output.py":90
  *             except KeyError:
  *                 pass
  *             to_avrational(rate or 24, cython.address(ctx.framerate))             # <<<<<<<<<<<<<<
  * 
  *             stream.avg_frame_rate = ctx.framerate
 */
-    __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_rate); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 83, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_rate); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 90, __pyx_L1_error)
     if (!__pyx_t_5) {
     } else {
       __Pyx_INCREF(__pyx_v_rate);
       __pyx_t_1 = __pyx_v_rate;
       goto __pyx_L12_bool_binop_done;
     }
-    __pyx_t_7 = __Pyx_PyLong_From_long(24); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 83, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_From_long(24); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 90, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_1 = __pyx_t_7;
     __pyx_t_7 = 0;
     __pyx_L12_bool_binop_done:;
-    __pyx_f_2av_5utils_to_avrational(__pyx_t_1, (&__pyx_v_ctx->framerate)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 83, __pyx_L1_error)
+    __pyx_f_2av_5utils_to_avrational(__pyx_t_1, (&__pyx_v_ctx->framerate)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 90, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "av/container/output.py":85
+    /* "av/container/output.py":92
  *             to_avrational(rate or 24, cython.address(ctx.framerate))
  * 
  *             stream.avg_frame_rate = ctx.framerate             # <<<<<<<<<<<<<<
@@ -4507,7 +4586,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
     __pyx_t_14 = __pyx_v_ctx->framerate;
     __pyx_v_stream->avg_frame_rate = __pyx_t_14;
 
-    /* "av/container/output.py":86
+    /* "av/container/output.py":93
  * 
  *             stream.avg_frame_rate = ctx.framerate
  *             stream.time_base = ctx.time_base             # <<<<<<<<<<<<<<
@@ -4517,7 +4596,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
     __pyx_t_14 = __pyx_v_ctx->time_base;
     __pyx_v_stream->time_base = __pyx_t_14;
 
-    /* "av/container/output.py":73
+    /* "av/container/output.py":80
  * 
  *         # Now lets set some more sane video defaults
  *         if codec.type == lib.AVMEDIA_TYPE_VIDEO:             # <<<<<<<<<<<<<<
@@ -4527,7 +4606,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
     break;
     case AVMEDIA_TYPE_AUDIO:
 
-    /* "av/container/output.py":90
+    /* "av/container/output.py":97
  *         # Some sane audio defaults
  *         elif codec.type == lib.AVMEDIA_TYPE_AUDIO:
  *             out: cython.pointer[cython.const[cython.void]] = cython.NULL             # <<<<<<<<<<<<<<
@@ -4536,7 +4615,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
     __pyx_v_out = NULL;
 
-    /* "av/container/output.py":91
+    /* "av/container/output.py":98
  *         elif codec.type == lib.AVMEDIA_TYPE_AUDIO:
  *             out: cython.pointer[cython.const[cython.void]] = cython.NULL
  *             lib.avcodec_get_supported_config(             # <<<<<<<<<<<<<<
@@ -4545,7 +4624,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
     (void)(avcodec_get_supported_config(NULL, __pyx_v_codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, (&__pyx_v_out), NULL));
 
-    /* "av/container/output.py":99
+    /* "av/container/output.py":106
  *                 cython.NULL,
  *             )
  *             if out:             # <<<<<<<<<<<<<<
@@ -4555,7 +4634,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
     __pyx_t_5 = (__pyx_v_out != 0);
     if (__pyx_t_5) {
 
-      /* "av/container/output.py":100
+      /* "av/container/output.py":107
  *             )
  *             if out:
  *                 ctx.sample_fmt = cython.cast(cython.pointer[lib.AVSampleFormat], out)[0]             # <<<<<<<<<<<<<<
@@ -4564,7 +4643,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
       __pyx_v_ctx->sample_fmt = (((enum AVSampleFormat *)__pyx_v_out)[0]);
 
-      /* "av/container/output.py":99
+      /* "av/container/output.py":106
  *                 cython.NULL,
  *             )
  *             if out:             # <<<<<<<<<<<<<<
@@ -4573,33 +4652,33 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
     }
 
-    /* "av/container/output.py":101
+    /* "av/container/output.py":108
  *             if out:
  *                 ctx.sample_fmt = cython.cast(cython.pointer[lib.AVSampleFormat], out)[0]
  *             ctx.bit_rate = kwargs.pop("bit_rate", 0)             # <<<<<<<<<<<<<<
  *             ctx.bit_rate_tolerance = kwargs.pop("bit_rate_tolerance", 32000)
  *             try:
 */
-    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_bit_rate, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_bit_rate, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 108, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 101, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 108, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_ctx->bit_rate = __pyx_t_10;
 
-    /* "av/container/output.py":102
+    /* "av/container/output.py":109
  *                 ctx.sample_fmt = cython.cast(cython.pointer[lib.AVSampleFormat], out)[0]
  *             ctx.bit_rate = kwargs.pop("bit_rate", 0)
  *             ctx.bit_rate_tolerance = kwargs.pop("bit_rate_tolerance", 32000)             # <<<<<<<<<<<<<<
  *             try:
  *                 to_avrational(kwargs.pop("time_base"), cython.address(ctx.time_base))
 */
-    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_bit_rate_tolerance, __pyx_mstate_global->__pyx_int_32000); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_bit_rate_tolerance, __pyx_mstate_global->__pyx_int_32000); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 102, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_ctx->bit_rate_tolerance = __pyx_t_10;
 
-    /* "av/container/output.py":103
+    /* "av/container/output.py":110
  *             ctx.bit_rate = kwargs.pop("bit_rate", 0)
  *             ctx.bit_rate_tolerance = kwargs.pop("bit_rate_tolerance", 32000)
  *             try:             # <<<<<<<<<<<<<<
@@ -4615,19 +4694,19 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
       __Pyx_XGOTREF(__pyx_t_11);
       /*try:*/ {
 
-        /* "av/container/output.py":104
+        /* "av/container/output.py":111
  *             ctx.bit_rate_tolerance = kwargs.pop("bit_rate_tolerance", 32000)
  *             try:
  *                 to_avrational(kwargs.pop("time_base"), cython.address(ctx.time_base))             # <<<<<<<<<<<<<<
  *             except KeyError:
  *                 pass
 */
-        __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_time_base, ((PyObject *)NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 104, __pyx_L15_error)
+        __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_time_base, ((PyObject *)NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 111, __pyx_L15_error)
         __Pyx_GOTREF(__pyx_t_1);
-        __pyx_f_2av_5utils_to_avrational(__pyx_t_1, (&__pyx_v_ctx->time_base)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 104, __pyx_L15_error)
+        __pyx_f_2av_5utils_to_avrational(__pyx_t_1, (&__pyx_v_ctx->time_base)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 111, __pyx_L15_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-        /* "av/container/output.py":103
+        /* "av/container/output.py":110
  *             ctx.bit_rate = kwargs.pop("bit_rate", 0)
  *             ctx.bit_rate_tolerance = kwargs.pop("bit_rate_tolerance", 32000)
  *             try:             # <<<<<<<<<<<<<<
@@ -4646,7 +4725,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "av/container/output.py":105
+      /* "av/container/output.py":112
  *             try:
  *                 to_avrational(kwargs.pop("time_base"), cython.address(ctx.time_base))
  *             except KeyError:             # <<<<<<<<<<<<<<
@@ -4660,7 +4739,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
       }
       goto __pyx_L17_except_error;
 
-      /* "av/container/output.py":103
+      /* "av/container/output.py":110
  *             ctx.bit_rate = kwargs.pop("bit_rate", 0)
  *             ctx.bit_rate_tolerance = kwargs.pop("bit_rate_tolerance", 32000)
  *             try:             # <<<<<<<<<<<<<<
@@ -4681,7 +4760,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
       __pyx_L20_try_end:;
     }
 
-    /* "av/container/output.py":108
+    /* "av/container/output.py":115
  *                 pass
  * 
  *             if rate is None:             # <<<<<<<<<<<<<<
@@ -4691,7 +4770,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
     __pyx_t_5 = (__pyx_v_rate == Py_None);
     if (__pyx_t_5) {
 
-      /* "av/container/output.py":109
+      /* "av/container/output.py":116
  * 
  *             if rate is None:
  *                 ctx.sample_rate = 48000             # <<<<<<<<<<<<<<
@@ -4700,7 +4779,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
       __pyx_v_ctx->sample_rate = 0xBB80;
 
-      /* "av/container/output.py":108
+      /* "av/container/output.py":115
  *                 pass
  * 
  *             if rate is None:             # <<<<<<<<<<<<<<
@@ -4710,7 +4789,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
       goto __pyx_L23;
     }
 
-    /* "av/container/output.py":110
+    /* "av/container/output.py":117
  *             if rate is None:
  *                 ctx.sample_rate = 48000
  *             elif type(rate) is int:             # <<<<<<<<<<<<<<
@@ -4720,17 +4799,17 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
     __pyx_t_5 = (((PyObject *)Py_TYPE(__pyx_v_rate)) == ((PyObject *)(&PyLong_Type)));
     if (likely(__pyx_t_5)) {
 
-      /* "av/container/output.py":111
+      /* "av/container/output.py":118
  *                 ctx.sample_rate = 48000
  *             elif type(rate) is int:
  *                 ctx.sample_rate = rate             # <<<<<<<<<<<<<<
  *             else:
  *                 raise TypeError("audio stream `rate` must be: int | None")
 */
-      __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_v_rate); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 111, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_v_rate); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 118, __pyx_L1_error)
       __pyx_v_ctx->sample_rate = __pyx_t_10;
 
-      /* "av/container/output.py":110
+      /* "av/container/output.py":117
  *             if rate is None:
  *                 ctx.sample_rate = 48000
  *             elif type(rate) is int:             # <<<<<<<<<<<<<<
@@ -4740,7 +4819,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
       goto __pyx_L23;
     }
 
-    /* "av/container/output.py":113
+    /* "av/container/output.py":120
  *                 ctx.sample_rate = rate
  *             else:
  *                 raise TypeError("audio stream `rate` must be: int | None")             # <<<<<<<<<<<<<<
@@ -4754,16 +4833,16 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
         PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_kp_u_audio_stream_rate_must_be_int_No};
         __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 113, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 120, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_Raise(__pyx_t_1, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(0, 113, __pyx_L1_error)
+      __PYX_ERR(0, 120, __pyx_L1_error)
     }
     __pyx_L23:;
 
-    /* "av/container/output.py":114
+    /* "av/container/output.py":121
  *             else:
  *                 raise TypeError("audio stream `rate` must be: int | None")
  *             stream.time_base = ctx.time_base             # <<<<<<<<<<<<<<
@@ -4773,7 +4852,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
     __pyx_t_14 = __pyx_v_ctx->time_base;
     __pyx_v_stream->time_base = __pyx_t_14;
 
-    /* "av/container/output.py":115
+    /* "av/container/output.py":122
  *                 raise TypeError("audio stream `rate` must be: int | None")
  *             stream.time_base = ctx.time_base
  *             lib.av_channel_layout_default(cython.address(ctx.ch_layout), 2)             # <<<<<<<<<<<<<<
@@ -4782,7 +4861,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
     (void)(av_channel_layout_default((&__pyx_v_ctx->ch_layout), 2));
 
-    /* "av/container/output.py":89
+    /* "av/container/output.py":96
  * 
  *         # Some sane audio defaults
  *         elif codec.type == lib.AVMEDIA_TYPE_AUDIO:             # <<<<<<<<<<<<<<
@@ -4793,7 +4872,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
     default: break;
   }
 
-  /* "av/container/output.py":118
+  /* "av/container/output.py":125
  * 
  *         # Some formats want stream headers to be separate
  *         if self.ptr.oformat.flags & lib.AVFMT_GLOBALHEADER:             # <<<<<<<<<<<<<<
@@ -4803,7 +4882,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
   __pyx_t_5 = ((__pyx_v_self->__pyx_base.ptr->oformat->flags & AVFMT_GLOBALHEADER) != 0);
   if (__pyx_t_5) {
 
-    /* "av/container/output.py":119
+    /* "av/container/output.py":126
  *         # Some formats want stream headers to be separate
  *         if self.ptr.oformat.flags & lib.AVFMT_GLOBALHEADER:
  *             ctx.flags |= lib.AV_CODEC_FLAG_GLOBAL_HEADER             # <<<<<<<<<<<<<<
@@ -4812,7 +4891,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
     __pyx_v_ctx->flags = (__pyx_v_ctx->flags | AV_CODEC_FLAG_GLOBAL_HEADER);
 
-    /* "av/container/output.py":118
+    /* "av/container/output.py":125
  * 
  *         # Some formats want stream headers to be separate
  *         if self.ptr.oformat.flags & lib.AVFMT_GLOBALHEADER:             # <<<<<<<<<<<<<<
@@ -4821,66 +4900,66 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
   }
 
-  /* "av/container/output.py":125
+  /* "av/container/output.py":132
  *         # Subsequent changes to the codec context will be applied just before
  *         # encoding starts in `start_encoding()`.
  *         err_check(lib.avcodec_parameters_from_context(stream.codecpar, ctx))             # <<<<<<<<<<<<<<
  * 
  *         # Construct the user-land stream
 */
-  __pyx_t_10 = __pyx_f_2av_5error_err_check(avcodec_parameters_from_context(__pyx_v_stream->codecpar, __pyx_v_ctx), 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 125, __pyx_L1_error)
+  __pyx_t_10 = __pyx_f_2av_5error_err_check(avcodec_parameters_from_context(__pyx_v_stream->codecpar, __pyx_v_ctx), 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 132, __pyx_L1_error)
 
-  /* "av/container/output.py":128
+  /* "av/container/output.py":135
  * 
  *         # Construct the user-land stream
  *         py_codec_context: CodecContext = wrap_codec_context(ctx, codec, None)             # <<<<<<<<<<<<<<
  *         py_stream: Stream = wrap_stream(self, stream, py_codec_context)
  *         self.streams.add_stream(py_stream)
 */
-  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5codec_7context_wrap_codec_context(__pyx_v_ctx, __pyx_v_codec, ((struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)Py_None))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5codec_7context_wrap_codec_context(__pyx_v_ctx, __pyx_v_codec, ((struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)Py_None))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_py_codec_context = ((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/container/output.py":129
+  /* "av/container/output.py":136
  *         # Construct the user-land stream
  *         py_codec_context: CodecContext = wrap_codec_context(ctx, codec, None)
  *         py_stream: Stream = wrap_stream(self, stream, py_codec_context)             # <<<<<<<<<<<<<<
  *         self.streams.add_stream(py_stream)
  * 
 */
-  __pyx_t_1 = ((PyObject *)__pyx_f_2av_6stream_wrap_stream(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_stream, __pyx_v_py_codec_context)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 129, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_2av_6stream_wrap_stream(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_stream, __pyx_v_py_codec_context)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_py_stream = ((struct __pyx_obj_2av_6stream_Stream *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/container/output.py":130
+  /* "av/container/output.py":137
  *         py_codec_context: CodecContext = wrap_codec_context(ctx, codec, None)
  *         py_stream: Stream = wrap_stream(self, stream, py_codec_context)
  *         self.streams.add_stream(py_stream)             # <<<<<<<<<<<<<<
  * 
  *         if options:
 */
-  ((struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *)__pyx_v_self->__pyx_base.streams->__pyx_vtab)->add_stream(__pyx_v_self->__pyx_base.streams, __pyx_v_py_stream); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 130, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *)__pyx_v_self->__pyx_base.streams->__pyx_vtab)->add_stream(__pyx_v_self->__pyx_base.streams, __pyx_v_py_stream); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 137, __pyx_L1_error)
 
-  /* "av/container/output.py":132
+  /* "av/container/output.py":139
  *         self.streams.add_stream(py_stream)
  * 
  *         if options:             # <<<<<<<<<<<<<<
  *             py_stream.options.update(options)
  * 
 */
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_options); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_options); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 139, __pyx_L1_error)
   if (__pyx_t_5) {
 
-    /* "av/container/output.py":133
+    /* "av/container/output.py":140
  * 
  *         if options:
  *             py_stream.options.update(options)             # <<<<<<<<<<<<<<
  * 
  *         for k, v in kwargs.items():
 */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_py_stream), __pyx_mstate_global->__pyx_n_u_options); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_py_stream), __pyx_mstate_global->__pyx_n_u_options); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 140, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_7 = __pyx_t_2;
     __Pyx_INCREF(__pyx_t_7);
@@ -4890,12 +4969,12 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 133, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 140, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "av/container/output.py":132
+    /* "av/container/output.py":139
  *         self.streams.add_stream(py_stream)
  * 
  *         if options:             # <<<<<<<<<<<<<<
@@ -4904,7 +4983,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
   }
 
-  /* "av/container/output.py":135
+  /* "av/container/output.py":142
  *             py_stream.options.update(options)
  * 
  *         for k, v in kwargs.items():             # <<<<<<<<<<<<<<
@@ -4912,7 +4991,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
  * 
 */
   __pyx_t_15 = 0;
-  __pyx_t_2 = __Pyx_dict_iterator(__pyx_v_kwargs, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_16), (&__pyx_t_10)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_dict_iterator(__pyx_v_kwargs, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_16), (&__pyx_t_10)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_2;
@@ -4920,7 +4999,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
   while (1) {
     __pyx_t_17 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_16, &__pyx_t_15, &__pyx_t_2, &__pyx_t_7, NULL, __pyx_t_10);
     if (unlikely(__pyx_t_17 == 0)) break;
-    if (unlikely(__pyx_t_17 == -1)) __PYX_ERR(0, 135, __pyx_L1_error)
+    if (unlikely(__pyx_t_17 == -1)) __PYX_ERR(0, 142, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_2);
@@ -4928,18 +5007,18 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
     __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_7);
     __pyx_t_7 = 0;
 
-    /* "av/container/output.py":136
+    /* "av/container/output.py":143
  * 
  *         for k, v in kwargs.items():
  *             setattr(py_stream, k, v)             # <<<<<<<<<<<<<<
  * 
  *         return py_stream
 */
-    __pyx_t_18 = PyObject_SetAttr(((PyObject *)__pyx_v_py_stream), __pyx_v_k, __pyx_v_v); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 136, __pyx_L1_error)
+    __pyx_t_18 = PyObject_SetAttr(((PyObject *)__pyx_v_py_stream), __pyx_v_k, __pyx_v_v); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 143, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/container/output.py":138
+  /* "av/container/output.py":145
  *             setattr(py_stream, k, v)
  * 
  *         return py_stream             # <<<<<<<<<<<<<<
@@ -4951,7 +5030,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
   __pyx_r = ((PyObject *)__pyx_v_py_stream);
   goto __pyx_L0;
 
-  /* "av/container/output.py":43
+  /* "av/container/output.py":50
  *             lib.av_packet_free(cython.address(self.packet_ptr))
  * 
  *     def add_stream(self, codec_name, rate=None, options: dict | None = None, **kwargs):             # <<<<<<<<<<<<<<
@@ -4979,7 +5058,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
   return __pyx_r;
 }
 
-/* "av/container/output.py":140
+/* "av/container/output.py":147
  *         return py_stream
  * 
  *     def add_mux_stream(self, codec_name: str, rate=None, **kwargs) -> Stream:             # <<<<<<<<<<<<<<
@@ -4988,15 +5067,15 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_4add_stream(s
 */
 
 /* Python wrapper */
-static struct __pyx_obj_2av_6stream_Stream *__pyx_pw_2av_9container_6output_15OutputContainer_7add_mux_stream(PyObject *__pyx_v_self, 
+static struct __pyx_obj_2av_6stream_Stream *__pyx_pw_2av_9container_6output_15OutputContainer_9add_mux_stream(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_6add_mux_stream, "add_mux_stream(codec_name, rate=None)\n\n        Creates a new stream for muxing pre-encoded data without creating a\n        :class:`.CodecContext`. Use this when you want to mux packets that were\n        already encoded externally and no encoding/decoding is needed.\n\n        :param codec_name: The name of a codec.\n        :type codec_name: str\n        :param \\**kwargs: Set attributes for the stream (e.g. ``width``, ``height``,\n            ``time_base``).\n        :rtype: The new :class:`~av.stream.Stream`.\n\n        ");
-static struct __pyx_obj_2av_6stream_Stream *__pyx_pw_2av_9container_6output_15OutputContainer_7add_mux_stream(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_8add_mux_stream, "add_mux_stream(codec_name, rate=None)\n\n        Creates a new stream for muxing pre-encoded data without creating a\n        :class:`.CodecContext`. Use this when you want to mux packets that were\n        already encoded externally and no encoding/decoding is needed.\n\n        :param codec_name: The name of a codec.\n        :type codec_name: str\n        :param \\**kwargs: Set attributes for the stream (e.g. ``width``, ``height``,\n            ``time_base``).\n        :rtype: The new :class:`~av.stream.Stream`.\n\n        ");
+static struct __pyx_obj_2av_6stream_Stream *__pyx_pw_2av_9container_6output_15OutputContainer_9add_mux_stream(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -5030,35 +5109,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_codec_name,&__pyx_mstate_global->__pyx_n_u_rate,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 140, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 147, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 140, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 147, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 140, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 147, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "add_mux_stream", 1) < (0)) __PYX_ERR(0, 140, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "add_mux_stream", 1) < (0)) __PYX_ERR(0, 147, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("add_mux_stream", 0, 1, 2, i); __PYX_ERR(0, 140, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("add_mux_stream", 0, 1, 2, i); __PYX_ERR(0, 147, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 140, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 147, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 140, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 147, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -5069,7 +5148,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("add_mux_stream", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 140, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("add_mux_stream", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 147, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5081,8 +5160,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_codec_name), (&PyUnicode_Type), 0, "codec_name", 2))) __PYX_ERR(0, 140, __pyx_L1_error)
-  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_6add_mux_stream(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_codec_name, __pyx_v_rate, __pyx_v_kwargs);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_codec_name), (&PyUnicode_Type), 0, "codec_name", 2))) __PYX_ERR(0, 147, __pyx_L1_error)
+  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_8add_mux_stream(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_codec_name, __pyx_v_rate, __pyx_v_kwargs);
 
   /* function exit code */
   goto __pyx_L0;
@@ -5102,7 +5181,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15OutputContainer_6add_mux_stream(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_codec_name, PyObject *__pyx_v_rate, PyObject *__pyx_v_kwargs) {
+static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15OutputContainer_8add_mux_stream(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_codec_name, PyObject *__pyx_v_rate, PyObject *__pyx_v_kwargs) {
   PyObject *__pyx_v_codec_name_bytes = 0;
   struct AVCodec const *__pyx_v_codec;
   struct AVCodecDescriptor const *__pyx_v_codec_descriptor;
@@ -5135,29 +5214,29 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("add_mux_stream", 0);
 
-  /* "av/container/output.py":155
+  /* "av/container/output.py":162
  *         """
  *         # Find the codec to get its id and type (try encoder first, then decoder).
  *         codec_name_bytes: bytes = codec_name.encode()             # <<<<<<<<<<<<<<
  *         codec: cython.pointer[cython.const[lib.AVCodec]] = (
  *             lib.avcodec_find_encoder_by_name(codec_name_bytes)
 */
-  __pyx_t_1 = PyUnicode_AsEncodedString(__pyx_v_codec_name, NULL, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 155, __pyx_L1_error)
+  __pyx_t_1 = PyUnicode_AsEncodedString(__pyx_v_codec_name, NULL, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 162, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_codec_name_bytes = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/container/output.py":157
+  /* "av/container/output.py":164
  *         codec_name_bytes: bytes = codec_name.encode()
  *         codec: cython.pointer[cython.const[lib.AVCodec]] = (
  *             lib.avcodec_find_encoder_by_name(codec_name_bytes)             # <<<<<<<<<<<<<<
  *         )
  *         codec_descriptor: cython.pointer[cython.const[lib.AVCodecDescriptor]] = (
 */
-  __pyx_t_2 = __Pyx_PyBytes_AsWritableString(__pyx_v_codec_name_bytes); if (unlikely((!__pyx_t_2) && PyErr_Occurred())) __PYX_ERR(0, 157, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBytes_AsWritableString(__pyx_v_codec_name_bytes); if (unlikely((!__pyx_t_2) && PyErr_Occurred())) __PYX_ERR(0, 164, __pyx_L1_error)
   __pyx_v_codec = avcodec_find_encoder_by_name(__pyx_t_2);
 
-  /* "av/container/output.py":160
+  /* "av/container/output.py":167
  *         )
  *         codec_descriptor: cython.pointer[cython.const[lib.AVCodecDescriptor]] = (
  *             cython.NULL             # <<<<<<<<<<<<<<
@@ -5166,7 +5245,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
   __pyx_v_codec_descriptor = NULL;
 
-  /* "av/container/output.py":162
+  /* "av/container/output.py":169
  *             cython.NULL
  *         )
  *         if codec == cython.NULL:             # <<<<<<<<<<<<<<
@@ -5176,17 +5255,17 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_t_3 = (__pyx_v_codec == NULL);
   if (__pyx_t_3) {
 
-    /* "av/container/output.py":163
+    /* "av/container/output.py":170
  *         )
  *         if codec == cython.NULL:
  *             codec = lib.avcodec_find_decoder_by_name(codec_name_bytes)             # <<<<<<<<<<<<<<
  *         if codec == cython.NULL:
  *             codec_descriptor = lib.avcodec_descriptor_get_by_name(codec_name_bytes)
 */
-    __pyx_t_2 = __Pyx_PyBytes_AsWritableString(__pyx_v_codec_name_bytes); if (unlikely((!__pyx_t_2) && PyErr_Occurred())) __PYX_ERR(0, 163, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyBytes_AsWritableString(__pyx_v_codec_name_bytes); if (unlikely((!__pyx_t_2) && PyErr_Occurred())) __PYX_ERR(0, 170, __pyx_L1_error)
     __pyx_v_codec = avcodec_find_decoder_by_name(__pyx_t_2);
 
-    /* "av/container/output.py":162
+    /* "av/container/output.py":169
  *             cython.NULL
  *         )
  *         if codec == cython.NULL:             # <<<<<<<<<<<<<<
@@ -5195,7 +5274,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
   }
 
-  /* "av/container/output.py":164
+  /* "av/container/output.py":171
  *         if codec == cython.NULL:
  *             codec = lib.avcodec_find_decoder_by_name(codec_name_bytes)
  *         if codec == cython.NULL:             # <<<<<<<<<<<<<<
@@ -5205,17 +5284,17 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_t_3 = (__pyx_v_codec == NULL);
   if (__pyx_t_3) {
 
-    /* "av/container/output.py":165
+    /* "av/container/output.py":172
  *             codec = lib.avcodec_find_decoder_by_name(codec_name_bytes)
  *         if codec == cython.NULL:
  *             codec_descriptor = lib.avcodec_descriptor_get_by_name(codec_name_bytes)             # <<<<<<<<<<<<<<
  *             if codec_descriptor == cython.NULL:
  *                 raise ValueError(f"Unknown codec: {codec_name!r}")
 */
-    __pyx_t_2 = __Pyx_PyBytes_AsWritableString(__pyx_v_codec_name_bytes); if (unlikely((!__pyx_t_2) && PyErr_Occurred())) __PYX_ERR(0, 165, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyBytes_AsWritableString(__pyx_v_codec_name_bytes); if (unlikely((!__pyx_t_2) && PyErr_Occurred())) __PYX_ERR(0, 172, __pyx_L1_error)
     __pyx_v_codec_descriptor = avcodec_descriptor_get_by_name(__pyx_t_2);
 
-    /* "av/container/output.py":166
+    /* "av/container/output.py":173
  *         if codec == cython.NULL:
  *             codec_descriptor = lib.avcodec_descriptor_get_by_name(codec_name_bytes)
  *             if codec_descriptor == cython.NULL:             # <<<<<<<<<<<<<<
@@ -5225,7 +5304,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
     __pyx_t_3 = (__pyx_v_codec_descriptor == NULL);
     if (unlikely(__pyx_t_3)) {
 
-      /* "av/container/output.py":167
+      /* "av/container/output.py":174
  *             codec_descriptor = lib.avcodec_descriptor_get_by_name(codec_name_bytes)
  *             if codec_descriptor == cython.NULL:
  *                 raise ValueError(f"Unknown codec: {codec_name!r}")             # <<<<<<<<<<<<<<
@@ -5233,9 +5312,9 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
  *         codec_id: lib.AVCodecID
 */
       __pyx_t_4 = NULL;
-      __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_codec_name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 167, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_codec_name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 174, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Unknown_codec, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 167, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Unknown_codec, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 174, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_7 = 1;
@@ -5244,14 +5323,14 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
         __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 167, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 174, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_Raise(__pyx_t_1, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(0, 167, __pyx_L1_error)
+      __PYX_ERR(0, 174, __pyx_L1_error)
 
-      /* "av/container/output.py":166
+      /* "av/container/output.py":173
  *         if codec == cython.NULL:
  *             codec_descriptor = lib.avcodec_descriptor_get_by_name(codec_name_bytes)
  *             if codec_descriptor == cython.NULL:             # <<<<<<<<<<<<<<
@@ -5260,7 +5339,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
     }
 
-    /* "av/container/output.py":164
+    /* "av/container/output.py":171
  *         if codec == cython.NULL:
  *             codec = lib.avcodec_find_decoder_by_name(codec_name_bytes)
  *         if codec == cython.NULL:             # <<<<<<<<<<<<<<
@@ -5269,7 +5348,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
   }
 
-  /* "av/container/output.py":171
+  /* "av/container/output.py":178
  *         codec_id: lib.AVCodecID
  *         codec_type: lib.AVMediaType
  *         if codec != cython.NULL:             # <<<<<<<<<<<<<<
@@ -5279,7 +5358,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_t_3 = (__pyx_v_codec != NULL);
   if (__pyx_t_3) {
 
-    /* "av/container/output.py":172
+    /* "av/container/output.py":179
  *         codec_type: lib.AVMediaType
  *         if codec != cython.NULL:
  *             codec_id = codec.id             # <<<<<<<<<<<<<<
@@ -5289,7 +5368,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
     __pyx_t_8 = __pyx_v_codec->id;
     __pyx_v_codec_id = __pyx_t_8;
 
-    /* "av/container/output.py":173
+    /* "av/container/output.py":180
  *         if codec != cython.NULL:
  *             codec_id = codec.id
  *             codec_type = codec.type             # <<<<<<<<<<<<<<
@@ -5299,7 +5378,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
     __pyx_t_9 = __pyx_v_codec->type;
     __pyx_v_codec_type = __pyx_t_9;
 
-    /* "av/container/output.py":171
+    /* "av/container/output.py":178
  *         codec_id: lib.AVCodecID
  *         codec_type: lib.AVMediaType
  *         if codec != cython.NULL:             # <<<<<<<<<<<<<<
@@ -5309,7 +5388,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
     goto __pyx_L6;
   }
 
-  /* "av/container/output.py":175
+  /* "av/container/output.py":182
  *             codec_type = codec.type
  *         else:
  *             codec_id = codec_descriptor.id             # <<<<<<<<<<<<<<
@@ -5320,7 +5399,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
     __pyx_t_8 = __pyx_v_codec_descriptor->id;
     __pyx_v_codec_id = __pyx_t_8;
 
-    /* "av/container/output.py":176
+    /* "av/container/output.py":183
  *         else:
  *             codec_id = codec_descriptor.id
  *             codec_type = codec_descriptor.type             # <<<<<<<<<<<<<<
@@ -5332,7 +5411,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   }
   __pyx_L6:;
 
-  /* "av/container/output.py":179
+  /* "av/container/output.py":186
  * 
  *         # Assert that this format supports the requested codec.
  *         if not lib.avformat_query_codec(             # <<<<<<<<<<<<<<
@@ -5342,7 +5421,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_t_3 = (!(avformat_query_codec(__pyx_v_self->__pyx_base.ptr->oformat, __pyx_v_codec_id, FF_COMPLIANCE_NORMAL) != 0));
   if (unlikely(__pyx_t_3)) {
 
-    /* "av/container/output.py":182
+    /* "av/container/output.py":189
  *             self.ptr.oformat, codec_id, lib.FF_COMPLIANCE_NORMAL
  *         ):
  *             raise ValueError(             # <<<<<<<<<<<<<<
@@ -5351,23 +5430,23 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
     __pyx_t_6 = NULL;
 
-    /* "av/container/output.py":183
+    /* "av/container/output.py":190
  *         ):
  *             raise ValueError(
  *                 f"{self.format.name!r} format does not support {codec_name!r} codec"             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_self->__pyx_base.format->name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 183, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_self->__pyx_base.format->name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_codec_name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 183, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_codec_name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_10[0] = __pyx_t_4;
     __pyx_t_10[1] = __pyx_mstate_global->__pyx_kp_u_format_does_not_support;
     __pyx_t_10[2] = __pyx_t_5;
     __pyx_t_10[3] = __pyx_mstate_global->__pyx_kp_u_codec;
     __pyx_t_11 = __Pyx_PyUnicode_Join(__pyx_t_10, 4, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + 25 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 6, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5));
-    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 183, __pyx_L1_error)
+    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -5377,14 +5456,14 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 182, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 189, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 182, __pyx_L1_error)
+    __PYX_ERR(0, 189, __pyx_L1_error)
 
-    /* "av/container/output.py":179
+    /* "av/container/output.py":186
  * 
  *         # Assert that this format supports the requested codec.
  *         if not lib.avformat_query_codec(             # <<<<<<<<<<<<<<
@@ -5393,7 +5472,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
   }
 
-  /* "av/container/output.py":187
+  /* "av/container/output.py":194
  * 
  *         # Create stream with no codec context.
  *         stream: cython.pointer[lib.AVStream] = lib.avformat_new_stream(             # <<<<<<<<<<<<<<
@@ -5402,7 +5481,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
   __pyx_v_stream = avformat_new_stream(__pyx_v_self->__pyx_base.ptr, NULL);
 
-  /* "av/container/output.py":190
+  /* "av/container/output.py":197
  *             self.ptr, cython.NULL
  *         )
  *         if stream == cython.NULL:             # <<<<<<<<<<<<<<
@@ -5412,7 +5491,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_t_3 = (__pyx_v_stream == NULL);
   if (unlikely(__pyx_t_3)) {
 
-    /* "av/container/output.py":191
+    /* "av/container/output.py":198
  *         )
  *         if stream == cython.NULL:
  *             raise MemoryError("Could not allocate stream")             # <<<<<<<<<<<<<<
@@ -5425,14 +5504,14 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
       PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_mstate_global->__pyx_kp_u_Could_not_allocate_stream};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 191, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 198, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 191, __pyx_L1_error)
+    __PYX_ERR(0, 198, __pyx_L1_error)
 
-    /* "av/container/output.py":190
+    /* "av/container/output.py":197
  *             self.ptr, cython.NULL
  *         )
  *         if stream == cython.NULL:             # <<<<<<<<<<<<<<
@@ -5441,7 +5520,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
   }
 
-  /* "av/container/output.py":193
+  /* "av/container/output.py":200
  *             raise MemoryError("Could not allocate stream")
  * 
  *         stream.codecpar.codec_id = codec_id             # <<<<<<<<<<<<<<
@@ -5450,7 +5529,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
   __pyx_v_stream->codecpar->codec_id = __pyx_v_codec_id;
 
-  /* "av/container/output.py":194
+  /* "av/container/output.py":201
  * 
  *         stream.codecpar.codec_id = codec_id
  *         stream.codecpar.codec_type = codec_type             # <<<<<<<<<<<<<<
@@ -5459,7 +5538,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
   __pyx_v_stream->codecpar->codec_type = __pyx_v_codec_type;
 
-  /* "av/container/output.py":196
+  /* "av/container/output.py":203
  *         stream.codecpar.codec_type = codec_type
  * 
  *         if codec_type == lib.AVMEDIA_TYPE_VIDEO:             # <<<<<<<<<<<<<<
@@ -5469,33 +5548,33 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   switch (__pyx_v_codec_type) {
     case AVMEDIA_TYPE_VIDEO:
 
-    /* "av/container/output.py":197
+    /* "av/container/output.py":204
  * 
  *         if codec_type == lib.AVMEDIA_TYPE_VIDEO:
  *             stream.codecpar.width = kwargs.pop("width", 0)             # <<<<<<<<<<<<<<
  *             stream.codecpar.height = kwargs.pop("height", 0)
  *             if rate is not None:
 */
-    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_width, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 197, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_width, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 204, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_12 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_12 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 197, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_12 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 204, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_stream->codecpar->width = __pyx_t_12;
 
-    /* "av/container/output.py":198
+    /* "av/container/output.py":205
  *         if codec_type == lib.AVMEDIA_TYPE_VIDEO:
  *             stream.codecpar.width = kwargs.pop("width", 0)
  *             stream.codecpar.height = kwargs.pop("height", 0)             # <<<<<<<<<<<<<<
  *             if rate is not None:
  *                 to_avrational(rate, cython.address(stream.avg_frame_rate))
 */
-    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_height, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 198, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_height, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 205, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_12 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_12 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 198, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_12 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 205, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_stream->codecpar->height = __pyx_t_12;
 
-    /* "av/container/output.py":199
+    /* "av/container/output.py":206
  *             stream.codecpar.width = kwargs.pop("width", 0)
  *             stream.codecpar.height = kwargs.pop("height", 0)
  *             if rate is not None:             # <<<<<<<<<<<<<<
@@ -5505,16 +5584,16 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
     __pyx_t_3 = (__pyx_v_rate != Py_None);
     if (__pyx_t_3) {
 
-      /* "av/container/output.py":200
+      /* "av/container/output.py":207
  *             stream.codecpar.height = kwargs.pop("height", 0)
  *             if rate is not None:
  *                 to_avrational(rate, cython.address(stream.avg_frame_rate))             # <<<<<<<<<<<<<<
  *         elif codec_type == lib.AVMEDIA_TYPE_AUDIO:
  *             if rate is not None:
 */
-      __pyx_f_2av_5utils_to_avrational(__pyx_v_rate, (&__pyx_v_stream->avg_frame_rate)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 200, __pyx_L1_error)
+      __pyx_f_2av_5utils_to_avrational(__pyx_v_rate, (&__pyx_v_stream->avg_frame_rate)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 207, __pyx_L1_error)
 
-      /* "av/container/output.py":199
+      /* "av/container/output.py":206
  *             stream.codecpar.width = kwargs.pop("width", 0)
  *             stream.codecpar.height = kwargs.pop("height", 0)
  *             if rate is not None:             # <<<<<<<<<<<<<<
@@ -5523,7 +5602,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
     }
 
-    /* "av/container/output.py":196
+    /* "av/container/output.py":203
  *         stream.codecpar.codec_type = codec_type
  * 
  *         if codec_type == lib.AVMEDIA_TYPE_VIDEO:             # <<<<<<<<<<<<<<
@@ -5533,7 +5612,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
     break;
     case AVMEDIA_TYPE_AUDIO:
 
-    /* "av/container/output.py":202
+    /* "av/container/output.py":209
  *                 to_avrational(rate, cython.address(stream.avg_frame_rate))
  *         elif codec_type == lib.AVMEDIA_TYPE_AUDIO:
  *             if rate is not None:             # <<<<<<<<<<<<<<
@@ -5543,7 +5622,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
     __pyx_t_3 = (__pyx_v_rate != Py_None);
     if (__pyx_t_3) {
 
-      /* "av/container/output.py":203
+      /* "av/container/output.py":210
  *         elif codec_type == lib.AVMEDIA_TYPE_AUDIO:
  *             if rate is not None:
  *                 if type(rate) is int:             # <<<<<<<<<<<<<<
@@ -5553,17 +5632,17 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
       __pyx_t_3 = (((PyObject *)Py_TYPE(__pyx_v_rate)) == ((PyObject *)(&PyLong_Type)));
       if (likely(__pyx_t_3)) {
 
-        /* "av/container/output.py":204
+        /* "av/container/output.py":211
  *             if rate is not None:
  *                 if type(rate) is int:
  *                     stream.codecpar.sample_rate = rate             # <<<<<<<<<<<<<<
  *                 else:
  *                     raise TypeError("audio stream `rate` must be: int | None")
 */
-        __pyx_t_12 = __Pyx_PyLong_As_int(__pyx_v_rate); if (unlikely((__pyx_t_12 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 204, __pyx_L1_error)
+        __pyx_t_12 = __Pyx_PyLong_As_int(__pyx_v_rate); if (unlikely((__pyx_t_12 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 211, __pyx_L1_error)
         __pyx_v_stream->codecpar->sample_rate = __pyx_t_12;
 
-        /* "av/container/output.py":203
+        /* "av/container/output.py":210
  *         elif codec_type == lib.AVMEDIA_TYPE_AUDIO:
  *             if rate is not None:
  *                 if type(rate) is int:             # <<<<<<<<<<<<<<
@@ -5573,7 +5652,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
         goto __pyx_L11;
       }
 
-      /* "av/container/output.py":206
+      /* "av/container/output.py":213
  *                     stream.codecpar.sample_rate = rate
  *                 else:
  *                     raise TypeError("audio stream `rate` must be: int | None")             # <<<<<<<<<<<<<<
@@ -5587,16 +5666,16 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
           PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_mstate_global->__pyx_kp_u_audio_stream_rate_must_be_int_No};
           __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 206, __pyx_L1_error)
+          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 213, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_1);
         }
         __Pyx_Raise(__pyx_t_1, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        __PYX_ERR(0, 206, __pyx_L1_error)
+        __PYX_ERR(0, 213, __pyx_L1_error)
       }
       __pyx_L11:;
 
-      /* "av/container/output.py":202
+      /* "av/container/output.py":209
  *                 to_avrational(rate, cython.address(stream.avg_frame_rate))
  *         elif codec_type == lib.AVMEDIA_TYPE_AUDIO:
  *             if rate is not None:             # <<<<<<<<<<<<<<
@@ -5605,7 +5684,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
     }
 
-    /* "av/container/output.py":201
+    /* "av/container/output.py":208
  *             if rate is not None:
  *                 to_avrational(rate, cython.address(stream.avg_frame_rate))
  *         elif codec_type == lib.AVMEDIA_TYPE_AUDIO:             # <<<<<<<<<<<<<<
@@ -5616,28 +5695,28 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
     default: break;
   }
 
-  /* "av/container/output.py":209
+  /* "av/container/output.py":216
  * 
  *         # Construct the user-land stream (no codec context).
  *         py_stream: Stream = wrap_stream(self, stream, None)             # <<<<<<<<<<<<<<
  *         self.streams.add_stream(py_stream)
  * 
 */
-  __pyx_t_1 = ((PyObject *)__pyx_f_2av_6stream_wrap_stream(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_stream, ((struct __pyx_obj_2av_5codec_7context_CodecContext *)Py_None))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_2av_6stream_wrap_stream(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_stream, ((struct __pyx_obj_2av_5codec_7context_CodecContext *)Py_None))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_py_stream = ((struct __pyx_obj_2av_6stream_Stream *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/container/output.py":210
+  /* "av/container/output.py":217
  *         # Construct the user-land stream (no codec context).
  *         py_stream: Stream = wrap_stream(self, stream, None)
  *         self.streams.add_stream(py_stream)             # <<<<<<<<<<<<<<
  * 
  *         for k, v in kwargs.items():
 */
-  ((struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *)__pyx_v_self->__pyx_base.streams->__pyx_vtab)->add_stream(__pyx_v_self->__pyx_base.streams, __pyx_v_py_stream); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 210, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *)__pyx_v_self->__pyx_base.streams->__pyx_vtab)->add_stream(__pyx_v_self->__pyx_base.streams, __pyx_v_py_stream); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 217, __pyx_L1_error)
 
-  /* "av/container/output.py":212
+  /* "av/container/output.py":219
  *         self.streams.add_stream(py_stream)
  * 
  *         for k, v in kwargs.items():             # <<<<<<<<<<<<<<
@@ -5645,7 +5724,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
  * 
 */
   __pyx_t_13 = 0;
-  __pyx_t_11 = __Pyx_dict_iterator(__pyx_v_kwargs, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_14), (&__pyx_t_12)); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_dict_iterator(__pyx_v_kwargs, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_14), (&__pyx_t_12)); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 219, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_11;
@@ -5653,7 +5732,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   while (1) {
     __pyx_t_15 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_14, &__pyx_t_13, &__pyx_t_11, &__pyx_t_6, NULL, __pyx_t_12);
     if (unlikely(__pyx_t_15 == 0)) break;
-    if (unlikely(__pyx_t_15 == -1)) __PYX_ERR(0, 212, __pyx_L1_error)
+    if (unlikely(__pyx_t_15 == -1)) __PYX_ERR(0, 219, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_11);
@@ -5661,18 +5740,18 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
     __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_6);
     __pyx_t_6 = 0;
 
-    /* "av/container/output.py":213
+    /* "av/container/output.py":220
  * 
  *         for k, v in kwargs.items():
  *             setattr(py_stream, k, v)             # <<<<<<<<<<<<<<
  * 
  *         return py_stream
 */
-    __pyx_t_16 = PyObject_SetAttr(((PyObject *)__pyx_v_py_stream), __pyx_v_k, __pyx_v_v); if (unlikely(__pyx_t_16 == ((int)-1))) __PYX_ERR(0, 213, __pyx_L1_error)
+    __pyx_t_16 = PyObject_SetAttr(((PyObject *)__pyx_v_py_stream), __pyx_v_k, __pyx_v_v); if (unlikely(__pyx_t_16 == ((int)-1))) __PYX_ERR(0, 220, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/container/output.py":215
+  /* "av/container/output.py":222
  *             setattr(py_stream, k, v)
  * 
  *         return py_stream             # <<<<<<<<<<<<<<
@@ -5684,7 +5763,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_r = __pyx_v_py_stream;
   goto __pyx_L0;
 
-  /* "av/container/output.py":140
+  /* "av/container/output.py":147
  *         return py_stream
  * 
  *     def add_mux_stream(self, codec_name: str, rate=None, **kwargs) -> Stream:             # <<<<<<<<<<<<<<
@@ -5711,7 +5790,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   return __pyx_r;
 }
 
-/* "av/container/output.py":217
+/* "av/container/output.py":224
  *         return py_stream
  * 
  *     def add_stream_from_template(             # <<<<<<<<<<<<<<
@@ -5720,15 +5799,15 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_9add_stream_from_template(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_11add_stream_from_template(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_8add_stream_from_template, "OutputContainer.add_stream_from_template(Stream template: Stream, bool opaque: bool | None = None, **kwargs)\n\nCreates a new stream from a template. Supports video, audio, subtitle, data and attachment streams.\n\n:param template: Copy codec from another :class:`~av.stream.Stream` instance.\n:param opaque: If True, copy opaque data from the template's codec context.\n:param \\**kwargs: Set attributes for the stream.\n:rtype: The new :class:`~av.stream.Stream`.");
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_9add_stream_from_template(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_10add_stream_from_template, "OutputContainer.add_stream_from_template(Stream template: Stream, bool opaque: bool | None = None, **kwargs)\n\nCreates a new stream from a template. Supports video, audio, subtitle, data and attachment streams.\n\n:param template: Copy codec from another :class:`~av.stream.Stream` instance.\n:param opaque: If True, copy opaque data from the template's codec context.\n:param \\**kwargs: Set attributes for the stream.\n:rtype: The new :class:`~av.stream.Stream`.");
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_11add_stream_from_template(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -5762,24 +5841,24 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_template,&__pyx_mstate_global->__pyx_n_u_opaque,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 217, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 224, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 217, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 224, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 217, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 224, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "add_stream_from_template", 1) < (0)) __PYX_ERR(0, 217, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "add_stream_from_template", 1) < (0)) __PYX_ERR(0, 224, __pyx_L3_error)
 
-      /* "av/container/output.py":218
+      /* "av/container/output.py":225
  * 
  *     def add_stream_from_template(
  *         self, template: Stream, opaque: bool | None = None, **kwargs             # <<<<<<<<<<<<<<
@@ -5788,17 +5867,17 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject*)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("add_stream_from_template", 0, 1, 2, i); __PYX_ERR(0, 217, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("add_stream_from_template", 0, 1, 2, i); __PYX_ERR(0, 224, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 217, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 224, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 217, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 224, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -5809,7 +5888,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("add_stream_from_template", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 217, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("add_stream_from_template", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 224, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5821,11 +5900,11 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_template), __pyx_mstate_global->__pyx_ptype_2av_6stream_Stream, 0, "template", 0))) __PYX_ERR(0, 218, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_opaque), (&PyBool_Type), 1, "opaque", 2))) __PYX_ERR(0, 218, __pyx_L1_error)
-  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_from_template(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_template, __pyx_v_opaque, __pyx_v_kwargs);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_template), __pyx_mstate_global->__pyx_ptype_2av_6stream_Stream, 0, "template", 0))) __PYX_ERR(0, 225, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_opaque), (&PyBool_Type), 1, "opaque", 2))) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_10add_stream_from_template(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_template, __pyx_v_opaque, __pyx_v_kwargs);
 
-  /* "av/container/output.py":217
+  /* "av/container/output.py":224
  *         return py_stream
  * 
  *     def add_stream_from_template(             # <<<<<<<<<<<<<<
@@ -5851,7 +5930,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_from_template(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, struct __pyx_obj_2av_6stream_Stream *__pyx_v_template, PyObject *__pyx_v_opaque, PyObject *__pyx_v_kwargs) {
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_10add_stream_from_template(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, struct __pyx_obj_2av_6stream_Stream *__pyx_v_template, PyObject *__pyx_v_opaque, PyObject *__pyx_v_kwargs) {
   struct __pyx_obj_2av_5codec_5codec_Codec *__pyx_v_codec_obj = 0;
   struct AVCodec const *__pyx_v_codec;
   struct AVStream *__pyx_v_stream;
@@ -5883,7 +5962,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
   __Pyx_RefNannySetupContext("add_stream_from_template", 0);
   __Pyx_INCREF(__pyx_v_opaque);
 
-  /* "av/container/output.py":228
+  /* "av/container/output.py":235
  *         :rtype: The new :class:`~av.stream.Stream`.
  *         """
  *         if opaque is None:             # <<<<<<<<<<<<<<
@@ -5893,22 +5972,22 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
   __pyx_t_1 = (__pyx_v_opaque == ((PyObject*)Py_None));
   if (__pyx_t_1) {
 
-    /* "av/container/output.py":229
+    /* "av/container/output.py":236
  *         """
  *         if opaque is None:
  *             opaque = template.type != "video"             # <<<<<<<<<<<<<<
  * 
  *         if template.codec_context is None:
 */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_template), __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 229, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_template), __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 236, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = PyObject_RichCompare(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_video, Py_NE); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 229, __pyx_L1_error)
+    __pyx_t_3 = PyObject_RichCompare(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_video, Py_NE); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 236, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (!(likely(PyBool_Check(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bool", __pyx_t_3))) __PYX_ERR(0, 229, __pyx_L1_error)
+    if (!(likely(PyBool_Check(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bool", __pyx_t_3))) __PYX_ERR(0, 236, __pyx_L1_error)
     __Pyx_DECREF_SET(__pyx_v_opaque, ((PyObject*)__pyx_t_3));
     __pyx_t_3 = 0;
 
-    /* "av/container/output.py":228
+    /* "av/container/output.py":235
  *         :rtype: The new :class:`~av.stream.Stream`.
  *         """
  *         if opaque is None:             # <<<<<<<<<<<<<<
@@ -5917,7 +5996,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
 */
   }
 
-  /* "av/container/output.py":231
+  /* "av/container/output.py":238
  *             opaque = template.type != "video"
  * 
  *         if template.codec_context is None:             # <<<<<<<<<<<<<<
@@ -5927,7 +6006,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
   __pyx_t_1 = (((PyObject *)__pyx_v_template->codec_context) == Py_None);
   if (__pyx_t_1) {
 
-    /* "av/container/output.py":232
+    /* "av/container/output.py":239
  * 
  *         if template.codec_context is None:
  *             return self._add_stream_without_codec_from_template(template, **kwargs)             # <<<<<<<<<<<<<<
@@ -5936,9 +6015,9 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_2 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_add_stream_without_codec_from_t); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 232, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_add_stream_without_codec_from_t); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 239, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 232, __pyx_L1_error)
+    __pyx_t_5 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 239, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -5958,14 +6037,14 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 232, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 239, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "av/container/output.py":231
+    /* "av/container/output.py":238
  *             opaque = template.type != "video"
  * 
  *         if template.codec_context is None:             # <<<<<<<<<<<<<<
@@ -5974,17 +6053,17 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
 */
   }
 
-  /* "av/container/output.py":235
+  /* "av/container/output.py":242
  * 
  *         codec_obj: Codec
  *         if opaque:  # Copy ctx from template.             # <<<<<<<<<<<<<<
  *             codec_obj = template.codec_context.codec
  *         else:  # Construct new codec object.
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_opaque); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 235, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_opaque); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 242, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "av/container/output.py":236
+    /* "av/container/output.py":243
  *         codec_obj: Codec
  *         if opaque:  # Copy ctx from template.
  *             codec_obj = template.codec_context.codec             # <<<<<<<<<<<<<<
@@ -5996,7 +6075,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
     __pyx_v_codec_obj = ((struct __pyx_obj_2av_5codec_5codec_Codec *)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "av/container/output.py":235
+    /* "av/container/output.py":242
  * 
  *         codec_obj: Codec
  *         if opaque:  # Copy ctx from template.             # <<<<<<<<<<<<<<
@@ -6006,7 +6085,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
     goto __pyx_L5;
   }
 
-  /* "av/container/output.py":238
+  /* "av/container/output.py":245
  *             codec_obj = template.codec_context.codec
  *         else:  # Construct new codec object.
  *             codec_obj = Codec(template.codec_context.codec.name, "w")             # <<<<<<<<<<<<<<
@@ -6015,7 +6094,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
 */
   /*else*/ {
     __pyx_t_4 = NULL;
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_template->codec_context->codec), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 238, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_template->codec_context->codec), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 245, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6 = 1;
     {
@@ -6023,7 +6102,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5codec_5codec_Codec, __pyx_callargs+__pyx_t_6, (3-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 238, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 245, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_3);
     }
     __pyx_v_codec_obj = ((struct __pyx_obj_2av_5codec_5codec_Codec *)__pyx_t_3);
@@ -6031,7 +6110,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
   }
   __pyx_L5:;
 
-  /* "av/container/output.py":240
+  /* "av/container/output.py":247
  *             codec_obj = Codec(template.codec_context.codec.name, "w")
  * 
  *         codec: cython.pointer[cython.const[lib.AVCodec]] = codec_obj.ptr             # <<<<<<<<<<<<<<
@@ -6041,7 +6120,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
   __pyx_t_7 = __pyx_v_codec_obj->ptr;
   __pyx_v_codec = __pyx_t_7;
 
-  /* "av/container/output.py":243
+  /* "av/container/output.py":250
  * 
  *         # Assert that this format supports the requested codec.
  *         if not lib.avformat_query_codec(             # <<<<<<<<<<<<<<
@@ -6051,7 +6130,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
   __pyx_t_1 = (!(avformat_query_codec(__pyx_v_self->__pyx_base.ptr->oformat, __pyx_v_codec->id, FF_COMPLIANCE_NORMAL) != 0));
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/container/output.py":246
+    /* "av/container/output.py":253
  *             self.ptr.oformat, codec.id, lib.FF_COMPLIANCE_NORMAL
  *         ):
  *             raise ValueError(             # <<<<<<<<<<<<<<
@@ -6060,18 +6139,18 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
 */
     __pyx_t_5 = NULL;
 
-    /* "av/container/output.py":247
+    /* "av/container/output.py":254
  *         ):
  *             raise ValueError(
  *                 f"{self.format.name!r} format does not support {codec_obj.name!r} codec"             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_self->__pyx_base.format->name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 247, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_self->__pyx_base.format->name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 254, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_codec_obj), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 247, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_codec_obj), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 254, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_2), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 247, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_2), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 254, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_9[0] = __pyx_t_4;
@@ -6079,7 +6158,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
     __pyx_t_9[2] = __pyx_t_8;
     __pyx_t_9[3] = __pyx_mstate_global->__pyx_kp_u_codec;
     __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_9, 4, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + 25 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8) + 6, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8));
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 247, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 254, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -6089,14 +6168,14 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 246, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 253, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 246, __pyx_L1_error)
+    __PYX_ERR(0, 253, __pyx_L1_error)
 
-    /* "av/container/output.py":243
+    /* "av/container/output.py":250
  * 
  *         # Assert that this format supports the requested codec.
  *         if not lib.avformat_query_codec(             # <<<<<<<<<<<<<<
@@ -6105,7 +6184,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
 */
   }
 
-  /* "av/container/output.py":251
+  /* "av/container/output.py":258
  * 
  *         # Create new stream in the AVFormatContext, set AVCodecContext values.
  *         stream: cython.pointer[lib.AVStream] = lib.avformat_new_stream(self.ptr, codec)             # <<<<<<<<<<<<<<
@@ -6114,7 +6193,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
 */
   __pyx_v_stream = avformat_new_stream(__pyx_v_self->__pyx_base.ptr, __pyx_v_codec);
 
-  /* "av/container/output.py":252
+  /* "av/container/output.py":259
  *         # Create new stream in the AVFormatContext, set AVCodecContext values.
  *         stream: cython.pointer[lib.AVStream] = lib.avformat_new_stream(self.ptr, codec)
  *         ctx: cython.pointer[lib.AVCodecContext] = lib.avcodec_alloc_context3(codec)             # <<<<<<<<<<<<<<
@@ -6123,16 +6202,16 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
 */
   __pyx_v_ctx = avcodec_alloc_context3(__pyx_v_codec);
 
-  /* "av/container/output.py":254
+  /* "av/container/output.py":261
  *         ctx: cython.pointer[lib.AVCodecContext] = lib.avcodec_alloc_context3(codec)
  * 
  *         err_check(lib.avcodec_parameters_to_context(ctx, template.ptr.codecpar))             # <<<<<<<<<<<<<<
  *         # Reset the codec tag assuming we are remuxing.
  *         ctx.codec_tag = 0
 */
-  __pyx_t_10 = __pyx_f_2av_5error_err_check(avcodec_parameters_to_context(__pyx_v_ctx, __pyx_v_template->ptr->codecpar), 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 254, __pyx_L1_error)
+  __pyx_t_10 = __pyx_f_2av_5error_err_check(avcodec_parameters_to_context(__pyx_v_ctx, __pyx_v_template->ptr->codecpar), 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 261, __pyx_L1_error)
 
-  /* "av/container/output.py":256
+  /* "av/container/output.py":263
  *         err_check(lib.avcodec_parameters_to_context(ctx, template.ptr.codecpar))
  *         # Reset the codec tag assuming we are remuxing.
  *         ctx.codec_tag = 0             # <<<<<<<<<<<<<<
@@ -6141,7 +6220,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
 */
   __pyx_v_ctx->codec_tag = 0;
 
-  /* "av/container/output.py":259
+  /* "av/container/output.py":266
  * 
  *         # Some formats want stream headers to be separate
  *         if self.ptr.oformat.flags & lib.AVFMT_GLOBALHEADER:             # <<<<<<<<<<<<<<
@@ -6151,7 +6230,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
   __pyx_t_1 = ((__pyx_v_self->__pyx_base.ptr->oformat->flags & AVFMT_GLOBALHEADER) != 0);
   if (__pyx_t_1) {
 
-    /* "av/container/output.py":260
+    /* "av/container/output.py":267
  *         # Some formats want stream headers to be separate
  *         if self.ptr.oformat.flags & lib.AVFMT_GLOBALHEADER:
  *             ctx.flags |= lib.AV_CODEC_FLAG_GLOBAL_HEADER             # <<<<<<<<<<<<<<
@@ -6160,7 +6239,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
 */
     __pyx_v_ctx->flags = (__pyx_v_ctx->flags | AV_CODEC_FLAG_GLOBAL_HEADER);
 
-    /* "av/container/output.py":259
+    /* "av/container/output.py":266
  * 
  *         # Some formats want stream headers to be separate
  *         if self.ptr.oformat.flags & lib.AVFMT_GLOBALHEADER:             # <<<<<<<<<<<<<<
@@ -6169,31 +6248,31 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
 */
   }
 
-  /* "av/container/output.py":264
+  /* "av/container/output.py":271
  *         # Copy flags If we're creating a new codec object. This fixes some muxing issues.
  *         # Overwriting `ctx.flags |= lib.AV_CODEC_FLAG_GLOBAL_HEADER` is intentional.
  *         if not opaque:             # <<<<<<<<<<<<<<
  *             ctx.flags = template.codec_context.flags
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_opaque); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 264, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_opaque); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 271, __pyx_L1_error)
   __pyx_t_11 = (!__pyx_t_1);
   if (__pyx_t_11) {
 
-    /* "av/container/output.py":265
+    /* "av/container/output.py":272
  *         # Overwriting `ctx.flags |= lib.AV_CODEC_FLAG_GLOBAL_HEADER` is intentional.
  *         if not opaque:
  *             ctx.flags = template.codec_context.flags             # <<<<<<<<<<<<<<
  * 
  *         # Initialize stream codec parameters to populate the codec type. Subsequent changes to
 */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_template->codec_context), __pyx_mstate_global->__pyx_n_u_flags); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 265, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_template->codec_context), __pyx_mstate_global->__pyx_n_u_flags); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 272, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_3); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 265, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_3); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 272, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_ctx->flags = __pyx_t_10;
 
-    /* "av/container/output.py":264
+    /* "av/container/output.py":271
  *         # Copy flags If we're creating a new codec object. This fixes some muxing issues.
  *         # Overwriting `ctx.flags |= lib.AV_CODEC_FLAG_GLOBAL_HEADER` is intentional.
  *         if not opaque:             # <<<<<<<<<<<<<<
@@ -6202,58 +6281,58 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
 */
   }
 
-  /* "av/container/output.py":269
+  /* "av/container/output.py":276
  *         # Initialize stream codec parameters to populate the codec type. Subsequent changes to
  *         # the codec context will be applied just before encoding starts in `start_encoding()`.
  *         err_check(lib.avcodec_parameters_from_context(stream.codecpar, ctx))             # <<<<<<<<<<<<<<
  * 
  *         # Construct the user-land stream
 */
-  __pyx_t_10 = __pyx_f_2av_5error_err_check(avcodec_parameters_from_context(__pyx_v_stream->codecpar, __pyx_v_ctx), 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 269, __pyx_L1_error)
+  __pyx_t_10 = __pyx_f_2av_5error_err_check(avcodec_parameters_from_context(__pyx_v_stream->codecpar, __pyx_v_ctx), 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 276, __pyx_L1_error)
 
-  /* "av/container/output.py":272
+  /* "av/container/output.py":279
  * 
  *         # Construct the user-land stream
  *         py_codec_context: CodecContext = wrap_codec_context(ctx, codec, None)             # <<<<<<<<<<<<<<
- *         py_codec_context._template_initialized = True
+ *         py_codec_context._ctxflags |= 1  # _template_initialized = True
  *         py_stream: Stream = wrap_stream(self, stream, py_codec_context)
 */
-  __pyx_t_3 = ((PyObject *)__pyx_f_2av_5codec_7context_wrap_codec_context(__pyx_v_ctx, __pyx_v_codec, ((struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)Py_None))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 272, __pyx_L1_error)
+  __pyx_t_3 = ((PyObject *)__pyx_f_2av_5codec_7context_wrap_codec_context(__pyx_v_ctx, __pyx_v_codec, ((struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)Py_None))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 279, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_v_py_codec_context = ((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "av/container/output.py":273
+  /* "av/container/output.py":280
  *         # Construct the user-land stream
  *         py_codec_context: CodecContext = wrap_codec_context(ctx, codec, None)
- *         py_codec_context._template_initialized = True             # <<<<<<<<<<<<<<
+ *         py_codec_context._ctxflags |= 1  # _template_initialized = True             # <<<<<<<<<<<<<<
  *         py_stream: Stream = wrap_stream(self, stream, py_codec_context)
  *         self.streams.add_stream(py_stream)
 */
-  __pyx_v_py_codec_context->_template_initialized = 1;
+  __pyx_v_py_codec_context->_ctxflags = (__pyx_v_py_codec_context->_ctxflags | 1);
 
-  /* "av/container/output.py":274
+  /* "av/container/output.py":281
  *         py_codec_context: CodecContext = wrap_codec_context(ctx, codec, None)
- *         py_codec_context._template_initialized = True
+ *         py_codec_context._ctxflags |= 1  # _template_initialized = True
  *         py_stream: Stream = wrap_stream(self, stream, py_codec_context)             # <<<<<<<<<<<<<<
  *         self.streams.add_stream(py_stream)
  * 
 */
-  __pyx_t_3 = ((PyObject *)__pyx_f_2av_6stream_wrap_stream(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_stream, __pyx_v_py_codec_context)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 274, __pyx_L1_error)
+  __pyx_t_3 = ((PyObject *)__pyx_f_2av_6stream_wrap_stream(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_stream, __pyx_v_py_codec_context)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 281, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_v_py_stream = ((struct __pyx_obj_2av_6stream_Stream *)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "av/container/output.py":275
- *         py_codec_context._template_initialized = True
+  /* "av/container/output.py":282
+ *         py_codec_context._ctxflags |= 1  # _template_initialized = True
  *         py_stream: Stream = wrap_stream(self, stream, py_codec_context)
  *         self.streams.add_stream(py_stream)             # <<<<<<<<<<<<<<
  * 
  *         for k, v in kwargs.items():
 */
-  ((struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *)__pyx_v_self->__pyx_base.streams->__pyx_vtab)->add_stream(__pyx_v_self->__pyx_base.streams, __pyx_v_py_stream); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 275, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *)__pyx_v_self->__pyx_base.streams->__pyx_vtab)->add_stream(__pyx_v_self->__pyx_base.streams, __pyx_v_py_stream); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 282, __pyx_L1_error)
 
-  /* "av/container/output.py":277
+  /* "av/container/output.py":284
  *         self.streams.add_stream(py_stream)
  * 
  *         for k, v in kwargs.items():             # <<<<<<<<<<<<<<
@@ -6261,7 +6340,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
  * 
 */
   __pyx_t_12 = 0;
-  __pyx_t_2 = __Pyx_dict_iterator(__pyx_v_kwargs, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_13), (&__pyx_t_10)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 277, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_dict_iterator(__pyx_v_kwargs, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_13), (&__pyx_t_10)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 284, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
   __pyx_t_3 = __pyx_t_2;
@@ -6269,7 +6348,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
   while (1) {
     __pyx_t_14 = __Pyx_dict_iter_next(__pyx_t_3, __pyx_t_13, &__pyx_t_12, &__pyx_t_2, &__pyx_t_5, NULL, __pyx_t_10);
     if (unlikely(__pyx_t_14 == 0)) break;
-    if (unlikely(__pyx_t_14 == -1)) __PYX_ERR(0, 277, __pyx_L1_error)
+    if (unlikely(__pyx_t_14 == -1)) __PYX_ERR(0, 284, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_2);
@@ -6277,18 +6356,18 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
     __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_5);
     __pyx_t_5 = 0;
 
-    /* "av/container/output.py":278
+    /* "av/container/output.py":285
  * 
  *         for k, v in kwargs.items():
  *             setattr(py_stream, k, v)             # <<<<<<<<<<<<<<
  * 
  *         return py_stream
 */
-    __pyx_t_15 = PyObject_SetAttr(((PyObject *)__pyx_v_py_stream), __pyx_v_k, __pyx_v_v); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(0, 278, __pyx_L1_error)
+    __pyx_t_15 = PyObject_SetAttr(((PyObject *)__pyx_v_py_stream), __pyx_v_k, __pyx_v_v); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(0, 285, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/container/output.py":280
+  /* "av/container/output.py":287
  *             setattr(py_stream, k, v)
  * 
  *         return py_stream             # <<<<<<<<<<<<<<
@@ -6300,7 +6379,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
   __pyx_r = ((PyObject *)__pyx_v_py_stream);
   goto __pyx_L0;
 
-  /* "av/container/output.py":217
+  /* "av/container/output.py":224
  *         return py_stream
  * 
  *     def add_stream_from_template(             # <<<<<<<<<<<<<<
@@ -6329,7 +6408,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
   return __pyx_r;
 }
 
-/* "av/container/output.py":282
+/* "av/container/output.py":289
  *         return py_stream
  * 
  *     def _add_stream_without_codec_from_template(             # <<<<<<<<<<<<<<
@@ -6338,15 +6417,15 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_8add_stream_f
 */
 
 /* Python wrapper */
-static struct __pyx_obj_2av_6stream_Stream *__pyx_pw_2av_9container_6output_15OutputContainer_11_add_stream_without_codec_from_template(PyObject *__pyx_v_self, 
+static struct __pyx_obj_2av_6stream_Stream *__pyx_pw_2av_9container_6output_15OutputContainer_13_add_stream_without_codec_from_template(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_10_add_stream_without_codec_from_template, "OutputContainer._add_stream_without_codec_from_template(Stream template: Stream, **kwargs) -> Stream");
-static struct __pyx_obj_2av_6stream_Stream *__pyx_pw_2av_9container_6output_15OutputContainer_11_add_stream_without_codec_from_template(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_12_add_stream_without_codec_from_template, "OutputContainer._add_stream_without_codec_from_template(Stream template: Stream, **kwargs) -> Stream");
+static struct __pyx_obj_2av_6stream_Stream *__pyx_pw_2av_9container_6output_15OutputContainer_13_add_stream_without_codec_from_template(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -6379,32 +6458,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_template,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 282, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 289, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 282, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 289, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "_add_stream_without_codec_from_template", 1) < (0)) __PYX_ERR(0, 282, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "_add_stream_without_codec_from_template", 1) < (0)) __PYX_ERR(0, 289, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_add_stream_without_codec_from_template", 1, 1, 1, i); __PYX_ERR(0, 282, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_add_stream_without_codec_from_template", 1, 1, 1, i); __PYX_ERR(0, 289, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 282, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 289, __pyx_L3_error)
     }
     __pyx_v_template = ((struct __pyx_obj_2av_6stream_Stream *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_add_stream_without_codec_from_template", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 282, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_add_stream_without_codec_from_template", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 289, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6416,8 +6495,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_template), __pyx_mstate_global->__pyx_ptype_2av_6stream_Stream, 0, "template", 0))) __PYX_ERR(0, 283, __pyx_L1_error)
-  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_10_add_stream_without_codec_from_template(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_template, __pyx_v_kwargs);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_template), __pyx_mstate_global->__pyx_ptype_2av_6stream_Stream, 0, "template", 0))) __PYX_ERR(0, 290, __pyx_L1_error)
+  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_12_add_stream_without_codec_from_template(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_template, __pyx_v_kwargs);
 
   /* function exit code */
   goto __pyx_L0;
@@ -6437,7 +6516,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15OutputContainer_10_add_stream_without_codec_from_template(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, struct __pyx_obj_2av_6stream_Stream *__pyx_v_template, PyObject *__pyx_v_kwargs) {
+static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15OutputContainer_12_add_stream_without_codec_from_template(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, struct __pyx_obj_2av_6stream_Stream *__pyx_v_template, PyObject *__pyx_v_kwargs) {
   int __pyx_v_codec_type;
   struct AVStream *__pyx_v_stream;
   struct __pyx_obj_2av_6stream_Stream *__pyx_v_py_stream = 0;
@@ -6466,7 +6545,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_add_stream_without_codec_from_template", 0);
 
-  /* "av/container/output.py":285
+  /* "av/container/output.py":292
  *         self, template: Stream, **kwargs
  *     ) -> Stream:
  *         codec_type: cython.int = template.ptr.codecpar.codec_type             # <<<<<<<<<<<<<<
@@ -6476,7 +6555,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_t_1 = __pyx_v_template->ptr->codecpar->codec_type;
   __pyx_v_codec_type = __pyx_t_1;
 
-  /* "av/container/output.py":286
+  /* "av/container/output.py":293
  *     ) -> Stream:
  *         codec_type: cython.int = template.ptr.codecpar.codec_type
  *         if codec_type not in {lib.AVMEDIA_TYPE_ATTACHMENT, lib.AVMEDIA_TYPE_DATA}:             # <<<<<<<<<<<<<<
@@ -6495,7 +6574,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_t_3 = __pyx_t_2;
   if (unlikely(__pyx_t_3)) {
 
-    /* "av/container/output.py":287
+    /* "av/container/output.py":294
  *         codec_type: cython.int = template.ptr.codecpar.codec_type
  *         if codec_type not in {lib.AVMEDIA_TYPE_ATTACHMENT, lib.AVMEDIA_TYPE_DATA}:
  *             raise ValueError(             # <<<<<<<<<<<<<<
@@ -6504,23 +6583,23 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
     __pyx_t_5 = NULL;
 
-    /* "av/container/output.py":288
+    /* "av/container/output.py":295
  *         if codec_type not in {lib.AVMEDIA_TYPE_ATTACHMENT, lib.AVMEDIA_TYPE_DATA}:
  *             raise ValueError(
  *                 f"template stream of type {template.type} has no codec context"             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_template), __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 288, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_template), __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_6, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 288, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_6, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_template_stream_of_type;
     __pyx_t_8[1] = __pyx_t_7;
     __pyx_t_8[2] = __pyx_mstate_global->__pyx_kp_u_has_no_codec_context;
     __pyx_t_6 = __Pyx_PyUnicode_Join(__pyx_t_8, 3, 24 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 21, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7));
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 288, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_9 = 1;
@@ -6529,14 +6608,14 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
       __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 287, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 294, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(0, 287, __pyx_L1_error)
+    __PYX_ERR(0, 294, __pyx_L1_error)
 
-    /* "av/container/output.py":286
+    /* "av/container/output.py":293
  *     ) -> Stream:
  *         codec_type: cython.int = template.ptr.codecpar.codec_type
  *         if codec_type not in {lib.AVMEDIA_TYPE_ATTACHMENT, lib.AVMEDIA_TYPE_DATA}:             # <<<<<<<<<<<<<<
@@ -6545,7 +6624,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
   }
 
-  /* "av/container/output.py":291
+  /* "av/container/output.py":298
  *             )
  * 
  *         stream: cython.pointer[lib.AVStream] = lib.avformat_new_stream(             # <<<<<<<<<<<<<<
@@ -6554,7 +6633,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
   __pyx_v_stream = avformat_new_stream(__pyx_v_self->__pyx_base.ptr, NULL);
 
-  /* "av/container/output.py":294
+  /* "av/container/output.py":301
  *             self.ptr, cython.NULL
  *         )
  *         if stream == cython.NULL:             # <<<<<<<<<<<<<<
@@ -6564,7 +6643,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_t_3 = (__pyx_v_stream == NULL);
   if (unlikely(__pyx_t_3)) {
 
-    /* "av/container/output.py":295
+    /* "av/container/output.py":302
  *         )
  *         if stream == cython.NULL:
  *             raise MemoryError("Could not allocate stream")             # <<<<<<<<<<<<<<
@@ -6577,14 +6656,14 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
       PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_Could_not_allocate_stream};
       __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 295, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 302, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(0, 295, __pyx_L1_error)
+    __PYX_ERR(0, 302, __pyx_L1_error)
 
-    /* "av/container/output.py":294
+    /* "av/container/output.py":301
  *             self.ptr, cython.NULL
  *         )
  *         if stream == cython.NULL:             # <<<<<<<<<<<<<<
@@ -6593,16 +6672,16 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
   }
 
-  /* "av/container/output.py":297
+  /* "av/container/output.py":304
  *             raise MemoryError("Could not allocate stream")
  * 
  *         err_check(lib.avcodec_parameters_copy(stream.codecpar, template.ptr.codecpar))             # <<<<<<<<<<<<<<
  * 
  *         # Mirror basic properties that are not derived from a codec context.
 */
-  __pyx_t_10 = __pyx_f_2av_5error_err_check(avcodec_parameters_copy(__pyx_v_stream->codecpar, __pyx_v_template->ptr->codecpar), 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_t_10 = __pyx_f_2av_5error_err_check(avcodec_parameters_copy(__pyx_v_stream->codecpar, __pyx_v_template->ptr->codecpar), 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 304, __pyx_L1_error)
 
-  /* "av/container/output.py":300
+  /* "av/container/output.py":307
  * 
  *         # Mirror basic properties that are not derived from a codec context.
  *         stream.time_base = template.ptr.time_base             # <<<<<<<<<<<<<<
@@ -6612,7 +6691,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_t_11 = __pyx_v_template->ptr->time_base;
   __pyx_v_stream->time_base = __pyx_t_11;
 
-  /* "av/container/output.py":301
+  /* "av/container/output.py":308
  *         # Mirror basic properties that are not derived from a codec context.
  *         stream.time_base = template.ptr.time_base
  *         stream.start_time = template.ptr.start_time             # <<<<<<<<<<<<<<
@@ -6622,7 +6701,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_t_12 = __pyx_v_template->ptr->start_time;
   __pyx_v_stream->start_time = __pyx_t_12;
 
-  /* "av/container/output.py":302
+  /* "av/container/output.py":309
  *         stream.time_base = template.ptr.time_base
  *         stream.start_time = template.ptr.start_time
  *         stream.duration = template.ptr.duration             # <<<<<<<<<<<<<<
@@ -6632,7 +6711,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_t_12 = __pyx_v_template->ptr->duration;
   __pyx_v_stream->duration = __pyx_t_12;
 
-  /* "av/container/output.py":303
+  /* "av/container/output.py":310
  *         stream.start_time = template.ptr.start_time
  *         stream.duration = template.ptr.duration
  *         stream.disposition = template.ptr.disposition             # <<<<<<<<<<<<<<
@@ -6642,28 +6721,28 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_t_10 = __pyx_v_template->ptr->disposition;
   __pyx_v_stream->disposition = __pyx_t_10;
 
-  /* "av/container/output.py":305
+  /* "av/container/output.py":312
  *         stream.disposition = template.ptr.disposition
  * 
  *         py_stream: Stream = wrap_stream(self, stream, None)             # <<<<<<<<<<<<<<
  *         self.streams.add_stream(py_stream)
  * 
 */
-  __pyx_t_4 = ((PyObject *)__pyx_f_2av_6stream_wrap_stream(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_stream, ((struct __pyx_obj_2av_5codec_7context_CodecContext *)Py_None))); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 305, __pyx_L1_error)
+  __pyx_t_4 = ((PyObject *)__pyx_f_2av_6stream_wrap_stream(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_stream, ((struct __pyx_obj_2av_5codec_7context_CodecContext *)Py_None))); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 312, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_py_stream = ((struct __pyx_obj_2av_6stream_Stream *)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "av/container/output.py":306
+  /* "av/container/output.py":313
  * 
  *         py_stream: Stream = wrap_stream(self, stream, None)
  *         self.streams.add_stream(py_stream)             # <<<<<<<<<<<<<<
  * 
  *         py_stream.metadata = dict(template.metadata)
 */
-  ((struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *)__pyx_v_self->__pyx_base.streams->__pyx_vtab)->add_stream(__pyx_v_self->__pyx_base.streams, __pyx_v_py_stream); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 306, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *)__pyx_v_self->__pyx_base.streams->__pyx_vtab)->add_stream(__pyx_v_self->__pyx_base.streams, __pyx_v_py_stream); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 313, __pyx_L1_error)
 
-  /* "av/container/output.py":308
+  /* "av/container/output.py":315
  *         self.streams.add_stream(py_stream)
  * 
  *         py_stream.metadata = dict(template.metadata)             # <<<<<<<<<<<<<<
@@ -6672,9 +6751,9 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
   if (unlikely(__pyx_v_template->metadata == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' is not iterable");
-    __PYX_ERR(0, 308, __pyx_L1_error)
+    __PYX_ERR(0, 315, __pyx_L1_error)
   }
-  __pyx_t_4 = PyDict_Copy(__pyx_v_template->metadata); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 308, __pyx_L1_error)
+  __pyx_t_4 = PyDict_Copy(__pyx_v_template->metadata); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 315, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_4);
   __Pyx_GOTREF(__pyx_v_py_stream->metadata);
@@ -6682,7 +6761,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_v_py_stream->metadata = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "av/container/output.py":310
+  /* "av/container/output.py":317
  *         py_stream.metadata = dict(template.metadata)
  * 
  *         for k, v in kwargs.items():             # <<<<<<<<<<<<<<
@@ -6690,7 +6769,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
  * 
 */
   __pyx_t_13 = 0;
-  __pyx_t_6 = __Pyx_dict_iterator(__pyx_v_kwargs, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_14), (&__pyx_t_10)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_dict_iterator(__pyx_v_kwargs, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_14), (&__pyx_t_10)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 317, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_XDECREF(__pyx_t_4);
   __pyx_t_4 = __pyx_t_6;
@@ -6698,7 +6777,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   while (1) {
     __pyx_t_15 = __Pyx_dict_iter_next(__pyx_t_4, __pyx_t_14, &__pyx_t_13, &__pyx_t_6, &__pyx_t_5, NULL, __pyx_t_10);
     if (unlikely(__pyx_t_15 == 0)) break;
-    if (unlikely(__pyx_t_15 == -1)) __PYX_ERR(0, 310, __pyx_L1_error)
+    if (unlikely(__pyx_t_15 == -1)) __PYX_ERR(0, 317, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_6);
@@ -6706,18 +6785,18 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
     __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_5);
     __pyx_t_5 = 0;
 
-    /* "av/container/output.py":311
+    /* "av/container/output.py":318
  * 
  *         for k, v in kwargs.items():
  *             setattr(py_stream, k, v)             # <<<<<<<<<<<<<<
  * 
  *         return py_stream
 */
-    __pyx_t_16 = PyObject_SetAttr(((PyObject *)__pyx_v_py_stream), __pyx_v_k, __pyx_v_v); if (unlikely(__pyx_t_16 == ((int)-1))) __PYX_ERR(0, 311, __pyx_L1_error)
+    __pyx_t_16 = PyObject_SetAttr(((PyObject *)__pyx_v_py_stream), __pyx_v_k, __pyx_v_v); if (unlikely(__pyx_t_16 == ((int)-1))) __PYX_ERR(0, 318, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/container/output.py":313
+  /* "av/container/output.py":320
  *             setattr(py_stream, k, v)
  * 
  *         return py_stream             # <<<<<<<<<<<<<<
@@ -6729,7 +6808,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   __pyx_r = __pyx_v_py_stream;
   goto __pyx_L0;
 
-  /* "av/container/output.py":282
+  /* "av/container/output.py":289
  *         return py_stream
  * 
  *     def _add_stream_without_codec_from_template(             # <<<<<<<<<<<<<<
@@ -6754,7 +6833,7 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
   return __pyx_r;
 }
 
-/* "av/container/output.py":315
+/* "av/container/output.py":322
  *         return py_stream
  * 
  *     def add_attachment(self, name: str, mimetype: str, data: bytes):             # <<<<<<<<<<<<<<
@@ -6763,15 +6842,15 @@ static struct __pyx_obj_2av_6stream_Stream *__pyx_pf_2av_9container_6output_15Ou
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_13add_attachment(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_15add_attachment(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_12add_attachment, "OutputContainer.add_attachment(str name: str, str mimetype: str, bytes data: bytes)\n\nCreate an attachment stream and embed its payload into the container header.\n\n- Only supported by formats that support attachments (e.g. Matroska).\n- No per-packet muxing is required; attachments are written at header time.");
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_13add_attachment(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_14add_attachment, "OutputContainer.add_attachment(str name: str, str mimetype: str, bytes data: bytes)\n\nCreate an attachment stream and embed its payload into the container header.\n\n- Only supported by formats that support attachments (e.g. Matroska).\n- No per-packet muxing is required; attachments are written at header time.");
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_15add_attachment(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -6803,38 +6882,38 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_name,&__pyx_mstate_global->__pyx_n_u_mimetype,&__pyx_mstate_global->__pyx_n_u_data,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 315, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 322, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 315, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 322, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 315, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 322, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 315, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 322, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "add_attachment", 0) < (0)) __PYX_ERR(0, 315, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "add_attachment", 0) < (0)) __PYX_ERR(0, 322, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("add_attachment", 1, 3, 3, i); __PYX_ERR(0, 315, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("add_attachment", 1, 3, 3, i); __PYX_ERR(0, 322, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 315, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 322, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 315, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 322, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 315, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 322, __pyx_L3_error)
     }
     __pyx_v_name = ((PyObject*)values[0]);
     __pyx_v_mimetype = ((PyObject*)values[1]);
@@ -6842,7 +6921,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("add_attachment", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 315, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("add_attachment", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 322, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6853,10 +6932,10 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_name), (&PyUnicode_Type), 0, "name", 2))) __PYX_ERR(0, 315, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_mimetype), (&PyUnicode_Type), 0, "mimetype", 2))) __PYX_ERR(0, 315, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyBytes_Type), 0, "data", 2))) __PYX_ERR(0, 315, __pyx_L1_error)
-  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_12add_attachment(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_name, __pyx_v_mimetype, __pyx_v_data);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_name), (&PyUnicode_Type), 0, "name", 2))) __PYX_ERR(0, 322, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_mimetype), (&PyUnicode_Type), 0, "mimetype", 2))) __PYX_ERR(0, 322, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyBytes_Type), 0, "data", 2))) __PYX_ERR(0, 322, __pyx_L1_error)
+  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_14add_attachment(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_name, __pyx_v_mimetype, __pyx_v_data);
 
   /* function exit code */
   goto __pyx_L0;
@@ -6875,7 +6954,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachment(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_name, PyObject *__pyx_v_mimetype, PyObject *__pyx_v_data) {
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_attachment(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_name, PyObject *__pyx_v_mimetype, PyObject *__pyx_v_data) {
   struct AVStream *__pyx_v_stream;
   size_t __pyx_v_payload_size;
   unsigned char *__pyx_v_buf;
@@ -6899,7 +6978,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("add_attachment", 0);
 
-  /* "av/container/output.py":323
+  /* "av/container/output.py":330
  *         """
  *         # Create stream with no codec (attachments are codec-less).
  *         stream: cython.pointer[lib.AVStream] = lib.avformat_new_stream(             # <<<<<<<<<<<<<<
@@ -6908,7 +6987,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
 */
   __pyx_v_stream = avformat_new_stream(__pyx_v_self->__pyx_base.ptr, NULL);
 
-  /* "av/container/output.py":326
+  /* "av/container/output.py":333
  *             self.ptr, cython.NULL
  *         )
  *         if stream == cython.NULL:             # <<<<<<<<<<<<<<
@@ -6918,7 +6997,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
   __pyx_t_1 = (__pyx_v_stream == NULL);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/container/output.py":327
+    /* "av/container/output.py":334
  *         )
  *         if stream == cython.NULL:
  *             raise MemoryError("Could not allocate stream")             # <<<<<<<<<<<<<<
@@ -6931,14 +7010,14 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Could_not_allocate_stream};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 327, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 334, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 327, __pyx_L1_error)
+    __PYX_ERR(0, 334, __pyx_L1_error)
 
-    /* "av/container/output.py":326
+    /* "av/container/output.py":333
  *             self.ptr, cython.NULL
  *         )
  *         if stream == cython.NULL:             # <<<<<<<<<<<<<<
@@ -6947,7 +7026,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
 */
   }
 
-  /* "av/container/output.py":329
+  /* "av/container/output.py":336
  *             raise MemoryError("Could not allocate stream")
  * 
  *         stream.codecpar.codec_type = lib.AVMEDIA_TYPE_ATTACHMENT             # <<<<<<<<<<<<<<
@@ -6956,7 +7035,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
 */
   __pyx_v_stream->codecpar->codec_type = AVMEDIA_TYPE_ATTACHMENT;
 
-  /* "av/container/output.py":330
+  /* "av/container/output.py":337
  * 
  *         stream.codecpar.codec_type = lib.AVMEDIA_TYPE_ATTACHMENT
  *         stream.codecpar.codec_id = lib.AV_CODEC_ID_NONE             # <<<<<<<<<<<<<<
@@ -6965,17 +7044,17 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
 */
   __pyx_v_stream->codecpar->codec_id = AV_CODEC_ID_NONE;
 
-  /* "av/container/output.py":333
+  /* "av/container/output.py":340
  * 
  *         # Allocate and copy payload into codecpar.extradata.
  *         payload_size: cython.size_t = len(data)             # <<<<<<<<<<<<<<
  *         if payload_size:
  *             buf = cython.cast(cython.p_uchar, lib.av_malloc(payload_size + 1))
 */
-  __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_data); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 333, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyBytes_GET_SIZE(__pyx_v_data); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 340, __pyx_L1_error)
   __pyx_v_payload_size = __pyx_t_5;
 
-  /* "av/container/output.py":334
+  /* "av/container/output.py":341
  *         # Allocate and copy payload into codecpar.extradata.
  *         payload_size: cython.size_t = len(data)
  *         if payload_size:             # <<<<<<<<<<<<<<
@@ -6985,7 +7064,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
   __pyx_t_1 = (__pyx_v_payload_size != 0);
   if (__pyx_t_1) {
 
-    /* "av/container/output.py":335
+    /* "av/container/output.py":342
  *         payload_size: cython.size_t = len(data)
  *         if payload_size:
  *             buf = cython.cast(cython.p_uchar, lib.av_malloc(payload_size + 1))             # <<<<<<<<<<<<<<
@@ -6994,7 +7073,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
 */
     __pyx_v_buf = ((unsigned char *)av_malloc((__pyx_v_payload_size + 1)));
 
-    /* "av/container/output.py":336
+    /* "av/container/output.py":343
  *         if payload_size:
  *             buf = cython.cast(cython.p_uchar, lib.av_malloc(payload_size + 1))
  *             if buf == cython.NULL:             # <<<<<<<<<<<<<<
@@ -7004,7 +7083,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
     __pyx_t_1 = (__pyx_v_buf == NULL);
     if (unlikely(__pyx_t_1)) {
 
-      /* "av/container/output.py":337
+      /* "av/container/output.py":344
  *             buf = cython.cast(cython.p_uchar, lib.av_malloc(payload_size + 1))
  *             if buf == cython.NULL:
  *                 raise MemoryError("Could not allocate attachment data")             # <<<<<<<<<<<<<<
@@ -7017,14 +7096,14 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
         PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Could_not_allocate_attachment_da};
         __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 337, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 344, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_Raise(__pyx_t_2, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __PYX_ERR(0, 337, __pyx_L1_error)
+      __PYX_ERR(0, 344, __pyx_L1_error)
 
-      /* "av/container/output.py":336
+      /* "av/container/output.py":343
  *         if payload_size:
  *             buf = cython.cast(cython.p_uchar, lib.av_malloc(payload_size + 1))
  *             if buf == cython.NULL:             # <<<<<<<<<<<<<<
@@ -7033,7 +7112,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
 */
     }
 
-    /* "av/container/output.py":339
+    /* "av/container/output.py":346
  *                 raise MemoryError("Could not allocate attachment data")
  *             # Copy bytes.
  *             for i in range(payload_size):             # <<<<<<<<<<<<<<
@@ -7045,18 +7124,18 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
     for (__pyx_t_7 = 0; __pyx_t_7 < __pyx_t_6; __pyx_t_7+=1) {
       __pyx_v_i = __pyx_t_7;
 
-      /* "av/container/output.py":340
+      /* "av/container/output.py":347
  *             # Copy bytes.
  *             for i in range(payload_size):
  *                 buf[i] = data[i]             # <<<<<<<<<<<<<<
  *             buf[payload_size] = 0
  *             stream.codecpar.extradata = cython.cast(cython.p_uchar, buf)
 */
-      __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_v_data, __pyx_v_i, size_t, 0, __Pyx_PyLong_FromSize_t, 0, 0, 1, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 340, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_v_data, __pyx_v_i, size_t, 0, __Pyx_PyLong_FromSize_t, 0, 0, 1, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 347, __pyx_L1_error)
       (__pyx_v_buf[__pyx_v_i]) = __pyx_t_8;
     }
 
-    /* "av/container/output.py":341
+    /* "av/container/output.py":348
  *             for i in range(payload_size):
  *                 buf[i] = data[i]
  *             buf[payload_size] = 0             # <<<<<<<<<<<<<<
@@ -7065,7 +7144,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
 */
     (__pyx_v_buf[__pyx_v_payload_size]) = 0;
 
-    /* "av/container/output.py":342
+    /* "av/container/output.py":349
  *                 buf[i] = data[i]
  *             buf[payload_size] = 0
  *             stream.codecpar.extradata = cython.cast(cython.p_uchar, buf)             # <<<<<<<<<<<<<<
@@ -7074,7 +7153,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
 */
     __pyx_v_stream->codecpar->extradata = ((unsigned char *)__pyx_v_buf);
 
-    /* "av/container/output.py":343
+    /* "av/container/output.py":350
  *             buf[payload_size] = 0
  *             stream.codecpar.extradata = cython.cast(cython.p_uchar, buf)
  *             stream.codecpar.extradata_size = payload_size             # <<<<<<<<<<<<<<
@@ -7083,7 +7162,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
 */
     __pyx_v_stream->codecpar->extradata_size = __pyx_v_payload_size;
 
-    /* "av/container/output.py":334
+    /* "av/container/output.py":341
  *         # Allocate and copy payload into codecpar.extradata.
  *         payload_size: cython.size_t = len(data)
  *         if payload_size:             # <<<<<<<<<<<<<<
@@ -7092,7 +7171,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
 */
   }
 
-  /* "av/container/output.py":346
+  /* "av/container/output.py":353
  * 
  *         # Wrap as user-land stream.
  *         meta_ptr = cython.address(stream.metadata)             # <<<<<<<<<<<<<<
@@ -7101,63 +7180,63 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
 */
   __pyx_v_meta_ptr = (&__pyx_v_stream->metadata);
 
-  /* "av/container/output.py":347
+  /* "av/container/output.py":354
  *         # Wrap as user-land stream.
  *         meta_ptr = cython.address(stream.metadata)
  *         err_check(lib.av_dict_set(meta_ptr, b"filename", name.encode(), 0))             # <<<<<<<<<<<<<<
  *         mime_bytes = mimetype.encode()
  *         err_check(lib.av_dict_set(meta_ptr, b"mimetype", mime_bytes, 0))
 */
-  __pyx_t_2 = PyUnicode_AsEncodedString(__pyx_v_name, NULL, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 347, __pyx_L1_error)
+  __pyx_t_2 = PyUnicode_AsEncodedString(__pyx_v_name, NULL, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_9 = __Pyx_PyBytes_AsString(__pyx_t_2); if (unlikely((!__pyx_t_9) && PyErr_Occurred())) __PYX_ERR(0, 347, __pyx_L1_error)
-  __pyx_t_8 = __pyx_f_2av_5error_err_check(av_dict_set(__pyx_v_meta_ptr, __pyx_k_filename, __pyx_t_9, 0), 0, NULL); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 347, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyBytes_AsString(__pyx_t_2); if (unlikely((!__pyx_t_9) && PyErr_Occurred())) __PYX_ERR(0, 354, __pyx_L1_error)
+  __pyx_t_8 = __pyx_f_2av_5error_err_check(av_dict_set(__pyx_v_meta_ptr, __pyx_k_filename, __pyx_t_9, 0), 0, NULL); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/container/output.py":348
+  /* "av/container/output.py":355
  *         meta_ptr = cython.address(stream.metadata)
  *         err_check(lib.av_dict_set(meta_ptr, b"filename", name.encode(), 0))
  *         mime_bytes = mimetype.encode()             # <<<<<<<<<<<<<<
  *         err_check(lib.av_dict_set(meta_ptr, b"mimetype", mime_bytes, 0))
  * 
 */
-  __pyx_t_2 = PyUnicode_AsEncodedString(__pyx_v_mimetype, NULL, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 348, __pyx_L1_error)
+  __pyx_t_2 = PyUnicode_AsEncodedString(__pyx_v_mimetype, NULL, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 355, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_v_mime_bytes = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/container/output.py":349
+  /* "av/container/output.py":356
  *         err_check(lib.av_dict_set(meta_ptr, b"filename", name.encode(), 0))
  *         mime_bytes = mimetype.encode()
  *         err_check(lib.av_dict_set(meta_ptr, b"mimetype", mime_bytes, 0))             # <<<<<<<<<<<<<<
  * 
  *         py_stream: Stream = wrap_stream(self, stream, None)
 */
-  __pyx_t_9 = __Pyx_PyBytes_AsString(__pyx_v_mime_bytes); if (unlikely((!__pyx_t_9) && PyErr_Occurred())) __PYX_ERR(0, 349, __pyx_L1_error)
-  __pyx_t_8 = __pyx_f_2av_5error_err_check(av_dict_set(__pyx_v_meta_ptr, __pyx_k_mimetype, __pyx_t_9, 0), 0, NULL); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 349, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyBytes_AsString(__pyx_v_mime_bytes); if (unlikely((!__pyx_t_9) && PyErr_Occurred())) __PYX_ERR(0, 356, __pyx_L1_error)
+  __pyx_t_8 = __pyx_f_2av_5error_err_check(av_dict_set(__pyx_v_meta_ptr, __pyx_k_mimetype, __pyx_t_9, 0), 0, NULL); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 356, __pyx_L1_error)
 
-  /* "av/container/output.py":351
+  /* "av/container/output.py":358
  *         err_check(lib.av_dict_set(meta_ptr, b"mimetype", mime_bytes, 0))
  * 
  *         py_stream: Stream = wrap_stream(self, stream, None)             # <<<<<<<<<<<<<<
  *         self.streams.add_stream(py_stream)
  *         return py_stream
 */
-  __pyx_t_2 = ((PyObject *)__pyx_f_2av_6stream_wrap_stream(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_stream, ((struct __pyx_obj_2av_5codec_7context_CodecContext *)Py_None))); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __pyx_t_2 = ((PyObject *)__pyx_f_2av_6stream_wrap_stream(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_stream, ((struct __pyx_obj_2av_5codec_7context_CodecContext *)Py_None))); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 358, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_v_py_stream = ((struct __pyx_obj_2av_6stream_Stream *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/container/output.py":352
+  /* "av/container/output.py":359
  * 
  *         py_stream: Stream = wrap_stream(self, stream, None)
  *         self.streams.add_stream(py_stream)             # <<<<<<<<<<<<<<
  *         return py_stream
  * 
 */
-  ((struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *)__pyx_v_self->__pyx_base.streams->__pyx_vtab)->add_stream(__pyx_v_self->__pyx_base.streams, __pyx_v_py_stream); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 352, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *)__pyx_v_self->__pyx_base.streams->__pyx_vtab)->add_stream(__pyx_v_self->__pyx_base.streams, __pyx_v_py_stream); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 359, __pyx_L1_error)
 
-  /* "av/container/output.py":353
+  /* "av/container/output.py":360
  *         py_stream: Stream = wrap_stream(self, stream, None)
  *         self.streams.add_stream(py_stream)
  *         return py_stream             # <<<<<<<<<<<<<<
@@ -7169,7 +7248,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
   __pyx_r = ((PyObject *)__pyx_v_py_stream);
   goto __pyx_L0;
 
-  /* "av/container/output.py":315
+  /* "av/container/output.py":322
  *         return py_stream
  * 
  *     def add_attachment(self, name: str, mimetype: str, data: bytes):             # <<<<<<<<<<<<<<
@@ -7191,7 +7270,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
   return __pyx_r;
 }
 
-/* "av/container/output.py":355
+/* "av/container/output.py":362
  *         return py_stream
  * 
  *     def add_data_stream(self, codec_name=None, options: dict | None = None):             # <<<<<<<<<<<<<<
@@ -7200,15 +7279,15 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_12add_attachm
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_15add_data_stream(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_17add_data_stream(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_14add_data_stream, "add_data_stream(codec_name=None)\n\n        Creates a new data stream and returns it.\n\n        :param codec_name: Optional name of the data codec (e.g. 'klv')\n        :type codec_name: str | None\n        :param dict options: Stream options.\n        :rtype: The new :class:`~av.data.stream.DataStream`.\n        ");
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_15add_data_stream(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_16add_data_stream, "add_data_stream(codec_name=None)\n\n        Creates a new data stream and returns it.\n\n        :param codec_name: Optional name of the data codec (e.g. 'klv')\n        :type codec_name: str | None\n        :param dict options: Stream options.\n        :rtype: The new :class:`~av.data.stream.DataStream`.\n        ");
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_17add_data_stream(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -7239,33 +7318,33 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_codec_name,&__pyx_mstate_global->__pyx_n_u_options,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 355, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 362, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 355, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 362, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 355, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 362, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "add_data_stream", 0) < (0)) __PYX_ERR(0, 355, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "add_data_stream", 0) < (0)) __PYX_ERR(0, 362, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject*)Py_None));
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 355, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 362, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 355, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 362, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -7278,7 +7357,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("add_data_stream", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 355, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("add_data_stream", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 362, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7289,8 +7368,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_options), (&PyDict_Type), 1, "options", 2))) __PYX_ERR(0, 355, __pyx_L1_error)
-  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_14add_data_stream(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_codec_name, __pyx_v_options);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_options), (&PyDict_Type), 1, "options", 2))) __PYX_ERR(0, 362, __pyx_L1_error)
+  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_16add_data_stream(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_codec_name, __pyx_v_options);
 
   /* function exit code */
   goto __pyx_L0;
@@ -7309,7 +7388,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_stream(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_codec_name, PyObject *__pyx_v_options) {
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16add_data_stream(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_codec_name, PyObject *__pyx_v_options) {
   struct AVCodec const *__pyx_v_codec;
   struct AVCodecDescriptor const *__pyx_v_codec_descriptor;
   PyObject *__pyx_v_codec_name_bytes = 0;
@@ -7336,7 +7415,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("add_data_stream", 0);
 
-  /* "av/container/output.py":365
+  /* "av/container/output.py":372
  *         :rtype: The new :class:`~av.data.stream.DataStream`.
  *         """
  *         codec: cython.pointer[cython.const[lib.AVCodec]] = cython.NULL             # <<<<<<<<<<<<<<
@@ -7345,7 +7424,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
   __pyx_v_codec = NULL;
 
-  /* "av/container/output.py":367
+  /* "av/container/output.py":374
  *         codec: cython.pointer[cython.const[lib.AVCodec]] = cython.NULL
  *         codec_descriptor: cython.pointer[cython.const[lib.AVCodecDescriptor]] = (
  *             cython.NULL             # <<<<<<<<<<<<<<
@@ -7354,7 +7433,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
   __pyx_v_codec_descriptor = NULL;
 
-  /* "av/container/output.py":370
+  /* "av/container/output.py":377
  *         )
  * 
  *         if codec_name is not None:             # <<<<<<<<<<<<<<
@@ -7364,7 +7443,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
   __pyx_t_1 = (__pyx_v_codec_name != Py_None);
   if (__pyx_t_1) {
 
-    /* "av/container/output.py":371
+    /* "av/container/output.py":378
  * 
  *         if codec_name is not None:
  *             codec_name_bytes: bytes = codec_name.encode()             # <<<<<<<<<<<<<<
@@ -7378,14 +7457,14 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
       PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 371, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 378, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
-    if (!(likely(PyBytes_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_2))) __PYX_ERR(0, 371, __pyx_L1_error)
+    if (!(likely(PyBytes_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_2))) __PYX_ERR(0, 378, __pyx_L1_error)
     __pyx_v_codec_name_bytes = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "av/container/output.py":372
+    /* "av/container/output.py":379
  *         if codec_name is not None:
  *             codec_name_bytes: bytes = codec_name.encode()
  *             codec = lib.avcodec_find_encoder_by_name(codec_name_bytes)             # <<<<<<<<<<<<<<
@@ -7394,12 +7473,12 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
     if (unlikely(__pyx_v_codec_name_bytes == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(0, 372, __pyx_L1_error)
+      __PYX_ERR(0, 379, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_AsWritableString(__pyx_v_codec_name_bytes); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(0, 372, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_AsWritableString(__pyx_v_codec_name_bytes); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(0, 379, __pyx_L1_error)
     __pyx_v_codec = avcodec_find_encoder_by_name(__pyx_t_5);
 
-    /* "av/container/output.py":373
+    /* "av/container/output.py":380
  *             codec_name_bytes: bytes = codec_name.encode()
  *             codec = lib.avcodec_find_encoder_by_name(codec_name_bytes)
  *             if codec == cython.NULL:             # <<<<<<<<<<<<<<
@@ -7409,7 +7488,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
     __pyx_t_1 = (__pyx_v_codec == NULL);
     if (__pyx_t_1) {
 
-      /* "av/container/output.py":374
+      /* "av/container/output.py":381
  *             codec = lib.avcodec_find_encoder_by_name(codec_name_bytes)
  *             if codec == cython.NULL:
  *                 codec = lib.avcodec_find_decoder_by_name(codec_name_bytes)             # <<<<<<<<<<<<<<
@@ -7418,12 +7497,12 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
       if (unlikely(__pyx_v_codec_name_bytes == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-        __PYX_ERR(0, 374, __pyx_L1_error)
+        __PYX_ERR(0, 381, __pyx_L1_error)
       }
-      __pyx_t_5 = __Pyx_PyBytes_AsWritableString(__pyx_v_codec_name_bytes); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(0, 374, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyBytes_AsWritableString(__pyx_v_codec_name_bytes); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(0, 381, __pyx_L1_error)
       __pyx_v_codec = avcodec_find_decoder_by_name(__pyx_t_5);
 
-      /* "av/container/output.py":373
+      /* "av/container/output.py":380
  *             codec_name_bytes: bytes = codec_name.encode()
  *             codec = lib.avcodec_find_encoder_by_name(codec_name_bytes)
  *             if codec == cython.NULL:             # <<<<<<<<<<<<<<
@@ -7432,7 +7511,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
     }
 
-    /* "av/container/output.py":375
+    /* "av/container/output.py":382
  *             if codec == cython.NULL:
  *                 codec = lib.avcodec_find_decoder_by_name(codec_name_bytes)
  *             if codec == cython.NULL:             # <<<<<<<<<<<<<<
@@ -7442,7 +7521,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
     __pyx_t_1 = (__pyx_v_codec == NULL);
     if (__pyx_t_1) {
 
-      /* "av/container/output.py":376
+      /* "av/container/output.py":383
  *                 codec = lib.avcodec_find_decoder_by_name(codec_name_bytes)
  *             if codec == cython.NULL:
  *                 codec_descriptor = lib.avcodec_descriptor_get_by_name(codec_name_bytes)             # <<<<<<<<<<<<<<
@@ -7451,12 +7530,12 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
       if (unlikely(__pyx_v_codec_name_bytes == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-        __PYX_ERR(0, 376, __pyx_L1_error)
+        __PYX_ERR(0, 383, __pyx_L1_error)
       }
-      __pyx_t_5 = __Pyx_PyBytes_AsWritableString(__pyx_v_codec_name_bytes); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(0, 376, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyBytes_AsWritableString(__pyx_v_codec_name_bytes); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(0, 383, __pyx_L1_error)
       __pyx_v_codec_descriptor = avcodec_descriptor_get_by_name(__pyx_t_5);
 
-      /* "av/container/output.py":377
+      /* "av/container/output.py":384
  *             if codec == cython.NULL:
  *                 codec_descriptor = lib.avcodec_descriptor_get_by_name(codec_name_bytes)
  *                 if codec_descriptor == cython.NULL:             # <<<<<<<<<<<<<<
@@ -7466,7 +7545,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
       __pyx_t_1 = (__pyx_v_codec_descriptor == NULL);
       if (unlikely(__pyx_t_1)) {
 
-        /* "av/container/output.py":378
+        /* "av/container/output.py":385
  *                 codec_descriptor = lib.avcodec_descriptor_get_by_name(codec_name_bytes)
  *                 if codec_descriptor == cython.NULL:
  *                     raise ValueError(f"Unknown data codec: {codec_name}")             # <<<<<<<<<<<<<<
@@ -7474,9 +7553,9 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
  *             # Verify format supports this codec
 */
         __pyx_t_3 = NULL;
-        __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_v_codec_name, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 378, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_v_codec_name, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 385, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_7 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Unknown_data_codec, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 378, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Unknown_data_codec, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 385, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __pyx_t_4 = 1;
@@ -7485,14 +7564,14 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 378, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 385, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __Pyx_Raise(__pyx_t_2, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-        __PYX_ERR(0, 378, __pyx_L1_error)
+        __PYX_ERR(0, 385, __pyx_L1_error)
 
-        /* "av/container/output.py":377
+        /* "av/container/output.py":384
  *             if codec == cython.NULL:
  *                 codec_descriptor = lib.avcodec_descriptor_get_by_name(codec_name_bytes)
  *                 if codec_descriptor == cython.NULL:             # <<<<<<<<<<<<<<
@@ -7501,7 +7580,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
       }
 
-      /* "av/container/output.py":375
+      /* "av/container/output.py":382
  *             if codec == cython.NULL:
  *                 codec = lib.avcodec_find_decoder_by_name(codec_name_bytes)
  *             if codec == cython.NULL:             # <<<<<<<<<<<<<<
@@ -7510,7 +7589,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
     }
 
-    /* "av/container/output.py":381
+    /* "av/container/output.py":388
  * 
  *             # Verify format supports this codec
  *             codec_id = codec.id if codec != cython.NULL else codec_descriptor.id             # <<<<<<<<<<<<<<
@@ -7525,7 +7604,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
     }
     __pyx_v_codec_id = __pyx_t_8;
 
-    /* "av/container/output.py":382
+    /* "av/container/output.py":389
  *             # Verify format supports this codec
  *             codec_id = codec.id if codec != cython.NULL else codec_descriptor.id
  *             if not lib.avformat_query_codec(             # <<<<<<<<<<<<<<
@@ -7535,7 +7614,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
     __pyx_t_1 = (!(avformat_query_codec(__pyx_v_self->__pyx_base.ptr->oformat, __pyx_v_codec_id, FF_COMPLIANCE_NORMAL) != 0));
     if (unlikely(__pyx_t_1)) {
 
-      /* "av/container/output.py":385
+      /* "av/container/output.py":392
  *                 self.ptr.oformat, codec_id, lib.FF_COMPLIANCE_NORMAL
  *             ):
  *                 raise ValueError(             # <<<<<<<<<<<<<<
@@ -7544,23 +7623,23 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
       __pyx_t_7 = NULL;
 
-      /* "av/container/output.py":386
+      /* "av/container/output.py":393
  *             ):
  *                 raise ValueError(
  *                     f"{self.format.name!r} format does not support {codec_name!r} codec"             # <<<<<<<<<<<<<<
  *                 )
  * 
 */
-      __pyx_t_3 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_self->__pyx_base.format->name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 386, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_self->__pyx_base.format->name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 393, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_6 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_codec_name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 386, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_codec_name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 393, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_9[0] = __pyx_t_3;
       __pyx_t_9[1] = __pyx_mstate_global->__pyx_kp_u_format_does_not_support;
       __pyx_t_9[2] = __pyx_t_6;
       __pyx_t_9[3] = __pyx_mstate_global->__pyx_kp_u_codec;
       __pyx_t_10 = __Pyx_PyUnicode_Join(__pyx_t_9, 4, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 25 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 6, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6));
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 386, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 393, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -7570,14 +7649,14 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
         __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 385, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 392, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_Raise(__pyx_t_2, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __PYX_ERR(0, 385, __pyx_L1_error)
+      __PYX_ERR(0, 392, __pyx_L1_error)
 
-      /* "av/container/output.py":382
+      /* "av/container/output.py":389
  *             # Verify format supports this codec
  *             codec_id = codec.id if codec != cython.NULL else codec_descriptor.id
  *             if not lib.avformat_query_codec(             # <<<<<<<<<<<<<<
@@ -7586,7 +7665,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
     }
 
-    /* "av/container/output.py":370
+    /* "av/container/output.py":377
  *         )
  * 
  *         if codec_name is not None:             # <<<<<<<<<<<<<<
@@ -7595,7 +7674,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
   }
 
-  /* "av/container/output.py":390
+  /* "av/container/output.py":397
  * 
  *         # Create new stream in the AVFormatContext
  *         stream: cython.pointer[lib.AVStream] = lib.avformat_new_stream(self.ptr, codec)             # <<<<<<<<<<<<<<
@@ -7604,7 +7683,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
   __pyx_v_stream = avformat_new_stream(__pyx_v_self->__pyx_base.ptr, __pyx_v_codec);
 
-  /* "av/container/output.py":391
+  /* "av/container/output.py":398
  *         # Create new stream in the AVFormatContext
  *         stream: cython.pointer[lib.AVStream] = lib.avformat_new_stream(self.ptr, codec)
  *         if stream == cython.NULL:             # <<<<<<<<<<<<<<
@@ -7614,7 +7693,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
   __pyx_t_1 = (__pyx_v_stream == NULL);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/container/output.py":392
+    /* "av/container/output.py":399
  *         stream: cython.pointer[lib.AVStream] = lib.avformat_new_stream(self.ptr, codec)
  *         if stream == cython.NULL:
  *             raise MemoryError("Could not allocate stream")             # <<<<<<<<<<<<<<
@@ -7627,14 +7706,14 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
       PyObject *__pyx_callargs[2] = {__pyx_t_10, __pyx_mstate_global->__pyx_kp_u_Could_not_allocate_stream};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 392, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 399, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 392, __pyx_L1_error)
+    __PYX_ERR(0, 399, __pyx_L1_error)
 
-    /* "av/container/output.py":391
+    /* "av/container/output.py":398
  *         # Create new stream in the AVFormatContext
  *         stream: cython.pointer[lib.AVStream] = lib.avformat_new_stream(self.ptr, codec)
  *         if stream == cython.NULL:             # <<<<<<<<<<<<<<
@@ -7643,7 +7722,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
   }
 
-  /* "av/container/output.py":395
+  /* "av/container/output.py":402
  * 
  *         # Set up codec context and parameters
  *         ctx: cython.pointer[lib.AVCodecContext] = cython.NULL             # <<<<<<<<<<<<<<
@@ -7652,7 +7731,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
   __pyx_v_ctx = NULL;
 
-  /* "av/container/output.py":396
+  /* "av/container/output.py":403
  *         # Set up codec context and parameters
  *         ctx: cython.pointer[lib.AVCodecContext] = cython.NULL
  *         if codec != cython.NULL:             # <<<<<<<<<<<<<<
@@ -7662,7 +7741,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
   __pyx_t_1 = (__pyx_v_codec != NULL);
   if (__pyx_t_1) {
 
-    /* "av/container/output.py":397
+    /* "av/container/output.py":404
  *         ctx: cython.pointer[lib.AVCodecContext] = cython.NULL
  *         if codec != cython.NULL:
  *             ctx = lib.avcodec_alloc_context3(codec)             # <<<<<<<<<<<<<<
@@ -7671,7 +7750,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
     __pyx_v_ctx = avcodec_alloc_context3(__pyx_v_codec);
 
-    /* "av/container/output.py":398
+    /* "av/container/output.py":405
  *         if codec != cython.NULL:
  *             ctx = lib.avcodec_alloc_context3(codec)
  *             if ctx == cython.NULL:             # <<<<<<<<<<<<<<
@@ -7681,7 +7760,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
     __pyx_t_1 = (__pyx_v_ctx == NULL);
     if (unlikely(__pyx_t_1)) {
 
-      /* "av/container/output.py":399
+      /* "av/container/output.py":406
  *             ctx = lib.avcodec_alloc_context3(codec)
  *             if ctx == cython.NULL:
  *                 raise MemoryError("Could not allocate codec context")             # <<<<<<<<<<<<<<
@@ -7694,14 +7773,14 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
         PyObject *__pyx_callargs[2] = {__pyx_t_10, __pyx_mstate_global->__pyx_kp_u_Could_not_allocate_codec_context};
         __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 399, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 406, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_Raise(__pyx_t_2, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __PYX_ERR(0, 399, __pyx_L1_error)
+      __PYX_ERR(0, 406, __pyx_L1_error)
 
-      /* "av/container/output.py":398
+      /* "av/container/output.py":405
  *         if codec != cython.NULL:
  *             ctx = lib.avcodec_alloc_context3(codec)
  *             if ctx == cython.NULL:             # <<<<<<<<<<<<<<
@@ -7710,7 +7789,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
     }
 
-    /* "av/container/output.py":402
+    /* "av/container/output.py":409
  * 
  *             # Some formats want stream headers to be separate
  *             if self.ptr.oformat.flags & lib.AVFMT_GLOBALHEADER:             # <<<<<<<<<<<<<<
@@ -7720,7 +7799,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
     __pyx_t_1 = ((__pyx_v_self->__pyx_base.ptr->oformat->flags & AVFMT_GLOBALHEADER) != 0);
     if (__pyx_t_1) {
 
-      /* "av/container/output.py":403
+      /* "av/container/output.py":410
  *             # Some formats want stream headers to be separate
  *             if self.ptr.oformat.flags & lib.AVFMT_GLOBALHEADER:
  *                 ctx.flags |= lib.AV_CODEC_FLAG_GLOBAL_HEADER             # <<<<<<<<<<<<<<
@@ -7729,7 +7808,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
       __pyx_v_ctx->flags = (__pyx_v_ctx->flags | AV_CODEC_FLAG_GLOBAL_HEADER);
 
-      /* "av/container/output.py":402
+      /* "av/container/output.py":409
  * 
  *             # Some formats want stream headers to be separate
  *             if self.ptr.oformat.flags & lib.AVFMT_GLOBALHEADER:             # <<<<<<<<<<<<<<
@@ -7738,16 +7817,16 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
     }
 
-    /* "av/container/output.py":406
+    /* "av/container/output.py":413
  * 
  *             # Initialize stream codec parameters
  *             err_check(lib.avcodec_parameters_from_context(stream.codecpar, ctx))             # <<<<<<<<<<<<<<
  *         else:
  *             # No codec available - set basic parameters for data stream
 */
-    __pyx_t_11 = __pyx_f_2av_5error_err_check(avcodec_parameters_from_context(__pyx_v_stream->codecpar, __pyx_v_ctx), 0, NULL); if (unlikely(__pyx_t_11 == ((int)-1))) __PYX_ERR(0, 406, __pyx_L1_error)
+    __pyx_t_11 = __pyx_f_2av_5error_err_check(avcodec_parameters_from_context(__pyx_v_stream->codecpar, __pyx_v_ctx), 0, NULL); if (unlikely(__pyx_t_11 == ((int)-1))) __PYX_ERR(0, 413, __pyx_L1_error)
 
-    /* "av/container/output.py":396
+    /* "av/container/output.py":403
  *         # Set up codec context and parameters
  *         ctx: cython.pointer[lib.AVCodecContext] = cython.NULL
  *         if codec != cython.NULL:             # <<<<<<<<<<<<<<
@@ -7757,7 +7836,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
     goto __pyx_L9;
   }
 
-  /* "av/container/output.py":409
+  /* "av/container/output.py":416
  *         else:
  *             # No codec available - set basic parameters for data stream
  *             stream.codecpar.codec_type = lib.AVMEDIA_TYPE_DATA             # <<<<<<<<<<<<<<
@@ -7767,7 +7846,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
   /*else*/ {
     __pyx_v_stream->codecpar->codec_type = AVMEDIA_TYPE_DATA;
 
-    /* "av/container/output.py":410
+    /* "av/container/output.py":417
  *             # No codec available - set basic parameters for data stream
  *             stream.codecpar.codec_type = lib.AVMEDIA_TYPE_DATA
  *             if codec_descriptor != cython.NULL:             # <<<<<<<<<<<<<<
@@ -7777,7 +7856,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
     __pyx_t_1 = (__pyx_v_codec_descriptor != NULL);
     if (__pyx_t_1) {
 
-      /* "av/container/output.py":411
+      /* "av/container/output.py":418
  *             stream.codecpar.codec_type = lib.AVMEDIA_TYPE_DATA
  *             if codec_descriptor != cython.NULL:
  *                 stream.codecpar.codec_id = codec_descriptor.id             # <<<<<<<<<<<<<<
@@ -7787,7 +7866,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
       __pyx_t_8 = __pyx_v_codec_descriptor->id;
       __pyx_v_stream->codecpar->codec_id = __pyx_t_8;
 
-      /* "av/container/output.py":410
+      /* "av/container/output.py":417
  *             # No codec available - set basic parameters for data stream
  *             stream.codecpar.codec_type = lib.AVMEDIA_TYPE_DATA
  *             if codec_descriptor != cython.NULL:             # <<<<<<<<<<<<<<
@@ -7798,7 +7877,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
   }
   __pyx_L9:;
 
-  /* "av/container/output.py":414
+  /* "av/container/output.py":421
  * 
  *         # Construct the user-land stream
  *         py_codec_context: CodecContext | None = None             # <<<<<<<<<<<<<<
@@ -7808,7 +7887,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
   __Pyx_INCREF(Py_None);
   __pyx_v_py_codec_context = ((struct __pyx_obj_2av_5codec_7context_CodecContext *)Py_None);
 
-  /* "av/container/output.py":415
+  /* "av/container/output.py":422
  *         # Construct the user-land stream
  *         py_codec_context: CodecContext | None = None
  *         if ctx != cython.NULL:             # <<<<<<<<<<<<<<
@@ -7818,19 +7897,19 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
   __pyx_t_1 = (__pyx_v_ctx != NULL);
   if (__pyx_t_1) {
 
-    /* "av/container/output.py":416
+    /* "av/container/output.py":423
  *         py_codec_context: CodecContext | None = None
  *         if ctx != cython.NULL:
  *             py_codec_context = wrap_codec_context(ctx, codec, None)             # <<<<<<<<<<<<<<
  * 
  *         py_stream: Stream = wrap_stream(self, stream, py_codec_context)
 */
-    __pyx_t_2 = ((PyObject *)__pyx_f_2av_5codec_7context_wrap_codec_context(__pyx_v_ctx, __pyx_v_codec, ((struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)Py_None))); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 416, __pyx_L1_error)
+    __pyx_t_2 = ((PyObject *)__pyx_f_2av_5codec_7context_wrap_codec_context(__pyx_v_ctx, __pyx_v_codec, ((struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)Py_None))); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 423, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF_SET(__pyx_v_py_codec_context, ((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_t_2));
     __pyx_t_2 = 0;
 
-    /* "av/container/output.py":415
+    /* "av/container/output.py":422
  *         # Construct the user-land stream
  *         py_codec_context: CodecContext | None = None
  *         if ctx != cython.NULL:             # <<<<<<<<<<<<<<
@@ -7839,45 +7918,45 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
   }
 
-  /* "av/container/output.py":418
+  /* "av/container/output.py":425
  *             py_codec_context = wrap_codec_context(ctx, codec, None)
  * 
  *         py_stream: Stream = wrap_stream(self, stream, py_codec_context)             # <<<<<<<<<<<<<<
  *         self.streams.add_stream(py_stream)
  * 
 */
-  __pyx_t_2 = ((PyObject *)__pyx_f_2av_6stream_wrap_stream(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_stream, __pyx_v_py_codec_context)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 418, __pyx_L1_error)
+  __pyx_t_2 = ((PyObject *)__pyx_f_2av_6stream_wrap_stream(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_stream, __pyx_v_py_codec_context)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 425, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_v_py_stream = ((struct __pyx_obj_2av_6stream_Stream *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/container/output.py":419
+  /* "av/container/output.py":426
  * 
  *         py_stream: Stream = wrap_stream(self, stream, py_codec_context)
  *         self.streams.add_stream(py_stream)             # <<<<<<<<<<<<<<
  * 
  *         if options:
 */
-  ((struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *)__pyx_v_self->__pyx_base.streams->__pyx_vtab)->add_stream(__pyx_v_self->__pyx_base.streams, __pyx_v_py_stream); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 419, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *)__pyx_v_self->__pyx_base.streams->__pyx_vtab)->add_stream(__pyx_v_self->__pyx_base.streams, __pyx_v_py_stream); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 426, __pyx_L1_error)
 
-  /* "av/container/output.py":421
+  /* "av/container/output.py":428
  *         self.streams.add_stream(py_stream)
  * 
  *         if options:             # <<<<<<<<<<<<<<
  *             py_stream.options.update(options)
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_options); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 421, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_options); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 428, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "av/container/output.py":422
+    /* "av/container/output.py":429
  * 
  *         if options:
  *             py_stream.options.update(options)             # <<<<<<<<<<<<<<
  * 
  *         return py_stream
 */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_py_stream), __pyx_mstate_global->__pyx_n_u_options); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 422, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_py_stream), __pyx_mstate_global->__pyx_n_u_options); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 429, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_10 = __pyx_t_7;
     __Pyx_INCREF(__pyx_t_10);
@@ -7887,12 +7966,12 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 422, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 429, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "av/container/output.py":421
+    /* "av/container/output.py":428
  *         self.streams.add_stream(py_stream)
  * 
  *         if options:             # <<<<<<<<<<<<<<
@@ -7901,7 +7980,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
 */
   }
 
-  /* "av/container/output.py":424
+  /* "av/container/output.py":431
  *             py_stream.options.update(options)
  * 
  *         return py_stream             # <<<<<<<<<<<<<<
@@ -7913,7 +7992,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
   __pyx_r = ((PyObject *)__pyx_v_py_stream);
   goto __pyx_L0;
 
-  /* "av/container/output.py":355
+  /* "av/container/output.py":362
  *         return py_stream
  * 
  *     def add_data_stream(self, codec_name=None, options: dict | None = None):             # <<<<<<<<<<<<<<
@@ -7939,7 +8018,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
   return __pyx_r;
 }
 
-/* "av/container/output.py":426
+/* "av/container/output.py":433
  *         return py_stream
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -7947,7 +8026,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_14add_data_st
  *         """Write the file header! Called automatically."""
 */
 
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_17start_encoding(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_19start_encoding(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -7976,9 +8055,9 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
   PyObject *__pyx_t_3 = NULL;
   PyObject *__pyx_t_4 = NULL;
   size_t __pyx_t_5;
-  Py_ssize_t __pyx_t_6;
-  PyObject *(*__pyx_t_7)(PyObject *);
-  int __pyx_t_8;
+  int __pyx_t_6;
+  Py_ssize_t __pyx_t_7;
+  PyObject *(*__pyx_t_8)(PyObject *);
   int __pyx_t_9;
   Py_ssize_t __pyx_t_10;
   Py_ssize_t __pyx_t_11;
@@ -8007,9 +8086,9 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_start_encoding); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 426, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_start_encoding); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 433, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_2av_9container_6output_15OutputContainer_17start_encoding)) {
+      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_2av_9container_6output_15OutputContainer_19start_encoding)) {
         __Pyx_XDECREF(__pyx_r);
         __pyx_t_3 = NULL;
         __Pyx_INCREF(__pyx_t_1);
@@ -8031,7 +8110,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 426, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 433, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -8052,18 +8131,19 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
     #endif
   }
 
-  /* "av/container/output.py":429
+  /* "av/container/output.py":436
  *     def start_encoding(self):
  *         """Write the file header! Called automatically."""
- *         if self._started:             # <<<<<<<<<<<<<<
+ *         if self._myflag & 4:  # started             # <<<<<<<<<<<<<<
  *             return
  * 
 */
-  if (__pyx_v_self->_started) {
+  __pyx_t_6 = ((__pyx_v_self->__pyx_base._myflag & 4) != 0);
+  if (__pyx_t_6) {
 
-    /* "av/container/output.py":430
+    /* "av/container/output.py":437
  *         """Write the file header! Called automatically."""
- *         if self._started:
+ *         if self._myflag & 4:  # started
  *             return             # <<<<<<<<<<<<<<
  * 
  *         # TODO: This does NOT handle options coming from 3 sources.
@@ -8072,28 +8152,28 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/container/output.py":429
+    /* "av/container/output.py":436
  *     def start_encoding(self):
  *         """Write the file header! Called automatically."""
- *         if self._started:             # <<<<<<<<<<<<<<
+ *         if self._myflag & 4:  # started             # <<<<<<<<<<<<<<
  *             return
  * 
 */
   }
 
-  /* "av/container/output.py":434
+  /* "av/container/output.py":441
  *         # TODO: This does NOT handle options coming from 3 sources.
  *         # This is only a rough approximation of what would be cool to do.
  *         used_options: set = set()             # <<<<<<<<<<<<<<
  *         stream: Stream
  * 
 */
-  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 434, __pyx_L1_error)
+  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 441, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_used_options = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/container/output.py":438
+  /* "av/container/output.py":445
  * 
  *         # Finalize and open all streams.
  *         for stream in self.streams:             # <<<<<<<<<<<<<<
@@ -8102,58 +8182,58 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
 */
   if (likely(PyList_CheckExact(((PyObject *)__pyx_v_self->__pyx_base.streams))) || PyTuple_CheckExact(((PyObject *)__pyx_v_self->__pyx_base.streams))) {
     __pyx_t_1 = ((PyObject *)__pyx_v_self->__pyx_base.streams); __Pyx_INCREF(__pyx_t_1);
-    __pyx_t_6 = 0;
-    __pyx_t_7 = NULL;
+    __pyx_t_7 = 0;
+    __pyx_t_8 = NULL;
   } else {
-    __pyx_t_6 = -1; __pyx_t_1 = PyObject_GetIter(((PyObject *)__pyx_v_self->__pyx_base.streams)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 438, __pyx_L1_error)
+    __pyx_t_7 = -1; __pyx_t_1 = PyObject_GetIter(((PyObject *)__pyx_v_self->__pyx_base.streams)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 445, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_7 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 438, __pyx_L1_error)
+    __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 445, __pyx_L1_error)
   }
   for (;;) {
-    if (likely(!__pyx_t_7)) {
+    if (likely(!__pyx_t_8)) {
       if (likely(PyList_CheckExact(__pyx_t_1))) {
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 438, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 445, __pyx_L1_error)
           #endif
-          if (__pyx_t_6 >= __pyx_temp) break;
+          if (__pyx_t_7 >= __pyx_temp) break;
         }
-        __pyx_t_2 = __Pyx_PyList_GetItemRefFast(__pyx_t_1, __pyx_t_6, __Pyx_ReferenceSharing_OwnStrongReference);
-        ++__pyx_t_6;
+        __pyx_t_2 = __Pyx_PyList_GetItemRefFast(__pyx_t_1, __pyx_t_7, __Pyx_ReferenceSharing_OwnStrongReference);
+        ++__pyx_t_7;
       } else {
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 438, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 445, __pyx_L1_error)
           #endif
-          if (__pyx_t_6 >= __pyx_temp) break;
+          if (__pyx_t_7 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_2 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_6));
+        __pyx_t_2 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_7));
         #else
-        __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_6);
+        __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_7);
         #endif
-        ++__pyx_t_6;
+        ++__pyx_t_7;
       }
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 438, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 445, __pyx_L1_error)
     } else {
-      __pyx_t_2 = __pyx_t_7(__pyx_t_1);
+      __pyx_t_2 = __pyx_t_8(__pyx_t_1);
       if (unlikely(!__pyx_t_2)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 438, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 445, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
       }
     }
     __Pyx_GOTREF(__pyx_t_2);
-    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_2av_6stream_Stream))))) __PYX_ERR(0, 438, __pyx_L1_error)
+    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_2av_6stream_Stream))))) __PYX_ERR(0, 445, __pyx_L1_error)
     __Pyx_XDECREF_SET(__pyx_v_stream, ((struct __pyx_obj_2av_6stream_Stream *)__pyx_t_2));
     __pyx_t_2 = 0;
 
-    /* "av/container/output.py":439
+    /* "av/container/output.py":446
  *         # Finalize and open all streams.
  *         for stream in self.streams:
  *             ctx = stream.codec_context             # <<<<<<<<<<<<<<
@@ -8165,7 +8245,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
     __Pyx_XDECREF_SET(__pyx_v_ctx, ((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_t_2));
     __pyx_t_2 = 0;
 
-    /* "av/container/output.py":440
+    /* "av/container/output.py":447
  *         for stream in self.streams:
  *             ctx = stream.codec_context
  *             if ctx is not None and not ctx.is_open:             # <<<<<<<<<<<<<<
@@ -8175,15 +8255,15 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
     __pyx_t_9 = (((PyObject *)__pyx_v_ctx) != Py_None);
     if (__pyx_t_9) {
     } else {
-      __pyx_t_8 = __pyx_t_9;
+      __pyx_t_6 = __pyx_t_9;
       goto __pyx_L7_bool_binop_done;
     }
     __pyx_t_9 = (!__pyx_v_ctx->is_open);
-    __pyx_t_8 = __pyx_t_9;
+    __pyx_t_6 = __pyx_t_9;
     __pyx_L7_bool_binop_done:;
-    if (__pyx_t_8) {
+    if (__pyx_t_6) {
 
-      /* "av/container/output.py":441
+      /* "av/container/output.py":448
  *             ctx = stream.codec_context
  *             if ctx is not None and not ctx.is_open:
  *                 for k, v in self.options.items():             # <<<<<<<<<<<<<<
@@ -8193,9 +8273,9 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
       __pyx_t_10 = 0;
       if (unlikely(__pyx_v_self->__pyx_base.options == Py_None)) {
         PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-        __PYX_ERR(0, 441, __pyx_L1_error)
+        __PYX_ERR(0, 448, __pyx_L1_error)
       }
-      __pyx_t_4 = __Pyx_dict_iterator(__pyx_v_self->__pyx_base.options, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_11), (&__pyx_t_12)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 441, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_dict_iterator(__pyx_v_self->__pyx_base.options, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_11), (&__pyx_t_12)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 448, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_XDECREF(__pyx_t_2);
       __pyx_t_2 = __pyx_t_4;
@@ -8203,7 +8283,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
       while (1) {
         __pyx_t_13 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_11, &__pyx_t_10, &__pyx_t_4, &__pyx_t_3, NULL, __pyx_t_12);
         if (unlikely(__pyx_t_13 == 0)) break;
-        if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 441, __pyx_L1_error)
+        if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 448, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_GOTREF(__pyx_t_3);
         __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_4);
@@ -8211,45 +8291,45 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
         __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_3);
         __pyx_t_3 = 0;
 
-        /* "av/container/output.py":442
+        /* "av/container/output.py":449
  *             if ctx is not None and not ctx.is_open:
  *                 for k, v in self.options.items():
  *                     ctx.options.setdefault(k, v)             # <<<<<<<<<<<<<<
  * 
- *                 if not ctx._template_initialized:
+ *                 if not (ctx._ctxflags & 1):  # template_initialized
 */
         if (unlikely(__pyx_v_ctx->options == Py_None)) {
           PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "setdefault");
-          __PYX_ERR(0, 442, __pyx_L1_error)
+          __PYX_ERR(0, 449, __pyx_L1_error)
         }
-        __pyx_t_3 = __Pyx_PyDict_SetDefault(__pyx_v_ctx->options, __pyx_v_k, __pyx_v_v); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 442, __pyx_L1_error)
+        __pyx_t_3 = __Pyx_PyDict_SetDefault(__pyx_v_ctx->options, __pyx_v_k, __pyx_v_v); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 449, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       }
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-      /* "av/container/output.py":444
+      /* "av/container/output.py":451
  *                     ctx.options.setdefault(k, v)
  * 
- *                 if not ctx._template_initialized:             # <<<<<<<<<<<<<<
+ *                 if not (ctx._ctxflags & 1):  # template_initialized             # <<<<<<<<<<<<<<
  *                     ctx.open()
  * 
 */
-      __pyx_t_8 = (!__pyx_v_ctx->_template_initialized);
-      if (__pyx_t_8) {
+      __pyx_t_6 = (!((__pyx_v_ctx->_ctxflags & 1) != 0));
+      if (__pyx_t_6) {
 
-        /* "av/container/output.py":445
+        /* "av/container/output.py":452
  * 
- *                 if not ctx._template_initialized:
+ *                 if not (ctx._ctxflags & 1):  # template_initialized
  *                     ctx.open()             # <<<<<<<<<<<<<<
  * 
  *                     # Track option consumption.
 */
-        __pyx_t_2 = ((struct __pyx_vtabstruct_2av_5codec_7context_CodecContext *)__pyx_v_ctx->__pyx_vtab)->open(__pyx_v_ctx, 0, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 445, __pyx_L1_error)
+        __pyx_t_2 = ((struct __pyx_vtabstruct_2av_5codec_7context_CodecContext *)__pyx_v_ctx->__pyx_vtab)->open(__pyx_v_ctx, 0, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 452, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-        /* "av/container/output.py":448
+        /* "av/container/output.py":455
  * 
  *                     # Track option consumption.
  *                     for k in self.options:             # <<<<<<<<<<<<<<
@@ -8259,9 +8339,9 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
         __pyx_t_11 = 0;
         if (unlikely(__pyx_v_self->__pyx_base.options == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-          __PYX_ERR(0, 448, __pyx_L1_error)
+          __PYX_ERR(0, 455, __pyx_L1_error)
         }
-        __pyx_t_3 = __Pyx_dict_iterator(__pyx_v_self->__pyx_base.options, 1, ((PyObject *)NULL), (&__pyx_t_10), (&__pyx_t_12)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 448, __pyx_L1_error)
+        __pyx_t_3 = __Pyx_dict_iterator(__pyx_v_self->__pyx_base.options, 1, ((PyObject *)NULL), (&__pyx_t_10), (&__pyx_t_12)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 455, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
         __Pyx_XDECREF(__pyx_t_2);
         __pyx_t_2 = __pyx_t_3;
@@ -8269,12 +8349,12 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
         while (1) {
           __pyx_t_13 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_10, &__pyx_t_11, &__pyx_t_3, NULL, NULL, __pyx_t_12);
           if (unlikely(__pyx_t_13 == 0)) break;
-          if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 448, __pyx_L1_error)
+          if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 455, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
           __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_3);
           __pyx_t_3 = 0;
 
-          /* "av/container/output.py":449
+          /* "av/container/output.py":456
  *                     # Track option consumption.
  *                     for k in self.options:
  *                         if k not in ctx.options:             # <<<<<<<<<<<<<<
@@ -8283,21 +8363,21 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
 */
           if (unlikely(__pyx_v_ctx->options == Py_None)) {
             PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-            __PYX_ERR(0, 449, __pyx_L1_error)
+            __PYX_ERR(0, 456, __pyx_L1_error)
           }
-          __pyx_t_8 = (__Pyx_PyDict_ContainsTF(__pyx_v_k, __pyx_v_ctx->options, Py_NE)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 449, __pyx_L1_error)
-          if (__pyx_t_8) {
+          __pyx_t_6 = (__Pyx_PyDict_ContainsTF(__pyx_v_k, __pyx_v_ctx->options, Py_NE)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 456, __pyx_L1_error)
+          if (__pyx_t_6) {
 
-            /* "av/container/output.py":450
+            /* "av/container/output.py":457
  *                     for k in self.options:
  *                         if k not in ctx.options:
  *                             used_options.add(k)             # <<<<<<<<<<<<<<
  * 
  *             stream._finalize_for_output()
 */
-            __pyx_t_14 = PySet_Add(__pyx_v_used_options, __pyx_v_k); if (unlikely(__pyx_t_14 == ((int)-1))) __PYX_ERR(0, 450, __pyx_L1_error)
+            __pyx_t_14 = PySet_Add(__pyx_v_used_options, __pyx_v_k); if (unlikely(__pyx_t_14 == ((int)-1))) __PYX_ERR(0, 457, __pyx_L1_error)
 
-            /* "av/container/output.py":449
+            /* "av/container/output.py":456
  *                     # Track option consumption.
  *                     for k in self.options:
  *                         if k not in ctx.options:             # <<<<<<<<<<<<<<
@@ -8308,16 +8388,16 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
         }
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-        /* "av/container/output.py":444
+        /* "av/container/output.py":451
  *                     ctx.options.setdefault(k, v)
  * 
- *                 if not ctx._template_initialized:             # <<<<<<<<<<<<<<
+ *                 if not (ctx._ctxflags & 1):  # template_initialized             # <<<<<<<<<<<<<<
  *                     ctx.open()
  * 
 */
       }
 
-      /* "av/container/output.py":440
+      /* "av/container/output.py":447
  *         for stream in self.streams:
  *             ctx = stream.codec_context
  *             if ctx is not None and not ctx.is_open:             # <<<<<<<<<<<<<<
@@ -8326,18 +8406,18 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
 */
     }
 
-    /* "av/container/output.py":452
+    /* "av/container/output.py":459
  *                             used_options.add(k)
  * 
  *             stream._finalize_for_output()             # <<<<<<<<<<<<<<
  * 
  *         # Open the output file, if needed.
 */
-    __pyx_t_2 = ((struct __pyx_vtabstruct_2av_6stream_Stream *)__pyx_v_stream->__pyx_vtab)->_finalize_for_output(__pyx_v_stream); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 452, __pyx_L1_error)
+    __pyx_t_2 = ((struct __pyx_vtabstruct_2av_6stream_Stream *)__pyx_v_stream->__pyx_vtab)->_finalize_for_output(__pyx_v_stream); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 459, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "av/container/output.py":438
+    /* "av/container/output.py":445
  * 
  *         # Finalize and open all streams.
  *         for stream in self.streams:             # <<<<<<<<<<<<<<
@@ -8347,7 +8427,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/container/output.py":455
+  /* "av/container/output.py":462
  * 
  *         # Open the output file, if needed.
  *         name_obj: bytes = os.fsencode(self.name if self.file is None else "")             # <<<<<<<<<<<<<<
@@ -8355,13 +8435,13 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
  *         if self.ptr.pb == cython.NULL and not self.ptr.oformat.flags & lib.AVFMT_NOFILE:
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_os); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 455, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_os); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 462, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_fsencode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 455, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_fsencode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 462, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_8 = (((PyObject *)__pyx_v_self->__pyx_base.file) == Py_None);
-  if (__pyx_t_8) {
+  __pyx_t_6 = (((PyObject *)__pyx_v_self->__pyx_base.file) == Py_None);
+  if (__pyx_t_6) {
     __Pyx_INCREF(__pyx_v_self->__pyx_base.name);
     __pyx_t_3 = __pyx_v_self->__pyx_base.name;
   } else {
@@ -8386,14 +8466,14 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 455, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 462, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (!(likely(PyBytes_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_1))) __PYX_ERR(0, 455, __pyx_L1_error)
+  if (!(likely(PyBytes_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_1))) __PYX_ERR(0, 462, __pyx_L1_error)
   __pyx_v_name_obj = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/container/output.py":456
+  /* "av/container/output.py":463
  *         # Open the output file, if needed.
  *         name_obj: bytes = os.fsencode(self.name if self.file is None else "")
  *         name: cython.p_char = name_obj             # <<<<<<<<<<<<<<
@@ -8402,12 +8482,12 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
 */
   if (unlikely(__pyx_v_name_obj == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-    __PYX_ERR(0, 456, __pyx_L1_error)
+    __PYX_ERR(0, 463, __pyx_L1_error)
   }
-  __pyx_t_15 = __Pyx_PyBytes_AsWritableString(__pyx_v_name_obj); if (unlikely((!__pyx_t_15) && PyErr_Occurred())) __PYX_ERR(0, 456, __pyx_L1_error)
+  __pyx_t_15 = __Pyx_PyBytes_AsWritableString(__pyx_v_name_obj); if (unlikely((!__pyx_t_15) && PyErr_Occurred())) __PYX_ERR(0, 463, __pyx_L1_error)
   __pyx_v_name = __pyx_t_15;
 
-  /* "av/container/output.py":457
+  /* "av/container/output.py":464
  *         name_obj: bytes = os.fsencode(self.name if self.file is None else "")
  *         name: cython.p_char = name_obj
  *         if self.ptr.pb == cython.NULL and not self.ptr.oformat.flags & lib.AVFMT_NOFILE:             # <<<<<<<<<<<<<<
@@ -8417,24 +8497,24 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
   __pyx_t_9 = (__pyx_v_self->__pyx_base.ptr->pb == NULL);
   if (__pyx_t_9) {
   } else {
-    __pyx_t_8 = __pyx_t_9;
+    __pyx_t_6 = __pyx_t_9;
     goto __pyx_L17_bool_binop_done;
   }
   __pyx_t_9 = (!((__pyx_v_self->__pyx_base.ptr->oformat->flags & AVFMT_NOFILE) != 0));
-  __pyx_t_8 = __pyx_t_9;
+  __pyx_t_6 = __pyx_t_9;
   __pyx_L17_bool_binop_done:;
-  if (__pyx_t_8) {
+  if (__pyx_t_6) {
 
-    /* "av/container/output.py":458
+    /* "av/container/output.py":465
  *         name: cython.p_char = name_obj
  *         if self.ptr.pb == cython.NULL and not self.ptr.oformat.flags & lib.AVFMT_NOFILE:
  *             err_check(             # <<<<<<<<<<<<<<
  *                 lib.avio_open(cython.address(self.ptr.pb), name, lib.AVIO_FLAG_WRITE)
  *             )
 */
-    __pyx_t_12 = __pyx_f_2av_5error_err_check(avio_open((&__pyx_v_self->__pyx_base.ptr->pb), __pyx_v_name, AVIO_FLAG_WRITE), 0, NULL); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 458, __pyx_L1_error)
+    __pyx_t_12 = __pyx_f_2av_5error_err_check(avio_open((&__pyx_v_self->__pyx_base.ptr->pb), __pyx_v_name, AVIO_FLAG_WRITE), 0, NULL); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 465, __pyx_L1_error)
 
-    /* "av/container/output.py":457
+    /* "av/container/output.py":464
  *         name_obj: bytes = os.fsencode(self.name if self.file is None else "")
  *         name: cython.p_char = name_obj
  *         if self.ptr.pb == cython.NULL and not self.ptr.oformat.flags & lib.AVFMT_NOFILE:             # <<<<<<<<<<<<<<
@@ -8443,7 +8523,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
 */
   }
 
-  /* "av/container/output.py":465
+  /* "av/container/output.py":472
  *         dict_to_avdict(
  *             cython.address(self.ptr.metadata),
  *             self.metadata,             # <<<<<<<<<<<<<<
@@ -8453,7 +8533,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
   __pyx_t_1 = __pyx_v_self->__pyx_base.metadata;
   __Pyx_INCREF(__pyx_t_1);
 
-  /* "av/container/output.py":466
+  /* "av/container/output.py":473
  *             cython.address(self.ptr.metadata),
  *             self.metadata,
  *             encoding=self.metadata_encoding,             # <<<<<<<<<<<<<<
@@ -8463,7 +8543,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
   __pyx_t_4 = __pyx_v_self->__pyx_base.metadata_encoding;
   __Pyx_INCREF(__pyx_t_4);
 
-  /* "av/container/output.py":467
+  /* "av/container/output.py":474
  *             self.metadata,
  *             encoding=self.metadata_encoding,
  *             errors=self.metadata_errors,             # <<<<<<<<<<<<<<
@@ -8473,21 +8553,21 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
   __pyx_t_3 = __pyx_v_self->__pyx_base.metadata_errors;
   __Pyx_INCREF(__pyx_t_3);
 
-  /* "av/container/output.py":463
+  /* "av/container/output.py":470
  * 
  *         # Copy the metadata dict.
  *         dict_to_avdict(             # <<<<<<<<<<<<<<
  *             cython.address(self.ptr.metadata),
  *             self.metadata,
 */
-  __pyx_t_2 = __pyx_f_2av_5utils_dict_to_avdict((&__pyx_v_self->__pyx_base.ptr->metadata), ((PyObject*)__pyx_t_1), ((PyObject*)__pyx_t_4), ((PyObject*)__pyx_t_3)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 463, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_2av_5utils_dict_to_avdict((&__pyx_v_self->__pyx_base.ptr->metadata), ((PyObject*)__pyx_t_1), ((PyObject*)__pyx_t_4), ((PyObject*)__pyx_t_3)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 470, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/container/output.py":470
+  /* "av/container/output.py":477
  *         )
  * 
  *         all_options: Dictionary = Dictionary(self.options, self.container_options)             # <<<<<<<<<<<<<<
@@ -8500,34 +8580,34 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
     PyObject *__pyx_callargs[3] = {__pyx_t_3, __pyx_v_self->__pyx_base.options, __pyx_v_self->__pyx_base.container_options};
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_10dictionary_Dictionary, __pyx_callargs+__pyx_t_5, (3-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 470, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 477, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_2);
   }
   __pyx_v_all_options = ((struct __pyx_obj_2av_10dictionary_Dictionary *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/container/output.py":471
+  /* "av/container/output.py":478
  * 
  *         all_options: Dictionary = Dictionary(self.options, self.container_options)
  *         options: Dictionary = all_options.copy()             # <<<<<<<<<<<<<<
  *         self.err_check(lib.avformat_write_header(self.ptr, cython.address(options.ptr)))
  * 
 */
-  __pyx_t_2 = ((PyObject *)((struct __pyx_vtabstruct_2av_10dictionary_Dictionary *)__pyx_v_all_options->__pyx_vtab)->copy(__pyx_v_all_options, 0)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 471, __pyx_L1_error)
+  __pyx_t_2 = ((PyObject *)((struct __pyx_vtabstruct_2av_10dictionary_Dictionary *)__pyx_v_all_options->__pyx_vtab)->copy(__pyx_v_all_options, 0)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 478, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_v_options = ((struct __pyx_obj_2av_10dictionary_Dictionary *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/container/output.py":472
+  /* "av/container/output.py":479
  *         all_options: Dictionary = Dictionary(self.options, self.container_options)
  *         options: Dictionary = all_options.copy()
  *         self.err_check(lib.avformat_write_header(self.ptr, cython.address(options.ptr)))             # <<<<<<<<<<<<<<
  * 
  *         # Track option usage...
 */
-  __pyx_t_12 = ((struct __pyx_vtabstruct_2av_9container_6output_OutputContainer *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.err_check(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), avformat_write_header(__pyx_v_self->__pyx_base.ptr, (&__pyx_v_options->ptr))); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 472, __pyx_L1_error)
+  __pyx_t_12 = ((struct __pyx_vtabstruct_2av_9container_6output_OutputContainer *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.err_check(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), avformat_write_header(__pyx_v_self->__pyx_base.ptr, (&__pyx_v_options->ptr))); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 479, __pyx_L1_error)
 
-  /* "av/container/output.py":475
+  /* "av/container/output.py":482
  * 
  *         # Track option usage...
  *         for k in all_options:             # <<<<<<<<<<<<<<
@@ -8536,47 +8616,47 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
 */
   if (likely(PyList_CheckExact(((PyObject *)__pyx_v_all_options))) || PyTuple_CheckExact(((PyObject *)__pyx_v_all_options))) {
     __pyx_t_2 = ((PyObject *)__pyx_v_all_options); __Pyx_INCREF(__pyx_t_2);
-    __pyx_t_6 = 0;
-    __pyx_t_7 = NULL;
+    __pyx_t_7 = 0;
+    __pyx_t_8 = NULL;
   } else {
-    __pyx_t_6 = -1; __pyx_t_2 = PyObject_GetIter(((PyObject *)__pyx_v_all_options)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 475, __pyx_L1_error)
+    __pyx_t_7 = -1; __pyx_t_2 = PyObject_GetIter(((PyObject *)__pyx_v_all_options)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 482, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_7 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 475, __pyx_L1_error)
+    __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 482, __pyx_L1_error)
   }
   for (;;) {
-    if (likely(!__pyx_t_7)) {
+    if (likely(!__pyx_t_8)) {
       if (likely(PyList_CheckExact(__pyx_t_2))) {
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_2);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 475, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 482, __pyx_L1_error)
           #endif
-          if (__pyx_t_6 >= __pyx_temp) break;
+          if (__pyx_t_7 >= __pyx_temp) break;
         }
-        __pyx_t_3 = __Pyx_PyList_GetItemRefFast(__pyx_t_2, __pyx_t_6, __Pyx_ReferenceSharing_OwnStrongReference);
-        ++__pyx_t_6;
+        __pyx_t_3 = __Pyx_PyList_GetItemRefFast(__pyx_t_2, __pyx_t_7, __Pyx_ReferenceSharing_OwnStrongReference);
+        ++__pyx_t_7;
       } else {
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_2);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 475, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 482, __pyx_L1_error)
           #endif
-          if (__pyx_t_6 >= __pyx_temp) break;
+          if (__pyx_t_7 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_3 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_6));
+        __pyx_t_3 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_7));
         #else
-        __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_2, __pyx_t_6);
+        __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_2, __pyx_t_7);
         #endif
-        ++__pyx_t_6;
+        ++__pyx_t_7;
       }
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 475, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 482, __pyx_L1_error)
     } else {
-      __pyx_t_3 = __pyx_t_7(__pyx_t_2);
+      __pyx_t_3 = __pyx_t_8(__pyx_t_2);
       if (unlikely(!__pyx_t_3)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 475, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 482, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -8586,26 +8666,26 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
     __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "av/container/output.py":476
+    /* "av/container/output.py":483
  *         # Track option usage...
  *         for k in all_options:
  *             if k not in options:             # <<<<<<<<<<<<<<
  *                 used_options.add(k)
  * 
 */
-    __pyx_t_8 = (__Pyx_PySequence_ContainsTF(__pyx_v_k, ((PyObject *)__pyx_v_options), Py_NE)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 476, __pyx_L1_error)
-    if (__pyx_t_8) {
+    __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_v_k, ((PyObject *)__pyx_v_options), Py_NE)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 483, __pyx_L1_error)
+    if (__pyx_t_6) {
 
-      /* "av/container/output.py":477
+      /* "av/container/output.py":484
  *         for k in all_options:
  *             if k not in options:
  *                 used_options.add(k)             # <<<<<<<<<<<<<<
  * 
  *         # ... and warn if any weren't used.
 */
-      __pyx_t_14 = PySet_Add(__pyx_v_used_options, __pyx_v_k); if (unlikely(__pyx_t_14 == ((int)-1))) __PYX_ERR(0, 477, __pyx_L1_error)
+      __pyx_t_14 = PySet_Add(__pyx_v_used_options, __pyx_v_k); if (unlikely(__pyx_t_14 == ((int)-1))) __PYX_ERR(0, 484, __pyx_L1_error)
 
-      /* "av/container/output.py":476
+      /* "av/container/output.py":483
  *         # Track option usage...
  *         for k in all_options:
  *             if k not in options:             # <<<<<<<<<<<<<<
@@ -8614,7 +8694,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
 */
     }
 
-    /* "av/container/output.py":475
+    /* "av/container/output.py":482
  * 
  *         # Track option usage...
  *         for k in all_options:             # <<<<<<<<<<<<<<
@@ -8624,7 +8704,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/container/output.py":480
+  /* "av/container/output.py":487
  * 
  *         # ... and warn if any weren't used.
  *         unused_options = {             # <<<<<<<<<<<<<<
@@ -8632,39 +8712,39 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
  *         }
 */
   { /* enter inner scope */
-    __pyx_t_2 = PyDict_New(); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 480, __pyx_L25_error)
+    __pyx_t_2 = PyDict_New(); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 487, __pyx_L25_error)
     __Pyx_GOTREF(__pyx_t_2);
 
-    /* "av/container/output.py":481
+    /* "av/container/output.py":488
  *         # ... and warn if any weren't used.
  *         unused_options = {
  *             k: v for k, v in self.options.items() if k not in used_options             # <<<<<<<<<<<<<<
  *         }
  *         if unused_options:
 */
-    __pyx_t_6 = 0;
+    __pyx_t_7 = 0;
     if (unlikely(__pyx_v_self->__pyx_base.options == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-      __PYX_ERR(0, 481, __pyx_L25_error)
+      __PYX_ERR(0, 488, __pyx_L25_error)
     }
-    __pyx_t_4 = __Pyx_dict_iterator(__pyx_v_self->__pyx_base.options, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_10), (&__pyx_t_12)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 481, __pyx_L25_error)
+    __pyx_t_4 = __Pyx_dict_iterator(__pyx_v_self->__pyx_base.options, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_10), (&__pyx_t_12)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 488, __pyx_L25_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3);
     __pyx_t_3 = __pyx_t_4;
     __pyx_t_4 = 0;
     while (1) {
-      __pyx_t_13 = __Pyx_dict_iter_next(__pyx_t_3, __pyx_t_10, &__pyx_t_6, &__pyx_t_4, &__pyx_t_1, NULL, __pyx_t_12);
+      __pyx_t_13 = __Pyx_dict_iter_next(__pyx_t_3, __pyx_t_10, &__pyx_t_7, &__pyx_t_4, &__pyx_t_1, NULL, __pyx_t_12);
       if (unlikely(__pyx_t_13 == 0)) break;
-      if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 481, __pyx_L25_error)
+      if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 488, __pyx_L25_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_k, __pyx_t_4);
       __pyx_t_4 = 0;
       __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_v, __pyx_t_1);
       __pyx_t_1 = 0;
-      __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_7genexpr__pyx_v_k, __pyx_v_used_options, Py_NE)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 481, __pyx_L25_error)
-      if (__pyx_t_8) {
-        if (unlikely(PyDict_SetItem(__pyx_t_2, (PyObject*)__pyx_7genexpr__pyx_v_k, (PyObject*)__pyx_7genexpr__pyx_v_v))) __PYX_ERR(0, 481, __pyx_L25_error)
+      __pyx_t_6 = (__Pyx_PySet_ContainsTF(__pyx_7genexpr__pyx_v_k, __pyx_v_used_options, Py_NE)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 488, __pyx_L25_error)
+      if (__pyx_t_6) {
+        if (unlikely(PyDict_SetItem(__pyx_t_2, (PyObject*)__pyx_7genexpr__pyx_v_k, (PyObject*)__pyx_7genexpr__pyx_v_v))) __PYX_ERR(0, 488, __pyx_L25_error)
       }
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -8680,30 +8760,30 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
   __pyx_v_unused_options = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/container/output.py":483
+  /* "av/container/output.py":490
  *             k: v for k, v in self.options.items() if k not in used_options
  *         }
  *         if unused_options:             # <<<<<<<<<<<<<<
  *             import logging
  * 
 */
-  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_v_unused_options); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 483, __pyx_L1_error)
-  if (__pyx_t_8) {
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_unused_options); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 490, __pyx_L1_error)
+  if (__pyx_t_6) {
 
-    /* "av/container/output.py":484
+    /* "av/container/output.py":491
  *         }
  *         if unused_options:
  *             import logging             # <<<<<<<<<<<<<<
  * 
  *             log = logging.getLogger(__name__)
 */
-    __pyx_t_16 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_logging, 0, 0, NULL, 0); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 484, __pyx_L1_error)
+    __pyx_t_16 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_logging, 0, 0, NULL, 0); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 491, __pyx_L1_error)
     __pyx_t_2 = __pyx_t_16;
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_logging = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "av/container/output.py":486
+    /* "av/container/output.py":493
  *             import logging
  * 
  *             log = logging.getLogger(__name__)             # <<<<<<<<<<<<<<
@@ -8712,7 +8792,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
 */
     __pyx_t_3 = __pyx_v_logging;
     __Pyx_INCREF(__pyx_t_3);
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 486, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 493, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_5 = 0;
     {
@@ -8720,22 +8800,22 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_getLogger, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 486, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 493, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __pyx_v_log = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "av/container/output.py":487
+    /* "av/container/output.py":494
  * 
  *             log = logging.getLogger(__name__)
  *             log.warning("Some options were not used: %s" % unused_options)             # <<<<<<<<<<<<<<
  * 
- *         self._started = True
+ *         self._myflag |= 4
 */
     __pyx_t_1 = __pyx_v_log;
     __Pyx_INCREF(__pyx_t_1);
-    __pyx_t_3 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Some_options_were_not_used_s, __pyx_v_unused_options); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 487, __pyx_L1_error)
+    __pyx_t_3 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Some_options_were_not_used_s, __pyx_v_unused_options); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 494, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_5 = 0;
     {
@@ -8743,12 +8823,12 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_warning, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 487, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 494, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "av/container/output.py":483
+    /* "av/container/output.py":490
  *             k: v for k, v in self.options.items() if k not in used_options
  *         }
  *         if unused_options:             # <<<<<<<<<<<<<<
@@ -8757,16 +8837,16 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
 */
   }
 
-  /* "av/container/output.py":489
+  /* "av/container/output.py":496
  *             log.warning("Some options were not used: %s" % unused_options)
  * 
- *         self._started = True             # <<<<<<<<<<<<<<
+ *         self._myflag |= 4             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_v_self->_started = 1;
+  __pyx_v_self->__pyx_base._myflag = (__pyx_v_self->__pyx_base._myflag | 4);
 
-  /* "av/container/output.py":426
+  /* "av/container/output.py":433
  *         return py_stream
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -8804,15 +8884,15 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_17start_encoding(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_19start_encoding(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_16start_encoding, "OutputContainer.start_encoding()\n\nWrite the file header! Called automatically.");
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_17start_encoding(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_18start_encoding, "OutputContainer.start_encoding()\n\nWrite the file header! Called automatically.");
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_19start_encoding(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -8838,14 +8918,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   const Py_ssize_t __pyx_kwds_len = unlikely(__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
   if (unlikely(__pyx_kwds_len < 0)) return NULL;
   if (unlikely(__pyx_kwds_len > 0)) {__Pyx_RejectKeywords("start_encoding", __pyx_kwds); return NULL;}
-  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_16start_encoding(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self));
+  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_18start_encoding(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16start_encoding(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self) {
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_18start_encoding(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -8854,7 +8934,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16start_encod
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("start_encoding", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_2av_9container_6output_15OutputContainer_start_encoding(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 426, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_9container_6output_15OutputContainer_start_encoding(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 433, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -8871,8 +8951,8 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16start_encod
   return __pyx_r;
 }
 
-/* "av/container/output.py":491
- *         self._started = True
+/* "av/container/output.py":498
+ *         self._myflag |= 4
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def supported_codecs(self):
@@ -8908,19 +8988,19 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_c
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/container/output.py":496
+  /* "av/container/output.py":503
  *         Returns a set of all codecs this format supports.
  *         """
  *         result: set = set()             # <<<<<<<<<<<<<<
  *         codec: cython.pointer[cython.const[lib.AVCodec]] = cython.NULL
  *         opaque: cython.p_void = cython.NULL
 */
-  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 503, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_result = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/container/output.py":497
+  /* "av/container/output.py":504
  *         """
  *         result: set = set()
  *         codec: cython.pointer[cython.const[lib.AVCodec]] = cython.NULL             # <<<<<<<<<<<<<<
@@ -8929,7 +9009,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_c
 */
   __pyx_v_codec = NULL;
 
-  /* "av/container/output.py":498
+  /* "av/container/output.py":505
  *         result: set = set()
  *         codec: cython.pointer[cython.const[lib.AVCodec]] = cython.NULL
  *         opaque: cython.p_void = cython.NULL             # <<<<<<<<<<<<<<
@@ -8938,7 +9018,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_c
 */
   __pyx_v_opaque = NULL;
 
-  /* "av/container/output.py":500
+  /* "av/container/output.py":507
  *         opaque: cython.p_void = cython.NULL
  * 
  *         while True:             # <<<<<<<<<<<<<<
@@ -8947,7 +9027,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_c
 */
   while (1) {
 
-    /* "av/container/output.py":501
+    /* "av/container/output.py":508
  * 
  *         while True:
  *             codec = lib.av_codec_iterate(cython.address(opaque))             # <<<<<<<<<<<<<<
@@ -8956,7 +9036,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_c
 */
     __pyx_v_codec = av_codec_iterate((&__pyx_v_opaque));
 
-    /* "av/container/output.py":502
+    /* "av/container/output.py":509
  *         while True:
  *             codec = lib.av_codec_iterate(cython.address(opaque))
  *             if codec == cython.NULL:             # <<<<<<<<<<<<<<
@@ -8966,7 +9046,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_c
     __pyx_t_2 = (__pyx_v_codec == NULL);
     if (__pyx_t_2) {
 
-      /* "av/container/output.py":503
+      /* "av/container/output.py":510
  *             codec = lib.av_codec_iterate(cython.address(opaque))
  *             if codec == cython.NULL:
  *                 break             # <<<<<<<<<<<<<<
@@ -8975,7 +9055,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_c
 */
       goto __pyx_L4_break;
 
-      /* "av/container/output.py":502
+      /* "av/container/output.py":509
  *         while True:
  *             codec = lib.av_codec_iterate(cython.address(opaque))
  *             if codec == cython.NULL:             # <<<<<<<<<<<<<<
@@ -8984,7 +9064,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_c
 */
     }
 
-    /* "av/container/output.py":509
+    /* "av/container/output.py":516
  *                     self.ptr.oformat, codec.id, lib.FF_COMPLIANCE_NORMAL
  *                 )
  *                 == 1             # <<<<<<<<<<<<<<
@@ -8993,7 +9073,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_c
 */
     __pyx_t_2 = (avformat_query_codec(__pyx_v_self->__pyx_base.ptr->oformat, __pyx_v_codec->id, FF_COMPLIANCE_NORMAL) == 1);
 
-    /* "av/container/output.py":505
+    /* "av/container/output.py":512
  *                 break
  * 
  *             if (             # <<<<<<<<<<<<<<
@@ -9002,19 +9082,19 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_c
 */
     if (__pyx_t_2) {
 
-      /* "av/container/output.py":511
+      /* "av/container/output.py":518
  *                 == 1
  *             ):
  *                 result.add(codec.name)             # <<<<<<<<<<<<<<
  * 
  *         return result
 */
-      __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_codec->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 511, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_codec->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 518, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = PySet_Add(__pyx_v_result, __pyx_t_1); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 511, __pyx_L1_error)
+      __pyx_t_3 = PySet_Add(__pyx_v_result, __pyx_t_1); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 518, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "av/container/output.py":505
+      /* "av/container/output.py":512
  *                 break
  * 
  *             if (             # <<<<<<<<<<<<<<
@@ -9025,7 +9105,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_c
   }
   __pyx_L4_break:;
 
-  /* "av/container/output.py":513
+  /* "av/container/output.py":520
  *                 result.add(codec.name)
  * 
  *         return result             # <<<<<<<<<<<<<<
@@ -9037,8 +9117,8 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_c
   __pyx_r = __pyx_v_result;
   goto __pyx_L0;
 
-  /* "av/container/output.py":491
- *         self._started = True
+  /* "av/container/output.py":498
+ *         self._myflag |= 4
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def supported_codecs(self):
@@ -9057,7 +9137,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_16supported_c
   return __pyx_r;
 }
 
-/* "av/container/output.py":515
+/* "av/container/output.py":522
  *         return result
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9089,7 +9169,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_19default_vid
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/container/output.py":520
+  /* "av/container/output.py":527
  *         Returns the default video codec this container recommends.
  *         """
  *         return lib.avcodec_get_name(self.format.optr.video_codec)             # <<<<<<<<<<<<<<
@@ -9097,13 +9177,13 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_19default_vid
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyUnicode_FromString(avcodec_get_name(__pyx_v_self->__pyx_base.format->optr->video_codec)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 520, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyUnicode_FromString(avcodec_get_name(__pyx_v_self->__pyx_base.format->optr->video_codec)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 527, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/container/output.py":515
+  /* "av/container/output.py":522
  *         return result
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9122,7 +9202,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_19default_vid
   return __pyx_r;
 }
 
-/* "av/container/output.py":522
+/* "av/container/output.py":529
  *         return lib.avcodec_get_name(self.format.optr.video_codec)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9154,7 +9234,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_19default_aud
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/container/output.py":527
+  /* "av/container/output.py":534
  *         Returns the default audio codec this container recommends.
  *         """
  *         return lib.avcodec_get_name(self.format.optr.audio_codec)             # <<<<<<<<<<<<<<
@@ -9162,13 +9242,13 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_19default_aud
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyUnicode_FromString(avcodec_get_name(__pyx_v_self->__pyx_base.format->optr->audio_codec)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 527, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyUnicode_FromString(avcodec_get_name(__pyx_v_self->__pyx_base.format->optr->audio_codec)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 534, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/container/output.py":522
+  /* "av/container/output.py":529
  *         return lib.avcodec_get_name(self.format.optr.video_codec)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9187,7 +9267,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_19default_aud
   return __pyx_r;
 }
 
-/* "av/container/output.py":529
+/* "av/container/output.py":536
  *         return lib.avcodec_get_name(self.format.optr.audio_codec)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9219,7 +9299,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22default_sub
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/container/output.py":534
+  /* "av/container/output.py":541
  *         Returns the default subtitle codec this container recommends.
  *         """
  *         return lib.avcodec_get_name(self.format.optr.subtitle_codec)             # <<<<<<<<<<<<<<
@@ -9227,13 +9307,13 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22default_sub
  *     def close(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyUnicode_FromString(avcodec_get_name(__pyx_v_self->__pyx_base.format->optr->subtitle_codec)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 534, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyUnicode_FromString(avcodec_get_name(__pyx_v_self->__pyx_base.format->optr->subtitle_codec)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 541, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/container/output.py":529
+  /* "av/container/output.py":536
  *         return lib.avcodec_get_name(self.format.optr.audio_codec)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9252,7 +9332,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22default_sub
   return __pyx_r;
 }
 
-/* "av/container/output.py":536
+/* "av/container/output.py":543
  *         return lib.avcodec_get_name(self.format.optr.subtitle_codec)
  * 
  *     def close(self):             # <<<<<<<<<<<<<<
@@ -9261,15 +9341,15 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22default_sub
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_19close(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_21close(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_18close, "OutputContainer.close()");
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_19close(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_20close, "OutputContainer.close()");
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_21close(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -9295,14 +9375,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   const Py_ssize_t __pyx_kwds_len = unlikely(__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
   if (unlikely(__pyx_kwds_len < 0)) return NULL;
   if (unlikely(__pyx_kwds_len > 0)) {__Pyx_RejectKeywords("close", __pyx_kwds); return NULL;}
-  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_18close(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self));
+  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_20close(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_18close(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self) {
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20close(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -9311,7 +9391,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_18close(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("close", 0);
 
-  /* "av/container/output.py":537
+  /* "av/container/output.py":544
  * 
  *     def close(self):
  *         close_output(self)             # <<<<<<<<<<<<<<
@@ -9320,13 +9400,13 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_18close(struc
 */
   if (unlikely(((PyObject *)__pyx_v_self) == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "cannot pass None into a C function argument that is declared 'not None'");
-    __PYX_ERR(0, 537, __pyx_L1_error)
+    __PYX_ERR(0, 544, __pyx_L1_error)
   }
-  __pyx_t_1 = __pyx_f_2av_9container_6output_close_output(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 537, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_9container_6output_close_output(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 544, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/container/output.py":536
+  /* "av/container/output.py":543
  *         return lib.avcodec_get_name(self.format.optr.subtitle_codec)
  * 
  *     def close(self):             # <<<<<<<<<<<<<<
@@ -9347,7 +9427,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_18close(struc
   return __pyx_r;
 }
 
-/* "av/container/output.py":539
+/* "av/container/output.py":546
  *         close_output(self)
  * 
  *     def mux(self, packets):             # <<<<<<<<<<<<<<
@@ -9356,15 +9436,15 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_18close(struc
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_21mux(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_23mux(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_20mux, "OutputContainer.mux(packets)");
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_21mux(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_22mux, "OutputContainer.mux(packets)");
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_23mux(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -9394,32 +9474,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_packets,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 539, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 546, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 539, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 546, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "mux", 0) < (0)) __PYX_ERR(0, 539, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "mux", 0) < (0)) __PYX_ERR(0, 546, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("mux", 1, 1, 1, i); __PYX_ERR(0, 539, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("mux", 1, 1, 1, i); __PYX_ERR(0, 546, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 539, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 546, __pyx_L3_error)
     }
     __pyx_v_packets = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("mux", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 539, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("mux", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 546, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9430,7 +9510,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_20mux(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_packets);
+  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_22mux(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_packets);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -9440,7 +9520,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_packets) {
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, PyObject *__pyx_v_packets) {
   PyObject *__pyx_v_packet = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -9456,7 +9536,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("mux", 0);
 
-  /* "av/container/output.py":542
+  /* "av/container/output.py":549
  *         # We accept either a Packet, or a sequence of packets. This should smooth out
  *         # the transition to the new encode API which returns a sequence of packets.
  *         if isinstance(packets, Packet):             # <<<<<<<<<<<<<<
@@ -9466,7 +9546,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct 
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_packets, __pyx_mstate_global->__pyx_ptype_2av_6packet_Packet); 
   if (__pyx_t_1) {
 
-    /* "av/container/output.py":543
+    /* "av/container/output.py":550
  *         # the transition to the new encode API which returns a sequence of packets.
  *         if isinstance(packets, Packet):
  *             self.mux_one(packets)             # <<<<<<<<<<<<<<
@@ -9480,12 +9560,12 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct 
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_packets};
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_mux_one, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 543, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 550, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "av/container/output.py":542
+    /* "av/container/output.py":549
  *         # We accept either a Packet, or a sequence of packets. This should smooth out
  *         # the transition to the new encode API which returns a sequence of packets.
  *         if isinstance(packets, Packet):             # <<<<<<<<<<<<<<
@@ -9495,7 +9575,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct 
     goto __pyx_L3;
   }
 
-  /* "av/container/output.py":545
+  /* "av/container/output.py":552
  *             self.mux_one(packets)
  *         else:
  *             for packet in packets:             # <<<<<<<<<<<<<<
@@ -9508,9 +9588,9 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct 
       __pyx_t_5 = 0;
       __pyx_t_6 = NULL;
     } else {
-      __pyx_t_5 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_v_packets); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 545, __pyx_L1_error)
+      __pyx_t_5 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_v_packets); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 552, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 545, __pyx_L1_error)
+      __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 552, __pyx_L1_error)
     }
     for (;;) {
       if (likely(!__pyx_t_6)) {
@@ -9518,7 +9598,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct 
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_2);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 545, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 552, __pyx_L1_error)
             #endif
             if (__pyx_t_5 >= __pyx_temp) break;
           }
@@ -9528,7 +9608,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct 
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_2);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 545, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 552, __pyx_L1_error)
             #endif
             if (__pyx_t_5 >= __pyx_temp) break;
           }
@@ -9539,13 +9619,13 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct 
           #endif
           ++__pyx_t_5;
         }
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 545, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 552, __pyx_L1_error)
       } else {
         __pyx_t_3 = __pyx_t_6(__pyx_t_2);
         if (unlikely(!__pyx_t_3)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 545, __pyx_L1_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 552, __pyx_L1_error)
             PyErr_Clear();
           }
           break;
@@ -9555,7 +9635,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct 
       __Pyx_XDECREF_SET(__pyx_v_packet, __pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "av/container/output.py":546
+      /* "av/container/output.py":553
  *         else:
  *             for packet in packets:
  *                 self.mux_one(packet)             # <<<<<<<<<<<<<<
@@ -9569,12 +9649,12 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct 
         PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_packet};
         __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_mux_one, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 546, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 553, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-      /* "av/container/output.py":545
+      /* "av/container/output.py":552
  *             self.mux_one(packets)
  *         else:
  *             for packet in packets:             # <<<<<<<<<<<<<<
@@ -9586,7 +9666,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct 
   }
   __pyx_L3:;
 
-  /* "av/container/output.py":539
+  /* "av/container/output.py":546
  *         close_output(self)
  * 
  *     def mux(self, packets):             # <<<<<<<<<<<<<<
@@ -9610,7 +9690,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct 
   return __pyx_r;
 }
 
-/* "av/container/output.py":548
+/* "av/container/output.py":555
  *                 self.mux_one(packet)
  * 
  *     def mux_one(self, packet: Packet):             # <<<<<<<<<<<<<<
@@ -9619,15 +9699,15 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_20mux(struct 
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_23mux_one(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_25mux_one(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_22mux_one, "OutputContainer.mux_one(Packet packet: Packet)");
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_23mux_one(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_24mux_one, "OutputContainer.mux_one(Packet packet: Packet)");
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_25mux_one(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -9657,32 +9737,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_packet,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 548, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 555, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 548, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 555, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "mux_one", 0) < (0)) __PYX_ERR(0, 548, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "mux_one", 0) < (0)) __PYX_ERR(0, 555, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("mux_one", 1, 1, 1, i); __PYX_ERR(0, 548, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("mux_one", 1, 1, 1, i); __PYX_ERR(0, 555, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 548, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 555, __pyx_L3_error)
     }
     __pyx_v_packet = ((struct __pyx_obj_2av_6packet_Packet *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("mux_one", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 548, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("mux_one", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 555, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9693,8 +9773,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_packet), __pyx_mstate_global->__pyx_ptype_2av_6packet_Packet, 0, "packet", 0))) __PYX_ERR(0, 548, __pyx_L1_error)
-  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_packet);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_packet), __pyx_mstate_global->__pyx_ptype_2av_6packet_Packet, 0, "packet", 0))) __PYX_ERR(0, 555, __pyx_L1_error)
+  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_24mux_one(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v_packet);
 
   /* function exit code */
   goto __pyx_L0;
@@ -9713,7 +9793,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet) {
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_24mux_one(struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet) {
   struct AVStream *__pyx_v_stream;
   int __pyx_v_ret;
   PyObject *__pyx_r = NULL;
@@ -9729,18 +9809,18 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("mux_one", 0);
 
-  /* "av/container/output.py":549
+  /* "av/container/output.py":556
  * 
  *     def mux_one(self, packet: Packet):
  *         self.start_encoding()             # <<<<<<<<<<<<<<
  * 
  *         # Assert the packet is in stream time.
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_2av_9container_6output_OutputContainer *)__pyx_v_self->__pyx_base.__pyx_vtab)->start_encoding(__pyx_v_self, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 549, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_2av_9container_6output_OutputContainer *)__pyx_v_self->__pyx_base.__pyx_vtab)->start_encoding(__pyx_v_self, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 556, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/container/output.py":553
+  /* "av/container/output.py":560
  *         # Assert the packet is in stream time.
  *         if (
  *             packet.ptr.stream_index < 0             # <<<<<<<<<<<<<<
@@ -9754,7 +9834,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(str
     goto __pyx_L4_bool_binop_done;
   }
 
-  /* "av/container/output.py":554
+  /* "av/container/output.py":561
  *         if (
  *             packet.ptr.stream_index < 0
  *             or cython.cast(cython.uint, packet.ptr.stream_index) >= self.ptr.nb_streams             # <<<<<<<<<<<<<<
@@ -9765,7 +9845,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(str
   __pyx_t_2 = __pyx_t_3;
   __pyx_L4_bool_binop_done:;
 
-  /* "av/container/output.py":552
+  /* "av/container/output.py":559
  * 
  *         # Assert the packet is in stream time.
  *         if (             # <<<<<<<<<<<<<<
@@ -9774,7 +9854,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(str
 */
   if (unlikely(__pyx_t_2)) {
 
-    /* "av/container/output.py":556
+    /* "av/container/output.py":563
  *             or cython.cast(cython.uint, packet.ptr.stream_index) >= self.ptr.nb_streams
  *         ):
  *             raise ValueError("Bad Packet stream_index.")             # <<<<<<<<<<<<<<
@@ -9787,14 +9867,14 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(str
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_Bad_Packet_stream_index};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 556, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 563, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 556, __pyx_L1_error)
+    __PYX_ERR(0, 563, __pyx_L1_error)
 
-    /* "av/container/output.py":552
+    /* "av/container/output.py":559
  * 
  *         # Assert the packet is in stream time.
  *         if (             # <<<<<<<<<<<<<<
@@ -9803,7 +9883,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(str
 */
   }
 
-  /* "av/container/output.py":558
+  /* "av/container/output.py":565
  *             raise ValueError("Bad Packet stream_index.")
  * 
  *         stream: cython.pointer[lib.AVStream] = self.ptr.streams[packet.ptr.stream_index]             # <<<<<<<<<<<<<<
@@ -9812,27 +9892,27 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(str
 */
   __pyx_v_stream = (__pyx_v_self->__pyx_base.ptr->streams[__pyx_v_packet->ptr->stream_index]);
 
-  /* "av/container/output.py":559
+  /* "av/container/output.py":566
  * 
  *         stream: cython.pointer[lib.AVStream] = self.ptr.streams[packet.ptr.stream_index]
  *         packet._rebase_time(stream.time_base)             # <<<<<<<<<<<<<<
  * 
  *         # Make another reference to the packet, as `av_interleaved_write_frame()`
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_2av_6packet_Packet *)__pyx_v_packet->__pyx_base.__pyx_vtab)->_rebase_time(__pyx_v_packet, __pyx_v_stream->time_base); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 559, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_2av_6packet_Packet *)__pyx_v_packet->__pyx_base.__pyx_vtab)->_rebase_time(__pyx_v_packet, __pyx_v_stream->time_base); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 566, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/container/output.py":563
+  /* "av/container/output.py":570
  *         # Make another reference to the packet, as `av_interleaved_write_frame()`
  *         # takes ownership of the reference.
  *         self.err_check(lib.av_packet_ref(self.packet_ptr, packet.ptr))             # <<<<<<<<<<<<<<
  * 
  *         with cython.nogil:
 */
-  __pyx_t_6 = ((struct __pyx_vtabstruct_2av_9container_6output_OutputContainer *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.err_check(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), av_packet_ref(__pyx_v_self->packet_ptr, __pyx_v_packet->ptr)); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 563, __pyx_L1_error)
+  __pyx_t_6 = ((struct __pyx_vtabstruct_2av_9container_6output_OutputContainer *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.err_check(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), av_packet_ref(__pyx_v_self->packet_ptr, __pyx_v_packet->ptr)); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 570, __pyx_L1_error)
 
-  /* "av/container/output.py":565
+  /* "av/container/output.py":572
  *         self.err_check(lib.av_packet_ref(self.packet_ptr, packet.ptr))
  * 
  *         with cython.nogil:             # <<<<<<<<<<<<<<
@@ -9845,7 +9925,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(str
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "av/container/output.py":566
+        /* "av/container/output.py":573
  * 
  *         with cython.nogil:
  *             ret: cython.int = lib.av_interleaved_write_frame(self.ptr, self.packet_ptr)             # <<<<<<<<<<<<<<
@@ -9854,7 +9934,7 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(str
         __pyx_v_ret = av_interleaved_write_frame(__pyx_v_self->__pyx_base.ptr, __pyx_v_self->packet_ptr);
       }
 
-      /* "av/container/output.py":565
+      /* "av/container/output.py":572
  *         self.err_check(lib.av_packet_ref(self.packet_ptr, packet.ptr))
  * 
  *         with cython.nogil:             # <<<<<<<<<<<<<<
@@ -9871,14 +9951,14 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(str
       }
   }
 
-  /* "av/container/output.py":567
+  /* "av/container/output.py":574
  *         with cython.nogil:
  *             ret: cython.int = lib.av_interleaved_write_frame(self.ptr, self.packet_ptr)
  *         self.err_check(ret)             # <<<<<<<<<<<<<<
 */
-  __pyx_t_6 = ((struct __pyx_vtabstruct_2av_9container_6output_OutputContainer *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.err_check(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_ret); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 567, __pyx_L1_error)
+  __pyx_t_6 = ((struct __pyx_vtabstruct_2av_9container_6output_OutputContainer *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.err_check(((struct __pyx_obj_2av_9container_4core_Container *)__pyx_v_self), __pyx_v_ret); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 574, __pyx_L1_error)
 
-  /* "av/container/output.py":548
+  /* "av/container/output.py":555
  *                 self.mux_one(packet)
  * 
  *     def mux_one(self, packet: Packet):             # <<<<<<<<<<<<<<
@@ -9907,15 +9987,15 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_22mux_one(str
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_25__reduce_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_27__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_24__reduce_cython__, "OutputContainer.__reduce_cython__()");
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_25__reduce_cython__(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_26__reduce_cython__, "OutputContainer.__reduce_cython__()");
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_27__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -9941,14 +10021,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   const Py_ssize_t __pyx_kwds_len = unlikely(__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
   if (unlikely(__pyx_kwds_len < 0)) return NULL;
   if (unlikely(__pyx_kwds_len > 0)) {__Pyx_RejectKeywords("__reduce_cython__", __pyx_kwds); return NULL;}
-  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_24__reduce_cython__(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self));
+  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_26__reduce_cython__(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_24__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self) {
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_26__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_lineno = 0;
@@ -9988,15 +10068,15 @@ static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_24__reduce_cy
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_27__setstate_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_29__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_26__setstate_cython__, "OutputContainer.__setstate_cython__(__pyx_state)");
-static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_27__setstate_cython__(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9container_6output_15OutputContainer_28__setstate_cython__, "OutputContainer.__setstate_cython__(__pyx_state)");
+static PyObject *__pyx_pw_2av_9container_6output_15OutputContainer_29__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -10062,7 +10142,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_26__setstate_cython__(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v___pyx_state);
+  __pyx_r = __pyx_pf_2av_9container_6output_15OutputContainer_28__setstate_cython__(((struct __pyx_obj_2av_9container_6output_OutputContainer *)__pyx_v_self), __pyx_v___pyx_state);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -10072,7 +10152,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_26__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state) {
+static PyObject *__pyx_pf_2av_9container_6output_15OutputContainer_28__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9container_6output_OutputContainer *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_lineno = 0;
@@ -10119,6 +10199,16 @@ static PyObject *__pyx_tp_new_2av_9container_6output_OutputContainer(PyTypeObjec
   return NULL;
 }
 
+#if CYTHON_USE_TP_FINALIZE
+
+static void __pyx_tp_finalize_2av_9container_6output_OutputContainer(PyObject *o) {
+  PyObject *etype, *eval, *etb;
+  PyErr_Fetch(&etype, &eval, &etb);
+  __pyx_pw_2av_9container_6output_15OutputContainer_3__del__(o);
+  PyErr_Restore(etype, eval, etb);
+}
+#endif
+
 static void __pyx_tp_dealloc_2av_9container_6output_OutputContainer(PyObject *o) {
   #if CYTHON_USE_TP_FINALIZE
   if (unlikely(__Pyx_PyObject_GetSlot(o, tp_finalize, destructor)) && !__Pyx_PyObject_GC_IsFinalized(o)) {
@@ -10132,7 +10222,7 @@ static void __pyx_tp_dealloc_2av_9container_6output_OutputContainer(PyObject *o)
     PyObject *etype, *eval, *etb;
     PyErr_Fetch(&etype, &eval, &etb);
     __Pyx_SET_REFCNT(o, Py_REFCNT(o) + 1);
-    __pyx_pw_2av_9container_6output_15OutputContainer_3__dealloc__(o);
+    __pyx_pw_2av_9container_6output_15OutputContainer_5__dealloc__(o);
     __Pyx_SET_REFCNT(o, Py_REFCNT(o) - 1);
     PyErr_Restore(etype, eval, etb);
   }
@@ -10189,18 +10279,18 @@ static PyObject *__pyx_getprop_2av_9container_6output_15OutputContainer_default_
 }
 
 static PyMethodDef __pyx_methods_2av_9container_6output_OutputContainer[] = {
-  {"add_stream", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_5add_stream, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_4add_stream},
-  {"add_mux_stream", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_7add_mux_stream, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_6add_mux_stream},
-  {"add_stream_from_template", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_9add_stream_from_template, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_8add_stream_from_template},
-  {"_add_stream_without_codec_from_template", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_11_add_stream_without_codec_from_template, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_10_add_stream_without_codec_from_template},
-  {"add_attachment", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_13add_attachment, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_12add_attachment},
-  {"add_data_stream", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_15add_data_stream, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_14add_data_stream},
-  {"start_encoding", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_17start_encoding, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_16start_encoding},
-  {"close", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_19close, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_18close},
-  {"mux", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_21mux, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_20mux},
-  {"mux_one", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_23mux_one, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_22mux_one},
-  {"__reduce_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_25__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_24__reduce_cython__},
-  {"__setstate_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_27__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_26__setstate_cython__},
+  {"add_stream", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_7add_stream, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_6add_stream},
+  {"add_mux_stream", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_9add_mux_stream, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_8add_mux_stream},
+  {"add_stream_from_template", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_11add_stream_from_template, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_10add_stream_from_template},
+  {"_add_stream_without_codec_from_template", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_13_add_stream_without_codec_from_template, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_12_add_stream_without_codec_from_template},
+  {"add_attachment", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_15add_attachment, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_14add_attachment},
+  {"add_data_stream", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_17add_data_stream, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_16add_data_stream},
+  {"start_encoding", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_19start_encoding, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_18start_encoding},
+  {"close", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_21close, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_20close},
+  {"mux", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_23mux, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_22mux},
+  {"mux_one", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_25mux_one, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_24mux_one},
+  {"__reduce_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_27__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_26__reduce_cython__},
+  {"__setstate_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9container_6output_15OutputContainer_29__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9container_6output_15OutputContainer_28__setstate_cython__},
   {0, 0, 0, 0}
 };
 
@@ -10219,6 +10309,9 @@ static PyType_Slot __pyx_type_2av_9container_6output_OutputContainer_slots[] = {
   {Py_tp_methods, (void *)__pyx_methods_2av_9container_6output_OutputContainer},
   {Py_tp_getset, (void *)__pyx_getsets_2av_9container_6output_OutputContainer},
   {Py_tp_new, (void *)__pyx_tp_new_2av_9container_6output_OutputContainer},
+  #if CYTHON_USE_TP_FINALIZE
+  {Py_tp_finalize, (void *)__pyx_tp_finalize_2av_9container_6output_OutputContainer},
+  #endif
   {0, 0},
 };
 static PyType_Spec __pyx_type_2av_9container_6output_OutputContainer_spec = {
@@ -10281,7 +10374,7 @@ static PyTypeObject __pyx_type_2av_9container_6output_OutputContainer = {
   0, /*tp_del*/
   0, /*tp_version_tag*/
   #if CYTHON_USE_TP_FINALIZE
-  0, /*tp_finalize*/
+  __pyx_tp_finalize_2av_9container_6output_OutputContainer, /*tp_finalize*/
   #else
   NULL, /*tp_finalize*/
   #endif
@@ -10374,12 +10467,12 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_vtable_2av_9container_6output_OutputContainer.__pyx_base = *__pyx_vtabptr_2av_9container_4core_Container;
   __pyx_vtable_2av_9container_6output_OutputContainer.start_encoding = (PyObject *(*)(struct __pyx_obj_2av_9container_6output_OutputContainer *, int __pyx_skip_dispatch))__pyx_f_2av_9container_6output_15OutputContainer_start_encoding;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_2 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 31, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 36, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9container_6output_OutputContainer_spec, __pyx_t_2);
   __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer)) __PYX_ERR(0, 31, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9container_6output_OutputContainer_spec, __pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer)) __PYX_ERR(0, 36, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9container_6output_OutputContainer_spec, __pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer = &__pyx_type_2av_9container_6output_OutputContainer;
   #endif
@@ -10387,7 +10480,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_2av_9container_6output_OutputContainer->tp_base = __pyx_mstate_global->__pyx_ptype_2av_9container_4core_Container;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer);
@@ -10397,10 +10490,10 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer, __pyx_vtabptr_2av_9container_6output_OutputContainer) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_OutputContainer, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer, __pyx_vtabptr_2av_9container_6output_OutputContainer) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_OutputContainer, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9container_6output_OutputContainer) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_RefNannyFinishContext();
   return 0;
@@ -11136,39 +11229,39 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{0},{24},{34},{32},{25},{179},{30},{15},{20},{1},{8},{39},{6},{7},{6},{25},{2},{21},{9},{50},{24},{15},{20},{39},{8},{18},{18},{10},{4},{6},{5},{8},{9},{12},{6},{5},{7},{8},{8},{10},{7},{4},{8},{6},{7},{2},{6},{7},{3},{11},{14},{12},{4},{10},{17},{13},{12},{10},{12},{19},{14},{8},{8},{9},{4},{6},{6},{5},{1},{7},{5},{124},{109},{78},{167},{172}};
-    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (802 bytes) */
-const char* const cstring = "(\265/\375`\220\005\305\030\000f\254y#\020u\332\000f\377+o\254\224\336\242\264o!\233\340\016\032\275\214\216+1\230\334\\\317\225PUUU\003\026l\000l\000k\000\275\320;e\350\217j\267\361\371\006\237\014<p\3136\217\315\277\3709\3708\272uNWr\236C\367iG\266\241j\305\205\207\005\203\212E\005\273\355'\336\254}m\353\360Z\205\216\261\035\372\r\005_\241\307}\337x\315~\247U\236\364U\341\367FP\322\177\305}M\276\226\342{\243Z\317)\007\232U\315\031\351\266w\370{IZA\245\024\001\211K\031\303\355\r\332\373)\314\334\364\324\266L\374\365\364Y\205\336\312\261B\230,\370\315\031{\316\255+|\215\232?\330\273\313Q\307j\3337\260\004\277\031#\326\301w/B\021\021tVO\367\275S)\225\300\210\316x_\372\303\005`\204Z\367\266m\006\035s\334\310=\016\326-\275X\014\177\332\306\n\005,\315\331\316\257\357\335*\200\277\016\003\233\226>\222LG\037\3032\2313\307\234\357#Q\346\231\333\236\232\267\236\362\215\270Y\243\314\345\242}~\310\302\013\345;\213\3055~-\356q\026]O\357F\332\227\244\316&m\237\315\271\315+mjm\273\374\263\345\263\023y{2\3779\364\234\311|\266\3435\273\221\237\270B\263\251d\266m\326o\247\374c\3778p\261h?\363\2719e\221n{G\311m\236\026\022\204G\303D\010F\256MI3\220\303\002\n%\035\030\222i\313\244BH\030q\000\010&xI\013\245\314\346\255-CbT!\235\245i>\363\364\n\240\364\312\034\253d|\301\202\201\006\200\321\364WK;@&\006P\261c\000\010\260`2\301M\323v\006\231\030\230\240\303\261\251@\2578\323M3\031_\305\030\267o)f_\025{N\035~\227\337~\235&\200\211\250q\035D\246fD\002\021\222\222$\031\016 \2040dV\036\022A9\022:\250H\3062\323\322\262\277\001\266%\264\3300\013q\201M\007\214\315\302\217\244$9\3534:\250\365,H\030\320B\313\351\201m#\312\264W\311\205\205]\367\177\204\271\275\026\024\340*\317\2448\235Y!\215\246\001\333R#\010\013\r\250\266\035?\344\246\261l\260lSp\333P\t\211\346\036\001\2124\270\352\r\206!>\251|;\230\035]B=\20639$\206B]\347>\232\264\201w\325wy\364p\214\320q\030\303^\277\212\3078 \360\305\213\342D0\250\3037h\213\006\370\213\200a\364\375|\211\332_\267p5p\200\347\020\335p\333\342\217\313iLj\007\373""\306t5\013Y\265\\\244R\210@7\030P\237\240\334\017e,pt@U\231\r\002#Z:]\217k\322\36566\032\177\377\013\237\275\026\322\332\323\306Y\366\330Av\366\236\002\030\245\354w\030]\0062\030v\026\3453\304)\002O\264\025\242\270\024\360]\030\211L\241\202\362B;B\351\313*7\206I+\256\005\235\325";
-    PyObject *data = __Pyx_DecompressString(cstring, 802, 3);
+    const struct { const unsigned int length: 8; } index[] = {{0},{24},{34},{32},{25},{179},{30},{15},{20},{1},{8},{39},{6},{7},{6},{25},{2},{21},{9},{50},{24},{15},{20},{39},{8},{18},{18},{6},{10},{4},{6},{5},{8},{9},{12},{6},{5},{7},{8},{8},{10},{7},{4},{8},{6},{7},{2},{6},{7},{3},{11},{14},{12},{4},{10},{17},{13},{12},{10},{12},{19},{14},{8},{8},{9},{4},{6},{6},{5},{1},{7},{5},{124},{109},{78},{167},{172}};
+    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (805 bytes) */
+const char* const cstring = "(\265/\375`\226\005\335\030\000\306lz#\020u\332\000f\377+o\254\224\336\242\264o!\233\340\016\032\275\214\216+1\230\334\\\317\225PUUU\003\026l\000l\000l\000\330\013\275S\206\376\250v\033\237o\360\311\300\003\267l\363\330\374\213\237\203\217\243[\347t%\3479t\237vd\033\252V\\xX0\250XT\260\333~\342\315\332\327\266\016\257U\350\030\333\241\337P\360\025z\334\367\215\327\354wZ\345I_\025~o\004%\375W\334\327\344k)\2767\252\365\234r\240Y\325\234\221n{\207\277\227\244\025TJ\021)\023\2272\206\333\033\264\367S\230\271\351\251m\231\370\353\351\263\n\275\225c\2050Y\360\2333\366\234[W\370\0325\177\260w\227\243\216\325\266o`\t~3F\254\203\357^\204\"\"\350\254\236\356{\247R*\201\021\235\361\276\364\207\013\300\010\265\356m\333\014:\346\270\221{\034\254[z\261\030\376\264\215\025\nX\232\263\235_\337\273U\000\177]\372H2\035}\014\313d\316\034s\276\217D\231gn{j\336z\3127\342f\2152\227\213\366\371!\013/\224\357,\026\327\370\265\270\307Yt=\275\033i\253u\276\322%\251\263I\333gsn\363J\233Z\333.\377l\371\354D\336\236\314\177\016=g2\237\355x\315n\344'\256\320l*\231m\233\365\333)\377\330?\016\\,\332\317|n\016\221n{G\311m\236\026\022\204G\303D\010F\256MI3\220\303\002\n%\035\030\222i\313\244BH\030q\000\010&xI\013\245\314\346\255-CbT!\235\245i>\363\364\n\240\364\312\034\253d|\301\202\201\006\200\321\364WK;@&\006P\261c\000\010\260`2\301M\323v\006\231\030\230\240\303\261\251@\2578\323M3\031_\305\030\267o)f_\025{N\035~\227\337~\235f\323\n\200\211\250\201\035D\246fD\002\021\222\222\2440\034 \2040dV\036\022A9\2212\250H\3062\323\322\262\277\001\266%\264\330\232\0051\323\246#\217\001\354\347G\222\234\365\032\035\327\n\026\244\006\\!~z\266\361\243L\375\366\\\346\330\325\376G\330[`\201\n\276\362\030\220\323\230\225\325h\n\260-5\200\260\300\200j\333\361Cn\032\013\007\2536\005\357\013U\273(\373c\nI9W\251a\030\364'\025\357K\324\231+D\306\346\223\367M(\364\353\216\307\3006\306\261\272)\217\t\216\021:\016+\331kY\177\214C\004^\274\\\234\210I\353^\325}+\306\377\010\307'\024\376\251j\314\336-\326\340\001\265C8\357""\226\232\240\231[c)b\374\345\023\337,oayae\026\3558c\240+Cq\r\232\r\302\303\000\330\262q!\304~iv}\256I\325C\330\210\347\235_\350\354\003\226\326\244\032\007\334[\014r\330\353\024 >\315\274\323\351J\205\301*'Q~ .\024\370\315\255z\305g@#\341%\222\335\013\312\013\355\010\245/\213\331\030&\255\244\026tV\003";
+    PyObject *data = __Pyx_DecompressString(cstring, 805, 3);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (909 bytes) */
-const char* const cstring = "BZh91AY&SY{\267\016\222\000\000j\337\200@\000B\367w\360\277e\333\200\377\377\377\344P\003k\332)ml5\031\204\241L\230\225?\321\036\210O(\320\236\2104f\221\203Q\264\023j\r4\211\2011&\243\322f\243M\t\204\006\001\240\214@\346\230\230\000L\000L\000\002`\000&\034\323\023\000\t\200\t\200\000L\000\004\301\"&\222d\324\315\r\021\036\251\3454\332\232\000\003L\236\240\364\324<\373!\350\301\247n\327|)\273s-L\252\036\216o\344X\242\236z8O}\260H\333$\t\224\316\013\271o\361\2337\"\272\357}L\311\352\372\326;\276%=\010\2628+Z\365`\236\231\240\201=*&\r\2341\252\230\365y>\361\215S\010Bm\014,\303\372\367\354\277\375\267\307P\035],\201\310\271\362!\231:E7\343\276\"\256\021M\234\365G\216\270\032\035R\275\232U\241\037\253-\322;\0318\354\3333\316\277!~\364/O0\273<%\034S\332k\247\272z\345\311\242\370\302 \371\2527\324xT\005\222\360\177)!\231S\207\354\316=\245\2623\306\264\242I\251\265\021\272\021V\357\336\225\230\301Xa\r\354\264\335\225\206f\025=\224=W\016\023w\373\226\323\313\312\352\357\271\222\177\n\\\235^|w\240=\r\224\207c&{\214-\212\021\345}\t\323\242\267iOb\3331\n\035O\234\356\337\353=\351hK\324\256v:\213\315\037XU\227\316\322)x\324\354\010\351\304\3232\316\360\017\240\366\207\301Q\373N)\371?!_\266\371!p\203\000\303\206\236)c\314I\r\225f\010\210\3520\322\2176\357\355\257\2542m\031%\001]\307Z\na\305\306\324\302\275\032\335\204\013\304\231\020\302I-S%\016@\345\232\244\263'\355E=3\307*\014\243\331\220eY\023\265\026\313,zF\271\351\213\242F\312\350\345\216\255\232h2\23566\362\024\0256.u\246\240|\020$=\367\200\315\321\336*\233\337\003\221\330\232\242c2\305\030\2232\2049\265\345Oe\233#\027?,\374_-KL\306p\272o\317\217\013\361?J\311#\272,\345\341\324\235\036\262\221\303j;p#}\233~\3514\\\226\301\263\236\025\2028,\243\003\272.\300\301\353\3312\024\373\342\213\207\030\256\006\025x\033n\006\235md\242\366N\245\341\020\226/\320\252\344\305\307\035LV\303&BF\267\031,\270\263^|A\246#\273<\317\225\375x\360\364\327s7 \333e\025\261 \024\032\332\225\306wf\355w\204\231\356\232Q\202Yp\013\030\350m\231\234\320p)""\335k\206\034R=\271f\216E\357=V\007\366\347\265\336\3504\243#M\245\027\216y\305\032\333\202\002\202%\241\226\\v\257\312\277<V\370\nV\300\322,\337\245\245g\243o\264.\004\314)\376\225#\224\355\324\241\315P\037\305#\340IC\212\245\n#w\360K\231v\230\\KF\021iH\307D\263|\241p|\306\253-\351$\024d\010\n@\004\2469\031I]\020>t\014\022\025\322\005\026H1~\272\244\220\305shnr\3607\250\204k\013'eJ\261\303\204K\303\210B,\352} \216y(\331\257\010~\252\202$\027I\035\025f\323\262y[3\004\362\356l]\315\020\203U\313\370\024e\325\021\343\352+\232E\377\361w$S\205\t\007\273p\351 ";
-    PyObject *data = __Pyx_DecompressString(cstring, 909, 2);
+    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (910 bytes) */
+const char* const cstring = "BZh91AY&SY\243\214O+\000\000j\337\200@\000B\367w\360\277e\333\200\377\377\377\344P\003k\332(\325\260\325\000\224(\323%\037\242\236\215'\251\344@\323A\240\320\014\215\242\031\006\204L\230\0055\036\223\3210\200\000\000\365\001\220\034\323\023\000\t\200\t\200\000L\000\004\303\232b`\0010\0010\000\t\200\000\230$H\322\032\232\223\331\032&\202h\023@\003L\2322\036\232G\035\250l`\343\321\242]\312j\324\313#*\206\311[\352\014`S^-\361\276\207\244(\235\002\006Y\355LR>\220V$\214\263f\n\275\250\331\315\330\355|2\022<\352\213[QB\031`B\322\234\346)\006:\3453H\354\371?8\306\245\204!6\206\025a\363\370co\256\357e\200g\314\310\031\026\253\207\361&aK\355\276\002\255pL\275\022C\034\3171K\"\271\232y\220\217s+\316:\231L\261\335Jr\237\324^\371\027\227\210Y\236\024G\004\367\033i\355\247u\370\264[(D\035\363\033\346<&\002\251x?\245\010e\345\303\364\347\036\262\2673\312t\222\205&\225\222<\320\211\257\237zUc\005Q\2047\215ifN\031\230M:\244r\255{\343/\3675\006\2354\315\206\226H\356R\224\317\257\036\024\007!\227\003\374\231*\244\256\210!\0166\320\246\234\325z\311x\255\324\210P\346\2364\363o\355>\thQ\354O*\235\302\361G\334\023U\350i\022\275\223LB9\3604\314\253\264\003\346?va\361V6\245\323\371?\220\347\364\343to\021\000AR:\272+\311\270\310\216\307c\212J\272\301\031c\341\361\367\223gm\353\212\236\200#5NBU\321\251eY\362\346em6\207\251\301Fff\2647\241d\016\214\331%\231O\301\022\364\317'y\013\307\246\341y\271M\310\255\362\313\234m\032\271\2161\246y8]\206\214\262\027\302ZW\023\010\r\016\206\306R\010\006\323\001\343f\340\031\346\236\262H\271\3172Kid\013bp(\304\354\312\017\347\345\273\007\342\305\221\212]u\\\2346=w\231\302\347\277>\032\333\201\373\315\322:E]\036\035\3054{Q#]\310\353\300\215\365m\373hh\270\254F\316XN\010\325^\224\300\351\026``\366\352\245\002_\236$\260p\211\324\302m\003m\300\323\234\331DZ\251\315\036\021\td\374\211\236,\\2\330\311b]\220\221\265\206Q\226\026k\307Pi\210\351\236g\322\335\271k\345\267\231\223 5\321\004\350f\001\220\314\262\235\320\263;)\232@\242~1)\250B\375\341Su\313\252\273w#""\255S}l\030qH\365\3374lZ\324\356X\037\343\247Gk \322K\232n$12\305\304\265\330\010\031\007\032\302\250\227kO\304n\027=Qp\224\350\016oV\354\336\3725W=\370\310\336\342\037\223\206z\237\243\244\026\254\006\035\367~\366\332|!u4\253\266\212i<\361\226\352i\225Z\313-o\333\205\361\223\r\307M\361\232\272:\251\213\010`6\270rw\274W\020=:\207\025\205\265\300\325\344\2108w\323%\207G\277h\364\034\000\371\261\030\330/\235\350\336<~\270\234\003\254F1]~\314\025d\313\033\367\361\303\366\246\t`\371\030\355M\374\275Y\366W3\004\357\321\261th\204\033.?\310\242\375\310\217ga<\222-\377\213\271\"\234(HQ\306'\225\200";
+    PyObject *data = __Pyx_DecompressString(cstring, 910, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (783 bytes) */
-const char* const cstring = "x\332\205Smo\0337\014\316O\341\227\242I\220\006\333\220v[\276\014Y\266a\003\212\304h\261\354#\313\223h\237\032\235t\225(\277\000\375\361\245\356\316W{pQ\003\326Q\342\353\363\220\374\235,,\310<\263@\226\304\324\241\013\226\267\327\367\261x\013!\n\220\367\321\2200\220\010\231\266\343 `I\350\204\205\211\226\215\236Ax+'\364c\206\207\250\242\264$p\277\2236\006p\031,{\327pR#\277\253f\316\010\247j\024`\361\347\342\325\315/7@\301B\342\217l$C.\215\361\2243g\210Kh\212\363\342\002\310\256\347|\r\377,a\027\013\004f\013\022\241W\273C\007i9@V\274*\300K\nZ!\211\213\001\325\335\205\325K\260.i\022\267\346\352\375\027\371\314\327\357c\307\020\373j\226a\303\211\007\\%\263\275\205\027\371\337\360\034\342&\214\360oa\177\255$\355\337~#kQ}\230\212uq\"\002>T\300\037\240+Y\240\341[pJ\355gx\210a\242\322\272L\215g\016\365\204eL\235\222f\243\202\250\351s\351\373\230\004V\006Z\252O\307\374\273<\372YUX^R\361\002\210\211m1\214\010\266\014\370B\014\257\224\356\265#\257Z\343\202\023D\341\256\367_\033V9\256\334\302c\221\276hc\203\220\013\234\020\027\273\255\376\377\320n\341\203\246|\307K\254@\247I\3328mo\021\034\312\302e\212\335\034\271\3214\351\340\213\022\275\266?\0306^C\353\020\242$2\334\350h\216\356\201:\256\214r\250\367\245\247U^\346\361\262by\033W\253Z\220\212Yj<l\331\255Zq\2320{Ujg\021;-[O\327q\205\243R\264\305\327o\331\242\222^S \216g\354\351S\341\251\3451\367\303\212\214g\356c\217\330+\364)U\025\327R\271F\375}*\344\307\030\003\260\231\361Y2\303\324\037<\360\266^t$\247\334*M\r\033\344)\313\201\274\217\240\267$8\220\240\370\366\334\326\376\345\332E\305\211\r\345\001l\351\225<^\223/\234\327\316r\334l(\005\365\3328+\355b\367\330\324\315\202\313\363\273\247\332NEMi\007\227\227W\360U\367-\371\342l\035\235\205\363C\355\335\323\273a\253t\254To\353\204HDZW\351l\220\322\244\257C\177\256\307\3250\376\023\261\317\256G\235\376\236\304\264Wu\014\213\331\353\264'Hi\225\361'Z\343kN)&\324\023M\313\346\031.g\243!\370`yq6\353\217#5\037\207 ?\376`g\310x\210\376\177d\\\234m\022\325\272\366O'\243\275\036\347""\365\347i\r\361\276^\357\307\213\206\234|\356\236\216\337g\220\223\242nq>|?\235\244\335\2201\354\361\357\377\356\352w\256qTO%\234\214\360fZ\322\367\343\212\317\205\035[\375j\346e\277111\316\313\177T\362>\310w\252=M\311T\362X\317\027g\332|\203";
-    PyObject *data = __Pyx_DecompressString(cstring, 783, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (788 bytes) */
+const char* const cstring = "x\332\205T\333n\0347\014\365\247\360%\210m8F[8i\353\227\302u[\264@`/\022\324}d8\022wG\261F\232H\324^\200||\250\231\331\311n\261A\014XC\211\327sH\356\357daA\346\231\005\262$\246\016]\260\274\275\276\217\305[\010Q\200\274\217\206\204\201D\310\264\035\007\001KB',L\264l\364\014\302[9\241\0373<D\025\245%\201\373\235\2641\200\313`\331\273\206\223\032\371]5sF8U\243\000\213?\027\257n~\271\001\n\026\022\177d#\031ri\214\247\2349C\\BS\234\027\027@v=\347k\370g\t\273X 0[\220\010\275\332\035:H\313\001\262\342U\001^R\320\nI\\\014\250\356.\254^\202uI\223\2705W\357\277\310g\276~\037;\206\330W\263\014\033N<\340*\231\355-\274\310\377\206\347\0207a\204\177\013\373k%i\377\366\033Y\213\352\303T\254\213\023\021\360\241\002\376\000]\311\002\r\337\202Sj?\303C\014\023\225\326ej<s\250',c\352\2244\033\025DM\237K\337\307$\2602\320R}:\346\337\345\321\317\252\302\362\222\212\027@Ll\213aD\260e\300\027bx\245t\257\035y\325\032\027\234 \nw\275\377\332\260\312q\345\026\036\213\364E\033\033\204\\\340\204\270\330m\365\377\017\355\026>h\312w\274\304\nt\232\244\215\323\366\026\301\241,\\\246\330\315\221\033M\223\016\276(\321k\373\203a\3435\264\016!J\"\303\215\216\246\361Q\211\036\203\004\352\270\362\312\241\336\227\236Vy\231\307\313\212\345m\\\255jY*f\251Q\261e\267j\305i\332\354U\251\375E\354\264x=]\307\025\224J\321\026_\277e\213J}M\2018\236\261\247O\205\247\306\307\334\017\2132\236\271\217=b\257\004L\251\252\270\226\3128\352\337\247B~\2141\300\233y\237%3\314\376\301\003o\353E\007s\312\255\322\324\266A\236\262\034\310\373\010zK\202\003\t\212o\317p\355b\256\275T\234\330P\036\300\226^\311\3435\371\302y\355,\307\315\206RP\257\215\263\322.v\217M\335/\270<\277{\252MU\324\224vpyy\005_u\337\222/\316\326\321Y8?\324\336=\275\033vK\207K\365\266\316\211D\244u\225\316\006)M\372:\372\347z\\\rK0\021\373\354z\324\035\350IL{U\207\261\230\275N{\202\224V\031\177\2425\276\346\224bB=\321\264l\236\341r6\032\202\017\226\027g\263\3768R\363q\010\362\343\017v\206\214\207\350\377G\306\305\331&Q\255k\377t2\332\353q^\177\236\226""\021\357\353\365~\274h\310\311\347\356\351\370}\0069)\352.\347\303\367\323I\332\r\031\303\036\377\376\357\256~\347\032G\365T\302\311\010o\246U}?.\372\\\330\261\325\257f^\371\033\023\023\343\374\023pT\362>\310w\252=M\311T\362X\317\027\032\217~\375";
+    PyObject *data = __Pyx_DecompressString(cstring, 788, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (1680 bytes) */
-const char* const bytes = "Bad Packet stream_index.Could not allocate attachment dataCould not allocate codec contextCould not allocate streamNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Some options were not used: %sUnknown codec: Unknown data codec: ?add_noteaudio stream `rate` must be: int | None codecdisableenable format does not support gc has no codec contextisenabledno default __reduce__ due to non-trivial __cinit__template stream of type OutputContainer__Pyx_PyDict_NextRef_add_stream_without_codec_from_templatebit_ratebit_rate_tolerancecline_in_tracebackcodec_namedataencodeflagsfsencodegetLogger__getstate__heightitemslogging__main__mimetype__module__mux_onename__name__opaqueoptionsospacketpacketspop__pyx_state__pyx_vtable____qualname__rate__reduce____reduce_cython____reduce_ex____set_name__setdefault__setstate____setstate_cython__start_encodingtemplate__test__time_basetypeupdatevaluesvideowwarningwidthPyObject *(AVDictionary **, PyObject *, PyObject *, PyObject *)\000void (PyObject *, AVRational *)\000dict_to_avdict\000to_avrationalint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_10dictionary_Dictionary *(AVDictionary *)\000wrap_dictionarystruct __pyx_obj_2av_5codec_7context_CodecContext *(struct AVCodecContext *, struct AVCodec const *, struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)\000wrap_codec_contextstruct __pyx_obj_2av_6stream_Stream *(struct __pyx_obj_2av_9container_4core_Container *, struct AVStream *, struct __pyx_obj_2av_5codec_7context_CodecContext *)\000wrap_stream";
+    #else /* compression: none (1686 bytes) */
+const char* const bytes = "Bad Packet stream_index.Could not allocate attachment dataCould not allocate codec contextCould not allocate streamNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Some options were not used: %sUnknown codec: Unknown data codec: ?add_noteaudio stream `rate` must be: int | None codecdisableenable format does not support gc has no codec contextisenabledno default __reduce__ due to non-trivial __cinit__template stream of type OutputContainer__Pyx_PyDict_NextRef_add_stream_without_codec_from_templatebit_ratebit_rate_tolerancecline_in_tracebackclosedcodec_namedataencodeflagsfsencodegetLogger__getstate__heightitemslogging__main__mimetype__module__mux_onename__name__opaqueoptionsospacketpacketspop__pyx_state__pyx_vtable____qualname__rate__reduce____reduce_cython____reduce_ex____set_name__setdefault__setstate____setstate_cython__start_encodingtemplate__test__time_basetypeupdatevaluesvideowwarningwidthPyObject *(AVDictionary **, PyObject *, PyObject *, PyObject *)\000void (PyObject *, AVRational *)\000dict_to_avdict\000to_avrationalint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_10dictionary_Dictionary *(AVDictionary *)\000wrap_dictionarystruct __pyx_obj_2av_5codec_7context_CodecContext *(struct AVCodecContext *, struct AVCodec const *, struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)\000wrap_codec_contextstruct __pyx_obj_2av_6stream_Stream *(struct __pyx_obj_2av_9container_4core_Container *, struct AVStream *, struct __pyx_obj_2av_5codec_7context_CodecContext *)\000wrap_stream";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 71; i++) {
+    for (int i = 0; i < 72; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
       if (likely(string) && i >= 21) PyUnicode_InternInPlace(&string);
@@ -11179,7 +11272,7 @@ const char* const bytes = "Bad Packet stream_index.Could not allocate attachment
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 71; i < 76; i++) {
+    for (int i = 72; i < 77; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -11190,14 +11283,14 @@ const char* const bytes = "Bad Packet stream_index.Could not allocate attachment
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 76; i++) {
+    for (Py_ssize_t i = 0; i < 77; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 71;
+      PyObject **table = stringtab + 72;
       for (Py_ssize_t i=0; i<5; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
@@ -11418,7 +11511,48 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_FastCallDict(PyObject *func, PyObj
     #endif
 }
 
-/* PyErrFetchRestore */
+/* PyErrExceptionMatches (used by GetAttr3) */
+#if CYTHON_FAST_THREAD_STATE
+static int __Pyx_PyErr_ExceptionMatchesTuple(PyObject *exc_type, PyObject *tuple) {
+    Py_ssize_t i, n;
+    n = PyTuple_GET_SIZE(tuple);
+    for (i=0; i<n; i++) {
+        if (exc_type == PyTuple_GET_ITEM(tuple, i)) return 1;
+    }
+    for (i=0; i<n; i++) {
+        if (__Pyx_PyErr_GivenExceptionMatches(exc_type, PyTuple_GET_ITEM(tuple, i))) return 1;
+    }
+    return 0;
+}
+static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err) {
+    int result;
+    PyObject *exc_type;
+#if PY_VERSION_HEX >= 0x030C00A6
+    PyObject *current_exception = tstate->current_exception;
+    if (unlikely(!current_exception)) return 0;
+    exc_type = (PyObject*) Py_TYPE(current_exception);
+    if (exc_type == err) return 1;
+#else
+    exc_type = tstate->curexc_type;
+    if (exc_type == err) return 1;
+    if (unlikely(!exc_type)) return 0;
+#endif
+    #if CYTHON_AVOID_BORROWED_REFS
+    Py_INCREF(exc_type);
+    #endif
+    if (unlikely(PyTuple_Check(err))) {
+        result = __Pyx_PyErr_ExceptionMatchesTuple(exc_type, err);
+    } else {
+        result = __Pyx_PyErr_GivenExceptionMatches(exc_type, err);
+    }
+    #if CYTHON_AVOID_BORROWED_REFS
+    Py_DECREF(exc_type);
+    #endif
+    return result;
+}
+#endif
+
+/* PyErrFetchRestore (used by GetAttr3) */
 #if CYTHON_FAST_THREAD_STATE
 static CYTHON_INLINE void __Pyx_ErrRestoreInState(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
 #if PY_VERSION_HEX >= 0x030C00A6
@@ -11476,6 +11610,48 @@ static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject 
 #endif
 }
 #endif
+
+/* PyObjectGetAttrStr (used by GetAttr3) */
+#if CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name) {
+    PyTypeObject* tp = Py_TYPE(obj);
+    if (likely(tp->tp_getattro))
+        return tp->tp_getattro(obj, attr_name);
+    return PyObject_GetAttr(obj, attr_name);
+}
+#endif
+
+/* GetAttr3 */
+#if __PYX_LIMITED_VERSION_HEX < 0x030d0000
+static PyObject *__Pyx_GetAttr3Default(PyObject *d) {
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    if (unlikely(!__Pyx_PyErr_ExceptionMatches(PyExc_AttributeError)))
+        return NULL;
+    __Pyx_PyErr_Clear();
+    Py_INCREF(d);
+    return d;
+}
+#endif
+static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *o, PyObject *n, PyObject *d) {
+    PyObject *r;
+#if __PYX_LIMITED_VERSION_HEX >= 0x030d0000
+    int res = PyObject_GetOptionalAttr(o, n, &r);
+    return (res != 0) ? r : __Pyx_NewRef(d);
+#else
+  #if CYTHON_USE_TYPE_SLOTS
+    if (likely(PyUnicode_Check(n))) {
+        r = __Pyx_PyObject_GetAttrStrNoError(o, n);
+        if (unlikely(!r) && likely(!PyErr_Occurred())) {
+            r = __Pyx_NewRef(d);
+        }
+        return r;
+    }
+  #endif
+    r = PyObject_GetAttr(o, n);
+    return (likely(r)) ? r : __Pyx_GetAttr3Default(d);
+#endif
+}
 
 /* GetException */
 #if CYTHON_FAST_THREAD_STATE
@@ -12039,16 +12215,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObjec
     PyObject *args[2] = {NULL, arg};
     return __Pyx_PyObject_FastCall(func, args+1, 1 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET);
 }
-
-/* PyObjectGetAttrStr (used by UnpackUnboundCMethod) */
-#if CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name) {
-    PyTypeObject* tp = Py_TYPE(obj);
-    if (likely(tp->tp_getattro))
-        return tp->tp_getattro(obj, attr_name);
-    return PyObject_GetAttr(obj, attr_name);
-}
-#endif
 
 /* UnpackUnboundCMethod (used by CallUnboundCMethod0) */
 #if CYTHON_COMPILING_IN_LIMITED_API && __PYX_LIMITED_VERSION_HEX < 0x030C0000
@@ -13047,47 +13213,6 @@ static CYTHON_INLINE PyObject *__Pyx_PyDict_Pop(PyObject *d, PyObject *key, PyOb
     }
 #endif
 }
-
-/* PyErrExceptionMatches */
-#if CYTHON_FAST_THREAD_STATE
-static int __Pyx_PyErr_ExceptionMatchesTuple(PyObject *exc_type, PyObject *tuple) {
-    Py_ssize_t i, n;
-    n = PyTuple_GET_SIZE(tuple);
-    for (i=0; i<n; i++) {
-        if (exc_type == PyTuple_GET_ITEM(tuple, i)) return 1;
-    }
-    for (i=0; i<n; i++) {
-        if (__Pyx_PyErr_GivenExceptionMatches(exc_type, PyTuple_GET_ITEM(tuple, i))) return 1;
-    }
-    return 0;
-}
-static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err) {
-    int result;
-    PyObject *exc_type;
-#if PY_VERSION_HEX >= 0x030C00A6
-    PyObject *current_exception = tstate->current_exception;
-    if (unlikely(!current_exception)) return 0;
-    exc_type = (PyObject*) Py_TYPE(current_exception);
-    if (exc_type == err) return 1;
-#else
-    exc_type = tstate->curexc_type;
-    if (exc_type == err) return 1;
-    if (unlikely(!exc_type)) return 0;
-#endif
-    #if CYTHON_AVOID_BORROWED_REFS
-    Py_INCREF(exc_type);
-    #endif
-    if (unlikely(PyTuple_Check(err))) {
-        result = __Pyx_PyErr_ExceptionMatchesTuple(exc_type, err);
-    } else {
-        result = __Pyx_PyErr_GivenExceptionMatches(exc_type, err);
-    }
-    #if CYTHON_AVOID_BORROWED_REFS
-    Py_DECREF(exc_type);
-    #endif
-    return result;
-}
-#endif
 
 /* PyObjectFastCallMethod */
 #if !CYTHON_VECTORCALL || PY_VERSION_HEX < 0x03090000

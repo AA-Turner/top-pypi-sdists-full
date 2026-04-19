@@ -26,7 +26,7 @@ from mypy.semanal import SemanticAnalyzer
 from mypy.typeanal import TypeAnalyser
 from mypy.types import AnyType, Instance, ProperType, TypedDictType, TypeOfAny, TypeType, TypeVarType, get_proper_type
 from mypy.types import Type as MypyType
-from mypy.typevars import fill_typevars, fill_typevars_with_any
+from mypy.typevars import fill_typevars
 from typing_extensions import override
 
 from mypy_django_plugin.errorcodes import MANAGER_MISSING
@@ -87,10 +87,9 @@ class ModelClassInitializer:
         var.is_inferred = True
         return var
 
-    def add_new_node_to_model_class(
+    def add_new_var_to_model_class(
         self, name: str, typ: MypyType, *, no_serialize: bool = False, is_classvar: bool = False
     ) -> None:
-        # TODO: Rename to signal that it is a `Var` that is added..
         helpers.add_new_sym_for_info(
             self.model_classdef.info, name=name, sym_type=typ, no_serialize=no_serialize, is_classvar=is_classvar
         )
@@ -223,38 +222,26 @@ class AddAnnotateUtilities(ModelClassInitializer):
     @override
     def run(self) -> None:
         annotations = self.lookup_typeinfo_or_incomplete_defn_error("django_stubs_ext.Annotations")
-        exception_bases = {
-            model_exc_name: self.lookup_typeinfo_or_incomplete_defn_error(base_exc_name)
-            for model_exc_name, base_exc_name in [
-                ("DoesNotExist", fullnames.OBJECT_DOES_NOT_EXIST),
-                ("NotUpdated", fullnames.OBJECT_NOT_UPDATED),
-                ("MultipleObjectsReturned", fullnames.MULTIPLE_OBJECTS_RETURNED),
-            ]
-        }
-        annotated_model_name = self.model_classdef.info.name + "@AnnotatedWith"
-        annotated_model = self.lookup_typeinfo(self.model_classdef.info.module_name + "." + annotated_model_name)
-        if annotated_model is None:
-            model_type = fill_typevars_with_any(self.model_classdef.info)
-            assert isinstance(model_type, Instance)
-            annotations_type = fill_typevars(annotations)
-            assert isinstance(annotations_type, Instance)
-            annotated_model = self.add_new_class_for_current_module(
-                annotated_model_name, bases=[model_type, annotations_type]
-            )
-            annotated_model.defn.type_vars = annotations.defn.type_vars
-            annotated_model.add_type_vars()
-            helpers.mark_as_annotated_model(annotated_model)
-            if self.is_model_abstract:
-                # Below are abstract attributes, and in a stub file mypy requires
-                # explicit ABCMeta if not all abstract attributes are implemented i.e.
-                # class is kept abstract. So we add the attributes to get mypy off our
-                # back
-                for model_exc_name, base_exc_type in exception_bases.items():
-                    helpers.add_new_sym_for_info(
-                        annotated_model,
-                        model_exc_name,
-                        TypeType(Instance(base_exc_type, [])),
-                    )
+        annotated_model = helpers.get_or_create_annotated_type(self.api, self.model_classdef.info, annotations)
+        if self.is_model_abstract:
+            # Below are abstract attributes, and in a stub file mypy requires
+            # explicit ABCMeta if not all abstract attributes are implemented i.e.
+            # class is kept abstract. So we add the attributes to get mypy off our
+            # back
+            exception_bases = {
+                model_exc_name: self.lookup_typeinfo_or_incomplete_defn_error(base_exc_name)
+                for model_exc_name, base_exc_name in [
+                    ("DoesNotExist", fullnames.OBJECT_DOES_NOT_EXIST),
+                    ("NotUpdated", fullnames.OBJECT_NOT_UPDATED),
+                    ("MultipleObjectsReturned", fullnames.MULTIPLE_OBJECTS_RETURNED),
+                ]
+            }
+            for model_exc_name, base_exc_type in exception_bases.items():
+                helpers.add_new_sym_for_info(
+                    annotated_model,
+                    model_exc_name,
+                    TypeType(Instance(base_exc_type, [])),
+                )
 
 
 class InjectAnyAsBaseForNestedMeta(ModelClassInitializer):
@@ -315,7 +302,7 @@ class AddDefaultPrimaryKey(ModelClassInitializer):
                 is_get_nullable=False,
             )
 
-            self.add_new_node_to_model_class(dest_name, Instance(auto_field_info, [set_type, get_type]))
+            self.add_new_var_to_model_class(dest_name, Instance(auto_field_info, [set_type, get_type]))
 
 
 class AddPrimaryKeyAlias(AddDefaultPrimaryKey):
@@ -346,7 +333,7 @@ class AddRelatedModelsId(ModelClassInitializer):
                     f"Cannot find model {field.related_model!r} referenced in field {field.name!r}",
                     ctx=error_context,
                 )
-                self.add_new_node_to_model_class(field.attname, AnyType(TypeOfAny.explicit))
+                self.add_new_var_to_model_class(field.attname, AnyType(TypeOfAny.explicit))
                 continue
 
             if related_model_cls._meta.abstract:
@@ -367,7 +354,7 @@ class AddRelatedModelsId(ModelClassInitializer):
             set_type, get_type = get_field_descriptor_types(
                 field_info, is_set_nullable=is_nullable, is_get_nullable=is_nullable
             )
-            self.add_new_node_to_model_class(field.attname, Instance(field_info, [set_type, get_type]))
+            self.add_new_var_to_model_class(field.attname, Instance(field_info, [set_type, get_type]))
 
 
 class AddManagers(ModelClassInitializer):
@@ -389,7 +376,7 @@ class AddManagers(ModelClassInitializer):
         assert manager_info is not None
         # Reparameterize dynamically created manager with model type
         manager_type = helpers.fill_manager(manager_info, Instance(self.model_classdef.info, []))
-        self.add_new_node_to_model_class(manager_name, manager_type, is_classvar=True)
+        self.add_new_var_to_model_class(manager_name, manager_type, is_classvar=True)
 
     @override
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
@@ -416,7 +403,7 @@ class AddManagers(ModelClassInitializer):
 
             assert self.model_classdef.info.self_type is not None
             manager_type = helpers.fill_manager(manager_info, self.model_classdef.info.self_type)
-            self.add_new_node_to_model_class(manager_name, manager_type, is_classvar=True)
+            self.add_new_var_to_model_class(manager_name, manager_type, is_classvar=True)
 
         if incomplete_manager_defs:
             if not self.api.final_iteration:
@@ -433,7 +420,7 @@ class AddManagers(ModelClassInitializer):
                 if fallback_manager_info is not None:
                     assert self.model_classdef.info.self_type is not None
                     manager_type = helpers.fill_manager(fallback_manager_info, self.model_classdef.info.self_type)
-                    self.add_new_node_to_model_class(manager_name, manager_type, is_classvar=True)
+                    self.add_new_var_to_model_class(manager_name, manager_type, is_classvar=True)
 
                 # Find expression for e.g. `objects = SomeManager()`
                 manager_expr = self.get_manager_expression(manager_name)
@@ -514,7 +501,7 @@ class AddDefaultManagerAttribute(ModelClassInitializer):
             default_manager_info = generated_manager_info
 
         default_manager = helpers.fill_manager(default_manager_info, Instance(self.model_classdef.info, []))
-        self.add_new_node_to_model_class("_default_manager", default_manager, is_classvar=True)
+        self.add_new_var_to_model_class("_default_manager", default_manager, is_classvar=True)
 
 
 class AddReverseLookups(ModelClassInitializer):
@@ -542,7 +529,7 @@ class AddReverseLookups(ModelClassInitializer):
         reverse_lookup_declared = attname in self.model_classdef.info.names
         if isinstance(relation, OneToOneRel):
             if not reverse_lookup_declared:
-                self.add_new_node_to_model_class(
+                self.add_new_var_to_model_class(
                     attname,
                     Instance(
                         self.reverse_one_to_one_descriptor,
@@ -556,7 +543,7 @@ class AddReverseLookups(ModelClassInitializer):
                 assert relation.through is not None
                 through_fullname = helpers.get_class_fullname(relation.through)
                 through_model_info = self.lookup_typeinfo_or_incomplete_defn_error(through_fullname)
-                self.add_new_node_to_model_class(
+                self.add_new_var_to_model_class(
                     attname,
                     Instance(
                         self.many_to_many_descriptor, [Instance(to_model_info, []), Instance(through_model_info, [])]
@@ -566,7 +553,7 @@ class AddReverseLookups(ModelClassInitializer):
             return
         if not reverse_lookup_declared:
             # ManyToOneRel
-            self.add_new_node_to_model_class(
+            self.add_new_var_to_model_class(
                 attname, Instance(self.reverse_many_to_one_descriptor, [Instance(to_model_info, [])]), is_classvar=True
             )
 
@@ -1133,7 +1120,17 @@ def handle_annotated_type(ctx: AnalyzeTypeContext, fullname: str) -> MypyType:
         return AnyType(TypeOfAny.from_omitted_generics) if is_with_annotations else ctx.type
     type_arg = get_proper_type(ctx.api.analyze_type(args[0]))
     if not isinstance(type_arg, Instance) or not helpers.is_model_type(type_arg.type):
-        return type_arg
+        if isinstance(type_arg, TypeVarType):
+            # When the first arg is a TypeVar bounded by a Model (e.g. WithAnnotations[_Model, BarDict]),
+            # use the upper bound to look up @AnnotatedWith. The method hook
+            # (merge_annotations_from_custom_method) will later replace it with the actual concrete model.
+            upper = get_proper_type(type_arg.upper_bound)
+            if isinstance(upper, Instance) and helpers.is_model_type(upper.type):
+                type_arg = upper
+            else:
+                return type_arg
+        else:
+            return type_arg
 
     fields_dict = None
     if len(args) > 1:
@@ -1171,14 +1168,16 @@ def get_annotated_type(
         if model_type.args:
             annotations = get_proper_type(model_type.args[0])
             if isinstance(annotations, TypedDictType):
-                fields_dict = helpers.make_typeddict(
-                    api,
-                    fields={**annotations.items, **fields_dict.items},
-                    required_keys={*annotations.required_keys, *fields_dict.required_keys},
-                    readonly_keys={*annotations.readonly_keys, *fields_dict.readonly_keys},
-                )
+                fields_dict = helpers.merge_typeddict(api, annotations, fields_dict)
     else:
         annotated_model = helpers.lookup_fully_qualified_typeinfo(api, model_type.type.fullname + "@AnnotatedWith")
+        if annotated_model is None and isinstance(api, SemanticAnalyzer):
+            # Create @AnnotatedWith lazily when it doesn't exist yet. This happens when
+            # WithAnnotations is used with a TypeVar whose upper bound is a model that
+            # hasn't been processed by AddAnnotateUtilities (e.g. the base Model class).
+            annotations_info = helpers.lookup_fully_qualified_typeinfo(api, ANNOTATIONS_FULLNAME)
+            if annotations_info is not None:
+                annotated_model = helpers.get_or_create_annotated_type(api, model_type.type, annotations_info)
 
     if annotated_model is None:
         return model_type

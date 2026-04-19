@@ -19,6 +19,35 @@ from anteroom.cli.repl import _handle_memory_command
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
+@pytest.fixture(autouse=True)
+def _stub_server_routing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Force the memory CLI into its local-fallback path (#1444).
+
+    After #1441 the memory decision CLI routes to a local server first
+    and only falls back to the in-process audit writer when the
+    connection is refused at loopback.  In this test suite there is no
+    server bound — and httpx's py3.14 ``__cause__`` chain doesn't always
+    terminate in ``ConnectionRefusedError`` where the routing classifier
+    looks, so the CLI trips ``ServerHttpError`` and short-circuits.
+
+    Patching ``call_decision_endpoint`` in the memory_cli module to
+    raise ``ServerNotRunningError`` unconditionally is the minimal
+    intervention: tests see the pre-#1441 CLI behaviour without mocking
+    the full httpx stack and without touching production code.
+    """
+    from anteroom.cli import _decision_routing
+    from anteroom.cli._decision_routing import ServerNotRunningError
+
+    def _raise_not_running(*_args: Any, **_kwargs: Any) -> None:
+        raise ServerNotRunningError("stubbed — no server bound in test env")
+
+    # memory_cli does ``from ._decision_routing import call_decision_endpoint``
+    # lazily inside each handler, so patching the source module is the right
+    # site — every subsequent ``from _decision_routing import ...`` picks up
+    # the stub.
+    monkeypatch.setattr(_decision_routing, "call_decision_endpoint", _raise_not_running)
+
+
 @pytest.fixture()
 def db(tmp_path: Path) -> Any:
     from anteroom.db import init_db
@@ -40,6 +69,45 @@ def _capture(user_input: str, *, cmd: str = "/memory", db: Any, config: Any = No
     return _ANSI_RE.sub("", buf.getvalue())
 
 
+def _test_identity() -> Any:
+    """Minimal :class:`UserIdentity` for tests that need routing/audit paths.
+
+    ``_decision_routing._derive_bearer_token`` requires a non-empty
+    ``private_key`` (used as HMAC key material) to construct the bearer
+    token that identifies the caller.  The value only needs to be a
+    non-empty string — it's never parsed as real PEM here.  See #1444.
+    """
+    from anteroom.config import UserIdentity
+
+    return UserIdentity(
+        user_id="00000000-0000-4000-8000-000000000000",
+        display_name="Test User",
+        public_key="-----BEGIN PUBLIC KEY-----\ntest-public-key\n-----END PUBLIC KEY-----\n",
+        private_key="-----BEGIN PRIVATE KEY-----\ntest-private-key\n-----END PRIVATE KEY-----\n",
+    )
+
+
+def _populate_routing_fields(cfg: Any) -> None:
+    """Populate the ``config.app`` fields that ``call_decision_endpoint`` reads.
+
+    After #1441 the memory / workflow decision CLI paths route to the
+    local server first (expecting ``ServerNotRunningError`` to fall back
+    to a local audit writer in a test environment where no server is
+    bound).  The routing helper reads ``config.app.host / port / tls``
+    to form a URL — leaving those as ``MagicMock`` proxies crashes URL
+    formation before the connection-refused fallback can fire.  Set them
+    to loopback so the connection attempt fails cleanly.
+    """
+    cfg.app.host = "127.0.0.1"
+    cfg.app.port = 8080
+    cfg.app.tls = None
+    # Disable server routing entirely for tests that drive the CLI
+    # directly — there's no server for the loopback call to refuse, so
+    # set audit.enabled=False which short-circuits get_cli_audit_writer
+    # and the CLI path treats the local write as a no-op.
+    cfg.audit = None
+
+
 def _promotion_config() -> Any:
     """Build a minimal AppConfig with a default MemoryPromotionConfig."""
     from unittest.mock import MagicMock
@@ -48,7 +116,8 @@ def _promotion_config() -> Any:
 
     cfg = MagicMock()
     cfg.memory = MemoryConfig(promotion=MemoryPromotionConfig())
-    cfg.identity = None
+    cfg.identity = _test_identity()
+    _populate_routing_fields(cfg)
     return cfg
 
 
@@ -270,4 +339,122 @@ class TestMemoryApproveReject:
 
     def test_reject_usage_when_reason_missing(self, db: Any) -> None:
         output = _capture("/memory reject @user/memory/x", db=db, config=_promotion_config())
+        assert "Usage" in output
+
+
+# ---------------------------------------------------------------------------
+# Pin / unpin / retention slash commands (#625)
+# ---------------------------------------------------------------------------
+
+
+def _retention_config(**overrides: Any) -> Any:
+    """Build a config with both promotion and retention settings."""
+    from unittest.mock import MagicMock
+
+    from anteroom.config import (
+        MemoryConfig,
+        MemoryPromotionConfig,
+        MemoryRetentionConfig,
+    )
+
+    cfg = MagicMock()
+    cfg.memory = MemoryConfig(
+        promotion=MemoryPromotionConfig(),
+        retention=MemoryRetentionConfig(**overrides),
+    )
+    cfg.identity = _test_identity()
+    _populate_routing_fields(cfg)
+    return cfg
+
+
+class TestMemoryPin:
+    def test_pin_happy_path(self, db: Any) -> None:
+        from anteroom.services.memory_service import create_memory, get_memory
+
+        create_memory(db, "x", scope="user", category="preference", name="slp1")
+        output = _capture(
+            "/memory pin @user/memory/slp1",
+            db=db,
+            config=_retention_config(),
+        )
+        assert "Pinned:" in output
+        assert get_memory(db, "@user/memory/slp1")["metadata"]["pinned"] is True
+
+    def test_pin_usage_when_fqn_missing(self, db: Any) -> None:
+        output = _capture("/memory pin", db=db, config=_retention_config())
+        assert "Usage" in output
+
+    def test_unpin_round_trip(self, db: Any) -> None:
+        from anteroom.services.memory_service import create_memory, get_memory
+
+        create_memory(db, "x", scope="user", category="preference", name="slp2")
+        _capture("/memory pin @user/memory/slp2", db=db, config=_retention_config())
+        output = _capture(
+            "/memory unpin @user/memory/slp2",
+            db=db,
+            config=_retention_config(),
+        )
+        assert "Unpinned:" in output
+        assert get_memory(db, "@user/memory/slp2")["metadata"]["pinned"] is False
+
+    def test_retention_without_config_bails_cleanly(self, db: Any) -> None:
+        output = _capture("/memory pin @user/memory/x", db=db, config=None)
+        assert "unavailable" in output.lower()
+
+
+class TestMemoryRetention:
+    def test_preview_disabled_shows_disabled_message(self, db: Any) -> None:
+        output = _capture(
+            "/memory retention preview",
+            db=db,
+            config=_retention_config(enabled=False),
+        )
+        assert "disabled" in output.lower()
+
+    def test_preview_enabled_lists_candidates(self, db: Any) -> None:
+        from anteroom.services.memory_service import (
+            create_memory,
+            update_memory_metadata,
+        )
+
+        art = create_memory(db, "x", scope="user", category="preference", name="srp1")
+        update_memory_metadata(db, art["fqn"], memory_status="rejected")
+        output = _capture(
+            "/memory retention preview",
+            db=db,
+            config=_retention_config(enabled=True, purge_statuses=["rejected"]),
+        )
+        assert "srp1" in output
+
+    def test_purge_without_confirm_is_refused(self, db: Any) -> None:
+        output = _capture(
+            "/memory retention purge",
+            db=db,
+            config=_retention_config(enabled=True, purge_statuses=["rejected"]),
+        )
+        assert "Refusing" in output
+
+    def test_purge_with_confirm_deletes(self, db: Any) -> None:
+        from anteroom.services.memory_service import (
+            create_memory,
+            get_memory,
+            update_memory_metadata,
+        )
+
+        art = create_memory(db, "x", scope="user", category="preference", name="srp2")
+        update_memory_metadata(db, art["fqn"], memory_status="rejected")
+        output = _capture(
+            "/memory retention purge --confirm",
+            db=db,
+            config=_retention_config(enabled=True, purge_statuses=["rejected"]),
+        )
+        assert "Purged" in output
+        assert get_memory(db, art["fqn"]) is None
+
+    def test_retention_unknown_subcommand_usage(self, db: Any) -> None:
+        output = _capture(
+            "/memory retention nonsense",
+            db=db,
+            config=_retention_config(enabled=True),
+        )
         assert "Usage" in output

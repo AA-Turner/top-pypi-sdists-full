@@ -401,6 +401,8 @@ const MemoryPanel = (() => {
     async function _refreshCurrentTab() {
         if (_currentTab === 'review') {
             await _refreshReviewQueue();
+        } else if (_currentTab === 'retention') {
+            await _refreshRetentionPreview();
         } else {
             await _refreshList();
         }
@@ -731,6 +733,130 @@ const MemoryPanel = (() => {
         }
     }
 
+    /* ── Retention tab (#625) ────────────────────────────────────────────
+     * Shows the dry-run would-be-purged set and the governed "Run purge"
+     * button. Never renders user-supplied content unsafely — all fields
+     * go through ``textContent``. Pin toggles live on the "Active" tab
+     * via ``togglePinOnItem`` so they're reachable even when retention
+     * is disabled.
+     */
+
+    async function _refreshRetentionPreview() {
+        const list = document.getElementById('memory-list');
+        if (!list) return;
+        list.textContent = '';
+        const loading = document.createElement('div');
+        loading.className = 'memory-loading';
+        loading.textContent = 'Loading retention preview...';
+        list.appendChild(loading);
+        try {
+            const result = await _apiRequest('/memory/retention-preview');
+            list.textContent = '';
+            list.appendChild(_buildRetentionHeader(result));
+            if (!result || !result.items || result.items.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'memory-empty';
+                empty.textContent = 'No memories match the current retention policy.';
+                list.appendChild(empty);
+                return;
+            }
+            result.items.forEach(item => list.appendChild(_buildRetentionItem(item)));
+        } catch (err) {
+            list.textContent = '';
+            const errEl = document.createElement('div');
+            errEl.className = 'memory-error';
+            errEl.textContent = (err && err.message) || String(err);
+            list.appendChild(errEl);
+        }
+    }
+
+    function _buildRetentionHeader(result) {
+        const header = document.createElement('div');
+        header.className = 'memory-retention-header';
+
+        const summary = document.createElement('div');
+        summary.className = 'memory-retention-summary';
+        const count = (result && result.purged_count) || 0;
+        const skipped = (result && result.skipped_pinned_count) || 0;
+        summary.textContent = count === 0
+            ? 'No memories would be purged on the next cycle.'
+            : count + ' memory(ies) would be purged on the next cycle.' +
+              (skipped > 0 ? ' (' + skipped + ' pinned memory(ies) will be skipped.)' : '');
+        header.appendChild(summary);
+
+        const purgeBtn = document.createElement('button');
+        purgeBtn.type = 'button';
+        purgeBtn.className = 'memory-retention-purge';
+        purgeBtn.textContent = 'Run purge now';
+        purgeBtn.disabled = count === 0;
+        purgeBtn.addEventListener('click', evt => {
+            evt.stopPropagation();
+            _confirmAndRunPurge(count);
+        });
+        header.appendChild(purgeBtn);
+
+        return header;
+    }
+
+    function _buildRetentionItem(item) {
+        const row = document.createElement('div');
+        row.className = 'memory-item memory-retention-item';
+        row.dataset.fqn = item.fqn;
+
+        const title = document.createElement('div');
+        title.className = 'memory-item-title';
+        title.textContent = item.fqn || '';
+        row.appendChild(title);
+
+        const metaRow = document.createElement('div');
+        metaRow.className = 'memory-item-meta';
+        metaRow.appendChild(_badge('reason: ' + (item.reason || '-'), 'memory-retention-reason'));
+        metaRow.appendChild(_badge('age: ' + (item.age_days || 0) + 'd', 'memory-retention-age'));
+        if (item.last_recalled_at) {
+            metaRow.appendChild(_badge('recalled: ' + String(item.last_recalled_at).slice(0, 10), 'memory-retention-recalled'));
+        }
+        metaRow.appendChild(_statusBadge(item.status));
+        if (item.pinned) {
+            metaRow.appendChild(_badge('pinned', 'memory-pinned'));
+        }
+        row.appendChild(metaRow);
+
+        return row;
+    }
+
+    async function _confirmAndRunPurge(count) {
+        const message = 'Permanently delete ' + count + ' memory(ies)? This cannot be undone.';
+        if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+            if (!window.confirm(message)) return;
+        }
+        try {
+            const result = await _apiRequest('/memory/retention-purge', {
+                method: 'POST',
+                body: JSON.stringify({confirm: true}),
+            });
+            await _refreshRetentionPreview();
+            if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+                // The response carries ``purged_by`` — the reviewer identity
+                // the backend stamped on the audit entry. Surface it so the
+                // user sees which session was recorded.
+                const who = result && result.purged_by ? ' by ' + result.purged_by : '';
+                window.alert('Purged ' + (result.purged_count || 0) + ' memory(ies)' + who + '.');
+            }
+        } catch (err) {
+            if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+                window.alert('Purge failed: ' + ((err && err.message) || err));
+            }
+        }
+    }
+
+    /* ── Pin toggle (#625) ─────────────────────────────────────────────── */
+
+    async function togglePin(fqn, pinned) {
+        const endpoint = pinned ? '/memory/' + fqn + '/unpin' : '/memory/' + fqn + '/pin';
+        await _apiRequest(endpoint, {method: 'POST', body: JSON.stringify({})});
+        await _refreshCurrentTab();
+    }
+
     function init() {
         const btn = document.getElementById('btn-memory-toggle');
         if (btn) btn.addEventListener('click', togglePanel);
@@ -756,6 +882,7 @@ const MemoryPanel = (() => {
         togglePanel,
         createMemory,
         proposeCandidate,
+        togglePin,
         // Exposed for tests — allows direct assertion on pure helpers.
         _matchesFilters,
         _buildQueryString,
@@ -764,6 +891,7 @@ const MemoryPanel = (() => {
         _statuses,
         _refreshList,
         _refreshReviewQueue,
+        _refreshRetentionPreview,
         _refreshCurrentTab,
         _switchTab,
         _showMemoryDetail,
@@ -771,6 +899,9 @@ const MemoryPanel = (() => {
         _submitCreate,
         _buildListItem,
         _buildReviewItem,
+        _buildRetentionHeader,
+        _buildRetentionItem,
+        _confirmAndRunPurge,
         _approveCandidate,
         _showEditAndApproveForm,
         _showRejectForm,

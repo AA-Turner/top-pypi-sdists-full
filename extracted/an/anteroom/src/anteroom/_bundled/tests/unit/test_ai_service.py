@@ -2507,3 +2507,112 @@ class TestHTMLErrorResponseHandling:
         assert "base URL" in error_events[0]["data"]["message"]
         assert "<!DOCTYPE" not in error_events[0]["data"]["message"]
         assert error_events[0]["data"]["code"] == "html_response"
+
+
+# ---------------------------------------------------------------------------
+# complete() cancel-awareness (#1266)
+# ---------------------------------------------------------------------------
+
+
+class TestCompleteCancelAware:
+    """cancel_event kwarg on AIService.complete races the provider call."""
+
+    @pytest.mark.asyncio
+    async def test_complete_cancel_event_none_preserves_behavior(self) -> None:
+        """Default cancel_event=None keeps existing callers working unchanged."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from anteroom.config import AIConfig
+        from anteroom.services.ai_service import AIService
+
+        svc = AIService.__new__(AIService)
+        svc.config = AIConfig(
+            base_url="https://x",
+            api_key="k",
+            model="m",
+            system_prompt="s",
+            verify_ssl=True,
+            request_timeout=60,
+            connect_timeout=5,
+            first_token_timeout=30,
+        )
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock(message=MagicMock(content="result"))]
+        mock_client = MagicMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        svc.client = mock_client  # type: ignore[attr-defined]
+
+        result = await svc.complete(messages=[{"role": "user", "content": "hi"}])
+        assert result == "result"
+
+    @pytest.mark.asyncio
+    async def test_complete_cancel_fires_returns_none(self) -> None:
+        """When cancel_event fires before provider responds, complete returns None."""
+        import asyncio
+        from unittest.mock import MagicMock
+
+        from anteroom.config import AIConfig
+        from anteroom.services.ai_service import AIService
+
+        svc = AIService.__new__(AIService)
+        svc.config = AIConfig(
+            base_url="https://x",
+            api_key="k",
+            model="m",
+            system_prompt="s",
+            verify_ssl=True,
+            request_timeout=60,
+            connect_timeout=5,
+            first_token_timeout=30,
+        )
+
+        async def _slow_create(**_kwargs: object) -> object:
+            await asyncio.sleep(10)
+            return MagicMock(choices=[MagicMock(message=MagicMock(content="never"))])
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create = _slow_create
+        svc.client = mock_client  # type: ignore[attr-defined]
+
+        cancel = asyncio.Event()
+        cancel.set()  # pre-set so cancel branch wins the race.
+        result = await svc.complete(
+            messages=[{"role": "user", "content": "hi"}],
+            cancel_event=cancel,
+        )
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_complete_cancel_not_set_returns_provider_result(self) -> None:
+        """When cancel_event is present but never set, provider result wins."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock
+
+        from anteroom.config import AIConfig
+        from anteroom.services.ai_service import AIService
+
+        svc = AIService.__new__(AIService)
+        svc.config = AIConfig(
+            base_url="https://x",
+            api_key="k",
+            model="m",
+            system_prompt="s",
+            verify_ssl=True,
+            request_timeout=60,
+            connect_timeout=5,
+            first_token_timeout=30,
+        )
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock(message=MagicMock(content="ok"))]
+        mock_client = MagicMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        svc.client = mock_client  # type: ignore[attr-defined]
+
+        cancel = asyncio.Event()  # never set
+        result = await svc.complete(
+            messages=[{"role": "user", "content": "hi"}],
+            cancel_event=cancel,
+        )
+        assert result == "ok"

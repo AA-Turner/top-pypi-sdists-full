@@ -17,7 +17,7 @@ jobs:
     - name: Build
       run: uv build
     - name: Upload source distribution
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: build-output
         path: "dist/*"
@@ -77,20 +77,6 @@ jobs:
         python: ['3.14', '3.13', '3.12', '3.11', '3.10']
 
         exclude:
-          # Broken ctypes find_library
-          - os:
-              category: macos
-              platform: arm64
-            python: '3.10'
-          - os:
-              category: macos
-              platform: arm64
-            python: '3.11'
-          - os:
-              category: macos
-              platform: arm64
-            python: '3.12'
-
           # Fails to call mono methods
           - os:
               category: windows
@@ -106,8 +92,7 @@ jobs:
         arch: ${{ matrix.os.platform }}
 
     - name: Setup .NET
-      # use most current version until architecture: support is released
-      uses: actions/setup-dotnet@main
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: '10.0'
         architecture: ${{ matrix.os.platform }}
@@ -125,7 +110,7 @@ jobs:
         uv pip install pytest
 
     - name: Download wheel
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: build-output
         path: dist/
@@ -145,7 +130,7 @@ jobs:
 
     steps:
     - name: Download artifacts
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: build-output
         path: dist/
@@ -158,7 +143,7 @@ jobs:
         repository_url: https://test.pypi.org/legacy/
 
     - name: Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       if: startsWith(github.ref, 'refs/tags/v')
       with:
         files: dist/*

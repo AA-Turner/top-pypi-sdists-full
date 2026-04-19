@@ -17,6 +17,12 @@ from ouroboros.mcp.client.adapter import MCPClientAdapter
 from ouroboros.mcp.types import MCPServerConfig, TransportType
 
 
+@pytest.fixture(autouse=True)
+def _allow_local_transport(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These tests use localhost URLs — enable the local transport escape hatch."""
+    monkeypatch.setenv("OUROBOROS_ALLOW_LOCAL_TRANSPORT", "1")
+
+
 def _make_stdio_config(name: str = "test") -> MCPServerConfig:
     return MCPServerConfig(
         name=name,
@@ -311,7 +317,7 @@ class TestHTTPTransportConnect:
         with (
             patch("mcp.client.streamable_http.streamable_http_client", return_value=transport_cm),
             patch("mcp.ClientSession", return_value=session),
-            patch("mcp.shared._httpx_utils.create_mcp_http_client"),
+            patch("httpx.AsyncClient"),
         ):
             result = await adapter.connect(_make_http_config())
 
@@ -329,7 +335,7 @@ class TestHTTPTransportConnect:
         with (
             patch("mcp.client.streamable_http.streamable_http_client", return_value=transport_cm),
             patch("mcp.ClientSession", return_value=session),
-            patch("mcp.shared._httpx_utils.create_mcp_http_client"),
+            patch("httpx.AsyncClient"),
         ):
             result = await adapter.connect(
                 _make_http_config(transport=TransportType.STREAMABLE_HTTP)
@@ -355,7 +361,7 @@ class TestHTTPTransportConnect:
         with (
             patch("mcp.client.streamable_http.streamable_http_client", return_value=transport_cm),
             patch("mcp.ClientSession", return_value=session),
-            patch("mcp.shared._httpx_utils.create_mcp_http_client"),
+            patch("httpx.AsyncClient"),
         ):
             result = await adapter.connect(_make_http_config())
 
@@ -366,7 +372,7 @@ class TestHTTPTransportConnect:
 
     @pytest.mark.asyncio
     async def test_http_connect_passes_headers(self):
-        """When config has headers, create_mcp_http_client called with them."""
+        """When config has headers, httpx.AsyncClient is called with them."""
         adapter = MCPClientAdapter()
         transport_cm = _mock_http_transport_cm()
         session = _mock_session()
@@ -383,17 +389,22 @@ class TestHTTPTransportConnect:
                 "mcp.client.streamable_http.streamable_http_client", return_value=transport_cm
             ) as mock_http,
             patch("mcp.ClientSession", return_value=session),
-            patch("mcp.shared._httpx_utils.create_mcp_http_client") as mock_factory,
+            patch("httpx.AsyncClient") as mock_async_client,
         ):
             result = await adapter.connect(config)
 
         assert result.is_ok
-        mock_factory.assert_called_once()
-        call_kwargs = mock_factory.call_args
-        assert call_kwargs.kwargs["headers"] == {"Authorization": "Bearer token123"}
+        mock_async_client.assert_called_once()
+        call_kwargs = mock_async_client.call_args
+        # Caller-supplied headers must survive merging with the default UA.
+        headers = call_kwargs.kwargs["headers"]
+        assert headers["Authorization"] == "Bearer token123"
+        assert headers["User-Agent"].startswith("ouroboros-mcp-client/")
+        # SSRF hardening: redirects disabled on the transport httpx client.
+        assert call_kwargs.kwargs["follow_redirects"] is False
         mock_http.assert_called_once_with(
             "http://localhost:3000",
-            http_client=mock_factory.return_value,
+            http_client=mock_async_client.return_value,
         )
 
     @pytest.mark.asyncio
@@ -413,7 +424,7 @@ class TestHTTPTransportConnect:
         with (
             patch("mcp.client.streamable_http.streamable_http_client", return_value=transport_cm),
             patch("mcp.ClientSession", return_value=session),
-            patch("mcp.shared._httpx_utils.create_mcp_http_client") as mock_factory,
+            patch("httpx.AsyncClient") as mock_async_client,
             patch("httpx.Timeout") as mock_timeout,
         ):
             result = await adapter.connect(config)
@@ -421,10 +432,13 @@ class TestHTTPTransportConnect:
         assert result.is_ok
         # read timeout should be max(config.timeout, 300.0) for SSE streaming
         mock_timeout.assert_called_once_with(15.0, read=300.0)
-        mock_factory.assert_called_once_with(
-            headers=None,
-            timeout=mock_timeout.return_value,
-        )
+        mock_async_client.assert_called_once()
+        call_kwargs = mock_async_client.call_args.kwargs
+        # With no caller headers, we still set a default User-Agent so
+        # MCP servers can identify the ouroboros client in their logs.
+        assert call_kwargs["headers"]["User-Agent"].startswith("ouroboros-mcp-client/")
+        assert call_kwargs["timeout"] is mock_timeout.return_value
+        assert call_kwargs["follow_redirects"] is False
 
     @pytest.mark.asyncio
     async def test_http_disconnect_cleans_transport_on_error(self):
@@ -436,7 +450,7 @@ class TestHTTPTransportConnect:
         with (
             patch("mcp.client.streamable_http.streamable_http_client", return_value=transport_cm),
             patch("mcp.ClientSession", return_value=session),
-            patch("mcp.shared._httpx_utils.create_mcp_http_client"),
+            patch("httpx.AsyncClient"),
         ):
             result = await adapter.connect(_make_http_config())
 

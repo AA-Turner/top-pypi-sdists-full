@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bm25s
-Version: 0.3.3
+Version: 0.3.4
 Summary: An ultra-fast implementation of BM25 based on sparse matrices.
 Home-page: https://github.com/xhluca/bm25s
 Author: Xing Han Lù

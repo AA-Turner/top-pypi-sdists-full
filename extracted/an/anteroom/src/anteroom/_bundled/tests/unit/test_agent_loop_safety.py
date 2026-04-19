@@ -351,6 +351,418 @@ class TestContextRecovery:
 
         assert any(e.kind == "done" for e in events)
 
+    # ------------------------------------------------------------------
+    # Staged overflow recovery integration (#1415)
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_staged_recovery_order_skips_to_drop_when_no_tools(self) -> None:
+        """With no oversized tool output and no older tool results, the
+        staged path falls through Strategy 1 and 2 and recovers via
+        Strategy 3 (drop old turn groups) without an LLM summary call.
+        """
+        context_error_events: list[dict[str, Any]] = [
+            {"event": "error", "data": {"message": "too long", "code": "context_length_exceeded", "retryable": False}},
+        ]
+        success_events = _make_stream_events("recovered")
+
+        ai = _mock_ai_service(context_error_events, success_events)
+        ai.complete = AsyncMock(return_value="unused LLM summary")
+
+        # Plenty of user/assistant turn groups (>4) — no tool results.
+        messages: list[dict[str, Any]] = []
+        for i in range(12):
+            messages.append({"role": "user", "content": f"u{i}"})
+            messages.append({"role": "assistant", "content": f"a{i}"})
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+            )
+        )
+
+        assert any(e.kind == "done" for e in events)
+        # Strategy 3 is deterministic — no LLM complete() call required.
+        ai.complete.assert_not_awaited()
+        # Recovery notification for "dropped older conversation turns" fired.
+        notif = "".join(
+            e.data.get("content", "") for e in events if e.kind == "token" and isinstance(e.data.get("content"), str)
+        )
+        assert "dropped older conversation turns" in notif
+
+    @pytest.mark.asyncio
+    async def test_full_compaction_is_last_resort(self) -> None:
+        """When Strategies 1-3 cannot make progress (too few turn groups,
+        no tool outputs), Strategy 4 (full LLM compaction) fires.
+        """
+        context_error_events: list[dict[str, Any]] = [
+            {"event": "error", "data": {"message": "too long", "code": "context_length_exceeded", "retryable": False}},
+        ]
+        success_events = _make_stream_events("done")
+
+        ai = _mock_ai_service(context_error_events, success_events)
+        ai.complete = AsyncMock(return_value="Final summary")
+
+        # 4 turn groups exactly — drop_old_turn_groups (keep_recent=4)
+        # returns False because ``len(groups) <= keep_recent_groups``.
+        # Collapse has no tool messages so also returns False.
+        # Strategy 4 (full LLM compaction) must then fire.  Note:
+        # compact_messages() requires >= COMPACTION_MIN_MESSAGES (4) messages.
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "u1"},
+            {"role": "assistant", "content": "a1"},
+            {"role": "user", "content": "u2"},
+            {"role": "assistant", "content": "a2"},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+            )
+        )
+
+        assert any(e.kind == "done" for e in events)
+        # Strategy 4 requires an LLM summary call.
+        ai.complete.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_max_recovery_attempts_bounded(self) -> None:
+        """After max_context_recoveries repeated context errors, the loop
+        gives up with a hard error rather than retrying forever.
+        """
+        context_error_events: list[dict[str, Any]] = [
+            {"event": "error", "data": {"message": "too long", "code": "context_length_exceeded", "retryable": False}},
+        ]
+
+        # Unlimited context errors — never recovers.
+        ai = _mock_ai_service(
+            context_error_events,
+            context_error_events,
+            context_error_events,
+            context_error_events,
+            context_error_events,
+            context_error_events,
+            context_error_events,
+            context_error_events,
+        )
+        # Make compact return None so Strategy 4 also fails every time.
+        ai.complete = AsyncMock(return_value=None)
+
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "message 1"},
+            {"role": "assistant", "content": "response 1"},
+            {"role": "user", "content": "message 2"},
+            {"role": "assistant", "content": "response 2"},
+            {"role": "user", "content": "message 3"},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+            )
+        )
+
+        # Loop must terminate (not hang) with a recovery-failed error.
+        errors = [e for e in events if e.kind == "error"]
+        assert any(
+            "Recovery failed" in e.data.get("message", "") or "too long" in e.data.get("message", "").lower()
+            for e in errors
+        )
+
+    @pytest.mark.asyncio
+    async def test_reactive_max_attempts_from_config(self) -> None:
+        """The retry cap is sourced from reactive_max_attempts (#1266)."""
+        context_error_events: list[dict[str, Any]] = [
+            {"event": "error", "data": {"code": "context_length_exceeded", "retryable": False}},
+        ]
+        # 5 rounds of context errors — but we'll cap at 1 retry.
+        ai = _mock_ai_service(
+            context_error_events,
+            context_error_events,
+            context_error_events,
+            context_error_events,
+            context_error_events,
+        )
+        ai.complete = AsyncMock(return_value=None)
+
+        messages: list[dict[str, Any]] = [{"role": "user", "content": f"m{i}"} for i in range(6)]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                reactive_max_attempts=1,
+            )
+        )
+
+        errors = [e for e in events if e.kind == "error"]
+        assert len(errors) >= 1
+
+    @pytest.mark.asyncio
+    async def test_summary_trigger_msg_count_from_config(self) -> None:
+        """Proactive summary triggers at the config-provided message count (#1266)."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        # 10 messages — trigger at 8.
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": f"m{i}"} if i % 2 == 0 else {"role": "assistant", "content": f"r{i}"}
+            for i in range(10)
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                summary_trigger_msg_count=8,
+                summary_trigger_token_count=1_000_000,
+            )
+        )
+
+        # Compaction event indicates summary fired.
+        assert any(e.kind == "compaction" for e in events)
+
+    @pytest.mark.asyncio
+    async def test_summary_trigger_token_count_from_config(self) -> None:
+        """Proactive summary triggers at the config-provided token count (#1266)."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        # Large content — trigger on tokens.
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "word " * 500},
+            {"role": "assistant", "content": "word " * 500},
+            {"role": "user", "content": "word " * 500},
+            {"role": "assistant", "content": "word " * 500},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                summary_trigger_msg_count=10_000,
+                summary_trigger_token_count=100,
+            )
+        )
+
+        assert any(e.kind == "compaction" for e in events)
+
+    @pytest.mark.asyncio
+    async def test_microcompact_fires_before_summary(self) -> None:
+        """Proactive microcompact emits its own narration token before the summary check (#1266)."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        # History with an oversized tool result to trigger microcompact.
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "hi"},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{"id": "tc1", "type": "function", "function": {"name": "bash", "arguments": "{}"}}],
+            },
+            {"role": "tool", "tool_call_id": "tc1", "content": "X" * 10_000},
+            {"role": "user", "content": "continue"},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                tool_output_max_chars=200,
+                microcompact_enabled=True,
+                # Keep summary thresholds high so only microcompact fires.
+                summary_trigger_msg_count=10_000,
+                summary_trigger_token_count=1_000_000,
+            )
+        )
+
+        # Microcompact narration token surfaces in the event stream.
+        tokens = [e for e in events if e.kind == "token"]
+        assert any("Trimmed oversized tool outputs" in e.data.get("content", "") for e in tokens)
+
+    @pytest.mark.asyncio
+    async def test_summary_triggers_at_exactly_threshold(self) -> None:
+        """Proactive summary fires when len(messages) == summary_trigger_msg_count (>= semantics)."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        # Exactly at threshold — must trigger (>= not >).
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": f"m{i}"} if i % 2 == 0 else {"role": "assistant", "content": f"r{i}"}
+            for i in range(8)
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                summary_trigger_msg_count=8,
+                summary_trigger_token_count=1_000_000,
+            )
+        )
+
+        assert any(e.kind == "compaction" for e in events)
+
+    @pytest.mark.asyncio
+    async def test_reactive_max_attempts_zero_disables_recovery(self) -> None:
+        """reactive_max_attempts=0 disables reactive recovery — original error surfaces."""
+        context_error_events: list[dict[str, Any]] = [
+            {"event": "error", "data": {"code": "context_length_exceeded", "retryable": False}},
+        ]
+        ai = _mock_ai_service(context_error_events)
+        ai.complete = AsyncMock(return_value=None)
+
+        messages: list[dict[str, Any]] = [{"role": "user", "content": f"m{i}"} for i in range(4)]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                reactive_max_attempts=0,
+            )
+        )
+
+        # With recovery disabled, the stream's original context_length_exceeded
+        # propagates up without any recovery narration tokens appearing.
+        token_content = " ".join(e.data.get("content", "") for e in events if e.kind == "token")
+        assert "truncated and retrying" not in token_content
+        assert "collapsed historical tool results" not in token_content
+
+    @pytest.mark.asyncio
+    async def test_cancel_during_strategy_4_summary_emits_cancelled_not_error(self) -> None:
+        """Cancel during Strategy 4 LLM summary emits `cancelled`, NOT `recovery failed` error.
+
+        Regression for the #1445 senior-review blocker: previously, a
+        cancel during the final reactive compaction made
+        ai_service.complete() return None, which compact_messages()
+        mapped to a success=False CompactionResult, which Strategy 4
+        treated as ordinary failure and fell through to the terminal
+        "Recovery failed after all strategies" error. The loop must
+        distinguish cancel from real compaction failure.
+        """
+        import asyncio
+
+        context_error_events: list[dict[str, Any]] = [
+            {"event": "error", "data": {"code": "context_length_exceeded", "retryable": False}},
+        ]
+        ai = _mock_ai_service(context_error_events)
+
+        cancel_event = asyncio.Event()
+
+        async def _cancel_then_return_none(
+            *_args: Any, cancel_event: asyncio.Event | None = None, **_kwargs: Any
+        ) -> str | None:
+            # Simulate the race-against-cancel behavior in
+            # AIService.complete() — when cancel fires, the provider task
+            # is cancelled and the method returns None.
+            if cancel_event is not None and cancel_event.is_set():
+                return None
+            return None
+
+        ai.complete = _cancel_then_return_none
+
+        # History with only user+assistant messages — forces the reactive
+        # ladder to skip Strategies 1, 2, 3 (nothing to trim/collapse/drop)
+        # and fall through to Strategy 4, where the cancel check fires.
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "m1"},
+            {"role": "assistant", "content": "r1"},
+            {"role": "user", "content": "m2"},
+            {"role": "assistant", "content": "r2"},
+        ]
+
+        cancel_event.set()
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                cancel_event=cancel_event,
+                reactive_max_attempts=1,
+            )
+        )
+
+        # A `cancelled` event must surface with the cancel reason.
+        cancelled = [e for e in events if e.kind == "cancelled"]
+        assert len(cancelled) == 1
+        assert cancelled[0].data.get("reason") == "user_cancel_during_recovery"
+
+        # The terminal "Recovery failed after all strategies" error must
+        # NOT appear — that's the bug the senior review flagged.
+        errors = [e for e in events if e.kind == "error"]
+        for err in errors:
+            msg = err.data.get("message", "")
+            assert "Recovery failed after all strategies" not in msg, (
+                f"User cancel during Strategy 4 incorrectly emitted recovery-failed error: {msg!r}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_strategy_4_genuine_failure_still_emits_recovery_failed(self) -> None:
+        """When complete() fails for non-cancel reasons, recovery-failed error still fires.
+
+        Ensures the cancel-check added for #1445 doesn't swallow genuine
+        compaction failures. cancel_event is None (or not set), so the
+        terminal error must surface.
+        """
+        context_error_events: list[dict[str, Any]] = [
+            {"event": "error", "data": {"code": "context_length_exceeded", "retryable": False}},
+        ]
+        ai = _mock_ai_service(context_error_events)
+        # Genuine failure — complete returns None but no cancel involved.
+        ai.complete = AsyncMock(return_value=None)
+
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "m1"},
+            {"role": "assistant", "content": "r1"},
+            {"role": "user", "content": "m2"},
+            {"role": "assistant", "content": "r2"},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                reactive_max_attempts=1,
+            )
+        )
+
+        errors = [e for e in events if e.kind == "error"]
+        assert any("Recovery failed" in e.data.get("message", "") for e in errors), (
+            "Genuine compaction failure must still surface recovery-failed error"
+        )
+
+        # No `cancelled` event — this is a real failure, not a cancel.
+        assert not any(e.kind == "cancelled" for e in events)
+
 
 # ---------------------------------------------------------------------------
 # Max iterations

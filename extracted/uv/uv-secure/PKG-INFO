@@ -1,15 +1,16 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: uv-secure
-Version: 0.17.1
-Summary: Scan your uv.lock file for dependencies with known vulnerabilities
+Version: 0.17.2
+Summary: Deprecated dependency scanner for uv projects; use uv audit instead
 Keywords: uv,uv.lock,vulnerabilities
 Author: Owen Lamont
 Author-email: Owen Lamont <owenrlamont@gmail.com>
-Classifier: Development Status :: 3 - Alpha
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 7 - Inactive
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
@@ -39,12 +40,25 @@ Requires-Dist: uvloop>=0.21.0 ; sys_platform != 'win32' and extra == 'faster-asy
 Requires-Python: >=3.10
 Project-URL: Repository, https://github.com/owenlamont/uv-secure
 Project-URL: Releases, https://github.com/owenlamont/uv-secure/releases
+Project-URL: Documentation, https://github.com/owenlamont/uv-secure#readme
 Provides-Extra: faster-async
 Description-Content-Type: text/markdown
 
 # uv-secure
 
-Scan your uv.lock file for dependencies with known vulnerabilities.
+Deprecated dependency scanner for uv projects. Prefer `uv audit` for new use.
+
+## Deprecation Notice
+
+I created uv-secure to resolve some pain points I had with getting pip-audit to work
+with uv.lock files. Since
+[`uv audit`](https://docs.astral.sh/uv/reference/cli/#uv-audit) was announced though I
+now use that for my repos and am deprecating uv-secure in favour of the `uv audit`
+command.
+
+If `uv audit` does not work for your workflow, consider
+[`pysentry-rs`](https://pypi.org/project/pysentry-rs/) or
+[`pip-audit`](https://pypi.org/project/pip-audit/) instead.
 
 ## Scope and Limitations
 
@@ -433,25 +447,19 @@ When available, severity entries link to the advisory source used for that sever
 ## Pre-commit Usage
 
 uv-secure can be run as a pre-commit hook by adding this configuration to your
-.pre-commit-config.yaml file:
+prek.toml file:
 
-```yaml
-  - repo: https://github.com/owenlamont/uv-secure
-    rev: 0.17.0
-    hooks:
-      - id: uv-secure
+```toml
+[[repos]]
+repo = "https://github.com/owenlamont/uv-secure"
+rev = "0.17.0"
+hooks = [{ id = "uv-secure" }]
 ```
 
 You should run:
 
 ```shell
 prek autoupdate
-```
-
-or
-
-```shell
-pre-commit autoupdate
 ```
 
 Or manually check the latest release and update the _rev_ value accordingly.

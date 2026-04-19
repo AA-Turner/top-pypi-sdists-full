@@ -537,6 +537,67 @@ class TestUpdateMemoryMetadataTypedContract:
         with pytest.raises(ValueError, match="lineage.0. must be a dict"):
             update_memory_metadata(db, art["fqn"], lineage=["not-a-dict"])  # type: ignore[list-item]
 
+    # Retention pin flag (#625)
+
+    def test_pinned_bool_accepted(self, db: ThreadSafeConnection) -> None:
+        art = create_memory(db, "x", scope="user", category="preference", name="pin1")
+        updated = update_memory_metadata(db, art["fqn"], pinned=True)
+        assert updated is not None
+        assert updated["metadata"]["pinned"] is True
+
+    def test_pinned_non_bool_rejected(self, db: ThreadSafeConnection) -> None:
+        art = create_memory(db, "x", scope="user", category="preference", name="pin2")
+        with pytest.raises(ValueError, match="pinned must be a bool"):
+            update_memory_metadata(db, art["fqn"], pinned="yes")  # type: ignore[arg-type]
+
+    def test_pinned_int_1_rejected(self, db: ThreadSafeConnection) -> None:
+        # Explicit regression: isinstance(True, int) is True in Python, so
+        # the validator must not accept a plain int even though it would
+        # "truthy-convert" to the same logical value.
+        art = create_memory(db, "x", scope="user", category="preference", name="pin3")
+        with pytest.raises(ValueError, match="pinned must be a bool"):
+            update_memory_metadata(db, art["fqn"], pinned=1)  # type: ignore[arg-type]
+
+
+class TestPinWrappers:
+    def test_pin_memory_sets_pinned_true(self, db: ThreadSafeConnection) -> None:
+        from anteroom.services.memory_service import pin_memory
+
+        art = create_memory(db, "x", scope="user", category="preference", name="pw1")
+        updated = pin_memory(db, art["fqn"])
+        assert updated is not None
+        assert updated["metadata"]["pinned"] is True
+
+    def test_unpin_memory_sets_pinned_false(self, db: ThreadSafeConnection) -> None:
+        from anteroom.services.memory_service import pin_memory, unpin_memory
+
+        art = create_memory(db, "x", scope="user", category="preference", name="pw2")
+        pin_memory(db, art["fqn"])
+        updated = unpin_memory(db, art["fqn"])
+        assert updated is not None
+        assert updated["metadata"]["pinned"] is False
+
+    def test_pin_memory_unknown_fqn_returns_none(self, db: ThreadSafeConnection) -> None:
+        from anteroom.services.memory_service import pin_memory
+
+        assert pin_memory(db, "@user/memory/nope") is None
+
+    def test_unpin_memory_unknown_fqn_returns_none(self, db: ThreadSafeConnection) -> None:
+        from anteroom.services.memory_service import unpin_memory
+
+        assert unpin_memory(db, "@user/memory/nope") is None
+
+    def test_pin_preserves_other_metadata(self, db: ThreadSafeConnection) -> None:
+        from anteroom.services.memory_service import pin_memory
+
+        art = create_memory(db, "x", scope="user", category="preference", name="pw3")
+        # First mutate something else through the canonical path.
+        update_memory_metadata(db, art["fqn"], recall_count=5)
+        updated = pin_memory(db, art["fqn"])
+        assert updated is not None
+        assert updated["metadata"]["pinned"] is True
+        assert updated["metadata"]["recall_count"] == 5
+
 
 class TestConstants:
     def test_all_categories_are_fqn_safe(self) -> None:

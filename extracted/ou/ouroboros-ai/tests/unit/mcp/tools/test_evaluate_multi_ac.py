@@ -95,7 +95,7 @@ class TestMultiACRoutingBoundary:
         # `evaluate()` returns Result objects in order per call.
         results_iter = iter(eval_results)
 
-        async def _evaluate(_context: object) -> object:
+        async def _evaluate(_context: object, **_kwargs: object) -> object:
             return Result.ok(next(results_iter))
 
         mock_pipeline.evaluate = AsyncMock(side_effect=_evaluate)
@@ -182,6 +182,45 @@ class TestMultiACRoutingBoundary:
         assert result.is_ok
         ctx_arg = mock_pipeline.evaluate.call_args[0][0]
         assert ctx_arg.current_ac == "Legacy AC"
+
+    async def test_single_item_list_ac_is_used_as_current_ac(self) -> None:
+        """A 1-element acceptance_criteria list must be used as current_ac.
+
+        Regression test: before the fix, a 1-item list was silently
+        ignored and the evaluation ran against the fallback string
+        'Verify execution output meets requirements'.
+        """
+        captured_contexts: list[object] = []
+        mock_pipeline = AsyncMock()
+
+        async def _capture_evaluate(context: object) -> object:
+            captured_contexts.append(context)
+            return Result.ok(_passing_eval("s1"))
+
+        mock_pipeline.evaluate = AsyncMock(side_effect=_capture_evaluate)
+
+        with (
+            patch("ouroboros.evaluation.EvaluationPipeline") as MockPipeline,
+            patch(
+                "ouroboros.persistence.event_store.EventStore",
+                return_value=AsyncMock(initialize=AsyncMock()),
+            ),
+        ):
+            MockPipeline.return_value = mock_pipeline
+            handler = EvaluateHandler()
+            result = await handler.handle(
+                {
+                    "session_id": "s1",
+                    "artifact": "def f(): pass",
+                    "acceptance_criteria": ["Log output is JSON-formatted"],
+                }
+            )
+
+        assert result.is_ok
+        assert len(captured_contexts) == 1
+        ctx = captured_contexts[0]
+        # The actual AC text must be used, not the generic fallback.
+        assert ctx.current_ac == "Log output is JSON-formatted"
 
     async def test_two_passing_acs_produce_all_passed_checklist(self) -> None:
         """Two ACs both passing → meta.final_approved True, checklist populated."""

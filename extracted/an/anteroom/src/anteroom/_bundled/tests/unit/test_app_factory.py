@@ -52,6 +52,11 @@ def _make_config(
     config.safety.prompt_injection = None
     config.storage.retention_days = 0
     config.storage.encrypt_at_rest = False
+    # Memory retention defaults to off so the retention worker is not
+    # started unexpectedly by tests that don't explicitly exercise it
+    # (MagicMock would otherwise make config.memory.retention.enabled
+    # truthy and trigger the #625 startup gate).
+    config.memory.retention.enabled = False
 
     identity = MagicMock()
     identity.private_key = private_key

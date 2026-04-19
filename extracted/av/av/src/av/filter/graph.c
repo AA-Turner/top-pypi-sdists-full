@@ -1680,7 +1680,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode;
 
-/* "av/codec/context.pxd":33
+/* "av/codec/context.pxd":26
  *     cdef readonly HWAccel hwaccel
  *     cdef public dict options
  *     cpdef open(self, bint strict=?)             # <<<<<<<<<<<<<<
@@ -1692,7 +1692,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open {
   int strict;
 };
 
-/* "av/codec/context.pxd":36
+/* "av/codec/context.pxd":29
  * 
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)             # <<<<<<<<<<<<<<
@@ -1704,7 +1704,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode {
   struct __pyx_obj_2av_5frame_Frame *frame;
 };
 
-/* "av/codec/context.pxd":37
+/* "av/codec/context.pxd":30
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)
  *     cpdef decode(self, Packet packet=?)             # <<<<<<<<<<<<<<
@@ -1718,7 +1718,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode {
 struct __pyx_t_2av_9container_4core_timeout_info;
 typedef struct __pyx_t_2av_9container_4core_timeout_info __pyx_t_2av_9container_4core_timeout_info;
 
-/* "av/container/core.pxd":11
+/* "av/container/core.pxd":12
  * 
  * # Interrupt callback information, times are in seconds.
  * ctypedef struct timeout_info:             # <<<<<<<<<<<<<<
@@ -1764,8 +1764,8 @@ struct __pyx_opt_args_2av_5error_err_check {
 struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_width;
 struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_height;
 
-/* "av/video/format.pxd":10
- *     cdef readonly tuple components
+/* "av/video/format.pxd":9
+ *     cdef readonly unsigned int width, height
  *     cdef _init(self, lib.AVPixelFormat pix_fmt, unsigned int width, unsigned int height)
  *     cpdef chroma_width(self, int luma_width=?)             # <<<<<<<<<<<<<<
  *     cpdef chroma_height(self, int luma_height=?)
@@ -1776,7 +1776,7 @@ struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_width {
   int luma_width;
 };
 
-/* "av/video/format.pxd":11
+/* "av/video/format.pxd":10
  *     cdef _init(self, lib.AVPixelFormat pix_fmt, unsigned int width, unsigned int height)
  *     cpdef chroma_width(self, int luma_width=?)
  *     cpdef chroma_height(self, int luma_height=?)             # <<<<<<<<<<<<<<
@@ -1971,8 +1971,6 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_5codec_7context_CodecContext *__pyx_vtab;
   struct AVCodecContext *ptr;
-  int extradata_set;
-  int _template_initialized;
   int stream_index;
   struct AVCodecParserContext *parser;
   int is_open;
@@ -1980,6 +1978,7 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel;
   PyObject *options;
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel_ctx;
+  uint8_t _ctxflags;
   struct __pyx_obj_2av_5frame_Frame *_next_frame;
 };
 
@@ -2049,24 +2048,22 @@ struct __pyx_obj_2av_6format_ContainerFormat {
 };
 
 
-/* "av/container/core.pxd":16
+/* "av/container/core.pxd":17
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- *     cdef readonly bint writeable
  *     cdef lib.AVFormatContext *ptr
+ *     cdef readonly object name
 */
 struct __pyx_obj_2av_9container_4core_Container {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_9container_4core_Container *__pyx_vtab;
-  int writeable;
   struct AVFormatContext *ptr;
   PyObject *name;
   PyObject *metadata_encoding;
   PyObject *metadata_errors;
   struct __pyx_obj_2av_9container_4pyio_PyIOFile *file;
   int buffer_size;
-  int input_was_opened;
   PyObject *io_open;
   PyObject *open_files;
   struct __pyx_obj_2av_6format_ContainerFormat *format;
@@ -2076,6 +2073,7 @@ struct __pyx_obj_2av_9container_4core_Container {
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel;
   struct __pyx_obj_2av_9container_7streams_StreamContainer *streams;
   PyObject *metadata;
+  uint8_t _myflag;
   PyObject *open_timeout;
   PyObject *read_timeout;
   __pyx_t_2av_9container_4core_timeout_info interrupt_callback_info;
@@ -2177,7 +2175,6 @@ struct __pyx_obj_2av_6packet_Packet {
   struct __pyx_obj_2av_6buffer_Buffer __pyx_base;
   struct AVPacket *ptr;
   struct __pyx_obj_2av_6stream_Stream *_stream;
-  struct __pyx_obj_2av_6buffer_ByteSource *source;
 };
 
 
@@ -2257,11 +2254,10 @@ struct __pyx_obj_2av_5video_6format_VideoFormat {
   struct AVPixFmtDescriptor const *ptr;
   unsigned int width;
   unsigned int height;
-  PyObject *components;
 };
 
 
-/* "av/video/format.pxd":14
+/* "av/video/format.pxd":13
  * 
  * 
  * cdef class VideoFormatComponent:             # <<<<<<<<<<<<<<
@@ -2339,7 +2335,6 @@ struct __pyx_obj_2av_6filter_5graph_Graph {
   PyObject *_name_counts;
   int _nb_filters_seen;
   PyObject *_context_by_ptr;
-  PyObject *_context_by_name;
   PyObject *_context_by_type;
 };
 
@@ -2408,7 +2403,6 @@ struct __pyx_vtabstruct_2av_5codec_7context_CodecContext {
   PyObject *(*_setup_encoded_packet)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_setup_decoded_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_5frame_Frame *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_recv_packet)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
-  PyObject *(*_send_packet_and_recv)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_recv_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
   PyObject *(*_transfer_hwframe)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_5frame_Frame *);
   struct __pyx_obj_2av_5frame_Frame *(*_alloc_next_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
@@ -2444,12 +2438,12 @@ struct __pyx_vtabstruct_2av_10dictionary_Dictionary {
 static struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtabptr_2av_10dictionary_Dictionary;
 
 
-/* "av/container/core.pxd":16
+/* "av/container/core.pxd":17
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- *     cdef readonly bint writeable
  *     cdef lib.AVFormatContext *ptr
+ *     cdef readonly object name
 */
 
 struct __pyx_vtabstruct_2av_9container_4core_Container {
@@ -2678,10 +2672,12 @@ static struct __pyx_vtabstruct_2av_5video_5frame_VideoFrame *__pyx_vtabptr_2av_5
 struct __pyx_vtabstruct_2av_6filter_5graph_Graph {
   PyObject *(*configure)(struct __pyx_obj_2av_6filter_5graph_Graph *, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_6filter_5graph_5Graph_configure *__pyx_optional_args);
   PyObject *(*_get_unique_name)(struct __pyx_obj_2av_6filter_5graph_Graph *, PyObject *);
+  PyObject *(*_get_context_by_type)(struct __pyx_obj_2av_6filter_5graph_Graph *, PyObject *);
   PyObject *(*_register_context)(struct __pyx_obj_2av_6filter_5graph_Graph *, struct __pyx_obj_2av_6filter_7context_FilterContext *);
   PyObject *(*_auto_register)(struct __pyx_obj_2av_6filter_5graph_Graph *);
 };
 static struct __pyx_vtabstruct_2av_6filter_5graph_Graph *__pyx_vtabptr_2av_6filter_5graph_Graph;
+static PyObject *__pyx_f_2av_6filter_5graph_5Graph__get_context_by_type(struct __pyx_obj_2av_6filter_5graph_Graph *, PyObject *);
 /* #### Code section: utility_code_proto ### */
 
 /* --- Runtime support code (head) --- */
@@ -2967,6 +2963,12 @@ static int __Pyx_PyDict_NextRef(PyObject *p, Py_ssize_t *ppos, PyObject **pkey, 
 /* RejectKeywords.export */
 static void __Pyx_RejectKeywords(const char* function_name, PyObject *kwds);
 
+/* PyRuntimeError_Check.proto */
+#define __Pyx_PyExc_RuntimeError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_RuntimeError)
+
+/* RaiseException.export */
+static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause);
+
 /* dict_getitem_default.proto */
 static PyObject* __Pyx_PyDict_GetItemDefault(PyObject* d, PyObject* key, PyObject* default_value);
 
@@ -3006,6 +3008,9 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatAndDecref(PyObject* s, PyObj
 /* JoinPyUnicode.export */
 static PyObject* __Pyx_PyUnicode_Join(PyObject** values, Py_ssize_t value_count, Py_ssize_t result_ulength,
                                       Py_UCS4 max_char);
+
+/* RaiseUnexpectedTypeError.proto */
+static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
 
 /* PyDictVersioning.proto */
 #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
@@ -3109,17 +3114,8 @@ static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type);
 /* PyTypeError_Check.proto */
 #define __Pyx_PyExc_TypeError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_TypeError)
 
-/* RaiseException.export */
-static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause);
-
 /* py_dict_pop.proto */
 static CYTHON_INLINE PyObject *__Pyx_PyDict_Pop(PyObject *d, PyObject *key, PyObject *default_value);
-
-/* RaiseUnexpectedTypeError.proto */
-static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
-
-/* PyRuntimeError_Check.proto */
-#define __Pyx_PyExc_RuntimeError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_RuntimeError)
 
 /* ListAppend.proto (used by append) */
 #if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
@@ -3436,14 +3432,14 @@ static void __pyx_insert_code_object(int code_line, __Pyx_CachedCodeObjectType* 
 static void __Pyx_AddTraceback(const char *funcname, int c_line,
                                int py_line, const char *filename);
 
-/* CIntToPy.proto */
-static CYTHON_INLINE PyObject* __Pyx_PyLong_From_long(long value);
+/* CIntFromPy.proto */
+static CYTHON_INLINE int __Pyx_PyLong_As_int(PyObject *);
 
 /* CIntToPy.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyLong_From_int(int value);
 
-/* CIntFromPy.proto */
-static CYTHON_INLINE int __Pyx_PyLong_As_int(PyObject *);
+/* CIntToPy.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyLong_From_long(long value);
 
 /* CIntFromPy.proto */
 static CYTHON_INLINE unsigned int __Pyx_PyLong_As_unsigned_int(PyObject *);
@@ -3563,6 +3559,7 @@ static int __Pyx_State_RemoveModule(void*);
 #define __PYX_TYPE_MODULE_PREFIX __PYX_ABI_MODULE_NAME "."
 
 static PyObject *__pyx_f_2av_6filter_5graph_5Graph__get_unique_name(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self, PyObject *__pyx_v_name); /* proto*/
+static PyObject *__pyx_f_2av_6filter_5graph_5Graph__get_context_by_type(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self, PyObject *__pyx_v_type_); /* proto*/
 static PyObject *__pyx_f_2av_6filter_5graph_5Graph_configure(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_6filter_5graph_5Graph_configure *__pyx_optional_args); /* proto*/
 static PyObject *__pyx_f_2av_6filter_5graph_5Graph__register_context(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self, struct __pyx_obj_2av_6filter_7context_FilterContext *__pyx_v_ctx); /* proto*/
 static PyObject *__pyx_f_2av_6filter_5graph_5Graph__auto_register(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self); /* proto*/
@@ -3645,6 +3642,8 @@ static PyObject *__pyx_builtin_zip;
 /* #### Code section: decls ### */
 static int __pyx_pf_2av_6filter_5graph_5Graph___cinit__(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self); /* proto */
 static void __pyx_pf_2av_6filter_5graph_5Graph_2__dealloc__(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_7threads___get__(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self); /* proto */
+static int __pyx_pf_2av_6filter_5graph_5Graph_7threads_2__set__(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self, int __pyx_v_value); /* proto */
 static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_4configure(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self, int __pyx_v_auto_buffer, int __pyx_v_force); /* proto */
 static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self, PyObject *__pyx_v_nodes); /* proto */
 static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self, PyObject *__pyx_v_filter, PyObject *__pyx_v_args, PyObject *__pyx_v_kwargs); /* proto */
@@ -3718,7 +3717,7 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   PyObject *__pyx_tuple[1];
-  PyObject *__pyx_string_tab[86];
+  PyObject *__pyx_string_tab[87];
   PyObject *__pyx_number_tab[3];
 /* #### Code section: module_state_contents ### */
 /* CodeObjectCache.module_state_decls */
@@ -3750,91 +3749,92 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #endif
 /* #### Code section: constant_name_defines ### */
 #define __pyx_kp_u_1_1 __pyx_string_tab[0]
-#define __pyx_kp_u_Could_not_allocate_AVFilterConte __pyx_string_tab[1]
-#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[2]
-#define __pyx_kp_u__2 __pyx_string_tab[3]
-#define __pyx_kp_u__3 __pyx_string_tab[4]
-#define __pyx_kp_u_add_note __pyx_string_tab[5]
-#define __pyx_kp_u_can_only_AudioFrame_VideoFrame_o __pyx_string_tab[6]
-#define __pyx_kp_u_can_only_auto_pull_with_single_s __pyx_string_tab[7]
-#define __pyx_kp_u_disable __pyx_string_tab[8]
-#define __pyx_kp_u_enable __pyx_string_tab[9]
-#define __pyx_kp_u_filter_must_be_a_string_or_Filte __pyx_string_tab[10]
-#define __pyx_kp_u_gc __pyx_string_tab[11]
-#define __pyx_kp_u_graph_not_configured __pyx_string_tab[12]
-#define __pyx_kp_u_isenabled __pyx_string_tab[13]
-#define __pyx_kp_u_missing_abuffersink_filter __pyx_string_tab[14]
-#define __pyx_kp_u_missing_format __pyx_string_tab[15]
-#define __pyx_kp_u_missing_height __pyx_string_tab[16]
-#define __pyx_kp_u_missing_layout_or_channels __pyx_string_tab[17]
-#define __pyx_kp_u_missing_sample_rate __pyx_string_tab[18]
-#define __pyx_kp_u_missing_time_base_Guessing_1_100 __pyx_string_tab[19]
-#define __pyx_kp_u_missing_width __pyx_string_tab[20]
-#define __pyx_kp_u_no_default___reduce___due_to_non __pyx_string_tab[21]
-#define __pyx_n_u_ __pyx_string_tab[22]
-#define __pyx_n_u_Fraction __pyx_string_tab[23]
-#define __pyx_n_u_Graph __pyx_string_tab[24]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[25]
-#define __pyx_n_u_abuffer __pyx_string_tab[26]
-#define __pyx_n_u_abuffersink __pyx_string_tab[27]
-#define __pyx_n_u_add __pyx_string_tab[28]
-#define __pyx_n_u_append __pyx_string_tab[29]
-#define __pyx_n_u_args __pyx_string_tab[30]
-#define __pyx_n_u_auto_buffer __pyx_string_tab[31]
-#define __pyx_n_u_buffer __pyx_string_tab[32]
-#define __pyx_n_u_buffersink __pyx_string_tab[33]
-#define __pyx_n_u_channel_layout __pyx_string_tab[34]
-#define __pyx_n_u_channels __pyx_string_tab[35]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[36]
-#define __pyx_n_u_configure __pyx_string_tab[37]
-#define __pyx_n_u_filter __pyx_string_tab[38]
-#define __pyx_n_u_force __pyx_string_tab[39]
-#define __pyx_n_u_format __pyx_string_tab[40]
-#define __pyx_n_u_fractions __pyx_string_tab[41]
-#define __pyx_n_u_frame __pyx_string_tab[42]
-#define __pyx_n_u_frame_size __pyx_string_tab[43]
-#define __pyx_n_u_get __pyx_string_tab[44]
-#define __pyx_n_u_getstate __pyx_string_tab[45]
-#define __pyx_n_u_height __pyx_string_tab[46]
-#define __pyx_n_u_init __pyx_string_tab[47]
-#define __pyx_n_u_items __pyx_string_tab[48]
-#define __pyx_n_u_layout __pyx_string_tab[49]
-#define __pyx_n_u_link_to __pyx_string_tab[50]
-#define __pyx_n_u_main __pyx_string_tab[51]
-#define __pyx_n_u_module __pyx_string_tab[52]
-#define __pyx_n_u_name __pyx_string_tab[53]
-#define __pyx_n_u_name_2 __pyx_string_tab[54]
-#define __pyx_n_u_pix_fmt __pyx_string_tab[55]
-#define __pyx_n_u_pixel_aspect __pyx_string_tab[56]
-#define __pyx_n_u_pop __pyx_string_tab[57]
-#define __pyx_n_u_pull __pyx_string_tab[58]
-#define __pyx_n_u_push __pyx_string_tab[59]
-#define __pyx_n_u_pyx_state __pyx_string_tab[60]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[61]
-#define __pyx_n_u_qualname __pyx_string_tab[62]
-#define __pyx_n_u_reduce __pyx_string_tab[63]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[64]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[65]
-#define __pyx_n_u_sample_fmt __pyx_string_tab[66]
-#define __pyx_n_u_sample_rate __pyx_string_tab[67]
-#define __pyx_n_u_set_name __pyx_string_tab[68]
-#define __pyx_n_u_setdefault __pyx_string_tab[69]
-#define __pyx_n_u_setstate __pyx_string_tab[70]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[71]
-#define __pyx_n_u_template __pyx_string_tab[72]
-#define __pyx_n_u_test __pyx_string_tab[73]
-#define __pyx_n_u_time_base __pyx_string_tab[74]
-#define __pyx_n_u_values __pyx_string_tab[75]
-#define __pyx_n_u_video_size __pyx_string_tab[76]
-#define __pyx_n_u_warn __pyx_string_tab[77]
-#define __pyx_n_u_warnings __pyx_string_tab[78]
-#define __pyx_n_u_width __pyx_string_tab[79]
-#define __pyx_n_u_x __pyx_string_tab[80]
-#define __pyx_n_u_zip __pyx_string_tab[81]
-#define __pyx_kp_b_int_int_int___pyx_skip_dispatch __pyx_string_tab[82]
-#define __pyx_kp_b_struct___pyx_obj_2av_10dictionar __pyx_string_tab[83]
-#define __pyx_kp_b_struct___pyx_obj_2av_6filter_6fi __pyx_string_tab[84]
-#define __pyx_kp_b_struct___pyx_obj_2av_6filter_7co __pyx_string_tab[85]
+#define __pyx_kp_u_Cannot_change_threads_after_filt __pyx_string_tab[1]
+#define __pyx_kp_u_Could_not_allocate_AVFilterConte __pyx_string_tab[2]
+#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[3]
+#define __pyx_kp_u__2 __pyx_string_tab[4]
+#define __pyx_kp_u__3 __pyx_string_tab[5]
+#define __pyx_kp_u_add_note __pyx_string_tab[6]
+#define __pyx_kp_u_can_only_AudioFrame_VideoFrame_o __pyx_string_tab[7]
+#define __pyx_kp_u_can_only_auto_pull_with_single_s __pyx_string_tab[8]
+#define __pyx_kp_u_disable __pyx_string_tab[9]
+#define __pyx_kp_u_enable __pyx_string_tab[10]
+#define __pyx_kp_u_filter_must_be_a_string_or_Filte __pyx_string_tab[11]
+#define __pyx_kp_u_gc __pyx_string_tab[12]
+#define __pyx_kp_u_graph_not_configured __pyx_string_tab[13]
+#define __pyx_kp_u_isenabled __pyx_string_tab[14]
+#define __pyx_kp_u_missing_abuffersink_filter __pyx_string_tab[15]
+#define __pyx_kp_u_missing_format __pyx_string_tab[16]
+#define __pyx_kp_u_missing_height __pyx_string_tab[17]
+#define __pyx_kp_u_missing_layout_or_channels __pyx_string_tab[18]
+#define __pyx_kp_u_missing_sample_rate __pyx_string_tab[19]
+#define __pyx_kp_u_missing_time_base_Guessing_1_100 __pyx_string_tab[20]
+#define __pyx_kp_u_missing_width __pyx_string_tab[21]
+#define __pyx_kp_u_no_default___reduce___due_to_non __pyx_string_tab[22]
+#define __pyx_n_u_ __pyx_string_tab[23]
+#define __pyx_n_u_Fraction __pyx_string_tab[24]
+#define __pyx_n_u_Graph __pyx_string_tab[25]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[26]
+#define __pyx_n_u_abuffer __pyx_string_tab[27]
+#define __pyx_n_u_abuffersink __pyx_string_tab[28]
+#define __pyx_n_u_add __pyx_string_tab[29]
+#define __pyx_n_u_append __pyx_string_tab[30]
+#define __pyx_n_u_args __pyx_string_tab[31]
+#define __pyx_n_u_auto_buffer __pyx_string_tab[32]
+#define __pyx_n_u_buffer __pyx_string_tab[33]
+#define __pyx_n_u_buffersink __pyx_string_tab[34]
+#define __pyx_n_u_channel_layout __pyx_string_tab[35]
+#define __pyx_n_u_channels __pyx_string_tab[36]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[37]
+#define __pyx_n_u_configure __pyx_string_tab[38]
+#define __pyx_n_u_filter __pyx_string_tab[39]
+#define __pyx_n_u_force __pyx_string_tab[40]
+#define __pyx_n_u_format __pyx_string_tab[41]
+#define __pyx_n_u_fractions __pyx_string_tab[42]
+#define __pyx_n_u_frame __pyx_string_tab[43]
+#define __pyx_n_u_frame_size __pyx_string_tab[44]
+#define __pyx_n_u_get __pyx_string_tab[45]
+#define __pyx_n_u_getstate __pyx_string_tab[46]
+#define __pyx_n_u_height __pyx_string_tab[47]
+#define __pyx_n_u_init __pyx_string_tab[48]
+#define __pyx_n_u_items __pyx_string_tab[49]
+#define __pyx_n_u_layout __pyx_string_tab[50]
+#define __pyx_n_u_link_to __pyx_string_tab[51]
+#define __pyx_n_u_main __pyx_string_tab[52]
+#define __pyx_n_u_module __pyx_string_tab[53]
+#define __pyx_n_u_name __pyx_string_tab[54]
+#define __pyx_n_u_name_2 __pyx_string_tab[55]
+#define __pyx_n_u_pix_fmt __pyx_string_tab[56]
+#define __pyx_n_u_pixel_aspect __pyx_string_tab[57]
+#define __pyx_n_u_pop __pyx_string_tab[58]
+#define __pyx_n_u_pull __pyx_string_tab[59]
+#define __pyx_n_u_push __pyx_string_tab[60]
+#define __pyx_n_u_pyx_state __pyx_string_tab[61]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[62]
+#define __pyx_n_u_qualname __pyx_string_tab[63]
+#define __pyx_n_u_reduce __pyx_string_tab[64]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[65]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[66]
+#define __pyx_n_u_sample_fmt __pyx_string_tab[67]
+#define __pyx_n_u_sample_rate __pyx_string_tab[68]
+#define __pyx_n_u_set_name __pyx_string_tab[69]
+#define __pyx_n_u_setdefault __pyx_string_tab[70]
+#define __pyx_n_u_setstate __pyx_string_tab[71]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[72]
+#define __pyx_n_u_template __pyx_string_tab[73]
+#define __pyx_n_u_test __pyx_string_tab[74]
+#define __pyx_n_u_time_base __pyx_string_tab[75]
+#define __pyx_n_u_values __pyx_string_tab[76]
+#define __pyx_n_u_video_size __pyx_string_tab[77]
+#define __pyx_n_u_warn __pyx_string_tab[78]
+#define __pyx_n_u_warnings __pyx_string_tab[79]
+#define __pyx_n_u_width __pyx_string_tab[80]
+#define __pyx_n_u_x __pyx_string_tab[81]
+#define __pyx_n_u_zip __pyx_string_tab[82]
+#define __pyx_kp_b_int_int_int___pyx_skip_dispatch __pyx_string_tab[83]
+#define __pyx_kp_b_struct___pyx_obj_2av_10dictionar __pyx_string_tab[84]
+#define __pyx_kp_b_struct___pyx_obj_2av_6filter_6fi __pyx_string_tab[85]
+#define __pyx_kp_b_struct___pyx_obj_2av_6filter_7co __pyx_string_tab[86]
 #define __pyx_int_0 __pyx_number_tab[0]
 #define __pyx_int_1 __pyx_number_tab[1]
 #define __pyx_int_1000 __pyx_number_tab[2]
@@ -3887,7 +3887,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6filter_5graph_Graph);
   Py_CLEAR(clear_module_state->__pyx_type_2av_6filter_5graph_Graph);
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<86; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<87; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<3; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* #### Code section: module_state_clear_end ### */
@@ -3940,7 +3940,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6filter_5graph_Graph);
   Py_VISIT(traverse_module_state->__pyx_type_2av_6filter_5graph_Graph);
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<86; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<87; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<3; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* #### Code section: module_state_traverse_end ### */
@@ -4029,7 +4029,7 @@ static int __pyx_pf_2av_6filter_5graph_5Graph___cinit__(struct __pyx_obj_2av_6fi
  *         self._name_counts = {}
  *         self._nb_filters_seen = 0             # <<<<<<<<<<<<<<
  *         self._context_by_ptr = {}
- *         self._context_by_name = {}
+ *         self._context_by_type = {}
 */
   __pyx_v_self->_nb_filters_seen = 0;
 
@@ -4037,8 +4037,8 @@ static int __pyx_pf_2av_6filter_5graph_5Graph___cinit__(struct __pyx_obj_2av_6fi
  *         self._name_counts = {}
  *         self._nb_filters_seen = 0
  *         self._context_by_ptr = {}             # <<<<<<<<<<<<<<
- *         self._context_by_name = {}
  *         self._context_by_type = {}
+ * 
 */
   __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 22, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -4051,26 +4051,11 @@ static int __pyx_pf_2av_6filter_5graph_5Graph___cinit__(struct __pyx_obj_2av_6fi
   /* "av/filter/graph.py":23
  *         self._nb_filters_seen = 0
  *         self._context_by_ptr = {}
- *         self._context_by_name = {}             # <<<<<<<<<<<<<<
- *         self._context_by_type = {}
- * 
-*/
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 23, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_GIVEREF(__pyx_t_1);
-  __Pyx_GOTREF(__pyx_v_self->_context_by_name);
-  __Pyx_DECREF(__pyx_v_self->_context_by_name);
-  __pyx_v_self->_context_by_name = ((PyObject*)__pyx_t_1);
-  __pyx_t_1 = 0;
-
-  /* "av/filter/graph.py":24
- *         self._context_by_ptr = {}
- *         self._context_by_name = {}
  *         self._context_by_type = {}             # <<<<<<<<<<<<<<
  * 
  *     def __dealloc__(self):
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_context_by_type);
@@ -4098,7 +4083,7 @@ static int __pyx_pf_2av_6filter_5graph_5Graph___cinit__(struct __pyx_obj_2av_6fi
   return __pyx_r;
 }
 
-/* "av/filter/graph.py":26
+/* "av/filter/graph.py":25
  *         self._context_by_type = {}
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -4122,7 +4107,7 @@ static void __pyx_pw_2av_6filter_5graph_5Graph_3__dealloc__(PyObject *__pyx_v_se
 static void __pyx_pf_2av_6filter_5graph_5Graph_2__dealloc__(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self) {
   int __pyx_t_1;
 
-  /* "av/filter/graph.py":27
+  /* "av/filter/graph.py":26
  * 
  *     def __dealloc__(self):
  *         if self.ptr:             # <<<<<<<<<<<<<<
@@ -4132,16 +4117,16 @@ static void __pyx_pf_2av_6filter_5graph_5Graph_2__dealloc__(struct __pyx_obj_2av
   __pyx_t_1 = (__pyx_v_self->ptr != 0);
   if (__pyx_t_1) {
 
-    /* "av/filter/graph.py":29
+    /* "av/filter/graph.py":28
  *         if self.ptr:
  *             # This frees the graph, filter contexts, links, etc..
  *             lib.avfilter_graph_free(cython.address(self.ptr))             # <<<<<<<<<<<<<<
  * 
- *     @cython.cfunc
+ *     @property
 */
     avfilter_graph_free((&__pyx_v_self->ptr));
 
-    /* "av/filter/graph.py":27
+    /* "av/filter/graph.py":26
  * 
  *     def __dealloc__(self):
  *         if self.ptr:             # <<<<<<<<<<<<<<
@@ -4150,7 +4135,7 @@ static void __pyx_pf_2av_6filter_5graph_5Graph_2__dealloc__(struct __pyx_obj_2av
 */
   }
 
-  /* "av/filter/graph.py":26
+  /* "av/filter/graph.py":25
  *         self._context_by_type = {}
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -4161,8 +4146,190 @@ static void __pyx_pf_2av_6filter_5graph_5Graph_2__dealloc__(struct __pyx_obj_2av
   /* function exit code */
 }
 
-/* "av/filter/graph.py":31
+/* "av/filter/graph.py":30
  *             lib.avfilter_graph_free(cython.address(self.ptr))
+ * 
+ *     @property             # <<<<<<<<<<<<<<
+ *     def threads(self):
+ *         """Maximum number of threads used by filters in this graph.
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_2av_6filter_5graph_5Graph_7threads_1__get__(PyObject *__pyx_v_self); /*proto*/
+static PyObject *__pyx_pw_2av_6filter_5graph_5Graph_7threads_1__get__(PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__get__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_2av_6filter_5graph_5Graph_7threads___get__(((struct __pyx_obj_2av_6filter_5graph_Graph *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_7threads___get__(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__get__", 0);
+
+  /* "av/filter/graph.py":39
+ *         Wraps :ffmpeg:`AVFilterGraph.nb_threads`.
+ *         """
+ *         return self.ptr.nb_threads             # <<<<<<<<<<<<<<
+ * 
+ *     @threads.setter
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->ptr->nb_threads); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 39, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "av/filter/graph.py":30
+ *             lib.avfilter_graph_free(cython.address(self.ptr))
+ * 
+ *     @property             # <<<<<<<<<<<<<<
+ *     def threads(self):
+ *         """Maximum number of threads used by filters in this graph.
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("av.filter.graph.Graph.threads.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "av/filter/graph.py":41
+ *         return self.ptr.nb_threads
+ * 
+ *     @threads.setter             # <<<<<<<<<<<<<<
+ *     def threads(self, value: cython.int):
+ *         if self.ptr.nb_filters:
+*/
+
+/* Python wrapper */
+static int __pyx_pw_2av_6filter_5graph_5Graph_7threads_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_arg_value); /*proto*/
+static int __pyx_pw_2av_6filter_5graph_5Graph_7threads_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_arg_value) {
+  int __pyx_v_value;
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  assert(__pyx_arg_value); {
+    __pyx_v_value = __Pyx_PyLong_As_int(__pyx_arg_value); if (unlikely((__pyx_v_value == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 42, __pyx_L3_error)
+  }
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  __Pyx_AddTraceback("av.filter.graph.Graph.threads.__set__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return -1;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_2av_6filter_5graph_5Graph_7threads_2__set__(((struct __pyx_obj_2av_6filter_5graph_Graph *)__pyx_v_self), ((int)__pyx_v_value));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static int __pyx_pf_2av_6filter_5graph_5Graph_7threads_2__set__(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self, int __pyx_v_value) {
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  size_t __pyx_t_4;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__set__", 0);
+
+  /* "av/filter/graph.py":43
+ *     @threads.setter
+ *     def threads(self, value: cython.int):
+ *         if self.ptr.nb_filters:             # <<<<<<<<<<<<<<
+ *             raise RuntimeError("Cannot change threads after filters have been added.")
+ *         self.ptr.nb_threads = value
+*/
+  __pyx_t_1 = (__pyx_v_self->ptr->nb_filters != 0);
+  if (unlikely(__pyx_t_1)) {
+
+    /* "av/filter/graph.py":44
+ *     def threads(self, value: cython.int):
+ *         if self.ptr.nb_filters:
+ *             raise RuntimeError("Cannot change threads after filters have been added.")             # <<<<<<<<<<<<<<
+ *         self.ptr.nb_threads = value
+ * 
+*/
+    __pyx_t_3 = NULL;
+    __pyx_t_4 = 1;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Cannot_change_threads_after_filt};
+      __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 44, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+    }
+    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __PYX_ERR(0, 44, __pyx_L1_error)
+
+    /* "av/filter/graph.py":43
+ *     @threads.setter
+ *     def threads(self, value: cython.int):
+ *         if self.ptr.nb_filters:             # <<<<<<<<<<<<<<
+ *             raise RuntimeError("Cannot change threads after filters have been added.")
+ *         self.ptr.nb_threads = value
+*/
+  }
+
+  /* "av/filter/graph.py":45
+ *         if self.ptr.nb_filters:
+ *             raise RuntimeError("Cannot change threads after filters have been added.")
+ *         self.ptr.nb_threads = value             # <<<<<<<<<<<<<<
+ * 
+ *     @cython.cfunc
+*/
+  __pyx_v_self->ptr->nb_threads = __pyx_v_value;
+
+  /* "av/filter/graph.py":41
+ *         return self.ptr.nb_threads
+ * 
+ *     @threads.setter             # <<<<<<<<<<<<<<
+ *     def threads(self, value: cython.int):
+ *         if self.ptr.nb_filters:
+*/
+
+  /* function exit code */
+  __pyx_r = 0;
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_AddTraceback("av.filter.graph.Graph.threads.__set__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = -1;
+  __pyx_L0:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "av/filter/graph.py":47
+ *         self.ptr.nb_threads = value
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
  *     def _get_unique_name(self, name: str) -> str:
@@ -4182,7 +4349,7 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__get_unique_name(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_get_unique_name", 0);
 
-  /* "av/filter/graph.py":33
+  /* "av/filter/graph.py":49
  *     @cython.cfunc
  *     def _get_unique_name(self, name: str) -> str:
  *         count = self._name_counts.get(name, 0)             # <<<<<<<<<<<<<<
@@ -4191,40 +4358,40 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__get_unique_name(struct __pyx
 */
   if (unlikely(__pyx_v_self->_name_counts == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-    __PYX_ERR(0, 33, __pyx_L1_error)
+    __PYX_ERR(0, 49, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_name_counts, __pyx_v_name, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_name_counts, __pyx_v_name, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_count = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "av/filter/graph.py":34
+  /* "av/filter/graph.py":50
  *     def _get_unique_name(self, name: str) -> str:
  *         count = self._name_counts.get(name, 0)
  *         self._name_counts[name] = count + 1             # <<<<<<<<<<<<<<
  *         if count:
  *             return "%s_%s" % (name, count)
 */
-  __pyx_t_1 = __Pyx_PyLong_AddObjC(__pyx_v_count, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 34, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_AddObjC(__pyx_v_count, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if (unlikely(__pyx_v_self->_name_counts == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 34, __pyx_L1_error)
+    __PYX_ERR(0, 50, __pyx_L1_error)
   }
-  if (unlikely((PyDict_SetItem(__pyx_v_self->_name_counts, __pyx_v_name, __pyx_t_1) < 0))) __PYX_ERR(0, 34, __pyx_L1_error)
+  if (unlikely((PyDict_SetItem(__pyx_v_self->_name_counts, __pyx_v_name, __pyx_t_1) < 0))) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/filter/graph.py":35
+  /* "av/filter/graph.py":51
  *         count = self._name_counts.get(name, 0)
  *         self._name_counts[name] = count + 1
  *         if count:             # <<<<<<<<<<<<<<
  *             return "%s_%s" % (name, count)
  *         else:
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_count); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 35, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_count); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 51, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "av/filter/graph.py":36
+    /* "av/filter/graph.py":52
  *         self._name_counts[name] = count + 1
  *         if count:
  *             return "%s_%s" % (name, count)             # <<<<<<<<<<<<<<
@@ -4232,20 +4399,20 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__get_unique_name(struct __pyx
  *             return name
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_v_count), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 36, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_v_count), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 52, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3[0] = __pyx_v_name;
     __pyx_t_3[1] = __pyx_mstate_global->__pyx_n_u_;
     __pyx_t_3[2] = __pyx_t_1;
     __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_3, 3, __Pyx_PyUnicode_GET_LENGTH(__pyx_v_name) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_name) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1));
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 36, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 52, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_r = ((PyObject*)__pyx_t_4);
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "av/filter/graph.py":35
+    /* "av/filter/graph.py":51
  *         count = self._name_counts.get(name, 0)
  *         self._name_counts[name] = count + 1
  *         if count:             # <<<<<<<<<<<<<<
@@ -4254,12 +4421,12 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__get_unique_name(struct __pyx
 */
   }
 
-  /* "av/filter/graph.py":38
+  /* "av/filter/graph.py":54
  *             return "%s_%s" % (name, count)
  *         else:
  *             return name             # <<<<<<<<<<<<<<
  * 
- *     @cython.ccall
+ *     @cython.cfunc
 */
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
@@ -4268,8 +4435,8 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__get_unique_name(struct __pyx
     goto __pyx_L0;
   }
 
-  /* "av/filter/graph.py":31
- *             lib.avfilter_graph_free(cython.address(self.ptr))
+  /* "av/filter/graph.py":47
+ *         self.ptr.nb_threads = value
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
  *     def _get_unique_name(self, name: str) -> str:
@@ -4289,8 +4456,68 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__get_unique_name(struct __pyx
   return __pyx_r;
 }
 
-/* "av/filter/graph.py":40
+/* "av/filter/graph.py":56
  *             return name
+ * 
+ *     @cython.cfunc             # <<<<<<<<<<<<<<
+ *     @cython.inline
+ *     def _get_context_by_type(self, type_: str) -> list[FilterContext]:
+*/
+
+static PyObject *__pyx_f_2av_6filter_5graph_5Graph__get_context_by_type(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self, PyObject *__pyx_v_type_) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_get_context_by_type", 0);
+
+  /* "av/filter/graph.py":59
+ *     @cython.inline
+ *     def _get_context_by_type(self, type_: str) -> list[FilterContext]:
+ *         return self._context_by_type.get(type_, [])             # <<<<<<<<<<<<<<
+ * 
+ *     @cython.ccall
+*/
+  __Pyx_XDECREF(__pyx_r);
+  if (unlikely(__pyx_v_self->_context_by_type == Py_None)) {
+    PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
+    __PYX_ERR(0, 59, __pyx_L1_error)
+  }
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_context_by_type, __pyx_v_type_, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (!(likely(PyList_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_2))) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_r = ((PyObject*)__pyx_t_2);
+  __pyx_t_2 = 0;
+  goto __pyx_L0;
+
+  /* "av/filter/graph.py":56
+ *             return name
+ * 
+ *     @cython.cfunc             # <<<<<<<<<<<<<<
+ *     @cython.inline
+ *     def _get_context_by_type(self, type_: str) -> list[FilterContext]:
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("av.filter.graph.Graph._get_context_by_type", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = 0;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "av/filter/graph.py":61
+ *         return self._context_by_type.get(type_, [])
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def configure(self, auto_buffer: cython.bint = True, force: cython.bint = False):
@@ -4306,7 +4533,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 ); /*proto*/
 static PyObject *__pyx_f_2av_6filter_5graph_5Graph_configure(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_self, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_6filter_5graph_5Graph_configure *__pyx_optional_args) {
 
-  /* "av/filter/graph.py":41
+  /* "av/filter/graph.py":62
  * 
  *     @cython.ccall
  *     def configure(self, auto_buffer: cython.bint = True, force: cython.bint = False):             # <<<<<<<<<<<<<<
@@ -4340,8 +4567,8 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph_configure(struct __pyx_obj_2a
     }
   }
 
-  /* "av/filter/graph.py":40
- *             return name
+  /* "av/filter/graph.py":61
+ *         return self._context_by_type.get(type_, [])
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def configure(self, auto_buffer: cython.bint = True, force: cython.bint = False):
@@ -4363,16 +4590,16 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph_configure(struct __pyx_obj_2a
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_configure); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 40, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_configure); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_2av_6filter_5graph_5Graph_5configure)) {
         __Pyx_XDECREF(__pyx_r);
         __pyx_t_3 = NULL;
         __Pyx_INCREF(__pyx_t_1);
         __pyx_t_4 = __pyx_t_1; 
-        __pyx_t_5 = __Pyx_PyBool_FromLong(__pyx_v_auto_buffer); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 40, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyBool_FromLong(__pyx_v_auto_buffer); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 61, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_v_force); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 40, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_v_force); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 61, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __pyx_t_7 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -4393,7 +4620,7 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph_configure(struct __pyx_obj_2a
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 40, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 61, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -4414,7 +4641,7 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph_configure(struct __pyx_obj_2a
     #endif
   }
 
-  /* "av/filter/graph.py":42
+  /* "av/filter/graph.py":63
  *     @cython.ccall
  *     def configure(self, auto_buffer: cython.bint = True, force: cython.bint = False):
  *         if self.configured and not force:             # <<<<<<<<<<<<<<
@@ -4431,7 +4658,7 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph_configure(struct __pyx_obj_2a
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_8) {
 
-    /* "av/filter/graph.py":43
+    /* "av/filter/graph.py":64
  *     def configure(self, auto_buffer: cython.bint = True, force: cython.bint = False):
  *         if self.configured and not force:
  *             return             # <<<<<<<<<<<<<<
@@ -4442,7 +4669,7 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph_configure(struct __pyx_obj_2a
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/filter/graph.py":42
+    /* "av/filter/graph.py":63
  *     @cython.ccall
  *     def configure(self, auto_buffer: cython.bint = True, force: cython.bint = False):
  *         if self.configured and not force:             # <<<<<<<<<<<<<<
@@ -4451,16 +4678,16 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph_configure(struct __pyx_obj_2a
 */
   }
 
-  /* "av/filter/graph.py":45
+  /* "av/filter/graph.py":66
  *             return
  * 
  *         err_check(lib.avfilter_graph_config(self.ptr, cython.NULL))             # <<<<<<<<<<<<<<
  *         self.configured = True
  * 
 */
-  __pyx_t_10 = __pyx_f_2av_5error_err_check(avfilter_graph_config(__pyx_v_self->ptr, NULL), 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_t_10 = __pyx_f_2av_5error_err_check(avfilter_graph_config(__pyx_v_self->ptr, NULL), 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 66, __pyx_L1_error)
 
-  /* "av/filter/graph.py":46
+  /* "av/filter/graph.py":67
  * 
  *         err_check(lib.avfilter_graph_config(self.ptr, cython.NULL))
  *         self.configured = True             # <<<<<<<<<<<<<<
@@ -4469,19 +4696,19 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph_configure(struct __pyx_obj_2a
 */
   __pyx_v_self->configured = 1;
 
-  /* "av/filter/graph.py":49
+  /* "av/filter/graph.py":70
  * 
  *         # We get auto-inserted stuff here.
  *         self._auto_register()             # <<<<<<<<<<<<<<
  * 
  *     def link_nodes(self, *nodes):
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_2av_6filter_5graph_Graph *)__pyx_v_self->__pyx_vtab)->_auto_register(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 49, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_2av_6filter_5graph_Graph *)__pyx_v_self->__pyx_vtab)->_auto_register(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/filter/graph.py":40
- *             return name
+  /* "av/filter/graph.py":61
+ *         return self._context_by_type.get(type_, [])
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def configure(self, auto_buffer: cython.bint = True, force: cython.bint = False):
@@ -4546,41 +4773,41 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_auto_buffer,&__pyx_mstate_global->__pyx_n_u_force,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 40, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 61, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 61, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 61, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "configure", 0) < (0)) __PYX_ERR(0, 40, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "configure", 0) < (0)) __PYX_ERR(0, 61, __pyx_L3_error)
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 61, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 61, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
     }
     if (values[0]) {
-      __pyx_v_auto_buffer = __Pyx_PyObject_IsTrue(values[0]); if (unlikely((__pyx_v_auto_buffer == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 41, __pyx_L3_error)
+      __pyx_v_auto_buffer = __Pyx_PyObject_IsTrue(values[0]); if (unlikely((__pyx_v_auto_buffer == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 62, __pyx_L3_error)
     } else {
 
-      /* "av/filter/graph.py":41
+      /* "av/filter/graph.py":62
  * 
  *     @cython.ccall
  *     def configure(self, auto_buffer: cython.bint = True, force: cython.bint = False):             # <<<<<<<<<<<<<<
@@ -4590,14 +4817,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       __pyx_v_auto_buffer = ((int)1);
     }
     if (values[1]) {
-      __pyx_v_force = __Pyx_PyObject_IsTrue(values[1]); if (unlikely((__pyx_v_force == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 41, __pyx_L3_error)
+      __pyx_v_force = __Pyx_PyObject_IsTrue(values[1]); if (unlikely((__pyx_v_force == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 62, __pyx_L3_error)
     } else {
       __pyx_v_force = ((int)0);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("configure", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 40, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("configure", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 61, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4610,8 +4837,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_2av_6filter_5graph_5Graph_4configure(((struct __pyx_obj_2av_6filter_5graph_Graph *)__pyx_v_self), __pyx_v_auto_buffer, __pyx_v_force);
 
-  /* "av/filter/graph.py":40
- *             return name
+  /* "av/filter/graph.py":61
+ *         return self._context_by_type.get(type_, [])
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
  *     def configure(self, auto_buffer: cython.bint = True, force: cython.bint = False):
@@ -4639,7 +4866,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_4configure(struct __pyx_obj_
   __pyx_t_2.__pyx_n = 2;
   __pyx_t_2.auto_buffer = __pyx_v_auto_buffer;
   __pyx_t_2.force = __pyx_v_force;
-  __pyx_t_1 = __pyx_vtabptr_2av_6filter_5graph_Graph->configure(__pyx_v_self, 1, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __pyx_t_1 = __pyx_vtabptr_2av_6filter_5graph_Graph->configure(__pyx_v_self, 1, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -4656,7 +4883,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_4configure(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "av/filter/graph.py":51
+/* "av/filter/graph.py":72
  *         self._auto_register()
  * 
  *     def link_nodes(self, *nodes):             # <<<<<<<<<<<<<<
@@ -4712,7 +4939,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("link_nodes", 0);
 
-  /* "av/filter/graph.py":55
+  /* "av/filter/graph.py":76
  *         Links nodes together for simple filter graphs.
  *         """
  *         for c, n in zip(nodes, nodes[1:]):             # <<<<<<<<<<<<<<
@@ -4720,7 +4947,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
  *         return self
 */
   __pyx_t_2 = NULL;
-  __pyx_t_3 = __Pyx_PyTuple_GetSlice(__pyx_v_nodes, 1, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyTuple_GetSlice(__pyx_v_nodes, 1, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = 1;
   {
@@ -4728,7 +4955,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_zip, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   if (likely(PyList_CheckExact(__pyx_t_1)) || PyTuple_CheckExact(__pyx_t_1)) {
@@ -4736,9 +4963,9 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
     __pyx_t_5 = 0;
     __pyx_t_6 = NULL;
   } else {
-    __pyx_t_5 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 55, __pyx_L1_error)
+    __pyx_t_5 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 76, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 55, __pyx_L1_error)
+    __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 76, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   for (;;) {
@@ -4747,7 +4974,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 76, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
@@ -4757,7 +4984,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 76, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
@@ -4768,13 +4995,13 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
         #endif
         ++__pyx_t_5;
       }
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
     } else {
       __pyx_t_1 = __pyx_t_6(__pyx_t_3);
       if (unlikely(!__pyx_t_1)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 55, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 76, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -4787,7 +5014,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 55, __pyx_L1_error)
+        __PYX_ERR(0, 76, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -4797,22 +5024,22 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
         __Pyx_INCREF(__pyx_t_7);
       } else {
         __pyx_t_2 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 55, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 76, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_2);
         __pyx_t_7 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 55, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 76, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_7);
       }
       #else
-      __pyx_t_2 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 55, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 76, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_7 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 55, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 76, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       #endif
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_8 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 55, __pyx_L1_error)
+      __pyx_t_8 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 76, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_t_9 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_8);
@@ -4820,7 +5047,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
       __Pyx_GOTREF(__pyx_t_2);
       index = 1; __pyx_t_7 = __pyx_t_9(__pyx_t_8); if (unlikely(!__pyx_t_7)) goto __pyx_L5_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_7);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_8), 2) < (0)) __PYX_ERR(0, 55, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_8), 2) < (0)) __PYX_ERR(0, 76, __pyx_L1_error)
       __pyx_t_9 = NULL;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       goto __pyx_L6_unpacking_done;
@@ -4828,7 +5055,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __pyx_t_9 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 55, __pyx_L1_error)
+      __PYX_ERR(0, 76, __pyx_L1_error)
       __pyx_L6_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v_c, __pyx_t_2);
@@ -4836,7 +5063,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
     __Pyx_XDECREF_SET(__pyx_v_n, __pyx_t_7);
     __pyx_t_7 = 0;
 
-    /* "av/filter/graph.py":56
+    /* "av/filter/graph.py":77
  *         """
  *         for c, n in zip(nodes, nodes[1:]):
  *             c.link_to(n)             # <<<<<<<<<<<<<<
@@ -4850,12 +5077,12 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
       PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_n};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_link_to, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 56, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "av/filter/graph.py":55
+    /* "av/filter/graph.py":76
  *         Links nodes together for simple filter graphs.
  *         """
  *         for c, n in zip(nodes, nodes[1:]):             # <<<<<<<<<<<<<<
@@ -4865,7 +5092,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/filter/graph.py":57
+  /* "av/filter/graph.py":78
  *         for c, n in zip(nodes, nodes[1:]):
  *             c.link_to(n)
  *         return self             # <<<<<<<<<<<<<<
@@ -4877,7 +5104,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
   __pyx_r = ((PyObject *)__pyx_v_self);
   goto __pyx_L0;
 
-  /* "av/filter/graph.py":51
+  /* "av/filter/graph.py":72
  *         self._auto_register()
  * 
  *     def link_nodes(self, *nodes):             # <<<<<<<<<<<<<<
@@ -4902,7 +5129,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_6link_nodes(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "av/filter/graph.py":59
+/* "av/filter/graph.py":80
  *         return self
  * 
  *     def add(self, filter, args=None, **kwargs):             # <<<<<<<<<<<<<<
@@ -4953,35 +5180,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_filter,&__pyx_mstate_global->__pyx_n_u_args,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 59, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 80, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 59, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 80, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 59, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 80, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "add", 1) < (0)) __PYX_ERR(0, 59, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "add", 1) < (0)) __PYX_ERR(0, 80, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("add", 0, 1, 2, i); __PYX_ERR(0, 59, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("add", 0, 1, 2, i); __PYX_ERR(0, 80, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 59, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 80, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 59, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 80, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -4992,7 +5219,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("add", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 59, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("add", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 80, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5034,7 +5261,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("add", 0);
 
-  /* "av/filter/graph.py":61
+  /* "av/filter/graph.py":82
  *     def add(self, filter, args=None, **kwargs):
  *         cy_filter: Filter
  *         if isinstance(filter, str):             # <<<<<<<<<<<<<<
@@ -5044,7 +5271,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
   __pyx_t_1 = PyUnicode_Check(__pyx_v_filter); 
   if (__pyx_t_1) {
 
-    /* "av/filter/graph.py":62
+    /* "av/filter/graph.py":83
  *         cy_filter: Filter
  *         if isinstance(filter, str):
  *             cy_filter = Filter(filter)             # <<<<<<<<<<<<<<
@@ -5057,13 +5284,13 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_filter};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_6filter_6filter_Filter, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 62, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 83, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_2);
     }
     __pyx_v_cy_filter = ((struct __pyx_obj_2av_6filter_6filter_Filter *)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "av/filter/graph.py":61
+    /* "av/filter/graph.py":82
  *     def add(self, filter, args=None, **kwargs):
  *         cy_filter: Filter
  *         if isinstance(filter, str):             # <<<<<<<<<<<<<<
@@ -5073,7 +5300,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
     goto __pyx_L3;
   }
 
-  /* "av/filter/graph.py":63
+  /* "av/filter/graph.py":84
  *         if isinstance(filter, str):
  *             cy_filter = Filter(filter)
  *         elif isinstance(filter, Filter):             # <<<<<<<<<<<<<<
@@ -5083,7 +5310,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_filter, __pyx_mstate_global->__pyx_ptype_2av_6filter_6filter_Filter); 
   if (likely(__pyx_t_1)) {
 
-    /* "av/filter/graph.py":64
+    /* "av/filter/graph.py":85
  *             cy_filter = Filter(filter)
  *         elif isinstance(filter, Filter):
  *             cy_filter = filter             # <<<<<<<<<<<<<<
@@ -5092,11 +5319,11 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
 */
     __pyx_t_2 = __pyx_v_filter;
     __Pyx_INCREF(__pyx_t_2);
-    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_2av_6filter_6filter_Filter))))) __PYX_ERR(0, 64, __pyx_L1_error)
+    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_2av_6filter_6filter_Filter))))) __PYX_ERR(0, 85, __pyx_L1_error)
     __pyx_v_cy_filter = ((struct __pyx_obj_2av_6filter_6filter_Filter *)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "av/filter/graph.py":63
+    /* "av/filter/graph.py":84
  *         if isinstance(filter, str):
  *             cy_filter = Filter(filter)
  *         elif isinstance(filter, Filter):             # <<<<<<<<<<<<<<
@@ -5106,7 +5333,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
     goto __pyx_L3;
   }
 
-  /* "av/filter/graph.py":66
+  /* "av/filter/graph.py":87
  *             cy_filter = filter
  *         else:
  *             raise TypeError("filter must be a string or Filter")             # <<<<<<<<<<<<<<
@@ -5120,61 +5347,61 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_filter_must_be_a_string_or_Filte};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 66, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 87, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 66, __pyx_L1_error)
+    __PYX_ERR(0, 87, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "av/filter/graph.py":68
+  /* "av/filter/graph.py":89
  *             raise TypeError("filter must be a string or Filter")
  * 
  *         name: str = self._get_unique_name(kwargs.pop("name", None) or cy_filter.name)             # <<<<<<<<<<<<<<
  *         ptr: cython.pointer[lib.AVFilterContext] = lib.avfilter_graph_alloc_filter(
  *             self.ptr, cy_filter.ptr, name
 */
-  __pyx_t_3 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_name, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_Pop(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_name, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 89, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 89, __pyx_L1_error)
   if (!__pyx_t_1) {
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   } else {
     __pyx_t_5 = __pyx_t_3;
     __Pyx_INCREF(__pyx_t_5);
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_5))||((__pyx_t_5) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_5))) __PYX_ERR(0, 68, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_5))||((__pyx_t_5) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_5))) __PYX_ERR(0, 89, __pyx_L1_error)
     __pyx_t_2 = __pyx_t_5;
     __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_cy_filter), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_cy_filter), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 89, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_5 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_5);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_5))||((__pyx_t_5) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_5))) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_5))||((__pyx_t_5) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_5))) __PYX_ERR(0, 89, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_5;
   __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_L4_bool_binop_done:;
-  __pyx_t_3 = ((struct __pyx_vtabstruct_2av_6filter_5graph_Graph *)__pyx_v_self->__pyx_vtab)->_get_unique_name(__pyx_v_self, ((PyObject*)__pyx_t_2)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_3 = ((struct __pyx_vtabstruct_2av_6filter_5graph_Graph *)__pyx_v_self->__pyx_vtab)->_get_unique_name(__pyx_v_self, ((PyObject*)__pyx_t_2)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 89, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_name = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "av/filter/graph.py":70
+  /* "av/filter/graph.py":91
  *         name: str = self._get_unique_name(kwargs.pop("name", None) or cy_filter.name)
  *         ptr: cython.pointer[lib.AVFilterContext] = lib.avfilter_graph_alloc_filter(
  *             self.ptr, cy_filter.ptr, name             # <<<<<<<<<<<<<<
  *         )
  *         if not ptr:
 */
-  __pyx_t_6 = __Pyx_PyObject_AsString(__pyx_v_name); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_AsString(__pyx_v_name); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 91, __pyx_L1_error)
 
-  /* "av/filter/graph.py":69
+  /* "av/filter/graph.py":90
  * 
  *         name: str = self._get_unique_name(kwargs.pop("name", None) or cy_filter.name)
  *         ptr: cython.pointer[lib.AVFilterContext] = lib.avfilter_graph_alloc_filter(             # <<<<<<<<<<<<<<
@@ -5183,7 +5410,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
 */
   __pyx_v_ptr = avfilter_graph_alloc_filter(__pyx_v_self->ptr, __pyx_v_cy_filter->ptr, __pyx_t_6);
 
-  /* "av/filter/graph.py":72
+  /* "av/filter/graph.py":93
  *             self.ptr, cy_filter.ptr, name
  *         )
  *         if not ptr:             # <<<<<<<<<<<<<<
@@ -5193,7 +5420,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
   __pyx_t_1 = (!(__pyx_v_ptr != 0));
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/filter/graph.py":73
+    /* "av/filter/graph.py":94
  *         )
  *         if not ptr:
  *             raise RuntimeError("Could not allocate AVFilterContext")             # <<<<<<<<<<<<<<
@@ -5206,14 +5433,14 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_Could_not_allocate_AVFilterConte};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 73, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 94, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 73, __pyx_L1_error)
+    __PYX_ERR(0, 94, __pyx_L1_error)
 
-    /* "av/filter/graph.py":72
+    /* "av/filter/graph.py":93
  *             self.ptr, cy_filter.ptr, name
  *         )
  *         if not ptr:             # <<<<<<<<<<<<<<
@@ -5222,19 +5449,19 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
 */
   }
 
-  /* "av/filter/graph.py":76
+  /* "av/filter/graph.py":97
  * 
  *         # Manually construct this context (so we can return it).
  *         ctx: FilterContext = wrap_filter_context(self, cy_filter, ptr)             # <<<<<<<<<<<<<<
  *         ctx.init(args, **kwargs)
  *         self._register_context(ctx)
 */
-  __pyx_t_3 = ((PyObject *)__pyx_f_2av_6filter_7context_wrap_filter_context(__pyx_v_self, __pyx_v_cy_filter, __pyx_v_ptr)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 76, __pyx_L1_error)
+  __pyx_t_3 = ((PyObject *)__pyx_f_2av_6filter_7context_wrap_filter_context(__pyx_v_self, __pyx_v_cy_filter, __pyx_v_ptr)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_v_ctx = ((struct __pyx_obj_2av_6filter_7context_FilterContext *)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "av/filter/graph.py":77
+  /* "av/filter/graph.py":98
  *         # Manually construct this context (so we can return it).
  *         ctx: FilterContext = wrap_filter_context(self, cy_filter, ptr)
  *         ctx.init(args, **kwargs)             # <<<<<<<<<<<<<<
@@ -5242,9 +5469,9 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
  * 
 */
   __pyx_t_2 = NULL;
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_ctx), __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 77, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_ctx), __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_7 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 77, __pyx_L1_error)
+  __pyx_t_7 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -5264,34 +5491,34 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 77, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 98, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/filter/graph.py":78
+  /* "av/filter/graph.py":99
  *         ctx: FilterContext = wrap_filter_context(self, cy_filter, ptr)
  *         ctx.init(args, **kwargs)
  *         self._register_context(ctx)             # <<<<<<<<<<<<<<
  * 
  *         # There might have been automatic contexts added (e.g. resamplers,
 */
-  __pyx_t_3 = ((struct __pyx_vtabstruct_2av_6filter_5graph_Graph *)__pyx_v_self->__pyx_vtab)->_register_context(__pyx_v_self, __pyx_v_ctx); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_t_3 = ((struct __pyx_vtabstruct_2av_6filter_5graph_Graph *)__pyx_v_self->__pyx_vtab)->_register_context(__pyx_v_self, __pyx_v_ctx); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 99, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/filter/graph.py":83
+  /* "av/filter/graph.py":104
  *         # fifos, and scalers). It is more likely to see them after the graph
  *         # is configured, but we want to be safe.
  *         self._auto_register()             # <<<<<<<<<<<<<<
  * 
  *         return ctx
 */
-  __pyx_t_3 = ((struct __pyx_vtabstruct_2av_6filter_5graph_Graph *)__pyx_v_self->__pyx_vtab)->_auto_register(__pyx_v_self); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_t_3 = ((struct __pyx_vtabstruct_2av_6filter_5graph_Graph *)__pyx_v_self->__pyx_vtab)->_auto_register(__pyx_v_self); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 104, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/filter/graph.py":85
+  /* "av/filter/graph.py":106
  *         self._auto_register()
  * 
  *         return ctx             # <<<<<<<<<<<<<<
@@ -5303,7 +5530,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
   __pyx_r = ((PyObject *)__pyx_v_ctx);
   goto __pyx_L0;
 
-  /* "av/filter/graph.py":59
+  /* "av/filter/graph.py":80
  *         return self
  * 
  *     def add(self, filter, args=None, **kwargs):             # <<<<<<<<<<<<<<
@@ -5328,7 +5555,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_8add(struct __pyx_obj_2av_6f
   return __pyx_r;
 }
 
-/* "av/filter/graph.py":87
+/* "av/filter/graph.py":108
  *         return ctx
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -5348,61 +5575,45 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__register_context(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_register_context", 0);
 
-  /* "av/filter/graph.py":89
+  /* "av/filter/graph.py":110
  *     @cython.cfunc
  *     def _register_context(self, ctx: FilterContext):
  *         self._context_by_ptr[cython.cast(cython.long, ctx.ptr)] = ctx             # <<<<<<<<<<<<<<
- *         self._context_by_name[ctx.ptr.name] = ctx
- *         self._context_by_type.setdefault(ctx.filter.ptr.name, []).append(ctx)
-*/
-  if (unlikely(__pyx_v_self->_context_by_ptr == Py_None)) {
-    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 89, __pyx_L1_error)
-  }
-  __pyx_t_1 = __Pyx_PyLong_From_long(((long)__pyx_v_ctx->ptr)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 89, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  if (unlikely((PyDict_SetItem(__pyx_v_self->_context_by_ptr, __pyx_t_1, ((PyObject *)__pyx_v_ctx)) < 0))) __PYX_ERR(0, 89, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-  /* "av/filter/graph.py":90
- *     def _register_context(self, ctx: FilterContext):
- *         self._context_by_ptr[cython.cast(cython.long, ctx.ptr)] = ctx
- *         self._context_by_name[ctx.ptr.name] = ctx             # <<<<<<<<<<<<<<
  *         self._context_by_type.setdefault(ctx.filter.ptr.name, []).append(ctx)
  * 
 */
-  if (unlikely(__pyx_v_self->_context_by_name == Py_None)) {
+  if (unlikely(__pyx_v_self->_context_by_ptr == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 90, __pyx_L1_error)
+    __PYX_ERR(0, 110, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_ctx->ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 90, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_long(((long)__pyx_v_ctx->ptr)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (unlikely((PyDict_SetItem(__pyx_v_self->_context_by_name, __pyx_t_1, ((PyObject *)__pyx_v_ctx)) < 0))) __PYX_ERR(0, 90, __pyx_L1_error)
+  if (unlikely((PyDict_SetItem(__pyx_v_self->_context_by_ptr, __pyx_t_1, ((PyObject *)__pyx_v_ctx)) < 0))) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/filter/graph.py":91
+  /* "av/filter/graph.py":111
+ *     def _register_context(self, ctx: FilterContext):
  *         self._context_by_ptr[cython.cast(cython.long, ctx.ptr)] = ctx
- *         self._context_by_name[ctx.ptr.name] = ctx
  *         self._context_by_type.setdefault(ctx.filter.ptr.name, []).append(ctx)             # <<<<<<<<<<<<<<
  * 
  *     @cython.cfunc
 */
   if (unlikely(__pyx_v_self->_context_by_type == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "setdefault");
-    __PYX_ERR(0, 91, __pyx_L1_error)
+    __PYX_ERR(0, 111, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_ctx->filter->ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_ctx->filter->ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 91, __pyx_L1_error)
+  __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyDict_SetDefault(__pyx_v_self->_context_by_type, __pyx_t_1, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 91, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_SetDefault(__pyx_v_self->_context_by_type, __pyx_t_1, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_4 = __Pyx_PyObject_Append(__pyx_t_3, ((PyObject *)__pyx_v_ctx)); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 91, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Append(__pyx_t_3, ((PyObject *)__pyx_v_ctx)); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/filter/graph.py":87
+  /* "av/filter/graph.py":108
  *         return ctx
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -5425,7 +5636,7 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__register_context(struct __py
   return __pyx_r;
 }
 
-/* "av/filter/graph.py":93
+/* "av/filter/graph.py":113
  *         self._context_by_type.setdefault(ctx.filter.ptr.name, []).append(ctx)
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -5450,7 +5661,7 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__auto_register(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_auto_register", 0);
 
-  /* "av/filter/graph.py":101
+  /* "av/filter/graph.py":121
  *         # We assume that filters are never removed from the graph. At this
  *         # point we don't expose that in the API, so we should be okay...
  *         for i in range(self._nb_filters_seen, self.ptr.nb_filters):             # <<<<<<<<<<<<<<
@@ -5462,7 +5673,7 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__auto_register(struct __pyx_o
   for (__pyx_t_3 = __pyx_v_self->_nb_filters_seen; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_i = __pyx_t_3;
 
-    /* "av/filter/graph.py":102
+    /* "av/filter/graph.py":122
  *         # point we don't expose that in the API, so we should be okay...
  *         for i in range(self._nb_filters_seen, self.ptr.nb_filters):
  *             c_ctx = self.ptr.filters[i]             # <<<<<<<<<<<<<<
@@ -5471,24 +5682,24 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__auto_register(struct __pyx_o
 */
     __pyx_v_c_ctx = (__pyx_v_self->ptr->filters[__pyx_v_i]);
 
-    /* "av/filter/graph.py":103
+    /* "av/filter/graph.py":123
  *         for i in range(self._nb_filters_seen, self.ptr.nb_filters):
  *             c_ctx = self.ptr.filters[i]
  *             if cython.cast(cython.long, c_ctx) in self._context_by_ptr:             # <<<<<<<<<<<<<<
  *                 continue
  *             filter_ = wrap_filter(c_ctx.filter)
 */
-    __pyx_t_4 = __Pyx_PyLong_From_long(((long)__pyx_v_c_ctx)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 103, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_long(((long)__pyx_v_c_ctx)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 123, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     if (unlikely(__pyx_v_self->_context_by_ptr == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(0, 103, __pyx_L1_error)
+      __PYX_ERR(0, 123, __pyx_L1_error)
     }
-    __pyx_t_5 = (__Pyx_PyDict_ContainsTF(__pyx_t_4, __pyx_v_self->_context_by_ptr, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 103, __pyx_L1_error)
+    __pyx_t_5 = (__Pyx_PyDict_ContainsTF(__pyx_t_4, __pyx_v_self->_context_by_ptr, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 123, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     if (__pyx_t_5) {
 
-      /* "av/filter/graph.py":104
+      /* "av/filter/graph.py":124
  *             c_ctx = self.ptr.filters[i]
  *             if cython.cast(cython.long, c_ctx) in self._context_by_ptr:
  *                 continue             # <<<<<<<<<<<<<<
@@ -5497,7 +5708,7 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__auto_register(struct __pyx_o
 */
       goto __pyx_L3_continue;
 
-      /* "av/filter/graph.py":103
+      /* "av/filter/graph.py":123
  *         for i in range(self._nb_filters_seen, self.ptr.nb_filters):
  *             c_ctx = self.ptr.filters[i]
  *             if cython.cast(cython.long, c_ctx) in self._context_by_ptr:             # <<<<<<<<<<<<<<
@@ -5506,44 +5717,44 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__auto_register(struct __pyx_o
 */
     }
 
-    /* "av/filter/graph.py":105
+    /* "av/filter/graph.py":125
  *             if cython.cast(cython.long, c_ctx) in self._context_by_ptr:
  *                 continue
  *             filter_ = wrap_filter(c_ctx.filter)             # <<<<<<<<<<<<<<
  *             py_ctx = wrap_filter_context(self, filter_, c_ctx)
  *             self._register_context(py_ctx)
 */
-    __pyx_t_4 = ((PyObject *)__pyx_f_2av_6filter_6filter_wrap_filter(__pyx_v_c_ctx->filter)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 105, __pyx_L1_error)
+    __pyx_t_4 = ((PyObject *)__pyx_f_2av_6filter_6filter_wrap_filter(__pyx_v_c_ctx->filter)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 125, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_XDECREF_SET(__pyx_v_filter_, ((struct __pyx_obj_2av_6filter_6filter_Filter *)__pyx_t_4));
     __pyx_t_4 = 0;
 
-    /* "av/filter/graph.py":106
+    /* "av/filter/graph.py":126
  *                 continue
  *             filter_ = wrap_filter(c_ctx.filter)
  *             py_ctx = wrap_filter_context(self, filter_, c_ctx)             # <<<<<<<<<<<<<<
  *             self._register_context(py_ctx)
  *         self._nb_filters_seen = self.ptr.nb_filters
 */
-    __pyx_t_4 = ((PyObject *)__pyx_f_2av_6filter_7context_wrap_filter_context(__pyx_v_self, __pyx_v_filter_, __pyx_v_c_ctx)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 106, __pyx_L1_error)
+    __pyx_t_4 = ((PyObject *)__pyx_f_2av_6filter_7context_wrap_filter_context(__pyx_v_self, __pyx_v_filter_, __pyx_v_c_ctx)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_XDECREF_SET(__pyx_v_py_ctx, ((struct __pyx_obj_2av_6filter_7context_FilterContext *)__pyx_t_4));
     __pyx_t_4 = 0;
 
-    /* "av/filter/graph.py":107
+    /* "av/filter/graph.py":127
  *             filter_ = wrap_filter(c_ctx.filter)
  *             py_ctx = wrap_filter_context(self, filter_, c_ctx)
  *             self._register_context(py_ctx)             # <<<<<<<<<<<<<<
  *         self._nb_filters_seen = self.ptr.nb_filters
  * 
 */
-    __pyx_t_4 = ((struct __pyx_vtabstruct_2av_6filter_5graph_Graph *)__pyx_v_self->__pyx_vtab)->_register_context(__pyx_v_self, __pyx_v_py_ctx); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 107, __pyx_L1_error)
+    __pyx_t_4 = ((struct __pyx_vtabstruct_2av_6filter_5graph_Graph *)__pyx_v_self->__pyx_vtab)->_register_context(__pyx_v_self, __pyx_v_py_ctx); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 127, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_L3_continue:;
   }
 
-  /* "av/filter/graph.py":108
+  /* "av/filter/graph.py":128
  *             py_ctx = wrap_filter_context(self, filter_, c_ctx)
  *             self._register_context(py_ctx)
  *         self._nb_filters_seen = self.ptr.nb_filters             # <<<<<<<<<<<<<<
@@ -5553,7 +5764,7 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__auto_register(struct __pyx_o
   __pyx_t_1 = __pyx_v_self->ptr->nb_filters;
   __pyx_v_self->_nb_filters_seen = __pyx_t_1;
 
-  /* "av/filter/graph.py":93
+  /* "av/filter/graph.py":113
  *         self._context_by_type.setdefault(ctx.filter.ptr.name, []).append(ctx)
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -5576,7 +5787,7 @@ static PyObject *__pyx_f_2av_6filter_5graph_5Graph__auto_register(struct __pyx_o
   return __pyx_r;
 }
 
-/* "av/filter/graph.py":110
+/* "av/filter/graph.py":130
  *         self._nb_filters_seen = self.ptr.nb_filters
  * 
  *     def add_buffer(             # <<<<<<<<<<<<<<
@@ -5628,40 +5839,40 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_template,&__pyx_mstate_global->__pyx_n_u_width,&__pyx_mstate_global->__pyx_n_u_height,&__pyx_mstate_global->__pyx_n_u_format,&__pyx_mstate_global->__pyx_n_u_name,&__pyx_mstate_global->__pyx_n_u_time_base,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 110, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 130, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 110, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 130, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 110, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 130, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 110, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 130, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 110, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 130, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 110, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 130, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 110, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 130, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "add_buffer", 0) < (0)) __PYX_ERR(0, 110, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "add_buffer", 0) < (0)) __PYX_ERR(0, 130, __pyx_L3_error)
 
-      /* "av/filter/graph.py":112
+      /* "av/filter/graph.py":132
  *     def add_buffer(
  *         self,
  *         template=None,             # <<<<<<<<<<<<<<
@@ -5670,7 +5881,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":113
+      /* "av/filter/graph.py":133
  *         self,
  *         template=None,
  *         width=None,             # <<<<<<<<<<<<<<
@@ -5679,7 +5890,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":114
+      /* "av/filter/graph.py":134
  *         template=None,
  *         width=None,
  *         height=None,             # <<<<<<<<<<<<<<
@@ -5688,7 +5899,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":115
+      /* "av/filter/graph.py":135
  *         width=None,
  *         height=None,
  *         format=None,             # <<<<<<<<<<<<<<
@@ -5697,7 +5908,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":116
+      /* "av/filter/graph.py":136
  *         height=None,
  *         format=None,
  *         name=None,             # <<<<<<<<<<<<<<
@@ -5706,7 +5917,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":117
+      /* "av/filter/graph.py":137
  *         format=None,
  *         name=None,
  *         time_base=None,             # <<<<<<<<<<<<<<
@@ -5718,33 +5929,33 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       switch (__pyx_nargs) {
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 110, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 130, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 110, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 130, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 110, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 130, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 110, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 130, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 110, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 130, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 110, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 130, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
 
-      /* "av/filter/graph.py":112
+      /* "av/filter/graph.py":132
  *     def add_buffer(
  *         self,
  *         template=None,             # <<<<<<<<<<<<<<
@@ -5753,7 +5964,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":113
+      /* "av/filter/graph.py":133
  *         self,
  *         template=None,
  *         width=None,             # <<<<<<<<<<<<<<
@@ -5762,7 +5973,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":114
+      /* "av/filter/graph.py":134
  *         template=None,
  *         width=None,
  *         height=None,             # <<<<<<<<<<<<<<
@@ -5771,7 +5982,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":115
+      /* "av/filter/graph.py":135
  *         width=None,
  *         height=None,
  *         format=None,             # <<<<<<<<<<<<<<
@@ -5780,7 +5991,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":116
+      /* "av/filter/graph.py":136
  *         height=None,
  *         format=None,
  *         name=None,             # <<<<<<<<<<<<<<
@@ -5789,7 +6000,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":117
+      /* "av/filter/graph.py":137
  *         format=None,
  *         name=None,
  *         time_base=None,             # <<<<<<<<<<<<<<
@@ -5807,7 +6018,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("add_buffer", 0, 0, 6, __pyx_nargs); __PYX_ERR(0, 110, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("add_buffer", 0, 0, 6, __pyx_nargs); __PYX_ERR(0, 130, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5820,7 +6031,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(((struct __pyx_obj_2av_6filter_5graph_Graph *)__pyx_v_self), __pyx_v_template, __pyx_v_width, __pyx_v_height, __pyx_v_format, __pyx_v_name, __pyx_v_time_base);
 
-  /* "av/filter/graph.py":110
+  /* "av/filter/graph.py":130
  *         self._nb_filters_seen = self.ptr.nb_filters
  * 
  *     def add_buffer(             # <<<<<<<<<<<<<<
@@ -5857,7 +6068,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
   __Pyx_INCREF(__pyx_v_format);
   __Pyx_INCREF(__pyx_v_time_base);
 
-  /* "av/filter/graph.py":119
+  /* "av/filter/graph.py":139
  *         time_base=None,
  *     ):
  *         if template is not None:             # <<<<<<<<<<<<<<
@@ -5867,7 +6078,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
   __pyx_t_1 = (__pyx_v_template != Py_None);
   if (__pyx_t_1) {
 
-    /* "av/filter/graph.py":120
+    /* "av/filter/graph.py":140
  *     ):
  *         if template is not None:
  *             if width is None:             # <<<<<<<<<<<<<<
@@ -5877,19 +6088,19 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
     __pyx_t_1 = (__pyx_v_width == Py_None);
     if (__pyx_t_1) {
 
-      /* "av/filter/graph.py":121
+      /* "av/filter/graph.py":141
  *         if template is not None:
  *             if width is None:
  *                 width = template.width             # <<<<<<<<<<<<<<
  *             if height is None:
  *                 height = template.height
 */
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_width); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 121, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_width); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 141, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF_SET(__pyx_v_width, __pyx_t_2);
       __pyx_t_2 = 0;
 
-      /* "av/filter/graph.py":120
+      /* "av/filter/graph.py":140
  *     ):
  *         if template is not None:
  *             if width is None:             # <<<<<<<<<<<<<<
@@ -5898,7 +6109,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
 */
     }
 
-    /* "av/filter/graph.py":122
+    /* "av/filter/graph.py":142
  *             if width is None:
  *                 width = template.width
  *             if height is None:             # <<<<<<<<<<<<<<
@@ -5908,19 +6119,19 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
     __pyx_t_1 = (__pyx_v_height == Py_None);
     if (__pyx_t_1) {
 
-      /* "av/filter/graph.py":123
+      /* "av/filter/graph.py":143
  *                 width = template.width
  *             if height is None:
  *                 height = template.height             # <<<<<<<<<<<<<<
  *             if format is None:
  *                 format = template.format
 */
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_height); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 123, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_height); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 143, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF_SET(__pyx_v_height, __pyx_t_2);
       __pyx_t_2 = 0;
 
-      /* "av/filter/graph.py":122
+      /* "av/filter/graph.py":142
  *             if width is None:
  *                 width = template.width
  *             if height is None:             # <<<<<<<<<<<<<<
@@ -5929,7 +6140,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
 */
     }
 
-    /* "av/filter/graph.py":124
+    /* "av/filter/graph.py":144
  *             if height is None:
  *                 height = template.height
  *             if format is None:             # <<<<<<<<<<<<<<
@@ -5939,19 +6150,19 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
     __pyx_t_1 = (__pyx_v_format == Py_None);
     if (__pyx_t_1) {
 
-      /* "av/filter/graph.py":125
+      /* "av/filter/graph.py":145
  *                 height = template.height
  *             if format is None:
  *                 format = template.format             # <<<<<<<<<<<<<<
  *             if time_base is None:
  *                 time_base = template.time_base
 */
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_format); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 125, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_format); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 145, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF_SET(__pyx_v_format, __pyx_t_2);
       __pyx_t_2 = 0;
 
-      /* "av/filter/graph.py":124
+      /* "av/filter/graph.py":144
  *             if height is None:
  *                 height = template.height
  *             if format is None:             # <<<<<<<<<<<<<<
@@ -5960,7 +6171,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
 */
     }
 
-    /* "av/filter/graph.py":126
+    /* "av/filter/graph.py":146
  *             if format is None:
  *                 format = template.format
  *             if time_base is None:             # <<<<<<<<<<<<<<
@@ -5970,19 +6181,19 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
     __pyx_t_1 = (__pyx_v_time_base == Py_None);
     if (__pyx_t_1) {
 
-      /* "av/filter/graph.py":127
+      /* "av/filter/graph.py":147
  *                 format = template.format
  *             if time_base is None:
  *                 time_base = template.time_base             # <<<<<<<<<<<<<<
  * 
  *         if width is None:
 */
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_time_base); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_time_base); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 147, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF_SET(__pyx_v_time_base, __pyx_t_2);
       __pyx_t_2 = 0;
 
-      /* "av/filter/graph.py":126
+      /* "av/filter/graph.py":146
  *             if format is None:
  *                 format = template.format
  *             if time_base is None:             # <<<<<<<<<<<<<<
@@ -5991,7 +6202,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
 */
     }
 
-    /* "av/filter/graph.py":119
+    /* "av/filter/graph.py":139
  *         time_base=None,
  *     ):
  *         if template is not None:             # <<<<<<<<<<<<<<
@@ -6000,7 +6211,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
 */
   }
 
-  /* "av/filter/graph.py":129
+  /* "av/filter/graph.py":149
  *                 time_base = template.time_base
  * 
  *         if width is None:             # <<<<<<<<<<<<<<
@@ -6010,7 +6221,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
   __pyx_t_1 = (__pyx_v_width == Py_None);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/filter/graph.py":130
+    /* "av/filter/graph.py":150
  * 
  *         if width is None:
  *             raise ValueError("missing width")             # <<<<<<<<<<<<<<
@@ -6023,14 +6234,14 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_missing_width};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 130, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 150, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 130, __pyx_L1_error)
+    __PYX_ERR(0, 150, __pyx_L1_error)
 
-    /* "av/filter/graph.py":129
+    /* "av/filter/graph.py":149
  *                 time_base = template.time_base
  * 
  *         if width is None:             # <<<<<<<<<<<<<<
@@ -6039,7 +6250,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
 */
   }
 
-  /* "av/filter/graph.py":131
+  /* "av/filter/graph.py":151
  *         if width is None:
  *             raise ValueError("missing width")
  *         if height is None:             # <<<<<<<<<<<<<<
@@ -6049,7 +6260,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
   __pyx_t_1 = (__pyx_v_height == Py_None);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/filter/graph.py":132
+    /* "av/filter/graph.py":152
  *             raise ValueError("missing width")
  *         if height is None:
  *             raise ValueError("missing height")             # <<<<<<<<<<<<<<
@@ -6062,14 +6273,14 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_missing_height};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 132, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 152, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 132, __pyx_L1_error)
+    __PYX_ERR(0, 152, __pyx_L1_error)
 
-    /* "av/filter/graph.py":131
+    /* "av/filter/graph.py":151
  *         if width is None:
  *             raise ValueError("missing width")
  *         if height is None:             # <<<<<<<<<<<<<<
@@ -6078,7 +6289,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
 */
   }
 
-  /* "av/filter/graph.py":133
+  /* "av/filter/graph.py":153
  *         if height is None:
  *             raise ValueError("missing height")
  *         if format is None:             # <<<<<<<<<<<<<<
@@ -6088,7 +6299,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
   __pyx_t_1 = (__pyx_v_format == Py_None);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/filter/graph.py":134
+    /* "av/filter/graph.py":154
  *             raise ValueError("missing height")
  *         if format is None:
  *             raise ValueError("missing format")             # <<<<<<<<<<<<<<
@@ -6101,14 +6312,14 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_missing_format};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 134, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 154, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 134, __pyx_L1_error)
+    __PYX_ERR(0, 154, __pyx_L1_error)
 
-    /* "av/filter/graph.py":133
+    /* "av/filter/graph.py":153
  *         if height is None:
  *             raise ValueError("missing height")
  *         if format is None:             # <<<<<<<<<<<<<<
@@ -6117,7 +6328,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
 */
   }
 
-  /* "av/filter/graph.py":135
+  /* "av/filter/graph.py":155
  *         if format is None:
  *             raise ValueError("missing format")
  *         if time_base is None:             # <<<<<<<<<<<<<<
@@ -6127,7 +6338,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
   __pyx_t_1 = (__pyx_v_time_base == Py_None);
   if (__pyx_t_1) {
 
-    /* "av/filter/graph.py":136
+    /* "av/filter/graph.py":156
  *             raise ValueError("missing format")
  *         if time_base is None:
  *             warnings.warn(             # <<<<<<<<<<<<<<
@@ -6135,13 +6346,13 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
  *                 "This is deprecated and may be removed in future releases.",
 */
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 156, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 136, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 156, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "av/filter/graph.py":139
+    /* "av/filter/graph.py":159
  *                 "missing time_base. Guessing 1/1000 time base. "
  *                 "This is deprecated and may be removed in future releases.",
  *                 DeprecationWarning,             # <<<<<<<<<<<<<<
@@ -6165,27 +6376,27 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 136, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 156, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "av/filter/graph.py":141
+    /* "av/filter/graph.py":161
  *                 DeprecationWarning,
  *             )
  *             time_base = Fraction(1, 1000)             # <<<<<<<<<<<<<<
  * 
  *         return self.add(
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Fraction); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 141, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Fraction); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 161, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[0], NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 141, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[0], NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 161, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF_SET(__pyx_v_time_base, __pyx_t_6);
     __pyx_t_6 = 0;
 
-    /* "av/filter/graph.py":135
+    /* "av/filter/graph.py":155
  *         if format is None:
  *             raise ValueError("missing format")
  *         if time_base is None:             # <<<<<<<<<<<<<<
@@ -6194,7 +6405,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
 */
   }
 
-  /* "av/filter/graph.py":143
+  /* "av/filter/graph.py":163
  *             time_base = Fraction(1, 1000)
  * 
  *         return self.add(             # <<<<<<<<<<<<<<
@@ -6205,27 +6416,27 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
   __pyx_t_2 = ((PyObject *)__pyx_v_self);
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "av/filter/graph.py":146
+  /* "av/filter/graph.py":166
  *             "buffer",
  *             name=name,
  *             video_size=f"{width}x{height}",             # <<<<<<<<<<<<<<
  *             pix_fmt=str(int(VideoFormat(format))),
  *             time_base=str(time_base),
 */
-  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_width, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 146, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_width, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 166, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_height, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 146, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_height, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 166, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7[0] = __pyx_t_3;
   __pyx_t_7[1] = __pyx_mstate_global->__pyx_n_u_x;
   __pyx_t_7[2] = __pyx_t_5;
   __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_7, 3, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5));
-  if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 146, __pyx_L1_error)
+  if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 166, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/filter/graph.py":147
+  /* "av/filter/graph.py":167
  *             name=name,
  *             video_size=f"{width}x{height}",
  *             pix_fmt=str(int(VideoFormat(format))),             # <<<<<<<<<<<<<<
@@ -6238,49 +6449,49 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_format};
     __pyx_t_5 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5video_6format_VideoFormat, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 147, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 167, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_5);
   }
-  __pyx_t_3 = __Pyx_PyNumber_Int(((PyObject *)__pyx_t_5)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 147, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Int(((PyObject *)__pyx_t_5)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 167, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF((PyObject *)__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 147, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 167, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/filter/graph.py":148
+  /* "av/filter/graph.py":168
  *             video_size=f"{width}x{height}",
  *             pix_fmt=str(int(VideoFormat(format))),
  *             time_base=str(time_base),             # <<<<<<<<<<<<<<
  *             pixel_aspect="1/1",
  *         )
 */
-  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_time_base); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_time_base); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 5 : 0)] = {__pyx_t_2, __pyx_mstate_global->__pyx_n_u_buffer};
-    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(5); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 143, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(5); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 163, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_name, __pyx_v_name, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 143, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_video_size, __pyx_t_8, __pyx_t_9, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 143, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pix_fmt, __pyx_t_5, __pyx_t_9, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 143, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_time_base, __pyx_t_3, __pyx_t_9, __pyx_callargs+2, 3) < (0)) __PYX_ERR(0, 143, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pixel_aspect, __pyx_mstate_global->__pyx_kp_u_1_1, __pyx_t_9, __pyx_callargs+2, 4) < (0)) __PYX_ERR(0, 143, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_name, __pyx_v_name, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 163, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_video_size, __pyx_t_8, __pyx_t_9, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 163, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pix_fmt, __pyx_t_5, __pyx_t_9, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 163, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_time_base, __pyx_t_3, __pyx_t_9, __pyx_callargs+2, 3) < (0)) __PYX_ERR(0, 163, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pixel_aspect, __pyx_mstate_global->__pyx_kp_u_1_1, __pyx_t_9, __pyx_callargs+2, 4) < (0)) __PYX_ERR(0, 163, __pyx_L1_error)
     __pyx_t_6 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_add, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 143, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 163, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
   __pyx_r = __pyx_t_6;
   __pyx_t_6 = 0;
   goto __pyx_L0;
 
-  /* "av/filter/graph.py":110
+  /* "av/filter/graph.py":130
  *         self._nb_filters_seen = self.ptr.nb_filters
  * 
  *     def add_buffer(             # <<<<<<<<<<<<<<
@@ -6308,7 +6519,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_10add_buffer(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "av/filter/graph.py":152
+/* "av/filter/graph.py":172
  *         )
  * 
  *     def add_abuffer(             # <<<<<<<<<<<<<<
@@ -6361,44 +6572,44 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_template,&__pyx_mstate_global->__pyx_n_u_sample_rate,&__pyx_mstate_global->__pyx_n_u_format,&__pyx_mstate_global->__pyx_n_u_layout,&__pyx_mstate_global->__pyx_n_u_channels,&__pyx_mstate_global->__pyx_n_u_name,&__pyx_mstate_global->__pyx_n_u_time_base,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 152, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 172, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  7:
         values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "add_abuffer", 0) < (0)) __PYX_ERR(0, 152, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "add_abuffer", 0) < (0)) __PYX_ERR(0, 172, __pyx_L3_error)
 
-      /* "av/filter/graph.py":154
+      /* "av/filter/graph.py":174
  *     def add_abuffer(
  *         self,
  *         template=None,             # <<<<<<<<<<<<<<
@@ -6407,7 +6618,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":155
+      /* "av/filter/graph.py":175
  *         self,
  *         template=None,
  *         sample_rate=None,             # <<<<<<<<<<<<<<
@@ -6416,7 +6627,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":156
+      /* "av/filter/graph.py":176
  *         template=None,
  *         sample_rate=None,
  *         format=None,             # <<<<<<<<<<<<<<
@@ -6425,7 +6636,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":157
+      /* "av/filter/graph.py":177
  *         sample_rate=None,
  *         format=None,
  *         layout=None,             # <<<<<<<<<<<<<<
@@ -6434,7 +6645,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":158
+      /* "av/filter/graph.py":178
  *         format=None,
  *         layout=None,
  *         channels=None,             # <<<<<<<<<<<<<<
@@ -6443,7 +6654,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":159
+      /* "av/filter/graph.py":179
  *         layout=None,
  *         channels=None,
  *         name=None,             # <<<<<<<<<<<<<<
@@ -6452,7 +6663,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[5]) values[5] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":160
+      /* "av/filter/graph.py":180
  *         channels=None,
  *         name=None,
  *         time_base=None,             # <<<<<<<<<<<<<<
@@ -6464,37 +6675,37 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       switch (__pyx_nargs) {
         case  7:
         values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
 
-      /* "av/filter/graph.py":154
+      /* "av/filter/graph.py":174
  *     def add_abuffer(
  *         self,
  *         template=None,             # <<<<<<<<<<<<<<
@@ -6503,7 +6714,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":155
+      /* "av/filter/graph.py":175
  *         self,
  *         template=None,
  *         sample_rate=None,             # <<<<<<<<<<<<<<
@@ -6512,7 +6723,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":156
+      /* "av/filter/graph.py":176
  *         template=None,
  *         sample_rate=None,
  *         format=None,             # <<<<<<<<<<<<<<
@@ -6521,7 +6732,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":157
+      /* "av/filter/graph.py":177
  *         sample_rate=None,
  *         format=None,
  *         layout=None,             # <<<<<<<<<<<<<<
@@ -6530,7 +6741,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":158
+      /* "av/filter/graph.py":178
  *         format=None,
  *         layout=None,
  *         channels=None,             # <<<<<<<<<<<<<<
@@ -6539,7 +6750,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":159
+      /* "av/filter/graph.py":179
  *         layout=None,
  *         channels=None,
  *         name=None,             # <<<<<<<<<<<<<<
@@ -6548,7 +6759,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[5]) values[5] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "av/filter/graph.py":160
+      /* "av/filter/graph.py":180
  *         channels=None,
  *         name=None,
  *         time_base=None,             # <<<<<<<<<<<<<<
@@ -6567,7 +6778,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("add_abuffer", 0, 0, 7, __pyx_nargs); __PYX_ERR(0, 152, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("add_abuffer", 0, 0, 7, __pyx_nargs); __PYX_ERR(0, 172, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6580,7 +6791,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(((struct __pyx_obj_2av_6filter_5graph_Graph *)__pyx_v_self), __pyx_v_template, __pyx_v_sample_rate, __pyx_v_format, __pyx_v_layout, __pyx_v_channels, __pyx_v_name, __pyx_v_time_base);
 
-  /* "av/filter/graph.py":152
+  /* "av/filter/graph.py":172
  *         )
  * 
  *     def add_abuffer(             # <<<<<<<<<<<<<<
@@ -6618,7 +6829,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
   __Pyx_INCREF(__pyx_v_channels);
   __Pyx_INCREF(__pyx_v_time_base);
 
-  /* "av/filter/graph.py":166
+  /* "av/filter/graph.py":186
  *         """
  * 
  *         if template is not None:             # <<<<<<<<<<<<<<
@@ -6628,7 +6839,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
   __pyx_t_1 = (__pyx_v_template != Py_None);
   if (__pyx_t_1) {
 
-    /* "av/filter/graph.py":167
+    /* "av/filter/graph.py":187
  * 
  *         if template is not None:
  *             if sample_rate is None:             # <<<<<<<<<<<<<<
@@ -6638,19 +6849,19 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
     __pyx_t_1 = (__pyx_v_sample_rate == Py_None);
     if (__pyx_t_1) {
 
-      /* "av/filter/graph.py":168
+      /* "av/filter/graph.py":188
  *         if template is not None:
  *             if sample_rate is None:
  *                 sample_rate = template.sample_rate             # <<<<<<<<<<<<<<
  *             if format is None:
  *                 format = template.format
 */
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 168, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 188, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF_SET(__pyx_v_sample_rate, __pyx_t_2);
       __pyx_t_2 = 0;
 
-      /* "av/filter/graph.py":167
+      /* "av/filter/graph.py":187
  * 
  *         if template is not None:
  *             if sample_rate is None:             # <<<<<<<<<<<<<<
@@ -6659,7 +6870,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
 */
     }
 
-    /* "av/filter/graph.py":169
+    /* "av/filter/graph.py":189
  *             if sample_rate is None:
  *                 sample_rate = template.sample_rate
  *             if format is None:             # <<<<<<<<<<<<<<
@@ -6669,19 +6880,19 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
     __pyx_t_1 = (__pyx_v_format == Py_None);
     if (__pyx_t_1) {
 
-      /* "av/filter/graph.py":170
+      /* "av/filter/graph.py":190
  *                 sample_rate = template.sample_rate
  *             if format is None:
  *                 format = template.format             # <<<<<<<<<<<<<<
  *             if layout is None:
  *                 layout = template.layout.name
 */
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_format); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 170, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_format); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF_SET(__pyx_v_format, __pyx_t_2);
       __pyx_t_2 = 0;
 
-      /* "av/filter/graph.py":169
+      /* "av/filter/graph.py":189
  *             if sample_rate is None:
  *                 sample_rate = template.sample_rate
  *             if format is None:             # <<<<<<<<<<<<<<
@@ -6690,7 +6901,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
 */
     }
 
-    /* "av/filter/graph.py":171
+    /* "av/filter/graph.py":191
  *             if format is None:
  *                 format = template.format
  *             if layout is None:             # <<<<<<<<<<<<<<
@@ -6700,22 +6911,22 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
     __pyx_t_1 = (__pyx_v_layout == Py_None);
     if (__pyx_t_1) {
 
-      /* "av/filter/graph.py":172
+      /* "av/filter/graph.py":192
  *                 format = template.format
  *             if layout is None:
  *                 layout = template.layout.name             # <<<<<<<<<<<<<<
  *             if channels is None:
  *                 channels = template.channels
 */
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_layout); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_layout); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 192, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 172, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 192, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF_SET(__pyx_v_layout, __pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "av/filter/graph.py":171
+      /* "av/filter/graph.py":191
  *             if format is None:
  *                 format = template.format
  *             if layout is None:             # <<<<<<<<<<<<<<
@@ -6724,7 +6935,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
 */
     }
 
-    /* "av/filter/graph.py":173
+    /* "av/filter/graph.py":193
  *             if layout is None:
  *                 layout = template.layout.name
  *             if channels is None:             # <<<<<<<<<<<<<<
@@ -6734,19 +6945,19 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
     __pyx_t_1 = (__pyx_v_channels == Py_None);
     if (__pyx_t_1) {
 
-      /* "av/filter/graph.py":174
+      /* "av/filter/graph.py":194
  *                 layout = template.layout.name
  *             if channels is None:
  *                 channels = template.channels             # <<<<<<<<<<<<<<
  *             if time_base is None:
  *                 time_base = template.time_base
 */
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_channels); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 174, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_channels); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 194, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF_SET(__pyx_v_channels, __pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "av/filter/graph.py":173
+      /* "av/filter/graph.py":193
  *             if layout is None:
  *                 layout = template.layout.name
  *             if channels is None:             # <<<<<<<<<<<<<<
@@ -6755,7 +6966,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
 */
     }
 
-    /* "av/filter/graph.py":175
+    /* "av/filter/graph.py":195
  *             if channels is None:
  *                 channels = template.channels
  *             if time_base is None:             # <<<<<<<<<<<<<<
@@ -6765,19 +6976,19 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
     __pyx_t_1 = (__pyx_v_time_base == Py_None);
     if (__pyx_t_1) {
 
-      /* "av/filter/graph.py":176
+      /* "av/filter/graph.py":196
  *                 channels = template.channels
  *             if time_base is None:
  *                 time_base = template.time_base             # <<<<<<<<<<<<<<
  * 
  *         if sample_rate is None:
 */
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_time_base); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 176, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_template, __pyx_mstate_global->__pyx_n_u_time_base); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 196, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF_SET(__pyx_v_time_base, __pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "av/filter/graph.py":175
+      /* "av/filter/graph.py":195
  *             if channels is None:
  *                 channels = template.channels
  *             if time_base is None:             # <<<<<<<<<<<<<<
@@ -6786,7 +6997,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
 */
     }
 
-    /* "av/filter/graph.py":166
+    /* "av/filter/graph.py":186
  *         """
  * 
  *         if template is not None:             # <<<<<<<<<<<<<<
@@ -6795,7 +7006,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
 */
   }
 
-  /* "av/filter/graph.py":178
+  /* "av/filter/graph.py":198
  *                 time_base = template.time_base
  * 
  *         if sample_rate is None:             # <<<<<<<<<<<<<<
@@ -6805,7 +7016,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
   __pyx_t_1 = (__pyx_v_sample_rate == Py_None);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/filter/graph.py":179
+    /* "av/filter/graph.py":199
  * 
  *         if sample_rate is None:
  *             raise ValueError("missing sample_rate")             # <<<<<<<<<<<<<<
@@ -6818,14 +7029,14 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_missing_sample_rate};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 179, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 199, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 179, __pyx_L1_error)
+    __PYX_ERR(0, 199, __pyx_L1_error)
 
-    /* "av/filter/graph.py":178
+    /* "av/filter/graph.py":198
  *                 time_base = template.time_base
  * 
  *         if sample_rate is None:             # <<<<<<<<<<<<<<
@@ -6834,7 +7045,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
 */
   }
 
-  /* "av/filter/graph.py":180
+  /* "av/filter/graph.py":200
  *         if sample_rate is None:
  *             raise ValueError("missing sample_rate")
  *         if format is None:             # <<<<<<<<<<<<<<
@@ -6844,7 +7055,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
   __pyx_t_1 = (__pyx_v_format == Py_None);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/filter/graph.py":181
+    /* "av/filter/graph.py":201
  *             raise ValueError("missing sample_rate")
  *         if format is None:
  *             raise ValueError("missing format")             # <<<<<<<<<<<<<<
@@ -6857,14 +7068,14 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_missing_format};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 181, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 201, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 181, __pyx_L1_error)
+    __PYX_ERR(0, 201, __pyx_L1_error)
 
-    /* "av/filter/graph.py":180
+    /* "av/filter/graph.py":200
  *         if sample_rate is None:
  *             raise ValueError("missing sample_rate")
  *         if format is None:             # <<<<<<<<<<<<<<
@@ -6873,7 +7084,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
 */
   }
 
-  /* "av/filter/graph.py":182
+  /* "av/filter/graph.py":202
  *         if format is None:
  *             raise ValueError("missing format")
  *         if layout is None and channels is None:             # <<<<<<<<<<<<<<
@@ -6891,7 +7102,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
   __pyx_L12_bool_binop_done:;
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/filter/graph.py":183
+    /* "av/filter/graph.py":203
  *             raise ValueError("missing format")
  *         if layout is None and channels is None:
  *             raise ValueError("missing layout or channels")             # <<<<<<<<<<<<<<
@@ -6904,14 +7115,14 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_missing_layout_or_channels};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 183, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 203, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 183, __pyx_L1_error)
+    __PYX_ERR(0, 203, __pyx_L1_error)
 
-    /* "av/filter/graph.py":182
+    /* "av/filter/graph.py":202
  *         if format is None:
  *             raise ValueError("missing format")
  *         if layout is None and channels is None:             # <<<<<<<<<<<<<<
@@ -6920,7 +7131,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
 */
   }
 
-  /* "av/filter/graph.py":184
+  /* "av/filter/graph.py":204
  *         if layout is None and channels is None:
  *             raise ValueError("missing layout or channels")
  *         if time_base is None:             # <<<<<<<<<<<<<<
@@ -6930,7 +7141,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
   __pyx_t_1 = (__pyx_v_time_base == Py_None);
   if (__pyx_t_1) {
 
-    /* "av/filter/graph.py":185
+    /* "av/filter/graph.py":205
  *             raise ValueError("missing layout or channels")
  *         if time_base is None:
  *             time_base = Fraction(1, sample_rate)             # <<<<<<<<<<<<<<
@@ -6938,7 +7149,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
  *         kwargs = {
 */
     __pyx_t_2 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Fraction); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 185, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Fraction); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 205, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_4 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -6957,13 +7168,13 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 185, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 205, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_DECREF_SET(__pyx_v_time_base, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "av/filter/graph.py":184
+    /* "av/filter/graph.py":204
  *         if layout is None and channels is None:
  *             raise ValueError("missing layout or channels")
  *         if time_base is None:             # <<<<<<<<<<<<<<
@@ -6972,21 +7183,21 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
 */
   }
 
-  /* "av/filter/graph.py":188
+  /* "av/filter/graph.py":208
  * 
  *         kwargs = {
  *             "sample_rate": f"{sample_rate}",             # <<<<<<<<<<<<<<
  *             "sample_fmt": AudioFormat(format).name,
  *             "time_base": f"{time_base}",
 */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 208, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_v_sample_rate, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_v_sample_rate, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 208, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_sample_rate, __pyx_t_6) < (0)) __PYX_ERR(0, 188, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_sample_rate, __pyx_t_6) < (0)) __PYX_ERR(0, 208, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "av/filter/graph.py":189
+  /* "av/filter/graph.py":209
  *         kwargs = {
  *             "sample_rate": f"{sample_rate}",
  *             "sample_fmt": AudioFormat(format).name,             # <<<<<<<<<<<<<<
@@ -6999,40 +7210,40 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_format};
     __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_6format_AudioFormat, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 189, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 209, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_6);
   }
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_t_6), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 189, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_t_6), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 209, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF((PyObject *)__pyx_t_6); __pyx_t_6 = 0;
-  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_sample_fmt, __pyx_t_2) < (0)) __PYX_ERR(0, 188, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_sample_fmt, __pyx_t_2) < (0)) __PYX_ERR(0, 208, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/filter/graph.py":190
+  /* "av/filter/graph.py":210
  *             "sample_rate": f"{sample_rate}",
  *             "sample_fmt": AudioFormat(format).name,
  *             "time_base": f"{time_base}",             # <<<<<<<<<<<<<<
  *         }
  *         if layout:
 */
-  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_time_base, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_time_base, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 210, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_time_base, __pyx_t_2) < (0)) __PYX_ERR(0, 188, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_time_base, __pyx_t_2) < (0)) __PYX_ERR(0, 208, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_kwargs = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "av/filter/graph.py":192
+  /* "av/filter/graph.py":212
  *             "time_base": f"{time_base}",
  *         }
  *         if layout:             # <<<<<<<<<<<<<<
  *             kwargs["channel_layout"] = AudioLayout(layout).name
  *         if channels:
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_layout); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 192, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_layout); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 212, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "av/filter/graph.py":193
+    /* "av/filter/graph.py":213
  *         }
  *         if layout:
  *             kwargs["channel_layout"] = AudioLayout(layout).name             # <<<<<<<<<<<<<<
@@ -7045,16 +7256,16 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_layout};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_6layout_AudioLayout, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 193, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 213, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_3);
     }
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_t_3), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 193, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_t_3), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 213, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF((PyObject *)__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_channel_layout, __pyx_t_2) < 0))) __PYX_ERR(0, 193, __pyx_L1_error)
+    if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_channel_layout, __pyx_t_2) < 0))) __PYX_ERR(0, 213, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "av/filter/graph.py":192
+    /* "av/filter/graph.py":212
  *             "time_base": f"{time_base}",
  *         }
  *         if layout:             # <<<<<<<<<<<<<<
@@ -7063,29 +7274,29 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
 */
   }
 
-  /* "av/filter/graph.py":194
+  /* "av/filter/graph.py":214
  *         if layout:
  *             kwargs["channel_layout"] = AudioLayout(layout).name
  *         if channels:             # <<<<<<<<<<<<<<
  *             kwargs["channels"] = f"{channels}"
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_channels); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 194, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_channels); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 214, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "av/filter/graph.py":195
+    /* "av/filter/graph.py":215
  *             kwargs["channel_layout"] = AudioLayout(layout).name
  *         if channels:
  *             kwargs["channels"] = f"{channels}"             # <<<<<<<<<<<<<<
  * 
  *         return self.add("abuffer", name=name, **kwargs)
 */
-    __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_channels, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 195, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_channels, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 215, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_channels, __pyx_t_2) < 0))) __PYX_ERR(0, 195, __pyx_L1_error)
+    if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_channels, __pyx_t_2) < 0))) __PYX_ERR(0, 215, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "av/filter/graph.py":194
+    /* "av/filter/graph.py":214
  *         if layout:
  *             kwargs["channel_layout"] = AudioLayout(layout).name
  *         if channels:             # <<<<<<<<<<<<<<
@@ -7094,7 +7305,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
 */
   }
 
-  /* "av/filter/graph.py":197
+  /* "av/filter/graph.py":217
  *             kwargs["channels"] = f"{channels}"
  * 
  *         return self.add("abuffer", name=name, **kwargs)             # <<<<<<<<<<<<<<
@@ -7103,14 +7314,14 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_3 = NULL;
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_add); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 197, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_add); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_8 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 197, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_name, __pyx_v_name) < (0)) __PYX_ERR(0, 197, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_name, __pyx_v_name) < (0)) __PYX_ERR(0, 217, __pyx_L1_error)
   __pyx_t_7 = __pyx_t_8;
   __pyx_t_8 = 0;
-  if (__Pyx_MergeKeywords(__pyx_t_7, __pyx_v_kwargs) < (0)) __PYX_ERR(0, 197, __pyx_L1_error)
+  if (__Pyx_MergeKeywords(__pyx_t_7, __pyx_v_kwargs) < (0)) __PYX_ERR(0, 217, __pyx_L1_error)
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
   if (likely(PyMethod_Check(__pyx_t_6))) {
@@ -7129,14 +7340,14 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 197, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 217, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/filter/graph.py":152
+  /* "av/filter/graph.py":172
  *         )
  * 
  *     def add_abuffer(             # <<<<<<<<<<<<<<
@@ -7165,7 +7376,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_12add_abuffer(struct __pyx_o
   return __pyx_r;
 }
 
-/* "av/filter/graph.py":199
+/* "av/filter/graph.py":219
  *         return self.add("abuffer", name=name, **kwargs)
  * 
  *     def set_audio_frame_size(self, frame_size):             # <<<<<<<<<<<<<<
@@ -7212,32 +7423,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_frame_size,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 199, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 219, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 199, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 219, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "set_audio_frame_size", 0) < (0)) __PYX_ERR(0, 199, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "set_audio_frame_size", 0) < (0)) __PYX_ERR(0, 219, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("set_audio_frame_size", 1, 1, 1, i); __PYX_ERR(0, 199, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("set_audio_frame_size", 1, 1, 1, i); __PYX_ERR(0, 219, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 199, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 219, __pyx_L3_error)
     }
     __pyx_v_frame_size = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("set_audio_frame_size", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 199, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("set_audio_frame_size", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 219, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7269,28 +7480,27 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_14set_audio_frame_size(struc
   size_t __pyx_t_4;
   int __pyx_t_5;
   Py_ssize_t __pyx_t_6;
-  PyObject *(*__pyx_t_7)(PyObject *);
-  unsigned int __pyx_t_8;
+  unsigned int __pyx_t_7;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("set_audio_frame_size", 0);
 
-  /* "av/filter/graph.py":204
+  /* "av/filter/graph.py":224
  *         See `av_buffersink_set_frame_size <https://ffmpeg.org/doxygen/trunk/group__lavfi__buffersink.html#ga359d7d1e42c27ca14c07559d4e9adba7>`_.
  *         """
  *         if not self.configured:             # <<<<<<<<<<<<<<
  *             raise ValueError("graph not configured")
- *         sinks = self._context_by_type.get("abuffersink", [])
+ *         sinks = self._get_context_by_type("abuffersink")
 */
   __pyx_t_1 = (!__pyx_v_self->configured);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/filter/graph.py":205
+    /* "av/filter/graph.py":225
  *         """
  *         if not self.configured:
  *             raise ValueError("graph not configured")             # <<<<<<<<<<<<<<
- *         sinks = self._context_by_type.get("abuffersink", [])
+ *         sinks = self._get_context_by_type("abuffersink")
  *         if not sinks:
 */
     __pyx_t_3 = NULL;
@@ -7299,159 +7509,128 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_14set_audio_frame_size(struc
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_graph_not_configured};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 205, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 225, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 205, __pyx_L1_error)
+    __PYX_ERR(0, 225, __pyx_L1_error)
 
-    /* "av/filter/graph.py":204
+    /* "av/filter/graph.py":224
  *         See `av_buffersink_set_frame_size <https://ffmpeg.org/doxygen/trunk/group__lavfi__buffersink.html#ga359d7d1e42c27ca14c07559d4e9adba7>`_.
  *         """
  *         if not self.configured:             # <<<<<<<<<<<<<<
  *             raise ValueError("graph not configured")
- *         sinks = self._context_by_type.get("abuffersink", [])
+ *         sinks = self._get_context_by_type("abuffersink")
 */
   }
 
-  /* "av/filter/graph.py":206
+  /* "av/filter/graph.py":226
  *         if not self.configured:
  *             raise ValueError("graph not configured")
- *         sinks = self._context_by_type.get("abuffersink", [])             # <<<<<<<<<<<<<<
+ *         sinks = self._get_context_by_type("abuffersink")             # <<<<<<<<<<<<<<
  *         if not sinks:
  *             raise ValueError("missing abuffersink filter")
 */
-  if (unlikely(__pyx_v_self->_context_by_type == Py_None)) {
-    PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-    __PYX_ERR(0, 206, __pyx_L1_error)
-  }
-  __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_2av_6filter_5graph_5Graph__get_context_by_type(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_abuffersink); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 226, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_context_by_type, __pyx_mstate_global->__pyx_n_u_abuffersink, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 206, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_v_sinks = __pyx_t_3;
-  __pyx_t_3 = 0;
+  __pyx_v_sinks = ((PyObject*)__pyx_t_2);
+  __pyx_t_2 = 0;
 
-  /* "av/filter/graph.py":207
+  /* "av/filter/graph.py":227
  *             raise ValueError("graph not configured")
- *         sinks = self._context_by_type.get("abuffersink", [])
+ *         sinks = self._get_context_by_type("abuffersink")
  *         if not sinks:             # <<<<<<<<<<<<<<
  *             raise ValueError("missing abuffersink filter")
  *         for sink in sinks:
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_sinks); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 207, __pyx_L1_error)
+  if (__pyx_v_sinks == Py_None) __pyx_t_1 = 0;
+  else
+  {
+    Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_v_sinks);
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_t_1 = (__pyx_temp != 0);
+  }
+
   __pyx_t_5 = (!__pyx_t_1);
   if (unlikely(__pyx_t_5)) {
 
-    /* "av/filter/graph.py":208
- *         sinks = self._context_by_type.get("abuffersink", [])
+    /* "av/filter/graph.py":228
+ *         sinks = self._get_context_by_type("abuffersink")
  *         if not sinks:
  *             raise ValueError("missing abuffersink filter")             # <<<<<<<<<<<<<<
  *         for sink in sinks:
  *             lib.av_buffersink_set_frame_size(
 */
-    __pyx_t_2 = NULL;
+    __pyx_t_3 = NULL;
     __pyx_t_4 = 1;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_missing_abuffersink_filter};
-      __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 208, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_3);
+      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_missing_abuffersink_filter};
+      __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 228, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
     }
-    __Pyx_Raise(__pyx_t_3, 0, 0, 0);
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 208, __pyx_L1_error)
+    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __PYX_ERR(0, 228, __pyx_L1_error)
 
-    /* "av/filter/graph.py":207
+    /* "av/filter/graph.py":227
  *             raise ValueError("graph not configured")
- *         sinks = self._context_by_type.get("abuffersink", [])
+ *         sinks = self._get_context_by_type("abuffersink")
  *         if not sinks:             # <<<<<<<<<<<<<<
  *             raise ValueError("missing abuffersink filter")
  *         for sink in sinks:
 */
   }
 
-  /* "av/filter/graph.py":209
+  /* "av/filter/graph.py":229
  *         if not sinks:
  *             raise ValueError("missing abuffersink filter")
  *         for sink in sinks:             # <<<<<<<<<<<<<<
  *             lib.av_buffersink_set_frame_size(
  *                 cython.cast(FilterContext, sink).ptr, frame_size
 */
-  if (likely(PyList_CheckExact(__pyx_v_sinks)) || PyTuple_CheckExact(__pyx_v_sinks)) {
-    __pyx_t_3 = __pyx_v_sinks; __Pyx_INCREF(__pyx_t_3);
-    __pyx_t_6 = 0;
-    __pyx_t_7 = NULL;
-  } else {
-    __pyx_t_6 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_sinks); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 209, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_7 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 209, __pyx_L1_error)
+  if (unlikely(__pyx_v_sinks == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
+    __PYX_ERR(0, 229, __pyx_L1_error)
   }
+  __pyx_t_2 = __pyx_v_sinks; __Pyx_INCREF(__pyx_t_2);
+  __pyx_t_6 = 0;
   for (;;) {
-    if (likely(!__pyx_t_7)) {
-      if (likely(PyList_CheckExact(__pyx_t_3))) {
-        {
-          Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
-          #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 209, __pyx_L1_error)
-          #endif
-          if (__pyx_t_6 >= __pyx_temp) break;
-        }
-        __pyx_t_2 = __Pyx_PyList_GetItemRefFast(__pyx_t_3, __pyx_t_6, __Pyx_ReferenceSharing_OwnStrongReference);
-        ++__pyx_t_6;
-      } else {
-        {
-          Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
-          #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 209, __pyx_L1_error)
-          #endif
-          if (__pyx_t_6 >= __pyx_temp) break;
-        }
-        #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_2 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_6));
-        #else
-        __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_6);
-        #endif
-        ++__pyx_t_6;
-      }
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 209, __pyx_L1_error)
-    } else {
-      __pyx_t_2 = __pyx_t_7(__pyx_t_3);
-      if (unlikely(!__pyx_t_2)) {
-        PyObject* exc_type = PyErr_Occurred();
-        if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 209, __pyx_L1_error)
-          PyErr_Clear();
-        }
-        break;
-      }
+    {
+      Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_2);
+      #if !CYTHON_ASSUME_SAFE_SIZE
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 229, __pyx_L1_error)
+      #endif
+      if (__pyx_t_6 >= __pyx_temp) break;
     }
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_XDECREF_SET(__pyx_v_sink, __pyx_t_2);
-    __pyx_t_2 = 0;
+    __pyx_t_3 = __Pyx_PyList_GetItemRefFast(__pyx_t_2, __pyx_t_6, __Pyx_ReferenceSharing_OwnStrongReference);
+    ++__pyx_t_6;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 229, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_XDECREF_SET(__pyx_v_sink, __pyx_t_3);
+    __pyx_t_3 = 0;
 
-    /* "av/filter/graph.py":211
+    /* "av/filter/graph.py":231
  *         for sink in sinks:
  *             lib.av_buffersink_set_frame_size(
  *                 cython.cast(FilterContext, sink).ptr, frame_size             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-    __pyx_t_8 = __Pyx_PyLong_As_unsigned_int(__pyx_v_frame_size); if (unlikely((__pyx_t_8 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 211, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_As_unsigned_int(__pyx_v_frame_size); if (unlikely((__pyx_t_7 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 231, __pyx_L1_error)
 
-    /* "av/filter/graph.py":210
+    /* "av/filter/graph.py":230
  *             raise ValueError("missing abuffersink filter")
  *         for sink in sinks:
  *             lib.av_buffersink_set_frame_size(             # <<<<<<<<<<<<<<
  *                 cython.cast(FilterContext, sink).ptr, frame_size
  *             )
 */
-    av_buffersink_set_frame_size(((struct __pyx_obj_2av_6filter_7context_FilterContext *)__pyx_v_sink)->ptr, __pyx_t_8);
+    av_buffersink_set_frame_size(((struct __pyx_obj_2av_6filter_7context_FilterContext *)__pyx_v_sink)->ptr, __pyx_t_7);
 
-    /* "av/filter/graph.py":209
+    /* "av/filter/graph.py":229
  *         if not sinks:
  *             raise ValueError("missing abuffersink filter")
  *         for sink in sinks:             # <<<<<<<<<<<<<<
@@ -7459,9 +7638,9 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_14set_audio_frame_size(struc
  *                 cython.cast(FilterContext, sink).ptr, frame_size
 */
   }
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/filter/graph.py":199
+  /* "av/filter/graph.py":219
  *         return self.add("abuffer", name=name, **kwargs)
  * 
  *     def set_audio_frame_size(self, frame_size):             # <<<<<<<<<<<<<<
@@ -7485,12 +7664,12 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_14set_audio_frame_size(struc
   return __pyx_r;
 }
 
-/* "av/filter/graph.py":214
+/* "av/filter/graph.py":234
  *             )
  * 
  *     def push(self, frame):             # <<<<<<<<<<<<<<
  *         if frame is None:
- *             contexts = self._context_by_type.get(
+ *             contexts = self._get_context_by_type("buffer") + self._get_context_by_type(
 */
 
 /* Python wrapper */
@@ -7532,32 +7711,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_frame,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 214, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 234, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 214, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 234, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "push", 0) < (0)) __PYX_ERR(0, 214, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "push", 0) < (0)) __PYX_ERR(0, 234, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("push", 1, 1, 1, i); __PYX_ERR(0, 214, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("push", 1, 1, 1, i); __PYX_ERR(0, 234, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 214, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 234, __pyx_L3_error)
     }
     __pyx_v_frame = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("push", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 214, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("push", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 234, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7590,282 +7769,198 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_16push(struct __pyx_obj_2av_
   PyObject *__pyx_t_5 = NULL;
   size_t __pyx_t_6;
   Py_ssize_t __pyx_t_7;
-  PyObject *(*__pyx_t_8)(PyObject *);
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("push", 0);
 
-  /* "av/filter/graph.py":215
+  /* "av/filter/graph.py":235
  * 
  *     def push(self, frame):
  *         if frame is None:             # <<<<<<<<<<<<<<
- *             contexts = self._context_by_type.get(
- *                 "buffer", []
+ *             contexts = self._get_context_by_type("buffer") + self._get_context_by_type(
+ *                 "abuffer"
 */
   __pyx_t_1 = (__pyx_v_frame == Py_None);
   if (__pyx_t_1) {
 
-    /* "av/filter/graph.py":216
+    /* "av/filter/graph.py":236
  *     def push(self, frame):
  *         if frame is None:
- *             contexts = self._context_by_type.get(             # <<<<<<<<<<<<<<
- *                 "buffer", []
- *             ) + self._context_by_type.get("abuffer", [])
+ *             contexts = self._get_context_by_type("buffer") + self._get_context_by_type(             # <<<<<<<<<<<<<<
+ *                 "abuffer"
+ *             )
 */
-    if (unlikely(__pyx_v_self->_context_by_type == Py_None)) {
-      PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-      __PYX_ERR(0, 216, __pyx_L1_error)
-    }
-
-    /* "av/filter/graph.py":217
- *         if frame is None:
- *             contexts = self._context_by_type.get(
- *                 "buffer", []             # <<<<<<<<<<<<<<
- *             ) + self._context_by_type.get("abuffer", [])
- *         elif isinstance(frame, VideoFrame):
-*/
-    __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 217, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_2av_6filter_5graph_5Graph__get_context_by_type(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_buffer); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 236, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-
-    /* "av/filter/graph.py":216
- *     def push(self, frame):
- *         if frame is None:
- *             contexts = self._context_by_type.get(             # <<<<<<<<<<<<<<
- *                 "buffer", []
- *             ) + self._context_by_type.get("abuffer", [])
-*/
-    __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_context_by_type, __pyx_mstate_global->__pyx_n_u_buffer, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 216, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_2av_6filter_5graph_5Graph__get_context_by_type(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_abuffer); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 236, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-    /* "av/filter/graph.py":218
- *             contexts = self._context_by_type.get(
- *                 "buffer", []
- *             ) + self._context_by_type.get("abuffer", [])             # <<<<<<<<<<<<<<
- *         elif isinstance(frame, VideoFrame):
- *             contexts = self._context_by_type.get("buffer", [])
-*/
-    if (unlikely(__pyx_v_self->_context_by_type == Py_None)) {
-      PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-      __PYX_ERR(0, 218, __pyx_L1_error)
-    }
-    __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 218, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_context_by_type, __pyx_mstate_global->__pyx_n_u_abuffer, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 218, __pyx_L1_error)
+    __pyx_t_4 = PyNumber_Add(__pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 236, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = PyNumber_Add(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 218, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_v_contexts = __pyx_t_2;
-    __pyx_t_2 = 0;
+    __pyx_v_contexts = ((PyObject*)__pyx_t_4);
+    __pyx_t_4 = 0;
 
-    /* "av/filter/graph.py":215
+    /* "av/filter/graph.py":235
  * 
  *     def push(self, frame):
  *         if frame is None:             # <<<<<<<<<<<<<<
- *             contexts = self._context_by_type.get(
- *                 "buffer", []
+ *             contexts = self._get_context_by_type("buffer") + self._get_context_by_type(
+ *                 "abuffer"
 */
     goto __pyx_L3;
   }
 
-  /* "av/filter/graph.py":219
- *                 "buffer", []
- *             ) + self._context_by_type.get("abuffer", [])
+  /* "av/filter/graph.py":239
+ *                 "abuffer"
+ *             )
  *         elif isinstance(frame, VideoFrame):             # <<<<<<<<<<<<<<
- *             contexts = self._context_by_type.get("buffer", [])
+ *             contexts = self._get_context_by_type("buffer")
  *         elif isinstance(frame, AudioFrame):
 */
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_frame, __pyx_mstate_global->__pyx_ptype_2av_5video_5frame_VideoFrame); 
   if (__pyx_t_1) {
 
-    /* "av/filter/graph.py":220
- *             ) + self._context_by_type.get("abuffer", [])
+    /* "av/filter/graph.py":240
+ *             )
  *         elif isinstance(frame, VideoFrame):
- *             contexts = self._context_by_type.get("buffer", [])             # <<<<<<<<<<<<<<
+ *             contexts = self._get_context_by_type("buffer")             # <<<<<<<<<<<<<<
  *         elif isinstance(frame, AudioFrame):
- *             contexts = self._context_by_type.get("abuffer", [])
+ *             contexts = self._get_context_by_type("abuffer")
 */
-    if (unlikely(__pyx_v_self->_context_by_type == Py_None)) {
-      PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-      __PYX_ERR(0, 220, __pyx_L1_error)
-    }
-    __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 220, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_context_by_type, __pyx_mstate_global->__pyx_n_u_buffer, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 220, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_2av_6filter_5graph_5Graph__get_context_by_type(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_buffer); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 240, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_v_contexts = __pyx_t_4;
+    __pyx_v_contexts = ((PyObject*)__pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "av/filter/graph.py":219
- *                 "buffer", []
- *             ) + self._context_by_type.get("abuffer", [])
+    /* "av/filter/graph.py":239
+ *                 "abuffer"
+ *             )
  *         elif isinstance(frame, VideoFrame):             # <<<<<<<<<<<<<<
- *             contexts = self._context_by_type.get("buffer", [])
+ *             contexts = self._get_context_by_type("buffer")
  *         elif isinstance(frame, AudioFrame):
 */
     goto __pyx_L3;
   }
 
-  /* "av/filter/graph.py":221
+  /* "av/filter/graph.py":241
  *         elif isinstance(frame, VideoFrame):
- *             contexts = self._context_by_type.get("buffer", [])
+ *             contexts = self._get_context_by_type("buffer")
  *         elif isinstance(frame, AudioFrame):             # <<<<<<<<<<<<<<
- *             contexts = self._context_by_type.get("abuffer", [])
+ *             contexts = self._get_context_by_type("abuffer")
  *         else:
 */
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_frame, __pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame); 
   if (likely(__pyx_t_1)) {
 
-    /* "av/filter/graph.py":222
- *             contexts = self._context_by_type.get("buffer", [])
+    /* "av/filter/graph.py":242
+ *             contexts = self._get_context_by_type("buffer")
  *         elif isinstance(frame, AudioFrame):
- *             contexts = self._context_by_type.get("abuffer", [])             # <<<<<<<<<<<<<<
+ *             contexts = self._get_context_by_type("abuffer")             # <<<<<<<<<<<<<<
  *         else:
  *             raise ValueError(
 */
-    if (unlikely(__pyx_v_self->_context_by_type == Py_None)) {
-      PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-      __PYX_ERR(0, 222, __pyx_L1_error)
-    }
-    __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 222, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_2av_6filter_5graph_5Graph__get_context_by_type(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_abuffer); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 242, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_context_by_type, __pyx_mstate_global->__pyx_n_u_abuffer, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 222, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_v_contexts = __pyx_t_2;
-    __pyx_t_2 = 0;
+    __pyx_v_contexts = ((PyObject*)__pyx_t_4);
+    __pyx_t_4 = 0;
 
-    /* "av/filter/graph.py":221
+    /* "av/filter/graph.py":241
  *         elif isinstance(frame, VideoFrame):
- *             contexts = self._context_by_type.get("buffer", [])
+ *             contexts = self._get_context_by_type("buffer")
  *         elif isinstance(frame, AudioFrame):             # <<<<<<<<<<<<<<
- *             contexts = self._context_by_type.get("abuffer", [])
+ *             contexts = self._get_context_by_type("abuffer")
  *         else:
 */
     goto __pyx_L3;
   }
 
-  /* "av/filter/graph.py":224
- *             contexts = self._context_by_type.get("abuffer", [])
+  /* "av/filter/graph.py":244
+ *             contexts = self._get_context_by_type("abuffer")
  *         else:
  *             raise ValueError(             # <<<<<<<<<<<<<<
  *                 f"can only AudioFrame, VideoFrame or None; got {type(frame)}"
  *             )
 */
   /*else*/ {
-    __pyx_t_4 = NULL;
+    __pyx_t_3 = NULL;
 
-    /* "av/filter/graph.py":225
+    /* "av/filter/graph.py":245
  *         else:
  *             raise ValueError(
  *                 f"can only AudioFrame, VideoFrame or None; got {type(frame)}"             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-    __pyx_t_3 = __Pyx_PyObject_FormatSimple(((PyObject *)Py_TYPE(__pyx_v_frame)), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 225, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_can_only_AudioFrame_VideoFrame_o, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 225, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_FormatSimple(((PyObject *)Py_TYPE(__pyx_v_frame)), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 245, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_can_only_AudioFrame_VideoFrame_o, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 245, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_6 = 1;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_5};
-      __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_t_5};
+      __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 224, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_2);
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 244, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
     }
-    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 224, __pyx_L1_error)
+    __Pyx_Raise(__pyx_t_4, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __PYX_ERR(0, 244, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "av/filter/graph.py":228
+  /* "av/filter/graph.py":248
  *             )
  * 
  *         for ctx in contexts:             # <<<<<<<<<<<<<<
  *             ctx.push(frame)
  * 
 */
-  if (likely(PyList_CheckExact(__pyx_v_contexts)) || PyTuple_CheckExact(__pyx_v_contexts)) {
-    __pyx_t_2 = __pyx_v_contexts; __Pyx_INCREF(__pyx_t_2);
-    __pyx_t_7 = 0;
-    __pyx_t_8 = NULL;
-  } else {
-    __pyx_t_7 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_v_contexts); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 228, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 228, __pyx_L1_error)
+  if (unlikely(__pyx_v_contexts == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
+    __PYX_ERR(0, 248, __pyx_L1_error)
   }
+  __pyx_t_4 = __pyx_v_contexts; __Pyx_INCREF(__pyx_t_4);
+  __pyx_t_7 = 0;
   for (;;) {
-    if (likely(!__pyx_t_8)) {
-      if (likely(PyList_CheckExact(__pyx_t_2))) {
-        {
-          Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_2);
-          #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 228, __pyx_L1_error)
-          #endif
-          if (__pyx_t_7 >= __pyx_temp) break;
-        }
-        __pyx_t_5 = __Pyx_PyList_GetItemRefFast(__pyx_t_2, __pyx_t_7, __Pyx_ReferenceSharing_OwnStrongReference);
-        ++__pyx_t_7;
-      } else {
-        {
-          Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_2);
-          #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 228, __pyx_L1_error)
-          #endif
-          if (__pyx_t_7 >= __pyx_temp) break;
-        }
-        #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_5 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_7));
-        #else
-        __pyx_t_5 = __Pyx_PySequence_ITEM(__pyx_t_2, __pyx_t_7);
-        #endif
-        ++__pyx_t_7;
-      }
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 228, __pyx_L1_error)
-    } else {
-      __pyx_t_5 = __pyx_t_8(__pyx_t_2);
-      if (unlikely(!__pyx_t_5)) {
-        PyObject* exc_type = PyErr_Occurred();
-        if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 228, __pyx_L1_error)
-          PyErr_Clear();
-        }
-        break;
-      }
+    {
+      Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
+      #if !CYTHON_ASSUME_SAFE_SIZE
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 248, __pyx_L1_error)
+      #endif
+      if (__pyx_t_7 >= __pyx_temp) break;
     }
+    __pyx_t_5 = __Pyx_PyList_GetItemRefFast(__pyx_t_4, __pyx_t_7, __Pyx_ReferenceSharing_OwnStrongReference);
+    ++__pyx_t_7;
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 248, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_XDECREF_SET(__pyx_v_ctx, __pyx_t_5);
     __pyx_t_5 = 0;
 
-    /* "av/filter/graph.py":229
+    /* "av/filter/graph.py":249
  * 
  *         for ctx in contexts:
  *             ctx.push(frame)             # <<<<<<<<<<<<<<
  * 
  *     def vpush(self, frame: VideoFrame | None):
 */
-    __pyx_t_4 = __pyx_v_ctx;
-    __Pyx_INCREF(__pyx_t_4);
+    __pyx_t_3 = __pyx_v_ctx;
+    __Pyx_INCREF(__pyx_t_3);
     __pyx_t_6 = 0;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_frame};
+      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_frame};
       __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_push, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 229, __pyx_L1_error)
+      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 249, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
     }
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "av/filter/graph.py":228
+    /* "av/filter/graph.py":248
  *             )
  * 
  *         for ctx in contexts:             # <<<<<<<<<<<<<<
@@ -7873,14 +7968,14 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_16push(struct __pyx_obj_2av_
  * 
 */
   }
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/filter/graph.py":214
+  /* "av/filter/graph.py":234
  *             )
  * 
  *     def push(self, frame):             # <<<<<<<<<<<<<<
  *         if frame is None:
- *             contexts = self._context_by_type.get(
+ *             contexts = self._get_context_by_type("buffer") + self._get_context_by_type(
 */
 
   /* function exit code */
@@ -7901,12 +7996,12 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_16push(struct __pyx_obj_2av_
   return __pyx_r;
 }
 
-/* "av/filter/graph.py":231
+/* "av/filter/graph.py":251
  *             ctx.push(frame)
  * 
  *     def vpush(self, frame: VideoFrame | None):             # <<<<<<<<<<<<<<
  *         """Like `push`, but only for VideoFrames."""
- *         for ctx in self._context_by_type.get("buffer", []):
+ *         for ctx in self._get_context_by_type("buffer"):
 */
 
 /* Python wrapper */
@@ -7948,32 +8043,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_frame,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 231, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 251, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 231, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 251, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "vpush", 0) < (0)) __PYX_ERR(0, 231, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "vpush", 0) < (0)) __PYX_ERR(0, 251, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("vpush", 1, 1, 1, i); __PYX_ERR(0, 231, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("vpush", 1, 1, 1, i); __PYX_ERR(0, 251, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 231, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 251, __pyx_L3_error)
     }
     __pyx_v_frame = ((struct __pyx_obj_2av_5video_5frame_VideoFrame *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("vpush", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 231, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("vpush", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 251, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7984,7 +8079,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_ptype_2av_5video_5frame_VideoFrame, 1, "frame", 0))) __PYX_ERR(0, 231, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_ptype_2av_5video_5frame_VideoFrame, 1, "frame", 0))) __PYX_ERR(0, 251, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_6filter_5graph_5Graph_18vpush(((struct __pyx_obj_2av_6filter_5graph_Graph *)__pyx_v_self), __pyx_v_frame);
 
   /* function exit code */
@@ -8011,118 +8106,79 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_18vpush(struct __pyx_obj_2av
   PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
   Py_ssize_t __pyx_t_3;
-  PyObject *(*__pyx_t_4)(PyObject *);
-  PyObject *__pyx_t_5 = NULL;
-  size_t __pyx_t_6;
+  PyObject *__pyx_t_4 = NULL;
+  size_t __pyx_t_5;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("vpush", 0);
 
-  /* "av/filter/graph.py":233
+  /* "av/filter/graph.py":253
  *     def vpush(self, frame: VideoFrame | None):
  *         """Like `push`, but only for VideoFrames."""
- *         for ctx in self._context_by_type.get("buffer", []):             # <<<<<<<<<<<<<<
+ *         for ctx in self._get_context_by_type("buffer"):             # <<<<<<<<<<<<<<
  *             ctx.push(frame)
  * 
 */
-  if (unlikely(__pyx_v_self->_context_by_type == Py_None)) {
-    PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-    __PYX_ERR(0, 233, __pyx_L1_error)
-  }
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_6filter_5graph_5Graph__get_context_by_type(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_buffer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_context_by_type, __pyx_mstate_global->__pyx_n_u_buffer, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 233, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (likely(PyList_CheckExact(__pyx_t_2)) || PyTuple_CheckExact(__pyx_t_2)) {
-    __pyx_t_1 = __pyx_t_2; __Pyx_INCREF(__pyx_t_1);
-    __pyx_t_3 = 0;
-    __pyx_t_4 = NULL;
-  } else {
-    __pyx_t_3 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 233, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 233, __pyx_L1_error)
+  if (unlikely(__pyx_t_1 == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
+    __PYX_ERR(0, 253, __pyx_L1_error)
   }
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __pyx_t_1; __Pyx_INCREF(__pyx_t_2);
+  __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   for (;;) {
-    if (likely(!__pyx_t_4)) {
-      if (likely(PyList_CheckExact(__pyx_t_1))) {
-        {
-          Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
-          #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 233, __pyx_L1_error)
-          #endif
-          if (__pyx_t_3 >= __pyx_temp) break;
-        }
-        __pyx_t_2 = __Pyx_PyList_GetItemRefFast(__pyx_t_1, __pyx_t_3, __Pyx_ReferenceSharing_OwnStrongReference);
-        ++__pyx_t_3;
-      } else {
-        {
-          Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
-          #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 233, __pyx_L1_error)
-          #endif
-          if (__pyx_t_3 >= __pyx_temp) break;
-        }
-        #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_2 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_3));
-        #else
-        __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_3);
-        #endif
-        ++__pyx_t_3;
-      }
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 233, __pyx_L1_error)
-    } else {
-      __pyx_t_2 = __pyx_t_4(__pyx_t_1);
-      if (unlikely(!__pyx_t_2)) {
-        PyObject* exc_type = PyErr_Occurred();
-        if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 233, __pyx_L1_error)
-          PyErr_Clear();
-        }
-        break;
-      }
+    {
+      Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_2);
+      #if !CYTHON_ASSUME_SAFE_SIZE
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 253, __pyx_L1_error)
+      #endif
+      if (__pyx_t_3 >= __pyx_temp) break;
     }
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_XDECREF_SET(__pyx_v_ctx, __pyx_t_2);
-    __pyx_t_2 = 0;
+    __pyx_t_1 = __Pyx_PyList_GetItemRefFast(__pyx_t_2, __pyx_t_3, __Pyx_ReferenceSharing_OwnStrongReference);
+    ++__pyx_t_3;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 253, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_XDECREF_SET(__pyx_v_ctx, __pyx_t_1);
+    __pyx_t_1 = 0;
 
-    /* "av/filter/graph.py":234
+    /* "av/filter/graph.py":254
  *         """Like `push`, but only for VideoFrames."""
- *         for ctx in self._context_by_type.get("buffer", []):
+ *         for ctx in self._get_context_by_type("buffer"):
  *             ctx.push(frame)             # <<<<<<<<<<<<<<
  * 
  *     # TODO: Test complex filter graphs, add `at: int = 0` arg to pull() and vpull().
 */
-    __pyx_t_5 = __pyx_v_ctx;
-    __Pyx_INCREF(__pyx_t_5);
-    __pyx_t_6 = 0;
+    __pyx_t_4 = __pyx_v_ctx;
+    __Pyx_INCREF(__pyx_t_4);
+    __pyx_t_5 = 0;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_5, ((PyObject *)__pyx_v_frame)};
-      __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_push, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 234, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_2);
+      PyObject *__pyx_callargs[2] = {__pyx_t_4, ((PyObject *)__pyx_v_frame)};
+      __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_push, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 254, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
     }
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "av/filter/graph.py":233
+    /* "av/filter/graph.py":253
  *     def vpush(self, frame: VideoFrame | None):
  *         """Like `push`, but only for VideoFrames."""
- *         for ctx in self._context_by_type.get("buffer", []):             # <<<<<<<<<<<<<<
+ *         for ctx in self._get_context_by_type("buffer"):             # <<<<<<<<<<<<<<
  *             ctx.push(frame)
  * 
 */
   }
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/filter/graph.py":231
+  /* "av/filter/graph.py":251
  *             ctx.push(frame)
  * 
  *     def vpush(self, frame: VideoFrame | None):             # <<<<<<<<<<<<<<
  *         """Like `push`, but only for VideoFrames."""
- *         for ctx in self._context_by_type.get("buffer", []):
+ *         for ctx in self._get_context_by_type("buffer"):
 */
 
   /* function exit code */
@@ -8131,7 +8187,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_18vpush(struct __pyx_obj_2av
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_4);
   __Pyx_AddTraceback("av.filter.graph.Graph.vpush", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -8141,12 +8197,12 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_18vpush(struct __pyx_obj_2av
   return __pyx_r;
 }
 
-/* "av/filter/graph.py":237
+/* "av/filter/graph.py":257
  * 
  *     # TODO: Test complex filter graphs, add `at: int = 0` arg to pull() and vpull().
  *     def pull(self):             # <<<<<<<<<<<<<<
- *         vsinks = self._context_by_type.get("buffersink", [])
- *         asinks = self._context_by_type.get("abuffersink", [])
+ *         vsinks = self._get_context_by_type("buffersink")
+ *         asinks = self._get_context_by_type("abuffersink")
 */
 
 /* Python wrapper */
@@ -8198,10 +8254,10 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_20pull(struct __pyx_obj_2av_
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
-  PyObject *__pyx_t_2 = NULL;
+  Py_ssize_t __pyx_t_2;
   Py_ssize_t __pyx_t_3;
-  Py_ssize_t __pyx_t_4;
-  int __pyx_t_5;
+  int __pyx_t_4;
+  PyObject *__pyx_t_5 = NULL;
   PyObject *__pyx_t_6 = NULL;
   PyObject *__pyx_t_7 = NULL;
   size_t __pyx_t_8;
@@ -8210,92 +8266,86 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_20pull(struct __pyx_obj_2av_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("pull", 0);
 
-  /* "av/filter/graph.py":238
+  /* "av/filter/graph.py":258
  *     # TODO: Test complex filter graphs, add `at: int = 0` arg to pull() and vpull().
  *     def pull(self):
- *         vsinks = self._context_by_type.get("buffersink", [])             # <<<<<<<<<<<<<<
- *         asinks = self._context_by_type.get("abuffersink", [])
+ *         vsinks = self._get_context_by_type("buffersink")             # <<<<<<<<<<<<<<
+ *         asinks = self._get_context_by_type("abuffersink")
  * 
 */
-  if (unlikely(__pyx_v_self->_context_by_type == Py_None)) {
-    PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-    __PYX_ERR(0, 238, __pyx_L1_error)
-  }
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 238, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_6filter_5graph_5Graph__get_context_by_type(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_buffersink); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 258, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_context_by_type, __pyx_mstate_global->__pyx_n_u_buffersink, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 238, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_v_vsinks = __pyx_t_2;
-  __pyx_t_2 = 0;
+  __pyx_v_vsinks = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
 
-  /* "av/filter/graph.py":239
+  /* "av/filter/graph.py":259
  *     def pull(self):
- *         vsinks = self._context_by_type.get("buffersink", [])
- *         asinks = self._context_by_type.get("abuffersink", [])             # <<<<<<<<<<<<<<
+ *         vsinks = self._get_context_by_type("buffersink")
+ *         asinks = self._get_context_by_type("abuffersink")             # <<<<<<<<<<<<<<
  * 
  *         nsinks = len(vsinks) + len(asinks)
 */
-  if (unlikely(__pyx_v_self->_context_by_type == Py_None)) {
-    PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-    __PYX_ERR(0, 239, __pyx_L1_error)
-  }
-  __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 239, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_context_by_type, __pyx_mstate_global->__pyx_n_u_abuffersink, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_6filter_5graph_5Graph__get_context_by_type(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_abuffersink); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 259, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_v_asinks = __pyx_t_1;
+  __pyx_v_asinks = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/filter/graph.py":241
- *         asinks = self._context_by_type.get("abuffersink", [])
+  /* "av/filter/graph.py":261
+ *         asinks = self._get_context_by_type("abuffersink")
  * 
  *         nsinks = len(vsinks) + len(asinks)             # <<<<<<<<<<<<<<
  *         if nsinks != 1:
  *             raise ValueError(f"can only auto-pull with single sink; found {nsinks}")
 */
-  __pyx_t_3 = PyObject_Length(__pyx_v_vsinks); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 241, __pyx_L1_error)
-  __pyx_t_4 = PyObject_Length(__pyx_v_asinks); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 241, __pyx_L1_error)
-  __pyx_v_nsinks = (__pyx_t_3 + __pyx_t_4);
+  if (unlikely(__pyx_v_vsinks == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
+    __PYX_ERR(0, 261, __pyx_L1_error)
+  }
+  __pyx_t_2 = __Pyx_PyList_GET_SIZE(__pyx_v_vsinks); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 261, __pyx_L1_error)
+  if (unlikely(__pyx_v_asinks == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
+    __PYX_ERR(0, 261, __pyx_L1_error)
+  }
+  __pyx_t_3 = __Pyx_PyList_GET_SIZE(__pyx_v_asinks); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_v_nsinks = (__pyx_t_2 + __pyx_t_3);
 
-  /* "av/filter/graph.py":242
+  /* "av/filter/graph.py":262
  * 
  *         nsinks = len(vsinks) + len(asinks)
  *         if nsinks != 1:             # <<<<<<<<<<<<<<
  *             raise ValueError(f"can only auto-pull with single sink; found {nsinks}")
  * 
 */
-  __pyx_t_5 = (__pyx_v_nsinks != 1);
-  if (unlikely(__pyx_t_5)) {
+  __pyx_t_4 = (__pyx_v_nsinks != 1);
+  if (unlikely(__pyx_t_4)) {
 
-    /* "av/filter/graph.py":243
+    /* "av/filter/graph.py":263
  *         nsinks = len(vsinks) + len(asinks)
  *         if nsinks != 1:
  *             raise ValueError(f"can only auto-pull with single sink; found {nsinks}")             # <<<<<<<<<<<<<<
  * 
  *         return (vsinks or asinks)[0].pull()
 */
-    __pyx_t_2 = NULL;
-    __pyx_t_6 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_v_nsinks, 0, ' ', 'd'); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 243, __pyx_L1_error)
+    __pyx_t_5 = NULL;
+    __pyx_t_6 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_v_nsinks, 0, ' ', 'd'); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 263, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_can_only_auto_pull_with_single_s, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 243, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_can_only_auto_pull_with_single_s, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 263, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_8 = 1;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_7};
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_t_7};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 243, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 263, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 243, __pyx_L1_error)
+    __PYX_ERR(0, 263, __pyx_L1_error)
 
-    /* "av/filter/graph.py":242
+    /* "av/filter/graph.py":262
  * 
  *         nsinks = len(vsinks) + len(asinks)
  *         if nsinks != 1:             # <<<<<<<<<<<<<<
@@ -8304,7 +8354,7 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_20pull(struct __pyx_obj_2av_
 */
   }
 
-  /* "av/filter/graph.py":245
+  /* "av/filter/graph.py":265
  *             raise ValueError(f"can only auto-pull with single sink; found {nsinks}")
  * 
  *         return (vsinks or asinks)[0].pull()             # <<<<<<<<<<<<<<
@@ -8312,19 +8362,23 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_20pull(struct __pyx_obj_2av_
  *     def vpull(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_vsinks); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 245, __pyx_L1_error)
-  if (!__pyx_t_5) {
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_vsinks); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 265, __pyx_L1_error)
+  if (!__pyx_t_4) {
   } else {
     __Pyx_INCREF(__pyx_v_vsinks);
-    __pyx_t_2 = __pyx_v_vsinks;
+    __pyx_t_5 = __pyx_v_vsinks;
     goto __pyx_L4_bool_binop_done;
   }
   __Pyx_INCREF(__pyx_v_asinks);
-  __pyx_t_2 = __pyx_v_asinks;
+  __pyx_t_5 = __pyx_v_asinks;
   __pyx_L4_bool_binop_done:;
-  __pyx_t_6 = __Pyx_GetItemInt(__pyx_t_2, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 245, __pyx_L1_error)
+  if (unlikely(__pyx_t_5 == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+    __PYX_ERR(0, 265, __pyx_L1_error)
+  }
+  __pyx_t_6 = __Pyx_GetItemInt_List(__pyx_t_5, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 265, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_7 = __pyx_t_6;
   __Pyx_INCREF(__pyx_t_7);
   __pyx_t_8 = 0;
@@ -8333,25 +8387,25 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_20pull(struct __pyx_obj_2av_
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_pull, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 245, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 265, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/filter/graph.py":237
+  /* "av/filter/graph.py":257
  * 
  *     # TODO: Test complex filter graphs, add `at: int = 0` arg to pull() and vpull().
  *     def pull(self):             # <<<<<<<<<<<<<<
- *         vsinks = self._context_by_type.get("buffersink", [])
- *         asinks = self._context_by_type.get("abuffersink", [])
+ *         vsinks = self._get_context_by_type("buffersink")
+ *         asinks = self._get_context_by_type("abuffersink")
 */
 
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_6);
   __Pyx_XDECREF(__pyx_t_7);
   __Pyx_AddTraceback("av.filter.graph.Graph.pull", __pyx_clineno, __pyx_lineno, __pyx_filename);
@@ -8364,12 +8418,12 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_20pull(struct __pyx_obj_2av_
   return __pyx_r;
 }
 
-/* "av/filter/graph.py":247
+/* "av/filter/graph.py":267
  *         return (vsinks or asinks)[0].pull()
  * 
  *     def vpull(self):             # <<<<<<<<<<<<<<
  *         """Like `pull`, but only for VideoFrames."""
- *         vsinks = self._context_by_type.get("buffersink", [])
+ *         vsinks = self._get_context_by_type("buffersink")
 */
 
 /* Python wrapper */
@@ -8420,9 +8474,9 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_22vpull(struct __pyx_obj_2av
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
-  PyObject *__pyx_t_2 = NULL;
-  Py_ssize_t __pyx_t_3;
-  int __pyx_t_4;
+  Py_ssize_t __pyx_t_2;
+  int __pyx_t_3;
+  PyObject *__pyx_t_4 = NULL;
   PyObject *__pyx_t_5 = NULL;
   PyObject *__pyx_t_6 = NULL;
   size_t __pyx_t_7;
@@ -8431,73 +8485,70 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_22vpull(struct __pyx_obj_2av
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("vpull", 0);
 
-  /* "av/filter/graph.py":249
+  /* "av/filter/graph.py":269
  *     def vpull(self):
  *         """Like `pull`, but only for VideoFrames."""
- *         vsinks = self._context_by_type.get("buffersink", [])             # <<<<<<<<<<<<<<
+ *         vsinks = self._get_context_by_type("buffersink")             # <<<<<<<<<<<<<<
  *         nsinks = len(vsinks)
  *         if nsinks != 1:
 */
-  if (unlikely(__pyx_v_self->_context_by_type == Py_None)) {
-    PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-    __PYX_ERR(0, 249, __pyx_L1_error)
-  }
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 249, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_6filter_5graph_5Graph__get_context_by_type(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_buffersink); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 269, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_context_by_type, __pyx_mstate_global->__pyx_n_u_buffersink, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 249, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_v_vsinks = __pyx_t_2;
-  __pyx_t_2 = 0;
+  __pyx_v_vsinks = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
 
-  /* "av/filter/graph.py":250
+  /* "av/filter/graph.py":270
  *         """Like `pull`, but only for VideoFrames."""
- *         vsinks = self._context_by_type.get("buffersink", [])
+ *         vsinks = self._get_context_by_type("buffersink")
  *         nsinks = len(vsinks)             # <<<<<<<<<<<<<<
  *         if nsinks != 1:
  *             raise ValueError(f"can only auto-pull with single sink; found {nsinks}")
 */
-  __pyx_t_3 = PyObject_Length(__pyx_v_vsinks); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 250, __pyx_L1_error)
-  __pyx_v_nsinks = __pyx_t_3;
+  if (unlikely(__pyx_v_vsinks == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
+    __PYX_ERR(0, 270, __pyx_L1_error)
+  }
+  __pyx_t_2 = __Pyx_PyList_GET_SIZE(__pyx_v_vsinks); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 270, __pyx_L1_error)
+  __pyx_v_nsinks = __pyx_t_2;
 
-  /* "av/filter/graph.py":251
- *         vsinks = self._context_by_type.get("buffersink", [])
+  /* "av/filter/graph.py":271
+ *         vsinks = self._get_context_by_type("buffersink")
  *         nsinks = len(vsinks)
  *         if nsinks != 1:             # <<<<<<<<<<<<<<
  *             raise ValueError(f"can only auto-pull with single sink; found {nsinks}")
  * 
 */
-  __pyx_t_4 = (__pyx_v_nsinks != 1);
-  if (unlikely(__pyx_t_4)) {
+  __pyx_t_3 = (__pyx_v_nsinks != 1);
+  if (unlikely(__pyx_t_3)) {
 
-    /* "av/filter/graph.py":252
+    /* "av/filter/graph.py":272
  *         nsinks = len(vsinks)
  *         if nsinks != 1:
  *             raise ValueError(f"can only auto-pull with single sink; found {nsinks}")             # <<<<<<<<<<<<<<
  * 
  *         return vsinks[0].pull()
 */
-    __pyx_t_1 = NULL;
-    __pyx_t_5 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_v_nsinks, 0, ' ', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 252, __pyx_L1_error)
+    __pyx_t_4 = NULL;
+    __pyx_t_5 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_v_nsinks, 0, ' ', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 272, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_can_only_auto_pull_with_single_s, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 252, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_can_only_auto_pull_with_single_s, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 272, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_7 = 1;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_t_6};
-      __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+      PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_6};
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 252, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_2);
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 272, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
     }
-    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 252, __pyx_L1_error)
+    __Pyx_Raise(__pyx_t_1, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __PYX_ERR(0, 272, __pyx_L1_error)
 
-    /* "av/filter/graph.py":251
- *         vsinks = self._context_by_type.get("buffersink", [])
+    /* "av/filter/graph.py":271
+ *         vsinks = self._get_context_by_type("buffersink")
  *         nsinks = len(vsinks)
  *         if nsinks != 1:             # <<<<<<<<<<<<<<
  *             raise ValueError(f"can only auto-pull with single sink; found {nsinks}")
@@ -8505,41 +8556,45 @@ static PyObject *__pyx_pf_2av_6filter_5graph_5Graph_22vpull(struct __pyx_obj_2av
 */
   }
 
-  /* "av/filter/graph.py":254
+  /* "av/filter/graph.py":274
  *             raise ValueError(f"can only auto-pull with single sink; found {nsinks}")
  * 
  *         return vsinks[0].pull()             # <<<<<<<<<<<<<<
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_vsinks, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 254, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_6 = __pyx_t_1;
+  if (unlikely(__pyx_v_vsinks == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+    __PYX_ERR(0, 274, __pyx_L1_error)
+  }
+  __pyx_t_4 = __Pyx_GetItemInt_List(__pyx_v_vsinks, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 274, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_6 = __pyx_t_4;
   __Pyx_INCREF(__pyx_t_6);
   __pyx_t_7 = 0;
   {
     PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
-    __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_pull, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_pull, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 254, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 274, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_r = __pyx_t_2;
-  __pyx_t_2 = 0;
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/filter/graph.py":247
+  /* "av/filter/graph.py":267
  *         return (vsinks or asinks)[0].pull()
  * 
  *     def vpull(self):             # <<<<<<<<<<<<<<
  *         """Like `pull`, but only for VideoFrames."""
- *         vsinks = self._context_by_type.get("buffersink", [])
+ *         vsinks = self._get_context_by_type("buffersink")
 */
 
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_6);
   __Pyx_AddTraceback("av.filter.graph.Graph.vpull", __pyx_clineno, __pyx_lineno, __pyx_filename);
@@ -8815,7 +8870,6 @@ static PyObject *__pyx_tp_new_2av_6filter_5graph_Graph(PyTypeObject *t, CYTHON_U
   p->__pyx_vtab = __pyx_vtabptr_2av_6filter_5graph_Graph;
   p->_name_counts = ((PyObject*)Py_None); Py_INCREF(Py_None);
   p->_context_by_ptr = ((PyObject*)Py_None); Py_INCREF(Py_None);
-  p->_context_by_name = ((PyObject*)Py_None); Py_INCREF(Py_None);
   p->_context_by_type = ((PyObject*)Py_None); Py_INCREF(Py_None);
   if (unlikely(__pyx_pw_2av_6filter_5graph_5Graph_1__cinit__(o, __pyx_mstate_global->__pyx_empty_tuple, NULL) < 0)) goto bad;
   return o;
@@ -8845,7 +8899,6 @@ static void __pyx_tp_dealloc_2av_6filter_5graph_Graph(PyObject *o) {
   }
   Py_CLEAR(p->_name_counts);
   Py_CLEAR(p->_context_by_ptr);
-  Py_CLEAR(p->_context_by_name);
   Py_CLEAR(p->_context_by_type);
   PyTypeObject *tp = Py_TYPE(o);
   #if CYTHON_USE_TYPE_SLOTS
@@ -8874,9 +8927,6 @@ static int __pyx_tp_traverse_2av_6filter_5graph_Graph(PyObject *o, visitproc v, 
   if (p->_context_by_ptr) {
     e = (*v)(p->_context_by_ptr, a); if (e) return e;
   }
-  if (p->_context_by_name) {
-    e = (*v)(p->_context_by_name, a); if (e) return e;
-  }
   if (p->_context_by_type) {
     e = (*v)(p->_context_by_type, a); if (e) return e;
   }
@@ -8892,13 +8942,24 @@ static int __pyx_tp_clear_2av_6filter_5graph_Graph(PyObject *o) {
   tmp = ((PyObject*)p->_context_by_ptr);
   p->_context_by_ptr = ((PyObject*)Py_None); Py_INCREF(Py_None);
   Py_XDECREF(tmp);
-  tmp = ((PyObject*)p->_context_by_name);
-  p->_context_by_name = ((PyObject*)Py_None); Py_INCREF(Py_None);
-  Py_XDECREF(tmp);
   tmp = ((PyObject*)p->_context_by_type);
   p->_context_by_type = ((PyObject*)Py_None); Py_INCREF(Py_None);
   Py_XDECREF(tmp);
   return 0;
+}
+
+static PyObject *__pyx_getprop_2av_6filter_5graph_5Graph_threads(PyObject *o, CYTHON_UNUSED void *x) {
+  return __pyx_pw_2av_6filter_5graph_5Graph_7threads_1__get__(o);
+}
+
+static int __pyx_setprop_2av_6filter_5graph_5Graph_threads(PyObject *o, PyObject *v, CYTHON_UNUSED void *x) {
+  if (v) {
+    return __pyx_pw_2av_6filter_5graph_5Graph_7threads_3__set__(o, v);
+  }
+  else {
+    PyErr_SetString(PyExc_NotImplementedError, "__del__");
+    return -1;
+  }
 }
 
 static PyObject *__pyx_getprop_2av_6filter_5graph_5Graph_configured(PyObject *o, CYTHON_UNUSED void *x) {
@@ -8922,6 +8983,7 @@ static PyMethodDef __pyx_methods_2av_6filter_5graph_Graph[] = {
 };
 
 static struct PyGetSetDef __pyx_getsets_2av_6filter_5graph_Graph[] = {
+  {"threads", __pyx_getprop_2av_6filter_5graph_5Graph_threads, __pyx_setprop_2av_6filter_5graph_5Graph_threads, PyDoc_STR("Maximum number of threads used by filters in this graph.\n\n        Set to 0 for automatic thread count. Must be set before adding any\n        filters to the graph.\n\n        Wraps :ffmpeg:`AVFilterGraph.nb_threads`.\n        "), 0},
   {"configured", __pyx_getprop_2av_6filter_5graph_5Graph_configured, 0, 0, 0},
   {0, 0, 0, 0, 0}
 };
@@ -9087,6 +9149,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_vtabptr_2av_6filter_5graph_Graph = &__pyx_vtable_2av_6filter_5graph_Graph;
   __pyx_vtable_2av_6filter_5graph_Graph.configure = (PyObject *(*)(struct __pyx_obj_2av_6filter_5graph_Graph *, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_6filter_5graph_5Graph_configure *__pyx_optional_args))__pyx_f_2av_6filter_5graph_5Graph_configure;
   __pyx_vtable_2av_6filter_5graph_Graph._get_unique_name = (PyObject *(*)(struct __pyx_obj_2av_6filter_5graph_Graph *, PyObject *))__pyx_f_2av_6filter_5graph_5Graph__get_unique_name;
+  __pyx_vtable_2av_6filter_5graph_Graph._get_context_by_type = (PyObject *(*)(struct __pyx_obj_2av_6filter_5graph_Graph *, PyObject *))__pyx_f_2av_6filter_5graph_5Graph__get_context_by_type;
   __pyx_vtable_2av_6filter_5graph_Graph._register_context = (PyObject *(*)(struct __pyx_obj_2av_6filter_5graph_Graph *, struct __pyx_obj_2av_6filter_7context_FilterContext *))__pyx_f_2av_6filter_5graph_5Graph__register_context;
   __pyx_vtable_2av_6filter_5graph_Graph._auto_register = (PyObject *(*)(struct __pyx_obj_2av_6filter_5graph_Graph *))__pyx_f_2av_6filter_5graph_5Graph__auto_register;
   #if CYTHON_USE_TYPE_SPECS
@@ -9311,7 +9374,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) __PYX_ERR(15, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(16, 16, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(16, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_4core_Container = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.container.core", "Container",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -9321,8 +9384,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_4core_Container), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_9container_4core_Container),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(16, 16, __pyx_L1_error)
-  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(16, 16, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(16, 17, __pyx_L1_error)
+  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(16, 17, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.index"); if (unlikely(!__pyx_t_1)) __PYX_ERR(17, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -9471,7 +9534,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5video_6format_VideoFormatComponent), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5video_6format_VideoFormatComponent),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_6format_VideoFormatComponent) __PYX_ERR(23, 14, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_6format_VideoFormatComponent) __PYX_ERR(23, 13, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.video.reformatter"); if (unlikely(!__pyx_t_1)) __PYX_ERR(24, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -9972,7 +10035,7 @@ __Pyx_RefNannySetupContext("PyInit_graph", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_zip = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_zip); if (!__pyx_builtin_zip) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_builtin_zip = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_zip); if (!__pyx_builtin_zip) __PYX_ERR(0, 76, __pyx_L1_error)
 
   /* Cached unbound methods */
   __pyx_mstate->__pyx_umethod_PyDict_Type_get.type = (PyObject*)&PyDict_Type;
@@ -9994,14 +10057,14 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "av/filter/graph.py":141
+  /* "av/filter/graph.py":161
  *                 DeprecationWarning,
  *             )
  *             time_base = Fraction(1, 1000)             # <<<<<<<<<<<<<<
  * 
  *         return self.add(
 */
-  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_int_1, __pyx_mstate_global->__pyx_int_1000); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 141, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_int_1, __pyx_mstate_global->__pyx_int_1000); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 161, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
   #if CYTHON_IMMORTAL_CONSTANTS
@@ -10034,42 +10097,42 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{3},{34},{179},{1},{1},{8},{45},{43},{7},{6},{33},{2},{20},{9},{26},{14},{14},{26},{19},{103},{13},{50},{1},{8},{5},{20},{7},{11},{3},{6},{4},{11},{6},{10},{14},{8},{18},{9},{6},{5},{6},{9},{5},{10},{3},{12},{6},{4},{5},{6},{7},{8},{10},{4},{8},{7},{12},{3},{4},{4},{11},{14},{12},{10},{17},{13},{10},{11},{12},{10},{12},{19},{8},{8},{9},{6},{10},{4},{8},{5},{1},{3},{109},{78},{82},{191}};
-    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (792 bytes) */
-const char* const cstring = "(\265/\375`N\005u\030\000v-z!\000U\333\006\242\300\026z\210\304\202\327\376g\023\221x\267t^!\034\2164\000\030\230[\360\377\377?\350o\000p\000l\000\227l\243\267M\030\300\360&\257m\355\305\254\001\330w\310o\332)\303\325\230~\306\267\036\\2\360\300\235=\215\274\255\366)\270,twN\025R\236C\327\350\037o\230X\221\001\202\301`\303b\003\271\275\321\266v\370\250\267\266+\253\236\320-\362j\372\241\300\326\246\361\2754z\362\346E\321\336j/<&\360\255h)\245\330\2131\251\267(\024\020\024\002xp\247J\336\331\316+\346\250s\352\314\332\240~\353Q\3250\373\246\325ik\301\366ey\212:\267Nr\233\336\036\263\013/\3240m\014b\030V\274\202\355\236\203\013\377JQ\267\t\023\277\265`\004\310\025\303\353\260\351\025A\245\0363X\375\024{1\030q^\032\330\026>\255\007\026\334\321v\2616\275\t|\024/dE\357\305\231\222J\034\034\334)\275\010\251\234\363\336\314\267\266\313\3543\037Y\227w\334r\004\202T9\322\326\311\233\347U(\3231M\023\2371MI\227s\364\344\032\331h+&\317F&\006\312\314^^\224\211JW\262\255\rx\361K\230y\364\322[&\266z\272<\341\342\246\323\212\034\270;\275j\257\337\202\274\230.Y\316\033^\301G\235\364V\364\306\3346\035\230\220\220\360\207\021=y\363B\211\005\004\3104$zh\307\013\341\205C2m\"\000\003\036\023\002\004X\221OC\233\022\024>\024\200\001\245\004\010\202\336\240\314\266Z{CJt!\263\331B\257\240A\255\314mJ\266 X\320\274\002\330\274lG&\216\233\212H\224J2\333\275\337\375\314\311\221\322\027\322\022\226\331\270\307\330b\215\316\234\246z;KN\2269\312\231W/\255L^u2W\007\200\201\250A\245#\n\231\232`d\266$)\014c \2040D'\353\001\022\001M\325aKL[P\243V{\007:\026\2520\273\354\013\023\3076u\325\246L\234\271N4\005-\025\222\005We\341\20231\277\212\305j\350[\014&\230c\330\321i\016\t\232Ei\263x\256 \0317\337\037t\332\240\032_\320\016\223\307\016\264\307\024T\"\232yh\370pF\310h\217\212\211\267$\007j\225\021\t\026\206`\355\030L:\366\003\200\013\r\377A\241\270BA\343\022{\340\222\316\344^V\037[\336\206\tA\t\302\231\010\275#\321\337\242\345\244\316I\373\246S`\236\275\241\262\206\332\020\266X\305\342\000!\010\032\372""\356\205\2735J\351\322'\243\nd\266\250\245\377/\347\325m\271\r&\343g\255\214\000\374F`\016*V\362j\246/M\245+\250[\003x\376N\260\203\347a\313T\355\310[`\361\003jq\262\001\\wk\365\363\205\020\260\332\265\211\005\006\265\342L\006\314\322~\215$8\320<T\200#A:'.\013:*\007\325{\025";
-    PyObject *data = __Pyx_DecompressString(cstring, 792, 3);
+    const struct { const unsigned int length: 8; } index[] = {{3},{52},{34},{179},{1},{1},{8},{45},{43},{7},{6},{33},{2},{20},{9},{26},{14},{14},{26},{19},{103},{13},{50},{1},{8},{5},{20},{7},{11},{3},{6},{4},{11},{6},{10},{14},{8},{18},{9},{6},{5},{6},{9},{5},{10},{3},{12},{6},{4},{5},{6},{7},{8},{10},{4},{8},{7},{12},{3},{4},{4},{11},{14},{12},{10},{17},{13},{10},{11},{12},{10},{12},{19},{8},{8},{9},{6},{10},{4},{8},{5},{1},{3},{109},{78},{82},{191}};
+    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (820 bytes) */
+const char* const cstring = "(\265/\375`\202\005U\031\000Vo~!\000U\333\006\242\300\026z\210\304\202\327\376g\023\221x\267t^!\034\2164\000\030\230[\360\377\377?\350t\000t\000q\000\374\246\2352\\\215\351g|\353\301%\003\017\334\331\323\310\333j\237\202\313Bw\347T!\3459t\215\376\361\206\211\025\031 \030\0146,6\220\333\033mk\207\217zk\273\262\352\t\335\"\257\246\037\nl\355\245\321\2237/\212\013\217\t|+ZJ)&\365\026\305AzJ\212\374+x\2116\350\332[\355\202\355\275(\272\244oM\343\031\326\006a/f\245P@P\010W\314Q\347\324\271\337zT5\314\276iu\332Z\332\227\345)\352\334:\311mz{\314.\274\260a\332\030\3040\254x\005\333=\007\371W\212\272M\230\370\255\005#@\256\030^\207M\257\010*\365\230\301\352\247\330\213\301\210\363\322\300\266\360i=\260\340\216\266\213\265\351M\340\243x!+z/\316\224T\342\340\340N\351\305%\333\350m\023\0060\274\311k[\003\260\3570\316{3\337\332.\263\317|d].n9\002A\252\034i\353\344\315\363*\224\351\230\246\211\317\230\246\244\3139zr\215l\264\025\223g#\023\003ef//\312D\245+\331\326\006\274\370%\314<z\351-\023[=]\236pq\323iE\016\334\235^\265\327oA^L\227,\347\r\257\340\243Nz+zcn\233\016LHH\370\303\300\203;U\362\316v\006=y\363B\211\005\004\3104$zh\307\013\241C2m\"\000\003\036\023\002\004X\221OC\233\022\024>\024\200\001\245\004\010\202\336\240\314\266Z{CJt!\263\331B\257\240A\255\314mJ\266 X\320\274\002\330\274lG&\216\233\212\254\247\225(\225d\266{\277\373\231\223#\245/\244%,\263q\217\261\305\032\2359M\365v\226\234,s\2243\257^Z\231\274\352d\256N\345\002\200\205\250q\231#\n\031\232`d\264$)H:0\204(T6\347\001\002\371L\026bKL[P\243V{\007\272\021\2520\213\334\005\210[M\225sS\nf\247\313T@K\211dI\253\216\346%\331\241\257\362\342\030::@\334\004\314\261\211\2504\206\004\315biG<U\220\214\233.\007\257FR\305\026\232u\204\331\265\357\215\002U`3\031\325\013n\204\234\017A\305\336\334\2552\034\220z\010je\370\324Q>\005\014S\r\217q=F1\023\327\340\201\n}\234{Pi\331z4>\310U\020bG4\213\022%/Z\271\230\027\026\032\213\025H\317'\324c\241\261\374\217\321>(\tt-\030\326G\013e\233\321\002\227G\231T\220\257U\034\036^d^\313[\230a""\242\033'\312x\007\247\010L\315\217\265\236\324\367\254\343\245\277\252w\016\361\374\331c]g\317\376T\377\263m~w`P\277\211p\337\247\331\233k\313\223j\004\320\204\202M\322`A+\340_\332\022\212\026w\302*\345\364\007\305.\000S\346\211\252\313\202\216Jh\244\320\205PF\255\371B\r";
+    PyObject *data = __Pyx_DecompressString(cstring, 820, 3);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (874 bytes) */
-const char* const cstring = "BZh91AY&SY'\031\013P\000\000M\337\200@\000@\367\367\310\257\241U\000\277\377\377\360P\003m\341\245\260\240SCM&\221\224\311==OT\364\323S \0002d\311\352m a\241\240\000\0004\000\000\000\000\324\364%?Jx\211\350D\3204\310\000\000\000\030hh\000\000\r\000\000\000\000$E2dM53I\251\350\004\311\r\006\215=@\331L\335\301\ny\341\373\202\251\013\263v\326\024P\274i\220<V\\(\000B+\272\372\236\313\275j&\277#N|m]\330\024\215\232L\323\372\242\345\231\303\332\367u\r\027[y\326\023\025\215\027\216lg\234\362\332:v\266]\250Al\244\327\351\303:\331\235#\304\324fy\370\364l_/(A\337\335\273w\226A\360[\243\266\377]\260\222[\"6\036\322C\341\372D\223\0370r\227\333\374\3700\215\354\032\321\226\257H\367\224\266x1a\246\t\274\3467\265\"\355x\314Z\n\343\021\340\334\026\310\311\311\366\" \264`:\302\307\312\211JE\006\207i\016M9\003\252\203\244{[(\300\215\261\307\030S\351\302\350\207\200Ein\"\001S\341\350\226\314~\345\303\201\315\323\247C(\335\315gH\2316\227\314\327\253\370\026\026Zn\253\344A\327\330\217\331\024\322\007L]#\020\245?]\375\216\327V\305\354kL]}s\003B\354\035\323\301\264\233\n\334\025\3429L\001\331\034\216\021qx :WC4\304\326\306\352\256\211\246mn\310\341T $\205B\254C\025l\363\007\177sSDd@\232}\352\010\324\257\366\206\037\033\305\240\334K)\256\355qTIw\361d.~\277\326\013\013\226}r\343\301\246\316\253\320=\237OmVb\310\\I\377Ex\356\205\312d\3124\234DS\n\367\230S\247\034V\0248\231V\014\246S\031{\317\273\r\207\337\335\355\243;\017\245?\023\211\326|\323i\200\331\3175\275\374\272\267\361F\255l\372\371ZJ\262\227\372\361\250\037\227\204\320\370\302\364Ks\351D\276\202\243\226\003U\236\000\261\307\003\020\241\357\305\362\340\242f\204\226\006WFd\320F\034\235\311\004\350a\273y\276\265\023\031\303\014\215m\374\372A\212}\014\247/8)267\003\327E\001\255JMq\325I \267\264\240\250s\252\255\350U4c\255\032\275 \212\243>w\312\326\201\213\323b\204\307\260\333\347\221E\247\005\227\301\231?\337*B\323\216\214\313\231\245p\007M8\330\0356\331\237\335\371XG:\225L\026\303\207\177\036\2463\271{\363\036X\266[\263N\021M\024rX""\234\026\365rd\326\022\300\t\013\251\236Q\243\036\031\322\370p\260\353bi\212\335<\364\250\025\334\331\212\345\226W\013\222\020\234\326\341#1\264\355Mkq\203\332}b\334CA\020ke\022-\2362\001\360i[\224\371\310e\236t\211bmm{\206LJw\"\224\336\036\\\023\202\270\370\336\332\302.\364\302\226Sg\316\263\251\336\300\234:\225q\307\253\377\261\250u\201\353\035\334}\022\266\023\031\303\265^\032L\217\035\204&}\014l\226\227\315\217Z^\324\250@T%\366\211\212\317\334\337\005\304\237>\322\273\010\314\360\373\213\271\"\234(H\023\214\205\250\000";
-    PyObject *data = __Pyx_DecompressString(cstring, 874, 2);
+    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (901 bytes) */
+const char* const cstring = "BZh91AY&SYY'\013\217\000\000Q\337\200@\000@\367\367\310\257\241U\000\277\377\377\360P\003\215\267\272U\333Ji'\006\204\325=&\214\207\251\220\315F\232\000\001\240\320\001\246\212h\323\322jm)\350\324\365\003'\250\000\000\000\032\002i4\024\364\332Pf\246\200\000\000\0000\320\320\000\000\032\000\000\000\000H\246\246L\212x\215\000\243A\220\320\001\240b\0270#-u\375\255\020\302q\351\311CZ\235\340p>\350\356\315\000Y\205\276V\247\305\002\242u`\270\316\371\214\354\313\031_\311\201\315c\027fi}Z\265\224\010\334\302!C<.>w\025\005\320\223/\033\250\224\233^+\237\t\"\322\212\200E\330_\341\204\253\211\031\315\266\213\301\027]\266c0ZiB\003&8\343\246\320\026\361\022\261\360\325*\2600\314\"J\016V\0047oF\010\227\274\034%\341\373\344\302Y\260k&V\235%\345\tnw1]\225\311\274bY\262PZ\034*M\004\241\023\210\315\004\350(j>\302\"\t\243\003\222\024mr%\"&4:\301\013\236\004cX\332\375Wd~\331\364\265\335O\303\302\321\335\337\313\002`\314\227\017\002\244\203\277\347D\270\360\037\221\200n6\271\364\350c,\271,g(\203|>F\315\277qQ\354+\356\203\335\010[\333\010x\020|\020\033\301\272@\016\375\373\221\261\022\302\234\035F/\016\237\234@\310\263\007e1\360oG#\221)\251['Q\375-\204\026\207Z\022\001\265V\314k\241\346\270\276r\3023,\267\346\3110\252\020\031\230T5c\rDg[A\317J\245M\225\332@\225\355\367\000\260\272\177\332\205Z:\305D\303\021utZX\220\000\016\275\031%\317\363\372\213\223\261W\302\034\270\264\331\262\323\017\027\317\307E\210\260\026\244\177Ebh\020\263U\024K\366\264\301\t\033\306\320\257\256\260L\342\242\331 \265T\003\231\240\264G\223F\361\372:\374rg\230\372\317\334jq>\t\264\300mr\305f\370\354\317Th\326\347\303}`\243'n\375h\007w\242&z\344\273R\352\277|\245\236'Q\330\216\033/Cc\313Q\270Q\030e\025\327jH\246\244s\275\350ght5\032\000Ao\rv\003\tPLf\333\2604\257\343\266E\351\3630\210\303\262\010\210\033\033\220\364\311H4\2418\245\372( D\331\233J\010G\032\024n\323(\232/\322mZr%D%\225\257\030\250!9\261\020\014\275\300\223\223\210$\360G\337(\347\305\340\251=\351\220\371\031R\340s\313Z\203\236\355\314\375[}Dq\241D""\320\267\016N\336\235\214g\235yq\036\027\266W\247L\365\212f\245\301T\325h\260\"\r\222\002\340 <\370\023s\236Ky\006\253\240\365b\340\327\020\320\261&\331\352\254\001]\304\213\023'{@\232\242;\264\304K\215\307r\3604\312YG\353\024\344\027\220\225S\\\nR\330D\0130\2521\330\3320\030c\214\345\014M\255\326\262\363<ZJ\354\221Jh\034\265R\223)\177;Wd\221g\235\323\252\212\276T\215\207[\002.\332\251}\373\177\3254\016 w\313\257^\324\253v\343R2<+\224\254\t\214\025\363\302\247u\3236E:\nu\201\001\003@S\340\022\010\217\303!R\276\031\235\341\262\002\026\305\037\305\334\221N\024$\026I\302\343\300";
+    PyObject *data = __Pyx_DecompressString(cstring, 901, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (780 bytes) */
-const char* const cstring = "x\332\205U]o\324:\020\345\247\314\033P\265\245\213\200\213\304\303UUn\321}\251*\204\372j9\316dc\326\261}\375\261\335\345\327sl'\351R\241\313Jq&\236\361\231\3619c\357\346\315\346\306e\323\223u\211\2441N\311\304t\375p\253M\342p\343l\342C\272s\230K\243LtsL\243\263\244#\365lt\307\001\321\346H1\005\255\020_\202,\335\377s\177\361\356\343;\222\266\247\300\337Y\245H1w\312\310\0309\222\033\250\313\200\327\226\322\321s\274\244\177\007:\272L\226\271\247\344\310#\356tA\032\331R\344T\014z)-J\225I;+\260\\\333\355K\352u@\022\275\347\262\372V\232\310\227\227\177\313\276\027\210d\205\212\234E\221\327\271\327\3566\310\211\317\351A\367\334lr\201\356\234\345O\264\005\003k\260\314\311]\370l\014=\3524RD\036\303\345\265\373D\203\313\330Y\257\243\354\014\263-\343P\351\242)\307D\035\223\254\214\330m\001oLn\3256H?V\232\225\263\203\336\346\300\200h\313\373I\307\222\202d\227\207\201C\311C\rs\361\014.L2-_#\353\355\270~\031\t\372RI\246\300\277e\023\027O\224\2237,\212L\313T\322\023\213N\202#\372\222\271\315m\336l\256\256\256\252\213\232\353\333\010\215\253\314\036\334by_\345\234\344\261\354/\360\344\366\230\202\204CN\330\tf\014ca\274\\\322<\352>\215\326\001`\220\331$\022\002\373\315\212\205\240>W\241\254\263\027`i\257\245\201Wi\253\223\020\002\242\250\"\356\227B\227\020\367\307\003\236\317\350.q\207N\374\n\264F\321\tSPZz\317\266\227a\033\213p\242\371N\307\0227\223#\032]\013U\312h\313B\243\233\220\231;\251v\253>M\0010\257\270\321?\314\305\305\241\264N\035D\324?x\313(\035CDcb\207M\235\262!\r\336c\313\2074;\201\332\304$\221\014\277\311\365\031\332\010[P\346\321\353\203\030\246\204\027\352\224\321\243\255\275\363\245\017}\216\240\303\203\2169I1\367\251tO\001\373/K\323 \236\210^-UO\355\311\004\037\204\230[\003\331N\232\004\323\330J\003\2025\213W\3559\355\211\275\300b\217\336Tg\342\210\340\265\303\366\322\240\303\366\345\254U\232\036e\260\345A\177\304\332\037\207\037\032'8\321+\014\347T\254y\213;\355\005N\207\227\220\351\274\034\246\254\026\237\363I\024\241\305[\271\027\3579\004\027\004F\241FV;:[\203 ""\22345\362\365\213\325\377+R\367\275\202l\256z]e\225\341(>\257&\235\275\272~8\375|\375\342\021M)\236\202\177\213\366\241u\315\372n\347\037`s\364r\267\226k\000\267\305\202\332\242\377\027\361/\325\256c\361\313\345\374\204\374\373U\357\353\305#\352y\242\263\347d\376\241\3505\374\331?\302\263\262\305\\\331O\205\236l\216";
-    PyObject *data = __Pyx_DecompressString(cstring, 780, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (809 bytes) */
+const char* const cstring = "x\332\205U\301n\3346\020\315\247\314-\211ao\274E\222\006\310\2410\234:\350\3050\212\302WbD\216$f)R\025\311\365n\276\276\217\224\264\336\030A\263\200(\2123|3\363\336\220\273}\267\275e\357C\"\335\263\357\204R?\t\233H\334&\231\250\265\016\257H=\357\205\032\021Ol\214\230\315m\310\316P\331\306\316\005\315I\350\346\361\256:\337\006\237\344\220\356C*`\234\350\366\230\372\340\311F2\342l#\023\274\335\221b\232\254.1\340\344\351\341\317\207\253\367\237\336\023{C\223|\023\235\"\305\334h\3071J\244\320R\223\001o=\245\343(qC\177\265t\014\231\274\210\241\024h\204\337\371\206\324#\327(\251L\350u\255\220\223\r^a\273\365\335k2vB\020\213\262\260\373\216]\224\315\346\017\024\247\340)\032\031\005\217$o\262\261\341n\342A.\351\321\032\231\347\024&\272\017^>SW\210[\2359\247p5f\347\350\311\246\236\"\3428)\257\335gjCFe\306Fn\034h,\343\314-\r9&PK\\\031\361]\001\237\231\354t7\361\330W\232u\360\255\355\362$\200\230\267\233\301\306\022\202\270\311m\013\221\020g\321k\265\264a\0328\255_\275\330\256?}9\006}\251\004+\302{qq\265D\036F'\252\310\264.%;\210j\030\034\321\327,\363\332\366\335\366\372\372\272\232h6\375\323C\343*\363\010n\261\335T9\007>\226\372&\031\302\036K\220\260\315\t\225`\305\t6\306\315\032\346\311\232\324\373\000\200\226\263K\244\024\352\315Z\224\"\223\253P>\370+\260\264\267\354`\325\326\333\244\224\202(\272\210\373\265\320\245\324\303\361\200\347\013\272K\335\243\023\377\006\332L\321\031SP\232\307Q\274\341\251\213E85\333\316\307\342\267\220\243f\272V\252\264\263^\224E7!\2624\254w'}f\005\300\274\226\231\376vI.\266\245u\352\240\242\375.\235 u\014\021\215\211\nguJA\026\274\3079\036\302\354\024rS\003#\030~C0\031\332(_P\226q\264\007\325\016\t/\344\311qD[\217a,}8\346\010:F\320\261\004)\323}*\335S\300\376\315\354f\210g\242O3]O\355\331\202\034\224ZZ\003\321\316\232\004\313(e\006\302l\021\257\316\227\260g\363\025\0265\216\256\032\223D8\237:l\317\016\035\266/g\255\322\364\304\223/\017\372#\326\3768|\2678\301\211\336`\270\2442[J\334\331Q\341t\214\014\231.\313a\312z\265\2051\251\"\264\372\215""\367\352\203LS\230\024F\245{\321;\27289A&v\325\363\355\253\223\375G\244\346[\005\331^\033[e\345\351\250\276\234\246t\361\346\346\361\374\363\355\253'4\245zv\376)\332\307\271kN\357\371\374\003l\361^\357\326r\r\340\266XQ\227\333\371\377\020\177\327\363u\254~\270\234\237\221\177\276\353C\275xT=Ot\361\222\314_$}r\177\361\217\360\"m\265d\366\037'L\177\213";
+    PyObject *data = __Pyx_DecompressString(cstring, 809, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (1614 bytes) */
-const char* const bytes = "1/1Could not allocate AVFilterContextNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False..?add_notecan only AudioFrame, VideoFrame or None; got can only auto-pull with single sink; found disableenablefilter must be a string or Filtergcgraph not configuredisenabledmissing abuffersink filtermissing formatmissing heightmissing layout or channelsmissing sample_ratemissing time_base. Guessing 1/1000 time base. This is deprecated and may be removed in future releases.missing widthno default __reduce__ due to non-trivial __cinit___FractionGraph__Pyx_PyDict_NextRefabufferabuffersinkaddappendargsauto_bufferbufferbuffersinkchannel_layoutchannelscline_in_tracebackconfigurefilterforceformatfractionsframeframe_sizeget__getstate__heightinititemslayoutlink_to__main____module__name__name__pix_fmtpixel_aspectpoppullpush__pyx_state__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex__sample_fmtsample_rate__set_name__setdefault__setstate____setstate_cython__template__test__time_basevaluesvideo_sizewarnwarningswidthxzipint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_10dictionary_Dictionary *(AVDictionary *)\000wrap_dictionarystruct __pyx_obj_2av_6filter_6filter_Filter *(struct AVFilter const *)\000wrap_filterstruct __pyx_obj_2av_6filter_7context_FilterContext *(struct __pyx_obj_2av_6filter_5graph_Graph *, struct __pyx_obj_2av_6filter_6filter_Filter *, struct AVFilterContext *)\000wrap_filter_context";
+    #else /* compression: none (1666 bytes) */
+const char* const bytes = "1/1Cannot change threads after filters have been added.Could not allocate AVFilterContextNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False..?add_notecan only AudioFrame, VideoFrame or None; got can only auto-pull with single sink; found disableenablefilter must be a string or Filtergcgraph not configuredisenabledmissing abuffersink filtermissing formatmissing heightmissing layout or channelsmissing sample_ratemissing time_base. Guessing 1/1000 time base. This is deprecated and may be removed in future releases.missing widthno default __reduce__ due to non-trivial __cinit___FractionGraph__Pyx_PyDict_NextRefabufferabuffersinkaddappendargsauto_bufferbufferbuffersinkchannel_layoutchannelscline_in_tracebackconfigurefilterforceformatfractionsframeframe_sizeget__getstate__heightinititemslayoutlink_to__main____module__name__name__pix_fmtpixel_aspectpoppullpush__pyx_state__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex__sample_fmtsample_rate__set_name__setdefault__setstate____setstate_cython__template__test__time_basevaluesvideo_sizewarnwarningswidthxzipint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_10dictionary_Dictionary *(AVDictionary *)\000wrap_dictionarystruct __pyx_obj_2av_6filter_6filter_Filter *(struct AVFilter const *)\000wrap_filterstruct __pyx_obj_2av_6filter_7context_FilterContext *(struct __pyx_obj_2av_6filter_5graph_Graph *, struct __pyx_obj_2av_6filter_6filter_Filter *, struct AVFilterContext *)\000wrap_filter_context";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 82; i++) {
+    for (int i = 0; i < 83; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
-      if (likely(string) && i >= 22) PyUnicode_InternInPlace(&string);
+      if (likely(string) && i >= 23) PyUnicode_InternInPlace(&string);
       if (unlikely(!string)) {
         Py_XDECREF(data);
         __PYX_ERR(0, 1, __pyx_L1_error)
@@ -10077,7 +10140,7 @@ const char* const bytes = "1/1Could not allocate AVFilterContextNote that Cython
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 82; i < 86; i++) {
+    for (int i = 83; i < 87; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -10088,14 +10151,14 @@ const char* const bytes = "1/1Could not allocate AVFilterContextNote that Cython
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 86; i++) {
+    for (Py_ssize_t i = 0; i < 87; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 82;
+      PyObject **table = stringtab + 83;
       for (Py_ssize_t i=0; i<4; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
@@ -10953,6 +11016,114 @@ static void __Pyx_RejectKeywords(const char* function_name, PyObject *kwds) {
     }
 }
 
+/* RaiseException */
+static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause) {
+    PyObject* owned_instance = NULL;
+    if (tb == Py_None) {
+        tb = 0;
+    } else if (tb && !PyTraceBack_Check(tb)) {
+        PyErr_SetString(PyExc_TypeError,
+            "raise: arg 3 must be a traceback or None");
+        goto bad;
+    }
+    if (value == Py_None)
+        value = 0;
+    if (PyExceptionInstance_Check(type)) {
+        if (value) {
+            PyErr_SetString(PyExc_TypeError,
+                "instance exception may not have a separate value");
+            goto bad;
+        }
+        value = type;
+        type = (PyObject*) Py_TYPE(value);
+    } else if (PyExceptionClass_Check(type)) {
+        PyObject *instance_class = NULL;
+        if (value && PyExceptionInstance_Check(value)) {
+            instance_class = (PyObject*) Py_TYPE(value);
+            if (instance_class != type) {
+                int is_subclass = PyObject_IsSubclass(instance_class, type);
+                if (!is_subclass) {
+                    instance_class = NULL;
+                } else if (unlikely(is_subclass == -1)) {
+                    goto bad;
+                } else {
+                    type = instance_class;
+                }
+            }
+        }
+        if (!instance_class) {
+            PyObject *args;
+            if (!value)
+                args = PyTuple_New(0);
+            else if (PyTuple_Check(value)) {
+                Py_INCREF(value);
+                args = value;
+            } else
+                args = PyTuple_Pack(1, value);
+            if (!args)
+                goto bad;
+            owned_instance = PyObject_Call(type, args, NULL);
+            Py_DECREF(args);
+            if (!owned_instance)
+                goto bad;
+            value = owned_instance;
+            if (!PyExceptionInstance_Check(value)) {
+                PyErr_Format(PyExc_TypeError,
+                             "calling %R should have returned an instance of "
+                             "BaseException, not %R",
+                             type, Py_TYPE(value));
+                goto bad;
+            }
+        }
+    } else {
+        PyErr_SetString(PyExc_TypeError,
+            "raise: exception class must be a subclass of BaseException");
+        goto bad;
+    }
+    if (cause) {
+        PyObject *fixed_cause;
+        if (cause == Py_None) {
+            fixed_cause = NULL;
+        } else if (PyExceptionClass_Check(cause)) {
+            fixed_cause = PyObject_CallObject(cause, NULL);
+            if (fixed_cause == NULL)
+                goto bad;
+        } else if (PyExceptionInstance_Check(cause)) {
+            fixed_cause = cause;
+            Py_INCREF(fixed_cause);
+        } else {
+            PyErr_SetString(PyExc_TypeError,
+                            "exception causes must derive from "
+                            "BaseException");
+            goto bad;
+        }
+        PyException_SetCause(value, fixed_cause);
+    }
+    PyErr_SetObject(type, value);
+    if (tb) {
+#if PY_VERSION_HEX >= 0x030C00A6
+        PyException_SetTraceback(value, tb);
+#elif CYTHON_FAST_THREAD_STATE
+        PyThreadState *tstate = __Pyx_PyThreadState_Current;
+        PyObject* tmp_tb = tstate->curexc_traceback;
+        if (tb != tmp_tb) {
+            Py_INCREF(tb);
+            tstate->curexc_traceback = tb;
+            Py_XDECREF(tmp_tb);
+        }
+#else
+        PyObject *tmp_type, *tmp_value, *tmp_tb;
+        PyErr_Fetch(&tmp_type, &tmp_value, &tmp_tb);
+        Py_INCREF(tb);
+        PyErr_Restore(tmp_type, tmp_value, tb);
+        Py_XDECREF(tmp_tb);
+#endif
+    }
+bad:
+    Py_XDECREF(owned_instance);
+    return;
+}
+
 /* PyObjectCall2Args (used by CallUnboundCMethod1) */
 static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2) {
     PyObject *args[3] = {NULL, arg1, arg2};
@@ -11285,6 +11456,17 @@ bad:
     Py_DECREF(value_tuple);
     return result;
 #endif
+}
+
+/* RaiseUnexpectedTypeError */
+static int
+__Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj)
+{
+    __Pyx_TypeName obj_type_name = __Pyx_PyType_GetFullyQualifiedName(Py_TYPE(obj));
+    PyErr_Format(PyExc_TypeError, "Expected %s, got " __Pyx_FMT_TYPENAME,
+                 expected, obj_type_name);
+    __Pyx_DECREF_TypeName(obj_type_name);
+    return 0;
 }
 
 /* PyDictVersioning */
@@ -11822,114 +12004,6 @@ static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type) {
     return 0;
 }
 
-/* RaiseException */
-static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause) {
-    PyObject* owned_instance = NULL;
-    if (tb == Py_None) {
-        tb = 0;
-    } else if (tb && !PyTraceBack_Check(tb)) {
-        PyErr_SetString(PyExc_TypeError,
-            "raise: arg 3 must be a traceback or None");
-        goto bad;
-    }
-    if (value == Py_None)
-        value = 0;
-    if (PyExceptionInstance_Check(type)) {
-        if (value) {
-            PyErr_SetString(PyExc_TypeError,
-                "instance exception may not have a separate value");
-            goto bad;
-        }
-        value = type;
-        type = (PyObject*) Py_TYPE(value);
-    } else if (PyExceptionClass_Check(type)) {
-        PyObject *instance_class = NULL;
-        if (value && PyExceptionInstance_Check(value)) {
-            instance_class = (PyObject*) Py_TYPE(value);
-            if (instance_class != type) {
-                int is_subclass = PyObject_IsSubclass(instance_class, type);
-                if (!is_subclass) {
-                    instance_class = NULL;
-                } else if (unlikely(is_subclass == -1)) {
-                    goto bad;
-                } else {
-                    type = instance_class;
-                }
-            }
-        }
-        if (!instance_class) {
-            PyObject *args;
-            if (!value)
-                args = PyTuple_New(0);
-            else if (PyTuple_Check(value)) {
-                Py_INCREF(value);
-                args = value;
-            } else
-                args = PyTuple_Pack(1, value);
-            if (!args)
-                goto bad;
-            owned_instance = PyObject_Call(type, args, NULL);
-            Py_DECREF(args);
-            if (!owned_instance)
-                goto bad;
-            value = owned_instance;
-            if (!PyExceptionInstance_Check(value)) {
-                PyErr_Format(PyExc_TypeError,
-                             "calling %R should have returned an instance of "
-                             "BaseException, not %R",
-                             type, Py_TYPE(value));
-                goto bad;
-            }
-        }
-    } else {
-        PyErr_SetString(PyExc_TypeError,
-            "raise: exception class must be a subclass of BaseException");
-        goto bad;
-    }
-    if (cause) {
-        PyObject *fixed_cause;
-        if (cause == Py_None) {
-            fixed_cause = NULL;
-        } else if (PyExceptionClass_Check(cause)) {
-            fixed_cause = PyObject_CallObject(cause, NULL);
-            if (fixed_cause == NULL)
-                goto bad;
-        } else if (PyExceptionInstance_Check(cause)) {
-            fixed_cause = cause;
-            Py_INCREF(fixed_cause);
-        } else {
-            PyErr_SetString(PyExc_TypeError,
-                            "exception causes must derive from "
-                            "BaseException");
-            goto bad;
-        }
-        PyException_SetCause(value, fixed_cause);
-    }
-    PyErr_SetObject(type, value);
-    if (tb) {
-#if PY_VERSION_HEX >= 0x030C00A6
-        PyException_SetTraceback(value, tb);
-#elif CYTHON_FAST_THREAD_STATE
-        PyThreadState *tstate = __Pyx_PyThreadState_Current;
-        PyObject* tmp_tb = tstate->curexc_traceback;
-        if (tb != tmp_tb) {
-            Py_INCREF(tb);
-            tstate->curexc_traceback = tb;
-            Py_XDECREF(tmp_tb);
-        }
-#else
-        PyObject *tmp_type, *tmp_value, *tmp_tb;
-        PyErr_Fetch(&tmp_type, &tmp_value, &tmp_tb);
-        Py_INCREF(tb);
-        PyErr_Restore(tmp_type, tmp_value, tb);
-        Py_XDECREF(tmp_tb);
-#endif
-    }
-bad:
-    Py_XDECREF(owned_instance);
-    return;
-}
-
 /* py_dict_pop */
 static CYTHON_INLINE PyObject *__Pyx_PyDict_Pop(PyObject *d, PyObject *key, PyObject *default_value) {
 #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030d00A2 || defined(PyDict_Pop)
@@ -11952,17 +12026,6 @@ static CYTHON_INLINE PyObject *__Pyx_PyDict_Pop(PyObject *d, PyObject *key, PyOb
         return __Pyx_CallUnboundCMethod1(&__pyx_mstate_global->__pyx_umethod_PyDict_Type_pop, d, key);
     }
 #endif
-}
-
-/* RaiseUnexpectedTypeError */
-static int
-__Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj)
-{
-    __Pyx_TypeName obj_type_name = __Pyx_PyType_GetFullyQualifiedName(Py_TYPE(obj));
-    PyErr_Format(PyExc_TypeError, "Expected %s, got " __Pyx_FMT_TYPENAME,
-                 expected, obj_type_name);
-    __Pyx_DECREF_TypeName(obj_type_name);
-    return 0;
 }
 
 /* PyObjectGetMethod (used by PyObjectCallMethod1) */
@@ -14241,144 +14304,6 @@ bad:
         return (target_type) value;\
     }
 
-/* CIntToPy */
-static CYTHON_INLINE PyObject* __Pyx_PyLong_From_long(long value) {
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wconversion"
-#endif
-    const long neg_one = (long) -1, const_zero = (long) 0;
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic pop
-#endif
-    const int is_unsigned = neg_one > const_zero;
-    if (is_unsigned) {
-        if (sizeof(long) < sizeof(long)) {
-            return PyLong_FromLong((long) value);
-        } else if (sizeof(long) <= sizeof(unsigned long)) {
-            return PyLong_FromUnsignedLong((unsigned long) value);
-#if !CYTHON_COMPILING_IN_PYPY
-        } else if (sizeof(long) <= sizeof(unsigned PY_LONG_LONG)) {
-            return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
-#endif
-        }
-    } else {
-        if (sizeof(long) <= sizeof(long)) {
-            return PyLong_FromLong((long) value);
-        } else if (sizeof(long) <= sizeof(PY_LONG_LONG)) {
-            return PyLong_FromLongLong((PY_LONG_LONG) value);
-        }
-    }
-    {
-        unsigned char *bytes = (unsigned char *)&value;
-#if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00A4
-        if (is_unsigned) {
-            return PyLong_FromUnsignedNativeBytes(bytes, sizeof(value), -1);
-        } else {
-            return PyLong_FromNativeBytes(bytes, sizeof(value), -1);
-        }
-#elif !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX < 0x030d0000
-        int one = 1; int little = (int)*(unsigned char *)&one;
-        return _PyLong_FromByteArray(bytes, sizeof(long),
-                                     little, !is_unsigned);
-#else
-        int one = 1; int little = (int)*(unsigned char *)&one;
-        PyObject *from_bytes, *result = NULL, *kwds = NULL;
-        PyObject *py_bytes = NULL, *order_str = NULL;
-        from_bytes = PyObject_GetAttrString((PyObject*)&PyLong_Type, "from_bytes");
-        if (!from_bytes) return NULL;
-        py_bytes = PyBytes_FromStringAndSize((char*)bytes, sizeof(long));
-        if (!py_bytes) goto limited_bad;
-        order_str = PyUnicode_FromString(little ? "little" : "big");
-        if (!order_str) goto limited_bad;
-        {
-            PyObject *args[3+(CYTHON_VECTORCALL ? 1 : 0)] = { NULL, py_bytes, order_str };
-            if (!is_unsigned) {
-                kwds = __Pyx_MakeVectorcallBuilderKwds(1);
-                if (!kwds) goto limited_bad;
-                if (__Pyx_VectorcallBuilder_AddArgStr("signed", __Pyx_NewRef(Py_True), kwds, args+3, 0) < 0) goto limited_bad;
-            }
-            result = __Pyx_Object_Vectorcall_CallFromBuilder(from_bytes, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET, kwds);
-        }
-        limited_bad:
-        Py_XDECREF(kwds);
-        Py_XDECREF(order_str);
-        Py_XDECREF(py_bytes);
-        Py_XDECREF(from_bytes);
-        return result;
-#endif
-    }
-}
-
-/* CIntToPy */
-static CYTHON_INLINE PyObject* __Pyx_PyLong_From_int(int value) {
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wconversion"
-#endif
-    const int neg_one = (int) -1, const_zero = (int) 0;
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic pop
-#endif
-    const int is_unsigned = neg_one > const_zero;
-    if (is_unsigned) {
-        if (sizeof(int) < sizeof(long)) {
-            return PyLong_FromLong((long) value);
-        } else if (sizeof(int) <= sizeof(unsigned long)) {
-            return PyLong_FromUnsignedLong((unsigned long) value);
-#if !CYTHON_COMPILING_IN_PYPY
-        } else if (sizeof(int) <= sizeof(unsigned PY_LONG_LONG)) {
-            return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
-#endif
-        }
-    } else {
-        if (sizeof(int) <= sizeof(long)) {
-            return PyLong_FromLong((long) value);
-        } else if (sizeof(int) <= sizeof(PY_LONG_LONG)) {
-            return PyLong_FromLongLong((PY_LONG_LONG) value);
-        }
-    }
-    {
-        unsigned char *bytes = (unsigned char *)&value;
-#if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00A4
-        if (is_unsigned) {
-            return PyLong_FromUnsignedNativeBytes(bytes, sizeof(value), -1);
-        } else {
-            return PyLong_FromNativeBytes(bytes, sizeof(value), -1);
-        }
-#elif !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX < 0x030d0000
-        int one = 1; int little = (int)*(unsigned char *)&one;
-        return _PyLong_FromByteArray(bytes, sizeof(int),
-                                     little, !is_unsigned);
-#else
-        int one = 1; int little = (int)*(unsigned char *)&one;
-        PyObject *from_bytes, *result = NULL, *kwds = NULL;
-        PyObject *py_bytes = NULL, *order_str = NULL;
-        from_bytes = PyObject_GetAttrString((PyObject*)&PyLong_Type, "from_bytes");
-        if (!from_bytes) return NULL;
-        py_bytes = PyBytes_FromStringAndSize((char*)bytes, sizeof(int));
-        if (!py_bytes) goto limited_bad;
-        order_str = PyUnicode_FromString(little ? "little" : "big");
-        if (!order_str) goto limited_bad;
-        {
-            PyObject *args[3+(CYTHON_VECTORCALL ? 1 : 0)] = { NULL, py_bytes, order_str };
-            if (!is_unsigned) {
-                kwds = __Pyx_MakeVectorcallBuilderKwds(1);
-                if (!kwds) goto limited_bad;
-                if (__Pyx_VectorcallBuilder_AddArgStr("signed", __Pyx_NewRef(Py_True), kwds, args+3, 0) < 0) goto limited_bad;
-            }
-            result = __Pyx_Object_Vectorcall_CallFromBuilder(from_bytes, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET, kwds);
-        }
-        limited_bad:
-        Py_XDECREF(kwds);
-        Py_XDECREF(order_str);
-        Py_XDECREF(py_bytes);
-        Py_XDECREF(from_bytes);
-        return result;
-#endif
-    }
-}
-
 /* CIntFromPy */
 static CYTHON_INLINE int __Pyx_PyLong_As_int(PyObject *x) {
 #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
@@ -14627,6 +14552,144 @@ raise_neg_overflow:
     PyErr_SetString(PyExc_OverflowError,
         "can't convert negative value to int");
     return (int) -1;
+}
+
+/* CIntToPy */
+static CYTHON_INLINE PyObject* __Pyx_PyLong_From_int(int value) {
+#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#endif
+    const int neg_one = (int) -1, const_zero = (int) 0;
+#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
+#pragma GCC diagnostic pop
+#endif
+    const int is_unsigned = neg_one > const_zero;
+    if (is_unsigned) {
+        if (sizeof(int) < sizeof(long)) {
+            return PyLong_FromLong((long) value);
+        } else if (sizeof(int) <= sizeof(unsigned long)) {
+            return PyLong_FromUnsignedLong((unsigned long) value);
+#if !CYTHON_COMPILING_IN_PYPY
+        } else if (sizeof(int) <= sizeof(unsigned PY_LONG_LONG)) {
+            return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
+#endif
+        }
+    } else {
+        if (sizeof(int) <= sizeof(long)) {
+            return PyLong_FromLong((long) value);
+        } else if (sizeof(int) <= sizeof(PY_LONG_LONG)) {
+            return PyLong_FromLongLong((PY_LONG_LONG) value);
+        }
+    }
+    {
+        unsigned char *bytes = (unsigned char *)&value;
+#if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00A4
+        if (is_unsigned) {
+            return PyLong_FromUnsignedNativeBytes(bytes, sizeof(value), -1);
+        } else {
+            return PyLong_FromNativeBytes(bytes, sizeof(value), -1);
+        }
+#elif !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX < 0x030d0000
+        int one = 1; int little = (int)*(unsigned char *)&one;
+        return _PyLong_FromByteArray(bytes, sizeof(int),
+                                     little, !is_unsigned);
+#else
+        int one = 1; int little = (int)*(unsigned char *)&one;
+        PyObject *from_bytes, *result = NULL, *kwds = NULL;
+        PyObject *py_bytes = NULL, *order_str = NULL;
+        from_bytes = PyObject_GetAttrString((PyObject*)&PyLong_Type, "from_bytes");
+        if (!from_bytes) return NULL;
+        py_bytes = PyBytes_FromStringAndSize((char*)bytes, sizeof(int));
+        if (!py_bytes) goto limited_bad;
+        order_str = PyUnicode_FromString(little ? "little" : "big");
+        if (!order_str) goto limited_bad;
+        {
+            PyObject *args[3+(CYTHON_VECTORCALL ? 1 : 0)] = { NULL, py_bytes, order_str };
+            if (!is_unsigned) {
+                kwds = __Pyx_MakeVectorcallBuilderKwds(1);
+                if (!kwds) goto limited_bad;
+                if (__Pyx_VectorcallBuilder_AddArgStr("signed", __Pyx_NewRef(Py_True), kwds, args+3, 0) < 0) goto limited_bad;
+            }
+            result = __Pyx_Object_Vectorcall_CallFromBuilder(from_bytes, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET, kwds);
+        }
+        limited_bad:
+        Py_XDECREF(kwds);
+        Py_XDECREF(order_str);
+        Py_XDECREF(py_bytes);
+        Py_XDECREF(from_bytes);
+        return result;
+#endif
+    }
+}
+
+/* CIntToPy */
+static CYTHON_INLINE PyObject* __Pyx_PyLong_From_long(long value) {
+#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#endif
+    const long neg_one = (long) -1, const_zero = (long) 0;
+#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
+#pragma GCC diagnostic pop
+#endif
+    const int is_unsigned = neg_one > const_zero;
+    if (is_unsigned) {
+        if (sizeof(long) < sizeof(long)) {
+            return PyLong_FromLong((long) value);
+        } else if (sizeof(long) <= sizeof(unsigned long)) {
+            return PyLong_FromUnsignedLong((unsigned long) value);
+#if !CYTHON_COMPILING_IN_PYPY
+        } else if (sizeof(long) <= sizeof(unsigned PY_LONG_LONG)) {
+            return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
+#endif
+        }
+    } else {
+        if (sizeof(long) <= sizeof(long)) {
+            return PyLong_FromLong((long) value);
+        } else if (sizeof(long) <= sizeof(PY_LONG_LONG)) {
+            return PyLong_FromLongLong((PY_LONG_LONG) value);
+        }
+    }
+    {
+        unsigned char *bytes = (unsigned char *)&value;
+#if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00A4
+        if (is_unsigned) {
+            return PyLong_FromUnsignedNativeBytes(bytes, sizeof(value), -1);
+        } else {
+            return PyLong_FromNativeBytes(bytes, sizeof(value), -1);
+        }
+#elif !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX < 0x030d0000
+        int one = 1; int little = (int)*(unsigned char *)&one;
+        return _PyLong_FromByteArray(bytes, sizeof(long),
+                                     little, !is_unsigned);
+#else
+        int one = 1; int little = (int)*(unsigned char *)&one;
+        PyObject *from_bytes, *result = NULL, *kwds = NULL;
+        PyObject *py_bytes = NULL, *order_str = NULL;
+        from_bytes = PyObject_GetAttrString((PyObject*)&PyLong_Type, "from_bytes");
+        if (!from_bytes) return NULL;
+        py_bytes = PyBytes_FromStringAndSize((char*)bytes, sizeof(long));
+        if (!py_bytes) goto limited_bad;
+        order_str = PyUnicode_FromString(little ? "little" : "big");
+        if (!order_str) goto limited_bad;
+        {
+            PyObject *args[3+(CYTHON_VECTORCALL ? 1 : 0)] = { NULL, py_bytes, order_str };
+            if (!is_unsigned) {
+                kwds = __Pyx_MakeVectorcallBuilderKwds(1);
+                if (!kwds) goto limited_bad;
+                if (__Pyx_VectorcallBuilder_AddArgStr("signed", __Pyx_NewRef(Py_True), kwds, args+3, 0) < 0) goto limited_bad;
+            }
+            result = __Pyx_Object_Vectorcall_CallFromBuilder(from_bytes, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET, kwds);
+        }
+        limited_bad:
+        Py_XDECREF(kwds);
+        Py_XDECREF(order_str);
+        Py_XDECREF(py_bytes);
+        Py_XDECREF(from_bytes);
+        return result;
+#endif
+    }
 }
 
 /* CIntFromPy */

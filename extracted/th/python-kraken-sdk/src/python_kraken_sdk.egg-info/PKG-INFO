@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-kraken-sdk
-Version: 3.2.7
+Version: 3.2.8
 Summary: Command-line tool and collection of REST and websocket clients to interact with the Kraken Crypto Asset Exchange.
 Author-email: Benjamin Thomas Schwertfeger <contact@b-schwertfeger.de>
 Maintainer-email: Benjamin Thomas Schwertfeger <contact@b-schwertfeger.de>
@@ -19,6 +19,7 @@ Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Office/Business :: Financial :: Investment

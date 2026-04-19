@@ -1,7 +1,7 @@
 /*
  * Open Chinese Convert
  *
- * Copyright 2020 Carbo Kuo <byvoid@byvoid.com>
+ * Copyright 2020-2026 Carbo Kuo and contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,14 +92,23 @@ std::shared_ptr<SerializedValues> SerializedValues::NewFromFile(FILE* fp) {
 
   // Offsets
   const char* pValueBuffer = valueBuffer.c_str();
+  const char* pValueBufferEnd = pValueBuffer + valueTotalLength;
   for (uint32_t i = 0; i < numItems; i++) {
     // Number of values
     uint16_t numValues = ReadInteger<uint16_t>(fp);
     // Value offset
     std::vector<std::string> values;
     for (uint16_t j = 0; j < numValues; j++) {
-      const char* value = pValueBuffer;
       uint16_t numValueBytes = ReadInteger<uint16_t>(fp);
+      if (numValueBytes == 0 || pValueBuffer + numValueBytes > pValueBufferEnd) {
+        throw InvalidFormat(
+            "Invalid OpenCC binary dictionary (value offset out of bounds)");
+      }
+      if (pValueBuffer[numValueBytes - 1] != '\0') {
+        throw InvalidFormat(
+            "Invalid OpenCC binary dictionary (value not null-terminated)");
+      }
+      const char* value = pValueBuffer;
       pValueBuffer += numValueBytes;
       values.push_back(value);
     }
@@ -123,7 +132,7 @@ void SerializedValues::ConstructBuffer(std::string* valueBuffer,
   }
   // Write values to the buffer.
   valueBuffer->resize(*valueTotalLength, '\0');
-  char* pValueBuffer = const_cast<char*>(valueBuffer->c_str());
+  char* pValueBuffer = valueBuffer->data();
   for (const std::unique_ptr<DictEntry>& entry : *lexicon) {
     for (const auto& value : entry->Values()) {
       strcpy(pValueBuffer, value.c_str());
@@ -131,5 +140,5 @@ void SerializedValues::ConstructBuffer(std::string* valueBuffer,
       pValueBuffer += value.length() + 1;
     }
   }
-  assert(valueBuffer->c_str() + *valueTotalLength == pValueBuffer);
+  assert(valueBuffer->data() + *valueTotalLength == pValueBuffer);
 }

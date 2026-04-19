@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from plato._generated.models import (
     EnvFromArtifact,
@@ -39,6 +39,10 @@ class LLMConfig(BaseModel):
         temperature: Default sampling temperature (None = provider default)
         concurrency: Max concurrent requests for this model (0 = unlimited).
             The limit is enforced per (model, api_base) pair globally in acompletion.
+        litellm_kwargs: Extra kwargs passed through to LiteLLM on every request.
+            Per-call kwargs override these defaults.
+        emit_input_span: When true, attach the full structured input messages
+            payload to emitted ATIF spans.
     """
 
     model: str
@@ -47,6 +51,8 @@ class LLMConfig(BaseModel):
     max_tokens: int = 4096
     temperature: float | None = None
     concurrency: int = 0
+    litellm_kwargs: dict[str, JsonValue] = Field(default_factory=dict)
+    emit_input_span: bool = False
 
 
 class DevConfig(BaseModel):

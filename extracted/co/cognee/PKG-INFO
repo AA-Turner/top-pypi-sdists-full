@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cognee
-Version: 1.0.0
+Version: 1.0.1
 Summary: Cognee - is a library for enriching LLM context with a semantic layer for better understanding and reasoning.
 Project-URL: Homepage, https://www.cognee.ai
 Project-URL: Repository, https://github.com/topoteretes/cognee
@@ -104,6 +104,7 @@ Requires-Dist: transformers>=4.55; extra == 'docling'
 Provides-Extra: docs
 Requires-Dist: lxml<5,>=4.9.3; (python_version < '3.13') and extra == 'docs'
 Requires-Dist: lxml<6,>=5; (python_version >= '3.13') and extra == 'docs'
+Requires-Dist: nltk<4,>=3.9.3; extra == 'docs'
 Requires-Dist: unstructured[csv,doc,docx,epub,md,odt,org,pdf,ppt,pptx,rst,rtf,tsv,xlsx]<19,>=0.18.1; extra == 'docs'
 Provides-Extra: evals
 Requires-Dist: gdown<6,>=5.2.0; extra == 'evals'
@@ -127,7 +128,7 @@ Requires-Dist: langsmith<1.0.0,>=0.2.3; extra == 'langchain'
 Provides-Extra: llama-cpp
 Requires-Dist: llama-cpp-python[server]<1.0.0,>=0.3.0; extra == 'llama-cpp'
 Provides-Extra: llama-index
-Requires-Dist: llama-index-core<0.14,>=0.13.0; extra == 'llama-index'
+Requires-Dist: llama-index-core<0.15,>=0.14.20; extra == 'llama-index'
 Provides-Extra: mistral
 Requires-Dist: mistral-common<2,>=1.5.2; extra == 'mistral'
 Requires-Dist: mistralai<2,>=1.9.10; extra == 'mistral'
@@ -249,6 +250,11 @@ Cognee is an open-source knowledge engine that lets you ingest data in any forma
 
 :crab: _Available as a plugin for your OpenClaw — [cognee-openclaw](https://www.npmjs.com/package/@cognee/cognee-openclaw)_
 
+✴️ _Available as a plugin for your Claude Code — [claude-code-plugin](https://github.com/topoteretes/cognee-integrations/tree/main/integrations/claude-code)_
+
+
+Cognee memory plugin
+
 
 ### Why use Cognee:
 
@@ -347,7 +353,7 @@ cognee-cli -ui
 
 ### Claude Code
 
-Install the [Cognee memory plugin](https://github.com/topoteretes/cognee-integrations/tree/feat/claude-code-v2/integrations/claude-code) to give Claude Code persistent memory across sessions. The plugin automatically captures tool calls into session memory via hooks and syncs to the permanent knowledge graph at session end.
+Install the [Cognee memory plugin](https://github.com/topoteretes/cognee-integrations/tree/main/integrations/claude-code) to give Claude Code persistent memory across sessions. The plugin automatically captures tool calls into session memory via hooks and syncs to the permanent knowledge graph at session end.
 
 **Setup:**
 
@@ -357,7 +363,6 @@ pip install cognee
 
 # Configure
 export LLM_API_KEY="your-openai-key"
-export CACHING=true
 
 # Clone the plugin
 git clone https://github.com/topoteretes/cognee-integrations.git
@@ -394,7 +399,6 @@ hermes  # start chatting — session memory and graph persistence are automatic
 
 Or run `hermes memory setup` and select Cognee. For Cognee Cloud, set `COGNEE_SERVICE_URL` and `COGNEE_API_KEY` in `~/.hermes/.env`.
 
-Each conversation turn is stored in the session cache. When the session ends, `improve()` bridges session data into the permanent knowledge graph — applying feedback weights, persisting Q&A, enriching triplet embeddings, and syncing the graph back to the session cache.
 
 ### Connect to Cognee Cloud
 

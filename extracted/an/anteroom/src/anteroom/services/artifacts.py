@@ -32,6 +32,8 @@ class ArtifactType(str, enum.Enum):
     MCP_SERVER = "mcp_server"
     CONFIG_OVERLAY = "config_overlay"
     SPEC = "spec"
+    WORKFLOW_TEMPLATE = "workflow_template"
+    POLICY = "policy"
 
 
 class ArtifactSource(str, enum.Enum):

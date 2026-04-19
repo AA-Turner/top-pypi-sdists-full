@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ciris-verify
-Version: 1.5.6
+Version: 1.5.10
 Summary: Python bindings for CIRISVerify hardware-rooted license verification
 Author-email: CIRIS Engineering <engineering@ciris.ai>
 License-Expression: AGPL-3.0-or-later

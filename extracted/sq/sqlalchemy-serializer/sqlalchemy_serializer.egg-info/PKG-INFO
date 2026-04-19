@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy-serializer
-Version: 1.6.2
+Version: 1.6.3
 Summary: Mixin for SQLAlchemy models serialization without pain
 Author-email: "yuri.boiko" <yuri.boiko.dev@gmail.com>
 License: MIT
@@ -12,17 +12,17 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: SQLAlchemy<3.0.0,>=2.0.29
+Requires-Dist: SQLAlchemy<3.0.0,>=2.0.49
 Requires-Dist: psycopg2-binary==2.9.11
-Requires-Dist: pytz>=2025.2
-Requires-Dist: setuptools>=80.9.0
+Requires-Dist: pytz>=2026.1.post1
+Requires-Dist: setuptools>=82.0.1
 Dynamic: license-file
 
 # SQLAlchemy-serializer
 Mixin for SQLAlchemy models serialization without pain.
 
 If you want to serialize SQLAlchemy model instances with only one line of code,
-and tools like `marshmallow` seems to be redundant and too complex for such a simple task,
+and tools like `marshmallow` seem to be redundant and too complex for such a simple task,
 this mixin definitely suits you.
 
 **Contents**
@@ -77,8 +77,6 @@ class SomeModel(db.Model, SerializerMixin):
 
 **Modern SQLAlchemy 2.0 style (also fully supported):**
 ```python
-from __future__ import annotations
-
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_serializer import SerializerMixin
 
@@ -125,7 +123,7 @@ If you want to get exact fields:
 
 result = item.to_dict(only=('non_sql_field', 'method', 'somefield'))
 ```
-**Note** that if ***somefield*** is an SQLAlchemy instance, you get all it's
+**Note** that if ***somefield*** is an SQLAlchemy instance, you get all its
 serializable fields. So if you want to get only some of them, you should define it like below:
 ```python
 
@@ -167,7 +165,7 @@ If you want to apply custom serialization logic to specific columns:
 result = item.to_dict(serialize_columns={
     'password': lambda v: '***' if v else None,
     'email': lambda v: v.lower() if v else None,
-    'id': lambda v: str(v),
+    'id': str,
 })
 
 # Set default for all instances of a model
@@ -196,7 +194,7 @@ class SomeModel(db.Model, SerializerMixin):
 result = item.to_dict()
 ```
 So the `result` in this case will be `{'somefield': [{'id': some_id}]}`
-***serialize_only***, ***serialize_rules***, ***exclude_values***, and ***serialize_columns*** work the same way as ***to_dict's*** arguments
+***serialize_only***, ***serialize_rules***, ***exclude_values***, and ***serialize_columns*** work the same way as ***to_dict*** arguments
 
 
 # Advanced usage
@@ -436,10 +434,6 @@ class Point(Base, SerializerMixin):
     position = Column(Geometry('POINT'))
 ```
 
-Unfortunately you cannot access formats or tzinfo in that functions.
-I'll implement this logic later if any of users needs it.
-
-
 # Timezones
 To keep `datetimes` consistent it is better to store it in the database normalized to **UTC**.
 But when you return response, sometimes (mostly in web, mobile applications can do it themselves)
@@ -450,7 +444,7 @@ There are two ways to do it:
 ```python
 import pytz
 
-item.to_dict(timezone=pytz.timezone('Europe/Moscow'))
+item.to_dict(tzinfo=pytz.timezone('Europe/Madrid'))
 ```
 - But if you do not want to write this code in every function, you should define
   timezone logic in your custom mixin (how to use customized mixin see [Custom formats](#Custom-formats))
@@ -521,7 +515,7 @@ class RelatedModel(Base, SerializerMixin):
 ```
 If for some reason you need the field `user` to be presented in `related_models` field.
 You can change `serialize_rules` to `('-related_models.user.related_models',)`
-To break the chain of serialisation a bit further.
+To break the chain of serialization a bit further.
 [Recursive models and trees](#Recursive-models-and-trees)
 
 ## Controversial rules
@@ -543,7 +537,7 @@ serialize_only = ('some_field')  # <--- WRONG it is actually not a tuple
 ```
 
 # Tests
-To run tests and see tests coverage report just type the following command:(docker and docker-compose should be installed on you local machine)
+To run tests and see tests coverage report just type the following command: (docker and docker-compose should be installed on your local machine)
 ```bash
 make test
 ```

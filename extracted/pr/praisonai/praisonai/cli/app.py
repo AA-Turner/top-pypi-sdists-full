@@ -18,13 +18,22 @@ def _setup_langfuse_observability(*, verbose: bool = False) -> None:
     try:
         from praisonai.observability.langfuse import LangfuseSink
         from praisonaiagents.trace.protocol import TraceEmitter, set_default_emitter
+        from praisonaiagents.trace.context_events import ContextTraceEmitter, set_context_emitter
+        import atexit
         
         # Create LangfuseSink (auto-reads env vars)
         sink = LangfuseSink()
         
-        # Set up action-level trace emitter (sufficient for Phase 1)
+        # Set up action-level trace emitter (covers RouterAgent / PlanningAgent)
         emitter = TraceEmitter(sink=sink, enabled=True)
         set_default_emitter(emitter)
+        
+        # Set up context-level trace emitter (captures Agent.start() lifecycle)
+        context_emitter = ContextTraceEmitter(sink=sink.context_sink(), enabled=True)
+        set_context_emitter(context_emitter)
+        
+        # Register atexit close for the sink
+        atexit.register(sink.close)
         
     except ImportError:
         # Gracefully degrade if Langfuse not installed
@@ -63,10 +72,23 @@ def _setup_langextract_observability(*, verbose: bool = False) -> None:
         # Ensure sink is closed on exit to write the trace file
         atexit.register(sink.close)
         
-        # Set up action-level trace emitter
+        # Set up action-level trace emitter (covers RouterAgent / PlanningAgent)
         emitter = TraceEmitter(sink=sink, enabled=True)
         set_default_emitter(emitter)
-        
+
+        # Bridge the context emitter so regular Agent.start / tool calls / LLM
+        # responses are captured as well.  Without this, typical single-agent
+        # flows produce an empty trace (no agent_start/end, no tool events).
+        def warn_handler(msg: str):
+            if verbose:
+                typer.echo(f"Warning: {msg}", err=True)
+                
+        LangextractSink.bridge_context_events(
+            sink=sink,
+            session_id="praisonai-cli",
+            warn_callback=warn_handler
+        )
+
     except ImportError:
         # Gracefully degrade if langextract not installed
         if verbose:
@@ -267,6 +289,8 @@ def register_commands():
     from .commands.lsp import app as lsp_app
     from .commands.diag import app as diag_app
     from .commands.doctor import app as doctor_app
+    from .commands.setup import app as setup_app
+    from .commands.onboard import app as onboard_app
     from .commands.obs import app as obs_app
     from .commands.acp import app as acp_app
     from .commands.mcp import app as mcp_app
@@ -346,6 +370,8 @@ def register_commands():
     app.add_typer(lsp_app, name="lsp", help="LSP service lifecycle")
     app.add_typer(diag_app, name="diag", help="Diagnostics export")
     app.add_typer(doctor_app, name="doctor", help="Health checks and diagnostics")
+    app.add_typer(setup_app, name="setup", help="Interactive onboarding / configuration wizard")
+    app.add_typer(onboard_app, name="onboard", help="Messaging bot onboarding wizard")
     app.add_typer(obs_app, name="obs", help="Observability diagnostics and management")
     app.add_typer(acp_app, name="acp", help="Agent Client Protocol server")
     app.add_typer(mcp_app, name="mcp", help="MCP server management")

@@ -43,34 +43,75 @@ class ServerStatus:
 
 
 class ServerManager:
-    """Manages a background Anteroom web server process."""
+    """Manages a background Anteroom server process.
 
-    def __init__(self, data_dir: Path, host: str = "127.0.0.1", port: int = 8080) -> None:
+    Parameterized by *service_name* so multiple services (e.g. the web UI and
+    the docs site) can coexist in the same ``data_dir`` with disjoint pid,
+    log, and progress files.
+
+    File layout:
+      - PID: ``{data_dir}/anteroom-{service_name}-{port}.pid``
+      - Log: ``{data_dir}/anteroom-{service_name}.log``
+      - Progress: ``{data_dir}/anteroom-{service_name}-{port}.progress``
+
+    ``bg_worker_flag`` is the hidden flag emitted into the subprocess argv
+    by :meth:`start_background`; the CLI re-dispatches on it.
+    """
+
+    def __init__(
+        self,
+        data_dir: Path,
+        host: str = "127.0.0.1",
+        port: int = 8080,
+        *,
+        service_name: str = "web",
+        bg_worker_flag: str = "--_bg-worker",
+    ) -> None:
         self.data_dir = data_dir
         self.host = host
         self.port = port
-        self.pid_path = data_dir / f"anteroom-{port}.pid"
-        self.progress_path = data_dir / f"anteroom-{port}.progress"
-        self.log_path = data_dir / "aroom.log"
+        self.service_name = service_name
+        self.bg_worker_flag = bg_worker_flag
+        self.pid_path = data_dir / f"anteroom-{service_name}-{port}.pid"
+        self.progress_path = data_dir / f"anteroom-{service_name}-{port}.progress"
+        self.log_path = data_dir / f"anteroom-{service_name}.log"
+        # Legacy PID path retained for a one-release fallback so web servers
+        # running at upgrade time are not orphaned. Only honoured for the
+        # default "web" service.
+        self._legacy_pid_path: Path | None = data_dir / f"anteroom-{port}.pid" if service_name == "web" else None
 
     # ------------------------------------------------------------------
     # PID file operations
     # ------------------------------------------------------------------
 
     def read_pid_info(self) -> dict | None:
-        """Read PID file and return parsed JSON, or None if missing/invalid."""
-        if not self.pid_path.exists():
-            return None
-        try:
-            text = self.pid_path.read_text().strip()
+        """Read PID file and return parsed JSON, or None if missing/invalid.
+
+        Falls back to the legacy ``anteroom-{port}.pid`` filename (pre-service-
+        name layout) for the default ``web`` service only, to avoid orphaning
+        servers that were started before the upgrade.
+        """
+        candidates: list[Path] = [self.pid_path]
+        if self._legacy_pid_path is not None:
+            candidates.append(self._legacy_pid_path)
+
+        for path in candidates:
+            if not path.exists():
+                continue
+            try:
+                text = path.read_text().strip()
+            except OSError:
+                continue
             if not text:
-                return None
-            info = json.loads(text)
+                continue
+            try:
+                info = json.loads(text)
+            except json.JSONDecodeError:
+                continue
             if not isinstance(info, dict) or "pid" not in info:
-                return None
+                continue
             return info
-        except (json.JSONDecodeError, OSError):
-            return None
+        return None
 
     def read_pid(self) -> int | None:
         """Return the PID from the PID file, or None."""
@@ -94,11 +135,16 @@ class ServerManager:
         self.pid_path.write_text(json.dumps(info) + "\n")
 
     def clear_pid(self) -> None:
-        """Remove the PID file if it exists."""
+        """Remove the PID file (and legacy fallback) if they exist."""
         try:
             self.pid_path.unlink(missing_ok=True)
         except OSError:
             pass
+        if self._legacy_pid_path is not None:
+            try:
+                self._legacy_pid_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     def clear_progress(self) -> None:
         """Remove the progress file if it exists."""
@@ -137,32 +183,76 @@ class ServerManager:
         except OSError:
             return False
 
+    @classmethod
+    def discover_pid_ports(cls, data_dir: Path, service_name: str) -> list[int]:
+        """Discover all ports that have PID files for a given service.
+
+        Scans ``data_dir`` for filenames matching
+        ``anteroom-{service_name}-{port}.pid`` and returns the sorted list of
+        port numbers. Non-integer segments are silently skipped. Returns ``[]``
+        when the directory is missing, unreadable, or has no matching files.
+        """
+        prefix = f"anteroom-{service_name}-"
+        suffix = ".pid"
+        ports: list[int] = []
+        try:
+            entries = list(data_dir.iterdir())
+        except OSError:
+            return []
+        for entry in entries:
+            name = entry.name
+            if not name.startswith(prefix) or not name.endswith(suffix):
+                continue
+            middle = name[len(prefix) : -len(suffix)]
+            try:
+                port = int(middle)
+            except ValueError:
+                continue
+            if 1 <= port <= 65535:
+                ports.append(port)
+        ports.sort()
+        return ports
+
     def get_status(self) -> ServerStatus:
-        """Build a status snapshot from PID file + liveness probes."""
+        """Build a status snapshot from PID file + liveness probes.
+
+        Host and port are preferred from the PID file (recorded at start) so
+        ``stop``/``status`` callers do not need to re-supply ``--host``. Falls
+        back to the instance attributes when the PID file omits those fields.
+        """
         info = self.read_pid_info()
         pid = None
         start_time = None
         alive = False
         responding = False
 
+        probe_host = self.host
+        probe_port = self.port
+
         if info is not None:
             pid = info.get("pid")
             raw_time = info.get("start_time")
             if isinstance(raw_time, (int, float)) and raw_time > 0:
                 start_time = float(raw_time)
+            info_host = info.get("host")
+            if isinstance(info_host, str) and info_host:
+                probe_host = info_host
+            info_port = info.get("port")
+            if isinstance(info_port, int) and 1 <= info_port <= 65535:
+                probe_port = info_port
             if isinstance(pid, int) and pid > 0:
                 alive = self.is_process_alive(pid)
                 if alive:
-                    responding = self.is_port_responding(self.host, self.port)
+                    responding = self.is_port_responding(probe_host, probe_port)
             else:
                 pid = None
 
         if not alive:
-            responding = self.is_port_responding(self.host, self.port)
+            responding = self.is_port_responding(probe_host, probe_port)
 
         return ServerStatus(
             pid=pid,
-            port=self.port,
+            port=probe_port,
             alive=alive,
             responding=responding,
             start_time=start_time,
@@ -204,7 +294,7 @@ class ServerManager:
             sys.executable,
             "-m",
             "anteroom",
-            "--_bg-worker",
+            self.bg_worker_flag,
             "--port",
             str(self.port),
         ]

@@ -37,14 +37,14 @@ class TestServerStatus:
 class TestServerManagerInit:
     def test_default_paths(self, tmp_path: Path) -> None:
         mgr = ServerManager(data_dir=tmp_path, host="127.0.0.1", port=8080)
-        assert mgr.pid_path == tmp_path / "anteroom-8080.pid"
-        assert mgr.log_path == tmp_path / "aroom.log"
+        assert mgr.pid_path == tmp_path / "anteroom-web-8080.pid"
+        assert mgr.log_path == tmp_path / "anteroom-web.log"
         assert mgr.host == "127.0.0.1"
         assert mgr.port == 8080
 
     def test_custom_port_in_pid_filename(self, tmp_path: Path) -> None:
         mgr = ServerManager(data_dir=tmp_path, port=9090)
-        assert mgr.pid_path == tmp_path / "anteroom-9090.pid"
+        assert mgr.pid_path == tmp_path / "anteroom-web-9090.pid"
 
     def test_defaults(self, tmp_path: Path) -> None:
         mgr = ServerManager(data_dir=tmp_path)
@@ -556,7 +556,7 @@ class TestTerminateWindows:
 class TestProgressFile:
     def test_progress_path_naming(self, tmp_path: Path) -> None:
         mgr = ServerManager(data_dir=tmp_path, port=9090)
-        assert mgr.progress_path == tmp_path / "anteroom-9090.progress"
+        assert mgr.progress_path == tmp_path / "anteroom-web-9090.progress"
 
     def test_clear_progress_removes_file(self, tmp_path: Path) -> None:
         mgr = ServerManager(data_dir=tmp_path)
@@ -616,3 +616,140 @@ class TestLogRotation:
         mgr.log_path.write_text("data")
         with patch.object(Path, "stat", side_effect=OSError("permission denied")):
             mgr._rotate_log()  # should not raise
+
+
+class TestServiceScopedFiles:
+    def test_default_service_is_web(self, tmp_path: Path) -> None:
+        mgr = ServerManager(data_dir=tmp_path, port=8080)
+        assert mgr.service_name == "web"
+        assert mgr.pid_path == tmp_path / "anteroom-web-8080.pid"
+        assert mgr.progress_path == tmp_path / "anteroom-web-8080.progress"
+        assert mgr.log_path == tmp_path / "anteroom-web.log"
+
+    def test_docs_service_produces_docs_paths(self, tmp_path: Path) -> None:
+        mgr = ServerManager(data_dir=tmp_path, port=8400, service_name="docs")
+        assert mgr.pid_path == tmp_path / "anteroom-docs-8400.pid"
+        assert mgr.progress_path == tmp_path / "anteroom-docs-8400.progress"
+        assert mgr.log_path == tmp_path / "anteroom-docs.log"
+
+    def test_disjoint_paths_across_services(self, tmp_path: Path) -> None:
+        web = ServerManager(data_dir=tmp_path, port=8080, service_name="web")
+        docs = ServerManager(data_dir=tmp_path, port=8400, service_name="docs")
+        assert web.pid_path != docs.pid_path
+        assert web.log_path != docs.log_path
+        assert web.progress_path != docs.progress_path
+
+    def test_start_background_uses_configured_bg_worker_flag(self, tmp_path: Path) -> None:
+        mgr = ServerManager(
+            data_dir=tmp_path,
+            port=8400,
+            service_name="docs",
+            bg_worker_flag="--_bg-worker-docs",
+        )
+        mock_proc = MagicMock()
+        mock_proc.pid = 99
+        with (
+            patch.object(ServerManager, "is_process_alive", return_value=False),
+            patch(f"{_MODULE}.subprocess.Popen", return_value=mock_proc) as mock_popen,
+        ):
+            mgr.start_background()
+        cmd = mock_popen.call_args[0][0]
+        assert "--_bg-worker-docs" in cmd
+        assert "--_bg-worker" not in [c for c in cmd if c == "--_bg-worker"]
+
+    def test_default_bg_worker_flag(self, tmp_path: Path) -> None:
+        mgr = ServerManager(data_dir=tmp_path)
+        assert mgr.bg_worker_flag == "--_bg-worker"
+
+    def test_disjoint_pid_reads_across_services(self, tmp_path: Path) -> None:
+        web = ServerManager(data_dir=tmp_path, port=8080, service_name="web")
+        docs = ServerManager(data_dir=tmp_path, port=8080, service_name="docs")
+        docs.write_pid(222)
+        # The web manager should not see the docs PID.
+        assert web.read_pid() is None
+        assert docs.read_pid() == 222
+
+
+class TestLegacyPidFallback:
+    def test_legacy_pid_path_fallback_on_read(self, tmp_path: Path) -> None:
+        """A legacy `anteroom-{port}.pid` (pre-service-name) must still be honoured."""
+        legacy = tmp_path / "anteroom-8080.pid"
+        legacy.write_text(json.dumps({"pid": 42, "port": 8080, "start_time": 1.0}))
+        mgr = ServerManager(data_dir=tmp_path, port=8080)
+        assert mgr.read_pid() == 42
+
+    def test_new_start_writes_prefixed_filename(self, tmp_path: Path) -> None:
+        mgr = ServerManager(data_dir=tmp_path, port=8080)
+        mgr.write_pid(123)
+        assert (tmp_path / "anteroom-web-8080.pid").exists()
+        assert not (tmp_path / "anteroom-8080.pid").exists()
+
+
+class TestDiscoverPidPorts:
+    def test_empty_data_dir_returns_empty_list(self, tmp_path: Path) -> None:
+        assert ServerManager.discover_pid_ports(tmp_path, "docs") == []
+
+    def test_returns_sorted_ports(self, tmp_path: Path) -> None:
+        (tmp_path / "anteroom-docs-9400.pid").write_text("{}")
+        (tmp_path / "anteroom-docs-8400.pid").write_text("{}")
+        assert ServerManager.discover_pid_ports(tmp_path, "docs") == [8400, 9400]
+
+    def test_non_integer_segment_skipped(self, tmp_path: Path) -> None:
+        (tmp_path / "anteroom-docs-foo.pid").write_text("{}")
+        (tmp_path / "anteroom-docs-8400.pid").write_text("{}")
+        assert ServerManager.discover_pid_ports(tmp_path, "docs") == [8400]
+
+    def test_service_name_filter(self, tmp_path: Path) -> None:
+        (tmp_path / "anteroom-web-8080.pid").write_text("{}")
+        (tmp_path / "anteroom-docs-8400.pid").write_text("{}")
+        assert ServerManager.discover_pid_ports(tmp_path, "docs") == [8400]
+        assert ServerManager.discover_pid_ports(tmp_path, "web") == [8080]
+
+
+class TestGetStatusHostFromPidInfo:
+    def test_get_status_uses_host_from_pid_info_when_present(self, tmp_path: Path) -> None:
+        mgr = ServerManager(data_dir=tmp_path, host="127.0.0.1", port=8400, service_name="docs")
+        mgr.pid_path.write_text(json.dumps({"pid": 12345, "host": "192.0.2.1", "port": 8400, "start_time": 1.0}))
+        captured: list[tuple[str, int]] = []
+
+        def fake_probe(host: str, port: int, timeout: float = 1.0) -> bool:
+            captured.append((host, port))
+            return True
+
+        with (
+            patch.object(ServerManager, "is_process_alive", return_value=True),
+            patch.object(ServerManager, "is_port_responding", staticmethod(fake_probe)),
+        ):
+            mgr.get_status()
+        assert captured, "is_port_responding was not invoked"
+        assert captured[0][0] == "192.0.2.1"
+        assert captured[0][1] == 8400
+
+    def test_get_status_falls_back_to_self_host_when_pid_missing_host_field(self, tmp_path: Path) -> None:
+        mgr = ServerManager(data_dir=tmp_path, host="10.0.0.5", port=8400, service_name="docs")
+        mgr.pid_path.write_text(json.dumps({"pid": 12345, "port": 8400, "start_time": 1.0}))
+        captured: list[tuple[str, int]] = []
+
+        def fake_probe(host: str, port: int, timeout: float = 1.0) -> bool:
+            captured.append((host, port))
+            return True
+
+        with (
+            patch.object(ServerManager, "is_process_alive", return_value=True),
+            patch.object(ServerManager, "is_port_responding", staticmethod(fake_probe)),
+        ):
+            mgr.get_status()
+        assert captured[0][0] == "10.0.0.5"
+
+    def test_get_status_port_matches_pid_info_when_discovered(self, tmp_path: Path) -> None:
+        mgr = ServerManager(data_dir=tmp_path, host="127.0.0.1", port=8400, service_name="docs")
+        # The PID file records a *different* port than the instance attribute —
+        # that happens when lifecycle commands construct a manager and then
+        # read from an existing PID file.
+        mgr.pid_path.write_text(json.dumps({"pid": 12345, "host": "127.0.0.1", "port": 9400, "start_time": 1.0}))
+        with (
+            patch.object(ServerManager, "is_process_alive", return_value=True),
+            patch.object(ServerManager, "is_port_responding", staticmethod(lambda h, p, timeout=1.0: True)),
+        ):
+            status = mgr.get_status()
+        assert status.port == 9400

@@ -273,18 +273,29 @@ class TestRetentionWorker:
         assert worker._current_interval == 100.0
 
     @pytest.mark.asyncio
-    async def test_retention_days_zero_means_disabled(self, tmp_path: Path) -> None:
-        """A worker with retention_days=0 should not purge anything."""
+    async def test_retention_days_zero_skips_conversation_branch(self, tmp_path: Path) -> None:
+        """With retention_days=0 the conversation branch is a no-op.
+
+        Before #625 the worker was only started when retention_days>0,
+        so this case wasn't reachable in production. #625 starts the
+        worker for memory-only retention (retention_days=0 +
+        memory.retention.enabled=True). An unguarded
+        ``cutoff = now - timedelta(days=0)`` would match every
+        conversation whose created_at < now — catastrophic. The new
+        ``if self._retention_days > 0:`` guard in run_once() makes the
+        conversation branch a no-op in this mode. This test pins that
+        safety invariant.
+        """
         conn = _create_test_db(tmp_path)
         _insert_conversation(conn, "old", "2020-01-01T00:00:00")
 
         worker = RetentionWorker(conn, tmp_path, retention_days=0)
-        # With 0 days, the cutoff is now(), so "old" data from 2020 gets purged.
-        # But in practice, retention_days=0 means the worker is never started.
-        # This test verifies the worker itself doesn't special-case 0.
         count = await worker.run_once()
-        # Since retention_days=0, cutoff = now - 0 days = now, and 2020 < now, so it purges.
-        assert count >= 1
+
+        # No conversations touched (guard active).
+        assert count == 0
+        survived = conn.execute("SELECT id FROM conversations WHERE id = ?", ("old",)).fetchone()
+        assert survived is not None
 
     @pytest.mark.asyncio
     async def test_run_forever_disables_after_max_failures(self, tmp_path: Path) -> None:
@@ -424,3 +435,145 @@ class TestPurgeOrphanedSources:
         count = purge_orphaned_sources(tmp_path, conn, dry_run=True)
         assert count == 1
         assert src_dir.exists()
+
+
+# ---------------------------------------------------------------------------
+# #625 — run_once() wiring for memory retention
+# ---------------------------------------------------------------------------
+
+
+def _full_schema_db(tmp_path: Path):  # type: ignore[no-untyped-def]
+    """Return a ThreadSafeConnection wrapping the full anteroom schema.
+
+    The conversation-retention tests above use a minimal two-table
+    schema. The memory-retention branch needs the artifacts tables, so
+    the worker-wiring tests use the canonical schema instead.
+    """
+    from anteroom.db import _SCHEMA, ThreadSafeConnection
+
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.executescript(_SCHEMA)
+    conn.commit()
+    return ThreadSafeConnection(conn)
+
+
+class TestRunOnceMemoryBranch:
+    @pytest.mark.asyncio
+    async def test_memory_only_retention_does_not_purge_conversations(self, tmp_path: Path) -> None:
+        """Regression for the load-bearing retention_days > 0 guard.
+
+        With retention_days=0 and memory.retention.enabled=True, an
+        unguarded ``cutoff = now - timedelta(days=0)`` would match every
+        conversation. The guard must make the conversation branch a
+        no-op and let only the memory branch run.
+        """
+        from anteroom.config import MemoryRetentionConfig
+        from anteroom.services.memory_service import (
+            create_memory,
+            update_memory_metadata,
+        )
+        from anteroom.services.retention import RetentionWorker
+
+        db = _full_schema_db(tmp_path)
+        conv_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        db.execute(
+            "INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (conv_id, "survivor", "2026-01-01T00:00:00+00:00", "2026-01-01T00:00:00+00:00"),
+        )
+        art = create_memory(db, "junk", scope="user", category="preference", name="mr1")
+        update_memory_metadata(db, art["fqn"], memory_status="rejected")
+        db.commit()
+
+        worker = RetentionWorker(
+            db=db,
+            data_dir=tmp_path,
+            retention_days=0,  # memory-only mode
+            memory_retention_config=MemoryRetentionConfig(enabled=True, purge_statuses=["rejected"]),
+        )
+        total = await worker.run_once()
+
+        assert total == 1
+        # Conversation is UNCHANGED — this is the regression we're guarding.
+        row = db.execute("SELECT id FROM conversations WHERE id = ?", (conv_id,)).fetchone()
+        assert row is not None
+
+    @pytest.mark.asyncio
+    async def test_conversation_retention_runs_without_memory_config(self, tmp_path: Path) -> None:
+        from anteroom.services.retention import RetentionWorker
+
+        db = _full_schema_db(tmp_path)
+        worker = RetentionWorker(
+            db=db,
+            data_dir=tmp_path,
+            retention_days=30,
+        )
+        assert await worker.run_once() == 0
+
+    @pytest.mark.asyncio
+    async def test_both_branches_run_together(self, tmp_path: Path) -> None:
+        from anteroom.config import MemoryRetentionConfig
+        from anteroom.services.memory_service import (
+            create_memory,
+            update_memory_metadata,
+        )
+        from anteroom.services.retention import RetentionWorker
+
+        db = _full_schema_db(tmp_path)
+        art = create_memory(db, "x", scope="user", category="preference", name="both1")
+        update_memory_metadata(db, art["fqn"], memory_status="rejected")
+
+        worker = RetentionWorker(
+            db=db,
+            data_dir=tmp_path,
+            retention_days=30,
+            memory_retention_config=MemoryRetentionConfig(enabled=True, purge_statuses=["rejected"]),
+        )
+        total = await worker.run_once()
+        assert total >= 1
+
+    @pytest.mark.asyncio
+    async def test_memory_branch_failure_does_not_abort_conversation_branch(self, tmp_path: Path) -> None:
+        from anteroom.config import MemoryRetentionConfig
+        from anteroom.services.retention import RetentionWorker
+
+        db = _full_schema_db(tmp_path)
+        worker = RetentionWorker(
+            db=db,
+            data_dir=tmp_path,
+            retention_days=30,
+            memory_retention_config=MemoryRetentionConfig(enabled=True, purge_statuses=["rejected"]),
+        )
+        with patch(
+            "anteroom.services.memory_retention.purge_memories",
+            side_effect=RuntimeError("boom"),
+        ):
+            total = await worker.run_once()
+        assert total == 0
+
+    @pytest.mark.asyncio
+    async def test_audit_writer_is_threaded_to_purge(self, tmp_path: Path) -> None:
+        from anteroom.config import MemoryRetentionConfig
+        from anteroom.services.memory_service import (
+            create_memory,
+            update_memory_metadata,
+        )
+        from anteroom.services.retention import RetentionWorker
+
+        db = _full_schema_db(tmp_path)
+        art = create_memory(db, "x", scope="user", category="preference", name="aw1")
+        update_memory_metadata(db, art["fqn"], memory_status="rejected")
+
+        audit_writer = MagicMock()
+        worker = RetentionWorker(
+            db=db,
+            data_dir=tmp_path,
+            retention_days=0,
+            memory_retention_config=MemoryRetentionConfig(enabled=True, purge_statuses=["rejected"]),
+            audit_writer=audit_writer,
+        )
+        await worker.run_once()
+        assert audit_writer.emit.call_count == 1
+        entry = audit_writer.emit.call_args.args[0]
+        assert entry.event_type == "memory.purge"

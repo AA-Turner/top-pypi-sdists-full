@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kreuzberg
-Version: 4.8.6
+Version: 4.9.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
@@ -23,10 +23,12 @@ Classifier: Topic :: Text Processing :: Filters
 Classifier: Topic :: Text Processing :: General
 Classifier: Typing :: Typed
 Requires-Dist: kreuzberg[easyocr] ; extra == 'all'
-Requires-Dist: easyocr>=1.7.2 ; python_full_version < '3.14' and extra == 'easyocr'
-Requires-Dist: torch>=2.9.1 ; python_full_version < '3.14' and extra == 'easyocr'
+Requires-Dist: kreuzberg[tesseract] ; extra == 'all'
+Requires-Dist: easyocr>=1.7.2 ; extra == 'easyocr'
+Requires-Dist: torch>=2.9.1 ; extra == 'easyocr'
 Provides-Extra: all
 Provides-Extra: easyocr
+Provides-Extra: tesseract
 Summary: High-performance document intelligence library for Python. Extract text, metadata, and structured data from PDFs, Office documents, images, and 88+ formats. Powered by Rust core for 10-50x speed improvements.
 Keywords: document-extraction,document-intelligence,document-parsing,document-processing,docx,easyocr,email-parsing,html,markdown,metadata-extraction,ocr,office-documents,pdf,pdf-extraction,performance,pptx,rust,table-extraction,tesseract,text-extraction,xlsx,xml
 Home-Page: https://kreuzberg-dev.github.io/kreuzberg/
@@ -66,7 +68,7 @@ Project-URL: Source, https://github.com/kreuzberg-dev/kreuzberg
     <img src="https://img.shields.io/maven-central/v/dev.kreuzberg/kreuzberg?label=Java&color=007ec6" alt="Java">
   </a>
   <a href="https://github.com/kreuzberg-dev/kreuzberg/releases">
-    <img src="https://img.shields.io/github/v/tag/kreuzberg-dev/kreuzberg?label=Go&color=007ec6&filter=v4.8.6" alt="Go">
+    <img src="https://img.shields.io/github/v/tag/kreuzberg-dev/kreuzberg?label=Go&color=007ec6&filter=v4.9.1" alt="Go">
   </a>
   <a href="https://www.nuget.org/packages/Kreuzberg/">
     <img src="https://img.shields.io/nuget/v/Kreuzberg?label=C%23&color=007ec6" alt="C#">

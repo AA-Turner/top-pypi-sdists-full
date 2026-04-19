@@ -10,9 +10,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .mission_compiler import CompiledItem, CompiledPlan
+
+if TYPE_CHECKING:
+    from ..db import ThreadSafeConnection
 
 logger = logging.getLogger(__name__)
 
@@ -94,11 +97,17 @@ def list_profiles() -> list[ExecutionProfile]:
 # ---------------------------------------------------------------------------
 
 
-def discover_workflows() -> list[Any]:
+def discover_workflows(db: "ThreadSafeConnection | None" = None) -> list[Any]:
     """Enumerate and load all available workflow definitions.
 
-    Returns parsed ``WorkflowDefinition`` objects.  Definitions that fail to
-    parse are silently skipped (graceful degradation).
+    When *db* is provided, pack-distributed workflow templates (#924)
+    are enumerated alongside filesystem definitions so mission execution
+    profiles can score against pack-sourced workflows. Filesystem wins
+    on id collision — a pack may not silently override a built-in that
+    an execution profile was scored against.
+
+    Returns parsed ``WorkflowDefinition`` objects. Definitions that
+    fail to parse are silently skipped (graceful degradation).
     """
     from .workflow_engine import WorkflowDefinition, load_definition
     from .workflow_resolution import builtin_workflow_dirs
@@ -118,6 +127,22 @@ def discover_workflows() -> list[Any]:
             if defn.id not in seen_ids:
                 seen_ids.add(defn.id)
                 definitions.append(defn)
+
+    if db is not None:
+        from .workflow_registry import _list_pack_workflow_paths
+
+        for yaml_path, _pack_workflow_id, _pack_id, _namespace in _list_pack_workflow_paths(db):
+            try:
+                defn = load_definition(yaml_path)
+            except Exception:
+                logger.debug("Skipping unparseable pack workflow: %s", yaml_path)
+                continue
+            if defn.id in seen_ids:
+                # Filesystem wins on id collision — drop the pack entry
+                # so a pack cannot silently replace a built-in workflow.
+                continue
+            seen_ids.add(defn.id)
+            definitions.append(defn)
 
     return definitions
 
@@ -255,6 +280,8 @@ def apply_execution_profile(
     plan: CompiledPlan,
     profile: ExecutionProfile,
     workflows: list[Any] | None = None,
+    *,
+    db: "ThreadSafeConnection | None" = None,
 ) -> tuple[CompiledPlan, dict[str, int] | None]:
     """Translate an execution profile into concrete item bindings.
 
@@ -279,11 +306,11 @@ def apply_execution_profile(
     # which passes workflow_path straight to load_definition().
     resolved_workflow_path: str | None = None
     if matched_workflow is not None:
-        from .workflow_resolution import resolve_workflow_path
+        from .workflow_registry import resolve_workflow
 
-        path = resolve_workflow_path(matched_workflow.id)
-        if path is not None:
-            resolved_workflow_path = str(path)
+        ref = resolve_workflow(matched_workflow.id, db=db)
+        if ref is not None:
+            resolved_workflow_path = str(ref.path)
         else:
             resolved_workflow_path = matched_workflow.id
 

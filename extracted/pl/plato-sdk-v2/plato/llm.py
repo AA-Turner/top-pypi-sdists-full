@@ -75,6 +75,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _merge_litellm_kwargs(defaults: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
+    """Merge client-level LiteLLM kwargs with per-call overrides."""
+    return {**defaults, **overrides}
+
+
 def _cache_key(model: str, messages: list[dict], **kwargs: Any) -> str:
     """Content-addressed cache key for an LLM call using blake3."""
     import blake3
@@ -120,16 +125,19 @@ class LLMClient:
         atif_source: Literal["agent", "world"] = "agent",
     ) -> None:
         self._model = config.model
+        self._api_base = config.api_base
         self._api_key = config.api_key or None
         self._max_tokens = config.max_tokens
         self._temperature = config.temperature
+        self._litellm_kwargs = dict(config.litellm_kwargs)
+        self._emit_input_span = config.emit_input_span
         self._store = store
         self._tracer_name = tracer_name
         self._atif_source = atif_source
 
         # Register concurrency limit if configured
         if config.concurrency > 0:
-            set_concurrency(config.model, config.concurrency)
+            set_concurrency(config.model, config.concurrency, config.api_base)
 
     async def __call__(
         self,
@@ -143,12 +151,15 @@ class LLMClient:
         num_retries: int = 5,
         **kwargs: Any,
     ) -> LLMResponse:
+        request_kwargs = _merge_litellm_kwargs(self._litellm_kwargs, kwargs)
+        if self._api_base:
+            request_kwargs.setdefault("api_base", self._api_base)
         if self._api_key:
-            kwargs.setdefault("api_key", self._api_key)
+            request_kwargs.setdefault("api_key", self._api_key)
 
         # Check cache
         if self._store is not None:
-            key = _cache_key(self._model, messages, system=system, **kwargs)
+            key = _cache_key(self._model, messages, system=system, **request_kwargs)
             cached = self._store.get(key)
             if cached is not None:
                 logger.debug("LLM cache hit: model=%s, key=%s", self._model, key[:20])
@@ -163,9 +174,10 @@ class LLMClient:
             temperature=temperature if temperature is not None else self._temperature,
             tracer_name=self._tracer_name,
             atif_source=self._atif_source,
+            emit_input_span=self._emit_input_span,
             timeout=timeout,
             num_retries=num_retries,
-            **kwargs,
+            **request_kwargs,
         )
 
         # Store in cache (without raw response — not serializable)
@@ -196,8 +208,11 @@ class LLMClient:
             response_format: "b64_json" or "url".
             timeout: Request timeout in seconds.
         """
+        request_kwargs = _merge_litellm_kwargs(self._litellm_kwargs, kwargs)
+        if self._api_base:
+            request_kwargs.setdefault("api_base", self._api_base)
         if self._api_key:
-            kwargs.setdefault("api_key", self._api_key)
+            request_kwargs.setdefault("api_key", self._api_key)
         return await aimage_generation(
             prompt=prompt,
             model=model or self._model,
@@ -205,7 +220,7 @@ class LLMClient:
             size=size,
             response_format=response_format,
             timeout=timeout,
-            **kwargs,
+            **request_kwargs,
         )
 
     def sync(
@@ -220,8 +235,11 @@ class LLMClient:
         num_retries: int = 5,
         **kwargs: Any,
     ) -> LLMResponse:
+        request_kwargs = _merge_litellm_kwargs(self._litellm_kwargs, kwargs)
+        if self._api_base:
+            request_kwargs.setdefault("api_base", self._api_base)
         if self._api_key:
-            kwargs.setdefault("api_key", self._api_key)
+            request_kwargs.setdefault("api_key", self._api_key)
         return completion(
             model=self._model,
             messages=messages,
@@ -231,9 +249,10 @@ class LLMClient:
             temperature=temperature if temperature is not None else self._temperature,
             tracer_name=self._tracer_name,
             atif_source=self._atif_source,
+            emit_input_span=self._emit_input_span,
             timeout=timeout,
             num_retries=num_retries,
-            **kwargs,
+            **request_kwargs,
         )
 
 
@@ -446,6 +465,7 @@ def _emit_llm_span(
     duration_ms: float,
     tracer_name: str = "plato.llm",
     atif_source: Literal["agent", "world"] = "agent",
+    emit_input_span: bool = False,
 ) -> None:
     """Emit an ATIF-formatted span for an LLM call."""
     tracer = get_tracer(tracer_name)
@@ -484,6 +504,8 @@ def _emit_llm_span(
         span.set_attribute("atif.step.source", atif_source)
         span.set_attribute("atif.step.message", response.text if response.text else last_user_msg)
         span.set_attribute("atif.step.model_name", model)
+        if emit_input_span:
+            span.set_attribute("atif.step.input_messages", json.dumps(messages, default=str))
 
         if response.usage.prompt_tokens:
             span.set_attribute("atif.step.prompt_tokens", response.usage.prompt_tokens)
@@ -531,6 +553,7 @@ def completion(
     system: str | None = None,
     tracer_name: str = "plato.llm",
     atif_source: Literal["agent", "world"] = "agent",
+    emit_input_span: bool = False,
     timeout: int = 120,
     num_retries: int = 5,
     **kwargs: Any,
@@ -546,6 +569,8 @@ def completion(
         system: System prompt (prepended as a system message)
         tracer_name: OTel tracer name for spans
         atif_source: ATIF source label for emitted spans
+        emit_input_span: Include the full structured input messages payload in
+            the emitted ATIF span
         timeout: Request timeout in seconds
         num_retries: Number of retries on failure
         **kwargs: Additional arguments passed to litellm.completion()
@@ -578,7 +603,15 @@ def completion(
 
     response = _parse_response(raw_response, model)
 
-    _emit_llm_span(model, messages, response, duration_ms, tracer_name, atif_source)
+    _emit_llm_span(
+        model,
+        messages,
+        response,
+        duration_ms,
+        tracer_name,
+        atif_source,
+        emit_input_span,
+    )
 
     logger.debug(
         "LLM call: model=%s, tokens=%d/%d, cost=$%.4f, duration=%.0fms",
@@ -602,6 +635,7 @@ async def acompletion(
     system: str | None = None,
     tracer_name: str = "plato.llm",
     atif_source: Literal["agent", "world"] = "agent",
+    emit_input_span: bool = False,
     timeout: int = 120,
     num_retries: int = 5,
     **kwargs: Any,
@@ -646,7 +680,15 @@ async def acompletion(
 
     response = _parse_response(raw_response, model)
 
-    _emit_llm_span(model, messages, response, duration_ms, tracer_name, atif_source)
+    _emit_llm_span(
+        model,
+        messages,
+        response,
+        duration_ms,
+        tracer_name,
+        atif_source,
+        emit_input_span,
+    )
 
     logger.debug(
         "LLM call: model=%s, tokens=%d/%d, cost=$%.4f, duration=%.0fms",

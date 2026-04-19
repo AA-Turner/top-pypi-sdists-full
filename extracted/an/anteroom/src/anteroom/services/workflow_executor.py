@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Callable
 if TYPE_CHECKING:
     from ..config import WorkflowConfig
     from ..db import ThreadSafeConnection
+    from .audit import AuditWriter
     from .workflow_engine import WorkflowEngine
 
 logger = logging.getLogger(__name__)
@@ -33,10 +34,12 @@ class WorkflowExecutorWorker:
         config: WorkflowConfig,
         engine_factory: Callable[[], WorkflowEngine],
         db: ThreadSafeConnection,
+        audit_writer: AuditWriter | None = None,
     ) -> None:
         self._config = config
         self._engine_factory = engine_factory
         self._db = db
+        self._audit_writer = audit_writer
         self._worker_id = str(uuid.uuid4())
         self._running = False
         self._task: asyncio.Task[None] | None = None
@@ -129,11 +132,19 @@ class WorkflowExecutorWorker:
     async def _dispatch_run(self, run: dict[str, Any]) -> None:
         """Dispatch a single claimed run to a fresh engine instance."""
         from ..workflows.gates import register_builtin_gates
+        from . import lineage
         from .workflow_engine import load_definition
 
         run_id = run["id"]
         workflow_id = run.get("workflow_id", "unknown")
         logger.info("Dispatching workflow run %s (workflow=%s)", run_id, workflow_id)
+
+        lineage.emit_workflow_run_lifecycle(
+            self._audit_writer,
+            "started",
+            run_id=run_id,
+            details={"workflow_id": workflow_id, "worker_id": self._worker_id},
+        )
 
         try:
             # Load definition from stored content or resolve by ID
@@ -143,7 +154,7 @@ class WorkflowExecutorWorker:
             else:
                 from .workflow_resolution import resolve_workflow_path
 
-                path = resolve_workflow_path(workflow_id)
+                path = resolve_workflow_path(workflow_id, db=self._db)
                 if not path:
                     from . import workflow_storage as ws
 
@@ -154,6 +165,12 @@ class WorkflowExecutorWorker:
                         stop_reason=f"workflow_not_found:{workflow_id}",
                     )
                     logger.error("Workflow %r not found for run %s", workflow_id, run_id)
+                    lineage.emit_workflow_run_lifecycle(
+                        self._audit_writer,
+                        "failed",
+                        run_id=run_id,
+                        details={"workflow_id": workflow_id, "reason": "workflow_not_found"},
+                    )
                     return
                 definition = load_definition(path)
 
@@ -161,6 +178,23 @@ class WorkflowExecutorWorker:
             engine = self._engine_factory()
             await engine.execute_enqueued_run(run_id, definition)
             logger.info("Workflow run %s completed", run_id)
+            from . import workflow_storage as ws
+
+            final = ws.get_workflow_run(self._db, run_id)
+            terminal_event = "completed"
+            if final and final.get("status") in ("failed", "compensated", "compensation_failed"):
+                terminal_event = "failed"
+            elif final and final.get("status") == "cancelled":
+                terminal_event = "cancelled"
+            lineage.emit_workflow_run_lifecycle(
+                self._audit_writer,
+                terminal_event,
+                run_id=run_id,
+                details={
+                    "workflow_id": workflow_id,
+                    "final_status": (final or {}).get("status", "unknown"),
+                },
+            )
         except Exception:
             logger.exception("Workflow run %s dispatch failed", run_id)
             try:
@@ -176,6 +210,12 @@ class WorkflowExecutorWorker:
                     )
             except Exception:
                 logger.exception("Failed to mark run %s as failed", run_id)
+            lineage.emit_workflow_run_lifecycle(
+                self._audit_writer,
+                "failed",
+                run_id=run_id,
+                details={"workflow_id": workflow_id, "reason": "dispatch_exception"},
+            )
 
     async def _recover_on_startup(self) -> None:
         """Recovery actions on first poll cycle."""

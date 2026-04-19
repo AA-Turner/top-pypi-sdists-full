@@ -36,14 +36,24 @@ def _make_ctx(
 
 
 async def _answer_after(
-    ctx: WebConfirmContext, answer: str, delay: float = 0.05, *, exclude_ids: set[str] | None = None
+    ctx: WebConfirmContext,
+    answer: str,
+    delay: float = 0.05,
+    *,
+    exclude_ids: set[str] | None = None,
+    approved: bool = True,
 ):
-    """Simulate a user responding to ask_user after a short delay."""
+    """Simulate a user responding to ask_user after a short delay.
+
+    ``approved=True`` (default) simulates Submit/Enter. ``approved=False``
+    simulates the Cancel button, which the callback treats as cancel.
+    """
     exclude = exclude_ids or set()
     await asyncio.sleep(delay)
     for ask_id, entry in ctx.pending_approvals.items():
         if ask_id not in exclude and "event" in entry and isinstance(entry["event"], asyncio.Event):
             entry["answer"] = answer
+            entry["approved"] = approved
             entry["event"].set()
             return
     raise RuntimeError("No pending ask_user entry found")
@@ -125,32 +135,48 @@ class TestWebAskUserCallback:
         assert result == "PostgreSQL"
         await task
 
-    async def test_returns_empty_on_timeout(self) -> None:
+    async def test_returns_none_on_timeout(self) -> None:
         ctx = _make_ctx(approval_timeout=0)
         result = await _web_ask_user_callback(ctx, "Which DB?")
-        assert result == ""
+        assert result is None
 
     async def test_entry_cleaned_on_timeout(self) -> None:
         ctx = _make_ctx(approval_timeout=0)
         await _web_ask_user_callback(ctx, "Which DB?")
         assert len(ctx.pending_approvals) == 0
 
-    async def test_returns_empty_on_disconnect(self) -> None:
+    async def test_returns_none_on_disconnect(self) -> None:
         ctx = _make_ctx(is_disconnected=True)
         result = await _web_ask_user_callback(ctx, "Which DB?")
-        assert result == ""
+        assert result is None
 
     async def test_entry_cleaned_on_disconnect(self) -> None:
         ctx = _make_ctx(is_disconnected=True)
         await _web_ask_user_callback(ctx, "Which DB?")
         assert len(ctx.pending_approvals) == 0
 
-    async def test_pending_limit_returns_empty(self) -> None:
+    async def test_pending_limit_returns_none_without_event(self) -> None:
         pending = {f"id-{i}": {} for i in range(100)}
-        ctx = _make_ctx(pending=pending)
+        event_bus = AsyncMock()
+        ctx = _make_ctx(pending=pending, event_bus=event_bus)
         result = await _web_ask_user_callback(ctx, "Which DB?")
-        assert result == ""
+        assert result is None
         assert len(pending) == 100
+        event_bus.publish.assert_not_called()
+
+    async def test_real_empty_submission_is_not_cancel(self) -> None:
+        ctx = _make_ctx()
+        task = asyncio.create_task(_answer_after(ctx, ""))
+        result = await _web_ask_user_callback(ctx, "Anything to add?")
+        assert result == ""
+        await task
+
+    async def test_cancel_button_returns_none(self) -> None:
+        ctx = _make_ctx()
+        task = asyncio.create_task(_answer_after(ctx, "", approved=False))
+        result = await _web_ask_user_callback(ctx, "Which DB?")
+        assert result is None
+        await task
 
     async def test_publishes_event_with_options(self) -> None:
         event_bus = AsyncMock()
@@ -197,7 +223,7 @@ class TestWebAskUserCallback:
         event_bus = AsyncMock()
         ctx = _make_ctx(event_bus=event_bus, approval_timeout=0)
         result = await _web_ask_user_callback(ctx, "Which DB?")
-        assert result == ""
+        assert result is None
         # First call is ask_user_required, second is ask_user_resolved
         assert event_bus.publish.call_count == 2
         resolved_call = event_bus.publish.call_args_list[1]
@@ -209,7 +235,7 @@ class TestWebAskUserCallback:
     async def test_timeout_no_resolved_event_without_bus(self) -> None:
         ctx = _make_ctx(event_bus=None, approval_timeout=0)
         result = await _web_ask_user_callback(ctx, "Which DB?")
-        assert result == ""
+        assert result is None
 
     async def test_concurrent_ask_user_and_approval(self) -> None:
         pending: dict[str, Any] = {}

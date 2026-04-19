@@ -48,11 +48,12 @@ async def get_schedules(source: ScheduleSource) -> list[ScheduledTask]:
     try:
         return await source.get_schedules()
     except Exception as exc:
-        logger.warning(
-            "Cannot update schedules with source: %s",
+        logger.error(
+            "Cannot update schedules with source: %s\n%s{}",
             source,
+            exc,
+            exc_info=True,
         )
-        logger.debug(exc, exc_info=True)
         return []
 
 
@@ -413,7 +414,7 @@ async def run_scheduler(args: SchedulerArgs) -> None:
             skip_first_run=args.skip_first_run,
         )
     except asyncio.CancelledError:
-        logger.warning("Shutting down scheduler.")
+        logger.info("Shutting down scheduler.")
         await scheduler.shutdown()
         for source in scheduler.sources:
             await source.shutdown()

@@ -2298,6 +2298,77 @@ def render_rag_sources(chunks: list[Any]) -> None:
         console.print(f"  [{MUTED}]Sources: {', '.join(parts)}[/{MUTED}]")
 
 
+# ---------------------------------------------------------------------------
+# Attribution footer (#923)
+# ---------------------------------------------------------------------------
+
+# Last attribution snapshot for the current REPL session. Stored at module
+# scope because the renderer is already a module-level singleton and the
+# `/attribution` slash command reads back from here.
+_last_attribution: Any = None
+
+
+def set_last_attribution(snapshot: Any) -> None:
+    """Store the latest attribution snapshot for later ``/attribution`` expansion."""
+    global _last_attribution
+    _last_attribution = snapshot
+
+
+def get_last_attribution() -> Any:
+    """Return the last attribution snapshot (or ``None`` if the turn produced none)."""
+    return _last_attribution
+
+
+def render_attribution_footer(snapshot: Any) -> None:
+    """Render a compact one-line attribution summary after a turn.
+
+    Safe against None, plain objects, and older persisted dicts so replay
+    of older turns without attribution metadata doesn't crash the
+    renderer.
+    """
+    if snapshot is None:
+        return
+    # Structural check: accept AttributionSnapshot (has `turns` attr) or
+    # a persisted dict (has `turns` key). Anything else is ignored.
+    if isinstance(snapshot, dict):
+        if "turns" not in snapshot:
+            return
+    elif getattr(snapshot, "turns", None) is None:
+        return
+    try:
+        if isinstance(snapshot, dict):
+            turns = len(snapshot.get("turns") or [])
+            memory = len(snapshot.get("memory") or [])
+            sources = len(snapshot.get("sources") or [])
+            tools = len(snapshot.get("tools") or [])
+            packs = len(snapshot.get("packs") or [])
+            dlp = int(snapshot.get("dlp_match_count", 0) or 0)
+            of = int(snapshot.get("output_filter_match_count", 0) or 0)
+        else:
+            turns = len(getattr(snapshot, "turns", []) or [])
+            memory = len(getattr(snapshot, "memory", []) or [])
+            sources = len(getattr(snapshot, "sources", []) or [])
+            tools = len(getattr(snapshot, "tools", []) or [])
+            packs = len(getattr(snapshot, "packs", []) or [])
+            dlp = int(getattr(snapshot, "dlp_match_count", 0) or 0)
+            of = int(getattr(snapshot, "output_filter_match_count", 0) or 0)
+    except Exception:
+        return
+    parts: list[str] = [
+        f"{turns} turns",
+        f"{memory} memories",
+        f"{sources} sources",
+        f"{tools} tools",
+        f"{packs} packs",
+    ]
+    if dlp:
+        parts.append(f"DLP:{dlp}")
+    if of:
+        parts.append(f"OF:{of}")
+    # ``\\[ctx\\]`` so Rich doesn't interpret it as a markup tag.
+    console.print(f"  [{MUTED}]\\[ctx] {' · '.join(parts)}  — /attribution for detail[/{MUTED}]")
+
+
 def render_rag_status(status: str, chunk_count: int = 0, reason: str | None = None) -> None:
     """Render RAG retrieval status with consistent formatting.
 

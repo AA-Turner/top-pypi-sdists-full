@@ -1,7 +1,7 @@
 /*
  * Open Chinese Convert
  *
- * Copyright 2010-2014 Carbo Kuo <byvoid@byvoid.com>
+ * Copyright 2010-2026 Carbo Kuo and contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,14 @@
  * limitations under the License.
  */
 
+#include <cstring>
 #include <fstream>
+
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "src/CmdLineOutput.hpp"
 #include "src/Config.hpp"
@@ -45,6 +52,18 @@ FILE* GetOutputStream() {
 }
 
 void ConvertLineByLine() {
+#ifdef _WIN32
+  if (_isatty(_fileno(stdin))) {
+    fprintf(stderr,
+            "Reading from standard input. Press Ctrl+Z then Enter to "
+            "finish.\n");
+  }
+#else
+  if (isatty(fileno(stdin))) {
+    fprintf(stderr,
+            "Reading from standard input. Press Ctrl+D to finish.\n");
+  }
+#endif
   std::istream& inputStream = std::cin;
   FILE* fout = GetOutputStream();
   bool isFirstLine = true;
@@ -207,8 +226,10 @@ int main(int argc, const char* argv[]) {
   } catch (TCLAP::ArgException& e) {
     std::cerr << "error: " << e.error() << " for arg " << e.argId()
               << std::endl;
+    return 1;
   } catch (Exception& e) {
     std::cerr << e.what() << std::endl;
+    return 1;
   }
   return 0;
 }

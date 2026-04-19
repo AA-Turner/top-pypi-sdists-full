@@ -1658,7 +1658,6 @@ struct __pyx_obj_2av_6filter_5graph_Graph {
   PyObject *_name_counts;
   int _nb_filters_seen;
   PyObject *_context_by_ptr;
-  PyObject *_context_by_name;
   PyObject *_context_by_type;
 };
 
@@ -1755,6 +1754,7 @@ struct __pyx_obj_2av_6filter_6filter_Filter {
 struct __pyx_vtabstruct_2av_6filter_5graph_Graph {
   PyObject *(*configure)(struct __pyx_obj_2av_6filter_5graph_Graph *, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_6filter_5graph_5Graph_configure *__pyx_optional_args);
   PyObject *(*_get_unique_name)(struct __pyx_obj_2av_6filter_5graph_Graph *, PyObject *);
+  PyObject *(*_get_context_by_type)(struct __pyx_obj_2av_6filter_5graph_Graph *, PyObject *);
   PyObject *(*_register_context)(struct __pyx_obj_2av_6filter_5graph_Graph *, struct __pyx_obj_2av_6filter_7context_FilterContext *);
   PyObject *(*_auto_register)(struct __pyx_obj_2av_6filter_5graph_Graph *);
 };

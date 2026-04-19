@@ -4,10 +4,13 @@ Scope split:
 - List / show / create / edit / delete of memory artifacts (#1416).
 - Propose / approve / reject / edit-and-approve review workflow,
   reviewer identity, rejection reason, lineage field (#920).
+- Pin / unpin, retention preview, retention purge (#625).
 
 All review-state mutations flow through
 :mod:`anteroom.services.memory_promotion` so lineage, reviewer
 identity, and rate-limits are enforced consistently with the CLI.
+Retention mutations flow through :mod:`anteroom.services.memory_retention`
+so audit-log events and pin semantics stay consistent.
 """
 
 from __future__ import annotations
@@ -20,7 +23,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from ..services import memory_promotion, memory_service
+from ..services import lineage, memory_promotion, memory_retention, memory_service
 from ..services.memory_promotion import (
     PromotionAgentDisabledError,
     PromotionRateLimitError,
@@ -116,6 +119,151 @@ async def list_memory_candidates(
     if limit is None:
         return results[:_LIST_HARD_LIMIT]
     return results
+
+
+# ---------------------------------------------------------------------------
+# Retention endpoints (#625)
+# ---------------------------------------------------------------------------
+#
+# IMPORTANT: register these BEFORE the ``/memory/{fqn:path}`` catchall
+# below. FastAPI matches routes in registration order, and the ``:path``
+# converter is greedy — ``/memory/retention-preview`` would otherwise be
+# parsed as ``fqn="retention-preview"`` and fail the FQN regex with 400.
+# The same ordering rule applies to ``/memory/candidates`` above.
+
+
+class RetentionPurgeRequest(BaseModel):
+    """Body for ``POST /api/memory/retention-purge``. Requires an explicit
+    ``confirm=true`` flag so a stray POST cannot accidentally delete
+    memories."""
+
+    confirm: bool = Field(..., description="Must be true to actually delete")
+
+
+def _retention_config(request: Request) -> Any:
+    """Return the runtime memory retention config, falling back to defaults
+    when ``app.state.config`` is absent (tests / recovery)."""
+    config = getattr(request.app.state, "config", None)
+    if config is None:
+        from ..config import MemoryRetentionConfig
+
+        return MemoryRetentionConfig()
+    return config.memory.retention
+
+
+def _audit_writer(request: Request) -> Any:
+    """Return ``app.state.audit_writer`` when audit is enabled, else None."""
+    writer = getattr(request.app.state, "audit_writer", None)
+    if writer is None or not getattr(writer, "enabled", False):
+        return None
+    return writer
+
+
+def _purge_result_to_payload(result: Any) -> dict[str, Any]:
+    return {
+        "dry_run": result.dry_run,
+        "purged_count": result.purged_count,
+        "skipped_pinned_count": result.skipped_pinned_count,
+        "purged_by": result.purged_by,
+        "items": [
+            {
+                "fqn": item.fqn,
+                "reason": item.reason,
+                "age_days": item.age_days,
+                "last_recalled_at": item.last_recalled_at,
+                "recall_count": item.recall_count,
+                "status": item.status,
+                "pinned": item.pinned,
+            }
+            for item in result.items
+        ],
+    }
+
+
+@router.get("/memory/{fqn:path}/lineage")
+async def memory_lineage(request: Request, fqn: str) -> dict[str, Any]:
+    """Return the lineage view for a memory artifact (#925).
+
+    Registered BEFORE ``/memory/{fqn:path}`` catchall so FastAPI matches
+    the longer pattern first.
+    """
+    fqn = _validate_fqn(fqn)
+    db = request.app.state.db
+    return lineage.resolve_memory_lineage(db, fqn)
+
+
+@router.get("/memory/retention-preview")
+async def retention_preview(request: Request) -> dict[str, Any]:
+    """Dry-run the retention policy and return the would-be-purged list.
+
+    This endpoint never mutates the DB and never writes to the audit
+    log — it's purely informational. Use it to review a policy before
+    enabling it.
+    """
+    db = request.app.state.db
+    result = memory_retention.purge_memories(
+        db,
+        _retention_config(request),
+        dry_run=True,
+    )
+    return _purge_result_to_payload(result)
+
+
+@router.post("/memory/retention-purge")
+async def retention_purge(request: Request, body: RetentionPurgeRequest) -> dict[str, Any]:
+    """Governed trigger for a retention pass.
+
+    Two gates stack here:
+
+    1. ``confirm: true`` in the body, to prevent an accidental POST from
+       deleting memories.
+    2. Reviewer identity: ``_reviewer_id_from_request`` — the same
+       helper used by the #920 approve/reject endpoints. The reviewer
+       id is stamped into each ``memory.purge`` audit entry's
+       ``user_id`` + ``details.reviewer_id`` and returned in the
+       response under ``purged_by`` so the web UI can show who ran the
+       pass. The scheduled worker, by contrast, leaves ``reviewer_id``
+       as ``None`` and its audit entries record
+       ``details.triggered_by="scheduler"``.
+    """
+    if not body.confirm:
+        raise HTTPException(status_code=400, detail="confirm=true required to purge")
+    db = request.app.state.db
+    result = memory_retention.purge_memories(
+        db,
+        _retention_config(request),
+        dry_run=False,
+        audit_writer=_audit_writer(request),
+        reviewer_id=_reviewer_id_from_request(request),
+    )
+    return _purge_result_to_payload(result)
+
+
+# ---------------------------------------------------------------------------
+# Pin / unpin endpoints (#625)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/memory/{fqn:path}/pin")
+async def pin_memory_endpoint(request: Request, fqn: str) -> dict[str, Any]:
+    """Pin a memory so retention policies skip it by default."""
+    fqn = _validate_fqn(fqn)
+    db = request.app.state.db
+    updated = memory_service.pin_memory(db, fqn)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    return updated
+
+
+@router.post("/memory/{fqn:path}/unpin")
+async def unpin_memory_endpoint(request: Request, fqn: str) -> dict[str, Any]:
+    """Remove the pin flag from a memory."""
+    fqn = _validate_fqn(fqn)
+    db = request.app.state.db
+    updated = memory_service.unpin_memory(db, fqn)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    return updated
 
 
 @router.get("/memory/{fqn:path}")
@@ -339,6 +487,13 @@ async def propose_memory_candidate(request: Request, body: ProposeCandidateReque
         raise HTTPException(status_code=400, detail=str(exc))
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="A memory with that FQN already exists")
+    lineage.emit_memory_promotion(
+        _audit_writer(request),
+        "proposed",
+        fqn=mem["fqn"],
+        reviewer_id=body.proposer_id or _reviewer_id_from_request(request),
+        details={"proposer": body.proposer},
+    )
     return mem
 
 
@@ -348,12 +503,13 @@ async def approve_memory(request: Request, fqn: str, body: ApproveRequest) -> di
     fqn = _validate_fqn(fqn)
     db = request.app.state.db
     cfg = _promotion_config(request)
+    reviewer_id = _reviewer_id_from_request(request)
     edits = body.edits.model_dump(exclude_none=True) if body.edits else None
     try:
         mem = memory_promotion.approve_candidate(
             db,
             fqn,
-            reviewer_id=_reviewer_id_from_request(request),
+            reviewer_id=reviewer_id,
             reviewer_display=body.reviewer_display,
             edits=edits,
             config=cfg,
@@ -366,6 +522,13 @@ async def approve_memory(request: Request, fqn: str, body: ApproveRequest) -> di
         raise HTTPException(status_code=409, detail=msg)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    lineage.emit_memory_promotion(
+        _audit_writer(request),
+        "approved",
+        fqn=fqn,
+        reviewer_id=reviewer_id,
+        details={"edits_applied": bool(edits)},
+    )
     return mem
 
 
@@ -383,11 +546,12 @@ async def reject_memory(request: Request, fqn: str, body: RejectRequest) -> dict
     fqn = _validate_fqn(fqn)
     db = request.app.state.db
     cfg = _promotion_config(request)
+    reviewer_id = _reviewer_id_from_request(request)
     try:
         mem = memory_promotion.reject_candidate(
             db,
             fqn,
-            reviewer_id=_reviewer_id_from_request(request),
+            reviewer_id=reviewer_id,
             reviewer_display=body.reviewer_display,
             reason=body.reason,
             config=cfg,
@@ -399,4 +563,11 @@ async def reject_memory(request: Request, fqn: str, body: RejectRequest) -> dict
         raise HTTPException(status_code=409, detail=msg)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    lineage.emit_memory_promotion(
+        _audit_writer(request),
+        "rejected",
+        fqn=fqn,
+        reviewer_id=reviewer_id,
+        details={"reason_length": len(body.reason)},
+    )
     return mem

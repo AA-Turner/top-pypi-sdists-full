@@ -1,6 +1,6 @@
 [project]
 name = "churnkit"
-version = "1.01.4a6"
+version = "1.01.5a4"
 description = "Structured ML framework for customer churn prediction -- from exploration notebooks to production pipelines, locally or on Databricks."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -192,6 +192,8 @@ ignore = [
 "exploration_notebooks/*.ipynb" = ["F821", "F401", "N814"]
 # Processed tutorial notebooks: same as exploration notebooks
 "docs/tutorial/**/*.ipynb" = ["F821", "F401", "N814"]
+# Diagnostic notebook templates: Databricks globals (spark, dbutils) + F alias convention
+"diagnostic_notebooks/*.ipynb" = ["F821", "F401", "N814", "N812"]
 
 [tool.uv]
 # PyTorch CUDA index - used when installing ml-cuda extras

@@ -58,7 +58,21 @@ def _isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     anteroom_dir = tmp_path / ".anteroom"
     anteroom_dir.mkdir()
     config_file = anteroom_dir / "config.yaml"
-    config_file.write_text('ai:\n  base_url: "http://localhost:1/v1"\n  api_key: "test"\n  model: "test"\n')
+    # Identity block is required post-#1441 so `aroom workflow respond`
+    # can derive the bearer token that routes the decision through the
+    # local server (#1444).  PEM strings here are placeholders — they
+    # act as HMAC key material, never parsed as real keys.
+    config_file.write_text(
+        "ai:\n"
+        '  base_url: "http://localhost:1/v1"\n'
+        '  api_key: "test"\n'
+        '  model: "test"\n'
+        "identity:\n"
+        '  user_id: "00000000-0000-4000-8000-000000000000"\n'
+        '  display_name: "Test User"\n'
+        '  public_key: "-----BEGIN PUBLIC KEY-----\\ntest-public-key\\n-----END PUBLIC KEY-----\\n"\n'
+        '  private_key: "-----BEGIN PRIVATE KEY-----\\ntest-private-key\\n-----END PRIVATE KEY-----\\n"\n'
+    )
     monkeypatch.setenv("HOME", str(tmp_path))
     yield
 

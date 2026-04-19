@@ -237,9 +237,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if app.state.audit_writer.enabled:
         logger.info("Audit log enabled: %s", app.state.audit_writer.log_dir)
 
-    # Start retention worker if configured
+    # Start retention worker when either conversation retention (storage)
+    # or memory retention (#625) is configured. Memory-only mode passes
+    # retention_days=0 — the worker's run_once() guards the conversation
+    # branch on that so no conversations are touched.
     app.state.retention_worker = None
-    if config.storage.retention_days > 0:
+    if config.storage.retention_days > 0 or config.memory.retention.enabled:
         from .services.retention import RetentionWorker
 
         retention_worker = RetentionWorker(
@@ -248,10 +251,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             retention_days=config.storage.retention_days,
             check_interval=config.storage.retention_check_interval,
             purge_attachments=config.storage.purge_attachments,
+            memory_retention_config=config.memory.retention,
+            audit_writer=app.state.audit_writer if app.state.audit_writer.enabled else None,
         )
         retention_worker.start()
         app.state.retention_worker = retention_worker
-        logger.info("Retention worker started (retention_days=%d)", config.storage.retention_days)
+        logger.info(
+            "Retention worker started (conversations=%d days, memory_enabled=%s)",
+            config.storage.retention_days,
+            config.memory.retention.enabled,
+        )
 
     _write_progress(_progress_path, "packs", "running")
     # Install/update built-in starter packs
@@ -480,7 +489,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if config.workflow.enabled and config.workflow.executor_enabled:
         from .services.workflow_executor import WorkflowExecutorWorker
 
-        executor_worker = WorkflowExecutorWorker(config.workflow, workflow_engine_factory, app.state.db)
+        executor_worker = WorkflowExecutorWorker(
+            config.workflow,
+            workflow_engine_factory,
+            app.state.db,
+            audit_writer=app.state.audit_writer,
+        )
         executor_worker.start()
         app.state.workflow_executor = executor_worker
         logger.info("Workflow executor worker started")
@@ -785,6 +799,7 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
             error = self._handle_session(sid, client_ip, request, path)
             if error:
                 return error
+            _stamp_actor_identity(request)
             _emit_auth_audit(request, "auth.success", "info", client_ip, path)
             return await call_next(request)
 
@@ -811,12 +826,33 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
                         security_logger.warning("Origin mismatch from %s: %s", client_ip, origin)
                         _emit_auth_audit(request, "auth.origin_mismatch", "warning", client_ip, path)
                         return JSONResponse(status_code=403, content={"detail": "Origin not allowed"})
+            _stamp_actor_identity(request)
             _emit_auth_audit(request, "auth.success", "info", client_ip, path)
             return await call_next(request)
 
         security_logger.warning("Authentication failed from %s: %s %s", client_ip, request.method, path)
         _emit_auth_audit(request, "auth.failure", "warning", client_ip, path)
         return self._make_401()
+
+
+def _stamp_actor_identity(request: Request) -> None:
+    """Stamp the authenticated actor identity onto ``request.state`` (#925).
+
+    Called from :class:`BearerTokenMiddleware` after successful auth.
+    Downstream handlers (router governance emissions, audit emitters)
+    resolve the acting identity via ``request.state.user_id`` so lineage
+    events carry the real actor rather than a static ``"operator"``.
+
+    Anteroom is a single-user local-first app; the bearer token is
+    derived from ``config.identity.private_key`` so every authenticated
+    request carries the same identity — ``config.identity.user_id``. The
+    stamp makes that identity observable to handlers.
+    """
+    config = getattr(getattr(request.app, "state", None), "config", None)
+    identity = getattr(config, "identity", None) if config else None
+    user_id = getattr(identity, "user_id", None) if identity else None
+    if isinstance(user_id, str) and user_id:
+        request.state.user_id = user_id
 
 
 def _emit_auth_audit(request: Request, event_type: str, severity: str, client_ip: str, path: str) -> None:

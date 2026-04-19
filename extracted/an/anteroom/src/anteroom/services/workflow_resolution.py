@@ -1,12 +1,21 @@
 """Shared workflow definition resolution — find workflow YAML by ID or path.
 
-Extracted from cli/workflow_cli.py so routers, scheduler, and CLI can all
-resolve workflow definitions without duplicating lookup logic.
+Since #924 the authoritative resolver is
+:func:`anteroom.services.workflow_registry.resolve_workflow`, which is
+pack-aware. This module now exposes a thin back-compat shim:
+:func:`resolve_workflow_path` for callers that pre-date the registry
+surface and still want a bare ``Path`` return type with no database
+awareness. New code should prefer ``resolve_workflow`` directly so
+pack-sourced templates are discoverable.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..db import ThreadSafeConnection
 
 
 def _package_root() -> Path:
@@ -19,47 +28,22 @@ def _is_safe_workflow_id(workflow_id: str) -> bool:
     return ".." not in workflow_id and "/" not in workflow_id and "\\" not in workflow_id
 
 
-def resolve_workflow_path(workflow_id: str, *, allow_filesystem: bool = True) -> Path | None:
-    """Resolve a workflow definition by ID or path.
+def resolve_workflow_path(
+    workflow_id: str,
+    *,
+    allow_filesystem: bool = True,
+    db: ThreadSafeConnection | None = None,
+) -> Path | None:
+    """Resolve a workflow definition by ID or path (back-compat shim).
 
-    Search order:
-    1. Exact filesystem path (if it exists and ends in .yaml/.yml) — only when allow_filesystem=True
-    2. Package examples: workflows/examples/ inside the installed package
-    3. Source-tree examples: examples/workflows/ (for development)
-    4. Built-in workflows: workflows/ inside the package
-
-    Set allow_filesystem=False for web API callers to prevent path traversal.
-    ID-based lookups always reject traversal characters (/, \\, ..).
+    Delegates to :func:`workflow_registry.resolve_workflow` and returns
+    the resolved ``Path`` (the registry's ``WorkflowRef.path``). Kept
+    for callers that haven't migrated to the pack-aware registry yet.
     """
-    # Direct filesystem path — CLI only, rejected for web API callers
-    if allow_filesystem:
-        candidate = Path(workflow_id)
-        if candidate.exists() and candidate.suffix in (".yaml", ".yml"):
-            return candidate
+    from .workflow_registry import resolve_workflow
 
-    # ID-based lookups: reject traversal characters
-    if not _is_safe_workflow_id(workflow_id):
-        return None
-
-    pkg_root = _package_root()
-
-    # Package-shipped examples (works in installed packages)
-    pkg_example_path = pkg_root / "workflows" / "examples" / f"{workflow_id}.yaml"
-    if pkg_example_path.exists():
-        return pkg_example_path
-
-    # Source-tree examples (works in development/editable installs)
-    src_examples_dir = pkg_root.parent.parent / "examples" / "workflows"
-    src_example_path = src_examples_dir / f"{workflow_id}.yaml"
-    if src_example_path.exists():
-        return src_example_path
-
-    # Built-in workflows (generic, shipped in package)
-    builtin_path = pkg_root / "workflows" / f"{workflow_id}.yaml"
-    if builtin_path.exists():
-        return builtin_path
-
-    return None
+    ref = resolve_workflow(workflow_id, db=db, allow_filesystem=allow_filesystem)
+    return None if ref is None else ref.path
 
 
 def builtin_workflow_dirs() -> list[Path]:

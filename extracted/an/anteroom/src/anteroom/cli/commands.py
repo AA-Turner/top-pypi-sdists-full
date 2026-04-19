@@ -45,6 +45,7 @@ CommandKind = Literal[
     "show_tools",
     "show_usage",
     "show_detail",
+    "show_attribution",
     "toggle_verbose",
     # Skills
     "show_skills",
@@ -253,6 +254,7 @@ COMMAND_DESCRIPTIONS: dict[str, str] = {
     "usage": "token usage stats",
     "verbose": "cycle verbosity",
     "detail": "tool call details",
+    "attribution": "show per-turn context attribution",
     "help": "show help",
     "artifact": "manage artifacts",
     "artifacts": "list artifacts",
@@ -351,6 +353,7 @@ ALL_COMMAND_NAMES: list[str] = [
     "usage",
     "verbose",
     "detail",
+    "attribution",
     "help",
     "clear",
     "copy",

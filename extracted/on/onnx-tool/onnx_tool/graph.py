@@ -8,7 +8,7 @@ import onnx
 from .node import create_node
 from .tensor import STATIC_TENSOR, DYNAMIC_TENSOR
 from .tensor import get_attribute_data, Tensor, volume
-from .utils import VERSION, tuple2str, ModelConfig
+from .utils import VERSION, tuple2str, ModelConfig, print_table, num2str
 
 
 def __shape_of_initializer__(initial):
@@ -174,6 +174,7 @@ class Graph():
         self.output = []
         self.valid_shape = False
         self.valid_profile = False
+        self.sparse_model = False
 
         if g is not None:
             self.__init_graph_from_onnxproto__(g, self.cfg.node_rename)
@@ -184,6 +185,15 @@ class Graph():
             self.__constant_search__(self.cfg.constant_folding)
             self.__update_nodes_tensors__(self.cfg.constant_folding)
             self.__find_shape_tensors__()
+
+    def update_graph(self):
+        if self.cfg.if_fixed_branch is not None:
+            self.__remove_if__()
+        if self.cfg.fixed_topk > 0:
+            self.__set_fixed_topk(self.cfg.fixed_topk)
+        self.__constant_search__(self.cfg.constant_folding)
+        self.__update_nodes_tensors__(self.cfg.constant_folding)
+        self.__find_shape_tensors__()
 
     def log(self, str):
         if self.cfg.verbose:
@@ -201,9 +211,6 @@ class Graph():
             self.log(f'Contant folding {rmlist[:3]}... {len(rmlist)} Nodes')
             for key in rmlist:
                 self.nodemap.pop(key)
-
-        self.initials = []
-        self.dynamics = []
 
         if constant_folding:
             for name in self.nodemap.keys():
@@ -240,17 +247,19 @@ class Graph():
             self.tensormap.pop(tname)
 
         self.input = []
-        self.output = []
+        if not self.cfg.remove_dangling:
+            self.output = []
         for name in self.nodemap.keys():
             node = self.nodemap[name]
             for tensor in node.input:
                 if tensor not in self.producedby and tensor in self.dynamics:
                     if tensor not in self.input:
                         self.input.append(tensor)
-            for tensor in node.output:
-                if tensor not in self.consumedby or len(self.consumedby[tensor]) == 0:
-                    if tensor not in self.output:
-                        self.output.append(tensor)
+            if not self.cfg.remove_dangling:
+                for tensor in node.output:
+                    if tensor not in self.consumedby or len(self.consumedby[tensor]) == 0:
+                        if tensor not in self.output:
+                            self.output.append(tensor)
         self.__update_consumer_producer__()
         self.log(f'Update Nodes Tensors  Time Elapsed {tm.stop()}')
 
@@ -322,52 +331,58 @@ class Graph():
         self.dynamics = list(self.producedby.keys())
 
     def __remove_if__(self):
-        prekeys = list(self.nodemap.keys())
-        remove_list = []
-        selected_branch = 'else_branch' if self.cfg.if_fixed_branch == 'else' else 'then_branch'
-        for n in prekeys:
-            node = self.nodemap[n]
-            if node.op_type == 'If':
-                # remove condition node chain
-                sub_input=[]
-                for node_proto in node.attr[selected_branch].node:
-                    for ipn in node_proto.input:
-                        sub_input.append(ipn)
-                node_list = [node.name]
-                while len(node_list):
-                    remove = True
-                    sname = node_list.pop(0)
-                    snode = self.nodemap[sname]
-                    for ipn in snode.input:
-                        if len(self.consumedby[ipn]) == 1 and ipn not in sub_input:  # consumed by this node
-                            node_list.append(self.producedby[ipn][0])
-                    if remove:
-                        remove_list.append(sname)
-                # add branch node
-                names = []
-                for node_proto in node.attr[selected_branch].node:
-                    self.__add_node_from_proto__(node_proto)
-                    names.append(node_proto.name)
+        while True:
+            prekeys = list(self.nodemap.keys())
+            remove_list = []
+            selected_branch = 'else_branch' if self.cfg.if_fixed_branch == 'else' else 'then_branch'
+            for n in prekeys:
+                node = self.nodemap[n]
+                if node.op_type == 'If':
+                    # remove condition node chain
+                    sub_input = []
+                    for node_proto in node.attr[selected_branch].node:
+                        for ipn in node_proto.input:
+                            sub_input.append(ipn)
+                    node_list = [node.name]
+                    while len(node_list):
+                        remove = True
+                        sname = node_list.pop(0)
+                        snode = self.nodemap[sname]
+                        for ipn in snode.input:
+                            if len(self.consumedby[ipn]) == 1 and ipn not in sub_input:  # consumed by this node
+                                if ipn in self.producedby.keys():
+                                    node_list.append(self.producedby[ipn][0])
+                            self.consumedby[ipn].remove(sname)
+                        if remove:
+                            remove_list.append(sname)
+                    # add branch node
+                    names = []
+                    for node_proto in node.attr[selected_branch].node:
+                        self.__add_node_from_proto__(node_proto)
+                        names.append(node_proto.name)
 
-                # revise output name
-                preoutput = node.attr[selected_branch].output[0].name
-                newoutput = node.output[0]
-                for newname in names:
-                    newnode = self.nodemap[newname]
-                    for tensor in newnode.input:
-                        if tensor not in self.tensormap.keys():
-                            self.tensormap[tensor] = Tensor(tensor)
-                    for tensor in newnode.output:
-                        if tensor not in self.tensormap.keys():
-                            self.tensormap[tensor] = Tensor(tensor)
-                        if tensor in self.consumedby:
-                            for consumer in self.consumedby[tensor]:
-                                self.nodemap[newnode.name].nextnodes.append(self.nodemap[consumer])
-                    for i, v in enumerate(newnode.output):
-                        if v == preoutput:
-                            newnode.output[i] = newoutput
-        for n in remove_list:
-            self.remove_node(n)
+                    # revise output name
+                    preoutput = node.attr[selected_branch].output[0].name
+                    newoutput = node.output[0]
+                    for newname in names:
+                        newnode = self.nodemap[newname]
+                        for tensor in newnode.input:
+                            if tensor not in self.tensormap.keys():
+                                self.tensormap[tensor] = Tensor(tensor)
+                        for tensor in newnode.output:
+                            if tensor not in self.tensormap.keys():
+                                self.tensormap[tensor] = Tensor(tensor)
+                            if tensor in self.consumedby:
+                                for consumer in self.consumedby[tensor]:
+                                    self.nodemap[newnode.name].nextnodes.append(self.nodemap[consumer])
+                        for i, v in enumerate(newnode.output):
+                            if v == preoutput:
+                                newnode.output[i] = newoutput
+                                self.producedby[newoutput].append(newname)
+            if len(remove_list)==0:
+                break
+            for n in remove_list:
+                self.remove_node(n)
 
     def __set_fixed_topk(self, fixed_k):
         prekeys = list(self.nodemap.keys())
@@ -462,7 +477,10 @@ class Graph():
         for output in g.output:
             if output.name not in self.tensormap.keys():
                 self.tensormap[output.name] = Tensor(output)
-
+        if self.cfg.remove_dangling:
+            self.output = []
+            for o in g.output:
+                self.output.append(o.name)
         # init dynamic tensor info
         for valinfo in g.value_info:
             if valinfo.name not in self.tensormap.keys():
@@ -495,6 +513,7 @@ class Graph():
     def __find_shape_tensors__(self):
         self.shape_tensors = []
         for n in self.nodemap.keys():
+            self.nodemap[n].shape_calc = False
             shape_tensors = _contains_shape_tensor(self.nodemap[n])
             for st in shape_tensors:
                 self.shape_tensors.append(st)
@@ -559,6 +578,7 @@ class Graph():
             self.tensormap[name] = create_initial_Tensor(name, data)
         else:
             raise NotImplementedError('unsupported data type')
+        return self.tensormap[name]
 
     def add_dynamic(self, name, data):
         from .tensor import create_dynamic_Tensor
@@ -567,6 +587,7 @@ class Graph():
             self.tensormap[name] = create_dynamic_Tensor(name, data)
         else:
             raise NotImplementedError('unsupported data type')
+        return self.tensormap[name]
 
     def get_subgraph(self, inputs: [], outputs: []):
         graph_level0, graph_level1, graph_level2 = self.__get_subnodes_byio__(inputs, outputs)
@@ -614,7 +635,9 @@ class Graph():
                     enqueued.append(input)
         return initializer
 
-    def remove_node(self, nodename):
+    def remove_node(self, nodename, recursive=False):
+        if nodename not in self.nodemap:
+            return
         node = self.nodemap[nodename]
         # update producer
         for o in node.output:
@@ -626,11 +649,30 @@ class Graph():
                 if o in self.output:
                     self.output.remove(o)
 
+        newnodes = []
         # update consumer
         for i in node.input:
             if i in self.consumedby.keys():
-                self.consumedby[i].remove(nodename)
+                if len(self.consumedby[i]) == 1 and i in self.producedby:
+                    pnode = self.producedby[i][0]
+                    assert (len(self.producedby[i]) == 1)
+                    dangle_node = True
+                    for o in self.nodemap[pnode].output:
+                        if o == i:
+                            continue
+                        if o in self.consumedby.keys() or o in self.output:
+                            dangle_node = False
+                            break
+                    if dangle_node:
+                        newnodes.append(pnode)
+                if nodename in self.consumedby[i]:
+                    self.consumedby[i].remove(nodename)
+                if len(self.consumedby[i]) == 0:
+                    self.consumedby.pop(i)
         self.nodemap.pop(nodename)
+        if recursive:
+            for node in newnodes:
+                self.remove_node(node)
 
     def remove_subtree(self, nodename, nodeset=None):
         if nodeset is not None:
@@ -659,7 +701,6 @@ class Graph():
             for nodename in list(self.nodemap.keys()):
                 node = self.nodemap[nodename]
                 node_used = False
-
                 for o in node.output:
                     if o in self.output:
                         node_used = True
@@ -672,7 +713,7 @@ class Graph():
                 if node_used:
                     continue
 
-                self.remove_node(nodename)
+                self.remove_node(nodename, recursive=True)
                 try_to_remove = True
 
     def skip_node(self, nodename):
@@ -701,7 +742,7 @@ class Graph():
 
     def fuse_subgraph_node_names(self, nodes: [str], nodeop: str, nodename: str, keep_attr=True):
         _inputs, _outputs = self.get_iotensors(nodes, remove_initials=False)
-        newnode = onnx.helper.make_node(nodeop, _inputs, _outputs, name=nodename)
+        newnode_prot = onnx.helper.make_node(nodeop, _inputs, _outputs, name=nodename)
         count = 0
         if keep_attr:
             for node in nodes:
@@ -709,16 +750,19 @@ class Graph():
                     attr = onnx.helper.make_attribute(
                         self.nodemap[node].proto.op_type + str(count) + '_' + attribute.name,
                         get_attribute_data(attribute))
-                    newnode.attribute.append(attr)
+                    newnode_prot.attribute.append(attr)
                 count += 1
-        from .node import Node
+        from .node import create_node
         for name in nodes:
             self.remove_node(name)
-        newnode = Node(newnode)
+        newnode = create_node(newnode_prot)
         newnode.input = _inputs
         newnode.output = _outputs
         for i in _inputs:
-            self.consumedby[i].append(nodename)
+            if i in self.consumedby:
+                self.consumedby[i].append(nodename)
+            else:
+                self.consumedby[i] = [nodename]
             if i in self.producedby.keys():
                 newnode.prevnodes.append(self.producedby[i])
         for o in _outputs:
@@ -1320,7 +1364,7 @@ class Graph():
 
         return cg
 
-    def profile(self):
+    def profile(self, exclude_ops = None):
         self.valid_profile = False
         if not self.valid_shape:
             warnings.warn('Please perform a valid shape_infer() before profile().')
@@ -1332,13 +1376,15 @@ class Graph():
         self.macs = [0.0, 0.0]
         self.params = 0
         self.memory = 0
-        for key in self.nodemap.keys():
+        ops_to_cover = {k for k, v in self.nodemap.items() if v.op_type not in exclude_ops} if exclude_ops else self.nodemap.keys()
+        for key in ops_to_cover:
             node = self.nodemap[key]
             itensors = []
             _params = 0
             _memory = 0
             max_sparsity = 0
             block_sparsity = {'blocksize': (1, 1), 'blockratio': 0, 'ratio': 0}
+
             for input in node.input:
                 tensor = self.tensormap[input]
                 itensors.append(tensor)
@@ -1367,7 +1413,6 @@ class Graph():
             if len(node.input) > 0:
                 inshape = self.tensormap[node.input[0]].get_shape()
                 inshape = (0,) if len(inshape) == 0 else inshape
-
             node.macs = macs
             node.inshape = inshape
             node.outshape = outshape
@@ -1385,14 +1430,11 @@ class Graph():
         if not self.valid_profile:
             warnings.warn('Please perform a valid profile() before print_node_map().')
             return
-        from tabulate import tabulate
         assert (metric in ['MACs', 'FLOPs'])
         print_sparse_table = self.sparse_model
-        saveformat = 'txt'
         splitch = 'x'
 
         if f is not None and '.csv' in f:
-            saveformat = 'csv'
             csvformat = True
         else:
             csvformat = False
@@ -1430,19 +1472,12 @@ class Graph():
         if metric == 'FLOPs':
             factor = 2
 
-        def num2str(num, csv=False):
-            if csv:
-                return '{}'.format(num)
-            else:
-                return '{:,}'.format(num)
-
         params += 1e-18
         forward_macs += 1e-18
         backward_macs += 1e-18
-        for key in self.nodemap.keys():
+        ops_to_cover = {k for k, v in self.nodemap.items() if v.op_type not in exclude_ops} if exclude_ops else self.nodemap.keys()
+        for key in ops_to_cover:
             node = self.nodemap[key]
-            if exclude_ops is not None and node.op_type in exclude_ops:
-                continue
             row = [key, self.nodemap[key].op_type]
             if print_sparse_table:
                 sparsity = node.sparsity
@@ -1494,27 +1529,4 @@ class Graph():
             ['Memory', 'MPercent', 'Params',
              'PPercent', 'InShape',
              'OutShape'])
-
-        if f is None:
-            print(tabulate(ptable, headers=header))
-        else:
-            fp = open(f, 'w')
-            if saveformat == 'csv':
-                headerstr = ''
-                for i, item in enumerate(header):
-                    headerstr += item
-                    if i < len(header) - 1:
-                        headerstr += ','
-                headerstr += '\n'
-                fp.write(headerstr)
-                for row in ptable:
-                    str = ''
-                    for i, ele in enumerate(row):
-                        str += ele
-                        if i != len(row) - 1:
-                            str += ','
-                    str += '\n'
-                    fp.write(str)
-            else:
-                fp.write(tabulate(ptable, headers=header))
-            fp.close()
+        print_table(ptable,header,f)

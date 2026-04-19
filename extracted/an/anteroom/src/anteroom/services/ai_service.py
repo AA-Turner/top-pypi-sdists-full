@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -848,20 +849,53 @@ class AIService:
         messages: list[dict[str, Any]],
         max_completion_tokens: int = 1000,
         _token_refreshed: bool = False,
+        *,
+        cancel_event: asyncio.Event | None = None,
     ) -> str | None:
-        """Non-streaming completion for internal use (e.g. context compaction)."""
+        """Non-streaming completion for internal use (e.g. context compaction).
+
+        When ``cancel_event`` is supplied, the provider call races against
+        ``cancel_event.wait()``. If the cancel event fires first, the
+        provider task is cancelled and the method returns ``None`` (the
+        same no-result signal used for auth failures and generic errors),
+        letting callers like ``compact_messages`` interpret it as a
+        compaction failure that leaves the history untouched (#1266).
+        """
         from openai import AuthenticationError
 
         try:
-            response = await self.client.chat.completions.create(
+            provider_coro = self.client.chat.completions.create(
                 model=self.config.model,
                 messages=messages,  # type: ignore[arg-type]
                 max_completion_tokens=max_completion_tokens,
             )
+            if cancel_event is None:
+                response = await provider_coro
+            else:
+                provider_task = asyncio.ensure_future(provider_coro)
+                cancel_task = asyncio.ensure_future(cancel_event.wait())
+                done, pending = await asyncio.wait(
+                    {provider_task, cancel_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for t in pending:
+                    t.cancel()
+                for t in pending:
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
+                        await t
+                if cancel_task in done:
+                    # Cancel fired first — provider was cancelled above.
+                    return None
+                response = provider_task.result()
             return response.choices[0].message.content if response.choices else None
         except AuthenticationError:
             if not _token_refreshed and self._try_refresh_token():
-                return await self.complete(messages, max_completion_tokens, _token_refreshed=True)
+                return await self.complete(
+                    messages,
+                    max_completion_tokens,
+                    _token_refreshed=True,
+                    cancel_event=cancel_event,
+                )
             return None
         except Exception:
             logger.exception("Failed to generate completion")

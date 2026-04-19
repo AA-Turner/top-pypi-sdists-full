@@ -529,6 +529,7 @@ class MegatronArguments(RLHFMegatronArgumentsMixin, MegatronTunerMixin):
     # mtp
     mtp_num_layers: Optional[int] = None
     mtp_loss_scaling_factor: float = 0.1
+    mtp_decoder_input_detach: bool = False
 
     # mcore-bridge
     model: Optional[str] = None
@@ -560,6 +561,7 @@ class MegatronArguments(RLHFMegatronArgumentsMixin, MegatronTunerMixin):
     torch_dtype: Optional[Union[torch.dtype, str]] = None
     rope_scaling: Optional[Union[dict, str]] = None
     apply_wd_to_qk_layernorm: bool = False
+    linear_decoupled_in_proj: bool = False
 
     enable_dft_loss: bool = False
     enable_channel_loss: bool = False

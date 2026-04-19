@@ -1,108 +1,57 @@
 [project]
-name = "scrapegraph_py"
-version = "1.46.0"
-description = "ScrapeGraph Python SDK for API"
-authors = [
-    { name = "Marco Vinciguerra", email = "marco@scrapegraphai.com" },
-    { name = "Lorenzo Padoan", email = "lorenzo@scrapegraphai.com" }
-]
-
-
-license = "MIT"
+name = "scrapegraph-py"
+version = "2.0.0"
+description = "Official Python SDK for ScrapeGraph AI API"
 readme = "README.md"
-homepage = "https://scrapegraphai.com/"
-repository = "https://github.com/ScrapeGraphAI/scrapegraph-sdk"
-documentation = "https://github.com/ScrapeGraphAI/scrapegraph-sdk/tree/main/scrapegraph-py#readme"
-keywords = [
-    "ai",
-    "artificial intelligence",
-    "gpt",
-    "machine learning",
-    "nlp",
-    "natural language processing",
-    "openai",
-    "scraping",
-    "web scraping tool",
-    "webscraping",
-    "graph",
-    "sdk",
-    "api"
-    ]
-classifiers = [
-    "Intended Audience :: Developers",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
+license = "MIT"
+authors = [
+    { name = "ScrapeGraph AI", email = "support@scrapegraphai.com" }
 ]
-requires-python = ">=3.10,<4.0"
-
+requires-python = ">=3.12"
 dependencies = [
-    "requests>=2.32.3",
-    "pydantic>=2.10.2",
-    "python-dotenv>=1.0.1",
-    "aiohttp>=3.10",
-    "requests>=2.32.3",
-    "beautifulsoup4>=4.12.3",
-    "toonify>=1.0.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+]
+keywords = ["scraping", "ai", "web-scraping", "api", "sdk"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 
-[project.optional-dependencies]
-html = ["beautifulsoup4>=4.12.3"]
-langchain = [
-    "langchain>=0.3.0",
-    "langchain-community>=0.2.11",
-    "langchain-scrapegraph>=0.1.0",
-]
-docs = ["sphinx==6.0", "furo==2024.5.6"]
-
-[tool.uv]
-managed = true
-dev-dependencies = [
-    "pytest>=7.4.0",
-    "pytest-mock==3.14.0",
-    "pylint>=3.2.5",
-    "pytest-asyncio>=0.23.8",
-    "aioresponses>=0.7.7",
-    "responses>=0.25.3",
-    "pytest-sugar>=1.0.0",
-    "pytest-cov>=6.0.0",
-    "black>=24.10.0",
-    "mypy>=1.13.0",
-    "ruff>=0.8.0",
-    "isort>=5.13.2",
-    "pre-commit>=4.0.1",
-    "types-setuptools>=75.6.0.20241126",
-    "mkdocs>=1.6.1",
-    "mkdocs-material>=9.5.46",
-    "mkdocstrings-python>=1.12.2",
-    "poethepoet>=0.31.1",
-    "twine>=6.1.0",
-]
-
-[tool.black]
-line-length = 88
-target-version = ["py310"]
-
-[tool.isort]
-profile = "black"
-
-[tool.ruff]
-line-length = 88
-
-[tool.ruff.lint]
-select = ["F", "E", "W", "C"]
-ignore = ["E203", "E501", "C901"]  # Ignore conflicts with Black and function complexity
-
-[tool.mypy]
-python_version = "3.10"
-strict = true
-disallow_untyped_calls = true
-ignore_missing_imports = true
+[project.urls]
+Homepage = "https://scrapegraphai.com"
+Documentation = "https://docs.scrapegraphai.com"
+Repository = "https://github.com/ScrapeGraphAI/scrapegraph-py"
+Issues = "https://github.com/ScrapeGraphAI/scrapegraph-py/issues"
 
 [build-system]
-requires = ["hatchling==1.26.3"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.poe.tasks]
-pylint-local = "pylint scrapegraph_py/**/*.py"
-pylint-ci = "pylint --disable=C0114,C0115,C0116,C901 --exit-zero scrapegraph_py/**/*.py"
+[tool.hatch.build.targets.wheel]
+packages = ["src/scrapegraph_py"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "python-dotenv>=1.0.0",
+    "ruff>=0.4.0",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F841", "E402"]

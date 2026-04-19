@@ -242,6 +242,36 @@ def collect_pack_overlays(
                 continue
             results.append((label, parsed))
 
+        # Also collect policy artifacts (#924). These land in the same
+        # overlay stream so the existing merge/priority pipeline handles
+        # them — but the parser restricts which keys may be set.
+        try:
+            policy_rows = db.execute(
+                "SELECT a.content, a.name FROM artifacts a "
+                "JOIN pack_artifacts pa ON a.id = pa.artifact_id "
+                "WHERE pa.pack_id = ? AND a.type = 'policy'",
+                (pack_id,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            continue
+
+        if not policy_rows:
+            continue
+
+        from . import pack_policies
+
+        for art_row in policy_rows:
+            content = art_row[0] if isinstance(art_row, (tuple, list)) else art_row["content"]
+            name = art_row[1] if isinstance(art_row, (tuple, list)) else art_row["name"]
+            if not content:
+                continue
+            parsed = pack_policies.parse_policy_artifact(content, source=f"{label}:{name}")
+            if parsed:
+                # Policy overlays are tagged with a ``:policy:`` suffix on
+                # the label so conflict diagnostics can distinguish them
+                # from ``config_overlay`` artifacts from the same pack.
+                results.append((f"{label}:policy:{name}", parsed))
+
     return results
 
 

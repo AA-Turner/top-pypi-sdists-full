@@ -1679,7 +1679,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode;
 
-/* "av/codec/context.pxd":33
+/* "av/codec/context.pxd":26
  *     cdef readonly HWAccel hwaccel
  *     cdef public dict options
  *     cpdef open(self, bint strict=?)             # <<<<<<<<<<<<<<
@@ -1691,7 +1691,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open {
   int strict;
 };
 
-/* "av/codec/context.pxd":36
+/* "av/codec/context.pxd":29
  * 
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)             # <<<<<<<<<<<<<<
@@ -1703,7 +1703,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode {
   struct __pyx_obj_2av_5frame_Frame *frame;
 };
 
-/* "av/codec/context.pxd":37
+/* "av/codec/context.pxd":30
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)
  *     cpdef decode(self, Packet packet=?)             # <<<<<<<<<<<<<<
@@ -1717,7 +1717,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode {
 struct __pyx_t_2av_9container_4core_timeout_info;
 typedef struct __pyx_t_2av_9container_4core_timeout_info __pyx_t_2av_9container_4core_timeout_info;
 
-/* "av/container/core.pxd":11
+/* "av/container/core.pxd":12
  * 
  * # Interrupt callback information, times are in seconds.
  * ctypedef struct timeout_info:             # <<<<<<<<<<<<<<
@@ -1731,8 +1731,8 @@ struct __pyx_t_2av_9container_4core_timeout_info {
 struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_width;
 struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_height;
 
-/* "av/video/format.pxd":10
- *     cdef readonly tuple components
+/* "av/video/format.pxd":9
+ *     cdef readonly unsigned int width, height
  *     cdef _init(self, lib.AVPixelFormat pix_fmt, unsigned int width, unsigned int height)
  *     cpdef chroma_width(self, int luma_width=?)             # <<<<<<<<<<<<<<
  *     cpdef chroma_height(self, int luma_height=?)
@@ -1743,7 +1743,7 @@ struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_width {
   int luma_width;
 };
 
-/* "av/video/format.pxd":11
+/* "av/video/format.pxd":10
  *     cdef _init(self, lib.AVPixelFormat pix_fmt, unsigned int width, unsigned int height)
  *     cpdef chroma_width(self, int luma_width=?)
  *     cpdef chroma_height(self, int luma_height=?)             # <<<<<<<<<<<<<<
@@ -1933,8 +1933,6 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_5codec_7context_CodecContext *__pyx_vtab;
   struct AVCodecContext *ptr;
-  int extradata_set;
-  int _template_initialized;
   int stream_index;
   struct AVCodecParserContext *parser;
   int is_open;
@@ -1942,6 +1940,7 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel;
   PyObject *options;
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel_ctx;
+  uint8_t _ctxflags;
   struct __pyx_obj_2av_5frame_Frame *_next_frame;
 };
 
@@ -1997,24 +1996,22 @@ struct __pyx_obj_2av_6format_ContainerFormat {
 };
 
 
-/* "av/container/core.pxd":16
+/* "av/container/core.pxd":17
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- *     cdef readonly bint writeable
  *     cdef lib.AVFormatContext *ptr
+ *     cdef readonly object name
 */
 struct __pyx_obj_2av_9container_4core_Container {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_9container_4core_Container *__pyx_vtab;
-  int writeable;
   struct AVFormatContext *ptr;
   PyObject *name;
   PyObject *metadata_encoding;
   PyObject *metadata_errors;
   struct __pyx_obj_2av_9container_4pyio_PyIOFile *file;
   int buffer_size;
-  int input_was_opened;
   PyObject *io_open;
   PyObject *open_files;
   struct __pyx_obj_2av_6format_ContainerFormat *format;
@@ -2024,6 +2021,7 @@ struct __pyx_obj_2av_9container_4core_Container {
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel;
   struct __pyx_obj_2av_9container_7streams_StreamContainer *streams;
   PyObject *metadata;
+  uint8_t _myflag;
   PyObject *open_timeout;
   PyObject *read_timeout;
   __pyx_t_2av_9container_4core_timeout_info interrupt_callback_info;
@@ -2125,7 +2123,6 @@ struct __pyx_obj_2av_6packet_Packet {
   struct __pyx_obj_2av_6buffer_Buffer __pyx_base;
   struct AVPacket *ptr;
   struct __pyx_obj_2av_6stream_Stream *_stream;
-  struct __pyx_obj_2av_6buffer_ByteSource *source;
 };
 
 
@@ -2143,11 +2140,10 @@ struct __pyx_obj_2av_5video_6format_VideoFormat {
   struct AVPixFmtDescriptor const *ptr;
   unsigned int width;
   unsigned int height;
-  PyObject *components;
 };
 
 
-/* "av/video/format.pxd":14
+/* "av/video/format.pxd":13
  * 
  * 
  * cdef class VideoFormatComponent:             # <<<<<<<<<<<<<<
@@ -2329,7 +2325,6 @@ struct __pyx_vtabstruct_2av_5codec_7context_CodecContext {
   PyObject *(*_setup_encoded_packet)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_setup_decoded_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_5frame_Frame *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_recv_packet)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
-  PyObject *(*_send_packet_and_recv)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_recv_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
   PyObject *(*_transfer_hwframe)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_5frame_Frame *);
   struct __pyx_obj_2av_5frame_Frame *(*_alloc_next_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
@@ -2351,12 +2346,12 @@ struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer {
 static struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *__pyx_vtabptr_2av_9container_7streams_StreamContainer;
 
 
-/* "av/container/core.pxd":16
+/* "av/container/core.pxd":17
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- *     cdef readonly bint writeable
  *     cdef lib.AVFormatContext *ptr
+ *     cdef readonly object name
 */
 
 struct __pyx_vtabstruct_2av_9container_4core_Container {
@@ -5745,7 +5740,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) __PYX_ERR(11, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(12, 16, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(12, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_4core_Container = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.container.core", "Container",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -5755,8 +5750,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_4core_Container), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_9container_4core_Container),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(12, 16, __pyx_L1_error)
-  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(12, 16, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(12, 17, __pyx_L1_error)
+  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(12, 17, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.index"); if (unlikely(!__pyx_t_1)) __PYX_ERR(13, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -5847,7 +5842,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5video_6format_VideoFormatComponent), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5video_6format_VideoFormatComponent),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_6format_VideoFormatComponent) __PYX_ERR(16, 14, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_6format_VideoFormatComponent) __PYX_ERR(16, 13, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.video.reformatter"); if (unlikely(!__pyx_t_1)) __PYX_ERR(17, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);

@@ -122,8 +122,33 @@ def _get_tensor(item):
         return create_ndarray_f32(item)
 
 
+def _broadcast_shape(shapes: []):
+    maxlen = 0
+    for shape in shapes:
+        maxlen = max(len(shape), maxlen)
+    newshapes = []
+    for shape in shapes:
+        if len(shape) < maxlen:
+            gap = maxlen - len(shape)
+            newshape = [1] * gap + shape
+        else:
+            newshape = shape
+        newshapes.append(newshape)
+    outshape = newshapes[0]
+    for i in range(len(newshapes) - 1):
+        outshape = [max(a, b) for a, b in zip(newshapes[i + 1], outshape)]
+    return outshape
+
+
+class TmpNodeProto:
+    def __init__(self, name, op_type, attributes):
+        self.name = name
+        self.op_type = op_type
+        self.attribute = attributes
+
+
 class Node():
-    def __init__(self, n: onnx.NodeProto):
+    def __init__(self, n: onnx.NodeProto | TmpNodeProto):
         self.name = n.name
         self.op_type = n.op_type
         self.nextnodes = []
@@ -133,12 +158,17 @@ class Node():
         self.proto = n
         self.shape_calc = False
         self.attr = {}
-        for att in n.attribute:
-            self.attr[att.name] = onnx.helper.get_attribute_value(att)
-            self.__setattr__(att.name, get_attribute_data(att))
-            if att.name == 'axes':
-                if isinstance(self.axes, list):
-                    self.axes = tuple(self.axes)
+        if isinstance(n.attribute, dict):
+            for att in n.attribute:
+                self.attr[att] = n.attribute[att]
+                self.__setattr__(att, n.attribute[att])
+        else:
+            for att in n.attribute:
+                self.attr[att.name] = onnx.helper.get_attribute_value(att)
+                self.__setattr__(att.name, get_attribute_data(att))
+                if att.name == 'axes':
+                    if isinstance(self.axes, list):
+                        self.axes = tuple(self.axes)
 
     def set_attr(self, key, val):
         self.attr[key] = val
@@ -353,6 +383,20 @@ class SoftmaxNode(ExpNode):
         result = xexp / numpy.sum(xexp, axis=self.axis, keepdims=True)
         outtensors[0].update_tensor(result)
 
+@NODE_REGISTRY.register()
+class SoftplusNode(ExpNode):
+    def __init__(self, node_proto):
+        super().__init__(node_proto)
+        # Softmax(x) = ln(1 + exp(x))
+        # so one exp, one plus and one log
+        self.op_mac = EXP_MACS + ADD_MACS + LOG_MACS
+        self.ratio = 1
+
+    def value_infer(self, intensors: list[Tensor], outtensors: list[Tensor]):
+        # Can overflow to inf if intensor is too large,
+        # but we don't need precise inference anyway so maybe its good enough.
+        result = numpy.log1p(numpy.exp(intensors[0].get_numpy()))
+        outtensors[0].update_tensor(result)
 
 @NODE_REGISTRY.register()
 class LogNode(PWNode):
@@ -379,6 +423,13 @@ class InstanceNormalizationNode(PWNode):
     def __init__(self, node_proto):
         super().__init__(node_proto)
         self.op_mac = ADD_MACS + MUL_MACS + ADD_MACS + DIV_MACS
+
+
+@NODE_REGISTRY.register()
+class LpNormalizationNode(PWNode):
+    def __init__(self, node_proto):
+        super().__init__(node_proto)
+        self.op_mac = EXP_MACS + ADD_MACS
 
 
 @NODE_REGISTRY.register()
@@ -459,6 +510,14 @@ class TanhNode(PWNode):
 
 
 @NODE_REGISTRY.register()
+class LogSoftmaxNode(PWNode):
+    def __init__(self, n):
+        super().__init__(n)
+        self.op_mac = EXP_MACS + DIV_MACS + ADD_MACS + LOG_MACS
+        self.ratio = 1
+
+
+@NODE_REGISTRY.register()
 class AtanNode(TanhNode):
     def __init__(self, n):
         super().__init__(n)
@@ -516,6 +575,60 @@ class ReluNode(PWNode):
         result = numpy.clip(intensors[0].get_numpy(), 0, None)
         outtensors[0].update_tensor(result)
 
+@NODE_REGISTRY.register()
+class EluNode(PWNode):
+    def __init__(self, n):
+        super().__init__(n)
+        self.op_mac = CMP_MACS + EXP_MACS + ADD_MACS + MUL_MACS
+        self.ratio = 1
+
+    def value_infer(self, intensors: List[Tensor], outtensors: List[Tensor]):
+        x = intensors[0].get_numpy()
+        alpha = getattr(self, 'alpha', 1.0)
+        result = numpy.where(x >= 0, x, alpha * (numpy.exp(x) - 1))
+        outtensors[0].update_tensor(result)
+
+
+@NODE_REGISTRY.register()
+class SiluNode(PWNode):
+    def __init__(self, n):
+        super().__init__(n)
+        self.op_mac = EXP_MACS + MUL_MACS
+
+
+@NODE_REGISTRY.register()
+class GeluNode(PWNode):
+    def __init__(self, n):
+        super().__init__(n)
+        self.op_mac = EXP_MACS + MUL_MACS * 2
+
+
+@NODE_REGISTRY.register()
+class LogitSoftCappingNode(PWNode):
+    def __init__(self, n):
+        super().__init__(n)
+        self.op_mac = TANH_MACS + MUL_MACS + DIV_MACS
+
+
+@NODE_REGISTRY.register()
+class GeGeluNode(PWNode):
+    def __init__(self, n):
+        super().__init__(n)
+        self.op_mac = EXP_MACS + MUL_MACS * 2
+
+    def shape_infer(self, intensors: List[Tensor], outtensors: List[Tensor]):
+        ishape = intensors[0].get_shape()
+        ishape[-1] = ishape[-1] // 2
+        outtensors[0].update_shape(ishape)
+        outtensors[0].update_dtype(intensors[0].dtype)
+
+
+@NODE_REGISTRY.register()
+class RopeNode(PWNode):
+    def __init__(self, n):
+        super().__init__(n)
+        self.op_mac = COS_MACS + SIN_MACS + MUL_MACS * 2
+
 
 @NODE_REGISTRY.register()
 class PReluNode(PWNode):
@@ -559,7 +672,13 @@ class SumNode(PWNode):
 class NonMaxSuppressionNode(Node):
     def shape_infer(self, intensors: List[Tensor], outtensors: List[Tensor]):
         if len(intensors) >= 3:
+            box_shape = intensors[0].get_shape()
+            score_shape = intensors[1].get_shape()
             max_output_boxes_per_class = int(intensors[2].get_scalar())
+            box_count = volume(box_shape[:-1])
+            assert box_shape[1] == score_shape[2]
+            assert box_shape[0] == score_shape[0]
+            max_output_boxes_per_class = min(max_output_boxes_per_class, box_count)
             outtensors[0].update_shape([max_output_boxes_per_class, 3])
             outtensors[0].update_dtype(numpy.int64)
             return
@@ -582,7 +701,9 @@ class LRNNode(PWNode):
 @NODE_REGISTRY.register()
 class LessNode(Node):
     def shape_infer(self, intensors: List[Tensor], outtensors: List[Tensor]):
-        outtensors[0].update_shape(intensors[0].get_shape())
+        shapes = [t.get_shape() for t in intensors]
+        oshape = _broadcast_shape(shapes)
+        outtensors[0].update_shape(oshape)
         outtensors[0].update_dtype(numpy.bool_)
 
     def value_infer(self, intensors: List[Tensor], outtensors: List[Tensor]):
@@ -597,6 +718,13 @@ class LessNode(Node):
 class LessOrEqualNode(LessNode):
     def value_infer(self, intensors: List[Tensor], outtensors: List[Tensor]):
         result = numpy.less_equal(intensors[0].get_numpy(), intensors[1].get_numpy())
+        outtensors[0].update_tensor(result)
+
+
+@NODE_REGISTRY.register()
+class RoundNode(LessNode):
+    def value_infer(self, intensors: List[Tensor], outtensors: List[Tensor]):
+        result = numpy.round(intensors[0].get_numpy())
         outtensors[0].update_tensor(result)
 
 
@@ -721,7 +849,8 @@ class GemmNode(Node):
                 else:
                     macs *= weight_shape[-2]
             else:
-                macs *= weight_shape[-2]
+                if len(weight_shape) > 1:
+                    macs *= weight_shape[-2]
             if len(intensors) == 3:
                 macs += volume(yshape) * ADD_MACS
         else:
@@ -1227,12 +1356,25 @@ class ExpandNode(Node):
         expandshape = intensors[1].get_numpy().tolist()
         if not isinstance(expandshape, list):
             expandshape = [expandshape, ]
-        yshape = []
+        # Ensure both shapes have the same rank by prepending 1s to the shorter one.
+        xshape = list(xshape)
+        expandshape = list(expandshape)
         if len(xshape) < len(expandshape):
-            for i in range(len(xshape), len(expandshape)):
-                xshape = [1, ] + xshape
+            xshape = [1] * (len(expandshape) - len(xshape)) + xshape
+        elif len(expandshape) < len(xshape):
+            expandshape = [1] * (len(xshape) - len(expandshape)) + expandshape
+
+        yshape = []
         for x, e in zip(xshape, expandshape):
-            yshape.append(max(x, e))
+            try:
+                xi = int(x)
+            except Exception:
+                xi = x
+            try:
+                ei = int(e)
+            except Exception:
+                ei = e
+            yshape.append(max(xi, ei))
         outtensors[0].update_shape(yshape)
         outtensors[0].update_dtype(intensors[0].dtype)
 
@@ -1600,9 +1742,10 @@ class TopKNode(Node):
         # when the input tensor only contain 1 dimension, the axis attribute (default: 0) may not appear in the node
         if len(xshape) == 1 and self.axis is None:
             self.axis = 0
+        axis = _axes_neg2pos(len(xshape), [self.axis])[0]
         newshape = []
         for i in range(len(xshape)):
-            if i == self.axis:
+            if i == axis:
                 newshape.append(k)
             else:
                 newshape.append(xshape[i])
@@ -2078,6 +2221,11 @@ class GreaterNode(Node):
         outshape = outtensors[0].get_shape()
         return [volume(outshape) * CMP_MACS, 0]
 
+@NODE_REGISTRY.register()
+class GreaterOrEqualNode(GreaterNode):
+    def value_infer(self, intensors: List[Tensor], outtensors: List[Tensor]):
+        result = numpy.greater_equal(intensors[0].get_numpy(), intensors[1].get_numpy())
+        outtensors[0].update_tensor(result)
 
 @NODE_REGISTRY.register()
 class DequantizeLinearNode(PWNode):
@@ -2446,6 +2594,50 @@ class CastNode(Node):
 
 
 @NODE_REGISTRY.register()
+class MHANode(Node):
+    def __init__(self, nodeproto):
+        super().__init__(nodeproto)
+
+    def shape_infer(self, intensors: List[Tensor], outtensors: List[Tensor]):
+        outtensors[0].update_shape(intensors[0].get_shape())
+        outtensors[0].update_dtype(intensors[0].dtype)
+
+    def profile(self, intensors: List[Tensor], outtensors: List[Tensor]):
+        Q = intensors[0]
+        q_shape = Q.get_shape()
+        bs = q_shape[0]
+        seq = q_shape[1]
+        if len(intensors) >= 5:  # with KV cache
+            t_n_past = intensors[3]
+            t_kv_cache = intensors[4]
+            max_past = t_n_past.numpy.max()
+            n_conxt = t_kv_cache.get_shape()[2]
+            assert (max_past + seq <= n_conxt)
+            seq_all = max_past + seq
+            QK = bs * self.head_num * seq * seq_all * self.head_size
+            QK_softmax = bs * self.head_num * seq * seq_all * (EXP_MACS + DIV_MACS)
+            QK_V = bs * self.head_num * seq * self.head_size * seq_all
+            self.kv_size = bs * self.kv_head_num * seq_all * self.head_size * 2
+        else:
+            QK = bs * self.head_num * seq * seq * self.head_size
+            QK_softmax = bs * self.head_num * seq * seq * (EXP_MACS + DIV_MACS)
+            QK_V = bs * self.head_num * seq * self.head_size * seq
+            self.kv_size = bs * self.kv_head_num * seq * self.head_size * 2
+
+        return [QK + QK_softmax + QK_V, 0]
+
+
+@NODE_REGISTRY.register()
+class GQANode(MHANode):
+    pass
+
+
+@NODE_REGISTRY.register()
+class MQANode(MHANode):
+    pass
+
+
+@NODE_REGISTRY.register()
 class SplitNode(Node):
     def __init__(self, nodeproto):
         super().__init__(nodeproto)
@@ -2459,7 +2651,13 @@ class SplitNode(Node):
             if len(intensors) == 2:
                 split = intensors[1].get_numpy()
             else:
-                split = [inshape[self.axis] // 2] * 2
+                if inshape[self.axis] % len(outtensors) == 0:
+                    div = inshape[self.axis] // len(outtensors)
+                    split = [div] * len(outtensors)
+                else:
+                    div = inshape[self.axis] // len(outtensors) + 1
+                    split = [div] * len(outtensors)
+                    split[-1] += inshape[self.axis] - sum(split) 
         else:
             split = self.split
         axis = _axes_neg2pos(len(inshape), [self.axis])[0]
@@ -2488,7 +2686,13 @@ class SplitNode(Node):
             if len(intensors) == 2:
                 split = intensors[1].get_numpy()
             else:
-                split = [inshape[self.axis] // 2]
+                if inshape[self.axis] % len(outtensors) == 0:
+                    div = inshape[self.axis] // len(outtensors)
+                    split = [div] * len(outtensors)
+                else:
+                    div = inshape[self.axis] // len(outtensors) + 1
+                    split = [div] * len(outtensors)
+                    split[-1] += inshape[self.axis] - sum(split) 
         else:
             split = self.split
 
@@ -2503,7 +2707,7 @@ class SplitNode(Node):
             outtensors[i].update_tensor(t)
 
 
-def create_node(n: onnx.NodeProto):
+def create_node(n: onnx.NodeProto | TmpNodeProto):
     node_class = NODE_REGISTRY.get(n.op_type + 'Node')
     if node_class != None:
         instance = node_class(n)

@@ -39,10 +39,6 @@ def _get_hw_format(
 
 @cython.cclass
 class VideoCodecContext(CodecContext):
-    def __cinit__(self, *args, **kwargs):
-        self.last_w = 0
-        self.last_h = 0
-
     @cython.cfunc
     def _init(
         self,
@@ -76,21 +72,14 @@ class VideoCodecContext(CodecContext):
                 # is_hwaccel() function on each stream's codec context.
                 self.hwaccel_ctx = None
 
-        self._build_format()
-        self.encoded_frame_count = 0
-
     @cython.cfunc
     def _prepare_frames_for_encode(self, input: Frame | None) -> list:
         if input is None or not input:
             return [None]
 
-        if self._format is None:
-            raise ValueError("self._format is None, cannot encode")
-
         vframe: VideoFrame = input
-        # Reformat if it doesn't match.
         if (
-            vframe.format.pix_fmt != self._format.pix_fmt
+            vframe.format.pix_fmt != self.pix_fmt
             or vframe.width != self.ptr.width
             or vframe.height != self.ptr.height
         ):
@@ -101,15 +90,13 @@ class VideoCodecContext(CodecContext):
                 vframe,
                 self.ptr.width,
                 self.ptr.height,
-                self._format,
+                self.format,
                 threads=self.ptr.thread_count,
             )
 
-        # There is no pts, so create one.
         if vframe.ptr.pts == lib.AV_NOPTS_VALUE:
-            vframe.ptr.pts = cython.cast(int64_t, self.encoded_frame_count)
+            vframe.ptr.pts = self.ptr.frame_num
 
-        self.encoded_frame_count += 1
         return [vframe]
 
     @cython.cfunc
@@ -141,24 +128,19 @@ class VideoCodecContext(CodecContext):
         frame_sw.pts = frame.pts
         return frame_sw
 
-    @cython.cfunc
-    def _build_format(self):
-        self._format = get_video_format(
+    @property
+    def format(self):
+        return get_video_format(
             cython.cast(lib.AVPixelFormat, self.ptr.pix_fmt),
             self.ptr.width,
             self.ptr.height,
         )
-
-    @property
-    def format(self):
-        return self._format
 
     @format.setter
     def format(self, format: VideoFormat):
         self.ptr.pix_fmt = format.pix_fmt
         self.ptr.width = format.width
         self.ptr.height = format.height
-        self._build_format()  # Kinda wasteful.
 
     @property
     def width(self):
@@ -169,7 +151,6 @@ class VideoCodecContext(CodecContext):
     @width.setter
     def width(self, value: cython.uint):
         self.ptr.width = value
-        self._build_format()
 
     @property
     def height(self):
@@ -180,7 +161,6 @@ class VideoCodecContext(CodecContext):
     @height.setter
     def height(self, value: cython.uint):
         self.ptr.height = value
-        self._build_format()
 
     @property
     def bits_per_coded_sample(self):
@@ -199,7 +179,6 @@ class VideoCodecContext(CodecContext):
             raise ValueError("Not supported for encoders")
 
         self.ptr.bits_per_coded_sample = value
-        self._build_format()
 
     @property
     def pix_fmt(self):
@@ -208,12 +187,14 @@ class VideoCodecContext(CodecContext):
 
         :type: str | None
         """
-        return getattr(self._format, "name", None)
+        desc: cython.pointer[cython.const[lib.AVPixFmtDescriptor]] = (
+            lib.av_pix_fmt_desc_get(cython.cast(lib.AVPixelFormat, self.ptr.pix_fmt))
+        )
+        return cython.cast(str, desc.name)
 
     @pix_fmt.setter
     def pix_fmt(self, value):
         self.ptr.pix_fmt = get_pix_fmt(value)
-        self._build_format()
 
     @property
     def framerate(self):

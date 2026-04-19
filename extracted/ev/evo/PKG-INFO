@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: evo
-Version: 1.35.2
+Version: 1.36.3
 Summary: Python package for the evaluation of odometry and SLAM
 Project-URL: Homepage, https://github.com/MichaelGrupp/evo
 Project-URL: Wiki, https://github.com/MichaelGrupp/evo/wiki
@@ -31,7 +31,7 @@ Requires-Dist: pandas
 Requires-Dist: pillow
 Requires-Dist: pygments
 Requires-Dist: pyyaml
-Requires-Dist: rosbags>=0.11.0
+Requires-Dist: rosbags>=0.11.1
 Requires-Dist: scipy>=1.2
 Requires-Dist: seaborn>=0.9
 Provides-Extra: geo

@@ -129,6 +129,44 @@ class TestListAttachments:
         result = list_attachments(db, project_path="/proj-b")
         assert len(result) == 0
 
+    def test_space_only_returns_global_plus_space(self, db: ThreadSafeConnection) -> None:
+        """#923 regression: attribution needs the active attachments for the
+        turn's (space_id, project_path), not just global."""
+        _insert_space(db, space_id="space-1", name="work")
+        _insert_space(db, space_id="space-2", name="home")
+        _insert_pack(db, pack_id="g", namespace="core", name="global-pack")
+        _insert_pack(db, pack_id="s1", namespace="core", name="space1-pack")
+        _insert_pack(db, pack_id="s2", namespace="core", name="space2-pack")
+        attach_pack(db, "g")  # global
+        attach_pack_to_space(db, "s1", "space-1")
+        attach_pack_to_space(db, "s2", "space-2")
+        result = list_attachments(db, space_id="space-1")
+        names = sorted(r["name"] for r in result)
+        assert names == ["global-pack", "space1-pack"]
+
+    def test_space_plus_project_three_scope_union(self, db: ThreadSafeConnection) -> None:
+        _insert_space(db, space_id="space-1", name="work")
+        _insert_pack(db, pack_id="g", namespace="core", name="global-pack")
+        _insert_pack(db, pack_id="s", namespace="core", name="space-pack")
+        _insert_pack(db, pack_id="p", namespace="core", name="project-pack")
+        _insert_pack(db, pack_id="other", namespace="core", name="other-project")
+        attach_pack(db, "g")
+        attach_pack_to_space(db, "s", "space-1")
+        attach_pack(db, "p", project_path="/my/project")
+        attach_pack(db, "other", project_path="/other")
+        result = list_attachments(db, space_id="space-1", project_path="/my/project")
+        names = sorted(r["name"] for r in result)
+        assert names == ["global-pack", "project-pack", "space-pack"]
+
+    def test_row_includes_space_id(self, db: ThreadSafeConnection) -> None:
+        _insert_space(db, space_id="space-1", name="work")
+        _insert_pack(db, pack_id="s", namespace="core", name="space-pack")
+        attach_pack_to_space(db, "s", "space-1")
+        result = list_attachments(db, space_id="space-1")
+        # The space-scoped row must carry its space_id — without it, callers
+        # (e.g. attribution) can't correctly describe the row's provenance.
+        assert any(r.get("space_id") == "space-1" for r in result)
+
 
 class TestGetActivePackIds:
     def test_empty(self, db: ThreadSafeConnection) -> None:

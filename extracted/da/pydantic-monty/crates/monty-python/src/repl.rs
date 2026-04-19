@@ -14,18 +14,19 @@ use pyo3::{
     exceptions::{PyRuntimeError, PyTypeError, PyValueError},
     prelude::*,
     sync::PyOnceLock,
-    types::{PyBytes, PyDict, PyList, PyModule, PyType},
+    types::{PyBytes, PyDict, PyList, PyModule, PyString, PyType},
 };
 use pyo3_async_runtimes::tokio::future_into_py;
 
 use crate::{
     async_dispatch::{ReplCleanupNotifier, await_repl_transition, dispatch_loop_repl},
-    convert::{get_docstring, monty_to_py, py_to_monty},
+    build::{extract_source_code, py_type_check},
+    convert::{get_docstring, monty_to_py, py_to_monty_value},
     dataclass::DcRegistry,
-    exceptions::MontyError,
+    exceptions::{MontyError, exc_py_to_monty},
     external::{ExternalFunctionRegistry, dispatch_method_call},
     limits::{CancellationFlag, FutureCancellationGuard, PySignalTracker, extract_limits},
-    monty_cls::{EitherProgress, call_os_callback_parts, py_type_check},
+    monty_cls::{EitherProgress, call_os_callback_parts},
     mount::OsHandler,
     print_target::PrintTarget,
 };
@@ -144,8 +145,9 @@ impl PyMontyRepl {
     /// This does not use the accumulated code from previous `feed_run` calls —
     /// use `prefix_code` to provide any needed declarations.
     #[pyo3(signature = (code, prefix_code=None))]
-    fn type_check(&self, py: Python<'_>, code: &str, prefix_code: Option<&str>) -> PyResult<()> {
-        py_type_check(py, code, &self.script_name, prefix_code, "type_stubs.pyi")
+    fn type_check(&self, py: Python<'_>, code: &Bound<'_, PyString>, prefix_code: Option<&str>) -> PyResult<()> {
+        let code = extract_source_code(py, code)?;
+        py_type_check(py, &code, &self.script_name, prefix_code, "type_stubs.pyi")
     }
 
     /// Feeds and executes a single incremental REPL snippet.
@@ -161,7 +163,7 @@ impl PyMontyRepl {
     fn feed_run<'py>(
         &self,
         py: Python<'py>,
-        code: &str,
+        code: &Bound<'_, PyString>,
         inputs: Option<&Bound<'_, PyDict>>,
         external_functions: Option<&Bound<'_, PyDict>>,
         print_callback: Option<&Bound<'_, PyAny>>,
@@ -169,6 +171,8 @@ impl PyMontyRepl {
         os: Option<&Bound<'_, PyAny>>,
         skip_type_check: bool,
     ) -> PyResult<Bound<'py, PyAny>> {
+        let code_owned = extract_source_code(py, code)?;
+        let code = code_owned.as_str();
         self.run_type_check_if_enabled(py, code, skip_type_check)?;
         let input_values = extract_repl_inputs(inputs, &self.dc_registry)?;
 
@@ -191,20 +195,23 @@ impl PyMontyRepl {
             return result;
         }
 
-        let mut guard = self
-            .repl
-            .try_lock()
-            .map_err(|_| PyRuntimeError::new_err("REPL session is currently executing another snippet"))?;
-        let repl = guard
-            .as_mut()
-            .ok_or_else(|| PyRuntimeError::new_err("REPL session is currently executing another snippet"))?;
+        // Move the REPL state out of the mutex before releasing the GIL so
+        // competing calls fail fast with "currently executing" instead of
+        // blocking on the mutex while holding the GIL.
+        let repl = self.take_repl()?;
 
         // `with_writer` only holds any collector lock for the duration of the
-        // VM call.
-        let result = match repl {
-            EitherRepl::NoLimit(repl) => print_target.with_writer(|w| repl.feed_run(code, input_values, w)),
-            EitherRepl::Limited(repl) => print_target.with_writer(|w| repl.feed_run(code, input_values, w)),
-        };
+        // VM call. The GIL is released around the call so other Python threads
+        // can run while the snippet executes.
+        let (result, restored_repl) = py.detach(move || {
+            let mut repl = repl;
+            let result = match &mut repl {
+                EitherRepl::NoLimit(repl) => print_target.with_writer(|w| repl.feed_run(code, input_values, w)),
+                EitherRepl::Limited(repl) => print_target.with_writer(|w| repl.feed_run(code, input_values, w)),
+            };
+            (result, repl)
+        });
+        self.put_repl(restored_repl);
 
         let output = match result {
             Ok(v) => v,
@@ -238,7 +245,7 @@ impl PyMontyRepl {
     fn feed_start<'py>(
         slf: &Bound<'py, Self>,
         py: Python<'py>,
-        code: &str,
+        code: &Bound<'_, PyString>,
         inputs: Option<&Bound<'_, PyDict>>,
         print_callback: Option<&Bound<'_, PyAny>>,
         mount: Option<&Bound<'_, PyAny>>,
@@ -246,7 +253,8 @@ impl PyMontyRepl {
         skip_type_check: bool,
     ) -> PyResult<Bound<'py, PyAny>> {
         let this = slf.get();
-        this.run_type_check_if_enabled(py, code, skip_type_check)?;
+        let code = extract_source_code(py, code)?;
+        this.run_type_check_if_enabled(py, &code, skip_type_check)?;
         let input_values = extract_repl_inputs(inputs, &this.dc_registry)?;
 
         let print_target = PrintTarget::from_py(print_callback)?;
@@ -257,11 +265,10 @@ impl PyMontyRepl {
 
         let repl = this.take_repl()?;
         if !skip_type_check {
-            this.set_pending_type_check(code);
+            this.set_pending_type_check(&code);
         }
         let repl_owner: Py<Self> = slf.clone().unbind();
 
-        let code_owned = code.to_owned();
         let inputs_owned = input_values;
         let dc_registry = this.dc_registry.clone_ref(py);
         let script_name = this.script_name.clone();
@@ -270,8 +277,8 @@ impl PyMontyRepl {
         // collector lock is only held during the VM call.
         macro_rules! feed_start_impl {
             ($repl:expr, $variant:ident) => {{
-                let result = py
-                    .detach(|| print_target.with_writer(|writer| $repl.feed_start(&code_owned, inputs_owned, writer)));
+                let result =
+                    py.detach(|| print_target.with_writer(|writer| $repl.feed_start(&code, inputs_owned, writer)));
                 let progress = match result {
                     Ok(p) => p,
                     Err(e) => {
@@ -331,7 +338,7 @@ impl PyMontyRepl {
     fn feed_run_async<'py>(
         slf: &Bound<'py, Self>,
         py: Python<'py>,
-        code: &str,
+        code: &Bound<'_, PyString>,
         inputs: Option<&Bound<'_, PyDict>>,
         external_functions: Option<&Bound<'_, PyDict>>,
         print_callback: Option<&Bound<'_, PyAny>>,
@@ -347,22 +354,22 @@ impl PyMontyRepl {
         }
 
         let this = slf.get();
-        this.run_type_check_if_enabled(py, code, skip_type_check)?;
+        let code = extract_source_code(py, code)?;
+        this.run_type_check_if_enabled(py, &code, skip_type_check)?;
         if !skip_type_check {
-            this.set_pending_type_check(code);
+            this.set_pending_type_check(&code);
         }
         let input_values = extract_repl_inputs(inputs, &this.dc_registry)?;
         let dc_registry = this.dc_registry.clone_ref(py);
         let ext_fns = external_functions.map(|d| d.clone().unbind());
         let repl_owner: Py<Self> = slf.clone().unbind();
-        let code_owned = code.to_owned();
         let print_target = PrintTarget::from_py(print_callback)?;
 
         PyReplAsyncAwaitable::new_py_any(
             py,
             ReplAsyncStart {
                 repl_owner,
-                code: code_owned,
+                code,
                 input_values,
                 external_functions: ext_fns,
                 os,
@@ -710,13 +717,17 @@ impl PyMontyRepl {
         let Some(state_mutex) = &self.type_check_state else {
             return Ok(());
         };
-        let state = state_mutex.lock().unwrap_or_else(PoisonError::into_inner);
-        let stubs_ref = if state.committed_stubs.is_empty() {
-            None
-        } else {
-            Some(state.committed_stubs.as_str())
+        // Clone the accumulated stubs before type-checking so the mutex is not
+        // held while `py_type_check` releases the GIL for CPU-bound work.
+        let stubs = {
+            let state = state_mutex.lock().unwrap_or_else(PoisonError::into_inner);
+            if state.committed_stubs.is_empty() {
+                None
+            } else {
+                Some(state.committed_stubs.clone())
+            }
         };
-        py_type_check(py, code, &self.script_name, stubs_ref, "repl_type_stubs.pyi")
+        py_type_check(py, code, &self.script_name, stubs.as_deref(), "repl_type_stubs.pyi")
     }
 
     /// Appends a snippet directly to committed type-check stubs.
@@ -858,12 +869,10 @@ impl PyMontyRepl {
             }};
         }
 
-        let code_owned = code.to_owned();
-        let mut progress =
-            match py.detach(|| print_target.with_writer(|w| repl.feed_start(&code_owned, input_values, w))) {
-                Ok(p) => p,
-                Err(e) => restore_err!(e),
-            };
+        let mut progress = match py.detach(|| print_target.with_writer(|w| repl.feed_start(code, input_values, w))) {
+            Ok(p) => p,
+            Err(e) => restore_err!(e),
+        };
 
         loop {
             match progress {
@@ -999,11 +1008,17 @@ fn extract_repl_inputs(
     let Some(inputs) = inputs else {
         return Ok(vec![]);
     };
+    // Both the key and the value are untrusted host values, so conversion
+    // failures (e.g. lone surrogates, non-string keys) surface as
+    // `MontyRuntimeError` rather than raw PyErrs.
     inputs
         .iter()
         .map(|(key, value)| {
-            let name = key.extract::<String>()?;
-            let obj = py_to_monty(&value, dc_registry)?;
+            let py = key.py();
+            let name = key
+                .extract::<String>()
+                .map_err(|e| MontyError::new_err(py, exc_py_to_monty(py, &e)))?;
+            let obj = py_to_monty_value(&value, dc_registry).map_err(|e| MontyError::new_err(py, e))?;
             Ok((name, obj))
         })
         .collect::<PyResult<_>>()

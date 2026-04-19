@@ -1465,9 +1465,11 @@ pub(crate) fn extract_document_structure_from_segments(
         .collect();
 
     // Stage 3: Per-page structured extraction.
-    // When the structure tree provides heading roles, skip layout-model heading
-    // overrides — they can demote correctly-tagged headings. The tree is authoritative.
-    let effective_layout_hints = if used_structure_tree { None } else { layout_hints };
+    // Always pass layout hints regardless of structure tree status. Layout hints
+    // provide multi-purpose classification (furniture/header/footer marking, table
+    // regions, list items) beyond just heading overrides. The structure tree's
+    // heading roles are still respected via assigned_role on segments.
+    let effective_layout_hints = layout_hints;
     let page_inputs: Vec<PageInput> = (0..page_count)
         .map(|i| PageInput {
             page_index: i,
@@ -2108,20 +2110,44 @@ fn populate_images_from_pdfium(
             continue;
         };
 
+        // Build an O(1) lookup set so the inner loop over page objects is O(N)
+        // rather than O(N²). Pages from Ghostscript-produced PDFs can contain
+        // thousands of inline images; a Vec::contains scan inside the object
+        // loop was catastrophically slow in those cases.
+        let indices_set: ahash::AHashSet<usize> = indices.iter().copied().collect();
+
+        // INVARIANT: Image indices assigned to a single page are contiguous starting
+        // from the minimum index in `indices`. This holds because `objects_to_page_data`
+        // in bridge.rs increments `image_offset` sequentially per page object.
+        debug_assert!(
+            {
+                let max = indices.iter().copied().max().unwrap_or(0);
+                let min = indices.iter().copied().min().unwrap_or(0);
+                max - min + 1 == indices.len()
+            },
+            "image indices must form a contiguous set within a page"
+        );
+
         // Walk page objects, extracting image data for each matching index.
         let first_idx_on_page = indices.iter().copied().min().unwrap_or(0);
         let mut current_image = 0usize;
-        let mut extracted_on_page: std::collections::BTreeMap<usize, crate::types::ExtractedImage> =
-            std::collections::BTreeMap::new();
+        let mut extracted_on_page: ahash::AHashMap<usize, crate::types::ExtractedImage> = ahash::AHashMap::new();
 
         for obj in page.objects().iter() {
             if let Some(image_obj) = obj.as_image_object() {
                 let global_idx = first_idx_on_page + current_image;
-                if indices.contains(&global_idx)
+                if indices_set.contains(&global_idx)
                     && let Ok(dynamic_image) = image_obj.get_processed_image(document)
                 {
                     let w = dynamic_image.width();
                     let h = dynamic_image.height();
+                    // Skip images where BOTH dimensions are tiny (< 32px). This targets
+                    // Ghostscript vector decomposition artifacts (16×16 CCITT masks) while
+                    // preserving thin rules and decorative elements that may be intentional.
+                    if w < 32 && h < 32 {
+                        current_image += 1;
+                        continue;
+                    }
                     let rgba = dynamic_image.to_rgba8();
                     let mut png_buf: Vec<u8> = Vec::new();
                     if image::codecs::png::PngEncoder::new(&mut png_buf)
@@ -2573,5 +2599,78 @@ mod tests {
             3,
             "non-consecutive heading duplicates must be preserved"
         );
+    }
+
+    /// Verify that the `first_idx_on_page + current_image` index offset formula
+    /// used in `populate_images_from_pdfium` maps page-local object positions to
+    /// the correct global image indices.
+    ///
+    /// This is a regression guard for issue #752: the original code used
+    /// `Vec::contains` (O(N) per lookup) inside the per-page object loop,
+    /// causing O(N²) behaviour with ~1,924 images on Ghostscript-produced PDFs.
+    /// The fix collects indices into an `AHashSet` before the loop for O(1) lookup,
+    /// and uses `first_idx_on_page + current_image` to compute the global index.
+    #[test]
+    fn test_image_index_offset_mapping() {
+        // Simulate page 2 whose images start at global index 50 (non-zero offset).
+        // Page objects 0..4 are images; we only want indices 50, 52, 54 (every other).
+        let indices: Vec<usize> = vec![50, 52, 54];
+        let indices_set: ahash::AHashSet<usize> = indices.iter().copied().collect();
+        let first_idx_on_page = indices.iter().copied().min().unwrap_or(0);
+
+        // Simulate walking five image objects on the page (current_image = 0..4).
+        let mut matched: Vec<usize> = Vec::new();
+        for current_image in 0..5usize {
+            let global_idx = first_idx_on_page + current_image;
+            if indices_set.contains(&global_idx) {
+                matched.push(global_idx);
+            }
+        }
+
+        assert_eq!(
+            matched,
+            vec![50, 52, 54],
+            "offset formula must yield exactly the requested global indices"
+        );
+
+        // Indices before the page start must not match.
+        assert!(
+            !indices_set.contains(&49usize),
+            "index 49 is before the page range and must not match"
+        );
+
+        // An index beyond the requested range on this page must not match.
+        assert!(
+            !indices_set.contains(&55usize),
+            "index 55 was not requested and must not match"
+        );
+    }
+
+    /// Verify that non-contiguous index ranges across pages are handled correctly
+    /// by the `first_idx_on_page` minimum, i.e., each page independently resets
+    /// `current_image` to 0 and derives `first_idx_on_page` from its own slice.
+    #[test]
+    fn test_image_index_offset_non_contiguous_pages() {
+        // Page 1 has global indices [0, 1], page 2 has [100, 101] (large gap).
+        let page1_indices: Vec<usize> = vec![0, 1];
+        let page2_indices: Vec<usize> = vec![100, 101];
+
+        for (indices, expected_first) in [(&page1_indices, 0usize), (&page2_indices, 100usize)] {
+            let first_idx = indices.iter().copied().min().unwrap_or(0);
+            assert_eq!(
+                first_idx, expected_first,
+                "first_idx_on_page must equal the minimum index in the slice"
+            );
+
+            let set: ahash::AHashSet<usize> = indices.iter().copied().collect();
+            // Both objects (current_image 0 and 1) on each page must resolve.
+            for current_image in 0..2usize {
+                let global_idx = first_idx + current_image;
+                assert!(
+                    set.contains(&global_idx),
+                    "global index {global_idx} must be found for page with first_idx={first_idx}"
+                );
+            }
+        }
     }
 }

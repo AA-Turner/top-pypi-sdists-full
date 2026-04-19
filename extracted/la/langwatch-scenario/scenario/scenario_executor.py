@@ -1076,6 +1076,99 @@ class ScenarioExecutor:
         self._trace.__exit__(None, None, None)
 
 
+def _build_scenario(
+    *,
+    name: str,
+    description: str,
+    agents: List[AgentAdapter],
+    max_turns: Optional[int],
+    verbose: Optional[Union[bool, int]],
+    cache_key: Optional[str],
+    debug: Optional[bool],
+    script: Optional[List[ScriptStep]],
+    set_id: Optional[str],
+    metadata: Optional[Dict[str, Any]],
+) -> "ScenarioExecutor":
+    """Shared setup used by both ``run()`` (threaded) and ``arun()`` (async-native)."""
+    from ._tracing import ensure_tracing_initialized
+
+    config = ScenarioConfig.default_config
+    ensure_tracing_initialized(config.observability if config else None)
+
+    return ScenarioExecutor(
+        name=name,
+        description=description,
+        agents=agents,
+        max_turns=max_turns,
+        verbose=verbose,
+        cache_key=cache_key,
+        debug=debug,
+        script=script,
+        set_id=set_id,
+        metadata=metadata,
+    )
+
+
+def _cleanup_scenario_spans(scenario: "ScenarioExecutor") -> None:
+    """Clear judge spans for this scenario's thread_id to prevent memory buildup."""
+    from ._tracing import judge_span_collector
+
+    if hasattr(scenario, "_state") and scenario._state:
+        judge_span_collector.clear_spans_for_thread(scenario._state.thread_id)
+
+
+async def arun(
+    name: str,
+    description: str,
+    agents: List[AgentAdapter] = [],
+    max_turns: Optional[int] = None,
+    verbose: Optional[Union[bool, int]] = None,
+    cache_key: Optional[str] = None,
+    debug: Optional[bool] = None,
+    script: Optional[List[ScriptStep]] = None,
+    set_id: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> ScenarioResult:
+    """Async-native counterpart of :func:`run`.
+
+    Runs the scenario directly on the caller's event loop, so async state
+    created on that loop (anything set up in an async fixture, for
+    example) stays usable across concurrent scenarios.
+
+    :func:`run` remains the default: it executes each scenario in its own
+    worker thread, so sync and async adapters both parallelize with no
+    extra work on your side. Reach for ``arun`` only when your codebase
+    is fully async-first and your adapter relies on async objects whose
+    identity is tied to the loop they were created on. Parallelism is
+    then the caller's responsibility, via ``asyncio.gather`` or
+    ``pytest-asyncio-concurrent``.
+
+    The signature and return value mirror :func:`run`.
+    """
+    scenario = _build_scenario(
+        name=name,
+        description=description,
+        agents=agents,
+        max_turns=max_turns,
+        verbose=verbose,
+        cache_key=cache_key,
+        debug=debug,
+        script=script,
+        set_id=set_id,
+        metadata=metadata,
+    )
+
+    try:
+        result = await scenario.run()
+        _cleanup_scenario_spans(scenario)
+        return result
+    finally:
+        # ``event_bus.drain()`` blocks on ``queue.join()`` while waiting for
+        # the event-bus worker thread to finish HTTP posting, so we offload
+        # it to avoid stalling the caller's loop.
+        await asyncio.to_thread(scenario.event_bus.drain)
+
+
 async def run(
     name: str,
     description: str,
@@ -1094,6 +1187,14 @@ async def run(
     This is the main entry point for executing scenario tests. It creates a
     ScenarioExecutor instance and runs it in an isolated thread pool to support
     parallel execution and prevent blocking.
+
+    .. note::
+        If your :class:`AgentAdapter` awaits on async state that was
+        created on the caller's event loop (anything set up in an async
+        fixture, for example), use :func:`arun` instead. ``run`` spins up
+        a fresh event loop on a worker thread and those objects will raise
+        ``"Future attached to a different loop"`` when they are awaited
+        from that thread.
 
     Args:
         name: Human-readable name for the scenario
@@ -1153,13 +1254,7 @@ async def run(
         print(f"Conversation had {len(result.messages)} messages")
         ```
     """
-    from ._tracing import ensure_tracing_initialized
-    from .config import ScenarioConfig
-
-    config = ScenarioConfig.default_config
-    ensure_tracing_initialized(config.observability if config else None)
-
-    scenario = ScenarioExecutor(
+    scenario = _build_scenario(
         name=name,
         description=description,
         agents=agents,
@@ -1175,7 +1270,11 @@ async def run(
     # We'll use a thread pool to run the execution logic, we
     # require a separate thread because even though asyncio is
     # being used throughout, any user code on the callback can
-    # be blocking, preventing them from running scenarios in parallel
+    # be blocking, preventing them from running scenarios in parallel.
+    #
+    # NB: this isolation also spins up a private event loop per run, so
+    # adapters that depend on async state bound to the caller's loop must
+    # use :func:`arun` instead.
     with concurrent.futures.ThreadPoolExecutor() as executor:
 
         def run_in_thread():
@@ -1184,15 +1283,7 @@ async def run(
 
             try:
                 result = loop.run_until_complete(scenario.run())
-
-                # Clean up spans for this thread to prevent memory buildup
-                from ._tracing import judge_span_collector
-
-                if hasattr(scenario, "_state") and scenario._state:
-                    judge_span_collector.clear_spans_for_thread(
-                        scenario._state.thread_id
-                    )
-
+                _cleanup_scenario_spans(scenario)
                 return result
             finally:
                 scenario.event_bus.drain()

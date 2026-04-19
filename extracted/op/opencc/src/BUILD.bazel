@@ -22,6 +22,7 @@ cc_library(
         ":lexicon",
         ":marisa_dict",
         ":max_match_segmentation",
+        ":plugin_segmentation",
         ":phrase_extract",
         ":segmentation",
         ":segments",
@@ -86,6 +87,7 @@ cc_library(
         ":dict_group",
         ":marisa_dict",
         ":max_match_segmentation",
+        ":plugin_segmentation",
         ":text_dict",
         "@rapidjson",
     ],
@@ -343,6 +345,34 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "plugin_api",
+    hdrs = ["plugin/OpenCCPlugin.h"],
+)
+
+cc_library(
+    name = "plugin_segmentation",
+    srcs = ["PluginSegmentation.cpp"],
+    hdrs = [
+        "PluginSegmentation.hpp",
+        "WinUtil.hpp",
+    ],
+    linkopts = select({
+        "@platforms//os:linux": ["-ldl"],
+        "@platforms//os:osx": [],
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-ldl"],
+    }),
+    deps = [
+        ":common",
+        ":exception",
+        ":plugin_api",
+        ":segmentation",
+        ":segments",
+        ":utf8_util",
+    ],
+)
+
 cc_test(
     name = "phrase_extract_test",
     srcs = ["PhraseExtractTest.cpp"],
@@ -362,8 +392,14 @@ pybind_extension(
 
 py_library(
     name = "py_opencc",
-    data = [":opencc_clib"],
-    imports = ["."],
+    data = select({
+        "@platforms//os:windows": ["//src/pyd:opencc_clib_pyd_copy"],
+        "//conditions:default": [":opencc_clib"],
+    }),
+    imports = select({
+        "@platforms//os:windows": ["pyd"],
+        "//conditions:default": ["."],
+    }),
 )
 
 cc_library(

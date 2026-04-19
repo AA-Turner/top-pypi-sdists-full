@@ -238,18 +238,21 @@ async def run_exec_mode(
     tool_registry.set_confirm_callback(_exec_confirm)
 
     # ask_user callback for exec mode: use TTY if available, otherwise fail closed
-    async def _exec_ask_user(question: str) -> str:
+    async def _exec_ask_user(question: str, options: list[str] | None = None) -> str | None:
         if not has_tty:
             if not quiet:
                 print(f"[ask_user] {question} — no TTY, skipping", file=sys.stderr)
-            return ""
+            return None
         try:
             if not quiet:
                 print(f"[ask_user] {question}", file=sys.stderr)
+                if options:
+                    for idx, opt in enumerate(options, 1):
+                        print(f"  {idx}. {opt}", file=sys.stderr)
             answer = input("  Answer: ")
             return answer.strip()
         except (EOFError, KeyboardInterrupt):
-            return ""
+            return None
 
     # Rate limiting
     from typing import cast as _cast
@@ -443,6 +446,16 @@ async def run_exec_mode(
             output_filter=_output_filter,
             max_consecutive_text_only=config.cli.max_consecutive_text_only,
             max_line_repeats=config.cli.max_line_repeats,
+            compact_preserve_tail=config.compaction.preserve_tail,
+            compact_rehydrate=config.compaction.compact_rehydrate,
+            compact_rehydrate_max_files=config.compaction.compact_rehydrate_max_files,
+            compact_rehydrate_max_errors=config.compaction.compact_rehydrate_max_errors,
+            microcompact_enabled=config.compaction.microcompact_enabled,
+            summary_trigger_msg_count=config.compaction.summary_trigger_msg_count,
+            summary_trigger_token_count=config.compaction.summary_trigger_token_count,
+            reactive_max_attempts=config.compaction.reactive_max_attempts,
+            db=db if persist_messages else None,
+            conversation_id=conv["id"] if persist_messages else None,
         ):
             if event.kind == "token":
                 if output_total_chars < _MAX_OUTPUT_CHARS:

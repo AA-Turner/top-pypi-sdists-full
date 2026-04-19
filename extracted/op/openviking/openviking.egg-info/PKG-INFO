@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.3.8
+Version: 0.3.9
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License: AGPL-3.0
@@ -48,7 +48,7 @@ Requires-Dist: urllib3>=2.6.3
 Requires-Dist: protobuf>=6.33.5
 Requires-Dist: pdfminer-six>=20251230
 Requires-Dist: typer>=0.12.0
-Requires-Dist: litellm<1.83.1,>=1.0.0
+Requires-Dist: litellm<1.83.9,>=1.0.0
 Requires-Dist: python-multipart>=0.0.22
 Requires-Dist: tree-sitter>=0.23.0
 Requires-Dist: tree-sitter-python>=0.23.0
@@ -154,6 +154,8 @@ Requires-Dist: langchain-openai>=1.0.0; extra == "benchmark"
 Requires-Dist: tiktoken>=0.5.0; extra == "benchmark"
 Requires-Dist: datasets>=2.0.0; extra == "benchmark"
 Requires-Dist: pandas>=2.0.0; extra == "benchmark"
+Provides-Extra: local-embed
+Requires-Dist: llama-cpp-python>=0.3.0; extra == "local-embed"
 Dynamic: license-file
 
 <div align="center">
@@ -401,6 +403,29 @@ For complete model support, see [LiteLLM Providers Documentation](https://docs.l
 </details>
 
 ### 3. Environment Configuration
+
+#### Quick Setup for Local Models (Ollama)
+
+If you want to run OpenViking with local models via [Ollama](https://ollama.ai), the interactive setup wizard handles everything automatically:
+
+```bash
+openviking-server init
+```
+
+The wizard will:
+- Detect and install Ollama if needed
+- Recommend and pull suitable embedding and VLM models for your hardware
+- Generate a ready-to-use `ov.conf` configuration file
+
+To validate your setup at any time:
+
+```bash
+openviking-server doctor
+```
+
+`doctor` checks local prerequisites (config file, Python version, embedding/VLM provider connectivity, disk space) without requiring a running server.
+
+> For cloud API providers (Volcengine, OpenAI, Gemini, etc.), continue with the manual configuration below.
 
 #### Server Configuration Template
 

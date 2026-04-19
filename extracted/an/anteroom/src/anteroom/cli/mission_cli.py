@@ -97,7 +97,7 @@ def _handle_create(config: AppConfig, db: Any, args: argparse.Namespace) -> None
         defaults = AdapterDefaults(adapter_type=adapter_type, adapter_config=adapter_config)
 
     if prompt:
-        plan = _compile_from_prompt_sync(config, prompt, defaults, execution_profile=profile)
+        plan = _compile_from_prompt_sync(config, prompt, defaults, execution_profile=profile, db=db)
         if plan is None:
             return
     elif spec_fqn:
@@ -187,6 +187,7 @@ def _compile_from_prompt_sync(
     defaults: Any,
     *,
     execution_profile: Any | None = None,
+    db: Any | None = None,
 ) -> Any:
     """Create an AI service and compile a plan from a prompt synchronously."""
     from ..services.mission_compiler import compile_from_prompt
@@ -199,7 +200,13 @@ def _compile_from_prompt_sync(
 
     try:
         return asyncio.run(
-            compile_from_prompt(prompt, ai_service, adapter_defaults=defaults, execution_profile=execution_profile)
+            compile_from_prompt(
+                prompt,
+                ai_service,
+                adapter_defaults=defaults,
+                execution_profile=execution_profile,
+                db=db,
+            )
         )
     except Exception as exc:
         console.print(f"[red]Error:[/red] {exc}")

@@ -15,7 +15,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from ..config import MemoryRetentionConfig
     from ..db import ThreadSafeConnection
+    from .audit import AuditWriter
 
 logger = logging.getLogger(__name__)
 
@@ -133,12 +135,20 @@ class RetentionWorker:
         *,
         check_interval: int = 3600,
         purge_attachments: bool = True,
+        memory_retention_config: MemoryRetentionConfig | None = None,
+        audit_writer: AuditWriter | None = None,
     ) -> None:
         self._db = db
         self._data_dir = data_dir
         self._retention_days = retention_days
         self._check_interval = max(60, check_interval)
         self._purge_attachments = purge_attachments
+        # #625 — memory-retention phase runs inside the existing run_once
+        # loop when this config is present and enabled. Audit writer is
+        # threaded through so every memory.purge gets a tamper-chained
+        # entry.
+        self._memory_retention_config = memory_retention_config
+        self._audit_writer = audit_writer
         self._running = False
         self._task: asyncio.Task[None] | None = None
         self._consecutive_failures = 0
@@ -169,37 +179,84 @@ class RetentionWorker:
         )
 
     async def run_once(self) -> int:
-        """Run a single retention cycle. Returns total items purged."""
-        cutoff = datetime.now(timezone.utc) - timedelta(days=self._retention_days)
-        count = purge_conversations_before(
-            self._db,
-            cutoff,
-            self._data_dir,
-            purge_attachments=self._purge_attachments,
-        )
-        if count:
-            logger.info("Retention: purged %d conversation(s) older than %d days", count, self._retention_days)
+        """Run a single retention cycle. Returns total items purged.
 
-        orphaned = 0
-        orphaned_sources = 0
-        if self._purge_attachments:
-            orphaned = purge_orphaned_attachments(self._data_dir, self._db)
-            if orphaned:
-                logger.info("Retention: removed %d orphaned attachment dir(s)", orphaned)
+        Two independent branches, each gated on its own config so the
+        worker can be started for memory retention alone (with
+        ``retention_days=0``) without silently purging every
+        conversation:
 
-            orphaned_sources = purge_orphaned_sources(self._data_dir, self._db)
-            if orphaned_sources:
-                logger.info("Retention: removed %d orphaned source dir(s)", orphaned_sources)
+        - **Conversation branch** (``self._retention_days > 0``): the
+          existing purge / orphan-cleanup path. The guard is
+          load-bearing — with ``retention_days=0`` the unguarded
+          ``cutoff = now - timedelta(days=0)`` would match every
+          conversation whose ``created_at < now`` and delete them all.
+        - **Memory branch** (``self._memory_retention_config.enabled``):
+          calls ``memory_retention.purge_memories()`` with the audit
+          writer. Failures are caught and logged so the conversation
+          branch (if also enabled) is not aborted, and vice versa.
+        """
+        total = 0
 
-        orphaned_tasks = 0
-        if self._purge_attachments:
-            from .task_output import purge_orphaned_task_output
+        if self._retention_days > 0:
+            try:
+                cutoff = datetime.now(timezone.utc) - timedelta(days=self._retention_days)
+                count = purge_conversations_before(
+                    self._db,
+                    cutoff,
+                    self._data_dir,
+                    purge_attachments=self._purge_attachments,
+                )
+                if count:
+                    logger.info(
+                        "Retention: purged %d conversation(s) older than %d days",
+                        count,
+                        self._retention_days,
+                    )
 
-            orphaned_tasks = purge_orphaned_task_output(self._data_dir, self._db)
-            if orphaned_tasks:
-                logger.info("Retention: removed %d orphaned task output dir(s)", orphaned_tasks)
+                orphaned = 0
+                orphaned_sources = 0
+                if self._purge_attachments:
+                    orphaned = purge_orphaned_attachments(self._data_dir, self._db)
+                    if orphaned:
+                        logger.info("Retention: removed %d orphaned attachment dir(s)", orphaned)
 
-        return count + orphaned + orphaned_sources + orphaned_tasks
+                    orphaned_sources = purge_orphaned_sources(self._data_dir, self._db)
+                    if orphaned_sources:
+                        logger.info("Retention: removed %d orphaned source dir(s)", orphaned_sources)
+
+                orphaned_tasks = 0
+                if self._purge_attachments:
+                    from .task_output import purge_orphaned_task_output
+
+                    orphaned_tasks = purge_orphaned_task_output(self._data_dir, self._db)
+                    if orphaned_tasks:
+                        logger.info("Retention: removed %d orphaned task output dir(s)", orphaned_tasks)
+
+                total += count + orphaned + orphaned_sources + orphaned_tasks
+            except Exception:
+                logger.exception("Retention: conversation branch failed")
+
+        if self._memory_retention_config and self._memory_retention_config.enabled:
+            try:
+                from . import memory_retention
+
+                result = memory_retention.purge_memories(
+                    self._db,
+                    self._memory_retention_config,
+                    audit_writer=self._audit_writer,
+                )
+                if result.purged_count:
+                    logger.info(
+                        "Memory retention: purged %d memory artifact(s) (skipped %d pinned)",
+                        result.purged_count,
+                        result.skipped_pinned_count,
+                    )
+                total += result.purged_count
+            except Exception:
+                logger.exception("Retention: memory branch failed")
+
+        return total
 
     async def run_forever(self) -> None:
         """Poll at regular intervals, enforcing retention policy."""

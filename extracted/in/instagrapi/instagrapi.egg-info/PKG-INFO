@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 2.4.2
+Version: 2.4.3
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -21,7 +21,7 @@ License-File: LICENSE
 Requires-Dist: requests==2.32.5; python_version < "3.10"
 Requires-Dist: requests==2.33.0; python_version >= "3.10"
 Requires-Dist: PySocks==1.7.1
-Requires-Dist: pydantic==2.13.0
+Requires-Dist: pydantic==2.13.2
 Requires-Dist: moviepy==1.0.3
 Requires-Dist: pycryptodomex==3.23.0
 Provides-Extra: test

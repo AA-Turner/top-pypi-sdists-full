@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.12)
 ######################
 
 # define the project
-project(Uno VERSION 2.7.0
+project(Uno VERSION 2.7.1
         DESCRIPTION "Uno (Unifying Nonlinear Optimization)"
         LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
@@ -61,6 +61,8 @@ file(GLOB UNO_SOURCE_FILES
    uno/ingredients/globalization_strategies/switching_methods/funnel_methods/*.cpp
    uno/ingredients/hessian_models/*.cpp
    uno/ingredients/hessian_models/quasi_newton/*.cpp
+   uno/ingredients/hessian_models/quasi_newton/direct/*.cpp
+   uno/ingredients/hessian_models/quasi_newton/inverse/*.cpp
    uno/ingredients/inequality_handling_methods/*.cpp
    uno/ingredients/inequality_handling_methods/interior_point_methods/*.cpp
    uno/ingredients/inequality_handling_methods/interior_point_methods/barrier_problems/*.cpp

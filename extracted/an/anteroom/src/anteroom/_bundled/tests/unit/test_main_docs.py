@@ -17,29 +17,35 @@ import pytest
 
 
 def _parse_docs_args(argv: list[str]) -> argparse.Namespace:
-    """Run the main argparse parser on *argv* and return the namespace."""
-    # Import lazily so monkeypatching is possible in earlier tests
+    """Run the main argparse parser on *argv* and return the namespace.
+
+    Short-circuits ``main()`` after ``parse_args`` so dispatch does not run
+    mkdocs or touch user state.
+    """
     from anteroom.__main__ import main  # noqa: F811
 
-    # We only need the parser; reach into main() indirectly by
-    # patching sys.argv and intercepting parse_args.
     captured: list[argparse.Namespace] = []
-
     original_parse = argparse.ArgumentParser.parse_args
+
+    class _AbortError(Exception):
+        pass
 
     def _spy(self: argparse.ArgumentParser, args: Any = None, namespace: Any = None) -> argparse.Namespace:
         ns = original_parse(self, args, namespace)
         captured.append(ns)
-        return ns
+        raise _AbortError
 
     with (
         patch.object(argparse.ArgumentParser, "parse_args", _spy),
         patch("sys.argv", ["aroom", *argv]),
-        pytest.raises(SystemExit),
     ):
-        # main() will sys.exit after early dispatch or hit missing config —
-        # either way we capture the namespace before that.
-        main()
+        try:
+            main()
+        except _AbortError:
+            pass
+        except SystemExit:
+            if not captured:
+                raise
 
     assert captured, "parse_args was never called"
     return captured[0]
@@ -187,7 +193,7 @@ class TestRunDocs:
         mkdocs_yml.write_text("site_name: test\n")
 
         args = self._make_args(port=8400, host="127.0.0.1")
-        mock_run = MagicMock()
+        mock_run = MagicMock(return_value=MagicMock(returncode=0))
 
         with (
             patch("anteroom.__main__.shutil.which", return_value="/usr/bin/mkdocs"),
@@ -214,7 +220,7 @@ class TestRunDocs:
         mkdocs_yml.write_text("site_name: test\n")
 
         args = self._make_args(port=9000, host="0.0.0.0")
-        mock_run = MagicMock()
+        mock_run = MagicMock(return_value=MagicMock(returncode=0))
 
         with (
             patch("anteroom.__main__.shutil.which", return_value="/usr/bin/mkdocs"),
@@ -341,3 +347,170 @@ class TestRunDocs:
             pytest.raises(SystemExit, match="1"),
         ):
             _run_docs(args)
+
+
+# ---------------------------------------------------------------------------
+# Argparse tests for the new `docs start/stop/status` subcommands
+# ---------------------------------------------------------------------------
+
+
+class _AbortErrorAfterParseError(Exception):
+    """Sentinel raised by the parse spy to short-circuit main() dispatch."""
+
+
+def _parse_argv(argv: list[str]) -> argparse.Namespace:
+    """Parse *argv* using the real main() parser, capturing the namespace.
+
+    Short-circuits main() after parse_args so the dispatch path does not
+    actually start servers, load config, or touch the filesystem.
+    """
+    captured: list[argparse.Namespace] = []
+    original_parse = argparse.ArgumentParser.parse_args
+
+    def _spy(self: argparse.ArgumentParser, args: Any = None, namespace: Any = None) -> argparse.Namespace:
+        ns = original_parse(self, args, namespace)
+        captured.append(ns)
+        raise _AbortErrorAfterParseError
+
+    with (
+        patch.object(argparse.ArgumentParser, "parse_args", _spy),
+        patch("sys.argv", ["aroom", *argv]),
+    ):
+        try:
+            from anteroom.__main__ import main
+
+            main()
+        except _AbortErrorAfterParseError:
+            pass
+        except SystemExit:
+            # argparse raises SystemExit on parse error — propagate so
+            # negative tests (`pytest.raises(SystemExit)`) still see it.
+            if not captured:
+                raise
+    assert captured, "parse_args was not called"
+    return captured[0]
+
+
+class TestDocsSubcommands:
+    def test_docs_start_parses_cleanly(self) -> None:
+        ns = _parse_argv(["docs", "start"])
+        assert ns.command == "docs"
+        assert ns.docs_action == "start"
+        assert ns.docs_port == 8400
+        assert ns.docs_host == "127.0.0.1"
+
+    def test_docs_stop_parses_cleanly(self) -> None:
+        ns = _parse_argv(["docs", "stop"])
+        assert ns.command == "docs"
+        assert ns.docs_action == "stop"
+        assert ns.docs_port is None
+
+    def test_docs_status_parses_cleanly(self) -> None:
+        ns = _parse_argv(["docs", "status"])
+        assert ns.command == "docs"
+        assert ns.docs_action == "status"
+        assert ns.docs_port is None
+
+    def test_docs_start_with_custom_port_and_host(self) -> None:
+        ns = _parse_argv(["docs", "start", "--port", "9400", "--host", "0.0.0.0"])
+        assert ns.docs_action == "start"
+        assert ns.docs_port == 9400
+        assert ns.docs_host == "0.0.0.0"
+
+    def test_plain_docs_has_no_docs_action(self) -> None:
+        ns = _parse_argv(["docs"])
+        assert ns.command == "docs"
+        assert ns.docs_action is None
+
+    def test_unknown_docs_subcommand_fails(self) -> None:
+        # argparse treats unknown positional under a subparsers group as an
+        # error and raises SystemExit(2) during parse.
+        with (
+            patch("sys.argv", ["aroom", "docs", "foo"]),
+            pytest.raises(SystemExit),
+        ):
+            from anteroom.__main__ import main
+
+            main()
+
+
+class TestDocsStopStatusPortResolution:
+    def test_docs_stop_with_explicit_port(self) -> None:
+        ns = _parse_argv(["docs", "stop", "--port", "9400"])
+        assert ns.docs_port == 9400
+
+    def test_docs_stop_defaults_to_none(self) -> None:
+        ns = _parse_argv(["docs", "stop"])
+        assert ns.docs_port is None
+
+    def test_docs_status_with_explicit_port(self) -> None:
+        ns = _parse_argv(["docs", "status", "--port", "9400"])
+        assert ns.docs_port == 9400
+
+    def test_docs_status_defaults_to_none(self) -> None:
+        ns = _parse_argv(["docs", "status"])
+        assert ns.docs_port is None
+
+
+class TestRunDocsStopExitCode:
+    """``aroom docs stop`` must exit non-zero when nothing was actually stopped.
+
+    Per #1439 approved contract, scripts rely on the exit code to detect
+    the degenerate "nothing to stop" outcome without parsing stdout.
+    """
+
+    @staticmethod
+    def _make_config(tmp_path: Path) -> Any:
+        cfg = MagicMock()
+        cfg.app.data_dir = tmp_path
+        # _resolve_docs_port reads cfg.cli.docs_port; any int works.
+        cfg.cli.docs_port = 8400
+        return cfg
+
+    def test_stop_with_no_pid_file_exits_non_zero(self, tmp_path: Path) -> None:
+        from anteroom.__main__ import _run_docs_stop
+
+        cfg = self._make_config(tmp_path)
+        args = argparse.Namespace(docs_port=None)
+
+        # No PID file has been created under tmp_path; status.pid is None.
+        with pytest.raises(SystemExit) as exc_info:
+            _run_docs_stop(cfg, args)
+        assert exc_info.value.code == 1
+
+    def test_stop_with_stale_pid_file_exits_non_zero(self, tmp_path: Path) -> None:
+        from anteroom.__main__ import _run_docs_stop
+        from anteroom.services.server_manager import ServerStatus
+
+        cfg = self._make_config(tmp_path)
+        args = argparse.Namespace(docs_port=None)
+
+        # Simulate a stale PID file: pid is set but process is not alive.
+        stale_status = ServerStatus(
+            pid=99999,
+            port=8400,
+            alive=False,
+            responding=False,
+            start_time=None,
+            log_path=tmp_path / "anteroom-docs.log",
+        )
+        fake_mgr = MagicMock()
+        fake_mgr.get_status.return_value = stale_status
+        with (
+            patch("anteroom.services.server_manager.ServerManager", return_value=fake_mgr),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            _run_docs_stop(cfg, args)
+        assert exc_info.value.code == 1
+        fake_mgr.clear_pid.assert_called_once()
+
+    def test_stop_with_explicit_port_no_server_exits_non_zero(self, tmp_path: Path) -> None:
+        """Scripts that pass --port <N> expect non-zero exit if nothing runs there."""
+        from anteroom.__main__ import _run_docs_stop
+
+        cfg = self._make_config(tmp_path)
+        args = argparse.Namespace(docs_port=9400)
+
+        with pytest.raises(SystemExit) as exc_info:
+            _run_docs_stop(cfg, args)
+        assert exc_info.value.code == 1

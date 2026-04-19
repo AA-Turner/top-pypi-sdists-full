@@ -1,5 +1,6 @@
 use crate::binder;
 use crate::builtins::parse_builtins;
+use crate::classify::{NameRefClass, classify_def_node};
 use crate::db::{File, parse};
 use crate::offsets::token_from_offset;
 use crate::resolve;
@@ -31,7 +32,10 @@ pub fn goto_definition(db: &dyn Db, file: File, offset: TextSize) -> SmallVec<[L
             if let Some(case_expr) = ast::CaseExpr::cast(parent)
                 && let Some(case_token) = case_expr.case_token()
             {
-                return smallvec![Location::range(case_token.text_range())];
+                return smallvec![Location::current(
+                    case_token.text_range(),
+                    LocationKind::CaseExpr
+                )];
             }
         }
     }
@@ -40,14 +44,14 @@ pub fn goto_definition(db: &dyn Db, file: File, offset: TextSize) -> SmallVec<[L
     if ast::Commit::can_cast(parent.kind())
         && let Some(begin_range) = find_preceding_begin(source_file, token.text_range().start())
     {
-        return smallvec![Location::range(begin_range)];
+        return smallvec![Location::current(begin_range, LocationKind::CommitBegin)];
     }
 
     // goto def on ROLLBACK -> BEGIN/START TRANSACTION
     if ast::Rollback::can_cast(parent.kind())
         && let Some(begin_range) = find_preceding_begin(source_file, token.text_range().start())
     {
-        return smallvec![Location::range(begin_range)];
+        return smallvec![Location::current(begin_range, LocationKind::CommitBegin)];
     }
 
     // goto def on BEGIN/START TRANSACTION -> COMMIT or ROLLBACK
@@ -55,11 +59,13 @@ pub fn goto_definition(db: &dyn Db, file: File, offset: TextSize) -> SmallVec<[L
         && let Some(end_range) =
             find_following_commit_or_rollback(source_file, token.text_range().end())
     {
-        return smallvec![Location::range(end_range)];
+        return smallvec![Location::current(end_range, LocationKind::CommitEnd)];
     }
 
-    if let Some(name) = ast::Name::cast(parent.clone()) {
-        return smallvec![Location::range(name.syntax().text_range())];
+    if let Some(name) = ast::Name::cast(parent.clone())
+        && let Some(kind) = classify_def_node(name.syntax()).map(LocationKind::from)
+    {
+        return smallvec![Location::current(name.syntax().text_range(), kind)];
     }
 
     if let Some(name_ref) = ast::NameRef::cast(parent.clone()) {
@@ -71,13 +77,14 @@ pub fn goto_definition(db: &dyn Db, file: File, offset: TextSize) -> SmallVec<[L
             // TODO: we should salsa this
             let binder_output = binder::bind(file);
             let root = file.syntax();
-            if let Some(ptrs) = resolve::resolve_name_ref_ptrs(&binder_output, root, &name_ref) {
+            if let Some((ptrs, kind)) = resolve::resolve_name_ref(&binder_output, root, &name_ref) {
                 let ranges = ptrs
                     .iter()
                     .map(|ptr| ptr.to_node(file.syntax()).text_range())
                     .map(|range| Location {
                         file: file_id,
                         range,
+                        kind,
                     })
                     .collect();
                 return ranges;
@@ -106,6 +113,7 @@ pub fn goto_definition(db: &dyn Db, file: File, offset: TextSize) -> SmallVec<[L
                 return smallvec![Location {
                     file: file_id,
                     range: ptr.to_node(file.syntax()).text_range(),
+                    kind: LocationKind::Type,
                 }];
             }
         }
@@ -120,17 +128,114 @@ pub enum FileId {
     Builtins,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocationKind {
+    Aggregate,
+    CaseExpr,
+    Channel,
+    Column,
+    CommitBegin,
+    CommitEnd,
+    Cursor,
+    Database,
+    EventTrigger,
+    Extension,
+    Function,
+    Index,
+    NamedArgParameter,
+    Policy,
+    PreparedStatement,
+    Procedure,
+    PropertyGraph,
+    Role,
+    Schema,
+    Sequence,
+    Server,
+    Table,
+    Tablespace,
+    Trigger,
+    Type,
+    View,
+    Window,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Location {
     pub file: FileId,
     pub range: TextRange,
+    pub kind: LocationKind,
 }
 
 impl Location {
-    fn range(range: TextRange) -> Location {
+    fn current(range: TextRange, kind: LocationKind) -> Location {
         Location {
             file: FileId::Current,
             range,
+            kind,
+        }
+    }
+}
+
+impl From<NameRefClass> for LocationKind {
+    fn from(class: NameRefClass) -> Self {
+        match class {
+            NameRefClass::Aggregate => LocationKind::Aggregate,
+            NameRefClass::Channel => LocationKind::Channel,
+            NameRefClass::Cursor => LocationKind::Cursor,
+            NameRefClass::Database => LocationKind::Database,
+            NameRefClass::EventTrigger => LocationKind::EventTrigger,
+            NameRefClass::Extension => LocationKind::Extension,
+            NameRefClass::Index => LocationKind::Index,
+            NameRefClass::NamedArgParameter => LocationKind::NamedArgParameter,
+            NameRefClass::Policy => LocationKind::Policy,
+            NameRefClass::PreparedStatement => LocationKind::PreparedStatement,
+            NameRefClass::PropertyGraph => LocationKind::PropertyGraph,
+            NameRefClass::PropertyGraphColumn => LocationKind::Column,
+            NameRefClass::Role => LocationKind::Role,
+            NameRefClass::Schema => LocationKind::Schema,
+            NameRefClass::Sequence => LocationKind::Sequence,
+            NameRefClass::Server => LocationKind::Server,
+            NameRefClass::Tablespace => LocationKind::Tablespace,
+            NameRefClass::Trigger => LocationKind::Trigger,
+            NameRefClass::Type => LocationKind::Type,
+            NameRefClass::View => LocationKind::View,
+            NameRefClass::Window => LocationKind::Window,
+
+            NameRefClass::CallProcedure | NameRefClass::Procedure | NameRefClass::ProcedureCall => {
+                LocationKind::Procedure
+            }
+
+            NameRefClass::Function
+            | NameRefClass::FunctionCall
+            | NameRefClass::FunctionName
+            | NameRefClass::Routine
+            | NameRefClass::SelectFunctionCall => LocationKind::Function,
+
+            NameRefClass::AlterColumn
+            | NameRefClass::CompositeTypeField
+            | NameRefClass::ConstraintColumn
+            | NameRefClass::CreateIndexColumn
+            | NameRefClass::DeleteColumn
+            | NameRefClass::ForeignKeyColumn
+            | NameRefClass::InsertColumn
+            | NameRefClass::JoinUsingColumn
+            | NameRefClass::MergeColumn
+            | NameRefClass::PolicyColumn
+            | NameRefClass::QualifiedColumn
+            | NameRefClass::SelectColumn
+            | NameRefClass::SelectQualifiedColumn
+            | NameRefClass::UpdateColumn => LocationKind::Column,
+
+            NameRefClass::DeleteQualifiedColumnTable
+            | NameRefClass::ForeignKeyTable
+            | NameRefClass::FromTable
+            | NameRefClass::InsertQualifiedColumnTable
+            | NameRefClass::LikeTable
+            | NameRefClass::MergeQualifiedColumnTable
+            | NameRefClass::PolicyQualifiedColumnTable
+            | NameRefClass::SelectQualifiedColumnTable
+            | NameRefClass::Table
+            | NameRefClass::UpdateQualifiedColumnTable => LocationKind::Table,
         }
     }
 }
@@ -9239,6 +9344,382 @@ select '10'::dec$0;
           │                        ─────── 2. destination
         3 │ select '10'::dec;
           ╰╴               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_property_graph() {
+        assert_snapshot!(goto("
+create table buzz.boo(a int, b int);
+create property graph foo.bar
+  vertex tables (buzz.boo$0 key (a, b) no properties)
+  edge tables (foo.bar key (x, y)
+    source key (a, b) references k (t, y)
+    destination key (q, t) references a (r, j)
+    properties all columns);
+"), @"
+          ╭▸ 
+        2 │ create table buzz.boo(a int, b int);
+          │                   ─── 2. destination
+        3 │ create property graph foo.bar
+        4 │   vertex tables (buzz.boo key (a, b) no properties)
+          ╰╴                        ─ 1. source
+        ");
+
+        assert_snapshot!(goto("
+create table foo.bar(x int, y int);
+create property graph g
+  vertex tables (boo key (a, b) no properties)
+  edge tables (foo.bar$0 key (x, y)
+    source key (a, b) references k (t, y)
+    destination key (q, t) references a (r, j)
+    properties all columns);
+"), @"
+          ╭▸ 
+        2 │ create table foo.bar(x int, y int);
+          │                  ─── 2. destination
+          ‡
+        5 │   edge tables (foo.bar key (x, y)
+          ╰╴                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_property_graph_sources_table() {
+        assert_snapshot!(goto("
+create table v1 (
+  id int8 primary key,
+  name text
+);
+
+create table v2 (
+  id int8 primary key,
+  name text
+);
+
+create table v3 (
+  id int8 primary key,
+  name text
+);
+
+create table e1 (
+  id int8 primary key,
+  source_id int8 references v1,
+  destination_id int8 references v2
+);
+
+create table e2 (
+  id int8 primary key,
+  source_id int8 references v1,
+  destination_id int8 references v3
+);
+
+create property graph g1
+  vertex tables (v1, v2, v3)
+  edge tables (
+    e1 source v1$0 destination v2,
+    e2 source v1 destination v3);
+"), @"
+           ╭▸ 
+         2 │ create table v1 (
+           │              ── 2. destination
+           ‡
+        32 │     e1 source v1 destination v2,
+           ╰╴               ─ 1. source
+        "
+        );
+
+        assert_snapshot!(goto("
+create table v1 (
+  id int8 primary key,
+  name text
+);
+
+create table v2 (
+  id int8 primary key,
+  name text
+);
+
+create table v3 (
+  id int8 primary key,
+  name text
+);
+
+create table e1 (
+  id int8 primary key,
+  source_id int8 references v1,
+  destination_id int8 references v2
+);
+
+create table e2 (
+  id int8 primary key,
+  source_id int8 references v1,
+  destination_id int8 references v3
+);
+
+create property graph g1
+  vertex tables (v1, v2, v3)
+  edge tables (
+    e1 source v1 destination v2,
+    e2 source v1 destination v3$0);
+"), @"
+           ╭▸ 
+        12 │ create table v3 (
+           │              ── 2. destination
+           ‡
+        33 │     e2 source v1 destination v3);
+           ╰╴                              ─ 1. source
+        "
+        );
+    }
+
+    #[test]
+    fn goto_create_property_graph_references_table() {
+        assert_snapshot!(goto("
+create table v1 (id int8 primary key);
+create table v2 (id int8 primary key);
+create table e1 (
+  id int8 primary key,
+  source_id int8 references v1,
+  destination_id int8 references v2
+);
+
+create property graph g1
+  vertex tables (v1, v2)
+  edge tables (
+    e1
+      source key (source_id) references v1$0 (id)
+      destination key (destination_id) references v2 (id)
+  );
+"), @"
+           ╭▸ 
+         2 │ create table v1 (id int8 primary key);
+           │              ── 2. destination
+           ‡
+        14 │       source key (source_id) references v1 (id)
+           ╰╴                                         ─ 1. source
+        "
+        );
+    }
+
+    #[test]
+    fn goto_create_property_graph_vertex_key_column() {
+        assert_snapshot!(goto("
+create table v1 (
+  id int8 primary key,
+  name text
+);
+
+create property graph g1
+  vertex tables (v1 key (id$0));
+"), @"
+          ╭▸ 
+        3 │   id int8 primary key,
+          │   ── 2. destination
+          ‡
+        8 │   vertex tables (v1 key (id));
+          ╰╴                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_property_graph_edge_source_key_column() {
+        assert_snapshot!(goto("
+create table v1 (id int8 primary key);
+create table v2 (id int8 primary key);
+create table e1 (
+  id int8 primary key,
+  source_id int8 references v1,
+  destination_id int8 references v2
+);
+
+create property graph g1
+  vertex tables (v1, v2)
+  edge tables (
+    e1 key (id)
+      source key (source_id$0) references v1 (id)
+      destination key (destination_id) references v2 (id));
+"), @"
+           ╭▸ 
+         6 │   source_id int8 references v1,
+           │   ───────── 2. destination
+           ‡
+        14 │       source key (source_id) references v1 (id)
+           ╰╴                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_property_graph_edge_source_references_column() {
+        assert_snapshot!(goto("
+create table v1 (id int8 primary key);
+create table v2 (id int8 primary key);
+create table e1 (
+  id int8 primary key,
+  source_id int8 references v1,
+  destination_id int8 references v2
+);
+
+create property graph g1
+  vertex tables (v1, v2)
+  edge tables (
+    e1 key (id)
+      source key (source_id) references v1 (id$0)
+      destination key (destination_id) references v2 (id));
+"), @"
+           ╭▸ 
+         2 │ create table v1 (id int8 primary key);
+           │                  ── 2. destination
+           ‡
+        14 │       source key (source_id) references v1 (id)
+           ╰╴                                             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_property_graph_edge_destination_key_column() {
+        assert_snapshot!(goto("
+create table v1 (id int8 primary key);
+create table v2 (id int8 primary key);
+create table e1 (
+  id int8 primary key,
+  source_id int8 references v1,
+  destination_id int8 references v2
+);
+
+create property graph g1
+  vertex tables (v1, v2)
+  edge tables (
+    e1 key (id)
+      source key (source_id) references v1 (id)
+      destination key (destination_id$0) references v2 (id));
+"), @"
+           ╭▸ 
+         7 │   destination_id int8 references v2
+           │   ────────────── 2. destination
+           ‡
+        15 │       destination key (destination_id) references v2 (id));
+           ╰╴                                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_property_graph_edge_destination_references_column() {
+        assert_snapshot!(goto("
+create table v1 (id int8 primary key);
+create table v2 (id int8 primary key);
+create table e1 (
+  id int8 primary key,
+  source_id int8 references v1,
+  destination_id int8 references v2
+);
+
+create property graph g1
+  vertex tables (v1, v2)
+  edge tables (
+    e1 key (id)
+      source key (source_id) references v1 (id)
+      destination key (destination_id) references v2 (id$0));
+"), @"
+           ╭▸ 
+         3 │ create table v2 (id int8 primary key);
+           │                  ── 2. destination
+           ‡
+        15 │       destination key (destination_id) references v2 (id));
+           ╰╴                                                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_property_graph_vertex_properties_column() {
+        assert_snapshot!(goto("
+create table v1 (
+  id int8 primary key,
+  name text
+);
+
+create property graph g1
+  vertex tables (v1 properties (id$0, name));
+"), @"
+          ╭▸ 
+        3 │   id int8 primary key,
+          │   ── 2. destination
+          ‡
+        8 │   vertex tables (v1 properties (id, name));
+          ╰╴                                 ─ 1. source
+        ");
+
+        assert_snapshot!(goto("
+create table v1 (
+  id int8 primary key,
+  name text
+);
+
+create property graph g1
+  vertex tables (v1 properties (id, nam$0e));
+"), @"
+          ╭▸ 
+        4 │   name text
+          │   ──── 2. destination
+          ‡
+        8 │   vertex tables (v1 properties (id, name));
+          ╰╴                                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_property_graph_edge_properties_column() {
+        assert_snapshot!(goto("
+create table v1 (id int8 primary key);
+create table v2 (id int8 primary key);
+create table e1 (
+  id int8 primary key,
+  source_id int8 references v1,
+  destination_id int8 references v2
+);
+
+create property graph g1
+  vertex tables (v1, v2)
+  edge tables (
+    e1
+      source v1
+      destination v2
+      properties (id, source_id$0, destination_id));
+"), @"
+           ╭▸ 
+         6 │   source_id int8 references v1,
+           │   ───────── 2. destination
+           ‡
+        16 │       properties (id, source_id, destination_id));
+           ╰╴                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_property_graph() {
+        assert_snapshot!(goto("
+create property graph foo.bar vertex tables (t key (a) no properties);
+drop property graph foo.ba$0r;
+"), @"
+          ╭▸ 
+        2 │ create property graph foo.bar vertex tables (t key (a) no properties);
+          │                           ─── 2. destination
+        3 │ drop property graph foo.bar;
+          ╰╴                         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_property_graph() {
+        assert_snapshot!(goto("
+create property graph foo.bar vertex tables (t key (a) no properties);
+alter property graph foo.ba$0r rename to baz;
+"), @"
+          ╭▸ 
+        2 │ create property graph foo.bar vertex tables (t key (a) no properties);
+          │                           ─── 2. destination
+        3 │ alter property graph foo.bar rename to baz;
+          ╰╴                          ─ 1. source
         ");
     }
 }

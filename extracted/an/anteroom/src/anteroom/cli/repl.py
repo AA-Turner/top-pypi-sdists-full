@@ -67,6 +67,125 @@ _IS_WINDOWS = platform.system() == "Windows"
 _bg_manager_ref: list[Any] = [None]
 _detach_manager_ref: list[Any] = [None]
 
+# ask_user option-prefix normalization (#1437).
+# Matches leading enumeration like "A. ", "B) ", "1. ", "10) " — stripped
+# from option labels to avoid double-numbering when the CLI renders its
+# own "1. 2. 3." index alongside LLM-provided prefixes.
+_OPTION_PREFIX_RE = re.compile(r"^\s*(?:[A-Za-z]|\d+)[.)]\s+")
+# Private in-process cancel sentinel returned by ``_resolve_choice`` when the
+# user types 'x' to cancel the ask_user prompt. Control character never
+# appears in legitimate user input.
+_CHOICE_CANCEL_SENTINEL = "\x00__cancel__"
+
+
+def _strip_option_prefix(label: str) -> str:
+    """Strip a leading enumeration prefix (``A.`` / ``1)`` / etc.) from an option label.
+
+    Falls back to the original label if stripping would leave an empty
+    string, so labels that are pure prefixes like ``"A."`` render as-is.
+    """
+    stripped = _OPTION_PREFIX_RE.sub("", label, count=1)
+    return stripped if stripped else label
+
+
+def _resolve_ask_choice(
+    answer: str,
+    opts: list[str] | None,
+    stripped_opts: list[str] | None = None,
+) -> str:
+    """Resolve the user's raw answer against ``opts`` (original option strings).
+
+    Returns :data:`_CHOICE_CANCEL_SENTINEL` when the user typed ``x``
+    (case-insensitive, trimmed). Otherwise returns the resolved option
+    from ``opts`` (by 1-based digit or unique case-insensitive prefix
+    match), falling back to the raw answer when no unique match exists.
+
+    ``stripped_opts`` supplies the prefix-stripped forms used *only* for
+    matching user-typed text (so typing ``"Alpha"`` resolves ``"A. Alpha"``)
+    — but the returned value always comes from ``opts`` so the tool output
+    matches what the web UI returns for the same click. When omitted,
+    ``opts`` is used for matching too.
+    """
+    if answer.strip().lower() == "x":
+        return _CHOICE_CANCEL_SENTINEL
+    if not opts:
+        return answer
+    if answer.isdigit():
+        idx = int(answer)
+        if 1 <= idx <= len(opts):
+            return opts[idx - 1]
+        # Out-of-range digit: fall through to freeform.
+        return answer
+    lowered = answer.strip().lower()
+    # Empty Enter is a real empty answer — do not match any option by
+    # empty-prefix (which would unique-match when only one option exists).
+    if not lowered:
+        return answer
+    match_pool = stripped_opts if stripped_opts is not None else opts
+    match_indices = [i for i, opt in enumerate(match_pool) if opt.lower().startswith(lowered)]
+    if len(match_indices) == 1:
+        return opts[match_indices[0]]
+    return answer
+
+
+def _make_ask_user_callback(
+    *,
+    sub_prompt_async: Callable[[str], Any],
+    cancel_event_ref: list[Any],
+    before_prompt: Callable[[], Any] | None = None,
+    console_print: Callable[[str], None] = lambda _msg: None,
+) -> Callable[[str, list[str] | None], Any]:
+    """Build the ask_user CLI callback.
+
+    Extracted as a factory so the closure's control flow can be unit-tested
+    without threading through the full REPL (#1437). Returns ``None`` for
+    cancel (``x`` / Ctrl-D / Ctrl-C), and a string for a real submission
+    (including ``""`` when the user pressed Enter with no content).
+    """
+
+    async def _callback(question: str, options: list[str] | None = None) -> str | None:
+        if before_prompt is not None:
+            await before_prompt()
+
+        # Prefix stripping applies to display + text-match only. The
+        # returned value always comes from ``options`` (the original
+        # LLM-supplied strings) so CLI and web agree on the ask_user
+        # result for the same prefixed options (#1437 senior review).
+        stripped: list[str] | None = [_strip_option_prefix(o) for o in options] if options else None
+
+        console_print(f"\n  [{MUTED}]── Input Needed ──[/{MUTED}]")
+        console_print(f"  [{GOLD}]{escape(question)}[/{GOLD}]")
+        if stripped:
+            for i, opt in enumerate(stripped, 1):
+                console_print(f"    [{MUTED}]{i}.[/{MUTED}] {escape(opt)}")
+            prompt_text = f"  Choice [1-{len(stripped)} or text] > "
+            console_print(f"  [{MUTED}]('x' or Ctrl-D to cancel)[/{MUTED}]")
+        else:
+            prompt_text = "  Answer > "
+            console_print(f"  [{MUTED}]('x' or Ctrl-D to cancel)[/{MUTED}]")
+
+        answer = await sub_prompt_async(prompt_text)
+
+        # Ctrl-D / Ctrl-C / disconnected stdin: cancel.
+        if answer is None:
+            if cancel_event_ref and cancel_event_ref[0] is not None:
+                cancel_event_ref[0].set()
+            console_print(f"  [{MUTED}](cancelled)[/{MUTED}]\n")
+            return None
+
+        resolved = _resolve_ask_choice(answer, options, stripped_opts=stripped)
+        if resolved == _CHOICE_CANCEL_SENTINEL:
+            if cancel_event_ref and cancel_event_ref[0] is not None:
+                cancel_event_ref[0].set()
+            console_print(f"  [{MUTED}](cancelled)[/{MUTED}]\n")
+            return None
+
+        # Empty Enter is a real answer — distinct from cancelling.
+        console_print(f"  [{MUTED}]→ {resolved or '(empty)'}[/{MUTED}]")
+        return resolved
+
+    return _callback
+
 
 def poll_bg_tasks(bg_manager: Any, console: Any) -> None:
     """Poll background tasks and render completion notifications.
@@ -1653,6 +1772,50 @@ def _phase_badge(status: str) -> str:
     return f"[{CHROME}]draft[/{CHROME}]"
 
 
+def _handle_attribution_command() -> None:
+    """Handle the /attribution REPL command (#923).
+
+    Renders the last-recorded attribution snapshot via
+    ``render_attribution_detail``. If no snapshot has been cached yet
+    this session, prints a short informational message instead.
+    """
+    from .attribution_render import render_attribution_detail
+
+    snapshot = renderer.get_last_attribution()
+    if snapshot is None:
+        renderer.console.print(
+            f"[{CHROME}]No attribution recorded for this session yet. Run a turn first.[/{CHROME}]\n"
+        )
+        return
+    render_attribution_detail(renderer.console, snapshot)
+
+
+def _restore_last_attribution_from(stored_messages: list[dict[str, Any]]) -> None:
+    """Restore the in-memory attribution cache from persisted metadata (#923).
+
+    Called after every resume path (``--continue``, ``/last``, ``/resume``,
+    ``/fork``) so that typing ``/attribution`` right after resume shows the
+    snapshot that was saved with the last assistant turn, instead of the
+    "No attribution recorded for this session yet" fallback.
+    """
+    for msg in reversed(stored_messages):
+        if msg.get("role") != "assistant":
+            continue
+        meta_raw = msg.get("metadata")
+        meta: Any = meta_raw
+        if isinstance(meta_raw, str):
+            try:
+                meta = json.loads(meta_raw)
+            except (TypeError, ValueError):
+                meta = None
+        if not isinstance(meta, dict):
+            renderer.set_last_attribution(None)
+            return
+        renderer.set_last_attribution(meta.get("attribution"))
+        return
+    renderer.set_last_attribution(None)
+
+
 def _handle_memory_command(user_input: str, *, cmd: str, db: Any, config: AppConfig | None = None) -> None:
     """Handle /memory and /memories REPL commands.
 
@@ -1676,9 +1839,13 @@ def _handle_memory_command(user_input: str, *, cmd: str, db: Any, config: AppCon
         _handle_delete,
         _handle_edit,
         _handle_list,
+        _handle_pin,
         _handle_propose,
         _handle_reject,
+        _handle_retention_preview,
+        _handle_retention_purge,
         _handle_show,
+        _handle_unpin,
     )
 
     _saved_console = memory_cli.console
@@ -1691,6 +1858,12 @@ def _handle_memory_command(user_input: str, *, cmd: str, db: Any, config: AppCon
             config=config,
             handlers=(_handle_list, _handle_show, _handle_create, _handle_edit, _handle_delete),
             promotion_handlers=(_handle_propose, _handle_candidates, _handle_approve, _handle_reject),
+            retention_handlers=(
+                _handle_pin,
+                _handle_unpin,
+                _handle_retention_preview,
+                _handle_retention_purge,
+            ),
             argparse_module=_argparse,
         )
     finally:
@@ -1705,6 +1878,7 @@ def _run_memory_subcommand(
     config: AppConfig | None = None,
     handlers: Any,
     promotion_handlers: Any = None,
+    retention_handlers: Any = None,
     argparse_module: Any,
 ) -> None:
     """Parse ``/memory <sub> ...`` and dispatch to the matching handler.
@@ -1718,6 +1892,9 @@ def _run_memory_subcommand(
     _handle_list, _handle_show, _handle_create, _handle_edit, _handle_delete = handlers
     _handle_propose, _handle_candidates, _handle_approve, _handle_reject = (
         promotion_handlers if promotion_handlers is not None else (None, None, None, None)
+    )
+    _handle_pin, _handle_unpin, _handle_retention_preview, _handle_retention_purge = (
+        retention_handlers if retention_handlers is not None else (None, None, None, None)
     )
     _argparse = argparse_module
 
@@ -1918,9 +2095,64 @@ def _run_memory_subcommand(
                 pass
             return
 
+    # Retention / pin subcommands (#625).  Require both ``config`` and
+    # the retention handlers so a pre-#625 caller degrades gracefully.
+    if sub in ("pin", "unpin", "retention"):
+        if config is None or _handle_pin is None:
+            renderer.console.print(
+                f"[{CHROME}]Memory retention is unavailable in this context (no config).[/{CHROME}]\n"
+            )
+            return
+
+        if sub == "pin":
+            if not rest:
+                renderer.console.print(f"[{CHROME}]Usage: /memory pin <fqn>[/{CHROME}]\n")
+                return
+            try:
+                _handle_pin(db, _argparse.Namespace(fqn=rest[0]))
+            except SystemExit:
+                pass
+            return
+
+        if sub == "unpin":
+            if not rest:
+                renderer.console.print(f"[{CHROME}]Usage: /memory unpin <fqn>[/{CHROME}]\n")
+                return
+            try:
+                _handle_unpin(db, _argparse.Namespace(fqn=rest[0]))
+            except SystemExit:
+                pass
+            return
+
+        if sub == "retention":
+            ret_sub = rest[0].lower() if rest else ""
+            ret_rest = rest[1:]
+            if ret_sub == "preview":
+                try:
+                    _handle_retention_preview(config, db, _argparse.Namespace())
+                except SystemExit:
+                    pass
+                return
+            if ret_sub == "purge":
+                p = _argparse.ArgumentParser(prog="/memory retention purge", add_help=False)
+                p.add_argument("--confirm", action="store_true")
+                try:
+                    args = p.parse_args(ret_rest)
+                except SystemExit:
+                    renderer.console.print(f"[{CHROME}]Usage: /memory retention purge --confirm[/{CHROME}]\n")
+                    return
+                try:
+                    _handle_retention_purge(config, db, args)
+                except SystemExit:
+                    pass
+                return
+            renderer.console.print(f"[{CHROME}]Usage: /memory retention {{preview,purge}}[/{CHROME}]\n")
+            return
+
     renderer.console.print(
         f"[{CHROME}]Usage: /memory "
-        f"{{list,show,create,edit,delete,propose,candidates,approve,reject}} [args][/{CHROME}]\n"
+        f"{{list,show,create,edit,delete,propose,candidates,approve,reject,"
+        f"pin,unpin,retention}} [args][/{CHROME}]\n"
     )
 
 
@@ -2378,7 +2610,7 @@ async def _handle_spec_command(
 
         from ..services.workflow_resolution import resolve_workflow_path as _rwp
 
-        _wf_path = _rwp(_launch_wid)
+        _wf_path = _rwp(_launch_wid, db=db)
         if _wf_path is None:
             renderer.console.print(f"[{_ERROR}]Workflow not found: {_launch_wid}[/{_ERROR}]\n")
             return
@@ -2987,55 +3219,29 @@ async def run_cli(
     tool_registry.set_safety_config(config.safety, working_dir=working_dir)
     tool_registry.set_confirm_callback(_confirm_destructive)
 
-    # Set up ask_user callback for mid-turn questions
-    async def _ask_user_callback(question: str, options: list[str] | None = None) -> str:
+    # Cancel-event ref lives outside _ask_user_callback so the callback can
+    # flip it when the user cancels the ask_user prompt, letting the agent
+    # loop observe the cancel at its next polling checkpoint (#1437).
+    _active_cancel_event: list[asyncio.Event | None] = [None]
+    _active_force_cancel_event: list[threading.Event | None] = [None]
+
+    # Set up ask_user callback for mid-turn questions (factory defined at
+    # module level so its control flow is unit-testable).
+    async def _before_ask_prompt() -> None:
         nonlocal thinking
-
-        def _resolve_choice(answer: str, opts: list[str] | None) -> str:
-            if not opts:
-                return answer
-            if answer.isdigit():
-                idx = int(answer)
-                if 1 <= idx <= len(opts):
-                    return opts[idx - 1]
-                renderer.console.print(f"  [{MUTED}]Invalid choice #{idx}, using as freeform answer[/{MUTED}]")
-                return answer
-            lowered = answer.strip().lower()
-            matches = [opt for opt in opts if opt.lower().startswith(lowered)]
-            if len(matches) == 1:
-                return matches[0]
-            return answer
-
         await renderer.stop_thinking(quiet=True)
         thinking = False
         renderer.stop_tool_ticker_sync()
 
-        renderer.console.print(f"\n  [{MUTED}]── Input Needed ──[/{MUTED}]")
-        renderer.console.print(f"  [{GOLD}]{escape(question)}[/{GOLD}]")
-        if options:
-            for i, opt in enumerate(options, 1):
-                renderer.console.print(f"    [{MUTED}]{i}.[/{MUTED}] {escape(opt)}")
-            prompt_text = f"  Choice [1-{len(options)} or text] > "
-            renderer.console.print(f"  [{MUTED}]ctrl-d to cancel[/{MUTED}]")
-            answer = await _sub_prompt_async(prompt_text)
-        else:
-            renderer.console.print(f"  [{MUTED}]ctrl-d to cancel[/{MUTED}]")
-            answer = await _sub_prompt_async("  Answer > ")
-
-        if answer is None:
-            renderer.console.print(f"  [{MUTED}](cancelled)[/{MUTED}]\n")
-            return ""
-
-        if options:
-            answer = _resolve_choice(answer, options)
-
-        renderer.console.print(f"  [{MUTED}]→ {answer}[/{MUTED}]")
-        return str(answer)
+    _ask_user_callback = _make_ask_user_callback(
+        sub_prompt_async=_sub_prompt_async,
+        cancel_event_ref=_active_cancel_event,
+        before_prompt=_before_ask_prompt,
+        console_print=renderer.console.print,
+    )
 
     # Build unified tool executor
     _subagent_counter = 0
-    _active_cancel_event: list[asyncio.Event | None] = [None]
-    _active_force_cancel_event: list[threading.Event | None] = [None]
 
     from typing import cast as _cast
 
@@ -3621,6 +3827,16 @@ async def _run_one_shot(
                 output_filter=output_filter,
                 max_consecutive_text_only=config.cli.max_consecutive_text_only,
                 max_line_repeats=config.cli.max_line_repeats,
+                compact_preserve_tail=config.compaction.preserve_tail,
+                compact_rehydrate=config.compaction.compact_rehydrate,
+                compact_rehydrate_max_files=config.compaction.compact_rehydrate_max_files,
+                compact_rehydrate_max_errors=config.compaction.compact_rehydrate_max_errors,
+                microcompact_enabled=config.compaction.microcompact_enabled,
+                summary_trigger_msg_count=config.compaction.summary_trigger_msg_count,
+                summary_trigger_token_count=config.compaction.summary_trigger_token_count,
+                reactive_max_attempts=config.compaction.reactive_max_attempts,
+                db=db,
+                conversation_id=conv["id"],
             ):
                 if event.kind == "thinking":
                     if not thinking:
@@ -4207,9 +4423,10 @@ async def _run_repl(
         conv_data = storage.get_conversation(db, resume_conversation_id)
         if conv_data:
             conv = conv_data
-            ai_messages, _ = _load_conversation_messages(
+            ai_messages, _resumed_stored = _load_conversation_messages(
                 db, resume_conversation_id, tool_replay_max_chars=config.cli.tool_replay_max_chars
             )
+            _restore_last_attribution_from(_resumed_stored)
             is_first_message = False
             working_dir = _restore_working_dir(conv, tool_registry, working_dir)
             _pending_resume_info = True
@@ -5164,11 +5381,23 @@ async def _run_repl(
                 elif cmd == "/usage":
                     _show_usage_stats(db, config)
                     continue
+                elif cmd == "/attribution":
+                    _handle_attribution_command()
+                    continue
                 elif cmd == "/help":
                     await _show_help_dialog()
                     continue
                 elif cmd == "/compact":
-                    await _compact_messages(ai_service, ai_messages, db, conv["id"])
+                    await _compact_messages(
+                        ai_service,
+                        ai_messages,
+                        db,
+                        conv["id"],
+                        preserve_tail=config.compaction.preserve_tail,
+                        rehydrate=config.compaction.compact_rehydrate,
+                        rehydrate_max_files=config.compaction.compact_rehydrate_max_files,
+                        rehydrate_max_errors=config.compaction.compact_rehydrate_max_errors,
+                    )
                     continue
                 elif cmd == "/copy":
                     last_assistant = _find_last_assistant_message(ai_messages)
@@ -5186,9 +5415,10 @@ async def _run_repl(
                     convs = storage.list_conversations(db, limit=1)
                     if convs:
                         conv = storage.get_conversation(db, convs[0]["id"]) or conv
-                        ai_messages, _ = _load_conversation_messages(
+                        ai_messages, _last_stored = _load_conversation_messages(
                             db, conv["id"], tool_replay_max_chars=config.cli.tool_replay_max_chars
                         )
+                        _restore_last_attribution_from(_last_stored)
                         is_first_message = False
                         _show_resume_info(db, conv, ai_messages)
                     else:
@@ -6961,9 +7191,10 @@ async def _run_repl(
                         continue
                     conv = loaded
                     working_dir = _restore_working_dir(conv, tool_registry, working_dir)
-                    ai_messages, _ = _load_conversation_messages(
+                    ai_messages, _resume_stored = _load_conversation_messages(
                         db, conv["id"], tool_replay_max_chars=config.cli.tool_replay_max_chars
                     )
+                    _restore_last_attribution_from(_resume_stored)
                     is_first_message = False
                     _show_resume_info(db, conv, ai_messages)
                     continue
@@ -7031,9 +7262,10 @@ async def _run_repl(
                         vec_index=_vm.messages if _vm and _vm.enabled else None,
                     )
 
-                    ai_messages, _ = _load_conversation_messages(
+                    ai_messages, _rewind_stored = _load_conversation_messages(
                         db, conv["id"], tool_replay_max_chars=config.cli.tool_replay_max_chars
                     )
+                    _restore_last_attribution_from(_rewind_stored)
 
                     summary = f"Rewound {rewind_result.deleted_messages} message(s)"
                     if rewind_result.reverted_files:
@@ -7130,7 +7362,16 @@ async def _run_repl(
                 renderer.console.print(
                     f"[yellow]Context approaching limit (~{token_estimate:,} tokens). Auto-compacting...[/yellow]"
                 )
-                await _compact_messages(ai_service, ai_messages, db, conv["id"])
+                await _compact_messages(
+                    ai_service,
+                    ai_messages,
+                    db,
+                    conv["id"],
+                    preserve_tail=config.compaction.preserve_tail,
+                    rehydrate=config.compaction.compact_rehydrate,
+                    rehydrate_max_files=config.compaction.compact_rehydrate_max_files,
+                    rehydrate_max_errors=config.compaction.compact_rehydrate_max_errors,
+                )
             elif token_estimate > warn_threshold:
                 renderer.console.print(
                     f"[yellow]Context: ~{token_estimate:,} tokens "
@@ -7273,6 +7514,7 @@ async def _run_repl(
                 response_token_count = 0
                 total_elapsed = 0.0
                 _pending_usage: dict | None = None
+                _last_assistant_msg: dict | None = None  # tracked for attribution (#923)
 
                 # Drain any messages that arrived while we were setting up
                 def _warn(cmd: str) -> None:
@@ -7326,6 +7568,16 @@ async def _run_repl(
                         output_filter=output_filter,
                         max_consecutive_text_only=config.cli.max_consecutive_text_only,
                         max_line_repeats=config.cli.max_line_repeats,
+                        compact_preserve_tail=config.compaction.preserve_tail,
+                        compact_rehydrate=config.compaction.compact_rehydrate,
+                        compact_rehydrate_max_files=config.compaction.compact_rehydrate_max_files,
+                        compact_rehydrate_max_errors=config.compaction.compact_rehydrate_max_errors,
+                        microcompact_enabled=config.compaction.microcompact_enabled,
+                        summary_trigger_msg_count=config.compaction.summary_trigger_msg_count,
+                        summary_trigger_token_count=config.compaction.summary_trigger_token_count,
+                        reactive_max_attempts=config.compaction.reactive_max_attempts,
+                        db=db,
+                        conversation_id=conv["id"],
                     ):
                         # Drain input_queue into msg_queue during streaming
                         await _drain_input_to_msg_queue(
@@ -7427,6 +7679,7 @@ async def _run_repl(
                                 new_msg = storage.create_message(
                                     db, conv["id"], "assistant", event.data["content"], **id_kw
                                 )
+                                _last_assistant_msg = new_msg
                                 if _pending_usage:
                                     storage.update_message_usage(
                                         db,
@@ -7546,6 +7799,90 @@ async def _run_repl(
                                 if _rag_chunks:
                                     renderer.render_rag_sources(_rag_chunks)
                                 renderer.render_newline()
+                                # Attribution (#923): build a snapshot of what
+                                # fed the turn, persist additively, and render
+                                # a compact footer when the toggle is on.
+                                if _last_assistant_msg is not None:
+                                    try:
+                                        from ..services import packs as _packs
+                                        from ..services.attribution import (
+                                            build_attribution,
+                                            serialize_attribution,
+                                        )
+
+                                        _attr_prompt_meta: dict[str, Any] = {
+                                            "rag_sources": [
+                                                {
+                                                    "label": c.source_label,
+                                                    "type": c.source_type,
+                                                    "source_id": getattr(c, "source_id", None),
+                                                }
+                                                for c in (_rag_chunks or [])
+                                            ],
+                                            "memory_recall_items": [
+                                                {
+                                                    "fqn": m.fqn,
+                                                    "scope": m.scope,
+                                                    "category": m.category,
+                                                    "distance": m.distance,
+                                                }
+                                                for m in (_mr_memories or [])
+                                            ]
+                                            if "_mr_memories" in dir()
+                                            else [],
+                                            "context_turns": [
+                                                {
+                                                    "id": m.get("id"),
+                                                    "role": m.get("role"),
+                                                }
+                                                for m in storage.list_messages(db, conv["id"])
+                                                if m.get("role") in ("user", "assistant", "system")
+                                            ],
+                                        }
+                                        try:
+                                            from ..services import pack_attachments as _pa
+
+                                            _attr_space_id = space["id"] if space else None
+                                            _attr_prompt_meta["pack_attachments"] = [
+                                                {
+                                                    "namespace": a.get("namespace") or "",
+                                                    "name": a.get("name") or "",
+                                                    "scope": a.get("scope") or "",
+                                                }
+                                                for a in _pa.list_attachments(
+                                                    db,
+                                                    project_path=working_dir,
+                                                    space_id=_attr_space_id,
+                                                )
+                                            ]
+                                        except Exception:
+                                            _attr_prompt_meta["pack_attachments"] = []
+                                        _stored_tcs = storage.list_tool_calls(db, _last_assistant_msg["id"])
+                                        _stored_msg = dict(_last_assistant_msg)
+                                        _stored_msg["tool_calls"] = _stored_tcs
+                                        try:
+                                            _pack_inventory = _packs.list_packs(db)
+                                        except Exception:
+                                            _pack_inventory = []
+                                        _attr_snap = build_attribution(
+                                            _attr_prompt_meta,
+                                            _stored_msg,
+                                            _pack_inventory,
+                                            dlp_scanner=dlp_scanner,
+                                            output_filter=output_filter,
+                                        )
+                                        _attr_serialized = serialize_attribution(_attr_snap)
+                                        storage.merge_message_metadata(
+                                            db,
+                                            _last_assistant_msg["id"],
+                                            {"attribution": _attr_serialized},
+                                        )
+                                        # Cache for /attribution expansion.
+                                        renderer.set_last_attribution(_attr_snap)
+                                        if getattr(config.cli, "show_attribution_footer", True):
+                                            renderer.render_attribution_footer(_attr_snap)
+                                    except Exception:
+                                        logger.debug("attribution: failed in CLI turn end", exc_info=True)
                                 context_tokens = _estimate_tokens(ai_messages)
                                 renderer.render_context_footer(
                                     current_tokens=context_tokens,
@@ -7736,18 +8073,42 @@ async def _compact_messages(
     ai_messages: list[dict[str, Any]],
     db: Any,
     conversation_id: str,
+    *,
+    preserve_tail: int = 0,
+    rehydrate: bool = True,
+    rehydrate_max_files: int = 20,
+    rehydrate_max_errors: int = 5,
 ) -> None:
     """Summarize conversation history to reduce context size.
 
     Delegates to the shared :mod:`anteroom.services.compaction` service.
     Preserves the CLI's historical ``role="system"`` compact message shape
-    and its token-bearing content template.
+    and its token-bearing content template.  When *preserve_tail* > 0,
+    boundary-based compaction keeps the trailing messages intact.
     """
-    from ..services.compaction import REPL_CONTENT_TEMPLATE, compact_messages
+    from ..services.compaction import (
+        REPL_CONTENT_TEMPLATE,
+        _find_tail_boundary,
+        compact_messages,
+        persist_compacted_messages,
+    )
 
     if len(ai_messages) < 4:
         renderer.console.print(f"[{CHROME}]Not enough messages to compact[/{CHROME}]\n")
         return
+
+    # Pre-compute tail IDs from the stored conversation before the in-memory
+    # list is mutated.  We run the boundary algorithm on stored rows to use
+    # their real DB IDs for persistence.
+    tail_message_ids: list[str] = []
+    if preserve_tail > 0:
+        try:
+            stored_rows = storage.list_messages(db, conversation_id)
+            stored_split = _find_tail_boundary(stored_rows, preserve_tail)
+            if stored_split > 0:
+                tail_message_ids = [r["id"] for r in stored_rows[stored_split:]]
+        except Exception:
+            logger.warning("Failed to compute stored tail IDs for /compact persistence", exc_info=True)
 
     renderer.console.print(f"[{CHROME}]Generating summary...[/{CHROME}]")
     result = await compact_messages(
@@ -7755,10 +8116,33 @@ async def _compact_messages(
         ai_messages,
         role="system",
         content_template=REPL_CONTENT_TEMPLATE,
+        preserve_tail=preserve_tail,
+        rehydrate=rehydrate,
+        rehydrate_max_files=rehydrate_max_files,
+        rehydrate_max_errors=rehydrate_max_errors,
     )
     if not result.success:
         renderer.render_error("Failed to generate summary")
         return
+
+    # Persist the compacted shape so /resume sees the boundary-based form.
+    try:
+        summary_msg = ai_messages[0] if ai_messages else None
+        boundary_msg = (
+            ai_messages[1]
+            if len(ai_messages) > 1 and ai_messages[1].get("metadata", {}).get("compact_boundary")
+            else None
+        )
+        if summary_msg is not None:
+            persist_compacted_messages(
+                db,
+                conversation_id,
+                summary_msg=summary_msg,
+                boundary_msg=boundary_msg,
+                tail_message_ids=tail_message_ids,
+            )
+    except Exception:
+        logger.warning("Failed to persist compacted conversation from /compact", exc_info=True)
 
     new_tokens = _estimate_tokens(ai_messages)
     renderer.render_compact_done(result.original_count, 1)

@@ -159,6 +159,12 @@ async def handle(
     **_extra: Any,
 ) -> dict[str, Any]:
     """Execute a sub-agent with an isolated conversation context."""
+    # TODO(#99): emit ``subagent.spawned`` / ``subagent.completed`` audit
+    # events via the lineage emitter so sub-agent runs produce a tamper-
+    # evident trail alongside workflow runs and memory promotions. The
+    # writer to use is the same ``app.state.audit_writer`` the parent
+    # agent loop already has access to; thread it through ``_tool_registry``
+    # or add a dedicated ``_audit_writer`` kwarg when #99 lands.
     if _ai_service is None:
         return {"error": "Sub-agent requires AI service context"}
 

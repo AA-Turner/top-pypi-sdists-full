@@ -238,7 +238,11 @@ async def launch_from_task(request: Request, fqn: str, task_id: str, body: Launc
 
     from ..services.workflow_resolution import resolve_workflow_path
 
-    path = resolve_workflow_path(body.workflow_id, allow_filesystem=False)
+    path = resolve_workflow_path(
+        body.workflow_id,
+        allow_filesystem=False,
+        db=request.app.state.db,
+    )
     if not path:
         raise HTTPException(status_code=404, detail="Workflow not found")
 

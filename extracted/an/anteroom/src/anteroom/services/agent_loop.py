@@ -13,13 +13,17 @@ from typing import Any, AsyncGenerator
 from .ai_service import AIService
 from .compaction import (
     AGENT_LOOP_CONTENT_TEMPLATE,
+    COMPACTION_MIN_MESSAGES,
     PROACTIVE_COMPACTION_MSG_THRESHOLD,
     PROACTIVE_COMPACTION_TOKEN_THRESHOLD,
+    collapse_old_tool_results,
+    drop_old_turn_groups,
 )
 from .compaction import (
     compact_messages as _shared_compact_messages,
 )
 from .context_trust import wrap_untrusted
+from .microcompact import microcompact as _microcompact
 from .token_budget import BudgetCheckResult, check_all_budgets
 from .tool_result_compact import compact_tool_output
 
@@ -81,65 +85,105 @@ def _humanize_tool_brief(tool_name: str, arguments: dict[str, Any]) -> str:
 def _truncate_large_tool_outputs(
     messages: list[dict[str, Any]], max_chars: int = _DEFAULT_TOOL_OUTPUT_MAX_CHARS
 ) -> bool:
-    """Truncate oversized tool result messages and append a retry hint. Returns True if any were truncated."""
-    truncated_any = False
-    tool_call_names: dict[str, str] = {}
+    """Truncate oversized tool result messages (reactive Strategy 1).
 
-    # Build map of tool_call_id -> tool name from assistant messages
-    for msg in messages:
-        for tc in msg.get("tool_calls", []):
-            tc_id = tc.get("id", "")
-            func = tc.get("function", {})
-            if tc_id and func.get("name"):
-                tool_call_names[tc_id] = func["name"]
-
-    for msg in messages:
-        if msg.get("role") != "tool":
-            continue
-        content = msg.get("content", "")
-        if len(content) <= max_chars:
-            continue
-
-        tc_id = msg.get("tool_call_id", "")
-        tool_name = tool_call_names.get(tc_id, "unknown tool")
-        original_len = len(content)
-        msg["content"] = (
-            content[:max_chars]
-            + f"\n\n... [TRUNCATED — original output was {original_len:,} chars from '{tool_name}'. "
-            f"The output exceeded the context window. "
-            f"You MUST retry this tool call with more constrained parameters "
-            f"(e.g. fewer results, a narrower query, or a smaller limit) "
-            f"to get output that fits within the context window.]"
-        )
-        truncated_any = True
-        logger.info(
-            "Truncated tool output for %s (call %s): %d -> %d chars",
-            tool_name,
-            tc_id,
-            original_len,
-            len(msg["content"]),
-        )
-
-    return truncated_any
+    Delegates to :func:`anteroom.services.microcompact.microcompact` with
+    the ``oversized_tool_outputs`` strategy so proactive microcompact
+    (#1266) and the reactive overflow ladder (#1415) share a single
+    implementation. ``min_messages=1`` — the reactive caller has already
+    verified the history exists and shouldn't be gated by the safety
+    floor that guards proactive microcompact on nearly-empty histories.
+    """
+    result = _microcompact(
+        messages,
+        tool_output_max_chars=max_chars,
+        min_messages=1,
+        strategies=["oversized_tool_outputs"],
+    )
+    return result.success
 
 
 async def _compact_messages(
     ai_service: AIService,
     messages: list[dict[str, Any]],
+    *,
+    preserve_tail: int = 0,
+    db: Any | None = None,
+    conversation_id: str | None = None,
+    rehydrate: bool = True,
+    rehydrate_max_files: int = 20,
+    rehydrate_max_errors: int = 5,
+    cancel_event: asyncio.Event | None = None,
 ) -> bool:
     """Summarize conversation history to reduce context size. Returns True on success.
 
     Thin wrapper around :func:`services.compaction.compact_messages` that
     preserves the historical ``bool`` return used by this module's loop
-    control. Produces the exact same compacted message shape as before
-    (``role: "user"`` with the agent-loop content template).
+    control.  When *preserve_tail* is 0 (default) the output shape is
+    identical to the legacy behaviour: one summary message replaces the
+    entire history.  When *preserve_tail* > 0, boundary-based compaction
+    summarises only the older portion and keeps the trailing messages
+    intact — see :func:`services.compaction._find_tail_boundary` for the
+    walk-back rules.
+
+    When *db* and *conversation_id* are provided, the compacted shape is
+    also persisted to SQLite via
+    :func:`services.compaction.persist_compacted_messages`.  This is the
+    path used by live conversations so the compacted form survives
+    ``/resume`` and web reload.
     """
+    from . import storage as _storage
+    from .compaction import _find_tail_boundary, persist_compacted_messages
+
+    # Pre-compute tail IDs from the stored conversation *before* the
+    # in-memory list is mutated.  We run the boundary algorithm on stored
+    # rows rather than ai_messages because stored rows carry the DB IDs we
+    # need for UPDATE + DELETE persistence.
+    tail_message_ids: list[str] = []
+    if db is not None and conversation_id is not None and preserve_tail > 0:
+        try:
+            stored_rows = _storage.list_messages(db, conversation_id)
+            stored_split = _find_tail_boundary(stored_rows, preserve_tail)
+            if stored_split > 0:
+                tail_message_ids = [r["id"] for r in stored_rows[stored_split:]]
+        except Exception:
+            logger.warning(
+                "Failed to compute stored tail IDs for persistence; compaction will run in-memory only",
+                exc_info=True,
+            )
+
     result = await _shared_compact_messages(
         ai_service,
         messages,
         role="user",
         content_template=AGENT_LOOP_CONTENT_TEMPLATE,
+        preserve_tail=preserve_tail,
+        rehydrate=rehydrate,
+        rehydrate_max_files=rehydrate_max_files,
+        rehydrate_max_errors=rehydrate_max_errors,
+        cancel_event=cancel_event,
     )
+
+    if result.success and db is not None and conversation_id is not None:
+        try:
+            summary_msg = messages[0] if messages else None
+            boundary_msg = (
+                messages[1] if len(messages) > 1 and messages[1].get("metadata", {}).get("compact_boundary") else None
+            )
+            if summary_msg is not None:
+                persist_compacted_messages(
+                    db,
+                    conversation_id,
+                    summary_msg=summary_msg,
+                    boundary_msg=boundary_msg,
+                    tail_message_ids=tail_message_ids,
+                )
+        except Exception:
+            logger.warning(
+                "Failed to persist compacted conversation; in-memory form is intact",
+                exc_info=True,
+            )
+
     return result.success
 
 
@@ -214,6 +258,16 @@ async def run_agent_loop(
     serialize_tools: bool = False,
     pause_signal: asyncio.Event | None = None,
     injection_queue: asyncio.Queue[dict[str, Any]] | None = None,
+    compact_preserve_tail: int = 0,
+    compact_rehydrate: bool = True,
+    compact_rehydrate_max_files: int = 20,
+    compact_rehydrate_max_errors: int = 5,
+    microcompact_enabled: bool = True,
+    summary_trigger_msg_count: int = PROACTIVE_COMPACTION_MSG_THRESHOLD,
+    summary_trigger_token_count: int = PROACTIVE_COMPACTION_TOKEN_THRESHOLD,
+    reactive_max_attempts: int = 4,
+    db: Any | None = None,
+    conversation_id: str | None = None,
 ) -> AsyncGenerator[AgentEvent, None]:
     """Run the agentic tool-call loop, yielding events.
 
@@ -223,7 +277,13 @@ async def run_agent_loop(
     """
     iteration = 0
     context_recovery_attempts = 0
-    max_context_recoveries = 2  # truncate once, compact once
+    # Staged reactive overflow recovery (#1415): up to N strategies run in
+    # sequence per recovery attempt — truncate oversized tool outputs,
+    # collapse historical tool results, drop older turn groups, and finally
+    # full LLM compaction.  ``reactive_max_attempts`` (default 4) gives
+    # each strategy a chance before the loop gives up. Config-driven since
+    # #1266 via ``CompactionConfig.reactive_max_attempts``.
+    max_context_recoveries = reactive_max_attempts
     total_tool_calls = 0
     auto_plan_suggested = False
     request_tokens = 0  # tokens accumulated in this run_agent_loop invocation
@@ -309,15 +369,38 @@ async def run_agent_loop(
                         },
                     )
 
+        # Proactive microcompact (#1266): cheap, deterministic, in-memory
+        # sweep that runs every turn before the summary-trigger check. In
+        # Phase 1 it trims any oversized tool results across the full
+        # history (same strategy as reactive Strategy 1; single source of
+        # truth via ``services.microcompact``). In-memory only — no SQLite
+        # writes, no LLM call.
+        if microcompact_enabled:
+            _mc = _microcompact(
+                messages,
+                tool_output_max_chars=tool_output_max_chars,
+                min_messages=COMPACTION_MIN_MESSAGES,
+            )
+            if _mc.success:
+                logger.info(
+                    "Proactive microcompact applied: strategies=%s bytes_saved=%d",
+                    _mc.strategies_applied,
+                    _mc.bytes_saved,
+                )
+                yield AgentEvent(
+                    kind="token",
+                    data={"content": "\n\n*Trimmed oversized tool outputs to stay within context limits...*\n\n"},
+                )
+
         # Proactive compaction: compact before hitting the API context limit (#1339)
         # Token-based threshold is primary; message-count is fallback for when
         # the token estimate is unavailable or the loop lacks system prompt context.
+        # Thresholds config-driven since #1266.
         from .token_estimator import count_message_tokens
 
         _loop_token_estimate = count_message_tokens(messages)
         _should_compact = (
-            _loop_token_estimate >= _PROACTIVE_COMPACTION_TOKEN_THRESHOLD
-            or len(messages) >= _PROACTIVE_COMPACTION_MSG_THRESHOLD
+            _loop_token_estimate >= summary_trigger_token_count or len(messages) >= summary_trigger_msg_count
         )
         if _should_compact:
             logger.info(
@@ -329,7 +412,17 @@ async def run_agent_loop(
                 kind="token",
                 data={"content": "\n\n*Compacting conversation history to stay within context limits...*\n\n"},
             )
-            if await _compact_messages(ai_service, messages):
+            if await _compact_messages(
+                ai_service,
+                messages,
+                preserve_tail=compact_preserve_tail,
+                db=db,
+                conversation_id=conversation_id,
+                rehydrate=compact_rehydrate,
+                rehydrate_max_files=compact_rehydrate_max_files,
+                rehydrate_max_errors=compact_rehydrate_max_errors,
+                cancel_event=cancel_event,
+            ):
                 yield AgentEvent(kind="compaction", data={"new_message_count": len(messages)})
 
         # Per-iteration injection checkpoint (#889): drain mid-run
@@ -478,7 +571,13 @@ async def run_agent_loop(
             context_recovery_attempts += 1
             iteration -= 1  # don't count the failed attempt
 
-            # Strategy 1: truncate oversized tool outputs and let the AI retry with smaller params
+            # Staged reactive overflow recovery (#1415).  Each strategy is
+            # tried in order; the first that reports progress wins and the
+            # loop retries.  Cheaper strategies fire first so the
+            # conversation is preserved as much as possible — full LLM
+            # compaction is the last resort.
+
+            # Strategy 1: truncate oversized tool outputs (existing).
             if _truncate_large_tool_outputs(messages, max_chars=tool_output_max_chars):
                 yield AgentEvent(
                     kind="token",
@@ -491,20 +590,66 @@ async def run_agent_loop(
                 )
                 continue
 
-            # Strategy 2: compact entire conversation into a summary
+            # Strategy 2 (#1415): collapse all historical tool results to
+            # a compact form regardless of current size.  Turn-group aware
+            # — never splits an assistant+tool_calls from its tool results.
+            if collapse_old_tool_results(messages, keep_recent_groups=2, compact_chars=200):
+                yield AgentEvent(
+                    kind="token",
+                    data={
+                        "content": ("\n\n*Context limit reached — collapsed historical tool results, retrying...*\n\n")
+                    },
+                )
+                continue
+
+            # Strategy 3 (#1415): drop older turn groups with a
+            # deterministic summary (no LLM call).  Produces the same
+            # message shape as compact_messages() so downstream consumers
+            # (#1414 rehydration, transcript renderers) treat it uniformly.
+            if drop_old_turn_groups(messages, keep_recent_groups=4):
+                yield AgentEvent(
+                    kind="token",
+                    data={
+                        "content": ("\n\n*Context limit reached — dropped older conversation turns, retrying...*\n\n")
+                    },
+                )
+                continue
+
+            # Strategy 4: full LLM compaction (last resort).
             yield AgentEvent(
                 kind="token",
                 data={"content": "\n\n*Context limit reached — compacting conversation and retrying...*\n\n"},
             )
-            if await _compact_messages(ai_service, messages):
+            if await _compact_messages(
+                ai_service,
+                messages,
+                preserve_tail=compact_preserve_tail,
+                db=db,
+                conversation_id=conversation_id,
+                rehydrate=compact_rehydrate,
+                rehydrate_max_files=compact_rehydrate_max_files,
+                rehydrate_max_errors=compact_rehydrate_max_errors,
+                cancel_event=cancel_event,
+            ):
                 continue
+
+            # Cancel fired during Strategy 4's LLM summary (#1266 senior
+            # review): AIService.complete() returns None both on genuine
+            # failure AND on cancel. Without this check, a user Escape
+            # during recovery falls through to the "recovery failed"
+            # error — which is wrong; the user cancelled, not the
+            # strategy. Distinguish the two via cancel_event before
+            # surfacing the terminal error.
+            if cancel_event is not None and cancel_event.is_set():
+                yield AgentEvent(kind="cancelled", data={"reason": "user_cancel_during_recovery"})
+                return
 
             yield AgentEvent(
                 kind="error",
                 data={
                     "message": (
                         "Conversation too long for model context window. "
-                        "Recovery failed after truncation and compaction. "
+                        "Recovery failed after all strategies. "
                         "Please start a new conversation."
                     )
                 },

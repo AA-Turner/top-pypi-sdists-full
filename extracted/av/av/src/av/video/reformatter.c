@@ -1677,7 +1677,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode;
 
-/* "av/codec/context.pxd":33
+/* "av/codec/context.pxd":26
  *     cdef readonly HWAccel hwaccel
  *     cdef public dict options
  *     cpdef open(self, bint strict=?)             # <<<<<<<<<<<<<<
@@ -1689,7 +1689,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open {
   int strict;
 };
 
-/* "av/codec/context.pxd":36
+/* "av/codec/context.pxd":29
  * 
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)             # <<<<<<<<<<<<<<
@@ -1701,7 +1701,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode {
   struct __pyx_obj_2av_5frame_Frame *frame;
 };
 
-/* "av/codec/context.pxd":37
+/* "av/codec/context.pxd":30
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)
  *     cpdef decode(self, Packet packet=?)             # <<<<<<<<<<<<<<
@@ -1715,7 +1715,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode {
 struct __pyx_t_2av_9container_4core_timeout_info;
 typedef struct __pyx_t_2av_9container_4core_timeout_info __pyx_t_2av_9container_4core_timeout_info;
 
-/* "av/container/core.pxd":11
+/* "av/container/core.pxd":12
  * 
  * # Interrupt callback information, times are in seconds.
  * ctypedef struct timeout_info:             # <<<<<<<<<<<<<<
@@ -1741,8 +1741,8 @@ struct __pyx_opt_args_2av_5frame_5Frame__copy_internal_attributes {
 struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_width;
 struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_height;
 
-/* "av/video/format.pxd":10
- *     cdef readonly tuple components
+/* "av/video/format.pxd":9
+ *     cdef readonly unsigned int width, height
  *     cdef _init(self, lib.AVPixelFormat pix_fmt, unsigned int width, unsigned int height)
  *     cpdef chroma_width(self, int luma_width=?)             # <<<<<<<<<<<<<<
  *     cpdef chroma_height(self, int luma_height=?)
@@ -1753,7 +1753,7 @@ struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_width {
   int luma_width;
 };
 
-/* "av/video/format.pxd":11
+/* "av/video/format.pxd":10
  *     cdef _init(self, lib.AVPixelFormat pix_fmt, unsigned int width, unsigned int height)
  *     cpdef chroma_width(self, int luma_width=?)
  *     cpdef chroma_height(self, int luma_height=?)             # <<<<<<<<<<<<<<
@@ -1880,8 +1880,6 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_5codec_7context_CodecContext *__pyx_vtab;
   struct AVCodecContext *ptr;
-  int extradata_set;
-  int _template_initialized;
   int stream_index;
   struct AVCodecParserContext *parser;
   int is_open;
@@ -1889,6 +1887,7 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel;
   PyObject *options;
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel_ctx;
+  uint8_t _ctxflags;
   struct __pyx_obj_2av_5frame_Frame *_next_frame;
 };
 
@@ -1958,24 +1957,22 @@ struct __pyx_obj_2av_6format_ContainerFormat {
 };
 
 
-/* "av/container/core.pxd":16
+/* "av/container/core.pxd":17
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- *     cdef readonly bint writeable
  *     cdef lib.AVFormatContext *ptr
+ *     cdef readonly object name
 */
 struct __pyx_obj_2av_9container_4core_Container {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_9container_4core_Container *__pyx_vtab;
-  int writeable;
   struct AVFormatContext *ptr;
   PyObject *name;
   PyObject *metadata_encoding;
   PyObject *metadata_errors;
   struct __pyx_obj_2av_9container_4pyio_PyIOFile *file;
   int buffer_size;
-  int input_was_opened;
   PyObject *io_open;
   PyObject *open_files;
   struct __pyx_obj_2av_6format_ContainerFormat *format;
@@ -1985,6 +1982,7 @@ struct __pyx_obj_2av_9container_4core_Container {
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel;
   struct __pyx_obj_2av_9container_7streams_StreamContainer *streams;
   PyObject *metadata;
+  uint8_t _myflag;
   PyObject *open_timeout;
   PyObject *read_timeout;
   __pyx_t_2av_9container_4core_timeout_info interrupt_callback_info;
@@ -2086,7 +2084,6 @@ struct __pyx_obj_2av_6packet_Packet {
   struct __pyx_obj_2av_6buffer_Buffer __pyx_base;
   struct AVPacket *ptr;
   struct __pyx_obj_2av_6stream_Stream *_stream;
-  struct __pyx_obj_2av_6buffer_ByteSource *source;
 };
 
 
@@ -2150,11 +2147,10 @@ struct __pyx_obj_2av_5video_6format_VideoFormat {
   struct AVPixFmtDescriptor const *ptr;
   unsigned int width;
   unsigned int height;
-  PyObject *components;
 };
 
 
-/* "av/video/format.pxd":14
+/* "av/video/format.pxd":13
  * 
  * 
  * cdef class VideoFormatComponent:             # <<<<<<<<<<<<<<
@@ -2280,7 +2276,6 @@ struct __pyx_vtabstruct_2av_5codec_7context_CodecContext {
   PyObject *(*_setup_encoded_packet)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_setup_decoded_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_5frame_Frame *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_recv_packet)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
-  PyObject *(*_send_packet_and_recv)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_recv_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
   PyObject *(*_transfer_hwframe)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_5frame_Frame *);
   struct __pyx_obj_2av_5frame_Frame *(*_alloc_next_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
@@ -2316,12 +2311,12 @@ struct __pyx_vtabstruct_2av_10dictionary_Dictionary {
 static struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtabptr_2av_10dictionary_Dictionary;
 
 
-/* "av/container/core.pxd":16
+/* "av/container/core.pxd":17
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- *     cdef readonly bint writeable
  *     cdef lib.AVFormatContext *ptr
+ *     cdef readonly object name
 */
 
 struct __pyx_vtabstruct_2av_9container_4core_Container {
@@ -3454,30 +3449,30 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #endif
 /* #### Code section: constant_name_defines ### */
 #define __pyx_kp_u_ __pyx_string_tab[0]
-#define __pyx_kp_u_3_tap_sinc_sinc __pyx_string_tab[1]
-#define __pyx_kp_u_ARIB_STD_B67_HLG __pyx_string_tab[2]
-#define __pyx_kp_u_Area_averaging __pyx_string_tab[3]
-#define __pyx_kp_u_BT_1361_extended_colour_gamut __pyx_string_tab[4]
-#define __pyx_kp_u_BT_2020_10_bit __pyx_string_tab[5]
-#define __pyx_kp_u_BT_2020_12_bit __pyx_string_tab[6]
-#define __pyx_kp_u_BT_2020_BT_2100 __pyx_string_tab[7]
-#define __pyx_kp_u_BT_470BG_BT_601_6_625 __pyx_string_tab[8]
-#define __pyx_kp_u_BT_470M __pyx_string_tab[9]
-#define __pyx_kp_u_BT_709 __pyx_string_tab[10]
-#define __pyx_kp_u_BT_709_sRGB_sYCC __pyx_string_tab[11]
-#define __pyx_kp_u_Bicubic __pyx_string_tab[12]
-#define __pyx_kp_u_Bilinear __pyx_string_tab[13]
-#define __pyx_kp_u_Cannot_convert __pyx_string_tab[14]
-#define __pyx_kp_u_Color_primaries_of_a_video_frame __pyx_string_tab[15]
-#define __pyx_kp_u_Could_not_allocate_SwsContext __pyx_string_tab[16]
-#define __pyx_kp_u_Cubic_Keys_spline __pyx_string_tab[17]
+#define __pyx_kp_u_2_tap_cubic_B_spline __pyx_string_tab[1]
+#define __pyx_kp_u_3_tap_sinc_sinc __pyx_string_tab[2]
+#define __pyx_kp_u_ARIB_STD_B67_HLG __pyx_string_tab[3]
+#define __pyx_kp_u_Area_averaging __pyx_string_tab[4]
+#define __pyx_kp_u_BT_1361_extended_colour_gamut __pyx_string_tab[5]
+#define __pyx_kp_u_BT_2020_10_bit __pyx_string_tab[6]
+#define __pyx_kp_u_BT_2020_12_bit __pyx_string_tab[7]
+#define __pyx_kp_u_BT_2020_BT_2100 __pyx_string_tab[8]
+#define __pyx_kp_u_BT_470BG_BT_601_6_625 __pyx_string_tab[9]
+#define __pyx_kp_u_BT_470M __pyx_string_tab[10]
+#define __pyx_kp_u_BT_709 __pyx_string_tab[11]
+#define __pyx_kp_u_BT_709_sRGB_sYCC __pyx_string_tab[12]
+#define __pyx_kp_u_Bicubic_luma_Bilinear_chroma __pyx_string_tab[13]
+#define __pyx_kp_u_Bilinear __pyx_string_tab[14]
+#define __pyx_kp_u_Cannot_convert __pyx_string_tab[15]
+#define __pyx_kp_u_Color_primaries_of_a_video_frame __pyx_string_tab[16]
+#define __pyx_kp_u_Could_not_allocate_SwsContext __pyx_string_tab[17]
 #define __pyx_kp_u_EBU_3213_E_JEDEC_P22 __pyx_string_tab[18]
 #define __pyx_kp_u_Experimental __pyx_string_tab[19]
 #define __pyx_kp_u_Fast_bilinear __pyx_string_tab[20]
 #define __pyx_kp_u_Frame_does_not_have_format_set __pyx_string_tab[21]
 #define __pyx_kp_u_Gamma_2_2_BT_470M __pyx_string_tab[22]
 #define __pyx_kp_u_Gamma_2_8_BT_470BG __pyx_string_tab[23]
-#define __pyx_kp_u_Gaussian __pyx_string_tab[24]
+#define __pyx_kp_u_Gaussian_approximation __pyx_string_tab[24]
 #define __pyx_kp_u_Generic_film_Illuminant_C __pyx_string_tab[25]
 #define __pyx_kp_u_IEC_61966_2_1_sYCC __pyx_string_tab[26]
 #define __pyx_kp_u_IEC_61966_2_4_sRGB __pyx_string_tab[27]
@@ -3485,22 +3480,22 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_kp_u_Linear __pyx_string_tab[29]
 #define __pyx_kp_u_Logarithmic_100_1_range __pyx_string_tab[30]
 #define __pyx_kp_u_Logarithmic_100_sqrt_10_1_range __pyx_string_tab[31]
-#define __pyx_kp_u_Luma_bicubic_chroma_bilinear __pyx_string_tab[32]
-#define __pyx_kp_u_MPEG_limited_YUV_range_219_2_n __pyx_string_tab[33]
-#define __pyx_kp_u_Nearest_neighbor_point __pyx_string_tab[34]
-#define __pyx_kp_u_Not_part_of_ABI __pyx_string_tab[35]
-#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[36]
-#define __pyx_kp_u_SMPTE_170M __pyx_string_tab[37]
-#define __pyx_kp_u_SMPTE_170M_BT_601_6_525 __pyx_string_tab[38]
-#define __pyx_kp_u_SMPTE_2084_PQ_HDR10 __pyx_string_tab[39]
-#define __pyx_kp_u_SMPTE_240M __pyx_string_tab[40]
-#define __pyx_kp_u_SMPTE_428_1 __pyx_string_tab[41]
-#define __pyx_kp_u_SMPTE_428_1_XYZ __pyx_string_tab[42]
-#define __pyx_kp_u_SMPTE_431_2_DCI_P3 __pyx_string_tab[43]
-#define __pyx_kp_u_SMPTE_432_1_Display_P3 __pyx_string_tab[44]
-#define __pyx_kp_u_Sinc __pyx_string_tab[45]
-#define __pyx_kp_u_Transfer_characteristic_gamma_cu __pyx_string_tab[46]
-#define __pyx_kp_u_Unspecified __pyx_string_tab[47]
+#define __pyx_kp_u_MPEG_limited_YUV_range_219_2_n __pyx_string_tab[32]
+#define __pyx_kp_u_Nearest_neighbor_point __pyx_string_tab[33]
+#define __pyx_kp_u_Not_part_of_ABI __pyx_string_tab[34]
+#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[35]
+#define __pyx_kp_u_SMPTE_170M __pyx_string_tab[36]
+#define __pyx_kp_u_SMPTE_170M_BT_601_6_525 __pyx_string_tab[37]
+#define __pyx_kp_u_SMPTE_2084_PQ_HDR10 __pyx_string_tab[38]
+#define __pyx_kp_u_SMPTE_240M __pyx_string_tab[39]
+#define __pyx_kp_u_SMPTE_428_1 __pyx_string_tab[40]
+#define __pyx_kp_u_SMPTE_428_1_XYZ __pyx_string_tab[41]
+#define __pyx_kp_u_SMPTE_431_2_DCI_P3 __pyx_string_tab[42]
+#define __pyx_kp_u_SMPTE_432_1_Display_P3 __pyx_string_tab[43]
+#define __pyx_kp_u_Transfer_characteristic_gamma_cu __pyx_string_tab[44]
+#define __pyx_kp_u_Unspecified __pyx_string_tab[45]
+#define __pyx_kp_u_Unwindowed_Sinc __pyx_string_tab[46]
+#define __pyx_kp_u_Unwindowed_natural_cubic_spline __pyx_string_tab[47]
 #define __pyx_kp_u__2 __pyx_string_tab[48]
 #define __pyx_kp_u_add_note __pyx_string_tab[49]
 #define __pyx_kp_u_disable __pyx_string_tab[50]
@@ -6114,7 +6109,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) __PYX_ERR(9, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(10, 16, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(10, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_4core_Container = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.container.core", "Container",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -6124,8 +6119,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_4core_Container), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_9container_4core_Container),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(10, 16, __pyx_L1_error)
-  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(10, 16, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(10, 17, __pyx_L1_error)
+  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(10, 17, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.index"); if (unlikely(!__pyx_t_1)) __PYX_ERR(11, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -6261,7 +6256,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5video_6format_VideoFormatComponent), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5video_6format_VideoFormatComponent),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_6format_VideoFormatComponent) __PYX_ERR(16, 14, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_6format_VideoFormatComponent) __PYX_ERR(16, 13, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.video.frame"); if (unlikely(!__pyx_t_1)) __PYX_ERR(17, 9, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -6718,15 +6713,15 @@ __Pyx_RefNannySetupContext("PyInit_reformatter", 0);
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FAST_BILINEAR, __pyx_mstate_global->__pyx_kp_u_Fast_bilinear) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BILINEAR, __pyx_mstate_global->__pyx_kp_u_Bilinear) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BICUBIC, __pyx_mstate_global->__pyx_kp_u_Bicubic) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BICUBIC, __pyx_mstate_global->__pyx_kp_u_2_tap_cubic_B_spline) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_X, __pyx_mstate_global->__pyx_kp_u_Experimental) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_POINT, __pyx_mstate_global->__pyx_kp_u_Nearest_neighbor_point) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_AREA, __pyx_mstate_global->__pyx_kp_u_Area_averaging) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BICUBLIN, __pyx_mstate_global->__pyx_kp_u_Luma_bicubic_chroma_bilinear) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_GAUSS, __pyx_mstate_global->__pyx_kp_u_Gaussian) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SINC, __pyx_mstate_global->__pyx_kp_u_Sinc) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BICUBLIN, __pyx_mstate_global->__pyx_kp_u_Bicubic_luma_Bilinear_chroma) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_GAUSS, __pyx_mstate_global->__pyx_kp_u_Gaussian_approximation) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SINC, __pyx_mstate_global->__pyx_kp_u_Unwindowed_Sinc) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_LANCZOS, __pyx_mstate_global->__pyx_kp_u_3_tap_sinc_sinc) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SPLINE, __pyx_mstate_global->__pyx_kp_u_Cubic_Keys_spline) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SPLINE, __pyx_mstate_global->__pyx_kp_u_Unwindowed_natural_cubic_spline) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
   if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_annotations, __pyx_t_4) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
@@ -6735,7 +6730,7 @@ __Pyx_RefNannySetupContext("PyInit_reformatter", 0);
  * class Interpolation(IntEnum):
  *     FAST_BILINEAR: "Fast bilinear" = SWS_FAST_BILINEAR             # <<<<<<<<<<<<<<
  *     BILINEAR: "Bilinear" = SWS_BILINEAR
- *     BICUBIC: "Bicubic" = SWS_BICUBIC
+ *     BICUBIC: "2-tap cubic B-spline" = SWS_BICUBIC
 */
   __pyx_t_4 = __Pyx_PyLong_From_int(SWS_FAST_BILINEAR); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 11, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
@@ -6746,7 +6741,7 @@ __Pyx_RefNannySetupContext("PyInit_reformatter", 0);
  * class Interpolation(IntEnum):
  *     FAST_BILINEAR: "Fast bilinear" = SWS_FAST_BILINEAR
  *     BILINEAR: "Bilinear" = SWS_BILINEAR             # <<<<<<<<<<<<<<
- *     BICUBIC: "Bicubic" = SWS_BICUBIC
+ *     BICUBIC: "2-tap cubic B-spline" = SWS_BICUBIC
  *     X: "Experimental" = SWS_X
 */
   __pyx_t_4 = __Pyx_PyLong_From_int(SWS_BILINEAR); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 12, __pyx_L1_error)
@@ -6757,7 +6752,7 @@ __Pyx_RefNannySetupContext("PyInit_reformatter", 0);
   /* "av/video/reformatter.py":13
  *     FAST_BILINEAR: "Fast bilinear" = SWS_FAST_BILINEAR
  *     BILINEAR: "Bilinear" = SWS_BILINEAR
- *     BICUBIC: "Bicubic" = SWS_BICUBIC             # <<<<<<<<<<<<<<
+ *     BICUBIC: "2-tap cubic B-spline" = SWS_BICUBIC             # <<<<<<<<<<<<<<
  *     X: "Experimental" = SWS_X
  *     POINT: "Nearest neighbor / point" = SWS_POINT
 */
@@ -6768,7 +6763,7 @@ __Pyx_RefNannySetupContext("PyInit_reformatter", 0);
 
   /* "av/video/reformatter.py":14
  *     BILINEAR: "Bilinear" = SWS_BILINEAR
- *     BICUBIC: "Bicubic" = SWS_BICUBIC
+ *     BICUBIC: "2-tap cubic B-spline" = SWS_BICUBIC
  *     X: "Experimental" = SWS_X             # <<<<<<<<<<<<<<
  *     POINT: "Nearest neighbor / point" = SWS_POINT
  *     AREA: "Area averaging" = SWS_AREA
@@ -6779,11 +6774,11 @@ __Pyx_RefNannySetupContext("PyInit_reformatter", 0);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "av/video/reformatter.py":15
- *     BICUBIC: "Bicubic" = SWS_BICUBIC
+ *     BICUBIC: "2-tap cubic B-spline" = SWS_BICUBIC
  *     X: "Experimental" = SWS_X
  *     POINT: "Nearest neighbor / point" = SWS_POINT             # <<<<<<<<<<<<<<
  *     AREA: "Area averaging" = SWS_AREA
- *     BICUBLIN: "Luma bicubic / chroma bilinear" = SWS_BICUBLIN
+ *     BICUBLIN: "Bicubic luma / Bilinear chroma" = SWS_BICUBLIN
 */
   __pyx_t_4 = __Pyx_PyLong_From_int(SWS_POINT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
@@ -6794,8 +6789,8 @@ __Pyx_RefNannySetupContext("PyInit_reformatter", 0);
  *     X: "Experimental" = SWS_X
  *     POINT: "Nearest neighbor / point" = SWS_POINT
  *     AREA: "Area averaging" = SWS_AREA             # <<<<<<<<<<<<<<
- *     BICUBLIN: "Luma bicubic / chroma bilinear" = SWS_BICUBLIN
- *     GAUSS: "Gaussian" = SWS_GAUSS
+ *     BICUBLIN: "Bicubic luma / Bilinear chroma" = SWS_BICUBLIN
+ *     GAUSS: "Gaussian approximation" = SWS_GAUSS
 */
   __pyx_t_4 = __Pyx_PyLong_From_int(SWS_AREA); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
@@ -6805,9 +6800,9 @@ __Pyx_RefNannySetupContext("PyInit_reformatter", 0);
   /* "av/video/reformatter.py":17
  *     POINT: "Nearest neighbor / point" = SWS_POINT
  *     AREA: "Area averaging" = SWS_AREA
- *     BICUBLIN: "Luma bicubic / chroma bilinear" = SWS_BICUBLIN             # <<<<<<<<<<<<<<
- *     GAUSS: "Gaussian" = SWS_GAUSS
- *     SINC: "Sinc" = SWS_SINC
+ *     BICUBLIN: "Bicubic luma / Bilinear chroma" = SWS_BICUBLIN             # <<<<<<<<<<<<<<
+ *     GAUSS: "Gaussian approximation" = SWS_GAUSS
+ *     SINC: "Unwindowed Sinc" = SWS_SINC
 */
   __pyx_t_4 = __Pyx_PyLong_From_int(SWS_BICUBLIN); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
@@ -6816,9 +6811,9 @@ __Pyx_RefNannySetupContext("PyInit_reformatter", 0);
 
   /* "av/video/reformatter.py":18
  *     AREA: "Area averaging" = SWS_AREA
- *     BICUBLIN: "Luma bicubic / chroma bilinear" = SWS_BICUBLIN
- *     GAUSS: "Gaussian" = SWS_GAUSS             # <<<<<<<<<<<<<<
- *     SINC: "Sinc" = SWS_SINC
+ *     BICUBLIN: "Bicubic luma / Bilinear chroma" = SWS_BICUBLIN
+ *     GAUSS: "Gaussian approximation" = SWS_GAUSS             # <<<<<<<<<<<<<<
+ *     SINC: "Unwindowed Sinc" = SWS_SINC
  *     LANCZOS: "3-tap sinc/sinc" = SWS_LANCZOS
 */
   __pyx_t_4 = __Pyx_PyLong_From_int(SWS_GAUSS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 18, __pyx_L1_error)
@@ -6827,11 +6822,11 @@ __Pyx_RefNannySetupContext("PyInit_reformatter", 0);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "av/video/reformatter.py":19
- *     BICUBLIN: "Luma bicubic / chroma bilinear" = SWS_BICUBLIN
- *     GAUSS: "Gaussian" = SWS_GAUSS
- *     SINC: "Sinc" = SWS_SINC             # <<<<<<<<<<<<<<
+ *     BICUBLIN: "Bicubic luma / Bilinear chroma" = SWS_BICUBLIN
+ *     GAUSS: "Gaussian approximation" = SWS_GAUSS
+ *     SINC: "Unwindowed Sinc" = SWS_SINC             # <<<<<<<<<<<<<<
  *     LANCZOS: "3-tap sinc/sinc" = SWS_LANCZOS
- *     SPLINE: "Cubic Keys spline" = SWS_SPLINE
+ *     SPLINE: "Unwindowed natural cubic spline" = SWS_SPLINE
 */
   __pyx_t_4 = __Pyx_PyLong_From_int(SWS_SINC); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 19, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
@@ -6839,10 +6834,10 @@ __Pyx_RefNannySetupContext("PyInit_reformatter", 0);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "av/video/reformatter.py":20
- *     GAUSS: "Gaussian" = SWS_GAUSS
- *     SINC: "Sinc" = SWS_SINC
+ *     GAUSS: "Gaussian approximation" = SWS_GAUSS
+ *     SINC: "Unwindowed Sinc" = SWS_SINC
  *     LANCZOS: "3-tap sinc/sinc" = SWS_LANCZOS             # <<<<<<<<<<<<<<
- *     SPLINE: "Cubic Keys spline" = SWS_SPLINE
+ *     SPLINE: "Unwindowed natural cubic spline" = SWS_SPLINE
  * 
 */
   __pyx_t_4 = __Pyx_PyLong_From_int(SWS_LANCZOS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
@@ -6851,9 +6846,9 @@ __Pyx_RefNannySetupContext("PyInit_reformatter", 0);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "av/video/reformatter.py":21
- *     SINC: "Sinc" = SWS_SINC
+ *     SINC: "Unwindowed Sinc" = SWS_SINC
  *     LANCZOS: "3-tap sinc/sinc" = SWS_LANCZOS
- *     SPLINE: "Cubic Keys spline" = SWS_SPLINE             # <<<<<<<<<<<<<<
+ *     SPLINE: "Unwindowed natural cubic spline" = SWS_SPLINE             # <<<<<<<<<<<<<<
  * 
  * 
 */
@@ -7726,33 +7721,33 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{1},{17},{20},{16},{31},{16},{16},{19},{25},{9},{8},{22},{9},{10},{15},{82},{29},{19},{24},{14},{15},{31},{21},{22},{10},{29},{22},{22},{30},{8},{27},{36},{32},{39},{26},{17},{179},{12},{27},{24},{12},{13},{19},{22},{26},{6},{117},{13},{1},{8},{7},{6},{2},{9},{60},{4},{4},{12},{7},{8},{8},{10},{6},{9},{9},{7},{6},{5},{14},{10},{8},{10},{7},{7},{13},{3},{4},{7},{7},{5},{12},{12},{6},{6},{6},{7},{13},{4},{7},{6},{3},{8},{4},{2},{5},{20},{4},{9},{9},{9},{8},{8},{8},{6},{11},{16},{1},{15},{20},{17},{18},{7},{7},{19},{15},{13},{14},{4},{3},{6},{5},{12},{6},{13},{5},{6},{6},{6},{8},{13},{10},{15},{8},{3},{11},{3},{11},{14},{12},{10},{17},{13},{12},{10},{12},{19},{9},{9},{15},{14},{8},{7},{5},{6},{5},{45},{109},{78},{71}};
-    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (1381 bytes) */
-const char* const cstring = "(\265/\375`\367\010\335*\000\232GL\r'\340\320\272\001+R\252\264\355'*\310iq\275\312P`\375\361?\323\317=L\266|\342\022\262\307`v\014c\214c\014+\313\000\303\000\325\000\370z\355\311~\273\256p\375YV\242\250\312\267\356 \210\242\264\2760\n\306\320\004\215I\221\211\2124\307\302\242\010\314\235C\336\320W\364 \177{\257\234\261i\1779o\255\262\273\032\336\353QQ\241AT\025\025\235\243\216\203_\245\322\367;\203\022\323\335\035\020\360\360Ob\257\257w\364\323\262\275\333\331)\226\037\305`\343\253\337\376\265V^\021\226ni\235\224\013'\275.\t\313\242\311\010\020\003L\0015\351\2114A&\026\013b \201@\246&\240('A\246\206P\020\352\303Ov\032\207\267\336\331\235w\326\037\344=M\"\323c\263\242\250ciGb\377\310\226\216\035\226\313B\243\r&\226D\3316me\232*\212\010\246\245\271A\371R$z\004\366\322\227Q[\367|\276\337\235\273\355\360\206\332\313\372\221\035\014}[\372\225\206\\\316\262N.\314\235\177\272\205\343\356\254l\311\201D\3220\255-\366\237\024\177\356P\365\227\3309Z\275\353L\333^\317\207\256~\351\371\366\314\252\036K\260\377\276\245\027\304\227\363t\250\333\376\354\231\003\3116((\001\204\251\363\247\037\255\230H~\027{f\0234\027:\036cd\001\307\224\320\350I?\317S,;\367\022E\223d)\250\036\360\216\225\270!8\022\355\2505\364\032m\3014\006I\243'\211\222&\023\204i\222]\375VZ\372\205\265f\215\376*\365zR\354\326\255\2449\207\026\353 r4\232zP-\277OZ\242\307{\356\227_\034mCM\021\311\225\3116\236k\036\344\231\370\223R@!-\306-\2239hVf\323<l\242\305\341\262q\230\2702\325\245^\020\373\027Z\354mFq\266L2E*n6\234\312r@Q\025\006SY0\227\254r]\225\270m\252\312v\341T\025\214\342S\202yj6\013\263Y\324\0247\313raq\2634\025\226Y\231\354\302\2712+\306\n\323T\365bR\260\271\253\265tn6~\360\341U\317]\246\263c\335+'3\355\374\257\215]'\025\242\316\251G\247\203\331r\242\313\341\037\034\316\316g*\261\304\356e+\361\326!Y\301L)\216\210&e\027\245\321\2244E&$\"&\351\200\222H4\224\205\036x\320\032\020\252`jl\3230\233\350\341\271J\377PL\273\216\001\376I\354E\000GG\357\247R\020\013\"(q\006D\325\020hJ\014\341I;\310d\301\0018\252\024""\350\213\351\236\031#\276\030{A\374H*\346\016\226\361\301;\303\001\317|\332E\220^\364\200\245\377y\021D\301\370\336\001p\010\364\347F\245:\210j\020U{\276\243\031\331\303*?\271\223\216=\237\375c\234XB}\376\340\227\363{\006\371\234a\347\270\312\020\203\223\377\311\217%\350\030\274\240u\212\337z\274\330k\330]\371\036\345\027c\3704\323\367\274\374\034\347\364|\342\2173~\236\267\213\361k(=\357.\246\344|J\374\321\322\350\226~\376\364\275\023c\304\217\307'\307\030\201\375]\003A\301\262Jva\332&\023\200\365\250\001)dJ\221\214\210H\n\222\202\244\0030\204(ED\325\r2\3420F\3169\241-\024\226\375\357IT\243HHafyxG\313\371oo9\272\026\270\325\231\220t\334|\236\322\010D6\017\033;\215\233\033j \005I\302\337\304\362$~O\3420\326\000\342;\214\213wnC\336\020y\0321\351\001\345a?\244\220\322\202\322\362\304]\372\241\026\357<\353\270QNl\307n\017\200\005\223qA~\334\364\263\346I\0239f\022`!\261`\031\316\010n\221\216\221\225\0004(\362N\266\311\351\344\366\225\031\204\001\027zf\241\271DV\247\354o\337\230\nts\"\333\314\t\030K\177\0353YkI\356`\3237\240\2514\320\375\341\243\237\205\036lo'\215\034I\263\r\363\330\013\300\274\350\037\212\226\r0O\024\214\300\342\030\036\004\364\362>\023h9d\301\020\230v\323\305\305\305`\257%*\177t\326W\320\023\370>)a\363\371\364\0017\264o\366\203\004s\306\201\262\204\254\211g'\346m\277@\306\341\\B\353\373\264\034\\\361\351\232`\200\000%|\210\2079W\314\210\276\215\004\302\325\341\003!L\367\260s\251\373\320(\375\377\263\257\032\3302f\307W\306\342\207\001\005+\034N\213\021\350\002\216\017+;b\375\320\221\001#\013\320\026\0138\0052\272\376\005\376\250\024>\007-ia\305\026\005\004\266I\270LF\317\350\340\013E\367\226\037\240d\363QF\362\307\205\027x\265\307\035\350Pn\n\300\346\202\026\3413\227h\036W\007\345\364a\3025\342x`\n\211_/\257\033k\376\177\321\1773\201 \246Q\303\341\024I]O<\272\024\201\023Zt\020\225\334\276}\252\267$\0210,l\237,\334^\342\373\363\337\r\332S\035~Q\245b;Vt\274\220i\226\020\343\322\322\2451\270`\313\316D\263i\274\203\353\306\212(\206\352\276\017\217\222\002";
-    PyObject *data = __Pyx_DecompressString(cstring, 1381, 3);
+    const struct { const unsigned int length: 8; } index[] = {{1},{22},{17},{20},{16},{31},{16},{16},{19},{25},{9},{8},{22},{32},{10},{15},{82},{29},{24},{14},{15},{31},{21},{22},{24},{29},{22},{22},{30},{8},{27},{36},{39},{26},{17},{179},{12},{27},{24},{12},{13},{19},{22},{26},{117},{13},{17},{33},{1},{8},{7},{6},{2},{9},{60},{4},{4},{12},{7},{8},{8},{10},{6},{9},{9},{7},{6},{5},{14},{10},{8},{10},{7},{7},{13},{3},{4},{7},{7},{5},{12},{12},{6},{6},{6},{7},{13},{4},{7},{6},{3},{8},{4},{2},{5},{20},{4},{9},{9},{9},{8},{8},{8},{6},{11},{16},{1},{15},{20},{17},{18},{7},{7},{19},{15},{13},{14},{4},{3},{6},{5},{12},{6},{13},{5},{6},{6},{6},{8},{13},{10},{15},{8},{3},{11},{3},{11},{14},{12},{10},{17},{13},{12},{10},{12},{19},{9},{9},{15},{14},{8},{7},{5},{6},{5},{45},{109},{78},{71}};
+    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (1404 bytes) */
+const char* const cstring = "(\265/\375`+\t\225+\000zI\224\r'\340\320\272\001+R\252\264\355'*\310iI\242\352\023\300\233\251\272\333\014EL{\262p\t\331c0;\2061\3061\206\025\317\000\307\000\332\000\225\016\377\355J\024\315~\352\356\205\260(\242(\215/\214\20250\001cR\301D\0250\307\302\242\017\371\323z]\r\r\373w\254s6o\363\253\027\304\302B\213\250,,\370F\036\367\272J\205\353\363\365\372\302\314\034\020\000\361\256-\307\3257\t\342f\256\362ui\273\223\326c{\361\323\032\371+\245}EQ\324]\265\237\310\266ew\337\224\3275aY27!rp1\240&<\221\246\310\304bE\016$\221\310\304\004\224\354H\221\211#T\204\372\257k\017\333\257\316\032y\363\215\372\207\234\247I\301\004\331XQ\344\241\322\323\326A\315\355\366aq`p\360\301\304\222(\033\r[Y\246\212\"\202H\345-\210\"\247rzW\2628\312\316\027\331\353\227\250\010\022\033\303\210\251\177\376\326\347\315\235\362W7\230\313\030r\335\333x\246\362\247\374:\367\366\214\235\357\362\375\350\027ny\243\315\022\004\211\244a\032S\353\037\245\375\313\033\323\277\255w\344\364\215\257dZ?\277\321\237g\317\254\352m{\374\365\251\254\036\023\260\255\235\217G:\345\277\216A\220\250\243\202\022H\2306\177\331\311yy\274\315\270\002\217I\301\301Qv\237\227\266=\325!\212&\211VP<\340\036\332\226#8\023\374\230\363\343\034l\301\264\006\211\203'\211\222&\223\204i\222]\374\264\251\234\231\203\273)9\216\322:uZ\245\014U\353y\315\264\345\275\237\305B\210\036\016\246 \024w\327\265%\202\274_\376\356l\345\330A\375\271^7\016\222\013\223i8\317|\3101\360\243\244\20464\0107\230\354A\2630\233\014\204\006Z\036\0344\017\024\027\246r\230\325\263\336}\024{\232Q\234M&\231 \0055\032NeA\240\250\352r\251,\027\207\254r]\025\270\321T\225\215\003\247\252`\024\217\355\335\230\331X\227\215EMpcY.\014n\254L\205e\026&s\340\\\231\005a\205e*\017F\224\036w\252\306\355\235\310\366=\0107\375nWF\017u\237\235\276r\363\257\024n[/\314\266\3377\215Tjxs\215\272Q\251\021m.9\031\335\273\224\023]\017\007\331/z\376\312\266\355\334\245m7\274\321\323\273\222\362(\320\244\354\242HS\001\305\204\304$!P\022I\206\302\300\003\020\232#B\031L\214m\264\213&\202""\370\235\355 ie\336\265\345 \300c\223\025T1\200\006\320k\253\021Q9\004\230\0027l\224[d\272\350\000<f\0130F\364O\204\320Vk\335\000\202\232\202\327c\033\276W\3437\360\211/7\350I\014\036\240\362;\016\206\244\007\337=\000\017\001\376\353\250L\017I-\242\342\317oR\343\3727\033t\267v\373\371\353\017a\264\022\252\363\367\272{\337o\310c\3746\267\263\277\214N?\350\276m\317\255W=\352\322>uX\255\317o\253\375\016!\225\335A\370\275\274\362?\337\177a\214\234G\3730\302\277\261n\020\376\374\232\363\r#v\307c\333\207TB\247\262\363\227\357\036\010\241\205@@\027B\t\353\357\231\010\n\226U\262\013\3234\030\216\246\241\246\202\200\367\250\361\250s\212\231\021\021\021I\222\202\026\0160\204065\324\r\"\342\262U\316\261\241-\024\226\375\357ITT\021\227\220\255\371\260\234\226\262\337:9\002=\230B\307\025Q\321\374\233y\020\0374\0368\362\266\204\2718\000d\220\200\374\337\214P\262\267\310\016\220\333\003\006\014\351\342\317?\3315x\336\267\030 Q1H\036\302\212\001@E\364B]}\005\024\326>\3271)9\212\016j\313a\004\311\241 ,J\377\214s,\204Y\017\004\310\220\352_\304Jdk\277\340~\273\206\215\213\257\014\345\376\340\025\231\204z\027\342\234\245a\230]\235\354\313\"Z\027 \317Q}\023\036hK\367P\266\264\237C)/\033\016\240\376B\000\332\316\234\230E\317pr\3166\334&\355\2411\314\226\332\325\251W\025\272\254\307)\203\310\304\355e\320|\320+/'\2145\305\336Q \3661\347\244b\214\264?9\327`\30696\214}\207TN\370\323\272\026\"\202\223D\216B\342\221\370\225ED=4\327\260\320]\242\302\004\353$\211\270\032\306\022\251\342B(\220x%|\004\016m\244\217)\\\307\307\373\327\030<B\276#b\210\216P\364\277\220\350\333\320\364\222\316\t&\353e\326\354\273vv\276-\373%\266\322\321u\220\005\\\364\266\300@\337le\346U\366\20100l[\300\264{\200\322!#\316m\2002\224\307\t\341\343\277C_Q\307\334o\301\353&\034\251\032\223u\016H4\353|\037\365\310CE\031\315y\307\002\371\244\353\355\027\200U\212\275:B]\303\t\314a\352\3732\321\r@\216\017S\031 \221q\016>\307@\247\004\305\031,K\245\334;\226\003)\367\014!\022\246\304\240\257\001c0j\266uBs\324\363\274\223\204""\027j\370\245\362\206Z:ED&L\331\001!\2274\375\305\264\"yKT,X\355ucW\215\327\270cH&ER\335q\344Xbi\032";
+    PyObject *data = __Pyx_DecompressString(cstring, 1404, 3);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (1480 bytes) */
-const char* const cstring = "BZh91AY&SYL\\\n\226\000\000\263_\200@\020@\367\377\360\277\377\377q\377\377\377\340P\005\204^\3348\247n\335\307jc\227v0J \215\023#L\230S\002\215\352\233CM\023#h\t\243F\321\006\203A\t\264\022be#z\232jzOI\352\032\000\032mFA\240\364\200Ji4 \3212h\244\364\332\247\251\352~\221\246\223jz\200\0326\220\001\246A\306L\2311\030\230\0012`\231\0004a\030\002\030\004\246\241L\247\246\21553S\323SM2h\003FM2\000\003@h0\036\235B\013(<p\"\207oaf3\035\237\212\375\270`\3066/y^\317;\266C\345\t}\265_\002#\300\\\352\275l\016\035b\371o\256\364\310\215I3\272\211+\337\206\213c\322L\037\262|Asd0k\304#\366GJ\r\265x\357\202\320Et\335\334\264\233\225.4\214m:\017\230g\006\263\203cT\022\266\013\3700\262\r\200\323\014/F-^}{3\215v\360\230\264\313\274x\031\235eEz\375\324k\323\250\002fBG!\002\370\032\031\026\2177FB(=\006\001v\230I\346\203*\257\222\225\264\3718\346\315\322,\301\235X\363\312\217]$\232WF\301\337v\217\355\303\242)\3339\274\251\323-1\240e\277\313\252\206\r\312\315bq \266\017\003C\020L\3509\271\323%\n\253\361(u\004\030Dv\357\244\320o\nk\345\301\034:qZ\201d\246\250\324\203\320]\"\215F\305\245\2144T\216^/L\254\337N\362\212\331\341\351\303F,S\347\271\247\370\2747=\226-CD\222\324\331\n\226\245SVM\006\245L}zT\356\036\"=\001\334\\\327\031V\2726\211!\024\245\263>*'\021F\020}[z\216\032z\217\332RS\362\277\346S\270\371+X\364\255:slx\366r\375\351\017\200b\254\223\216v[\023\213\355\274\322\243\266W\247#\373*s\271\227\014B\303\256M^<\353\307\312\335\320\216\373'\207\233\035\341\226h\364<D\313\215&m%JI\313\371k\232\204}P\331\213\005$\2272.\003wS`m\326\272\276<\363\223>?EY\002{\237\024c\021\346\376j\"x\314/P\227lk\203\005\376m\233\261\234\2348m0\346e1l\2246!p\265m#\263\021\232gq\216\n\2500Wy\221\201\227\267\226\376\325\237n\251J[t@\315\350\3573\252\232\034t\246\301S\276\034\232\343\356\276\3008\250\275u\361l\344\253Ml\247\003n\0041\026\010\232/\324\216\232\026\020/J\211\265/A\035\003B\214\370\360g\030z\311\203!\001\016.\365n\343\371*\265\370U\233y\266\261\177Y\344\253;\3065\220\306KPI\235\033\250\2059e\321""\021\231iW\233\275H\362;;\345\367;\330C\230\244\246`A\344\244n\226\023!W\364\240<\212\240\020\2053159;\250\004j\213\201\315\t\004\242\363\250\221\367=G\006Fu\2352\354\337\312\"4I\027\215'\266\251\"\014\250\271\303\216\250\022\316\354\344\267\001\024\2722\200\264B@Y\302\247\301]\206`\231\321\265U\206\342\251\265\244\265C\025\203kb1<\rI\274 \350\204\331#J!J\0378\255\351\010\327_e\332\013>*\266w\237P\231\250\0304\350P@\342\"d\265\334\3555\316\261\356\312\372\263xa+\334w~o\246\025\223m\303\243\035_\256Kr\330!\2552V\215\342xt\270\273\310ut\010>\311r\261\341E\344\273M\\\245l*,\371\230\033\350\037\n;\305tfOZ\256\273\370\240\373\010\233TL\3069WC\200\226\337H\313\254\306A\201d\362\350\211\035K\030\252\255\231\374\031\277\263\007g\005\2116\003\0140)\232!\202\341]\231\024\002B\241\\E\224D\206\274E&crO$p\212\020\010\272/\274?\276$\254\267\245\312f\037\321\2232y\n{\351\221\n.$\221_\246$(\305fJj\356X\216\365\n\354\222\332\363\264C\216\347\255k\301\214\310Q\r\016(\372\375\237G\214\211\226r\n[\221\314hTB\342\340\241\302)\326\334ky\331\017\211\210\314\363!\310\301@\373\017G\351\250l\305\303\017\316\275\242\2244x\033\307\307\274\353\241\221\027K\335\302p\204\246-/\3358\004\327Q\306\352\035\332L\320\2029\t\024\210<^\222M\302\344\361#\332\234\344\303\211\006\302\220\227\014\305\327<1\034\027\333\210m\260I\245\276N\204\003\340\212\326\014\0333\r\"\013\357\0075\320\306\204\273\245\205T\251\26054\016)2W\202\327\254>q\343\224\205{\205\376@\025\352\216\233]\316\tH\023\260\214GbpG\003\203\031\006'\260\357\242T3vrcq_L\354)\262\0030\273\201\270\224^C\031\351y\007\021\277\374\214Y8\035\246'\245\261R\331\315\254+\307\255U\321?D\032\331W=\355q!nQd\035\376}\261\013c]U?\031\333\203\034j\3622\r\306+\003\016\376.\324\255\327\356Y\313\316\322\362\223RO7\2351\315]\316\2575+\370\030t \241\332\253\353\200\310\312i\3528ch\223\226\266\361\030\233*j\032\334o\nfk\303\252\363K\003\232\275\206\213\313\362M8\243T\263F7h.Y\ts\235\345\244\257\033\231\334\366\213\307\214\354\203?\023\003\n\246\025F\030\r\276\354y""\215\266{3\255P\210\372\024\255\026\341\271tf \274o\304\037!\027\374]\311\024\341BA1p*X";
-    PyObject *data = __Pyx_DecompressString(cstring, 1480, 2);
+    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (1504 bytes) */
+const char* const cstring = "BZh91AY&SY\206\356`/\000\000\266\337\200@\020@\367\377\360\277\367\377q\377\377\377\340P\005\244\366\273\255r\232\330\216g\\\235ml\341\246\240\231\021\211\20154\3020\320\322j=\t\352m&\324\321\246 \320h\232\000#\0256Jx\247\350\246\215=F\206\200\031\000\007\250\001\246D!\244\323 \223M\250i\265\032d\323\324\000\303P4\000\016`\010\3011\000\300&\t\243!\241\200L\021\211\204\246\2214\321\2422\247\344M5O\364\211\251\352oQ?R=L\r\000\230\000\024\003S\200@b\001\241\200!\003\353\304W0\232\277:\275\363\275J\\\037\0215_\2136\277\226\250}\372\264\2744@\0162{\324\006{A\347\353UZ\000\245\030\221cd5z\311\203\316\307f\027\300\375\212T&\351I\002\365\224\215%\313\223\245\337f\354\236\230\010\246X6\237\266*LEX\325\010\\\346>\"\013\020u\247\226\023\022\305\311\3700\222\021\270\324\326J\311\002\323\253\207>\351tm\210\300\313Y\335\027YHU\017\204;\230ti\222\006\245\034x\2707\235:\032~\0279m&\347\372\201\275\010Tx\224\025L\233'6\r,\033\261\360\006\370\031\n\2329\340\366\312!\312r\\\031\367Xo\204\234%~\017\035G\314\334\372\327\306H\031w\274?\215\214\037\325M~\"A\220@\017+\021L\2417\244\261p\356\375M>\260\206\213\007\327\262\372\241\330\034\277F\205\003\247S\346\002\227U\325\t\265\212\025\351\220q8\246I5\222\336\027\247\301M\302\205\346\346\r:c\036\230\330\204\303j\366\227Z\206\333\244\325\2461$\234\206\222\014\357\235\013Q\332\006B\202\275X\320s\005\021\035\360\376I\264\313\353\257\006\301$\"R\273Q\315$\342$\302\017\373.Fxr=\360\201\227u|\204\371\207\202\224\216r\370\361`\325\327\267gl\341T\013M\344\240\206\333\3525\255:\006.yZF\262\240\317aC\031\270\311\000/\372C\233\313y\327\265|`\321\\n\374\251\237lW\235\221\241\023\024\3112\347\024\021\016\337E\261h\035\332\373\245\2758\206\305A\3208\366\255\343\262\323\233\257|b\373]\372&\3203p\312t\t\244>\376lg \260\221\002\355\3245\257\213\265\357\351\347\333\207pa\261h\237E\255r\013\001\243\2603=\340\210\321\254^\210\270\201\021~\202\"\021\363\351\243Q\223T\304\255tX\300\211n\341#\215\367\353\235.\005<_\262\327r\321X\003V\r\006\335Wl\243-J\235B\300""\020Jm\031\270u\364\264i\216\322g[d]\322\273\n\333\002\001\206\230\323A\317\245\224\314\230\307{\304\257\210\376DV\334\3069\370t\365\374G\266\316\345\204\017!\006\371XJ)\312\245\225\374\257w\3008\037\261\342m\346\327\024\275,\336\344\257\004!RL\205\302\007\004\343;\335!\006\2379\200\234\255\000\204A$R\n\330\372A\354\274\301\225\035\305l\352W\226\257\275P>\366<\324k\355\267\335\352\340V4\2227\237#\343\370\262A\330\214\270\362\335\022\230\017?!\225\311\221\265\346f\032\310\332\013@\312\251\250\353\274/\211\\\022r~s+\270\2650\263^\322\033\035\226\361\306\337\200,\211\263flfAxXE-$\021\226[\354\304\0345\232^\224\273\340\263L\013\232S\023\004\004!\021 \355\226t\322<\224\217\336kh\315\347\271\355AP;\362,n\261\333N\256\033\362\\no\007H\020\327\310=\361\240\025\010\235i8F\310\006\007\2457Lu4\377\332\316\026\272\2050yQ'\335\2106P1\264_\033>D\304\242p\276\266\261\304P\321\346c,\351\212\300\217G\345\303fv\017P\031\322;\332K\272\224fi6m\355\310\035\273\2665-/\256\324o\220\3441\273\273\233Hy^B,\331\314\264\350\310\272\210\342\364\315\342M\330\036\032\361\304\253\232\324>\337\024Q\274\354\317{{\204up\233\030n&_W\t\003\250\315\203\rTS\340e\016\003\221J\360\305ey\026\210-\350i\302qN+\023?+\004\335\336M\301\353\261\264\274\2327\031\305\340\031\023\336L$g\022]\326\331]\207\\^\205\006g\250\212\034\022\251\220GSSe\200jbE\241\202\333NP^\0327\r!W\240rM\257\021b\375kNA0\0166\347\224\001\222kh\230\007\t3\263A\0026\002D\342\017[\312\t\263\232x\300\366'$\177\014@H6+\nt\3529\236\001\324q\321\274\003p\004\232\232\030\210@B(\252\343\243\237P\326 \322\000\355\314\034\220\227\246\221\260~\301\254\361\336Y\344\0243\036\031\254\356\302H\204\201\241\363 \224\001\362`\001\372/m\036uD\204\031;\010\270v*\211\032\266\233X\324\024=G\367[\336[o\267M\23067eF\255\250\022\037\310\0143\215\0145WT\346\302Lg\376V\266\270\003\244g\223K%h\334\241\252\274L\326\326oz$\017M\021b\003=\200\340\027\375fm\007\221=\307\354o\275\264\324C+\023\214\000\304^j.\335\341M:Yn';\362\263\361\t\027*JS\256\006\315\264R/f\302\336t""\0228\252\366\021\013\313\352OX\341K\243\007.\273\270\"\206JX\206/\027\001\270\013j\322\005Y\200\241eL\022\340!C&-\244\34127\276\270\226\221\021*\225\312\243\213\327\336\230\250i\233%\006\\\300\254\325Z*\"\243\237\325~\007\200\213\206\377Gk\014\024\210]\271\211(\226\215+\232\220\255\214\250\034H\237\361w$S\205\t\010n\346\002\360";
+    PyObject *data = __Pyx_DecompressString(cstring, 1504, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1364 bytes) */
-const char* const cstring = "x\332\225V[\227\3328\014\236\347\376\n\275\005\346\014\224\004\206N\367e\017\t\227\246\013\224r\231\323\366\241\036\223\030p'\267\332\0163\374\373\225\034n\263\273/\313\001[\222e[\221>}\241\351\264\033\206\027\240e\026\275\247\301qz\363\320\207\305\262\337\360\273\037\240\366i<\252\243M\t\016|/\024\337\312l\3538\376\262\351\266\273.\210W#\262X\304\020\345I^*\330\362\2644v\331ky-p[\215\265\274\326\275\267\372{ \311m\265\254\251\363\241\345\217*[\267\3456\272\320\365\356O\013\023+|h}<\315\350\247\347#\237\246\357A\200V\031\225k\031\221\220\310Lp\345\004<\313r\203\221e\030\267\201\000#TP(\231r%\205\206|\003\034\3662\0269l\024OE\363\335;\300\317\204\027\032L\016\303aZ\210\255\243\341\351\251\367h\367\316N[\237\236\232\3265\310\313$\006\272\203'I\036q#`\361\242\203<3\230\026'\240p\340/q\320\240\013\n\311q\006\376\n\332\236\333n\0140\354\317\203\376 \200\231\347\241\375\265\020x\270\310\014O\034g\310\265\201\365\351)\206\024\033\3049FL7\355\260\010\260\311U\312\rha\232\316\210\247)\007\257\351A\355\230),\327\311\370p2\372#k-\265\226<CIdxa\004\033\231\244P\013\223\244Le\3063L\022\272\205\030V\327\375\330\3556\274\206\0135J\357?\254\035\264b\356\321\372y6\030AmS&I\035\276\257\036A\361l+\356\300\373\2315\\\307\031W\217\340\214\363-&\316\354R\274\262\206\325\376\303\255\034\353\377^\272\325\277\225A\241~\355S\342\303\254\253\372b\342\242\235\312\255\341\230!gb\203Hd*\215\210\337\306\341~\274\365~\326\262\306\003\0363Eg\201\251\315\204\334\356\326\210\205\367P\3442C8N1\261\005G\214 &z~H\272\000\263\303\024\007\007\263\3133\220\032b\221\3105\342\337\210\344\000\332`\366\214P\344\224\301l0kt\036:\300\263\030\224\370%\"\203%/\327Q\302\265\256\200\266.ebd\006\346P\010\335\204p\003\207\274\304@\260q\020j\005\372]o0;\221QqI\000\307\242\230\033\231g\014\267S\367A,\025^\"\021\t\004T\236h\321t\026\223\331r\000\256\355\224\213|\335M\367\324M\325\222\327\302pk\263\257w\360\251?\307d\237\355\235\313\366\216\367@5\274R\360\260o\337\177\234Mm\267\201\240\353\007ac\326\256_\254\0264}\211""\230\347\007\250V\210V\226X\022\275\301\224E;\2568%OjCE\337Z\254F\245\332\213\372\377o\312\323\261\301\233SO\035\352\2542]\210Hn\244\210\235?y\0343\314\245\210\245\346\353D\210\214\306m$u%\305Z$\233fa0\304\2129\326\342D\036U\2358\314*8\344k*2\265!\0242zF\034ni\2757\037\364\210<\031\222'C\362\364\303`\205?;\215\303\251\037\3420\350\315\375%Q'\033\004#\177I,X\215\314=\013\236\277\264-k\247\211\277D\266{K@V\233\023\304\2179\210\354\254\013\036\211\376`\330[\215\227H5\3044\303\336b\311N\027\017\203`\030\216'\243\336d\322\363\274jz\030\365V\213\0056\267\355m\3461\367J\356\204\313\025b\207F\217d\014$\314\314 +S\234\204*\362\304\342\222H`\334\233\006?\276,\252\213\306_F\370e\213\257\363%\365\346\324\237}\t\247K\306f\207W\374\365\261u\330\024)r.6\213p\032X\340\020X\255@\320\254\204\316\321\202\330\253\346\266{\234\275\305\214.ZM\027\263A\020\016\303A\377\221 \203\347Yb\304\320\2761v\351\033\215\312\276iQ\325T\027\037\306l\303\261\2550H\034)\251H(Lb\237!\224\304\232G\317\261\330\36021\214\305y\204\2036\214\336s\212\235\337\"\027\223e\234\213jTtVl]\004fm\023E\325\355\026\333\214n\326\030\"J;\342$d\210\253\254RLZ\232\022\013@\243\327\301\021\013\300X\3121D\374\244\302\360\352\tH\311\3432\021VR9\3037\tEGjfo*\362\002\007%\220\345H3\270T`1\216\267\223\2707\324\003\264\343w\311\223j\027cJ\304et-E\266\003\256\014\342\225\024d\253\343M(\235\263\246\317\317w%\237N\320ia\004\226=\265\002V;\325*\272N\346Y\265\371c\314 y\343\270\303\277\"\261\336\363\244\024v\320/2&\306,S\350=\316\344\253H\206\325\353\261FLC\035\214\234\177[\277\301d\263B\276\262MJy\206\032\016w@\3221\025\317\262`\310\014\0057\321\356\216\030\276\214Nkya\030W[\315<\276g\367B)\014\021G\026\355D\364\014\267g'\254\032O\254g\375\346\274\376\366\244\365/{\210\333\212\261\013\310_\035X\377,\302m\255\367x\255\326o^\024\247\270N\246\377<\355\336b\233\335W\260\262\275P\375m\270\255\355s\031\327o\354\377\023VyY\247\277\001\313\317T\333";
-    PyObject *data = __Pyx_DecompressString(cstring, 1364, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1389 bytes) */
+const char* const cstring = "x\332\225V[w\3328\020\316s\177\305\274\031r\002\305\016\241\351\276\354\301\346\262\356\001J\271\344\264}\250\"l\001jm\331\225d\222\374\373\235\221\201\220\335}Y\016\214fF\227\031\315\345\023m/hY^BRmd\002a\313\224\231T\302\363n\235\326H\225\274'\342y\375E\034\302r5h\205\275\017\320\370k2n\242N\013\016\374 4\337I\265\363\274p\325\366o{>\210g+T*RH\212\254\2504\354x^Y7\035t\202\016\370\235\326F^\312\301[\371=\020\347w:N\325\375\320\t\307\265\256\327\361[=\350\005w\247\211\251c>t>\236F\\g\026\343\220\206oQ\204ZY_,\253rNgH\272\035\327\220\354u\221s\232\257\025^\304\225*,:\254\360:\026\"t\\C\251e\316\265\024\006\212-p8\310T\024\260\325<\027\355w\357\000?S^\032\260\005\214Fy)v\236\201\307\307\376\203\333;?m}|l\273\245QQe)\220\r\236eE\302\255\200\345\223\211\ne1Z\3360\\\303m\340\337\266\206\350\345\247\341`\030\301<\010<o\370\\\n<I(\3133\317\033qcasryD\216@Z\240{t\354\036\023\001\333B\347\334\202\021\266\355\215y\216\227\016\332\0014\216\321\302\224\235\224\367'e8v\332\312\030\311\025\360\262\324\3053\272ne\241P/\024\232O`+\263\034\032q\206a\224\212+\214\017n\212\321\311\236\377\261\327k\005-\037\032\024\360\177h\273\250\305l\240\366\323|8\206\306\266\312\262&|[?\200\346j'n \370\241Z\276\347M\352\013y\223b\2071\263\373\034M60\377\177\370\365\302\346\277\247\256\315om\221i^\254\231:#\231\314\245\025\351[;\376\307\353\340GC\265\356q\331\014m\t\014\244\022r\267\337`\232\337CYH\205\0058\3030\226\034\323\217\351\356\2071\311\002\354\036\003\032\275\330}\241@\032HE&7X\361Vd/`,F\307\nM\213\024\314\207\363V\367\276\013\\\245\240\305O\221X\003\246\332$\0317\246\256\241M%3+\025\330\227R\2306\304[x)*t\004[\005\253\250\304u\227\033\354^(J%1\340\271\002uya\270\235\372\rR\251\321\210\304\274S\r\362\314\210\266\267\234\316WC\360]o\274\362\227\375sG\375SO\005\035t\2671\377r\003\177\r\026\030\314\263\276\373\272\275\033\334S\216.\004<\354\353\267\357g\325\255\337\302\022\033Dqk~\333|\325\272\242\030H\004\024\376\0024\263\302d\230\255\240\346\343\232S\330\244\261\224\316\235\253\311\244\322""\007\321\374\377\235v:6zs\352\251\355\274\2652\245H\344V\212\324C\341I\252\264x\302x/\035\252](\024\267\225\346\331\021\t\2178\370'OS\206q\027\2514|\223\t\241\210\356\022ij.5\"\333\266K\213\227\252\001d#N\030R\347\224\303\274.\235bC\005A\r\n\245L~\341\351;\232\357/\206}\202V\206\320\312\020Z\3038Z\343\317\r\223x\026\306H\206\375E\270\"`e\303h\034\256\010#k\312\3743\023\204+\327\314n\230\206+\304\302\2678\344\244\005\265\3031j\211\033M\311\0231\030\216\372\353\311\nA\2100h\324_\256\330\311\360(\212F\361d:\356O\247\375 \250\207\373q\177\275\\b\243\273>g\001\363/\370n\274Zc\235\021\r\210GGbe\207\252\312q\020\272,2W\303\004\010\223\376,\372\376yY\033\232|\036\343\227-\277,V\324\307\263p\3769\236\255\030\233\277<\343o\200m\306f\210\224\013\261]\306\263\310\025\031\025\266c\250\214k\246{\324`\235\326\343\255\177\034\203\345\234\014\255g\313\3710\212G\361p\360@E\206\3479\310D\327\2762\366\332c\006\205C\333\325a[\277\256a\3145'\333\t\213 \223\223\210e\302$\366$\026\237\330\360\344W*\266\274\312,ci\221 1\226\321+\250\331\3711yU9tz\025\255N\316\202\313\213\300\250m\223\244\266\356\272\201\221e\203.\"\267'\374B4\271\210*\371d\244\2550\001D\203.RL\000c9G\027\361\223\013\313\353\033\220P\244U&\034\247\013\206o\014yG\242r\226\312\242D\242\005\"\"I\026\247JL\306\321:\261\007K=@;~W<\253w1\246EZ%\227\\\342:\340B!\236I@d;ZB\356\0345s\276\337\005\177:\301\344\245\025\230\366\3341\230\355\334\350\3442\230g\321\305\2171\213@\217t\217\177TRs\340Y%\0341O2%t\255r\350?\314\345\263\310F\365\303\331 l\242\016\306\367\341\272y\205\301f\245|f\333\234\342\014\r$7@\3341\024\277d\311\020\031Jn\223\375\r\275\006Ur\232+J\313\270\336\031\026\360\003\273\023Z\243\213HY\262\027\311/\270>/\302\254\361\314\255l^\235\347\337\236\264\371\351\016\361;)v\001\255\327/lpf\341\272\321\177\270\024\233WO\232\223_'\325\177\236v\347j\233\335\325e\345z\241\376Cq\3358\0242m^\271\277)\254^\345\026\375\r\022\277h\234";
+    PyObject *data = __Pyx_DecompressString(cstring, 1389, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (2551 bytes) */
-const char* const bytes = ".'3-tap sinc/sinc''ARIB STD-B67 (HLG)''Area averaging''BT.1361 extended colour gamut''BT.2020 10-bit''BT.2020 12-bit''BT.2020 / BT.2100''BT.470BG / BT.601-6 625''BT.470M''BT.709''BT.709 / sRGB / sYCC''Bicubic''Bilinear'Cannot convert Color primaries of a video frame.\n\n    Maps to FFmpeg's ``AVColorPrimaries``.\n    Could not allocate SwsContext'Cubic Keys spline''EBU 3213-E / JEDEC P22''Experimental''Fast bilinear'Frame does not have format set.'Gamma 2.2 (BT.470M)''Gamma 2.8 (BT.470BG)''Gaussian''Generic film (Illuminant C)''IEC 61966-2-1 (sYCC)''IEC 61966-2-4 (sRGB)''JPEG (full) YUV range, 2^n-1''Linear''Logarithmic (100:1 range)''Logarithmic (100*sqrt(10):1 range)''Luma bicubic / chroma bilinear''MPEG (limited) YUV range, 219*2^(n-8)''Nearest neighbor / point''Not part of ABI'Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.'SMPTE 170M''SMPTE 170M / BT.601-6 525''SMPTE 2084 (PQ, HDR10)''SMPTE 240M''SMPTE 428-1''SMPTE 428-1 / XYZ''SMPTE 431-2 (DCI-P3)''SMPTE 432-1 (Display P3)''Sinc'Transfer characteristic (gamma curve) of a video frame.\n\n    Maps to FFmpeg's ``AVColorTransferCharacteristic``.\n    'Unspecified'?add_notedisableenablegcisenabledself.ptr cannot be converted to a Python object for pickling to AREAARIB_STD_B67BICUBICBICUBLINBILINEARBT1361_ECGBT2020BT2020_10BT2020_12BT470BGBT470MBT709ColorPrimariesColorRangeColorTrcColorspaceDEFAULTEBU3213FAST_BILINEARFCCFILMGAMMA22GAMMA28GAUSSIEC61966_2_1IEC61966_2_4ITU601ITU624ITU709IntEnumInterpolationJPEGLANCZOSLINEARLOGLOG_SQRTMPEGNBPOINT__Pyx_PyDict_NextRefSINCSMPTE170MSMPTE2084SMPTE240MSMPTE428SMPTE431SMPTE432SPLINEUNSPECIFIEDVideoReformatterX__annotations__av.video.reformatter__class_getitem__cline_in_tracebackdefault__doc__dst_color_primariesdst_color_rangedst_color_trcdst_colorspaceenumfccformatframe__getstate__heightinterpolationitemsitu601itu624itu709__main____metaclass____mo""dule____mro_entries____name__pop__prepare__pts__pyx_state__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex____set_name__setdefault__setstate____setstate_cython__smpte170msmpte240msrc_color_rangesrc_colorspace__test__threadsvaluevalueswidthenum AVPixelFormat (char const *)\000get_pix_fmtint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_10dictionary_Dictionary *(AVDictionary *)\000wrap_dictionarystruct __pyx_obj_2av_5video_5frame_VideoFrame *(void)\000alloc_video_frame";
+    #else /* compression: none (2603 bytes) */
+const char* const bytes = ".'2-tap cubic B-spline''3-tap sinc/sinc''ARIB STD-B67 (HLG)''Area averaging''BT.1361 extended colour gamut''BT.2020 10-bit''BT.2020 12-bit''BT.2020 / BT.2100''BT.470BG / BT.601-6 625''BT.470M''BT.709''BT.709 / sRGB / sYCC''Bicubic luma / Bilinear chroma''Bilinear'Cannot convert Color primaries of a video frame.\n\n    Maps to FFmpeg's ``AVColorPrimaries``.\n    Could not allocate SwsContext'EBU 3213-E / JEDEC P22''Experimental''Fast bilinear'Frame does not have format set.'Gamma 2.2 (BT.470M)''Gamma 2.8 (BT.470BG)''Gaussian approximation''Generic film (Illuminant C)''IEC 61966-2-1 (sYCC)''IEC 61966-2-4 (sRGB)''JPEG (full) YUV range, 2^n-1''Linear''Logarithmic (100:1 range)''Logarithmic (100*sqrt(10):1 range)''MPEG (limited) YUV range, 219*2^(n-8)''Nearest neighbor / point''Not part of ABI'Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.'SMPTE 170M''SMPTE 170M / BT.601-6 525''SMPTE 2084 (PQ, HDR10)''SMPTE 240M''SMPTE 428-1''SMPTE 428-1 / XYZ''SMPTE 431-2 (DCI-P3)''SMPTE 432-1 (Display P3)'Transfer characteristic (gamma curve) of a video frame.\n\n    Maps to FFmpeg's ``AVColorTransferCharacteristic``.\n    'Unspecified''Unwindowed Sinc''Unwindowed natural cubic spline'?add_notedisableenablegcisenabledself.ptr cannot be converted to a Python object for pickling to AREAARIB_STD_B67BICUBICBICUBLINBILINEARBT1361_ECGBT2020BT2020_10BT2020_12BT470BGBT470MBT709ColorPrimariesColorRangeColorTrcColorspaceDEFAULTEBU3213FAST_BILINEARFCCFILMGAMMA22GAMMA28GAUSSIEC61966_2_1IEC61966_2_4ITU601ITU624ITU709IntEnumInterpolationJPEGLANCZOSLINEARLOGLOG_SQRTMPEGNBPOINT__Pyx_PyDict_NextRefSINCSMPTE170MSMPTE2084SMPTE240MSMPTE428SMPTE431SMPTE432SPLINEUNSPECIFIEDVideoReformatterX__annotations__av.video.reformatter__class_getitem__cline_in_tracebackdefault__doc__dst_color_primariesdst_color_rangedst_color_trcdst_colorspaceenumfccformatframe__getstate__heightinterpola""tionitemsitu601itu624itu709__main____metaclass____module____mro_entries____name__pop__prepare__pts__pyx_state__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex____set_name__setdefault__setstate____setstate_cython__smpte170msmpte240msrc_color_rangesrc_colorspace__test__threadsvaluevalueswidthenum AVPixelFormat (char const *)\000get_pix_fmtint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_10dictionary_Dictionary *(AVDictionary *)\000wrap_dictionarystruct __pyx_obj_2av_5video_5frame_VideoFrame *(void)\000alloc_video_frame";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif

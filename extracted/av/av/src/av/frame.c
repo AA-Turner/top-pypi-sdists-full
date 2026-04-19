@@ -1669,7 +1669,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode;
 
-/* "av/codec/context.pxd":33
+/* "av/codec/context.pxd":26
  *     cdef readonly HWAccel hwaccel
  *     cdef public dict options
  *     cpdef open(self, bint strict=?)             # <<<<<<<<<<<<<<
@@ -1681,7 +1681,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open {
   int strict;
 };
 
-/* "av/codec/context.pxd":36
+/* "av/codec/context.pxd":29
  * 
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)             # <<<<<<<<<<<<<<
@@ -1693,7 +1693,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode {
   struct __pyx_obj_2av_5frame_Frame *frame;
 };
 
-/* "av/codec/context.pxd":37
+/* "av/codec/context.pxd":30
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)
  *     cpdef decode(self, Packet packet=?)             # <<<<<<<<<<<<<<
@@ -1707,7 +1707,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode {
 struct __pyx_t_2av_9container_4core_timeout_info;
 typedef struct __pyx_t_2av_9container_4core_timeout_info __pyx_t_2av_9container_4core_timeout_info;
 
-/* "av/container/core.pxd":11
+/* "av/container/core.pxd":12
  * 
  * # Interrupt callback information, times are in seconds.
  * ctypedef struct timeout_info:             # <<<<<<<<<<<<<<
@@ -1846,8 +1846,6 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_5codec_7context_CodecContext *__pyx_vtab;
   struct AVCodecContext *ptr;
-  int extradata_set;
-  int _template_initialized;
   int stream_index;
   struct AVCodecParserContext *parser;
   int is_open;
@@ -1855,6 +1853,7 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel;
   PyObject *options;
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel_ctx;
+  uint8_t _ctxflags;
   struct __pyx_obj_2av_5frame_Frame *_next_frame;
 };
 
@@ -1924,24 +1923,22 @@ struct __pyx_obj_2av_6format_ContainerFormat {
 };
 
 
-/* "av/container/core.pxd":16
+/* "av/container/core.pxd":17
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- *     cdef readonly bint writeable
  *     cdef lib.AVFormatContext *ptr
+ *     cdef readonly object name
 */
 struct __pyx_obj_2av_9container_4core_Container {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_9container_4core_Container *__pyx_vtab;
-  int writeable;
   struct AVFormatContext *ptr;
   PyObject *name;
   PyObject *metadata_encoding;
   PyObject *metadata_errors;
   struct __pyx_obj_2av_9container_4pyio_PyIOFile *file;
   int buffer_size;
-  int input_was_opened;
   PyObject *io_open;
   PyObject *open_files;
   struct __pyx_obj_2av_6format_ContainerFormat *format;
@@ -1951,6 +1948,7 @@ struct __pyx_obj_2av_9container_4core_Container {
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel;
   struct __pyx_obj_2av_9container_7streams_StreamContainer *streams;
   PyObject *metadata;
+  uint8_t _myflag;
   PyObject *open_timeout;
   PyObject *read_timeout;
   __pyx_t_2av_9container_4core_timeout_info interrupt_callback_info;
@@ -2052,7 +2050,6 @@ struct __pyx_obj_2av_6packet_Packet {
   struct __pyx_obj_2av_6buffer_Buffer __pyx_base;
   struct AVPacket *ptr;
   struct __pyx_obj_2av_6stream_Stream *_stream;
-  struct __pyx_obj_2av_6buffer_ByteSource *source;
 };
 
 
@@ -2086,7 +2083,7 @@ struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer {
 };
 
 
-/* "av/opaque.pxd":8
+/* "av/opaque.pxd":4
  * 
  * 
  * cdef class OpaqueContainer:             # <<<<<<<<<<<<<<
@@ -2180,7 +2177,6 @@ struct __pyx_vtabstruct_2av_5codec_7context_CodecContext {
   PyObject *(*_setup_encoded_packet)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_setup_decoded_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_5frame_Frame *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_recv_packet)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
-  PyObject *(*_send_packet_and_recv)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_recv_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
   PyObject *(*_transfer_hwframe)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_5frame_Frame *);
   struct __pyx_obj_2av_5frame_Frame *(*_alloc_next_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
@@ -2216,12 +2212,12 @@ struct __pyx_vtabstruct_2av_10dictionary_Dictionary {
 static struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtabptr_2av_10dictionary_Dictionary;
 
 
-/* "av/container/core.pxd":16
+/* "av/container/core.pxd":17
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- *     cdef readonly bint writeable
  *     cdef lib.AVFormatContext *ptr
+ *     cdef readonly object name
 */
 
 struct __pyx_vtabstruct_2av_9container_4core_Container {
@@ -2347,7 +2343,7 @@ struct __pyx_vtabstruct_2av_8sidedata_8sidedata_SideData {
 static struct __pyx_vtabstruct_2av_8sidedata_8sidedata_SideData *__pyx_vtabptr_2av_8sidedata_8sidedata_SideData;
 
 
-/* "av/opaque.pxd":8
+/* "av/opaque.pxd":4
  * 
  * 
  * cdef class OpaqueContainer:             # <<<<<<<<<<<<<<
@@ -4523,8 +4519,8 @@ static int __pyx_pf_2av_5frame_5Frame_8duration_2__set__(struct __pyx_obj_2av_5f
  *         self.ptr.duration = value
  * 
  *     @property             # <<<<<<<<<<<<<<
+ *     @cython.cdivision(True)
  *     def time(self):
- *         """
 */
 
 /* Python wrapper */
@@ -4546,14 +4542,13 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_4time___get__(struct __pyx_obj_2av_5
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
-  double __pyx_t_2;
-  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_2 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/frame.py":128
+  /* "av/frame.py":129
  *         :type: float | None
  *         """
  *         if self.ptr.pts == lib.AV_NOPTS_VALUE:             # <<<<<<<<<<<<<<
@@ -4563,7 +4558,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_4time___get__(struct __pyx_obj_2av_5
   __pyx_t_1 = (__pyx_v_self->ptr->pts == AV_NOPTS_VALUE);
   if (__pyx_t_1) {
 
-    /* "av/frame.py":129
+    /* "av/frame.py":130
  *         """
  *         if self.ptr.pts == lib.AV_NOPTS_VALUE:
  *             return None             # <<<<<<<<<<<<<<
@@ -4574,7 +4569,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_4time___get__(struct __pyx_obj_2av_5
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/frame.py":128
+    /* "av/frame.py":129
  *         :type: float | None
  *         """
  *         if self.ptr.pts == lib.AV_NOPTS_VALUE:             # <<<<<<<<<<<<<<
@@ -4583,7 +4578,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_4time___get__(struct __pyx_obj_2av_5
 */
   }
 
-  /* "av/frame.py":130
+  /* "av/frame.py":131
  *         if self.ptr.pts == lib.AV_NOPTS_VALUE:
  *             return None
  *         return float(self.ptr.pts) * self._time_base.num / self._time_base.den             # <<<<<<<<<<<<<<
@@ -4591,28 +4586,23 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_4time___get__(struct __pyx_obj_2av_5
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = (((double)__pyx_v_self->ptr->pts) * __pyx_v_self->_time_base.num);
-  if (unlikely(__pyx_v_self->_time_base.den == 0)) {
-    PyErr_SetString(PyExc_ZeroDivisionError, "float division");
-    __PYX_ERR(0, 130, __pyx_L1_error)
-  }
-  __pyx_t_3 = PyFloat_FromDouble((__pyx_t_2 / ((double)__pyx_v_self->_time_base.den))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 130, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_r = __pyx_t_3;
-  __pyx_t_3 = 0;
+  __pyx_t_2 = PyFloat_FromDouble(((((double)__pyx_v_self->ptr->pts) * __pyx_v_self->_time_base.num) / ((double)__pyx_v_self->_time_base.den))); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
   /* "av/frame.py":119
  *         self.ptr.duration = value
  * 
  *     @property             # <<<<<<<<<<<<<<
+ *     @cython.cdivision(True)
  *     def time(self):
- *         """
 */
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_AddTraceback("av.frame.Frame.time.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -4621,7 +4611,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_4time___get__(struct __pyx_obj_2av_5
   return __pyx_r;
 }
 
-/* "av/frame.py":132
+/* "av/frame.py":133
  *         return float(self.ptr.pts) * self._time_base.num / self._time_base.den
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4654,7 +4644,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9time_base___get__(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/frame.py":139
+  /* "av/frame.py":140
  *         :type: fractions.Fraction | None
  *         """
  *         if self._time_base.num:             # <<<<<<<<<<<<<<
@@ -4664,7 +4654,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9time_base___get__(struct __pyx_obj_
   __pyx_t_1 = (__pyx_v_self->_time_base.num != 0);
   if (__pyx_t_1) {
 
-    /* "av/frame.py":140
+    /* "av/frame.py":141
  *         """
  *         if self._time_base.num:
  *             return avrational_to_fraction(cython.address(self._time_base))             # <<<<<<<<<<<<<<
@@ -4672,13 +4662,13 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9time_base___get__(struct __pyx_obj_
  *     @time_base.setter
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = __pyx_f_2av_5utils_avrational_to_fraction((&__pyx_v_self->_time_base)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 140, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_2av_5utils_avrational_to_fraction((&__pyx_v_self->_time_base)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 141, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "av/frame.py":139
+    /* "av/frame.py":140
  *         :type: fractions.Fraction | None
  *         """
  *         if self._time_base.num:             # <<<<<<<<<<<<<<
@@ -4687,7 +4677,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9time_base___get__(struct __pyx_obj_
 */
   }
 
-  /* "av/frame.py":132
+  /* "av/frame.py":133
  *         return float(self.ptr.pts) * self._time_base.num / self._time_base.den
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4708,7 +4698,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9time_base___get__(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "av/frame.py":142
+/* "av/frame.py":143
  *             return avrational_to_fraction(cython.address(self._time_base))
  * 
  *     @time_base.setter             # <<<<<<<<<<<<<<
@@ -4737,16 +4727,16 @@ static int __pyx_pf_2av_5frame_5Frame_9time_base_2__set__(struct __pyx_obj_2av_5
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "av/frame.py":144
+  /* "av/frame.py":145
  *     @time_base.setter
  *     def time_base(self, value):
  *         to_avrational(value, cython.address(self._time_base))             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_f_2av_5utils_to_avrational(__pyx_v_value, (&__pyx_v_self->_time_base)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 144, __pyx_L1_error)
+  __pyx_f_2av_5utils_to_avrational(__pyx_v_value, (&__pyx_v_self->_time_base)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 145, __pyx_L1_error)
 
-  /* "av/frame.py":142
+  /* "av/frame.py":143
  *             return avrational_to_fraction(cython.address(self._time_base))
  * 
  *     @time_base.setter             # <<<<<<<<<<<<<<
@@ -4764,7 +4754,7 @@ static int __pyx_pf_2av_5frame_5Frame_9time_base_2__set__(struct __pyx_obj_2av_5
   return __pyx_r;
 }
 
-/* "av/frame.py":146
+/* "av/frame.py":147
  *         to_avrational(value, cython.address(self._time_base))
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4798,7 +4788,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_10is_corrupt___get__(struct __pyx_ob
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/frame.py":153
+  /* "av/frame.py":154
  *         :type: bool
  *         """
  *         return self.ptr.decode_error_flags != 0 or bool(             # <<<<<<<<<<<<<<
@@ -4809,21 +4799,21 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_10is_corrupt___get__(struct __pyx_ob
   __pyx_t_2 = (__pyx_v_self->ptr->decode_error_flags != 0);
   if (!__pyx_t_2) {
   } else {
-    __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 153, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 154, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L3_bool_binop_done;
   }
 
-  /* "av/frame.py":154
+  /* "av/frame.py":155
  *         """
  *         return self.ptr.decode_error_flags != 0 or bool(
  *             self.ptr.flags & lib.AV_FRAME_FLAG_CORRUPT             # <<<<<<<<<<<<<<
  *         )
  * 
 */
-  __pyx_t_3 = __Pyx_PyBool_FromLong((!(!((__pyx_v_self->ptr->flags & AV_FRAME_FLAG_CORRUPT) != 0)))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyBool_FromLong((!(!((__pyx_v_self->ptr->flags & AV_FRAME_FLAG_CORRUPT) != 0)))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_t_3);
   __pyx_t_1 = __pyx_t_3;
@@ -4833,7 +4823,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_10is_corrupt___get__(struct __pyx_ob
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/frame.py":146
+  /* "av/frame.py":147
  *         to_avrational(value, cython.address(self._time_base))
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4853,7 +4843,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_10is_corrupt___get__(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "av/frame.py":157
+/* "av/frame.py":158
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4885,7 +4875,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9key_frame___get__(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/frame.py":164
+  /* "av/frame.py":165
  * 
  *         """
  *         return bool(self.ptr.flags & lib.AV_FRAME_FLAG_KEY)             # <<<<<<<<<<<<<<
@@ -4893,13 +4883,13 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9key_frame___get__(struct __pyx_obj_
  *     @key_frame.setter
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong((!(!((__pyx_v_self->ptr->flags & AV_FRAME_FLAG_KEY) != 0)))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong((!(!((__pyx_v_self->ptr->flags & AV_FRAME_FLAG_KEY) != 0)))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 165, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/frame.py":157
+  /* "av/frame.py":158
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4918,7 +4908,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9key_frame___get__(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "av/frame.py":166
+/* "av/frame.py":167
  *         return bool(self.ptr.flags & lib.AV_FRAME_FLAG_KEY)
  * 
  *     @key_frame.setter             # <<<<<<<<<<<<<<
@@ -4948,17 +4938,17 @@ static int __pyx_pf_2av_5frame_5Frame_9key_frame_2__set__(struct __pyx_obj_2av_5
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "av/frame.py":169
+  /* "av/frame.py":170
  *     def key_frame(self, v):
  *         # PyAV makes no guarantees this does anything.
  *         if v:             # <<<<<<<<<<<<<<
  *             self.ptr.flags |= lib.AV_FRAME_FLAG_KEY
  *         else:
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_v); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_v); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 170, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "av/frame.py":170
+    /* "av/frame.py":171
  *         # PyAV makes no guarantees this does anything.
  *         if v:
  *             self.ptr.flags |= lib.AV_FRAME_FLAG_KEY             # <<<<<<<<<<<<<<
@@ -4967,7 +4957,7 @@ static int __pyx_pf_2av_5frame_5Frame_9key_frame_2__set__(struct __pyx_obj_2av_5
 */
     __pyx_v_self->ptr->flags = (__pyx_v_self->ptr->flags | AV_FRAME_FLAG_KEY);
 
-    /* "av/frame.py":169
+    /* "av/frame.py":170
  *     def key_frame(self, v):
  *         # PyAV makes no guarantees this does anything.
  *         if v:             # <<<<<<<<<<<<<<
@@ -4977,7 +4967,7 @@ static int __pyx_pf_2av_5frame_5Frame_9key_frame_2__set__(struct __pyx_obj_2av_5
     goto __pyx_L3;
   }
 
-  /* "av/frame.py":172
+  /* "av/frame.py":173
  *             self.ptr.flags |= lib.AV_FRAME_FLAG_KEY
  *         else:
  *             self.ptr.flags &= ~lib.AV_FRAME_FLAG_KEY             # <<<<<<<<<<<<<<
@@ -4989,7 +4979,7 @@ static int __pyx_pf_2av_5frame_5Frame_9key_frame_2__set__(struct __pyx_obj_2av_5
   }
   __pyx_L3:;
 
-  /* "av/frame.py":166
+  /* "av/frame.py":167
  *         return bool(self.ptr.flags & lib.AV_FRAME_FLAG_KEY)
  * 
  *     @key_frame.setter             # <<<<<<<<<<<<<<
@@ -5007,7 +4997,7 @@ static int __pyx_pf_2av_5frame_5Frame_9key_frame_2__set__(struct __pyx_obj_2av_5
   return __pyx_r;
 }
 
-/* "av/frame.py":174
+/* "av/frame.py":175
  *             self.ptr.flags &= ~lib.AV_FRAME_FLAG_KEY
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5043,7 +5033,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9side_data___get__(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/frame.py":176
+  /* "av/frame.py":177
  *     @property
  *     def side_data(self):
  *         if self._side_data is None:             # <<<<<<<<<<<<<<
@@ -5053,7 +5043,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9side_data___get__(struct __pyx_obj_
   __pyx_t_1 = (((PyObject *)__pyx_v_self->_side_data) == Py_None);
   if (__pyx_t_1) {
 
-    /* "av/frame.py":177
+    /* "av/frame.py":178
  *     def side_data(self):
  *         if self._side_data is None:
  *             self._side_data = SideDataContainer(self)             # <<<<<<<<<<<<<<
@@ -5061,7 +5051,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9side_data___get__(struct __pyx_obj_
  * 
 */
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SideDataContainer); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 177, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SideDataContainer); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 178, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -5080,17 +5070,17 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9side_data___get__(struct __pyx_obj_
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 177, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 178, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
-    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer))))) __PYX_ERR(0, 177, __pyx_L1_error)
+    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer))))) __PYX_ERR(0, 178, __pyx_L1_error)
     __Pyx_GIVEREF(__pyx_t_2);
     __Pyx_GOTREF((PyObject *)__pyx_v_self->_side_data);
     __Pyx_DECREF((PyObject *)__pyx_v_self->_side_data);
     __pyx_v_self->_side_data = ((struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer *)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "av/frame.py":176
+    /* "av/frame.py":177
  *     @property
  *     def side_data(self):
  *         if self._side_data is None:             # <<<<<<<<<<<<<<
@@ -5099,7 +5089,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9side_data___get__(struct __pyx_obj_
 */
   }
 
-  /* "av/frame.py":178
+  /* "av/frame.py":179
  *         if self._side_data is None:
  *             self._side_data = SideDataContainer(self)
  *         return self._side_data             # <<<<<<<<<<<<<<
@@ -5111,7 +5101,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9side_data___get__(struct __pyx_obj_
   __pyx_r = ((PyObject *)__pyx_v_self->_side_data);
   goto __pyx_L0;
 
-  /* "av/frame.py":174
+  /* "av/frame.py":175
  *             self.ptr.flags &= ~lib.AV_FRAME_FLAG_KEY
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5132,7 +5122,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_9side_data___get__(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "av/frame.py":180
+/* "av/frame.py":181
  *         return self._side_data
  * 
  *     def make_writable(self):             # <<<<<<<<<<<<<<
@@ -5192,7 +5182,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_6make_writable(struct __pyx_obj_2av_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("make_writable", 0);
 
-  /* "av/frame.py":185
+  /* "av/frame.py":186
  *         This is a wrapper around :ffmpeg:`av_frame_make_writable`.
  *         """
  *         ret: cython.int = lib.av_frame_make_writable(self.ptr)             # <<<<<<<<<<<<<<
@@ -5201,16 +5191,16 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_6make_writable(struct __pyx_obj_2av_
 */
   __pyx_v_ret = av_frame_make_writable(__pyx_v_self->ptr);
 
-  /* "av/frame.py":186
+  /* "av/frame.py":187
  *         """
  *         ret: cython.int = lib.av_frame_make_writable(self.ptr)
  *         err_check(ret)             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __pyx_f_2av_5error_err_check(__pyx_v_ret, 0, NULL); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 186, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_5error_err_check(__pyx_v_ret, 0, NULL); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 187, __pyx_L1_error)
 
-  /* "av/frame.py":180
+  /* "av/frame.py":181
  *         return self._side_data
  * 
  *     def make_writable(self):             # <<<<<<<<<<<<<<
@@ -5230,7 +5220,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_6make_writable(struct __pyx_obj_2av_
   return __pyx_r;
 }
 
-/* "av/frame.py":188
+/* "av/frame.py":189
  *         err_check(ret)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5263,7 +5253,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_6opaque___get__(struct __pyx_obj_2av
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/frame.py":190
+  /* "av/frame.py":191
  *     @property
  *     def opaque(self):
  *         if self.ptr.opaque_ref is not cython.NULL:             # <<<<<<<<<<<<<<
@@ -5273,7 +5263,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_6opaque___get__(struct __pyx_obj_2av
   __pyx_t_1 = (__pyx_v_self->ptr->opaque_ref != NULL);
   if (__pyx_t_1) {
 
-    /* "av/frame.py":191
+    /* "av/frame.py":192
  *     def opaque(self):
  *         if self.ptr.opaque_ref is not cython.NULL:
  *             return opaque_container.get(             # <<<<<<<<<<<<<<
@@ -5282,20 +5272,20 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_6opaque___get__(struct __pyx_obj_2av
 */
     __Pyx_XDECREF(__pyx_r);
 
-    /* "av/frame.py":192
+    /* "av/frame.py":193
  *         if self.ptr.opaque_ref is not cython.NULL:
  *             return opaque_container.get(
  *                 cython.cast(cython.p_char, self.ptr.opaque_ref.data)             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-    __pyx_t_2 = ((struct __pyx_vtabstruct_2av_6opaque_OpaqueContainer *)__pyx_v_2av_6opaque_opaque_container->__pyx_vtab)->get(__pyx_v_2av_6opaque_opaque_container, ((char *)__pyx_v_self->ptr->opaque_ref->data)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 191, __pyx_L1_error)
+    __pyx_t_2 = ((struct __pyx_vtabstruct_2av_6opaque_OpaqueContainer *)__pyx_v_2av_6opaque_opaque_container->__pyx_vtab)->get(__pyx_v_2av_6opaque_opaque_container, ((char *)__pyx_v_self->ptr->opaque_ref->data)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 192, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "av/frame.py":190
+    /* "av/frame.py":191
  *     @property
  *     def opaque(self):
  *         if self.ptr.opaque_ref is not cython.NULL:             # <<<<<<<<<<<<<<
@@ -5304,7 +5294,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_6opaque___get__(struct __pyx_obj_2av
 */
   }
 
-  /* "av/frame.py":188
+  /* "av/frame.py":189
  *         err_check(ret)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5325,7 +5315,7 @@ static PyObject *__pyx_pf_2av_5frame_5Frame_6opaque___get__(struct __pyx_obj_2av
   return __pyx_r;
 }
 
-/* "av/frame.py":195
+/* "av/frame.py":196
  *             )
  * 
  *     @opaque.setter             # <<<<<<<<<<<<<<
@@ -5356,7 +5346,7 @@ static int __pyx_pf_2av_5frame_5Frame_6opaque_2__set__(struct __pyx_obj_2av_5fra
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "av/frame.py":197
+  /* "av/frame.py":198
  *     @opaque.setter
  *     def opaque(self, v):
  *         lib.av_buffer_unref(cython.address(self.ptr.opaque_ref))             # <<<<<<<<<<<<<<
@@ -5365,7 +5355,7 @@ static int __pyx_pf_2av_5frame_5Frame_6opaque_2__set__(struct __pyx_obj_2av_5fra
 */
   av_buffer_unref((&__pyx_v_self->ptr->opaque_ref));
 
-  /* "av/frame.py":199
+  /* "av/frame.py":200
  *         lib.av_buffer_unref(cython.address(self.ptr.opaque_ref))
  * 
  *         if v is not None:             # <<<<<<<<<<<<<<
@@ -5374,15 +5364,15 @@ static int __pyx_pf_2av_5frame_5Frame_6opaque_2__set__(struct __pyx_obj_2av_5fra
   __pyx_t_1 = (__pyx_v_v != Py_None);
   if (__pyx_t_1) {
 
-    /* "av/frame.py":200
+    /* "av/frame.py":201
  * 
  *         if v is not None:
  *             self.ptr.opaque_ref = opaque_container.add(v)             # <<<<<<<<<<<<<<
 */
-    __pyx_t_2 = ((struct __pyx_vtabstruct_2av_6opaque_OpaqueContainer *)__pyx_v_2av_6opaque_opaque_container->__pyx_vtab)->add(__pyx_v_2av_6opaque_opaque_container, __pyx_v_v); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 200, __pyx_L1_error)
+    __pyx_t_2 = ((struct __pyx_vtabstruct_2av_6opaque_OpaqueContainer *)__pyx_v_2av_6opaque_opaque_container->__pyx_vtab)->add(__pyx_v_2av_6opaque_opaque_container, __pyx_v_v); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 201, __pyx_L1_error)
     __pyx_v_self->ptr->opaque_ref = __pyx_t_2;
 
-    /* "av/frame.py":199
+    /* "av/frame.py":200
  *         lib.av_buffer_unref(cython.address(self.ptr.opaque_ref))
  * 
  *         if v is not None:             # <<<<<<<<<<<<<<
@@ -5390,7 +5380,7 @@ static int __pyx_pf_2av_5frame_5Frame_6opaque_2__set__(struct __pyx_obj_2av_5fra
 */
   }
 
-  /* "av/frame.py":195
+  /* "av/frame.py":196
  *             )
  * 
  *     @opaque.setter             # <<<<<<<<<<<<<<
@@ -6109,7 +6099,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) __PYX_ERR(9, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(10, 16, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(10, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_4core_Container = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.container.core", "Container",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -6119,8 +6109,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_4core_Container), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_9container_4core_Container),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(10, 16, __pyx_L1_error)
-  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(10, 16, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(10, 17, __pyx_L1_error)
+  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(10, 17, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.index"); if (unlikely(!__pyx_t_1)) __PYX_ERR(11, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -6223,7 +6213,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer) __PYX_ERR(14, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.opaque"); if (unlikely(!__pyx_t_1)) __PYX_ERR(15, 8, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.opaque"); if (unlikely(!__pyx_t_1)) __PYX_ERR(15, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6opaque_OpaqueContainer = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.opaque", "OpaqueContainer",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -6233,8 +6223,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6opaque_OpaqueContainer), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6opaque_OpaqueContainer),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6opaque_OpaqueContainer) __PYX_ERR(15, 8, __pyx_L1_error)
-  __pyx_vtabptr_2av_6opaque_OpaqueContainer = (struct __pyx_vtabstruct_2av_6opaque_OpaqueContainer*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6opaque_OpaqueContainer); if (unlikely(!__pyx_vtabptr_2av_6opaque_OpaqueContainer)) __PYX_ERR(15, 8, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6opaque_OpaqueContainer) __PYX_ERR(15, 4, __pyx_L1_error)
+  __pyx_vtabptr_2av_6opaque_OpaqueContainer = (struct __pyx_vtabstruct_2av_6opaque_OpaqueContainer*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6opaque_OpaqueContainer); if (unlikely(!__pyx_vtabptr_2av_6opaque_OpaqueContainer)) __PYX_ERR(15, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_RefNannyFinishContext();
   return 0;

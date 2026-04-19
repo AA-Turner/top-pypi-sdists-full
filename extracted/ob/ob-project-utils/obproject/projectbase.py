@@ -167,10 +167,10 @@ class ProjectContext:
             print(f"Asset client: {self.project}/{self.write_branch} (read-write)")
 
     def publish_event(self, name, payload=None):
-        ProjectEvent(name, project=self.project, branch=self.branch).publish(payload)
+        ProjectEvent(name, project=self.project, branch=self.write_branch).publish(payload)
 
     def safe_publish_event(self, name, payload=None):
-        ProjectEvent(name, project=self.project, branch=self.branch).safe_publish(
+        ProjectEvent(name, project=self.project, branch=self.write_branch).safe_publish(
             payload
         )
 

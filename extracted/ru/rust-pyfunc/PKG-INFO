@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rust_pyfunc
-Version: 0.75.4
+Version: 0.75.5
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

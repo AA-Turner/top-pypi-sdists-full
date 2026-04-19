@@ -82,11 +82,22 @@ class TestAskUserHandler:
         assert "RuntimeError" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_cancel_sentinel_returns_cancelled(self) -> None:
-        """Empty string from callback means user cancelled."""
+    async def test_callback_empty_string_is_real_answer(self) -> None:
+        """Empty string from callback is a real submission, not a cancel."""
 
         async def callback(question: str, options: list[str] | None = None) -> str:
             return ""
+
+        result = await handle(question="What?", _ask_callback=callback)
+        assert result == {"answer": ""}
+        assert "cancelled" not in result
+
+    @pytest.mark.asyncio
+    async def test_callback_none_returns_cancelled(self) -> None:
+        """None from callback is the cancel sentinel."""
+
+        async def callback(question: str, options: list[str] | None = None) -> str | None:
+            return None
 
         result = await handle(question="What?", _ask_callback=callback)
         assert result["cancelled"] is True

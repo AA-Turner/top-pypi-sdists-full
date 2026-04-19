@@ -7,19 +7,22 @@ from starlette.requests import HTTPConnection
 from taskiq import AsyncBroker, TaskiqEvents, TaskiqState
 from taskiq.cli.utils import import_object
 
+PathOrAppOrFactory = str | FastAPI | Callable[[], FastAPI]
+
 
 def startup_event_generator(
     broker: AsyncBroker,
-    app_or_path: str | FastAPI,
+    app_or_path: PathOrAppOrFactory,
 ) -> Callable[[TaskiqState], Awaitable[None]]:
     """
-    Generate shutdown event.
+    Generate startup event handler.
 
     This function takes FastAPI application path
     and runs startup event on broker's startup.
 
     :param broker: current broker.
-    :param app_path: fastapi application path.
+    :param app_or_path: application path or fastapi instance
+        or callable that creates fastapi app instance.
     :returns: startup handler.
     """
 
@@ -38,7 +41,6 @@ def startup_event_generator(
             raise ValueError(f"'{app_or_path}' is not a FastAPI application.")
 
         state.fastapi_app = app
-        await app.router.startup()
         state.lf_ctx = app.router.lifespan_context(app)
         asgi_state = await state.lf_ctx.__aenter__()
         populate_dependency_context(broker, app, asgi_state)
@@ -50,7 +52,7 @@ def shutdown_event_generator(
     broker: AsyncBroker,
 ) -> Callable[[TaskiqState], Awaitable[None]]:
     """
-    Generate shutdown event.
+    Generate shutdown event handler.
 
     This function takes FastAPI application
     and runs shutdown event on broker's shutdown.
@@ -62,13 +64,12 @@ def shutdown_event_generator(
     async def shutdown(state: TaskiqState) -> None:
         if not broker.is_worker_process:
             return
-        await state.fastapi_app.router.shutdown()
         await state.lf_ctx.__aexit__(None, None, None)
 
     return shutdown
 
 
-def init(broker: AsyncBroker, app_or_path: str | FastAPI) -> None:
+def init(broker: AsyncBroker, app_or_path: PathOrAppOrFactory) -> None:
     """
     Add taskiq startup events.
 
@@ -80,7 +81,8 @@ def init(broker: AsyncBroker, app_or_path: str | FastAPI) -> None:
     startup events will run.
 
     :param broker: current broker to use.
-    :param app_path: path to fastapi application.
+    :param app_or_path: application path or fastapi instance
+        or callable that creates fastapi app instance.
     """
     broker.add_event_handler(
         TaskiqEvents.WORKER_STARTUP,
@@ -104,7 +106,7 @@ def populate_dependency_context(
     This function injects the Request and HTTPConnection
     into the broker's dependency context.
 
-    It may be need to be called manually if you are using InMemoryBroker.
+    It may be needed to be called manually if you are using InMemoryBroker.
 
     :param broker: current broker to use.
     :param app: current application.

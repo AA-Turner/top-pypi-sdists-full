@@ -32,12 +32,7 @@ def generate_updated_pep_621_project(data: TOMLDocument, bricks_to_add: dict) ->
         copy['tool']['polylith']['bricks'][k] = v
     return tomlkit.dumps(copy)
 
-def generate_updated_pdm_project(data: TOMLDocument, packages: List[dict]) -> str:
-    bricks_to_add: dict = reduce(to_key_value_include, packages, {})
-    return generate_updated_pep_621_project(data, bricks_to_add)
-
-def generate_updated_hatch_project(data: TOMLDocument, packages: List[dict]) -> str:
-    bricks_to_add: dict = reduce(to_key_value_include, packages, {})
+def generate_updated_hatch_project(data: TOMLDocument, bricks_to_add: dict) -> str:
     has_polylith = data.get('tool', {}).get('polylith', {}).get('bricks')
     has_hatch = data.get('tool', {}).get('hatch', {}).get('build', {}).get('force-include')
     if not has_polylith and has_hatch:
@@ -57,12 +52,13 @@ def generate_updated_poetry_project(data: TOMLDocument, packages: List[dict]) ->
     return tomlkit.dumps(copy)
 
 def generate_updated_project(data: TOMLDocument, packages: List[dict]) -> Union[str, None]:
+    bricks_to_add: dict = reduce(to_key_value_include, packages, {})
+    if repo.is_hatch(data):
+        return generate_updated_hatch_project(data, bricks_to_add)
+    if repo.is_pep_621_ready(data):
+        return generate_updated_pep_621_project(data, bricks_to_add)
     if repo.is_poetry(data):
         return generate_updated_poetry_project(data, packages)
-    if repo.is_hatch(data):
-        return generate_updated_hatch_project(data, packages)
-    if repo.is_pdm(data):
-        return generate_updated_pdm_project(data, packages)
     return None
 
 def to_packages(root: Path, namespace: str, diff: dict) -> List[dict]:

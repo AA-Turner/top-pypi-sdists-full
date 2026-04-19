@@ -366,6 +366,83 @@ class SkillsConfig:
 
 
 @dataclass
+class CompactionConfig:
+    """Shared configuration for conversation history compaction (#1412, #1413).
+
+    Owned by the compaction service (``services/compaction.py``).  Both the
+    shared agent loop's auto-compact path and the CLI ``/compact`` command
+    read from this config.
+    """
+
+    preserve_tail: int = 6
+    """Recent messages preserved intact during compaction.
+
+    When > 0, only the older portion of the conversation is summarised and
+    the trailing N messages are kept verbatim, with walk-back rules to
+    guarantee provider-safe ordering (see ``_find_tail_boundary``).  When 0,
+    compaction reverts to the legacy full-summary behaviour.
+
+    Clamped to ``[0, 200]`` at load time to guard against misconfiguration
+    silently defeating compaction.
+    """
+
+    compact_rehydrate: bool = True
+    """Append a bounded ``<session_state>`` block to compaction summaries (#1414).
+
+    When True, the shared compaction service scans the messages being
+    summarised and appends a deterministic block listing recently touched
+    files, the last working directory, and unresolved tool errors.  When
+    False, the summary prose is the only source of post-compact state.
+    """
+
+    compact_rehydrate_max_files: int = 20
+    """Max file paths preserved per category (read/written/edited) in the
+    ``<session_state>`` block.  Most recent entries are kept, deduplicated.
+    Clamped to ``[0, 200]`` at load time."""
+
+    compact_rehydrate_max_errors: int = 5
+    """Max unresolved tool errors preserved in the ``<session_state>`` block.
+    Most recent entries are kept.  Clamped to ``[0, 50]`` at load time."""
+
+    microcompact_enabled: bool = True
+    """Enable the proactive microcompact stage (#1266).
+
+    When True, the agent loop runs a cheap, deterministic, in-memory
+    history sweep before each LLM call. Phase 1 ships one strategy —
+    oversized-tool-output trimming — that reads
+    ``cli.tool_output_max_chars`` (the single trim-threshold authority,
+    shared with reactive Strategy 1). Microcompact runs in-memory only;
+    it never writes to SQLite."""
+
+    summary_trigger_msg_count: int = 80
+    """Message-count threshold that triggers proactive summary compaction.
+
+    When ``len(messages)`` reaches this value, the agent loop fires the
+    LLM-backed summary compaction path. Clamped to ``[10, 1000]`` at
+    load time. Legacy module constant
+    ``services.compaction.PROACTIVE_COMPACTION_MSG_THRESHOLD`` reads
+    from this field for backward compatibility."""
+
+    summary_trigger_token_count: int = 90_000
+    """Estimated-token threshold that triggers proactive summary compaction.
+
+    When the estimated prompt token count reaches this value, the agent
+    loop fires the LLM-backed summary compaction path. Clamped to
+    ``[5_000, 500_000]`` at load time. Legacy module constant
+    ``services.compaction.PROACTIVE_COMPACTION_TOKEN_THRESHOLD`` reads
+    from this field for backward compatibility."""
+
+    reactive_max_attempts: int = 4
+    """Max bounded retries after a ``context_length_exceeded`` error.
+
+    The reactive overflow ladder (#1415) at ``services/agent_loop.py``
+    cycles through its four strategies at most this many times before
+    giving up. Clamped to ``[0, 10]`` at load time. ``0`` disables
+    reactive recovery entirely (not recommended — the loop will
+    surface the original provider error)."""
+
+
+@dataclass
 class CliConfig:
     theme: str = "midnight"
     builtin_tools: bool = True
@@ -389,6 +466,7 @@ class CliConfig:
     detach_suggest_seconds: int = 120  # advisory threshold for detached subagents (0 = disabled)
     update_check: bool = True  # check PyPI for newer versions on startup
     update_check_command: str = ""  # custom command returning latest version (replaces pip index)
+    show_attribution_footer: bool = True  # compact per-turn attribution line in CLI (#923)
     planning: PlanningConfig = field(default_factory=PlanningConfig)
     usage: UsageConfig = field(default_factory=UsageConfig)
     skills: SkillsConfig = field(default_factory=SkillsConfig)
@@ -801,6 +879,8 @@ class AuditConfig:
             "tool_calls": True,
             "dlp": True,
             "output_filter": True,
+            "workflow": True,
+            "memory": True,
         }
     )
 
@@ -825,12 +905,34 @@ class MemoryPromotionConfig:
 
 
 @dataclass
+class MemoryRetentionConfig:
+    """Memory-artifact retention / eviction policy (#625).
+
+    Defaults are conservative: ``enabled=False`` means the retention
+    worker performs no memory eviction at all — zero-config does not
+    delete memories. The pin flag (``pinned: True`` on a memory's
+    metadata) is load-bearing and always honoured unless
+    ``respect_pins=False``. A ``min_age_days`` grace floor prevents an
+    ``idle_days`` rule from immediately evicting freshly-approved
+    memories.
+    """
+
+    enabled: bool = False  # opt-in; default no eviction
+    max_age_days: int | None = None  # purge memories older than N days; None = off
+    idle_days: int | None = None  # purge memories not recalled in N days; None = off
+    min_age_days: int = 1  # idle-rule grace floor against freshly-approved memories
+    purge_statuses: list[str] = field(default_factory=lambda: ["rejected"])
+    respect_pins: bool = True  # pinned memories skipped unless False
+
+
+@dataclass
 class MemoryConfig:
-    """Memory subsystem settings. Currently only the promotion sub-config
-    (#920) lives here; recall, storage, and lifecycle settings can grow in
-    place without restructuring the config tree."""
+    """Memory subsystem settings. Currently promotion (#920) and
+    retention (#625) live here; recall, storage, and lifecycle settings
+    can grow in place without restructuring the config tree."""
 
     promotion: MemoryPromotionConfig = field(default_factory=MemoryPromotionConfig)
+    retention: MemoryRetentionConfig = field(default_factory=MemoryRetentionConfig)
 
 
 @dataclass
@@ -1042,6 +1144,7 @@ class AppConfig:
     mcp_tool_warning_threshold: int = 40  # warn when total MCP tools exceed this; 0 = disabled
     shared_databases: list[SharedDatabaseConfig] = field(default_factory=list)
     cli: CliConfig = field(default_factory=CliConfig)
+    compaction: CompactionConfig = field(default_factory=CompactionConfig)
     identity: UserIdentity | None = None
     references: ReferencesConfig = field(default_factory=ReferencesConfig)
     embeddings: EmbeddingsConfig = field(default_factory=EmbeddingsConfig)
@@ -1783,6 +1886,13 @@ def load_config(
         detach_suggest_seconds=detach_suggest_seconds,
         update_check=update_check,
         update_check_command=update_check_command,
+        show_attribution_footer=str(
+            os.environ.get(
+                "AI_CHAT_SHOW_ATTRIBUTION_FOOTER",
+                cli_raw.get("show_attribution_footer", True),
+            )
+        ).lower()
+        not in ("false", "0", "no"),
         planning=planning_config,
         usage=usage_config,
         skills=skills_config,
@@ -2100,6 +2210,130 @@ def load_config(
         tool_rate_limit=tool_rate_limit_config,
         dlp=dlp_config,
         output_filter=output_filter_config,
+    )
+
+    # Compaction config (#1413)
+    compaction_raw = raw.get("compaction", {})
+    if not isinstance(compaction_raw, dict):
+        compaction_raw = {}
+    # Backward-compat: tolerate the old CLI-nested key until existing configs
+    # are migrated.  Precedence: explicit `compaction.preserve_tail` wins,
+    # then `cli.compact_preserve_tail`, then env, then default.
+    _legacy_cli_preserve = cli_raw.get("compact_preserve_tail")
+    try:
+        # Clamped to [0, 200] to guard against misconfiguration silently
+        # defeating compaction (e.g. AI_CHAT_COMPACT_PRESERVE_TAIL=999999).
+        preserve_tail_raw = compaction_raw.get(
+            "preserve_tail",
+            _legacy_cli_preserve
+            if _legacy_cli_preserve is not None
+            else os.environ.get("AI_CHAT_COMPACT_PRESERVE_TAIL", 6),
+        )
+        preserve_tail = max(0, min(200, int(preserve_tail_raw)))
+    except (ValueError, TypeError):
+        preserve_tail = 6
+    # Rehydration config (#1414).  Precedence: YAML wins, then env, then default.
+    _rehydrate_raw = compaction_raw.get(
+        "compact_rehydrate",
+        os.environ.get("AI_CHAT_COMPACT_REHYDRATE", "true"),
+    )
+    compact_rehydrate = str(_rehydrate_raw).lower() not in ("false", "0", "no", "off")
+    try:
+        compact_rehydrate_max_files = max(
+            0,
+            min(
+                200,
+                int(
+                    compaction_raw.get(
+                        "compact_rehydrate_max_files",
+                        os.environ.get("AI_CHAT_COMPACT_REHYDRATE_MAX_FILES", 20),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        compact_rehydrate_max_files = 20
+    try:
+        compact_rehydrate_max_errors = max(
+            0,
+            min(
+                50,
+                int(
+                    compaction_raw.get(
+                        "compact_rehydrate_max_errors",
+                        os.environ.get("AI_CHAT_COMPACT_REHYDRATE_MAX_ERRORS", 5),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        compact_rehydrate_max_errors = 5
+
+    # Proactive microcompact toggle (#1266).  YAML wins, then env, then default.
+    _microcompact_raw = compaction_raw.get(
+        "microcompact_enabled",
+        os.environ.get("AI_CHAT_MICROCOMPACT_ENABLED", "true"),
+    )
+    microcompact_enabled = str(_microcompact_raw).lower() not in ("false", "0", "no", "off")
+
+    # Summary compaction triggers (#1266 — promoted from hardcoded constants).
+    try:
+        summary_trigger_msg_count = max(
+            10,
+            min(
+                1000,
+                int(
+                    compaction_raw.get(
+                        "summary_trigger_msg_count",
+                        os.environ.get("AI_CHAT_SUMMARY_TRIGGER_MSG_COUNT", 80),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        summary_trigger_msg_count = 80
+    try:
+        summary_trigger_token_count = max(
+            5_000,
+            min(
+                500_000,
+                int(
+                    compaction_raw.get(
+                        "summary_trigger_token_count",
+                        os.environ.get("AI_CHAT_SUMMARY_TRIGGER_TOKEN_COUNT", 90_000),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        summary_trigger_token_count = 90_000
+
+    # Reactive overflow ladder retry cap (#1266 — promoted from hardcoded constant).
+    try:
+        reactive_max_attempts = max(
+            0,
+            min(
+                10,
+                int(
+                    compaction_raw.get(
+                        "reactive_max_attempts",
+                        os.environ.get("AI_CHAT_REACTIVE_MAX_ATTEMPTS", 4),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        reactive_max_attempts = 4
+
+    compaction_config = CompactionConfig(
+        preserve_tail=preserve_tail,
+        compact_rehydrate=compact_rehydrate,
+        compact_rehydrate_max_files=compact_rehydrate_max_files,
+        compact_rehydrate_max_errors=compact_rehydrate_max_errors,
+        microcompact_enabled=microcompact_enabled,
+        summary_trigger_msg_count=summary_trigger_msg_count,
+        summary_trigger_token_count=summary_trigger_token_count,
+        reactive_max_attempts=reactive_max_attempts,
     )
 
     # RAG config
@@ -2542,6 +2776,73 @@ def load_config(
         )
     except (ValueError, TypeError):
         mem_max_reject_reason_chars = 500
+    # Memory retention (#625) policy
+    retention_raw = memory_raw.get("retention", {})
+    if not isinstance(retention_raw, dict):
+        retention_raw = {}
+
+    ret_enabled = str(
+        retention_raw.get(
+            "enabled",
+            os.environ.get("AI_CHAT_MEMORY_RETENTION_ENABLED", "false"),
+        )
+    ).lower() in ("true", "1", "yes")
+    ret_respect_pins = str(
+        retention_raw.get(
+            "respect_pins",
+            os.environ.get("AI_CHAT_MEMORY_RETENTION_RESPECT_PINS", "true"),
+        )
+    ).lower() not in ("false", "0", "no")
+
+    def _opt_positive_int(
+        yaml_val: Any,
+        env_name: str,
+    ) -> int | None:
+        raw_val = yaml_val if yaml_val is not None else os.environ.get(env_name)
+        if raw_val is None or raw_val == "":
+            return None
+        try:
+            parsed = int(raw_val)
+        except (TypeError, ValueError):
+            return None
+        return parsed if parsed > 0 else None
+
+    ret_max_age_days = _opt_positive_int(
+        retention_raw.get("max_age_days"),
+        "AI_CHAT_MEMORY_RETENTION_MAX_AGE_DAYS",
+    )
+    ret_idle_days = _opt_positive_int(
+        retention_raw.get("idle_days"),
+        "AI_CHAT_MEMORY_RETENTION_IDLE_DAYS",
+    )
+
+    try:
+        ret_min_age_days = max(
+            0,
+            int(
+                retention_raw.get(
+                    "min_age_days",
+                    os.environ.get("AI_CHAT_MEMORY_RETENTION_MIN_AGE_DAYS", 1),
+                )
+            ),
+        )
+    except (ValueError, TypeError):
+        ret_min_age_days = 1
+
+    # Accept a list from YAML or a comma-separated string from the env.
+    _raw_purge_statuses = retention_raw.get(
+        "purge_statuses",
+        os.environ.get("AI_CHAT_MEMORY_RETENTION_PURGE_STATUSES"),
+    )
+    if isinstance(_raw_purge_statuses, list):
+        _candidates = [str(v).strip() for v in _raw_purge_statuses if str(v).strip()]
+    elif isinstance(_raw_purge_statuses, str) and _raw_purge_statuses.strip():
+        _candidates = [s.strip() for s in _raw_purge_statuses.split(",") if s.strip()]
+    else:
+        _candidates = ["rejected"]
+    _valid_statuses = {"active", "candidate", "pending_review", "rejected", "archived"}
+    ret_purge_statuses = [s for s in _candidates if s in _valid_statuses] or ["rejected"]
+
     memory_config = MemoryConfig(
         promotion=MemoryPromotionConfig(
             default_review_state=mem_default_review_state,
@@ -2550,7 +2851,15 @@ def load_config(
             max_lineage_entries=mem_max_lineage_entries,
             max_candidates_per_conversation=mem_max_candidates_per_conversation,
             max_reject_reason_chars=mem_max_reject_reason_chars,
-        )
+        ),
+        retention=MemoryRetentionConfig(
+            enabled=ret_enabled,
+            max_age_days=ret_max_age_days,
+            idle_days=ret_idle_days,
+            min_age_days=ret_min_age_days,
+            purge_statuses=ret_purge_statuses,
+            respect_pins=ret_respect_pins,
+        ),
     )
 
     # Codebase index config
@@ -2778,6 +3087,7 @@ def load_config(
             mcp_tool_warning_threshold=mcp_tool_warning_threshold,
             shared_databases=shared_databases,
             cli=cli_config,
+            compaction=compaction_config,
             identity=identity,
             embeddings=embeddings_config,
             safety=safety_config,

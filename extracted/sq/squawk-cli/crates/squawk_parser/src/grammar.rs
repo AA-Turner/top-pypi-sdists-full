@@ -2752,6 +2752,7 @@ fn select(p: &mut Parser, m: Option<Marker>, r: &SelectRestrictions) -> Option<C
     }
     opt_from_clause(p);
     opt_where_clause(p);
+    opt_misplaced_joins(p);
     opt_group_by_clause(p);
     opt_having_clause(p);
     opt_window_clause(p);
@@ -3465,6 +3466,16 @@ fn join(p: &mut Parser<'_>) {
     m.complete(p, JOIN);
 }
 
+// Improve error recovery for wrong joins
+fn opt_misplaced_joins(p: &mut Parser<'_>) {
+    while p.at_ts(JOIN_FIRST) {
+        let m = p.start();
+        p.error("JOINs must appear before WHERE");
+        join(p);
+        m.complete(p, ERROR);
+    }
+}
+
 fn on_clause(p: &mut Parser<'_>) {
     assert!(p.at(ON_KW));
     let m = p.start();
@@ -3615,6 +3626,7 @@ fn opt_sequence_options(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     }
 }
 
+#[derive(Clone, Copy)]
 enum ColumnDefKind {
     Name,
     NameRef,
@@ -3643,7 +3655,7 @@ fn opt_column_list_with(p: &mut Parser<'_>, kind: ColumnDefKind) -> bool {
         if !p.at_ts(COLUMN_FIRST) {
             break;
         }
-        column(p, &kind);
+        column(p, kind);
         if p.at(COMMA) && p.nth_at(1, R_PAREN) {
             p.err_and_bump("unexpected trailing comma");
         }
@@ -3661,7 +3673,7 @@ fn opt_column_list_with(p: &mut Parser<'_>, kind: ColumnDefKind) -> bool {
     return true;
 }
 
-fn column(p: &mut Parser<'_>, kind: &ColumnDefKind) -> CompletedMarker {
+fn column(p: &mut Parser<'_>, kind: ColumnDefKind) -> CompletedMarker {
     assert!(p.at_ts(COLUMN_FIRST));
     let m = p.start();
     match kind {
@@ -8523,7 +8535,7 @@ fn opt_vertex_table_def(p: &mut Parser<'_>) -> bool {
 
 fn opt_key_columns(p: &mut Parser<'_>) {
     if p.eat(KEY_KW) {
-        opt_column_list_with(p, ColumnDefKind::Name);
+        opt_column_list_with(p, ColumnDefKind::NameRef);
     }
 }
 
@@ -8572,7 +8584,7 @@ fn opt_element_table_properties_clause(p: &mut Parser<'_>) -> bool {
             ALL_PROPERTIES
         } else {
             expr_as_name_list(p);
-            PROPERTIES_LIST
+            PROPERTIES
         }
     };
     m.complete(p, kind);
@@ -8620,18 +8632,24 @@ fn opt_edge_table_def(p: &mut Parser<'_>) -> bool {
     true
 }
 
+fn references_table(p: &mut Parser<'_>) {
+    let m = p.start();
+    p.expect(REFERENCES_KW);
+    name_ref(p);
+    opt_column_list_with(p, ColumnDefKind::NameRef);
+    m.complete(p, REFERENCES_TABLE);
+}
+
 // SOURCE KEY (a, b) REFERENCES t (c, d)
 // SOURCE t
 fn source_vertex_table(p: &mut Parser<'_>) {
     let m = p.start();
     p.expect(SOURCE_KW);
     if p.eat(KEY_KW) {
-        opt_column_list_with(p, ColumnDefKind::Name);
-        p.expect(REFERENCES_KW);
-        name_ref(p);
-        opt_column_list_with(p, ColumnDefKind::Name);
+        opt_column_list_with(p, ColumnDefKind::NameRef);
+        references_table(p);
     } else {
-        name(p);
+        name_ref(p);
     }
     m.complete(p, SOURCE_VERTEX_TABLE);
 }
@@ -8642,12 +8660,10 @@ fn dest_vertex_table(p: &mut Parser<'_>) {
     let m = p.start();
     p.expect(DESTINATION_KW);
     if p.eat(KEY_KW) {
-        opt_column_list_with(p, ColumnDefKind::Name);
-        p.expect(REFERENCES_KW);
-        name_ref(p);
-        opt_column_list_with(p, ColumnDefKind::Name);
+        opt_column_list_with(p, ColumnDefKind::NameRef);
+        references_table(p);
     } else {
-        name(p);
+        name_ref(p);
     }
     m.complete(p, DEST_VERTEX_TABLE);
 }
@@ -12839,11 +12855,6 @@ fn drop_schema(p: &mut Parser<'_>) -> CompletedMarker {
 }
 
 // An SQL statement defining an object to be created within the schema.
-//
-// Currently, only CREATE TABLE, CREATE VIEW, CREATE INDEX, CREATE SEQUENCE,
-// CREATE TRIGGER and GRANT are accepted as clauses within CREATE SCHEMA. Other
-// kinds of objects may be created in separate commands after the schema is
-// created.
 fn opt_schema_elements(p: &mut Parser<'_>) {
     while !p.at(EOF) {
         match (p.current(), p.nth(1)) {
@@ -12864,9 +12875,11 @@ fn opt_schema_elements(p: &mut Parser<'_>) {
             }
             (CREATE_KW, OR_KW) => {
                 match p.nth(3) {
+                    AGGREGATE_KW => create_aggregate(p),
                     CONSTRAINT_KW | TRIGGER_KW => create_trigger(p),
+                    PROCEDURE_KW => create_procedure(p),
                     RECURSIVE_KW | TEMP_KW | TEMPORARY_KW | VIEW_KW => create_view(p),
-                    _ => return,
+                    _ => create_function(p),
                 };
             }
             (CREATE_KW, RECURSIVE_KW | VIEW_KW) => {
@@ -12883,6 +12896,43 @@ fn opt_schema_elements(p: &mut Parser<'_>) {
             }
             (CREATE_KW, INDEX_KW | UNIQUE_KW) => {
                 create_index(p);
+            }
+            (CREATE_KW, AGGREGATE_KW) => {
+                create_aggregate(p);
+            }
+            (CREATE_KW, COLLATION_KW) => {
+                create_collation(p);
+            }
+            (CREATE_KW, DOMAIN_KW) => {
+                create_domain(p);
+            }
+            (CREATE_KW, FUNCTION_KW) => {
+                create_function(p);
+            }
+            (CREATE_KW, OPERATOR_KW) => {
+                match p.nth(2) {
+                    CLASS_KW => create_operator_class(p),
+                    FAMILY_KW => create_operator_family(p),
+                    _ => create_operator(p),
+                };
+            }
+            (CREATE_KW, PROCEDURE_KW) => {
+                create_procedure(p);
+            }
+            (CREATE_KW, TEXT_KW) if p.nth_at(2, SEARCH_KW) => {
+                match p.nth(3) {
+                    CONFIGURATION_KW => create_text_search_config(p),
+                    DICTIONARY_KW => create_text_search_dict(p),
+                    PARSER_KW => create_text_search_parser(p),
+                    TEMPLATE_KW => create_text_search_template(p),
+                    _ => return,
+                };
+            }
+            (CREATE_KW, TYPE_KW) => {
+                create_type(p);
+            }
+            (GRANT_KW, _) => {
+                grant(p);
             }
             _ => return,
         };
@@ -13134,7 +13184,7 @@ fn opt_set_column(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         Some(m.complete(p, SET_MULTIPLE_COLUMNS))
     } else {
         // column_name = { expression | DEFAULT }
-        column(p, &ColumnDefKind::NameRef);
+        column(p, ColumnDefKind::NameRef);
         p.expect(EQ);
         set_expr(p);
         Some(m.complete(p, SET_SINGLE_COLUMN))
@@ -13704,6 +13754,9 @@ fn param(p: &mut Parser<'_>, kind: ParamKind) {
                     // float8 order by
                     //        ^
                     ORDER_KW => true,
+                    // double precision
+                    //        ^
+                    PRECISION_KW if p.at(DOUBLE_KW) => true,
                     // we're at the end of the param, must be a type
                     R_PAREN | EQ | DEFAULT_KW | COMMA => true,
                     _ => false,
@@ -13960,7 +14013,6 @@ fn opt_ret_type(p: &mut Parser<'_>) {
                 p.error("expected table arg list");
             }
         } else {
-            p.eat(SETOF_KW);
             type_name(p);
         }
         m.complete(p, RET_TYPE);

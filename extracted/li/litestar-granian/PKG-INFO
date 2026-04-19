@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litestar-granian
-Version: 0.14.2
+Version: 0.15.0
 Summary: Granian plugin for Litestar
 Project-URL: Changelog, https://cofin.github.io/litesatr-granian/latest/changelog
 Project-URL: Discord, https://discord.gg/X3FJqy8d2j
@@ -20,15 +20,15 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
-Requires-Dist: granian[pname,reload]>=2.5.0
+Requires-Python: >=3.10
+Requires-Dist: granian[pname,reload]>=2.7.0
 Requires-Dist: httptools
 Requires-Dist: litestar>=2.15.0
 Requires-Dist: websockets

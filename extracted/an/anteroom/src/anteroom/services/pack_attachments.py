@@ -242,37 +242,54 @@ def list_attachments(
     db: ThreadSafeConnection,
     *,
     project_path: str | None = None,
+    space_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """List pack attachments, optionally filtered by project path.
+    """List pack attachments for the given context.
 
-    If *project_path* is given, returns both global and project-specific
-    attachments for that path. If ``None``, returns global attachments only.
+    Scope matrix (rows = what is returned):
+
+    * Neither arg                 → global attachments only (legacy behaviour).
+    * ``project_path``            → global + project-matching attachments.
+    * ``space_id``                → global + attachments for that space.
+    * Both ``space_id`` and       → three-scope union: global + space +
+      ``project_path``              project-matching.
+
     Results are ordered by priority (lower first), then namespace/name.
     """
+    select_clause = (
+        "SELECT pa.id, pa.pack_id, pa.project_path, pa.space_id, pa.scope, "
+        "pa.priority, pa.created_at, p.namespace, p.name, p.version "
+        "FROM pack_attachments pa JOIN packs p ON pa.pack_id = p.id"
+    )
+    order_clause = "ORDER BY pa.priority, p.namespace, p.name"
+    params: tuple[Any, ...]
+
     if project_path is not None:
         project_path = _normalize_project_path(project_path)
-        rows = db.execute(
-            """SELECT pa.id, pa.pack_id, pa.project_path, pa.scope, pa.priority,
-                      pa.created_at, p.namespace, p.name, p.version
-               FROM pack_attachments pa
-               JOIN packs p ON pa.pack_id = p.id
-               WHERE pa.project_path IS NULL
-               OR pa.project_path = ?
-               OR SUBSTR(?, 1, LENGTH(pa.project_path) + 1)
-                  = pa.project_path || '/'
-               ORDER BY pa.priority, p.namespace, p.name""",
-            (project_path, project_path),
-        ).fetchall()
+        if space_id is not None:
+            # Three-scope union.
+            where = (
+                "WHERE (pa.project_path IS NULL AND pa.space_id IS NULL) "
+                "   OR pa.space_id = ? "
+                "   OR pa.project_path = ? "
+                "   OR SUBSTR(?, 1, LENGTH(pa.project_path) + 1) = pa.project_path || '/'"
+            )
+            params = (space_id, project_path, project_path)
+        else:
+            where = (
+                "WHERE (pa.project_path IS NULL AND pa.space_id IS NULL) "
+                "   OR pa.project_path = ? "
+                "   OR SUBSTR(?, 1, LENGTH(pa.project_path) + 1) = pa.project_path || '/'"
+            )
+            params = (project_path, project_path)
+    elif space_id is not None:
+        where = "WHERE (pa.project_path IS NULL AND pa.space_id IS NULL) OR pa.space_id = ?"
+        params = (space_id,)
     else:
-        rows = db.execute(
-            """SELECT pa.id, pa.pack_id, pa.project_path, pa.scope, pa.priority,
-                      pa.created_at, p.namespace, p.name, p.version
-               FROM pack_attachments pa
-               JOIN packs p ON pa.pack_id = p.id
-               WHERE pa.project_path IS NULL
-               ORDER BY pa.priority, p.namespace, p.name"""
-        ).fetchall()
+        where = "WHERE pa.project_path IS NULL AND pa.space_id IS NULL"
+        params = ()
 
+    rows = db.execute(f"{select_clause} {where} {order_clause}", params).fetchall()
     return [_row_to_dict(r) for r in rows]
 
 
@@ -498,7 +515,18 @@ def _row_to_dict(row: Any) -> dict[str, Any]:
     """Convert a DB row to a dict."""
     if isinstance(row, sqlite3.Row):
         return dict(row)
-    keys = ("id", "pack_id", "project_path", "scope", "priority", "created_at", "namespace", "name", "version")
+    keys = (
+        "id",
+        "pack_id",
+        "project_path",
+        "space_id",
+        "scope",
+        "priority",
+        "created_at",
+        "namespace",
+        "name",
+        "version",
+    )
     if isinstance(row, (tuple, list)):
         return {k: v for k, v in zip(keys, row)}
     return dict(row)

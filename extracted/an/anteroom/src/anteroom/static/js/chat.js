@@ -13,6 +13,7 @@ const Chat = (() => {
     let _conversationType = 'chat';
     let _currentRagSources = [];  // per-response RAG source provenance from prompt_meta
     let _currentAttachedSources = [];  // per-response attached source labels from prompt_meta
+    let _currentAttribution = null;  // per-response attribution snapshot from the `attribution` SSE event (#923)
     const _UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
     // Remote collaboration state
@@ -432,6 +433,14 @@ const Chat = (() => {
             case 'budget_warning':
                 showToast(data.message || 'Token budget warning');
                 break;
+            case 'attribution':
+                // #923 — stash the snapshot so finalizeAssistant() can
+                // render the "Why this context?" footer on the message
+                // element once the assistant turn finishes.
+                if (data && data.snapshot && typeof data.snapshot === 'object') {
+                    _currentAttribution = data.snapshot;
+                }
+                break;
             case 'workflow_cancel_requested':
                 hideThinking();
                 if (typeof showToast === 'function') {
@@ -478,6 +487,10 @@ const Chat = (() => {
             _addRagSourcesFooter(currentAssistantEl, _currentRagSources, _currentAttachedSources);
             _currentRagSources = [];
             _currentAttachedSources = [];
+        }
+        if (_currentAttribution) {
+            _addAttributionFooter(currentAssistantEl, _currentAttribution);
+            _currentAttribution = null;
         }
         currentAssistantEl = null;
         currentAssistantContent = '';
@@ -542,6 +555,85 @@ const Chat = (() => {
         details.appendChild(summary);
         details.appendChild(list);
         msgEl.appendChild(details);
+    }
+
+    // #923 — "Why this context?" footer.
+    // All user-derived strings go through textContent, never innerHTML,
+    // so a hostile snapshot value (e.g. <script>...) renders as literal
+    // text. See tests/js/chat_attribution.test.js for the XSS negative.
+    function _addAttributionFooter(msgEl, snapshot) {
+        if (!msgEl || !snapshot || typeof snapshot !== 'object') return;
+
+        const details = document.createElement('details');
+        details.className = 'attribution-footer';
+
+        const summary = document.createElement('summary');
+        summary.className = 'attribution-summary';
+        const parts = [
+            `${(snapshot.turns || []).length} turns`,
+            `${(snapshot.memory || []).length} memories`,
+            `${(snapshot.sources || []).length} sources`,
+            `${(snapshot.tools || []).length} tools`,
+            `${(snapshot.packs || []).length} packs`,
+        ];
+        if (snapshot.dlp_match_count) parts.push(`DLP:${snapshot.dlp_match_count}`);
+        if (snapshot.output_filter_match_count) parts.push(`OF:${snapshot.output_filter_match_count}`);
+        summary.textContent = `Why this context? — ${parts.join(' · ')}`;
+        details.appendChild(summary);
+
+        const body = document.createElement('div');
+        body.className = 'attribution-body';
+        body.appendChild(_attrSection('Recent turns', snapshot.turns, ['message_id', 'role']));
+        body.appendChild(_attrSection('Recalled memories', snapshot.memory, ['fqn', 'scope', 'category']));
+        body.appendChild(_attrSection('RAG sources', snapshot.sources, ['label', 'type']));
+        body.appendChild(_attrSection('Tool calls', snapshot.tools, ['id', 'name']));
+        body.appendChild(_attrSection('Attached packs', snapshot.packs, ['namespace', 'name', 'scope']));
+        details.appendChild(body);
+
+        msgEl.appendChild(details);
+    }
+
+    function _attrSection(title, items, fields) {
+        const section = document.createElement('div');
+        section.className = 'attribution-section';
+
+        const heading = document.createElement('div');
+        heading.className = 'attribution-section-title';
+        heading.textContent = title;
+        section.appendChild(heading);
+
+        const list = Array.isArray(items) ? items : [];
+        if (list.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'attribution-empty';
+            empty.textContent = '(none)';
+            section.appendChild(empty);
+            return section;
+        }
+
+        const ul = document.createElement('ul');
+        ul.className = 'attribution-list';
+        for (const item of list) {
+            const li = document.createElement('li');
+            if (item && typeof item === 'object' && 'truncated' in item) {
+                li.className = 'attribution-more';
+                li.textContent = `+${Number(item.truncated) || 0} more`;
+            } else if (item && typeof item === 'object') {
+                const parts = [];
+                for (const f of fields) {
+                    const v = item[f];
+                    if (v !== undefined && v !== null && v !== '') {
+                        parts.push(String(v));
+                    }
+                }
+                li.textContent = parts.length > 0 ? parts.join(' · ') : '(empty)';
+            } else {
+                li.textContent = '(empty)';
+            }
+            ul.appendChild(li);
+        }
+        section.appendChild(ul);
+        return section;
     }
 
     function renderMarkdown(text) {
@@ -2283,12 +2375,15 @@ const Chat = (() => {
                 });
             }
 
-            // Render persisted RAG source provenance footer
+            // Render persisted RAG source provenance footer + attribution footer (#923)
             if (msg.role === 'assistant' && msg.metadata) {
                 try {
                     const meta = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;
                     if (meta && Array.isArray(meta.rag_sources) && meta.rag_sources.length > 0) {
                         _addRagSourcesFooter(el, meta.rag_sources);
+                    }
+                    if (meta && meta.attribution && typeof meta.attribution === 'object') {
+                        _addAttributionFooter(el, meta.attribution);
                     }
                 } catch (_) { /* ignore malformed metadata */ }
             }
@@ -2560,10 +2655,13 @@ const Chat = (() => {
             input.placeholder = 'Type your answer...';
             input.maxLength = 4096;
             input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && input.value.trim()) {
+                if (e.key === 'Enter') {
                     e.preventDefault();
                     e.stopPropagation();
-                    _respondAskUser(data.ask_id, input.value.trim(), el);
+                    // Empty submit is a real answer ("no content to share"),
+                    // distinct from clicking Cancel. The backend now
+                    // distinguishes the two via the approved flag.
+                    _respondAskUser(data.ask_id, input.value, el);
                 }
             });
             inputRow.appendChild(input);
@@ -2571,9 +2669,7 @@ const Chat = (() => {
             submitBtn.className = 'ask-user-btn ask-user-submit';
             submitBtn.textContent = 'Submit';
             submitBtn.addEventListener('click', () => {
-                if (input.value.trim()) {
-                    _respondAskUser(data.ask_id, input.value.trim(), el);
-                }
+                _respondAskUser(data.ask_id, input.value, el);
             });
             inputRow.appendChild(submitBtn);
             actions.appendChild(inputRow);
@@ -2615,7 +2711,14 @@ const Chat = (() => {
             });
             const status = document.createElement('div');
             status.className = 'ask-user-status';
-            status.textContent = cancelled ? 'Cancelled' : answer;
+            if (cancelled) {
+                status.textContent = 'Cancelled';
+            } else if (answer === '') {
+                status.textContent = '(empty answer)';
+                status.classList.add('ask-user-status-empty');
+            } else {
+                status.textContent = answer;
+            }
             const actionsEl = el.querySelector('.ask-user-actions');
             if (actionsEl) actionsEl.replaceWith(status);
         } catch (err) {
@@ -2691,5 +2794,7 @@ const Chat = (() => {
         updateBgIndicator,
         // Exposed for Vitest (#920 save-as-memory affordance).
         _openSaveMemoryForm: openSaveMemoryForm,
+        // Exposed for Vitest (#923 attribution footer).
+        _addAttributionFooter: _addAttributionFooter,
     };
 })();

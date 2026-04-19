@@ -612,10 +612,15 @@ class EvaluateHandler:
     ) -> Result[MCPToolResult, MCPServerError]:
         """Evaluate each AC individually and return an aggregated checklist (#366).
 
-        Runs the evaluation pipeline once per acceptance criterion in
-        parallel via ``asyncio.gather``.  Per-AC results are then folded
-        into a single ``ACChecklistResult`` so the caller sees one
-        pass/fail checklist with per-item evidence and failure reasons.
+        Stage 1 (mechanical verification — lint/build/test) is AC-agnostic,
+        so we run it exactly once via the first AC's full pipeline call and
+        inject the result into the remaining per-AC evaluations.  Only
+        Stage 2+ (semantic evaluation) is parallelized per AC via
+        ``asyncio.gather``.
+
+        Per-AC results are then folded into a single ``ACChecklistResult``
+        so the caller sees one pass/fail checklist with per-item evidence
+        and failure reasons.
 
         Single-AC callers never reach this path — see ``handle()``.
         """
@@ -628,6 +633,39 @@ class EvaluateHandler:
             format_checklist,
         )
 
+        log.info(
+            "mcp.tool.evaluate.multi_ac_started",
+            session_id=session_id,
+            ac_count=len(acceptance_criteria),
+        )
+
+        # --- Stage 1: run once via the first AC's full pipeline call ---
+        first_context = EvaluationContext(
+            execution_id=session_id,
+            seed_id=seed_id,
+            current_ac=acceptance_criteria[0],
+            artifact=artifact,
+            artifact_type=artifact_type,
+            goal=goal,
+            constraints=constraints,
+            trigger_consensus=trigger_consensus,
+            artifact_bundle=artifact_bundle,
+        )
+        first_result = await pipeline.evaluate(first_context)  # type: ignore[attr-defined]
+        if first_result.is_err:
+            err = first_result.error
+            rendered = err.format_details() if hasattr(err, "format_details") else str(err)
+            return Result.err(
+                MCPToolError(
+                    f"Evaluation failed: {rendered}",
+                    tool_name="ouroboros_evaluate",
+                )
+            )
+
+        # Extract Stage 1 result to share with remaining ACs.
+        shared_stage1 = first_result.value.stage1_result
+
+        # --- Stage 2+: parallelize remaining ACs (Stage 1 injected) ---
         async def _run_one(ac_text: str) -> Result[object, object]:
             context = EvaluationContext(
                 execution_id=session_id,
@@ -640,18 +678,16 @@ class EvaluateHandler:
                 trigger_consensus=trigger_consensus,
                 artifact_bundle=artifact_bundle,
             )
-            return await pipeline.evaluate(context)  # type: ignore[attr-defined]
+            return await pipeline.evaluate(  # type: ignore[attr-defined]
+                context,
+                stage1_result=shared_stage1,
+            )
 
-        log.info(
-            "mcp.tool.evaluate.multi_ac_started",
-            session_id=session_id,
-            ac_count=len(acceptance_criteria),
-        )
-
-        gathered = await asyncio.gather(
-            *(_run_one(ac) for ac in acceptance_criteria),
+        remaining_gathered = await asyncio.gather(
+            *(_run_one(ac) for ac in acceptance_criteria[1:]),
             return_exceptions=True,
         )
+        gathered = (first_result, *remaining_gathered)
 
         # Any exception or err-Result aborts the whole checklist —
         # otherwise we'd aggregate over a half-evaluated set.
@@ -872,6 +908,199 @@ class EvaluateHandler:
                 )
 
         return "\n".join(lines)
+
+
+@dataclass
+class ChecklistVerifyHandler:
+    """Handler for the ``ouroboros_checklist_verify`` tool (#366).
+
+    Given a seed (containing ``acceptance_criteria``) and an execution
+    artifact, this handler routes each AC through the Stage 2 evaluation
+    pipeline and returns an aggregated checklist.  It is intentionally
+    thin — it composes ``EvaluateHandler`` rather than reimplementing
+    pipeline orchestration, so it stays in sync with any future changes
+    to the main evaluator.
+
+    Why this is a separate tool instead of a flag on ``ouroboros_execute_seed``:
+
+    - ``ExecuteSeed`` is already complex (background execution, resume,
+      delegation) and has a stable public contract.  Adding a retry
+      loop inside it would entangle with Ralph mode and the Job system.
+    - This tool lets the *caller* (a human, a ``/ralph`` loop, or a
+      channel workflow) decide when and how to retry.  No decisions
+      are hidden inside background tasks.
+    - It is opt-in: existing callers are unaffected.
+    """
+
+    evaluate_handler: EvaluateHandler | None = field(default=None, repr=False)
+    llm_backend: str | None = field(default=None, repr=False)
+
+    @property
+    def definition(self) -> MCPToolDefinition:
+        """Return the tool definition."""
+        return MCPToolDefinition(
+            name="ouroboros_checklist_verify",
+            description=(
+                "Verify that a Run artifact satisfies every acceptance criterion "
+                "in a Seed.  Returns a per-AC checklist (pass/fail with evidence "
+                "and failure reasons) plus ready-to-use run_feedback strings the "
+                "caller can inject into a re-run prompt.  Does NOT automatically "
+                "re-execute — the caller (Ralph, workflow, or human) decides."
+            ),
+            parameters=(
+                MCPToolParameter(
+                    name="session_id",
+                    type=ToolInputType.STRING,
+                    description="The execution session ID being verified",
+                    required=True,
+                ),
+                MCPToolParameter(
+                    name="seed_content",
+                    type=ToolInputType.STRING,
+                    description=(
+                        "Seed YAML containing acceptance_criteria, goal, constraints. "
+                        "The seed's acceptance_criteria list is evaluated in full."
+                    ),
+                    required=True,
+                ),
+                MCPToolParameter(
+                    name="artifact",
+                    type=ToolInputType.STRING,
+                    description="The Run output/artifact to verify against the seed's ACs",
+                    required=True,
+                ),
+                MCPToolParameter(
+                    name="artifact_type",
+                    type=ToolInputType.STRING,
+                    description="Type of artifact: code, docs, config. Default: code",
+                    required=False,
+                    default="code",
+                    enum=("code", "docs", "config"),
+                ),
+                MCPToolParameter(
+                    name="working_dir",
+                    type=ToolInputType.STRING,
+                    description="Project working directory (for language auto-detection).",
+                    required=False,
+                ),
+            ),
+        )
+
+    async def handle(
+        self,
+        arguments: dict[str, Any],
+    ) -> Result[MCPToolResult, MCPServerError]:
+        """Verify the seed's full AC list against the artifact."""
+        session_id = arguments.get("session_id")
+        if not session_id:
+            return Result.err(
+                MCPToolError(
+                    "session_id is required",
+                    tool_name="ouroboros_checklist_verify",
+                )
+            )
+
+        seed_content = arguments.get("seed_content")
+        if not seed_content:
+            return Result.err(
+                MCPToolError(
+                    "seed_content is required",
+                    tool_name="ouroboros_checklist_verify",
+                )
+            )
+
+        artifact = arguments.get("artifact")
+        if not artifact:
+            return Result.err(
+                MCPToolError(
+                    "artifact is required",
+                    tool_name="ouroboros_checklist_verify",
+                )
+            )
+
+        # Extract acceptance criteria from seed.
+        try:
+            seed_dict = yaml.safe_load(seed_content)
+            seed = Seed.from_dict(seed_dict)
+        except yaml.YAMLError as exc:
+            log.warning("mcp.tool.checklist_verify.yaml_error", error=str(exc))
+            return Result.err(
+                MCPToolError(
+                    f"Failed to parse seed YAML: {exc}",
+                    tool_name="ouroboros_checklist_verify",
+                )
+            )
+        except (ValidationError, PydanticValidationError) as exc:
+            log.warning("mcp.tool.checklist_verify.seed_validation_error", error=str(exc))
+            return Result.err(
+                MCPToolError(
+                    f"Seed validation failed: {exc}",
+                    tool_name="ouroboros_checklist_verify",
+                )
+            )
+
+        acceptance_criteria = tuple(
+            text.strip() for text in seed.acceptance_criteria if text and text.strip()
+        )
+        if not acceptance_criteria:
+            return Result.err(
+                MCPToolError(
+                    "Seed has no acceptance_criteria — cannot build checklist.",
+                    tool_name="ouroboros_checklist_verify",
+                )
+            )
+
+        # Delegate to EvaluateHandler in multi-AC mode.  Re-using the
+        # evaluator means language detection, artifact bundling, event
+        # logging, and LLM backend handling stay consistent.
+        evaluator = self.evaluate_handler or EvaluateHandler(llm_backend=self.llm_backend)
+
+        evaluate_args = {
+            "session_id": session_id,
+            "artifact": artifact,
+            "seed_content": seed_content,
+            "acceptance_criteria": list(acceptance_criteria),
+            "artifact_type": arguments.get("artifact_type", "code"),
+        }
+        if "working_dir" in arguments:
+            evaluate_args["working_dir"] = arguments["working_dir"]
+
+        log.info(
+            "mcp.tool.checklist_verify.started",
+            session_id=session_id,
+            ac_count=len(acceptance_criteria),
+        )
+
+        result = await evaluator.handle(evaluate_args)
+
+        if result.is_err:
+            log.warning(
+                "mcp.tool.checklist_verify.evaluate_failed",
+                session_id=session_id,
+                error=str(result.error),
+            )
+            return result
+
+        # Augment the MCP result meta so callers can distinguish the
+        # verify path from a plain multi-AC evaluate call.
+        meta = dict(result.value.meta or {})
+        meta["checklist_verify"] = True
+        meta["seed_goal"] = seed.goal
+        augmented = MCPToolResult(
+            content=result.value.content,
+            is_error=result.value.is_error,
+            meta=meta,
+        )
+
+        log.info(
+            "mcp.tool.checklist_verify.completed",
+            session_id=session_id,
+            all_passed=meta.get("final_approved"),
+            passed_count=meta.get("passed_count"),
+            ac_count=meta.get("ac_count"),
+        )
+
+        return Result.ok(augmented)
 
 
 @dataclass

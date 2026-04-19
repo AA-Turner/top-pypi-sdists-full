@@ -1,7 +1,7 @@
 /*
  * Open Chinese Convert
  *
- * Copyright 2015-2024 Carbo Kuo <byvoid@byvoid.com>
+ * Copyright 2015-2026 Carbo Kuo and contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@
 #include <sstream>
 #include <unordered_map>
 #include <vector>
+
+#include "test/PortableUtil.hpp"
 
 #include "src/Common.hpp"
 #include "rapidjson/document.h"
@@ -46,11 +48,11 @@ protected:
 #else
     ASSERT_NE("", PROJECT_BINARY_DIR);
     ASSERT_NE("", CMAKE_SOURCE_DIR);
-    ASSERT_EQ(0, chdir(PROJECT_BINARY_DIR "/data"));
+    ASSERT_EQ(0, portable_chdir(PROJECT_BINARY_DIR "/data"));
 #endif
   }
 
-  virtual void TearDown() { ASSERT_EQ(0, chdir(originalWorkingDirectory)); }
+  virtual void TearDown() { ASSERT_EQ(0, portable_chdir(originalWorkingDirectory)); }
 
   std::string GetFileContents(const std::string& fileName) const {
     std::ifstream fs(fileName);
@@ -62,12 +64,21 @@ protected:
   }
 
   void GetCurrentWorkingDirectory() {
-    originalWorkingDirectory = getcwd(nullptr, 0);
+    originalWorkingDirectory = portable_getcwd();
   }
 
   std::string OpenccCommand() const {
 #ifdef BAZEL
+#ifdef _WIN32
+    // On Windows, cc_binary executables have .exe extension in the runfiles manifest
+    std::string path = runfiles_->Rlocation("_main/src/tools/command_line.exe");
+    if (path.empty()) {
+      path = runfiles_->Rlocation("_main/src/tools/command_line");
+    }
+    return path;
+#else
     return runfiles_->Rlocation("_main/src/tools/command_line");
+#endif
 #else
 #ifndef _MSC_VER
     return PROJECT_BINARY_DIR "/src/tools/opencc";
@@ -79,6 +90,11 @@ protected:
 #endif
 #endif
 #endif
+  }
+
+  // Quote a path for use in a shell command, in case the path contains spaces.
+  static std::string QuotePath(const std::string& path) {
+    return "\"" + path + "\"";
   }
 
   std::string OutputDirectory() const {
@@ -108,14 +124,30 @@ protected:
   std::string TestCommand(const std::string& config,
                           const std::string& inputFile,
                           const std::string& outputFile) const {
-    std::string cmd = OpenccCommand() + " -i " + inputFile + " -o " +
-                      outputFile + " -c " + ConfigurationDirectory() + config +
-                      ".json";
+    std::string cmd = QuotePath(OpenccCommand()) + " -i " +
+                      QuotePath(inputFile) + " -o " +
+                      QuotePath(outputFile) + " -c " +
+                      QuotePath(ConfigurationDirectory() + config + ".json");
 #ifdef BAZEL
-    cmd += " --path " + runfiles_->Rlocation("_main/data/dictionary") + "/" +
-           " --path " + runfiles_->Rlocation("_main/data/config") + "/";
+    const std::string dictFile =
+        runfiles_->Rlocation("_main/data/dictionary/STCharacters.ocd2");
+    const std::string dictDir = dictFile.substr(0, dictFile.find_last_of("/\\"));
+    const std::string configFile =
+        runfiles_->Rlocation("_main/data/config/s2t.json");
+    const std::string configDir =
+        configFile.substr(0, configFile.find_last_of("/\\"));
+    cmd += " --path " + QuotePath(dictDir + "/") +
+           " --path " + QuotePath(configDir + "/");
 #endif
+#ifdef _WIN32
+    // On Windows, cmd.exe /C strips the first and last quote characters when
+    // the command starts with a quoted path, corrupting the command. Wrapping
+    // the entire command in an extra pair of outer quotes causes cmd.exe to
+    // strip only those outer quotes, leaving the inner quoted paths intact.
+    return "\"" + cmd + "\"";
+#else
     return cmd;
+#endif
   }
 
   char* originalWorkingDirectory;

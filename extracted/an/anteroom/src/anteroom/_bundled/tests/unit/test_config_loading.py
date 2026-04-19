@@ -589,6 +589,39 @@ class TestCliConfig:
         config, _ = load_config(cfg)
         assert config.cli.tool_output_max_chars == 2000
 
+    def test_show_attribution_footer_default_true(self, tmp_path: Path) -> None:
+        cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
+        config, _ = load_config(cfg)
+        assert config.cli.show_attribution_footer is True
+
+    def test_show_attribution_footer_disabled_via_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {"ai": {"base_url": "http://t", "api_key": "k"}, "cli": {"show_attribution_footer": False}},
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.show_attribution_footer is False
+
+    def test_show_attribution_footer_env_overrides_yaml(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """AI_CHAT_SHOW_ATTRIBUTION_FOOTER overrides YAML — matches docs promise (#923)."""
+        cfg = _write_config(
+            tmp_path,
+            {"ai": {"base_url": "http://t", "api_key": "k"}, "cli": {"show_attribution_footer": True}},
+        )
+        for val in ("false", "0", "no", "FALSE"):
+            monkeypatch.setenv("AI_CHAT_SHOW_ATTRIBUTION_FOOTER", val)
+            config, _ = load_config(cfg)
+            assert config.cli.show_attribution_footer is False, f"expected False for env={val!r}"
+
+    def test_show_attribution_footer_env_truthy(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {"ai": {"base_url": "http://t", "api_key": "k"}, "cli": {"show_attribution_footer": False}},
+        )
+        monkeypatch.setenv("AI_CHAT_SHOW_ATTRIBUTION_FOOTER", "true")
+        config, _ = load_config(cfg)
+        assert config.cli.show_attribution_footer is True
+
     def test_file_reference_max_chars_from_yaml(self, tmp_path: Path) -> None:
         cfg = _write_config(
             tmp_path,
@@ -2369,6 +2402,131 @@ class TestMemoryPromotionConfig:
         assert p.max_lineage_entries == 1
         assert p.max_candidates_per_conversation == 1
         assert p.max_reject_reason_chars == 1
+
+
+# ---------------------------------------------------------------------------
+# Memory retention config (#625)
+# ---------------------------------------------------------------------------
+
+
+class TestMemoryRetentionConfig:
+    def test_memory_retention_defaults(self, tmp_path: Path) -> None:
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        r = config.memory.retention
+        assert r.enabled is False
+        assert r.max_age_days is None
+        assert r.idle_days is None
+        assert r.min_age_days == 1
+        assert r.purge_statuses == ["rejected"]
+        assert r.respect_pins is True
+
+    def test_memory_retention_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {
+                    "retention": {
+                        "enabled": True,
+                        "max_age_days": 90,
+                        "idle_days": 30,
+                        "min_age_days": 3,
+                        "purge_statuses": ["rejected", "archived"],
+                        "respect_pins": False,
+                    }
+                },
+            },
+        )
+        config, _ = load_config(cfg)
+        r = config.memory.retention
+        assert r.enabled is True
+        assert r.max_age_days == 90
+        assert r.idle_days == 30
+        assert r.min_age_days == 3
+        assert r.purge_statuses == ["rejected", "archived"]
+        assert r.respect_pins is False
+
+    def test_memory_retention_enabled_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_RETENTION_ENABLED", "true")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.retention.enabled is True
+
+    def test_memory_retention_max_age_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_RETENTION_MAX_AGE_DAYS", "120")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.retention.max_age_days == 120
+
+    def test_memory_retention_idle_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_RETENTION_IDLE_DAYS", "45")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.retention.idle_days == 45
+
+    def test_memory_retention_min_age_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_RETENTION_MIN_AGE_DAYS", "7")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.retention.min_age_days == 7
+
+    def test_memory_retention_respect_pins_env_var_false(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_RETENTION_RESPECT_PINS", "false")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.retention.respect_pins is False
+
+    def test_memory_retention_purge_statuses_env_var_csv(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_RETENTION_PURGE_STATUSES", "rejected,archived")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.retention.purge_statuses == ["rejected", "archived"]
+
+    def test_memory_retention_invalid_max_age_falls_back_to_none(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {"retention": {"max_age_days": "bad"}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.memory.retention.max_age_days is None
+
+    def test_memory_retention_zero_or_negative_max_age_disables(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {"retention": {"max_age_days": 0}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.memory.retention.max_age_days is None
+
+    def test_memory_retention_invalid_status_filtered_out(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {"retention": {"purge_statuses": ["rejected", "deleted", "archived"]}},
+            },
+        )
+        config, _ = load_config(cfg)
+        # "deleted" is not a valid memory status — dropped; remaining pair kept.
+        assert config.memory.retention.purge_statuses == ["rejected", "archived"]
+
+    def test_memory_retention_empty_status_list_falls_back_to_default(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {"retention": {"purge_statuses": []}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.memory.retention.purge_statuses == ["rejected"]
 
 
 # ---------------------------------------------------------------------------

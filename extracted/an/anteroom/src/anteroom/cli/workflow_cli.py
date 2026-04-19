@@ -506,14 +506,15 @@ def _make_progress_callback(*, show_transcript: bool = True) -> Any:
     return _on_progress
 
 
-def _resolve_workflow_path(workflow_id: str) -> Path | None:
+def _resolve_workflow_path(workflow_id: str, db: Any | None = None) -> Path | None:
     """Resolve a workflow definition by ID or path.
 
-    Delegates to the shared resolution module.
+    Delegates to the shared resolution module. Pack-aware when *db* is
+    supplied (#924); safely resolves to filesystem-only when not.
     """
     from ..services.workflow_resolution import resolve_workflow_path
 
-    return resolve_workflow_path(workflow_id)
+    return resolve_workflow_path(workflow_id, db=db)
 
 
 def _create_engine(config: AppConfig, db: Any, *, space_id: str | None = None) -> tuple[Any, Any]:
@@ -598,13 +599,13 @@ def _create_engine(config: AppConfig, db: Any, *, space_id: str | None = None) -
 
     registry = create_default_registry()
 
-    audit_writer = None
-    try:
-        from ..services.audit import create_audit_writer
+    # #925: use the CLI audit helper so the writer is keyed by the
+    # identity PEM and the HMAC chain resumes from the on-disk log rather
+    # than starting an unkeyed segment. The helper returns None when
+    # audit is disabled or no identity is configured.
+    from ._audit_helper import get_cli_audit_writer
 
-        audit_writer = create_audit_writer(config)
-    except Exception:
-        logger.debug("Could not create audit writer for workflow engine")
+    audit_writer = get_cli_audit_writer(config)
 
     engine = WorkflowEngine(
         db,
@@ -861,13 +862,13 @@ def _run_workflow(config: AppConfig, args: argparse.Namespace) -> None:
     elif action == "repair":
         _handle_repair(config, db, args)
     elif action == "cancel":
-        _handle_cancel(db, args)
+        _handle_cancel(config, db, args)
     elif action == "approve":
-        _handle_approve(db, args)
+        _handle_approve(config, db, args)
     elif action == "deny":
-        _handle_deny(db, args)
+        _handle_deny(config, db, args)
     elif action == "respond":
-        _handle_respond(db, args)
+        _handle_respond(config, db, args)
     elif action == "watch":
         _handle_watch(db, args)
     elif action == "diagnose":
@@ -900,7 +901,7 @@ def _handle_run(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
         return
 
     # Resolve definition: filesystem path, reference example, or built-in
-    path = _resolve_workflow_path(workflow_id)
+    path = _resolve_workflow_path(workflow_id, db=db)
     if path is None:
         console.print(f"[red]Error:[/red] Workflow not found: {workflow_id!r}")
         console.print("Provide a path to a YAML workflow definition.")
@@ -1461,7 +1462,7 @@ def _handle_resume(config: AppConfig, db: Any, args: argparse.Namespace) -> None
     if definition_path:
         path = Path(definition_path)
     else:
-        path = _resolve_workflow_path(workflow_id)
+        path = _resolve_workflow_path(workflow_id, db=db)
 
     if not path:
         console.print(
@@ -1612,9 +1613,22 @@ def _handle_repair(config: AppConfig, db: Any, args: argparse.Namespace) -> None
         _cleanup_event_bus(_event_bus)
 
 
-def _handle_cancel(db: Any, args: argparse.Namespace) -> None:
-    """Handle `aroom workflow cancel <run_id>`. Uses engine request_cancel (#890)."""
+def _handle_cancel(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow cancel <run_id>`. Uses engine request_cancel (#890).
+
+    Routes through the server's HTTP endpoint when reachable so the
+    server is the sole audit writer. Falls back to local cancel + local
+    chain-safe audit writer only on kernel-attested loopback absence
+    (#925 v7).
+    """
+    from ..services import lineage
     from ..services.workflow_storage import get_workflow_run
+    from ._audit_helper import get_cli_audit_writer
+    from ._decision_routing import (
+        ServerHttpError,
+        ServerNotRunningError,
+        call_decision_endpoint,
+    )
 
     run_id = getattr(args, "run_id", None)
     run_id = _resolve_run_id_or_print(db, run_id)
@@ -1629,24 +1643,60 @@ def _handle_cancel(db: Any, args: argparse.Namespace) -> None:
         console.print(f"[red]Error:[/red] Run is already in terminal status: {run['status']}. Cannot cancel.")
         return
 
+    actor_id = getattr(getattr(config, "identity", None), "user_id", None) or "cli-operator"
+    try:
+        payload = call_decision_endpoint(
+            config,
+            "POST",
+            f"/api/workflow-runs/{run_id}/cancel",
+            json_body={"resolved_by": actor_id},
+        )
+        console.print(
+            f"[green]Run {run_id[:12]}... cancel requested via server (status: {payload.get('status', '?')})[/green]"
+        )
+        return
+    except ServerNotRunningError:
+        pass
+    except ServerHttpError as exc:
+        console.print(f"[red]Server error — declining to write audit locally.[/red] {exc}")
+        sys.exit(2)
+
+    # Local fallback path.
     from ..services.workflow_engine import WorkflowEngine
 
+    from_status = run["status"]
     try:
         updated = asyncio.run(WorkflowEngine.request_cancel(db, run_id))
     except ValueError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         return
 
+    lineage.emit_workflow_cancel(
+        get_cli_audit_writer(config),
+        run_id=run_id,
+        cancelled_by=actor_id,
+        from_status=from_status,
+    )
     console.print(f"[green]Run {run_id[:12]}... cancel requested (status: {updated['status']})[/green]")
 
 
-def _handle_approve(db: Any, args: argparse.Namespace) -> None:
-    """Handle `aroom workflow approve <run_id>`. Approve a pending tool approval request."""
+def _handle_approve(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow approve <run_id>`. Approve a pending tool approval request.
+
+    Routes through the server's HTTP endpoint when reachable (#925 v7).
+    """
+    from ..services import lineage
     from ..services.workflow_storage import (
         check_approval_timeouts,
         get_pending_approval,
         get_workflow_run,
         resolve_approval_request,
+    )
+    from ._audit_helper import get_cli_audit_writer
+    from ._decision_routing import (
+        ServerHttpError,
+        ServerNotRunningError,
+        call_decision_endpoint,
     )
 
     run_id = getattr(args, "run_id", None)
@@ -1654,6 +1704,23 @@ def _handle_approve(db: Any, args: argparse.Namespace) -> None:
     if not run_id:
         return
 
+    actor_id = getattr(getattr(config, "identity", None), "user_id", None) or "cli-operator"
+    try:
+        payload = call_decision_endpoint(
+            config,
+            "POST",
+            f"/api/workflow-runs/{run_id}/approve",
+            json_body={"resolved_by": actor_id},
+        )
+        console.print(f"\n[green]Approved via server.[/green] approval_id={payload.get('approval_id', '?')}")
+        return
+    except ServerNotRunningError:
+        pass
+    except ServerHttpError as exc:
+        console.print(f"[red]Server error — declining to write audit locally.[/red] {exc}")
+        sys.exit(2)
+
+    # Local fallback path.
     check_approval_timeouts(db)
 
     run = get_workflow_run(db, run_id)
@@ -1672,15 +1739,27 @@ def _handle_approve(db: Any, args: argparse.Namespace) -> None:
 
         console.print(f"  Args: {json.dumps(pending['tool_args'], indent=2)[:200]}")
 
-    resolved = resolve_approval_request(db, pending["id"], status="approved", resolved_by="operator")
+    resolved = resolve_approval_request(db, pending["id"], status="approved", resolved_by=actor_id)
     if resolved:
+        lineage.emit_workflow_approval(
+            get_cli_audit_writer(config),
+            run_id=run_id,
+            request_id=pending["id"],
+            outcome="approved",
+            resolved_by=actor_id,
+            tool_name=pending.get("tool_name", ""),
+        )
         console.print(f"\n[green]Approved.[/green] Use 'aroom workflow resume {run_id}' to continue.")
     else:
         console.print("[red]Error:[/red] Could not resolve approval request.")
 
 
-def _handle_deny(db: Any, args: argparse.Namespace) -> None:
-    """Handle `aroom workflow deny <run_id>`. Deny a pending tool approval request."""
+def _handle_deny(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow deny <run_id>`. Deny a pending tool approval request.
+
+    Routes through the server's HTTP endpoint when reachable (#925 v7).
+    """
+    from ..services import lineage
     from ..services.workflow_storage import (
         check_approval_timeouts,
         get_pending_approval,
@@ -1688,11 +1767,33 @@ def _handle_deny(db: Any, args: argparse.Namespace) -> None:
         resolve_approval_request,
         update_workflow_run,
     )
+    from ._audit_helper import get_cli_audit_writer
+    from ._decision_routing import (
+        ServerHttpError,
+        ServerNotRunningError,
+        call_decision_endpoint,
+    )
 
     run_id = getattr(args, "run_id", None)
     run_id = _resolve_run_id_or_print(db, run_id)
     if not run_id:
         return
+
+    actor_id = getattr(getattr(config, "identity", None), "user_id", None) or "cli-operator"
+    try:
+        payload = call_decision_endpoint(
+            config,
+            "POST",
+            f"/api/workflow-runs/{run_id}/deny",
+            json_body={"resolved_by": actor_id},
+        )
+        console.print(f"[yellow]Denied via server.[/yellow] approval_id={payload.get('approval_id', '?')}")
+        return
+    except ServerNotRunningError:
+        pass
+    except ServerHttpError as exc:
+        console.print(f"[red]Server error — declining to write audit locally.[/red] {exc}")
+        sys.exit(2)
 
     check_approval_timeouts(db)
 
@@ -1704,19 +1805,37 @@ def _handle_deny(db: Any, args: argparse.Namespace) -> None:
         console.print(f"[yellow]No pending approval request for run {run_id[:12]}...[/yellow]")
         return
 
-    reason = getattr(args, "reason", None) or "denied by operator"
-    resolve_approval_request(db, pending["id"], status="denied", resolved_by="operator")
+    reason = getattr(args, "reason", None) or f"denied by {actor_id}"
+    resolve_approval_request(db, pending["id"], status="denied", resolved_by=actor_id)
     update_workflow_run(db, run_id, status="paused", stop_reason=f"approval_denied: {reason}")
+    lineage.emit_workflow_approval(
+        get_cli_audit_writer(config),
+        run_id=run_id,
+        request_id=pending["id"],
+        outcome="denied",
+        resolved_by=actor_id,
+        tool_name=pending.get("tool_name", ""),
+    )
     console.print(f"[yellow]Denied.[/yellow] Run {run_id[:12]}... moved to paused.")
 
 
-def _handle_respond(db: Any, args: argparse.Namespace) -> None:
-    """Handle `aroom workflow respond <run_id>`. Respond to a human gate decision."""
+def _handle_respond(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow respond <run_id>`. Respond to a human gate decision.
+
+    Routes through the server's HTTP endpoint when reachable (#925 v7).
+    """
+    from ..services import lineage
     from ..services.workflow_storage import (
         check_decision_timeouts,
         get_pending_decision,
         get_workflow_run,
         resolve_human_decision,
+    )
+    from ._audit_helper import get_cli_audit_writer
+    from ._decision_routing import (
+        ServerHttpError,
+        ServerNotRunningError,
+        call_decision_endpoint,
     )
 
     run_id = getattr(args, "run_id", None)
@@ -1756,8 +1875,33 @@ def _handle_respond(db: Any, args: argparse.Namespace) -> None:
         console.print(f"[red]Error:[/red] Invalid option '{option_id}'. Valid: {', '.join(valid_ids)}")
         return
 
-    resolved = resolve_human_decision(db, pending["id"], selected_option=option_id, resolved_by="operator")
+    # Route through server when reachable; otherwise resolve locally.
+    actor_id = getattr(getattr(config, "identity", None), "user_id", None) or "cli-operator"
+    try:
+        payload = call_decision_endpoint(
+            config,
+            "POST",
+            f"/api/workflow-runs/{run_id}/respond",
+            json_body={"selected_option": option_id, "resolved_by": actor_id},
+        )
+        console.print(f"\n[green]Decision recorded via server: {payload.get('selected_option', option_id)}[/green]")
+        console.print(f"Use 'aroom workflow resume {run_id}' to continue.")
+        return
+    except ServerNotRunningError:
+        pass
+    except ServerHttpError as exc:
+        console.print(f"[red]Server error — declining to write audit locally.[/red] {exc}")
+        sys.exit(2)
+
+    resolved = resolve_human_decision(db, pending["id"], selected_option=option_id, resolved_by=actor_id)
     if resolved:
+        lineage.emit_workflow_decision(
+            get_cli_audit_writer(config),
+            run_id=run_id,
+            decision_id=pending["id"],
+            option_id=option_id,
+            resolved_by=actor_id,
+        )
         console.print(f"\n[green]Decision recorded: {option_id}[/green]")
         console.print(f"Use 'aroom workflow resume {run_id}' to continue.")
     else:
@@ -2073,7 +2217,7 @@ def _handle_triggers(config: AppConfig, db: Any, args: argparse.Namespace) -> No
         from ..services.workflow_engine import load_definition
         from ..services.workflow_resolution import resolve_workflow_path
 
-        path = resolve_workflow_path(sched["workflow_ref"])
+        path = resolve_workflow_path(sched["workflow_ref"], db=db)
         if not path:
             console.print(f"[red]Error:[/red] Workflow not found: {sched['workflow_ref']}")
             return
@@ -2125,7 +2269,7 @@ def _handle_schedule(config: AppConfig, db: Any, args: argparse.Namespace) -> No
         console.print("[red]Error:[/red] workflow path is required")
         return
 
-    path = resolve_workflow_path(workflow_path)
+    path = resolve_workflow_path(workflow_path, db=db)
     if not path:
         console.print(f"[red]Error:[/red] Workflow not found: {workflow_path}")
         return

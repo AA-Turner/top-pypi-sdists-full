@@ -15,7 +15,8 @@ from md2conf.collection import ConfluencePageCollection
 from md2conf.compatibility import override
 from md2conf.converter import ConfluenceDocument
 from md2conf.metadata import ConfluencePageMetadata, ConfluenceSiteMetadata
-from md2conf.options import ConverterOptions, ProcessorOptions
+from md2conf.options import ProcessorOptions
+from md2conf.options_converter import ConverterOptions
 from tests.utility import TypedTestCase
 
 
@@ -96,6 +97,7 @@ class TestDocument(TypedTestCase):
         self.assertListEqual(
             [item.path for item in document.images],
             [
+                self.sample_dir / "figure" / "blue.jpg",
                 self.sample_dir / "figure" / "interoperability.png",
                 self.sample_dir / "figure" / "interoperability.png",  # preferred over `interoperability.svg`
                 self.sample_dir / "figure" / "diagram.drawio",

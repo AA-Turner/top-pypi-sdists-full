@@ -980,6 +980,36 @@ def persist_asset(config, previous_version=None, asset_dir=None):
 """
 
 
+def _asset_config_hash(config_path):
+    """Compute SHA-256 hash of an asset_config.toml file."""
+    import hashlib
+    with open(config_path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def _asset_unchanged(asset_client, name, kind, config_hash):
+    """Check if the latest instance already has the same config hash."""
+    from obproject.assets import get_data_asset, get_model_asset
+    try:
+        if kind == "data":
+            latest = get_data_asset(
+                asset_client.base_url, asset_client.service_headers,
+                perimeter=asset_client.perimeter, project=asset_client.project,
+                branch=asset_client.branch, asset=name, instance="latest",
+            )
+            annotations = latest.get("data_properties", {}).get("annotations", {})
+        else:
+            latest = get_model_asset(
+                asset_client.base_url, asset_client.service_headers,
+                perimeter=asset_client.perimeter, project=asset_client.project,
+                branch=asset_client.branch, asset=name, instance="latest",
+            )
+            annotations = latest.get("model_properties", {}).get("annotations", {})
+        return annotations.get("_config_hash") == config_hash
+    except Exception:
+        return False
+
+
 def register_assets():
     from obproject.assets import Asset
 
@@ -1010,21 +1040,47 @@ def register_assets():
         for asset_dir in listdir(asset_type):
             root = os.path.join(asset_type, asset_dir)
             try:
-                config = read_toml_config(os.path.join(root, "asset_config.toml"))
+                config_path = os.path.join(root, "asset_config.toml")
+                config = read_toml_config(config_path)
+                config_hash = _asset_config_hash(config_path)
+
+                # Skip re-registration if config hasn't changed
+                asset_kind = config.get("kind", asset_type.strip("s"))
+                if _asset_unchanged(asset, config["id"], asset_type, config_hash):
+                    print(f"⏭️  Asset '{config['id']}' unchanged, skipping registration")
+                    # Still yield spec info for the project spec
+                    markdown = ""
+                    readme = os.path.join(root, "README.md")
+                    if os.path.exists(readme):
+                        with open(readme) as f:
+                            markdown = f.read().strip()
+                    yield {
+                        "display_name": config["name"],
+                        "id": config["id"],
+                        "card_markdown": markdown,
+                        "description": config.get("description", ""),
+                        "icon": config.get("icon"),
+                    }
+                    continue
+
                 markdown = ""
                 readme = os.path.join(root, "README.md")
                 if os.path.exists(readme):
                     with open(readme) as f:
                         markdown = f.read().strip()
 
+                # Include config hash in annotations so future deploys can skip
+                annotations = ensure_types(config.get("properties", None)) or {}
+                annotations["_config_hash"] = config_hash
+
                 # note that we don't add an instance-level description here,
                 # we just populate the top-level info in the project spec
                 register_func(
                     config["id"],
-                    kind=config.get("kind", asset_type.strip("s")),
+                    kind=asset_kind,
                     blobs=config.get("blobs", None),
                     tags=ensure_types(config.get("tags", None)),
-                    annotations=ensure_types(config.get("properties", None)),
+                    annotations=annotations,
                 )
                 # pass down information for the spec
                 yield {

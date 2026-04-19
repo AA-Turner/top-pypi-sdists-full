@@ -37,7 +37,8 @@ from .latex import render_latex
 from .markdown import markdown_to_html, markdown_with_line_numbers
 from .mermaid.extension import MermaidExtension
 from .metadata import ConfluenceSiteMetadata
-from .options import ConfluencePageID, ConverterOptions, MarketplaceExtension, ProcessorOptions
+from .options import ConfluencePageID, ProcessorOptions
+from .options_converter import ConverterOptions, MarketplaceExtension
 from .plantuml.extension import PlantUMLExtension
 from .png import remove_png_chunks
 from .scanner import ScannedDocument, Scanner
@@ -346,6 +347,13 @@ def child_count(node: ElementType) -> int:
     "Number of children, excluding special elements."
 
     return len(node) - sum(1 for _ in node.iterchildren("line-number"))
+
+
+def is_top_level(node: ElementType) -> bool:
+    "True if the element is a top-level element, i.e. it is not nested within another element except the root."
+
+    parent = node.getparent()
+    return parent is None or parent.tag == "root"
 
 
 def is_placeholder_for(node: ElementType, name: str) -> bool:
@@ -1579,6 +1587,9 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
                         # <p><a href="..."> ... </a></p>
                         case "a":
+                            if not is_top_level(child):
+                                return ElementAction.RECURSE
+
                             link = self._transform_card(child)
                             if link is not None:
                                 return link

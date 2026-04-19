@@ -9,12 +9,17 @@ from unittest.mock import patch
 import pytest
 
 
-VIEWER_PATH = r"D:\1.Development\mmd-viewer\target\debug\mmd-viewer.exe"
+VIEWER_PATH = os.environ.get("MMD_VIEWER_PATH", "")
 
 
 def _skip_if_no_viewer():
+    if not VIEWER_PATH:
+        pytest.skip("set MMD_VIEWER_PATH to enable render_diagram integration test")
     if not Path(VIEWER_PATH).exists():
-        pytest.skip(f"mmd-viewer.exe not found at {VIEWER_PATH}")
+        pytest.skip(
+            f"mmd-viewer.exe not found at {VIEWER_PATH} "
+            f"(update MMD_VIEWER_PATH to point at your local build)"
+        )
 
 
 def _call_hierarchy_source():

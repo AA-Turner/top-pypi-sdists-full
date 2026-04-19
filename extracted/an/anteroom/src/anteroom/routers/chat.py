@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 from ..cli.instructions import load_instructions
-from ..config import CliConfig, build_runtime_context
+from ..config import CliConfig, CompactionConfig, build_runtime_context
 from ..models import ChatRequest
 from ..services import storage
 from ..services.agent_loop import run_agent_loop
@@ -867,14 +867,19 @@ async def _web_confirm_tool(ctx: WebConfirmContext, verdict: Any) -> bool:
     return approved
 
 
-async def _web_ask_user_callback(ctx: WebConfirmContext, question: str, options: list[str] | None = None) -> str:
-    """Handle ask_user tool via the web UI event bus."""
+async def _web_ask_user_callback(ctx: WebConfirmContext, question: str, options: list[str] | None = None) -> str | None:
+    """Handle ask_user tool via the web UI event bus.
+
+    Returns a string for a real user submission (including ``""`` when the
+    user submits an empty answer), or ``None`` when the prompt is cancelled
+    by a system failure (pending-limit reached, timeout, disconnect).
+    """
     import secrets as _secrets
 
     max_pending = 100
     if len(ctx.pending_approvals) >= max_pending:
         logger.warning("Pending approvals limit reached (%d); skipping ask_user", len(ctx.pending_approvals))
-        return ""
+        return None
 
     ask_id = _secrets.token_urlsafe(16)
     ask_event = asyncio.Event()
@@ -928,10 +933,15 @@ async def _web_ask_user_callback(ctx: WebConfirmContext, question: str, options:
                     },
                 },
             )
-        return ""
+        return None
     finally:
         ctx.pending_approvals.pop(ask_id, None)
 
+    # Cancel button in the UI submits approved=false; treat that as the
+    # explicit cancel signal and return None so the tool layer produces
+    # {"cancelled": true} instead of a spurious {"answer": ""}.
+    if not entry.get("approved", False):
+        return None
     return str(entry.get("answer", ""))
 
 
@@ -986,7 +996,7 @@ async def _execute_web_tool(ctx: ToolExecutorContext, tool_name: str, arguments:
     async def _confirm(verdict: Any) -> bool:
         return await _web_confirm_tool(ctx.confirm_ctx, verdict)
 
-    async def _ask_user(question: str, options: list[str] | None = None) -> str:
+    async def _ask_user(question: str, options: list[str] | None = None) -> str | None:
         return await _web_ask_user_callback(ctx.confirm_ctx, question, options)
 
     # Skill-scoped tool policy enforcement (#857)
@@ -1375,6 +1385,46 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                 _cli_cfg, "max_consecutive_text_only", CliConfig.max_consecutive_text_only
             ),
             max_line_repeats=getattr(_cli_cfg, "max_line_repeats", CliConfig.max_line_repeats),
+            compact_preserve_tail=getattr(
+                getattr(_app_config, "compaction", None), "preserve_tail", CompactionConfig.preserve_tail
+            ),
+            compact_rehydrate=getattr(
+                getattr(_app_config, "compaction", None),
+                "compact_rehydrate",
+                CompactionConfig.compact_rehydrate,
+            ),
+            compact_rehydrate_max_files=getattr(
+                getattr(_app_config, "compaction", None),
+                "compact_rehydrate_max_files",
+                CompactionConfig.compact_rehydrate_max_files,
+            ),
+            compact_rehydrate_max_errors=getattr(
+                getattr(_app_config, "compaction", None),
+                "compact_rehydrate_max_errors",
+                CompactionConfig.compact_rehydrate_max_errors,
+            ),
+            microcompact_enabled=getattr(
+                getattr(_app_config, "compaction", None),
+                "microcompact_enabled",
+                CompactionConfig.microcompact_enabled,
+            ),
+            summary_trigger_msg_count=getattr(
+                getattr(_app_config, "compaction", None),
+                "summary_trigger_msg_count",
+                CompactionConfig.summary_trigger_msg_count,
+            ),
+            summary_trigger_token_count=getattr(
+                getattr(_app_config, "compaction", None),
+                "summary_trigger_token_count",
+                CompactionConfig.summary_trigger_token_count,
+            ),
+            reactive_max_attempts=getattr(
+                getattr(_app_config, "compaction", None),
+                "reactive_max_attempts",
+                CompactionConfig.reactive_max_attempts,
+            ),
+            db=ctx.db,
+            conversation_id=ctx.conversation_id,
         )
         _pending_usage: dict[str, Any] | None = None
         async for agent_event in _with_keepalive(agent_gen):
@@ -1768,6 +1818,45 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                             "data": {"conversation_id": ctx.conversation_id, "client_id": ctx.client_id},
                         },
                     )
+
+                # Attribution (#923): build and emit per-turn snapshot from
+                # the stored assistant message, prompt_meta, and pack list.
+                # Persist additively via merge_message_metadata so the
+                # snapshot survives conversation reload.
+                if current_assistant_msg:
+                    try:
+                        from ..services import packs as _packs
+                        from ..services.attribution import build_attribution, serialize_attribution
+
+                        _stored_tool_calls = storage.list_tool_calls(ctx.db, current_assistant_msg["id"])
+                        _stored_msg = dict(current_assistant_msg)
+                        _stored_msg["tool_calls"] = _stored_tool_calls
+                        try:
+                            _pack_inventory = _packs.list_packs(ctx.db)
+                        except Exception:
+                            _pack_inventory = []
+                        _attr_snapshot = build_attribution(
+                            ctx.prompt_meta,
+                            _stored_msg,
+                            _pack_inventory,
+                            dlp_scanner=_dlp_scanner,
+                            output_filter=_output_filter,
+                        )
+                        _attr_serialized = serialize_attribution(_attr_snapshot)
+                        storage.merge_message_metadata(
+                            ctx.db, current_assistant_msg["id"], {"attribution": _attr_serialized}
+                        )
+                        yield {
+                            "event": "attribution",
+                            "data": json.dumps(
+                                {
+                                    "assistant_message_id": current_assistant_msg["id"],
+                                    "snapshot": _attr_serialized,
+                                }
+                            ),
+                        }
+                    except Exception:
+                        logger.debug("attribution: failed to build/emit snapshot", exc_info=True)
 
                 _done_payload: dict[str, Any] = {"plan_mode": ctx.plan_mode}
                 if current_assistant_msg:
@@ -2344,6 +2433,39 @@ async def chat(conversation_id: str, request: Request) -> Any:
         vec_manager=getattr(request.app.state, "vec_manager", None),
     )
 
+    # Attribution (#923): enrich prompt_meta with the two fields the
+    # attribution builder needs and that are not already populated by
+    # the system-prompt builder.
+    prompt_meta["context_turns"] = [
+        {"id": m["id"], "role": m["role"]}
+        for m in history
+        if m.get("id") and m.get("role") in ("user", "assistant", "system")
+    ]
+    try:
+        from ..services import pack_attachments as _pack_attachments
+        from ..services.space_storage import get_space_local_dirs as _get_space_local_dirs
+
+        _attr_project_path: str | None = None
+        if space_id:
+            try:
+                _space_dirs = _get_space_local_dirs(db, space_id)
+                if _space_dirs:
+                    _attr_project_path = _space_dirs[0]
+            except Exception:
+                _attr_project_path = None
+
+        prompt_meta["pack_attachments"] = [
+            {
+                "namespace": a.get("namespace") or "",
+                "name": a.get("name") or "",
+                "scope": a.get("scope") or "",
+            }
+            for a in _pack_attachments.list_attachments(db, project_path=_attr_project_path, space_id=space_id)
+        ]
+    except Exception:
+        logger.debug("attribution: failed to enumerate pack attachments", exc_info=True)
+        prompt_meta["pack_attachments"] = []
+
     # Preflight: full-request token accounting (#1339)
     from ..services.token_estimator import estimate_request_tokens as _est_req
 
@@ -2384,7 +2506,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
     async def _web_confirm(verdict: Any) -> bool:
         return await _web_confirm_tool(confirm_ctx, verdict)
 
-    async def _web_ask_user(question: str, options: list[str] | None = None) -> str:
+    async def _web_ask_user(question: str, options: list[str] | None = None) -> str | None:
         return await _web_ask_user_callback(confirm_ctx, question, options)
 
     from ..tools.subagent import SubagentLimiter

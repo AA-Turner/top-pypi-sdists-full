@@ -1,37 +1,108 @@
 """Shared conversation compaction service.
 
-Single owner of compaction behavior for both the shared agent loop
+Single owner of compaction behaviour for both the shared agent loop
 (web UI + CLI auto-compact) and the CLI ``/compact`` command.
 
-This module is a pure refactor: it preserves the exact current shipped
-compacted-message shape (role + content format) for each caller via a
-parameterized role and content template. No behavioral changes are
-introduced beyond routing the CLI path through ``ai_service.complete()``
-(the proper service-layer abstraction) instead of bypassing it with a
-direct ``client.chat.completions.create()`` call.
+History:
+
+* **#1412** — initial refactor that unified both caller paths behind
+  ``compact_messages()``.  Preserves each caller's shipped role +
+  content template.  No in-memory shape changes.
+* **#1413** — boundary-based compaction.  Adds a ``preserve_tail``
+  kwarg that summarises only older messages and keeps the trailing N
+  messages intact.  Emits a boundary marker between summary and tail.
+  Persists the compacted form to SQLite via
+  :func:`persist_compacted_messages` with UPDATE + DELETE semantics so
+  attachments, tool_calls, and embeddings on tail messages survive.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import re
+import shlex
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from .ai_service import AIService
 from .token_estimator import count_message_tokens
+from .tool_result_compact import compact_tool_output
 
 logger = logging.getLogger(__name__)
 
 
-COMPACTION_MIN_MESSAGES = 4
-"""Below this message count, compaction is skipped and returns failure."""
+_SESSION_STATE_RE = re.compile(r"\s*<session_state>.*?</session_state>\s*", re.DOTALL)
+"""Matches a `<session_state>...</session_state>` block (with surrounding whitespace).
 
+Used by :func:`_strip_session_state` to scrub prior rehydration state from
+messages before re-compaction or before appending a freshly computed block.
+"""
+
+
+def _strip_session_state(content: Any) -> Any:
+    """Remove existing ``<session_state>`` blocks from ``content``.
+
+    Non-string inputs are returned unchanged (provider message content can be
+    ``None`` or a list of content parts in some providers).  The regex is
+    applied greedily with ``DOTALL`` and a trailing ``rstrip()`` trims any
+    leftover whitespace at the tail.
+    """
+    if not isinstance(content, str):
+        return content
+    return _SESSION_STATE_RE.sub("", content).rstrip()
+
+
+BOUNDARY_MARKER_CONTENT = "[Context compacted — older history summarized above, recent messages preserved below]"
+"""Content string used for the boundary marker system message.
+
+Kept as a module-level constant so renderers and tests can cross-reference it.
+"""
+
+
+def build_boundary_marker(
+    *,
+    original_count: int,
+    preserved_count: int,
+    summary_tokens: int,
+) -> dict[str, Any]:
+    """Construct the boundary marker system message (#1413).
+
+    Emitted between the compact summary and the preserved tail.  Carries
+    structured metadata that downstream rehydration (#1414) uses to identify
+    compaction boundaries in a persisted conversation.  Always ``role: "system"``.
+    """
+    return {
+        "role": "system",
+        "content": BOUNDARY_MARKER_CONTENT,
+        "metadata": {
+            "compact_boundary": True,
+            "original_count": original_count,
+            "preserved_count": preserved_count,
+            "summary_tokens": summary_tokens,
+            "compacted_at": datetime.now(timezone.utc).isoformat(),
+        },
+    }
+
+
+COMPACTION_MIN_MESSAGES = 4
+"""Below this message count, compaction is skipped and returns failure.
+
+Safety floor — not a tunable threshold. Stays hardcoded."""
+
+# Deprecated in #1266 — read from ``config.compaction.summary_trigger_*``
+# instead. These module constants are preserved as literal fallbacks
+# frozen at the v1.165 default values so external readers continue to
+# work. They are NOT live-bound to ``CompactionConfig`` — if defaults
+# change in the future, update the literals here to match or remove the
+# module-level re-export entirely.
 PROACTIVE_COMPACTION_MSG_THRESHOLD = 80
-"""Fallback trigger: compact when the message count exceeds this value."""
+"""Deprecated literal — use ``CompactionConfig.summary_trigger_msg_count``."""
 
 PROACTIVE_COMPACTION_TOKEN_THRESHOLD = 90_000
-"""Primary trigger: compact when estimated tokens exceed this value."""
+"""Deprecated literal — use ``CompactionConfig.summary_trigger_token_count``."""
 
 
 AGENT_LOOP_CONTENT_TEMPLATE = (
@@ -70,6 +141,329 @@ class CompactionResult:
     summary: str
 
 
+# ---------------------------------------------------------------------------
+# Rehydration (#1414)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RehydrationState:
+    """Bounded, deterministic session state that survives compaction (#1414).
+
+    Extracted directly from the message list's tool call arguments/results —
+    never LLM-generated — so the post-compact turn retains structured context
+    (recent files, working directory, unresolved errors) without relying on
+    the summary prose.  All fields are tuples to keep this immutable.
+    """
+
+    files_read: tuple[str, ...] = ()
+    files_written: tuple[str, ...] = ()
+    files_edited: tuple[str, ...] = ()
+    last_working_dir: str | None = None
+    errors_unresolved: tuple[str, ...] = ()
+
+    def is_empty(self) -> bool:
+        return (
+            not self.files_read
+            and not self.files_written
+            and not self.files_edited
+            and self.last_working_dir is None
+            and not self.errors_unresolved
+        )
+
+
+_FILE_TOOLS_READ = {"read_file"}
+_FILE_TOOLS_WRITE = {"write_file"}
+_FILE_TOOLS_EDIT = {"edit_file"}
+
+# Matches an explicit `cd <path>` token in a bash command line.  We purposely
+# accept both quoted and bare paths; the captured group is used verbatim as a
+# `last_working_dir` hint without shell-expanding it.
+_CD_RE = re.compile(r"(?:^|[;&|]\s*)cd\s+(?:\"([^\"]+)\"|'([^']+)'|(\S+))")
+
+
+def _extract_file_path(args: dict[str, Any]) -> str | None:
+    """Return the file path from a tool-call argument dict, or None."""
+    for key in ("path", "file_path"):
+        val = args.get(key)
+        if isinstance(val, str) and val:
+            return val
+    return None
+
+
+def _bash_retry_key(args: dict[str, Any]) -> str | None:
+    """Derive a narrow retry-resolution key for a ``bash`` tool call.
+
+    Two bash calls should only resolve each other's errors when they are
+    attempts at the same underlying operation.  Using ``None`` as the key (as
+    the initial #1414 impl did) over-resolves: any successful bash call would
+    clear an earlier unrelated failed bash command from ``errors_unresolved``.
+
+    We derive a key from the leading command token (e.g. ``pytest`` for
+    ``pytest tests/foo``, ``python`` for ``python -m pytest``), which is the
+    invocation identity — retry variations like flag differences still share
+    the same key, but wholly different commands (``ls`` vs ``pytest``) do not.
+
+    For ``python -m <module>`` invocations we return ``python:<module>`` so a
+    successful ``python -m pytest`` resolves an earlier failed
+    ``python -m pytest …`` but not a failed ``python -m mypy …``.
+
+    Returns ``None`` when the command cannot be parsed.  Callers should treat
+    ``None`` as a non-resolving key (every error with a ``None`` key stays
+    unresolved regardless of later success) so malformed bash invocations
+    don't accidentally hide real errors.
+    """
+    cmd = args.get("command") or args.get("cmd") or ""
+    if not isinstance(cmd, str) or not cmd.strip():
+        return None
+    # Strip any leading ``cd foo && `` / ``cd foo;`` prefix so the retry key
+    # reflects the actual operation, not the directory change.
+    stripped = cmd.strip()
+    for sep in ("&&", ";", "|"):
+        if stripped.lower().startswith("cd "):
+            idx = stripped.find(sep)
+            if idx > 0:
+                stripped = stripped[idx + len(sep) :].strip()
+                break
+            # ``cd foo`` with no following command — the bash call IS the
+            # directory change, which is its own operation identity.
+            break
+    try:
+        tokens = shlex.split(stripped)
+    except ValueError:
+        tokens = stripped.split()
+    if not tokens:
+        return None
+    leading = tokens[0]
+    # ``python -m <module>`` → identify by the module.
+    if leading in ("python", "python3") and len(tokens) >= 3 and tokens[1] == "-m":
+        return f"{leading}:{tokens[2]}"
+    return leading
+
+
+def _parse_tool_args(raw: Any) -> dict[str, Any]:
+    """Safely parse an OpenAI-style tool call arguments payload.
+
+    OpenAI streams tool arguments as a JSON-encoded string; other providers
+    may pass dicts directly.  Non-JSON strings are treated as empty args.
+    """
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str) and raw:
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            return {}
+        if isinstance(parsed, dict):
+            return parsed
+    return {}
+
+
+def _dedup_preserve_order(items: list[str]) -> list[str]:
+    """Deduplicate ``items`` while preserving insertion order."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
+
+
+def extract_rehydration_state(
+    messages: list[dict[str, Any]],
+    *,
+    max_files: int = 20,
+    max_errors: int = 5,
+) -> RehydrationState:
+    """Extract a :class:`RehydrationState` from a message list (#1414).
+
+    Walks ``messages`` once and collects:
+
+    * file paths touched by ``read_file``/``write_file``/``edit_file`` tool
+      calls (deduplicated per category, capped at ``max_files`` per category,
+      most recent kept)
+    * the last working directory hinted by ``bash`` tool calls — either via an
+      explicit ``cwd`` kwarg or by parsing a leading ``cd <path>`` segment of
+      the command
+    * unresolved tool errors — any tool result with an ``error`` key whose
+      parent tool+target is not later successfully retried.  Capped at
+      ``max_errors``, most recent kept.
+
+    The extraction is deterministic.  Any JSON parse failure silently skips
+    that argument; we never raise out of this helper.
+    """
+    read: list[str] = []
+    written: list[str] = []
+    edited: list[str] = []
+    last_cwd: str | None = None
+
+    # Track tool_call_id -> (tool_name, target) for error attribution and
+    # success retry detection.
+    tool_id_index: dict[str, tuple[str, str | None]] = {}
+
+    # Order-aware unresolved-error tracking.  Each pending entry is an error
+    # that has NOT yet been resolved by a LATER success for the same
+    # (tool_name, target) pair.  A success only clears errors that came
+    # BEFORE it — a later error after that success remains unresolved.
+    # This matters especially for ``bash`` where ``target`` is usually
+    # ``None``; any successful bash call would otherwise hide later
+    # unresolved bash errors.
+    pending_errors: list[tuple[str, str | None, str]] = []
+
+    for msg in messages:
+        role = msg.get("role")
+        if role == "tool":
+            tc_id = msg.get("tool_call_id") or ""
+            tool_name, target = tool_id_index.get(tc_id, ("unknown", None))
+            raw_content = msg.get("content", "")
+            parsed: Any = None
+            if isinstance(raw_content, str) and raw_content:
+                try:
+                    parsed = json.loads(raw_content)
+                except (json.JSONDecodeError, ValueError):
+                    parsed = None
+            if isinstance(parsed, dict) and "error" in parsed:
+                snippet = str(parsed.get("error", ""))[:200]
+                pending_errors.append((tool_name, target, snippet))
+            else:
+                # Success: clear only the errors recorded BEFORE this success
+                # for the same (tool_name, target) pair.  Errors recorded
+                # later remain unresolved.
+                key = (tool_name, target)
+                pending_errors = [e for e in pending_errors if (e[0], e[1]) != key]
+            continue
+
+        for tc in msg.get("tool_calls", []) or []:
+            func = tc.get("function") or {}
+            name = str(func.get("name") or "")
+            if not name:
+                continue
+            args = _parse_tool_args(func.get("arguments"))
+            # Retry-resolution key: ``target`` pairs a tool call with later
+            # results for the same operation.  For file tools this is the
+            # file path; for bash we derive a narrow key from the leading
+            # command token so a later unrelated bash success (``ls``) does
+            # not silently resolve an earlier failed bash command
+            # (``pytest``).  See ``_bash_retry_key`` for the full rationale.
+            if name == "bash":
+                target = _bash_retry_key(args)
+            else:
+                target = _extract_file_path(args)
+
+            tc_id = tc.get("id") or ""
+            if tc_id:
+                tool_id_index[tc_id] = (name, target)
+
+            if name in _FILE_TOOLS_READ and target:
+                read.append(target)
+            elif name in _FILE_TOOLS_WRITE and target:
+                written.append(target)
+            elif name in _FILE_TOOLS_EDIT and target:
+                edited.append(target)
+            elif name == "bash":
+                # Prefer an explicit cwd kwarg; fall back to parsing `cd`.
+                cwd = args.get("cwd")
+                if isinstance(cwd, str) and cwd:
+                    last_cwd = cwd
+                    continue
+                cmd = args.get("command") or args.get("cmd") or ""
+                if isinstance(cmd, str) and cmd:
+                    match = _CD_RE.search(cmd)
+                    if match:
+                        last_cwd = match.group(1) or match.group(2) or match.group(3)
+
+    # Anything left in pending_errors is unresolved — no later success for the
+    # same (tool_name, target) pair was seen.
+    unresolved_errors: list[str] = [f"{tool_name}: {snippet}" for tool_name, _, snippet in pending_errors]
+
+    # Cap each category to the most recent N entries, preserving order.
+    def _tail(items: list[str], cap: int) -> tuple[str, ...]:
+        deduped = _dedup_preserve_order(items)
+        if cap > 0 and len(deduped) > cap:
+            deduped = deduped[-cap:]
+        return tuple(deduped)
+
+    return RehydrationState(
+        files_read=_tail(read, max_files),
+        files_written=_tail(written, max_files),
+        files_edited=_tail(edited, max_files),
+        last_working_dir=last_cwd,
+        errors_unresolved=_tail(unresolved_errors, max_errors),
+    )
+
+
+def format_rehydration_block(state: RehydrationState) -> str:
+    """Render ``state`` as an XML-tagged ``<session_state>`` block.
+
+    Returns an empty string when the state is empty so callers can skip the
+    append entirely.  Only non-empty subsections are included.
+    """
+    if state.is_empty():
+        return ""
+
+    lines: list[str] = ["<session_state>"]
+    if state.files_read:
+        lines.append("Files read: " + ", ".join(state.files_read))
+    if state.files_written:
+        lines.append("Files written: " + ", ".join(state.files_written))
+    if state.files_edited:
+        lines.append("Files edited: " + ", ".join(state.files_edited))
+    if state.last_working_dir:
+        lines.append(f"Working dir: {state.last_working_dir}")
+    if state.errors_unresolved:
+        lines.append("Last errors: " + "; ".join(state.errors_unresolved))
+    lines.append("</session_state>")
+    return "\n".join(lines)
+
+
+def _find_tail_boundary(messages: list[dict[str, Any]], preserve_count: int) -> int:
+    """Find the split index for boundary-based compaction.
+
+    Returns the index where ``messages[:index]`` will be summarised and
+    ``messages[index:]`` will be preserved intact.  Returns ``0`` when no
+    valid split exists; callers should treat that as "full-summary fallback"
+    and summarise the entire history.
+
+    Three walk-back rules applied in order:
+    1. Start at ``len(messages) - preserve_count``.
+    2. Walk backward if the candidate would orphan ``role: "tool"`` messages
+       (find the parent ``assistant`` with ``tool_calls`` so tool results
+       are never split from their parent call).
+    3. Walk backward further so the first preserved message has
+       ``role: "user"``.  Required by Anthropic/Bedrock provider ordering
+       (a continuation must start with a user turn after a system or summary).
+
+    Returns ``0`` if the walk-back consumed the whole list without finding a
+    safe split — the caller falls back to summarising everything.
+    """
+    if preserve_count <= 0:
+        return 0
+    if len(messages) < preserve_count + 2:
+        return 0
+
+    candidate = len(messages) - preserve_count
+
+    # Rule 1: don't orphan tool results.  Walk back past any tool messages at
+    # the candidate boundary so the parent assistant (with its tool_calls)
+    # stays attached to its results.
+    while candidate > 0 and messages[candidate].get("role") == "tool":
+        candidate -= 1
+
+    # Rule 2: provider-safe ordering — the first preserved message must be
+    # role="user" so the continuation shape is [summary (user), user, ...].
+    while candidate > 0 and messages[candidate].get("role") != "user":
+        candidate -= 1
+
+    # Degenerate: walk-back consumed the whole list without a valid user
+    # boundary.  Fall back to summarising everything.
+    if candidate == 0:
+        return 0
+
+    return candidate
+
+
 def build_compaction_history(messages: list[dict[str, Any]]) -> str:
     """Build a structured history string for the compaction summary prompt.
 
@@ -88,6 +482,10 @@ def build_compaction_history(messages: list[dict[str, Any]]) -> str:
     for msg in messages:
         role = msg.get("role", "unknown")
         content = msg.get("content", "")
+        # Strip any `<session_state>` block (#1414) from prior summaries so
+        # re-compaction does not incorporate stale rehydration state into the
+        # new summary prose.
+        content = _strip_session_state(content)
 
         if role == "tool":
             tc_id = msg.get("tool_call_id", "")
@@ -130,6 +528,11 @@ async def compact_messages(
     role: str = "user",
     content_template: str = AGENT_LOOP_CONTENT_TEMPLATE,
     min_messages: int = COMPACTION_MIN_MESSAGES,
+    preserve_tail: int = 0,
+    rehydrate: bool = True,
+    rehydrate_max_files: int = 20,
+    rehydrate_max_errors: int = 5,
+    cancel_event: asyncio.Event | None = None,
 ) -> CompactionResult:
     """Summarize conversation history in place to reduce context size.
 
@@ -141,12 +544,32 @@ async def compact_messages(
     - CLI ``/compact`` command: ``role="system"`` with
       :data:`REPL_CONTENT_TEMPLATE`.
 
+    **Boundary-based compaction** (``preserve_tail > 0``): only the older
+    portion of the conversation is summarised; the trailing *preserve_tail*
+    messages are kept intact so the model retains recent context verbatim.
+    The boundary is chosen by :func:`_find_tail_boundary`, which applies
+    three walk-back rules (no orphaned tool results, user-first ordering,
+    full-summary fallback).  When the boundary cannot be placed safely, the
+    function falls back to summarising the entire history — matching the
+    ``preserve_tail=0`` shape exactly.
+
     The ``messages`` list is mutated in place: on success it is cleared and
-    replaced with the single summary message. On failure it is left
+    replaced with ``[summary] + preserved_tail``.  On failure it is left
     untouched.
+
+    **Rehydration** (``rehydrate=True``, #1414): a bounded
+    ``<session_state>`` block describing recently touched files, the last
+    working directory, and unresolved tool errors is appended to the summary
+    message content.  Extraction is deterministic — it parses tool call
+    arguments and results, not LLM prose.  The block is capped by
+    ``rehydrate_max_files`` (per category) and ``rehydrate_max_errors``.
+    Set ``rehydrate=False`` to disable.
 
     Returns a :class:`CompactionResult` with metadata useful for caller UX
     rendering (token counts, original message count, summary text).
+    ``original_count`` and ``original_tokens`` always describe the *full*
+    input, not just the summarised prefix, so UX reporting is consistent
+    across boundary-based and full-summary paths.
     """
     original_count = len(messages)
     original_tokens = count_message_tokens(messages)
@@ -159,13 +582,18 @@ async def compact_messages(
             summary="",
         )
 
-    history_text = build_compaction_history(messages)
+    split = _find_tail_boundary(messages, preserve_tail)
+    head = messages[:split] if split > 0 else list(messages)
+    tail = messages[split:] if split > 0 else []
+
+    history_text = build_compaction_history(head)
     summary_prompt = _SUMMARY_PROMPT_PREFIX + history_text
 
     try:
         raw_summary = await ai_service.complete(
             messages=[{"role": "user", "content": summary_prompt}],
             max_completion_tokens=1000,
+            cancel_event=cancel_event,
         )
     except Exception:
         logger.exception("Failed to generate compaction summary")
@@ -195,18 +623,78 @@ async def compact_messages(
 
     summary = raw_summary
 
+    # Boundary-based output shape: the template describes how many messages
+    # the summary *replaced*, not the full conversation size.  When no tail
+    # is preserved, summarised_count equals original_count and the shape is
+    # identical to the legacy full-summary path.
+    summarised_count = len(head)
+
     compacted_content = content_template.format(
-        original_count=original_count,
+        original_count=summarised_count,
         original_tokens=original_tokens,
         summary=summary,
     )
 
+    # Rehydration (#1414): append a bounded, deterministic <session_state>
+    # block to the summary content so the model retains recent file/error
+    # context after compaction.  The block is extracted from *head* (the
+    # messages that are actually being summarised away) — not from the
+    # preserved tail, whose structured context survives verbatim.
+    #
+    # Two strip points guard against re-compaction nesting:
+    # 1. `build_compaction_history` already strips prior <session_state>
+    #    from each head message before summarisation.
+    # 2. We strip from ``compacted_content`` here in case the LLM echoed one
+    #    back into its prose summary.
+    if rehydrate:
+        compacted_content = _strip_session_state(compacted_content)
+        rehydration_state = extract_rehydration_state(
+            head,
+            max_files=rehydrate_max_files,
+            max_errors=rehydrate_max_errors,
+        )
+        block = format_rehydration_block(rehydration_state)
+        if block:
+            compacted_content = f"{compacted_content}\n\n{block}"
+
+    # Rough token estimate for the summary — 4 chars / token — used by the
+    # boundary marker metadata so downstream rehydration (#1414) knows how
+    # much context the summary cost.
+    summary_tokens = max(1, len(summary) // 4)
+
+    # Summary message carries metadata.compact_summary=True for programmatic
+    # detection by #1414 rehydration, independent of the in-memory role.
+    summary_msg: dict[str, Any] = {
+        "role": role,
+        "content": compacted_content,
+        "metadata": {
+            "compact_summary": True,
+            "original_count": summarised_count,
+            "original_tokens": original_tokens,
+            "summary_tokens": summary_tokens,
+        },
+    }
+
     messages.clear()
-    messages.append({"role": role, "content": compacted_content})
+    messages.append(summary_msg)
+    # Boundary marker: only emitted when a tail is actually preserved.  The
+    # marker is always role=system so transcript renderers naturally hide it
+    # (CSS `system-hidden` in web, skipped by `render_conversation_recap` in CLI).
+    if tail:
+        messages.append(
+            build_boundary_marker(
+                original_count=summarised_count,
+                preserved_count=len(tail),
+                summary_tokens=summary_tokens,
+            )
+        )
+        messages.extend(tail)
 
     logger.info(
-        "Compacted %d messages into summary (role=%s, ~%d tokens original)",
+        "Compacted %d/%d messages into summary + boundary + %d preserved tail (role=%s, ~%d tokens original)",
+        summarised_count,
         original_count,
+        len(tail),
         role,
         original_tokens,
     )
@@ -216,3 +704,322 @@ async def compact_messages(
         original_tokens=original_tokens,
         summary=summary,
     )
+
+
+# ---------------------------------------------------------------------------
+# Persistence (#1413)
+# ---------------------------------------------------------------------------
+
+
+_PERSISTED_SUMMARY_ROLE = "system"
+"""Role used when writing the compact summary to SQLite.
+
+In-memory, the summary can be ``user`` (shared loop) or ``system`` (CLI
+``/compact``).  On persistence we always translate to ``system`` so both
+the web UI transcript (which applies ``system-hidden`` CSS to system roles)
+and the CLI recap (which only searches user/assistant) naturally hide the
+summary.  See #1413 "Persisted Summary Role" for the full rationale.
+"""
+
+
+def persist_compacted_messages(
+    db: Any,
+    conversation_id: str,
+    *,
+    summary_msg: dict[str, Any],
+    boundary_msg: dict[str, Any] | None,
+    tail_message_ids: list[str],
+) -> None:
+    """Persist the compacted form of a conversation (#1413).
+
+    Contract:
+
+    1. **DELETE** messages whose IDs are NOT in ``tail_message_ids``.  Cascade
+       removes their attachments, tool_calls, and message_embeddings — which
+       is correct because those messages are being summarised away.
+    2. **INSERT** the summary message with ``role: "system"`` at the head.
+    3. **INSERT** the boundary marker (also ``role: "system"``) when present.
+    4. **UPDATE** positions of the preserved tail messages so they come right
+       after the summary + boundary.  Uses ``UPDATE messages SET position``
+       (not DELETE + re-INSERT) so the tail message rows keep their IDs —
+       attachments, tool_calls, and embeddings stay attached.
+
+    The summary's in-memory role (``user`` or ``system``) is ignored at the
+    storage boundary: the persisted summary is always ``role: "system"``.
+    The summary's ``metadata.compact_summary`` flag is preserved.
+
+    Raises on DB errors.  The caller is responsible for holding the
+    conversation's lock if concurrent writes are possible.
+    """
+    # Local import to keep this module callable from tests that don't want
+    # the full storage module side-effects loaded.  Cheap at runtime.
+    from . import storage as _storage
+
+    now = _storage._now()  # noqa: SLF001 — intentional single source of truth for ISO time
+
+    # --- Step 1: DELETE non-tail messages ------------------------------------
+    # We build the parameterised IN clause ourselves because sqlite3 has no
+    # native list binding.  Tail IDs are UUIDs generated by storage (never
+    # user input), so there is no injection surface, but we bind them as
+    # parameters anyway to stay consistent with the rest of the DAL.
+    if tail_message_ids:
+        placeholders = ",".join("?" * len(tail_message_ids))
+        delete_sql = f"DELETE FROM messages WHERE conversation_id = ? AND id NOT IN ({placeholders})"
+        db.execute(delete_sql, (conversation_id, *tail_message_ids))
+    else:
+        db.execute("DELETE FROM messages WHERE conversation_id = ?", (conversation_id,))
+
+    # --- Step 2: INSERT summary at position 0 -------------------------------
+    summary_metadata = dict(summary_msg.get("metadata") or {})
+    # Always flag for #1414 rehydration.  If the caller already set
+    # compact_summary=True, this is a no-op; if they didn't, we set it.
+    summary_metadata["compact_summary"] = True
+    summary_id = _storage._uuid()  # noqa: SLF001
+    db.execute(
+        "INSERT INTO messages (id, conversation_id, role, content, user_id, user_display_name,"
+        " created_at, position, metadata)"
+        " VALUES (?, ?, ?, ?, NULL, NULL, ?, 0, ?)",
+        (
+            summary_id,
+            conversation_id,
+            _PERSISTED_SUMMARY_ROLE,
+            summary_msg.get("content", ""),
+            now,
+            json.dumps(summary_metadata),
+        ),
+    )
+
+    # --- Step 3: INSERT boundary marker at position 1 -----------------------
+    next_position = 1
+    if boundary_msg is not None:
+        boundary_metadata = dict(boundary_msg.get("metadata") or {})
+        boundary_metadata.setdefault("compact_boundary", True)
+        boundary_id = _storage._uuid()  # noqa: SLF001
+        db.execute(
+            "INSERT INTO messages (id, conversation_id, role, content, user_id, user_display_name,"
+            " created_at, position, metadata)"
+            " VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?)",
+            (
+                boundary_id,
+                conversation_id,
+                "system",  # boundary is always system
+                boundary_msg.get("content", BOUNDARY_MARKER_CONTENT),
+                now,
+                next_position,
+                json.dumps(boundary_metadata),
+            ),
+        )
+        next_position += 1
+
+    # --- Step 4: UPDATE tail positions --------------------------------------
+    # Reorder preserved tail messages so they come right after summary+boundary.
+    # The tail_message_ids list carries the intended order; we renumber
+    # sequentially starting from ``next_position``.
+    for idx, msg_id in enumerate(tail_message_ids):
+        db.execute(
+            "UPDATE messages SET position = ? WHERE conversation_id = ? AND id = ?",
+            (next_position + idx, conversation_id, msg_id),
+        )
+
+    # --- Commit and touch conversation timestamp ----------------------------
+    db.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (now, conversation_id))
+    db.commit()
+
+    logger.info(
+        "Persisted compacted conversation %s: 1 summary + %d boundary + %d tail messages",
+        conversation_id,
+        1 if boundary_msg is not None else 0,
+        len(tail_message_ids),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Staged overflow recovery helpers (#1415)
+# ---------------------------------------------------------------------------
+
+
+def _identify_turn_groups(messages: list[dict[str, Any]]) -> list[tuple[int, int]]:
+    """Partition a message list into indivisible turn groups.
+
+    A turn group is the atomic unit of conversation structure that must
+    never be split mid-way (OpenAI-compatible APIs reject a ``role: tool``
+    message whose matching ``tool_call_id`` is not present on a preceding
+    assistant message's ``tool_calls``).
+
+    Turn group rules:
+
+    * A standalone ``user`` message → 1 group.
+    * A standalone ``system`` message → 1 group.
+    * A standalone ``assistant`` message (no ``tool_calls``) → 1 group.
+    * An ``assistant`` message with ``tool_calls`` + all subsequent
+      ``role: "tool"`` messages whose ``tool_call_id`` matches one of those
+      tool_calls → 1 indivisible group.
+
+    A trailing ``role: "tool"`` message with no preceding matching
+    assistant is degenerate but handled defensively — it becomes its own
+    group rather than crashing.
+
+    Returns a list of ``(start, end_exclusive)`` index pairs such that
+    ``messages[start:end_exclusive]`` is exactly one turn group.
+    """
+    groups: list[tuple[int, int]] = []
+    i = 0
+    n = len(messages)
+    while i < n:
+        msg = messages[i]
+        role = msg.get("role")
+        tool_calls = msg.get("tool_calls") or []
+        if role == "assistant" and tool_calls:
+            expected_ids = {tc.get("id") for tc in tool_calls if tc.get("id")}
+            j = i + 1
+            while j < n:
+                nxt = messages[j]
+                if nxt.get("role") == "tool" and nxt.get("tool_call_id") in expected_ids:
+                    j += 1
+                    continue
+                break
+            groups.append((i, j))
+            i = j
+        else:
+            groups.append((i, i + 1))
+            i += 1
+    return groups
+
+
+def collapse_old_tool_results(
+    messages: list[dict[str, Any]],
+    *,
+    keep_recent_groups: int = 2,
+    compact_chars: int = 200,
+) -> bool:
+    """Compact historical tool results (all older turn groups) to ``compact_chars``.
+
+    This is a cheaper pre-compaction recovery step than full LLM compaction:
+    it aggressively shrinks *all* older tool results regardless of current
+    size, using :func:`services.tool_result_compact.compact_tool_output` to
+    preserve structured fields (exit_code, error, path) while truncating
+    bulk content (stdout, stderr).
+
+    Different from :func:`_truncate_large_tool_outputs` in
+    ``agent_loop.py``, which only acts on messages currently exceeding
+    ``max_chars``.  This function acts on every older tool message.
+
+    Operates on turn-group boundaries — the most recent
+    ``keep_recent_groups`` turn groups are left untouched, including any
+    tool-result messages inside them.  Returns ``True`` if any tool-role
+    message was modified, ``False`` otherwise.
+    """
+    groups = _identify_turn_groups(messages)
+    if len(groups) <= keep_recent_groups:
+        return False
+
+    # Cutoff: the end-exclusive index of the last group we compact.
+    cutoff = groups[-keep_recent_groups][0] if keep_recent_groups > 0 else len(messages)
+
+    modified = False
+    for idx in range(cutoff):
+        msg = messages[idx]
+        if msg.get("role") != "tool":
+            continue
+        new_content = compact_tool_output(msg.get("content", ""), max_chars=compact_chars)
+        if new_content != msg.get("content", ""):
+            msg["content"] = new_content
+            modified = True
+    return modified
+
+
+def drop_old_turn_groups(
+    messages: list[dict[str, Any]],
+    *,
+    keep_recent_groups: int = 4,
+) -> bool:
+    """Drop older turn groups and replace them with a deterministic summary.
+
+    The cheapest recovery strategy short of aborting — no LLM call, purely
+    structural.  Delegates boundary selection to :func:`_find_tail_boundary`
+    so the walk-back rules (no orphaned tool results, provider-safe
+    user-first ordering) are applied identically to the LLM-based
+    compaction path.
+
+    The inserted summary message matches :func:`compact_messages` output
+    shape exactly so downstream consumers (#1414 rehydration stripper,
+    transcript renderers, introspect) do not need a special case:
+
+    * ``role: "user"`` (shared-loop contract from #1412).
+    * Content via :data:`AGENT_LOOP_CONTENT_TEMPLATE`.
+    * ``metadata["compact_summary"] = True`` plus ``original_count``,
+      ``original_tokens``, ``summary_tokens``.
+    * When a tail is preserved, :func:`build_boundary_marker` is inserted
+      between the summary and the preserved tail.
+
+    Returns ``True`` if turn groups were dropped and the message list was
+    mutated in place; ``False`` if no safe split exists.
+    """
+    groups = _identify_turn_groups(messages)
+    if len(groups) <= keep_recent_groups:
+        return False
+
+    preserve_start_group = groups[-keep_recent_groups]
+    preserve_count = len(messages) - preserve_start_group[0]
+
+    split = _find_tail_boundary(messages, preserve_count)
+    if split <= 0:
+        return False
+
+    head = messages[:split]
+    tail = messages[split:]
+    if not head:
+        return False
+
+    original_count = len(messages)
+    # Token count describes the FULL input, not just the summarised prefix.
+    # This matches compact_messages()'s metadata contract so downstream
+    # consumers can treat staged-recovery summaries and full-LLM-compaction
+    # summaries uniformly.  See the compact_messages() docstring and the
+    # shape defined around services/compaction.py:303-327.
+    original_tokens = count_message_tokens(messages)
+
+    # Deterministic prose body from the dropped portion, capped so the
+    # summary itself does not reintroduce context pressure.
+    history_text = build_compaction_history(head)
+    if len(history_text) > 2000:
+        history_text = history_text[:2000] + "..."
+
+    summary_content = AGENT_LOOP_CONTENT_TEMPLATE.format(
+        original_count=len(head),
+        original_tokens=original_tokens,
+        summary=history_text,
+    )
+
+    summary_tokens = max(1, len(history_text) // 4)
+
+    summary_msg: dict[str, Any] = {
+        "role": "user",
+        "content": summary_content,
+        "metadata": {
+            "compact_summary": True,
+            "original_count": len(head),
+            "original_tokens": original_tokens,
+            "summary_tokens": summary_tokens,
+        },
+    }
+
+    messages.clear()
+    messages.append(summary_msg)
+    if tail:
+        messages.append(
+            build_boundary_marker(
+                original_count=len(head),
+                preserved_count=len(tail),
+                summary_tokens=summary_tokens,
+            )
+        )
+        messages.extend(tail)
+
+    logger.info(
+        "Dropped %d/%d older turn groups into deterministic summary + %d preserved tail",
+        len(head),
+        original_count,
+        len(tail),
+    )
+    return True

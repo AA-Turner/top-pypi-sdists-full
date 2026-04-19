@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: centrifuge-python
-Version: 0.4.3
+Version: 0.4.4
 Summary: WebSocket SDK for Centrifugo (and any Centrifuge-based server) on top of Python asyncio library
 Author: Alexander Emelin (Centrifugal Labs LTD), Katant Savelev
 License-Expression: MIT

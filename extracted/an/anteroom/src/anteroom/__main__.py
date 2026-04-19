@@ -47,6 +47,19 @@ def _find_mkdocs_yml() -> Path | None:
     return None
 
 
+def _exec_mkdocs_serve(host: str, port: int, mkdocs_yml: Path) -> int:
+    """Invoke ``mkdocs serve`` and return its exit code.
+
+    Always runs with ``cwd=mkdocs_yml.parent`` so mkdocs' plugin, snippet,
+    and ``docs_dir`` resolution work correctly. Used by both the foreground
+    ``aroom docs`` path and the detached bg-worker entry point.
+    """
+    return subprocess.run(
+        [sys.executable, "-m", "mkdocs", "serve", "-a", f"{host}:{port}", "-f", str(mkdocs_yml)],
+        cwd=str(mkdocs_yml.parent),
+    ).returncode
+
+
 def _run_docs(args: argparse.Namespace) -> None:
     """Serve the Anteroom documentation site locally via MkDocs."""
     if shutil.which("mkdocs") is None:
@@ -83,15 +96,13 @@ def _run_docs(args: argparse.Namespace) -> None:
     print("Press Ctrl+C to stop.\n")
 
     try:
-        subprocess.run(
-            [sys.executable, "-m", "mkdocs", "serve", "-a", addr, "-f", str(mkdocs_yml)],
-            cwd=str(mkdocs_yml.parent),
-            check=True,
-        )
+        rc = _exec_mkdocs_serve(host, port, mkdocs_yml)
     except KeyboardInterrupt:
-        pass
+        return
     except subprocess.CalledProcessError as exc:
         sys.exit(exc.returncode)
+    if rc != 0:
+        sys.exit(rc)
 
 
 def _run_init(force: bool = False, team_config: str | None = None) -> None:
@@ -1100,6 +1111,170 @@ def _run_status(config: AppConfig) -> None:
 
         pid_str = f"PID {status.pid}" if status.pid else "PID unknown"
         print(f"Server is running at {url} ({pid_str}){uptime_str}")
+        print(f"  Log: {status.log_path}")
+    elif status.alive:
+        print(f"Process {status.pid} is running but port {status.port} is not responding.")
+        print(f"  Log: {status.log_path}")
+    else:
+        mgr.clear_pid()
+        print(f"Stale PID file found (process {status.pid} is not running). Cleaned up.")
+
+
+def _resolve_docs_port(config: AppConfig, requested: int | None) -> int:
+    """Return the port of the docs server to act on.
+
+    When *requested* is explicit, return it unchanged. When ``None``, scan
+    ``data_dir`` for docs PID files and:
+
+      - exit 1 if no docs server is running
+      - exit 1 if multiple are running (the user must pick one)
+      - return the single port otherwise
+    """
+    if requested is not None:
+        return requested
+    from .services.server_manager import ServerManager
+
+    ports = ServerManager.discover_pid_ports(config.app.data_dir, service_name="docs")
+    if not ports:
+        print("No docs server is running.", file=sys.stderr)
+        sys.exit(1)
+    if len(ports) > 1:
+        joined = ", ".join(str(p) for p in ports)
+        print(
+            f"Multiple docs servers running on ports {joined}. Pass --port to select one.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return ports[0]
+
+
+def _run_docs_start(config: AppConfig, args: argparse.Namespace) -> None:
+    """Start the docs server as a detached background process."""
+    from .services.server_manager import ServerManager
+
+    if shutil.which("mkdocs") is None:
+        print("MkDocs is not installed.", file=sys.stderr)
+        print("Install docs-serving dependencies with:", file=sys.stderr)
+        print("  pip install anteroom[docs-serve]", file=sys.stderr)
+        sys.exit(1)
+
+    port: int = getattr(args, "docs_port", 8400)
+    host: str = getattr(args, "docs_host", "127.0.0.1")
+    if not 1 <= port <= 65535:
+        print(f"Invalid port: {port}. Must be between 1 and 65535.", file=sys.stderr)
+        sys.exit(1)
+
+    mgr = ServerManager(
+        data_dir=config.app.data_dir,
+        host=host,
+        port=port,
+        service_name="docs",
+        bg_worker_flag="--_bg-worker-docs",
+    )
+    status = mgr.get_status()
+    if status.alive and status.responding:
+        print(f"Docs server is already running (PID {status.pid}) on port {status.port}.", file=sys.stderr)
+        sys.exit(1)
+    if status.alive and not status.responding:
+        print(f"Process {status.pid} exists but port {status.port} is not responding.", file=sys.stderr)
+        print("Use 'aroom docs stop' to clean up, then try again.", file=sys.stderr)
+        sys.exit(1)
+
+    extra_args = ["--_bg-docs-host", host]
+    try:
+        pid = mgr.start_background(
+            debug=getattr(args, "debug", False),
+            extra_args=extra_args,
+        )
+    except RuntimeError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
+
+    probe_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host
+    url = f"http://{probe_host}:{port}"
+    started = False
+    for _ in range(100):
+        if mgr.is_port_responding(probe_host, port, timeout=0.5):
+            started = True
+            break
+        time.sleep(0.1)
+    if started:
+        print(f"Anteroom docs started at {url} (PID {pid})")
+    else:
+        print(f"Anteroom docs starting at {url} (PID {pid})", file=sys.stderr)
+        print("  Server may still be initializing. Check: aroom docs status", file=sys.stderr)
+        print(f"  Logs: {mgr.log_path}", file=sys.stderr)
+
+
+def _run_docs_stop(config: AppConfig, args: argparse.Namespace) -> None:
+    """Stop the background docs server."""
+    from .services.server_manager import ServerManager
+
+    port = _resolve_docs_port(config, getattr(args, "docs_port", None))
+    mgr = ServerManager(
+        data_dir=config.app.data_dir,
+        port=port,
+        service_name="docs",
+        bg_worker_flag="--_bg-worker-docs",
+    )
+    status = mgr.get_status()
+    if status.pid is None:
+        # Exit non-zero so scripts can detect "nothing was stopped" without
+        # parsing stdout. This matches the approved #1439 contract.
+        print(f"No docs server is running on port {port} (no PID file found).", file=sys.stderr)
+        sys.exit(1)
+    if not status.alive:
+        mgr.clear_pid()
+        print(
+            f"Cleaned up stale PID file (process {status.pid} was not running).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print(f"Stopping Anteroom docs (PID {status.pid})...")
+    stopped = mgr.stop()
+    if stopped:
+        print("Docs server stopped.")
+    else:
+        if not mgr.is_process_alive(status.pid):
+            print("Docs server stopped (exited during shutdown).")
+        else:
+            print("Could not stop the docs server.", file=sys.stderr)
+            sys.exit(1)
+
+
+def _run_docs_status(config: AppConfig, args: argparse.Namespace) -> None:
+    """Show background docs server status."""
+    from .services.server_manager import ServerManager
+
+    port = _resolve_docs_port(config, getattr(args, "docs_port", None))
+    mgr = ServerManager(
+        data_dir=config.app.data_dir,
+        port=port,
+        service_name="docs",
+        bg_worker_flag="--_bg-worker-docs",
+    )
+    status = mgr.get_status()
+
+    if status.pid is None and not status.responding:
+        print("Docs server is not running.")
+        return
+    if status.responding:
+        url = f"http://127.0.0.1:{status.port}"
+        uptime_str = ""
+        if status.start_time is not None:
+            elapsed = time.time() - status.start_time
+            if elapsed >= 0:
+                hours, remainder = divmod(int(elapsed), 3600)
+                minutes, seconds = divmod(remainder, 60)
+                if hours > 0:
+                    uptime_str = f" (uptime: {hours}h {minutes}m)"
+                elif minutes > 0:
+                    uptime_str = f" (uptime: {minutes}m {seconds}s)"
+                else:
+                    uptime_str = f" (uptime: {seconds}s)"
+        pid_str = f"PID {status.pid}" if status.pid else "PID unknown"
+        print(f"Docs server is running at {url} ({pid_str}){uptime_str}")
         print(f"  Log: {status.log_path}")
     elif status.alive:
         print(f"Process {status.pid} is running but port {status.port} is not responding.")
@@ -2554,6 +2729,20 @@ def main() -> None:
         default=False,
         help=argparse.SUPPRESS,
     )
+    parser.add_argument(
+        "--_bg-worker-docs",
+        dest="docs_bg_worker",
+        action="store_true",
+        default=False,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--_bg-docs-host",
+        dest="bg_docs_host",
+        type=str,
+        default="127.0.0.1",
+        help=argparse.SUPPRESS,
+    )
 
     artifact_parser = subparsers.add_parser("artifact", help="Manage artifacts")
     artifact_subparsers = artifact_parser.add_subparsers(dest="artifact_action")
@@ -2970,6 +3159,29 @@ def main() -> None:
     memory_reject_parser.add_argument("fqn", help="Memory FQN")
     memory_reject_parser.add_argument("--reason", required=True, help="Rejection reason (bounded by config)")
 
+    # Retention / pin subcommands (#625)
+    memory_pin_parser = memory_sub.add_parser("pin", help="Pin a memory so retention workers skip it")
+    memory_pin_parser.add_argument("fqn", help="Memory FQN")
+
+    memory_unpin_parser = memory_sub.add_parser("unpin", help="Remove the pin flag from a memory")
+    memory_unpin_parser.add_argument("fqn", help="Memory FQN")
+
+    memory_retention_parser = memory_sub.add_parser("retention", help="Preview or run the memory retention policy")
+    memory_retention_sub = memory_retention_parser.add_subparsers(dest="memory_retention_action")
+    memory_retention_sub.add_parser(
+        "preview",
+        help="Dry-run: list memories that would be purged on the next cycle",
+    )
+    memory_retention_purge = memory_retention_sub.add_parser(
+        "purge",
+        help="Actually purge memories matching the policy (requires --confirm)",
+    )
+    memory_retention_purge.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Must be set to actually delete memories",
+    )
+
     # `aroom unpack` subcommand
     unpack_parser = subparsers.add_parser("unpack", help="Extract bundled tests, docs, and config to a directory")
     unpack_parser.add_argument("dest", help="Destination directory")
@@ -2985,6 +3197,30 @@ def main() -> None:
     )
     docs_parser.add_argument(
         "--build", action="store_true", dest="docs_build", help="Run mkdocs build --strict and exit"
+    )
+    docs_subparsers = docs_parser.add_subparsers(dest="docs_action")
+    docs_start_parser = docs_subparsers.add_parser("start", help="Start the docs server in the background")
+    docs_start_parser.add_argument(
+        "--port", type=int, default=8400, dest="docs_port", help="Port for docs server (default: 8400)"
+    )
+    docs_start_parser.add_argument(
+        "--host", type=str, default="127.0.0.1", dest="docs_host", help="Host to bind to (default: 127.0.0.1)"
+    )
+    docs_stop_parser = docs_subparsers.add_parser("stop", help="Stop the background docs server")
+    docs_stop_parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        dest="docs_port",
+        help="Port of the docs server to stop (auto-discovered when omitted)",
+    )
+    docs_status_parser = docs_subparsers.add_parser("status", help="Show background docs server status")
+    docs_status_parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        dest="docs_port",
+        help="Port of the docs server to inspect (auto-discovered when omitted)",
     )
 
     # `aroom artifact import` subcommand
@@ -3029,7 +3265,7 @@ def main() -> None:
         unpack(args.dest, force=getattr(args, "force", False))
         return
 
-    if args.command == "docs":
+    if args.command == "docs" and getattr(args, "docs_action", None) is None:
         _run_docs(args)
         return
 
@@ -3199,6 +3435,27 @@ def main() -> None:
     if args.command == "status":
         _run_status(config)
         return
+
+    if args.command == "docs":
+        action = getattr(args, "docs_action", None)
+        if action == "start":
+            _run_docs_start(config, args)
+            return
+        if action == "stop":
+            _run_docs_stop(config, args)
+            return
+        if action == "status":
+            _run_docs_status(config, args)
+            return
+
+    if getattr(args, "docs_bg_worker", False):
+        mkdocs_yml = _find_mkdocs_yml()
+        if mkdocs_yml is None:
+            print("Cannot find mkdocs.yml.", file=sys.stderr)
+            sys.exit(1)
+        bg_port = getattr(args, "port", None) or 8400
+        bg_host = getattr(args, "bg_docs_host", "127.0.0.1")
+        sys.exit(_exec_mkdocs_serve(bg_host, bg_port, mkdocs_yml))
 
     if getattr(args, "bg_worker", False):
         _run_web(config, config_path, debug=args.debug, enforced_fields=enforced_fields)

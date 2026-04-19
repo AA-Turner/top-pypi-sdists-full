@@ -45,6 +45,8 @@ _TYPE_DIRS: dict[str, str] = {
     ArtifactType.MCP_SERVER: "mcp_servers",
     ArtifactType.CONFIG_OVERLAY: "config_overlays",
     ArtifactType.SPEC: "specs",
+    ArtifactType.WORKFLOW_TEMPLATE: "workflow_templates",
+    ArtifactType.POLICY: "policies",
 }
 
 

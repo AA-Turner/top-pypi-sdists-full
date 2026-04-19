@@ -130,6 +130,8 @@ _KNOWN_KEYS: dict[str, set[str]] = {
         "max_tool_iterations",
         "context_warn_tokens",
         "context_auto_compact_tokens",
+        # Legacy key — accepted as a deprecated alias for compaction.preserve_tail.
+        "compact_preserve_tail",
         "tool_dedup",
         "retry_delay",
         "max_retries",
@@ -271,6 +273,12 @@ _KNOWN_KEYS: dict[str, set[str]] = {
     },
     "identity": {"user_id", "display_name", "public_key", "private_key"},
     "references": {"instructions", "rules", "skills"},
+    "compaction": {
+        "preserve_tail",
+        "compact_rehydrate",
+        "compact_rehydrate_max_files",
+        "compact_rehydrate_max_errors",
+    },
     "rag": {
         "enabled",
         "max_chunks",
@@ -310,7 +318,7 @@ _KNOWN_KEYS: dict[str, set[str]] = {
         "events",
     },
     "compliance": {"rules"},
-    "memory": {"promotion"},
+    "memory": {"promotion", "retention"},
     "trusted_proxy": {"enabled", "trusted_cidrs", "header"},
 }
 
@@ -330,6 +338,9 @@ _INT_FIELDS: list[tuple[str, str, int, int, int]] = [
     ("cli", "context_warn_tokens", 1000, 1_000_000, 80_000),
     ("cli", "context_auto_compact_tokens", 1000, 1_000_000, 100_000),
     ("cli", "max_retries", 0, 10, 3),
+    ("compaction", "preserve_tail", 0, 200, 6),
+    ("compaction", "compact_rehydrate_max_files", 0, 200, 20),
+    ("compaction", "compact_rehydrate_max_errors", 0, 50, 5),
     ("cli", "tool_output_max_chars", 100, 100_000, 2000),
     ("cli", "tool_replay_max_chars", 100, 100_000, 2000),
     ("cli", "file_reference_max_chars", 1000, 10_000_000, 100_000),

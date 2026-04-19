@@ -1666,7 +1666,7 @@ struct __pyx_opt_args_2av_5codec_5codec_5Codec__init {
 struct __pyx_t_2av_9container_4core_timeout_info;
 typedef struct __pyx_t_2av_9container_4core_timeout_info __pyx_t_2av_9container_4core_timeout_info;
 
-/* "av/container/core.pxd":11
+/* "av/container/core.pxd":12
  * 
  * # Interrupt callback information, times are in seconds.
  * ctypedef struct timeout_info:             # <<<<<<<<<<<<<<
@@ -1693,7 +1693,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode;
 
-/* "av/codec/context.pxd":33
+/* "av/codec/context.pxd":26
  *     cdef readonly HWAccel hwaccel
  *     cdef public dict options
  *     cpdef open(self, bint strict=?)             # <<<<<<<<<<<<<<
@@ -1705,7 +1705,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open {
   int strict;
 };
 
-/* "av/codec/context.pxd":36
+/* "av/codec/context.pxd":29
  * 
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)             # <<<<<<<<<<<<<<
@@ -1717,7 +1717,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode {
   struct __pyx_obj_2av_5frame_Frame *frame;
 };
 
-/* "av/codec/context.pxd":37
+/* "av/codec/context.pxd":30
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)
  *     cpdef decode(self, Packet packet=?)             # <<<<<<<<<<<<<<
@@ -1747,6 +1747,19 @@ struct __pyx_opt_args_2av_5error_stash_exception {
 struct __pyx_opt_args_2av_5error_err_check {
   int __pyx_n;
   PyObject *filename;
+};
+struct __pyx_opt_args_2av_9subtitles_12codeccontext_20SubtitleCodecContext_decode;
+
+/* "av/subtitles/codeccontext.py":107
+ *         return packet
+ * 
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def decode(self, packet: Packet | None = None):
+ *         """Decode a subtitle packet, returning a list of :class:`.Subtitle` objects
+*/
+struct __pyx_opt_args_2av_9subtitles_12codeccontext_20SubtitleCodecContext_decode {
+  int __pyx_n;
+  struct __pyx_obj_2av_6packet_Packet *packet;
 };
 
 /* "av/buffer.pxd":4
@@ -1898,24 +1911,22 @@ struct __pyx_obj_2av_6format_ContainerFormat {
 };
 
 
-/* "av/container/core.pxd":16
+/* "av/container/core.pxd":17
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- *     cdef readonly bint writeable
  *     cdef lib.AVFormatContext *ptr
+ *     cdef readonly object name
 */
 struct __pyx_obj_2av_9container_4core_Container {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_9container_4core_Container *__pyx_vtab;
-  int writeable;
   struct AVFormatContext *ptr;
   PyObject *name;
   PyObject *metadata_encoding;
   PyObject *metadata_errors;
   struct __pyx_obj_2av_9container_4pyio_PyIOFile *file;
   int buffer_size;
-  int input_was_opened;
   PyObject *io_open;
   PyObject *open_files;
   struct __pyx_obj_2av_6format_ContainerFormat *format;
@@ -1925,6 +1936,7 @@ struct __pyx_obj_2av_9container_4core_Container {
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel;
   struct __pyx_obj_2av_9container_7streams_StreamContainer *streams;
   PyObject *metadata;
+  uint8_t _myflag;
   PyObject *open_timeout;
   PyObject *read_timeout;
   __pyx_t_2av_9container_4core_timeout_info interrupt_callback_info;
@@ -2026,7 +2038,6 @@ struct __pyx_obj_2av_6packet_Packet {
   struct __pyx_obj_2av_6buffer_Buffer __pyx_base;
   struct AVPacket *ptr;
   struct __pyx_obj_2av_6stream_Stream *_stream;
-  struct __pyx_obj_2av_6buffer_ByteSource *source;
 };
 
 
@@ -2087,8 +2098,6 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_5codec_7context_CodecContext *__pyx_vtab;
   struct AVCodecContext *ptr;
-  int extradata_set;
-  int _template_initialized;
   int stream_index;
   struct AVCodecParserContext *parser;
   int is_open;
@@ -2096,6 +2105,7 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel;
   PyObject *options;
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *hwaccel_ctx;
+  uint8_t _ctxflags;
   struct __pyx_obj_2av_5frame_Frame *_next_frame;
 };
 
@@ -2281,12 +2291,12 @@ struct __pyx_vtabstruct_2av_10dictionary_Dictionary {
 static struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtabptr_2av_10dictionary_Dictionary;
 
 
-/* "av/container/core.pxd":16
+/* "av/container/core.pxd":17
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- *     cdef readonly bint writeable
  *     cdef lib.AVFormatContext *ptr
+ *     cdef readonly object name
 */
 
 struct __pyx_vtabstruct_2av_9container_4core_Container {
@@ -2447,7 +2457,6 @@ struct __pyx_vtabstruct_2av_5codec_7context_CodecContext {
   PyObject *(*_setup_encoded_packet)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_setup_decoded_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_5frame_Frame *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_recv_packet)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
-  PyObject *(*_send_packet_and_recv)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_6packet_Packet *);
   PyObject *(*_recv_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
   PyObject *(*_transfer_hwframe)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_5frame_Frame *);
   struct __pyx_obj_2av_5frame_Frame *(*_alloc_next_frame)(struct __pyx_obj_2av_5codec_7context_CodecContext *);
@@ -2455,7 +2464,7 @@ struct __pyx_vtabstruct_2av_5codec_7context_CodecContext {
 static struct __pyx_vtabstruct_2av_5codec_7context_CodecContext *__pyx_vtabptr_2av_5codec_7context_CodecContext;
 
 
-/* "av/subtitles/codeccontext.py":12
+/* "av/subtitles/codeccontext.py":13
  * 
  * @cython.cclass
  * class SubtitleCodecContext(CodecContext):             # <<<<<<<<<<<<<<
@@ -2804,9 +2813,6 @@ static void __Pyx_RaiseArgtupleInvalid(const char* func_name, int exact,
 /* PyValueError_Check.proto */
 #define __Pyx_PyExc_ValueError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_ValueError)
 
-/* PyRuntimeError_Check.proto */
-#define __Pyx_PyExc_RuntimeError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_RuntimeError)
-
 /* PyDictVersioning.proto */
 #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
 #define __PYX_DICT_VERSION_INIT  ((PY_UINT64_T) -1)
@@ -2832,6 +2838,9 @@ static CYTHON_INLINE int __Pyx_object_dict_version_matches(PyObject* obj, PY_UIN
 #define __PYX_UPDATE_DICT_CACHE(dict, value, cache_var, version_var)
 #define __PYX_PY_DICT_LOOKUP_IF_MODIFIED(VAR, DICT, LOOKUP)  (VAR) = (LOOKUP);
 #endif
+
+/* PyRuntimeError_Check.proto */
+#define __Pyx_PyExc_RuntimeError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_RuntimeError)
 
 /* RejectKeywords.export */
 static void __Pyx_RejectKeywords(const char* function_name, PyObject *kwds);
@@ -3123,7 +3132,7 @@ static int __Pyx_State_RemoveModule(void*);
 #define __PYX_ABI_MODULE_NAME "_cython_" CYTHON_ABI
 #define __PYX_TYPE_MODULE_PREFIX __PYX_ABI_MODULE_NAME "."
 
-static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext__send_packet_and_recv(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet); /* proto*/
+static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_decode(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_9subtitles_12codeccontext_20SubtitleCodecContext_decode *__pyx_optional_args); /* proto*/
 static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_decode2(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet, int __pyx_skip_dispatch); /* proto*/
 
 /* Module declarations from "libc.stdint" */
@@ -3198,9 +3207,10 @@ static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_1
 static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subtitle_header_2__set__(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, PyObject *__pyx_v_data); /* proto */
 static void __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext___dealloc__(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self); /* proto */
 static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_2encode_subtitle(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_v_subtitle); /* proto */
-static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_4decode2(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet); /* proto */
-static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_6__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_8__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
+static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_4decode(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet); /* proto */
+static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_6decode2(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet); /* proto */
+static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_8__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_10__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_tp_new_2av_9subtitles_12codeccontext_SubtitleCodecContext(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 /* #### Code section: late_includes ### */
 /* #### Code section: module_state ### */
@@ -3256,7 +3266,7 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_items;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
-  PyObject *__pyx_string_tab[41];
+  PyObject *__pyx_string_tab[42];
 /* #### Code section: module_state_contents ### */
 /* CodeObjectCache.module_state_decls */
 struct __Pyx_CodeObjectCache __pyx_code_cache;
@@ -3303,30 +3313,31 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[14]
 #define __pyx_n_u_SubtitleCodecContext __pyx_string_tab[15]
 #define __pyx_n_u_cline_in_traceback __pyx_string_tab[16]
-#define __pyx_n_u_decode2 __pyx_string_tab[17]
-#define __pyx_n_u_getstate __pyx_string_tab[18]
-#define __pyx_n_u_items __pyx_string_tab[19]
-#define __pyx_n_u_main __pyx_string_tab[20]
-#define __pyx_n_u_module __pyx_string_tab[21]
-#define __pyx_n_u_name __pyx_string_tab[22]
-#define __pyx_n_u_packet __pyx_string_tab[23]
-#define __pyx_n_u_pop __pyx_string_tab[24]
-#define __pyx_n_u_pyx_state __pyx_string_tab[25]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[26]
-#define __pyx_n_u_qualname __pyx_string_tab[27]
-#define __pyx_n_u_reduce __pyx_string_tab[28]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[29]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[30]
-#define __pyx_n_u_set_name __pyx_string_tab[31]
-#define __pyx_n_u_setdefault __pyx_string_tab[32]
-#define __pyx_n_u_setstate __pyx_string_tab[33]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[34]
-#define __pyx_n_u_subtitle __pyx_string_tab[35]
-#define __pyx_n_u_test __pyx_string_tab[36]
-#define __pyx_n_u_values __pyx_string_tab[37]
-#define __pyx_kp_b_int_int_int___pyx_skip_dispatch __pyx_string_tab[38]
-#define __pyx_kp_b_struct___pyx_obj_2av_10dictionar __pyx_string_tab[39]
-#define __pyx_kp_b_struct___pyx_obj_2av_6buffer_Byt __pyx_string_tab[40]
+#define __pyx_n_u_decode __pyx_string_tab[17]
+#define __pyx_n_u_decode2 __pyx_string_tab[18]
+#define __pyx_n_u_getstate __pyx_string_tab[19]
+#define __pyx_n_u_items __pyx_string_tab[20]
+#define __pyx_n_u_main __pyx_string_tab[21]
+#define __pyx_n_u_module __pyx_string_tab[22]
+#define __pyx_n_u_name __pyx_string_tab[23]
+#define __pyx_n_u_packet __pyx_string_tab[24]
+#define __pyx_n_u_pop __pyx_string_tab[25]
+#define __pyx_n_u_pyx_state __pyx_string_tab[26]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[27]
+#define __pyx_n_u_qualname __pyx_string_tab[28]
+#define __pyx_n_u_reduce __pyx_string_tab[29]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[30]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[31]
+#define __pyx_n_u_set_name __pyx_string_tab[32]
+#define __pyx_n_u_setdefault __pyx_string_tab[33]
+#define __pyx_n_u_setstate __pyx_string_tab[34]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[35]
+#define __pyx_n_u_subtitle __pyx_string_tab[36]
+#define __pyx_n_u_test __pyx_string_tab[37]
+#define __pyx_n_u_values __pyx_string_tab[38]
+#define __pyx_kp_b_int_int_int___pyx_skip_dispatch __pyx_string_tab[39]
+#define __pyx_kp_b_struct___pyx_obj_2av_10dictionar __pyx_string_tab[40]
+#define __pyx_kp_b_struct___pyx_obj_2av_6buffer_Byt __pyx_string_tab[41]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -3372,7 +3383,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_ptype_7cpython_4type_type);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext);
   Py_CLEAR(clear_module_state->__pyx_type_2av_9subtitles_12codeccontext_SubtitleCodecContext);
-  for (int i=0; i<41; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<42; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* #### Code section: module_state_clear_end ### */
 return 0;
@@ -3420,7 +3431,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_ptype_7cpython_4type_type);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext);
   Py_VISIT(traverse_module_state->__pyx_type_2av_9subtitles_12codeccontext_SubtitleCodecContext);
-  for (int i=0; i<41; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<42; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* #### Code section: module_state_traverse_end ### */
 return 0;
@@ -3428,7 +3439,7 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "av/subtitles/codeccontext.py":13
+/* "av/subtitles/codeccontext.py":14
  * @cython.cclass
  * class SubtitleCodecContext(CodecContext):
  *     @property             # <<<<<<<<<<<<<<
@@ -3462,7 +3473,7 @@ static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_1
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/subtitles/codeccontext.py":17
+  /* "av/subtitles/codeccontext.py":18
  *         """Get the subtitle header data (ASS/SSA format for text subtitles)."""
  *         if (
  *             self.ptr.subtitle_header == cython.NULL             # <<<<<<<<<<<<<<
@@ -3476,7 +3487,7 @@ static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_1
     goto __pyx_L4_bool_binop_done;
   }
 
-  /* "av/subtitles/codeccontext.py":18
+  /* "av/subtitles/codeccontext.py":19
  *         if (
  *             self.ptr.subtitle_header == cython.NULL
  *             or self.ptr.subtitle_header_size <= 0             # <<<<<<<<<<<<<<
@@ -3487,7 +3498,7 @@ static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_1
   __pyx_t_1 = __pyx_t_2;
   __pyx_L4_bool_binop_done:;
 
-  /* "av/subtitles/codeccontext.py":16
+  /* "av/subtitles/codeccontext.py":17
  *     def subtitle_header(self) -> bytes | None:
  *         """Get the subtitle header data (ASS/SSA format for text subtitles)."""
  *         if (             # <<<<<<<<<<<<<<
@@ -3496,7 +3507,7 @@ static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_1
 */
   if (__pyx_t_1) {
 
-    /* "av/subtitles/codeccontext.py":20
+    /* "av/subtitles/codeccontext.py":21
  *             or self.ptr.subtitle_header_size <= 0
  *         ):
  *             return None             # <<<<<<<<<<<<<<
@@ -3507,7 +3518,7 @@ static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_1
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/subtitles/codeccontext.py":16
+    /* "av/subtitles/codeccontext.py":17
  *     def subtitle_header(self) -> bytes | None:
  *         """Get the subtitle header data (ASS/SSA format for text subtitles)."""
  *         if (             # <<<<<<<<<<<<<<
@@ -3516,7 +3527,7 @@ static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_1
 */
   }
 
-  /* "av/subtitles/codeccontext.py":21
+  /* "av/subtitles/codeccontext.py":22
  *         ):
  *             return None
  *         return PyBytes_FromStringAndSize(             # <<<<<<<<<<<<<<
@@ -3525,20 +3536,20 @@ static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_1
 */
   __Pyx_XDECREF(__pyx_r);
 
-  /* "av/subtitles/codeccontext.py":23
+  /* "av/subtitles/codeccontext.py":24
  *         return PyBytes_FromStringAndSize(
  *             cython.cast(cython.p_char, self.ptr.subtitle_header),
  *             self.ptr.subtitle_header_size,             # <<<<<<<<<<<<<<
  *         )
  * 
 */
-  __pyx_t_3 = PyBytes_FromStringAndSize(((char *)__pyx_v_self->__pyx_base.ptr->subtitle_header), __pyx_v_self->__pyx_base.ptr->subtitle_header_size); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 21, __pyx_L1_error)
+  __pyx_t_3 = PyBytes_FromStringAndSize(((char *)__pyx_v_self->__pyx_base.ptr->subtitle_header), __pyx_v_self->__pyx_base.ptr->subtitle_header_size); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 22, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_r = __pyx_t_3;
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/codeccontext.py":13
+  /* "av/subtitles/codeccontext.py":14
  * @cython.cclass
  * class SubtitleCodecContext(CodecContext):
  *     @property             # <<<<<<<<<<<<<<
@@ -3557,7 +3568,7 @@ static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_1
   return __pyx_r;
 }
 
-/* "av/subtitles/codeccontext.py":26
+/* "av/subtitles/codeccontext.py":27
  *         )
  * 
  *     @subtitle_header.setter             # <<<<<<<<<<<<<<
@@ -3576,7 +3587,7 @@ static int __pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyBytes_Type), 1, "data", 2))) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyBytes_Type), 1, "data", 2))) __PYX_ERR(0, 28, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subtitle_header_2__set__(((struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self), ((PyObject*)__pyx_v_data));
 
   /* function exit code */
@@ -3603,7 +3614,7 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 0);
 
-  /* "av/subtitles/codeccontext.py":30
+  /* "av/subtitles/codeccontext.py":31
  *         """Set the subtitle header data."""
  *         source: ByteSource
  *         if data is None:             # <<<<<<<<<<<<<<
@@ -3613,7 +3624,7 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
   __pyx_t_1 = (__pyx_v_data == ((PyObject*)Py_None));
   if (__pyx_t_1) {
 
-    /* "av/subtitles/codeccontext.py":31
+    /* "av/subtitles/codeccontext.py":32
  *         source: ByteSource
  *         if data is None:
  *             lib.av_freep(cython.address(self.ptr.subtitle_header))             # <<<<<<<<<<<<<<
@@ -3622,7 +3633,7 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
 */
     av_freep((&__pyx_v_self->__pyx_base.ptr->subtitle_header));
 
-    /* "av/subtitles/codeccontext.py":32
+    /* "av/subtitles/codeccontext.py":33
  *         if data is None:
  *             lib.av_freep(cython.address(self.ptr.subtitle_header))
  *             self.ptr.subtitle_header_size = 0             # <<<<<<<<<<<<<<
@@ -3631,7 +3642,7 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
 */
     __pyx_v_self->__pyx_base.ptr->subtitle_header_size = 0;
 
-    /* "av/subtitles/codeccontext.py":30
+    /* "av/subtitles/codeccontext.py":31
  *         """Set the subtitle header data."""
  *         source: ByteSource
  *         if data is None:             # <<<<<<<<<<<<<<
@@ -3641,7 +3652,7 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
     goto __pyx_L3;
   }
 
-  /* "av/subtitles/codeccontext.py":34
+  /* "av/subtitles/codeccontext.py":35
  *             self.ptr.subtitle_header_size = 0
  *         else:
  *             source = bytesource(data)             # <<<<<<<<<<<<<<
@@ -3649,12 +3660,12 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
  *                 cython.p_uchar,
 */
   /*else*/ {
-    __pyx_t_2 = ((PyObject *)__pyx_f_2av_6buffer_bytesource(__pyx_v_data, NULL)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 34, __pyx_L1_error)
+    __pyx_t_2 = ((PyObject *)__pyx_f_2av_6buffer_bytesource(__pyx_v_data, NULL)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 35, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_source = ((struct __pyx_obj_2av_6buffer_ByteSource *)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "av/subtitles/codeccontext.py":35
+    /* "av/subtitles/codeccontext.py":36
  *         else:
  *             source = bytesource(data)
  *             self.ptr.subtitle_header = cython.cast(             # <<<<<<<<<<<<<<
@@ -3663,7 +3674,7 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
 */
     __pyx_v_self->__pyx_base.ptr->subtitle_header = ((unsigned char *)av_realloc(__pyx_v_self->__pyx_base.ptr->subtitle_header, (__pyx_v_source->length + AV_INPUT_BUFFER_PADDING_SIZE)));
 
-    /* "av/subtitles/codeccontext.py":42
+    /* "av/subtitles/codeccontext.py":43
  *                 ),
  *             )
  *             if not self.ptr.subtitle_header:             # <<<<<<<<<<<<<<
@@ -3673,7 +3684,7 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
     __pyx_t_1 = (!(__pyx_v_self->__pyx_base.ptr->subtitle_header != 0));
     if (unlikely(__pyx_t_1)) {
 
-      /* "av/subtitles/codeccontext.py":43
+      /* "av/subtitles/codeccontext.py":44
  *             )
  *             if not self.ptr.subtitle_header:
  *                 raise MemoryError("Cannot allocate subtitle_header")             # <<<<<<<<<<<<<<
@@ -3686,14 +3697,14 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
         PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Cannot_allocate_subtitle_header};
         __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 43, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 44, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_Raise(__pyx_t_2, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __PYX_ERR(0, 43, __pyx_L1_error)
+      __PYX_ERR(0, 44, __pyx_L1_error)
 
-      /* "av/subtitles/codeccontext.py":42
+      /* "av/subtitles/codeccontext.py":43
  *                 ),
  *             )
  *             if not self.ptr.subtitle_header:             # <<<<<<<<<<<<<<
@@ -3702,7 +3713,7 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
 */
     }
 
-    /* "av/subtitles/codeccontext.py":44
+    /* "av/subtitles/codeccontext.py":45
  *             if not self.ptr.subtitle_header:
  *                 raise MemoryError("Cannot allocate subtitle_header")
  *             memcpy(self.ptr.subtitle_header, source.ptr, source.length)             # <<<<<<<<<<<<<<
@@ -3711,7 +3722,7 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
 */
     (void)(memcpy(__pyx_v_self->__pyx_base.ptr->subtitle_header, __pyx_v_source->ptr, __pyx_v_source->length));
 
-    /* "av/subtitles/codeccontext.py":45
+    /* "av/subtitles/codeccontext.py":46
  *                 raise MemoryError("Cannot allocate subtitle_header")
  *             memcpy(self.ptr.subtitle_header, source.ptr, source.length)
  *             self.ptr.subtitle_header_size = source.length             # <<<<<<<<<<<<<<
@@ -3723,7 +3734,7 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
   }
   __pyx_L3:;
 
-  /* "av/subtitles/codeccontext.py":46
+  /* "av/subtitles/codeccontext.py":47
  *             memcpy(self.ptr.subtitle_header, source.ptr, source.length)
  *             self.ptr.subtitle_header_size = source.length
  *         self.subtitle_header_set = True             # <<<<<<<<<<<<<<
@@ -3732,7 +3743,7 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
 */
   __pyx_v_self->subtitle_header_set = 1;
 
-  /* "av/subtitles/codeccontext.py":26
+  /* "av/subtitles/codeccontext.py":27
  *         )
  * 
  *     @subtitle_header.setter             # <<<<<<<<<<<<<<
@@ -3754,7 +3765,7 @@ static int __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_15subti
   return __pyx_r;
 }
 
-/* "av/subtitles/codeccontext.py":48
+/* "av/subtitles/codeccontext.py":49
  *         self.subtitle_header_set = True
  * 
  *     def __dealloc__(self) -> None:             # <<<<<<<<<<<<<<
@@ -3779,7 +3790,7 @@ static void __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext___deal
   int __pyx_t_1;
   int __pyx_t_2;
 
-  /* "av/subtitles/codeccontext.py":49
+  /* "av/subtitles/codeccontext.py":50
  * 
  *     def __dealloc__(self) -> None:
  *         if self.ptr and self.subtitle_header_set:             # <<<<<<<<<<<<<<
@@ -3796,7 +3807,7 @@ static void __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext___deal
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "av/subtitles/codeccontext.py":50
+    /* "av/subtitles/codeccontext.py":51
  *     def __dealloc__(self) -> None:
  *         if self.ptr and self.subtitle_header_set:
  *             lib.av_freep(cython.address(self.ptr.subtitle_header))             # <<<<<<<<<<<<<<
@@ -3805,7 +3816,7 @@ static void __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext___deal
 */
     av_freep((&__pyx_v_self->__pyx_base.ptr->subtitle_header));
 
-    /* "av/subtitles/codeccontext.py":49
+    /* "av/subtitles/codeccontext.py":50
  * 
  *     def __dealloc__(self) -> None:
  *         if self.ptr and self.subtitle_header_set:             # <<<<<<<<<<<<<<
@@ -3814,7 +3825,7 @@ static void __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext___deal
 */
   }
 
-  /* "av/subtitles/codeccontext.py":48
+  /* "av/subtitles/codeccontext.py":49
  *         self.subtitle_header_set = True
  * 
  *     def __dealloc__(self) -> None:             # <<<<<<<<<<<<<<
@@ -3825,7 +3836,7 @@ static void __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext___deal
   /* function exit code */
 }
 
-/* "av/subtitles/codeccontext.py":52
+/* "av/subtitles/codeccontext.py":53
  *             lib.av_freep(cython.address(self.ptr.subtitle_header))
  * 
  *     def encode_subtitle(self, subtitle: SubtitleSet) -> Packet:             # <<<<<<<<<<<<<<
@@ -3872,32 +3883,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_subtitle,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 52, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 53, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 52, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 53, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "encode_subtitle", 0) < (0)) __PYX_ERR(0, 52, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "encode_subtitle", 0) < (0)) __PYX_ERR(0, 53, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("encode_subtitle", 1, 1, 1, i); __PYX_ERR(0, 52, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("encode_subtitle", 1, 1, 1, i); __PYX_ERR(0, 53, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 52, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 53, __pyx_L3_error)
     }
     __pyx_v_subtitle = ((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("encode_subtitle", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 52, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("encode_subtitle", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 53, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3908,7 +3919,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtitle), __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, 0, "subtitle", 0))) __PYX_ERR(0, 52, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtitle), __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, 0, "subtitle", 0))) __PYX_ERR(0, 53, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_2encode_subtitle(((struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self), __pyx_v_subtitle);
 
   /* function exit code */
@@ -3954,7 +3965,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("encode_subtitle", 0);
 
-  /* "av/subtitles/codeccontext.py":62
+  /* "av/subtitles/codeccontext.py":63
  *             A Packet containing the encoded subtitle data
  *         """
  *         if not self.codec.ptr:             # <<<<<<<<<<<<<<
@@ -3964,7 +3975,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
   __pyx_t_1 = (!(__pyx_v_self->__pyx_base.codec->ptr != 0));
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/subtitles/codeccontext.py":63
+    /* "av/subtitles/codeccontext.py":64
  *         """
  *         if not self.codec.ptr:
  *             raise ValueError("Cannot encode with unknown codec")             # <<<<<<<<<<<<<<
@@ -3977,14 +3988,14 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Cannot_encode_with_unknown_codec};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 63, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 64, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 63, __pyx_L1_error)
+    __PYX_ERR(0, 64, __pyx_L1_error)
 
-    /* "av/subtitles/codeccontext.py":62
+    /* "av/subtitles/codeccontext.py":63
  *             A Packet containing the encoded subtitle data
  *         """
  *         if not self.codec.ptr:             # <<<<<<<<<<<<<<
@@ -3993,7 +4004,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
   }
 
-  /* "av/subtitles/codeccontext.py":65
+  /* "av/subtitles/codeccontext.py":66
  *             raise ValueError("Cannot encode with unknown codec")
  * 
  *         self.open(strict=False)             # <<<<<<<<<<<<<<
@@ -4002,11 +4013,11 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
   __pyx_t_5.__pyx_n = 1;
   __pyx_t_5.strict = 0;
-  __pyx_t_2 = ((struct __pyx_vtabstruct_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.open(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), 0, &__pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_t_2 = ((struct __pyx_vtabstruct_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.open(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), 0, &__pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 66, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/subtitles/codeccontext.py":68
+  /* "av/subtitles/codeccontext.py":69
  * 
  *         # Calculate buffer size from subtitle text length
  *         buf_size: cython.size_t = 0             # <<<<<<<<<<<<<<
@@ -4015,7 +4026,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
   __pyx_v_buf_size = 0;
 
-  /* "av/subtitles/codeccontext.py":70
+  /* "av/subtitles/codeccontext.py":71
  *         buf_size: cython.size_t = 0
  *         i: cython.uint
  *         for i in range(subtitle.proxy.struct.num_rects):             # <<<<<<<<<<<<<<
@@ -4027,7 +4038,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
   for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
     __pyx_v_i = __pyx_t_8;
 
-    /* "av/subtitles/codeccontext.py":71
+    /* "av/subtitles/codeccontext.py":72
  *         i: cython.uint
  *         for i in range(subtitle.proxy.struct.num_rects):
  *             rect = subtitle.proxy.struct.rects[i]             # <<<<<<<<<<<<<<
@@ -4036,7 +4047,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
     __pyx_v_rect = (__pyx_v_subtitle->proxy->__pyx_struct.rects[__pyx_v_i]);
 
-    /* "av/subtitles/codeccontext.py":72
+    /* "av/subtitles/codeccontext.py":73
  *         for i in range(subtitle.proxy.struct.num_rects):
  *             rect = subtitle.proxy.struct.rects[i]
  *             if rect.ass != cython.NULL:             # <<<<<<<<<<<<<<
@@ -4046,7 +4057,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
     __pyx_t_1 = (__pyx_v_rect->ass != NULL);
     if (__pyx_t_1) {
 
-      /* "av/subtitles/codeccontext.py":73
+      /* "av/subtitles/codeccontext.py":74
  *             rect = subtitle.proxy.struct.rects[i]
  *             if rect.ass != cython.NULL:
  *                 buf_size += strlen(rect.ass)             # <<<<<<<<<<<<<<
@@ -4055,7 +4066,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
       __pyx_v_buf_size = (__pyx_v_buf_size + strlen(__pyx_v_rect->ass));
 
-      /* "av/subtitles/codeccontext.py":72
+      /* "av/subtitles/codeccontext.py":73
  *         for i in range(subtitle.proxy.struct.num_rects):
  *             rect = subtitle.proxy.struct.rects[i]
  *             if rect.ass != cython.NULL:             # <<<<<<<<<<<<<<
@@ -4064,7 +4075,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
     }
 
-    /* "av/subtitles/codeccontext.py":74
+    /* "av/subtitles/codeccontext.py":75
  *             if rect.ass != cython.NULL:
  *                 buf_size += strlen(rect.ass)
  *             if rect.text != cython.NULL:             # <<<<<<<<<<<<<<
@@ -4074,7 +4085,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
     __pyx_t_1 = (__pyx_v_rect->text != NULL);
     if (__pyx_t_1) {
 
-      /* "av/subtitles/codeccontext.py":75
+      /* "av/subtitles/codeccontext.py":76
  *                 buf_size += strlen(rect.ass)
  *             if rect.text != cython.NULL:
  *                 buf_size += strlen(rect.text)             # <<<<<<<<<<<<<<
@@ -4083,7 +4094,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
       __pyx_v_buf_size = (__pyx_v_buf_size + strlen(__pyx_v_rect->text));
 
-      /* "av/subtitles/codeccontext.py":74
+      /* "av/subtitles/codeccontext.py":75
  *             if rect.ass != cython.NULL:
  *                 buf_size += strlen(rect.ass)
  *             if rect.text != cython.NULL:             # <<<<<<<<<<<<<<
@@ -4093,7 +4104,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
     }
   }
 
-  /* "av/subtitles/codeccontext.py":76
+  /* "av/subtitles/codeccontext.py":77
  *             if rect.text != cython.NULL:
  *                 buf_size += strlen(rect.text)
  *         buf_size += 1024  # padding for format overhead             # <<<<<<<<<<<<<<
@@ -4102,7 +4113,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
   __pyx_v_buf_size = (__pyx_v_buf_size + 0x400);
 
-  /* "av/subtitles/codeccontext.py":78
+  /* "av/subtitles/codeccontext.py":79
  *         buf_size += 1024  # padding for format overhead
  * 
  *         buf: cython.p_uchar = cython.cast(cython.p_uchar, lib.av_malloc(buf_size))             # <<<<<<<<<<<<<<
@@ -4111,7 +4122,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
   __pyx_v_buf = ((unsigned char *)av_malloc(__pyx_v_buf_size));
 
-  /* "av/subtitles/codeccontext.py":79
+  /* "av/subtitles/codeccontext.py":80
  * 
  *         buf: cython.p_uchar = cython.cast(cython.p_uchar, lib.av_malloc(buf_size))
  *         if buf == cython.NULL:             # <<<<<<<<<<<<<<
@@ -4121,7 +4132,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
   __pyx_t_1 = (__pyx_v_buf == NULL);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/subtitles/codeccontext.py":80
+    /* "av/subtitles/codeccontext.py":81
  *         buf: cython.p_uchar = cython.cast(cython.p_uchar, lib.av_malloc(buf_size))
  *         if buf == cython.NULL:
  *             raise MemoryError("Failed to allocate subtitle encode buffer")             # <<<<<<<<<<<<<<
@@ -4134,14 +4145,14 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Failed_to_allocate_subtitle_enco};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 80, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 81, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 80, __pyx_L1_error)
+    __PYX_ERR(0, 81, __pyx_L1_error)
 
-    /* "av/subtitles/codeccontext.py":79
+    /* "av/subtitles/codeccontext.py":80
  * 
  *         buf: cython.p_uchar = cython.cast(cython.p_uchar, lib.av_malloc(buf_size))
  *         if buf == cython.NULL:             # <<<<<<<<<<<<<<
@@ -4150,7 +4161,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
   }
 
-  /* "av/subtitles/codeccontext.py":82
+  /* "av/subtitles/codeccontext.py":83
  *             raise MemoryError("Failed to allocate subtitle encode buffer")
  * 
  *         ret: cython.int = lib.avcodec_encode_subtitle(             # <<<<<<<<<<<<<<
@@ -4159,7 +4170,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
   __pyx_v_ret = avcodec_encode_subtitle(__pyx_v_self->__pyx_base.ptr, __pyx_v_buf, __pyx_v_buf_size, (&__pyx_v_subtitle->proxy->__pyx_struct));
 
-  /* "av/subtitles/codeccontext.py":89
+  /* "av/subtitles/codeccontext.py":90
  *         )
  * 
  *         if ret < 0:             # <<<<<<<<<<<<<<
@@ -4169,7 +4180,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
   __pyx_t_1 = (__pyx_v_ret < 0);
   if (__pyx_t_1) {
 
-    /* "av/subtitles/codeccontext.py":90
+    /* "av/subtitles/codeccontext.py":91
  * 
  *         if ret < 0:
  *             lib.av_free(buf)             # <<<<<<<<<<<<<<
@@ -4178,7 +4189,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
     av_free(__pyx_v_buf);
 
-    /* "av/subtitles/codeccontext.py":91
+    /* "av/subtitles/codeccontext.py":92
  *         if ret < 0:
  *             lib.av_free(buf)
  *             err_check(ret, "avcodec_encode_subtitle()")             # <<<<<<<<<<<<<<
@@ -4187,9 +4198,9 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
     __pyx_t_10.__pyx_n = 1;
     __pyx_t_10.filename = __pyx_mstate_global->__pyx_kp_u_avcodec_encode_subtitle;
-    __pyx_t_9 = __pyx_f_2av_5error_err_check(__pyx_v_ret, 0, &__pyx_t_10); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 91, __pyx_L1_error)
+    __pyx_t_9 = __pyx_f_2av_5error_err_check(__pyx_v_ret, 0, &__pyx_t_10); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 92, __pyx_L1_error)
 
-    /* "av/subtitles/codeccontext.py":89
+    /* "av/subtitles/codeccontext.py":90
  *         )
  * 
  *         if ret < 0:             # <<<<<<<<<<<<<<
@@ -4198,7 +4209,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
   }
 
-  /* "av/subtitles/codeccontext.py":93
+  /* "av/subtitles/codeccontext.py":94
  *             err_check(ret, "avcodec_encode_subtitle()")
  * 
  *         packet: Packet = Packet(ret)             # <<<<<<<<<<<<<<
@@ -4206,7 +4217,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
  *         lib.av_free(buf)
 */
   __pyx_t_3 = NULL;
-  __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_ret); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 93, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_ret); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __pyx_t_4 = 1;
   {
@@ -4214,13 +4225,13 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_6packet_Packet, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 93, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 94, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_2);
   }
   __pyx_v_packet = ((struct __pyx_obj_2av_6packet_Packet *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/subtitles/codeccontext.py":94
+  /* "av/subtitles/codeccontext.py":95
  * 
  *         packet: Packet = Packet(ret)
  *         memcpy(packet.ptr.data, buf, ret)             # <<<<<<<<<<<<<<
@@ -4229,7 +4240,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
   (void)(memcpy(__pyx_v_packet->ptr->data, __pyx_v_buf, __pyx_v_ret));
 
-  /* "av/subtitles/codeccontext.py":95
+  /* "av/subtitles/codeccontext.py":96
  *         packet: Packet = Packet(ret)
  *         memcpy(packet.ptr.data, buf, ret)
  *         lib.av_free(buf)             # <<<<<<<<<<<<<<
@@ -4238,7 +4249,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
   av_free(__pyx_v_buf);
 
-  /* "av/subtitles/codeccontext.py":97
+  /* "av/subtitles/codeccontext.py":98
  *         lib.av_free(buf)
  * 
  *         packet.ptr.pts = subtitle.proxy.struct.pts             # <<<<<<<<<<<<<<
@@ -4248,7 +4259,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
   __pyx_t_12 = __pyx_v_subtitle->proxy->__pyx_struct.pts;
   __pyx_v_packet->ptr->pts = __pyx_t_12;
 
-  /* "av/subtitles/codeccontext.py":98
+  /* "av/subtitles/codeccontext.py":99
  * 
  *         packet.ptr.pts = subtitle.proxy.struct.pts
  *         packet.ptr.dts = subtitle.proxy.struct.pts             # <<<<<<<<<<<<<<
@@ -4258,7 +4269,7 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
   __pyx_t_12 = __pyx_v_subtitle->proxy->__pyx_struct.pts;
   __pyx_v_packet->ptr->dts = __pyx_t_12;
 
-  /* "av/subtitles/codeccontext.py":99
+  /* "av/subtitles/codeccontext.py":100
  *         packet.ptr.pts = subtitle.proxy.struct.pts
  *         packet.ptr.dts = subtitle.proxy.struct.pts
  *         packet.ptr.duration = (             # <<<<<<<<<<<<<<
@@ -4267,19 +4278,19 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
 */
   __pyx_v_packet->ptr->duration = (__pyx_v_subtitle->proxy->__pyx_struct.end_display_time - __pyx_v_subtitle->proxy->__pyx_struct.start_display_time);
 
-  /* "av/subtitles/codeccontext.py":104
+  /* "av/subtitles/codeccontext.py":105
  *         )
  * 
  *         return packet             # <<<<<<<<<<<<<<
  * 
- *     @cython.cfunc
+ *     @cython.ccall
 */
   __Pyx_XDECREF((PyObject *)__pyx_r);
   __Pyx_INCREF((PyObject *)__pyx_v_packet);
   __pyx_r = __pyx_v_packet;
   goto __pyx_L0;
 
-  /* "av/subtitles/codeccontext.py":52
+  /* "av/subtitles/codeccontext.py":53
  *             lib.av_freep(cython.address(self.ptr.subtitle_header))
  * 
  *     def encode_subtitle(self, subtitle: SubtitleSet) -> Packet:             # <<<<<<<<<<<<<<
@@ -4301,89 +4312,233 @@ static struct __pyx_obj_2av_6packet_Packet *__pyx_pf_2av_9subtitles_12codecconte
   return __pyx_r;
 }
 
-/* "av/subtitles/codeccontext.py":106
+/* "av/subtitles/codeccontext.py":107
  *         return packet
  * 
- *     @cython.cfunc             # <<<<<<<<<<<<<<
- *     def _send_packet_and_recv(self, packet: Packet | None):
- *         if packet is None:
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def decode(self, packet: Packet | None = None):
+ *         """Decode a subtitle packet, returning a list of :class:`.Subtitle` objects
 */
 
-static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext__send_packet_and_recv(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet) {
+static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_5decode(PyObject *__pyx_v_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_decode(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_9subtitles_12codeccontext_20SubtitleCodecContext_decode *__pyx_optional_args) {
+
+  /* "av/subtitles/codeccontext.py":108
+ * 
+ *     @cython.ccall
+ *     def decode(self, packet: Packet | None = None):             # <<<<<<<<<<<<<<
+ *         """Decode a subtitle packet, returning a list of :class:`.Subtitle` objects
+ *         if a subtitle was decoded, or an empty list otherwise."""
+*/
+  struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet = ((struct __pyx_obj_2av_6packet_Packet *)Py_None);
   struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleProxy *__pyx_v_proxy = 0;
   int __pyx_v_got_frame;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  int __pyx_t_1;
+  PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
-  size_t __pyx_t_4;
-  int __pyx_t_5;
+  PyObject *__pyx_t_4 = NULL;
+  size_t __pyx_t_5;
+  int __pyx_t_6;
+  struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open __pyx_t_7;
+  int __pyx_t_8;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("_send_packet_and_recv", 0);
+  __Pyx_RefNannySetupContext("decode", 0);
+  if (__pyx_optional_args) {
+    if (__pyx_optional_args->__pyx_n > 0) {
+      __pyx_v_packet = __pyx_optional_args->packet;
+    }
+  }
 
-  /* "av/subtitles/codeccontext.py":108
- *     @cython.cfunc
- *     def _send_packet_and_recv(self, packet: Packet | None):
+  /* "av/subtitles/codeccontext.py":107
+ *         return packet
+ * 
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def decode(self, packet: Packet | None = None):
+ *         """Decode a subtitle packet, returning a list of :class:`.Subtitle` objects
+*/
+  /* Check if called by wrapper */
+  if (unlikely(__pyx_skip_dispatch)) ;
+  /* Check if overridden in Python */
+  else if (
+  #if !CYTHON_USE_TYPE_SLOTS
+  unlikely(Py_TYPE(((PyObject *)__pyx_v_self)) != __pyx_mstate_global->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext &&
+  __Pyx_PyType_HasFeature(Py_TYPE(((PyObject *)__pyx_v_self)), Py_TPFLAGS_HAVE_GC))
+  #else
+  unlikely(Py_TYPE(((PyObject *)__pyx_v_self))->tp_dictoffset != 0 || __Pyx_PyType_HasFeature(Py_TYPE(((PyObject *)__pyx_v_self)), (Py_TPFLAGS_IS_ABSTRACT | Py_TPFLAGS_HEAPTYPE)))
+  #endif
+  ) {
+    #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_PYTYPE_LOOKUP && CYTHON_USE_TYPE_SLOTS
+    static PY_UINT64_T __pyx_tp_dict_version = __PYX_DICT_VERSION_INIT, __pyx_obj_dict_version = __PYX_DICT_VERSION_INIT;
+    if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
+      PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
+      #endif
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_decode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_5decode)) {
+        __Pyx_XDECREF(__pyx_r);
+        __pyx_t_3 = NULL;
+        __Pyx_INCREF(__pyx_t_1);
+        __pyx_t_4 = __pyx_t_1; 
+        __pyx_t_5 = 1;
+        #if CYTHON_UNPACK_METHODS
+        if (unlikely(PyMethod_Check(__pyx_t_4))) {
+          __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_4);
+          assert(__pyx_t_3);
+          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
+          __Pyx_INCREF(__pyx_t_3);
+          __Pyx_INCREF(__pyx__function);
+          __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
+          __pyx_t_5 = 0;
+        }
+        #endif
+        {
+          PyObject *__pyx_callargs[2] = {__pyx_t_3, ((PyObject *)__pyx_v_packet)};
+          __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+          __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+          __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 107, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_2);
+        }
+        __pyx_r = __pyx_t_2;
+        __pyx_t_2 = 0;
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        goto __pyx_L0;
+      }
+      #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_PYTYPE_LOOKUP && CYTHON_USE_TYPE_SLOTS
+      __pyx_tp_dict_version = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
+      __pyx_obj_dict_version = __Pyx_get_object_dict_version(((PyObject *)__pyx_v_self));
+      if (unlikely(__pyx_typedict_guard != __pyx_tp_dict_version)) {
+        __pyx_tp_dict_version = __pyx_obj_dict_version = __PYX_DICT_VERSION_INIT;
+      }
+      #endif
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_PYTYPE_LOOKUP && CYTHON_USE_TYPE_SLOTS
+    }
+    #endif
+  }
+
+  /* "av/subtitles/codeccontext.py":111
+ *         """Decode a subtitle packet, returning a list of :class:`.Subtitle` objects
+ *         if a subtitle was decoded, or an empty list otherwise."""
+ *         if not self.codec.ptr:             # <<<<<<<<<<<<<<
+ *             raise ValueError("cannot decode unknown codec")
+ * 
+*/
+  __pyx_t_6 = (!(__pyx_v_self->__pyx_base.codec->ptr != 0));
+  if (unlikely(__pyx_t_6)) {
+
+    /* "av/subtitles/codeccontext.py":112
+ *         if a subtitle was decoded, or an empty list otherwise."""
+ *         if not self.codec.ptr:
+ *             raise ValueError("cannot decode unknown codec")             # <<<<<<<<<<<<<<
+ * 
+ *         if packet is None:
+*/
+    __pyx_t_2 = NULL;
+    __pyx_t_5 = 1;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_cannot_decode_unknown_codec};
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 112, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+    }
+    __Pyx_Raise(__pyx_t_1, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __PYX_ERR(0, 112, __pyx_L1_error)
+
+    /* "av/subtitles/codeccontext.py":111
+ *         """Decode a subtitle packet, returning a list of :class:`.Subtitle` objects
+ *         if a subtitle was decoded, or an empty list otherwise."""
+ *         if not self.codec.ptr:             # <<<<<<<<<<<<<<
+ *             raise ValueError("cannot decode unknown codec")
+ * 
+*/
+  }
+
+  /* "av/subtitles/codeccontext.py":114
+ *             raise ValueError("cannot decode unknown codec")
+ * 
  *         if packet is None:             # <<<<<<<<<<<<<<
  *             raise RuntimeError("packet cannot be None")
  * 
 */
-  __pyx_t_1 = (((PyObject *)__pyx_v_packet) == Py_None);
-  if (unlikely(__pyx_t_1)) {
+  __pyx_t_6 = (((PyObject *)__pyx_v_packet) == Py_None);
+  if (unlikely(__pyx_t_6)) {
 
-    /* "av/subtitles/codeccontext.py":109
- *     def _send_packet_and_recv(self, packet: Packet | None):
+    /* "av/subtitles/codeccontext.py":115
+ * 
  *         if packet is None:
  *             raise RuntimeError("packet cannot be None")             # <<<<<<<<<<<<<<
  * 
- *         proxy: SubtitleProxy = SubtitleProxy()
+ *         self.open(strict=False)
 */
-    __pyx_t_3 = NULL;
-    __pyx_t_4 = 1;
+    __pyx_t_2 = NULL;
+    __pyx_t_5 = 1;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_packet_cannot_be_None};
-      __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 109, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_2);
+      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_packet_cannot_be_None};
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 115, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
     }
-    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 109, __pyx_L1_error)
+    __Pyx_Raise(__pyx_t_1, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __PYX_ERR(0, 115, __pyx_L1_error)
 
-    /* "av/subtitles/codeccontext.py":108
- *     @cython.cfunc
- *     def _send_packet_and_recv(self, packet: Packet | None):
+    /* "av/subtitles/codeccontext.py":114
+ *             raise ValueError("cannot decode unknown codec")
+ * 
  *         if packet is None:             # <<<<<<<<<<<<<<
  *             raise RuntimeError("packet cannot be None")
  * 
 */
   }
 
-  /* "av/subtitles/codeccontext.py":111
+  /* "av/subtitles/codeccontext.py":117
  *             raise RuntimeError("packet cannot be None")
  * 
+ *         self.open(strict=False)             # <<<<<<<<<<<<<<
+ *         proxy: SubtitleProxy = SubtitleProxy()
+ *         got_frame: cython.int = 0
+*/
+  __pyx_t_7.__pyx_n = 1;
+  __pyx_t_7.strict = 0;
+  __pyx_t_1 = ((struct __pyx_vtabstruct_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.open(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), 0, &__pyx_t_7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "av/subtitles/codeccontext.py":118
+ * 
+ *         self.open(strict=False)
  *         proxy: SubtitleProxy = SubtitleProxy()             # <<<<<<<<<<<<<<
  *         got_frame: cython.int = 0
  * 
 */
-  __pyx_t_3 = NULL;
-  __pyx_t_4 = 1;
+  __pyx_t_2 = NULL;
+  __pyx_t_5 = 1;
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
-    __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 111, __pyx_L1_error)
-    __Pyx_GOTREF((PyObject *)__pyx_t_2);
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 118, __pyx_L1_error)
+    __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
-  __pyx_v_proxy = ((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleProxy *)__pyx_t_2);
-  __pyx_t_2 = 0;
+  __pyx_v_proxy = ((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleProxy *)__pyx_t_1);
+  __pyx_t_1 = 0;
 
-  /* "av/subtitles/codeccontext.py":112
- * 
+  /* "av/subtitles/codeccontext.py":119
+ *         self.open(strict=False)
  *         proxy: SubtitleProxy = SubtitleProxy()
  *         got_frame: cython.int = 0             # <<<<<<<<<<<<<<
  * 
@@ -4391,82 +4546,87 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext__s
 */
   __pyx_v_got_frame = 0;
 
-  /* "av/subtitles/codeccontext.py":114
+  /* "av/subtitles/codeccontext.py":121
  *         got_frame: cython.int = 0
  * 
  *         err_check(             # <<<<<<<<<<<<<<
  *             lib.avcodec_decode_subtitle2(
  *                 self.ptr,
 */
-  __pyx_t_5 = __pyx_f_2av_5error_err_check(avcodec_decode_subtitle2(__pyx_v_self->__pyx_base.ptr, (&__pyx_v_proxy->__pyx_struct), (&__pyx_v_got_frame), __pyx_v_packet->ptr), 0, NULL); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 114, __pyx_L1_error)
+  __pyx_t_8 = __pyx_f_2av_5error_err_check(avcodec_decode_subtitle2(__pyx_v_self->__pyx_base.ptr, (&__pyx_v_proxy->__pyx_struct), (&__pyx_v_got_frame), __pyx_v_packet->ptr), 0, NULL); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 121, __pyx_L1_error)
 
-  /* "av/subtitles/codeccontext.py":123
+  /* "av/subtitles/codeccontext.py":130
  *         )
  * 
  *         if got_frame:             # <<<<<<<<<<<<<<
- *             return SubtitleSet(proxy)
+ *             return list(SubtitleSet(proxy))
  *         return []
 */
-  __pyx_t_1 = (__pyx_v_got_frame != 0);
-  if (__pyx_t_1) {
+  __pyx_t_6 = (__pyx_v_got_frame != 0);
+  if (__pyx_t_6) {
 
-    /* "av/subtitles/codeccontext.py":124
+    /* "av/subtitles/codeccontext.py":131
  * 
  *         if got_frame:
- *             return SubtitleSet(proxy)             # <<<<<<<<<<<<<<
+ *             return list(SubtitleSet(proxy))             # <<<<<<<<<<<<<<
  *         return []
  * 
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = NULL;
-    __pyx_t_4 = 1;
+    __pyx_t_2 = NULL;
+    __pyx_t_5 = 1;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_3, ((PyObject *)__pyx_v_proxy)};
-      __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 124, __pyx_L1_error)
-      __Pyx_GOTREF((PyObject *)__pyx_t_2);
+      PyObject *__pyx_callargs[2] = {__pyx_t_2, ((PyObject *)__pyx_v_proxy)};
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 131, __pyx_L1_error)
+      __Pyx_GOTREF((PyObject *)__pyx_t_1);
     }
-    __pyx_r = ((PyObject *)__pyx_t_2);
+    __pyx_t_2 = PySequence_List(((PyObject *)__pyx_t_1)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF((PyObject *)__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "av/subtitles/codeccontext.py":123
+    /* "av/subtitles/codeccontext.py":130
  *         )
  * 
  *         if got_frame:             # <<<<<<<<<<<<<<
- *             return SubtitleSet(proxy)
+ *             return list(SubtitleSet(proxy))
  *         return []
 */
   }
 
-  /* "av/subtitles/codeccontext.py":125
+  /* "av/subtitles/codeccontext.py":132
  *         if got_frame:
- *             return SubtitleSet(proxy)
+ *             return list(SubtitleSet(proxy))
  *         return []             # <<<<<<<<<<<<<<
  * 
  *     @cython.ccall
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 125, __pyx_L1_error)
+  __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 132, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/codeccontext.py":106
+  /* "av/subtitles/codeccontext.py":107
  *         return packet
  * 
- *     @cython.cfunc             # <<<<<<<<<<<<<<
- *     def _send_packet_and_recv(self, packet: Packet | None):
- *         if packet is None:
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def decode(self, packet: Packet | None = None):
+ *         """Decode a subtitle packet, returning a list of :class:`.Subtitle` objects
 */
 
   /* function exit code */
   __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_AddTraceback("av.subtitles.codeccontext.SubtitleCodecContext._send_packet_and_recv", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_AddTraceback("av.subtitles.codeccontext.SubtitleCodecContext.decode", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = 0;
   __pyx_L0:;
   __Pyx_XDECREF((PyObject *)__pyx_v_proxy);
@@ -4475,7 +4635,150 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext__s
   return __pyx_r;
 }
 
-/* "av/subtitles/codeccontext.py":127
+/* Python wrapper */
+static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_5decode(PyObject *__pyx_v_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+PyDoc_STRVAR(__pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_4decode, "SubtitleCodecContext.decode(Packet packet: Packet | None = None)\n\nDecode a subtitle packet, returning a list of :class:`.Subtitle` objects\nif a subtitle was decoded, or an empty list otherwise.");
+static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_5decode(PyObject *__pyx_v_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("decode (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_packet,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 107, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 107, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "decode", 0) < (0)) __PYX_ERR(0, 107, __pyx_L3_error)
+
+      /* "av/subtitles/codeccontext.py":108
+ * 
+ *     @cython.ccall
+ *     def decode(self, packet: Packet | None = None):             # <<<<<<<<<<<<<<
+ *         """Decode a subtitle packet, returning a list of :class:`.Subtitle` objects
+ *         if a subtitle was decoded, or an empty list otherwise."""
+*/
+      if (!values[0]) values[0] = __Pyx_NewRef((PyObject *)((struct __pyx_obj_2av_6packet_Packet *)Py_None));
+    } else {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 107, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      if (!values[0]) values[0] = __Pyx_NewRef((PyObject *)((struct __pyx_obj_2av_6packet_Packet *)Py_None));
+    }
+    __pyx_v_packet = ((struct __pyx_obj_2av_6packet_Packet *)values[0]);
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("decode", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 107, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("av.subtitles.codeccontext.SubtitleCodecContext.decode", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_packet), __pyx_mstate_global->__pyx_ptype_2av_6packet_Packet, 1, "packet", 0))) __PYX_ERR(0, 108, __pyx_L1_error)
+  __pyx_r = __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_4decode(((struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self), __pyx_v_packet);
+
+  /* "av/subtitles/codeccontext.py":107
+ *         return packet
+ * 
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def decode(self, packet: Packet | None = None):
+ *         """Decode a subtitle packet, returning a list of :class:`.Subtitle` objects
+*/
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  goto __pyx_L7_cleaned_up;
+  __pyx_L0:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __pyx_L7_cleaned_up:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_4decode(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode __pyx_t_2;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("decode", 0);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_2.__pyx_n = 1;
+  __pyx_t_2.packet = __pyx_v_packet;
+  __pyx_t_1 = __pyx_vtabptr_2av_9subtitles_12codeccontext_SubtitleCodecContext->__pyx_base.decode(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), 1, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("av.subtitles.codeccontext.SubtitleCodecContext.decode", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "av/subtitles/codeccontext.py":134
  *         return []
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -4483,7 +4786,7 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext__s
  *         """
 */
 
-static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_5decode2(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_7decode2(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -4523,9 +4826,9 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_decode2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 127, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_decode2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 134, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_5decode2)) {
+      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_7decode2)) {
         __Pyx_XDECREF(__pyx_r);
         __pyx_t_3 = NULL;
         __Pyx_INCREF(__pyx_t_1);
@@ -4547,7 +4850,7 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 134, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -4568,7 +4871,7 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
     #endif
   }
 
-  /* "av/subtitles/codeccontext.py":132
+  /* "av/subtitles/codeccontext.py":139
  *         Returns SubtitleSet if you really need it.
  *         """
  *         if not self.codec.ptr:             # <<<<<<<<<<<<<<
@@ -4578,7 +4881,7 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
   __pyx_t_6 = (!(__pyx_v_self->__pyx_base.codec->ptr != 0));
   if (unlikely(__pyx_t_6)) {
 
-    /* "av/subtitles/codeccontext.py":133
+    /* "av/subtitles/codeccontext.py":140
  *         """
  *         if not self.codec.ptr:
  *             raise ValueError("cannot decode unknown codec")             # <<<<<<<<<<<<<<
@@ -4591,14 +4894,14 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_cannot_decode_unknown_codec};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 133, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 140, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 133, __pyx_L1_error)
+    __PYX_ERR(0, 140, __pyx_L1_error)
 
-    /* "av/subtitles/codeccontext.py":132
+    /* "av/subtitles/codeccontext.py":139
  *         Returns SubtitleSet if you really need it.
  *         """
  *         if not self.codec.ptr:             # <<<<<<<<<<<<<<
@@ -4607,7 +4910,7 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
 */
   }
 
-  /* "av/subtitles/codeccontext.py":135
+  /* "av/subtitles/codeccontext.py":142
  *             raise ValueError("cannot decode unknown codec")
  * 
  *         self.open(strict=False)             # <<<<<<<<<<<<<<
@@ -4616,11 +4919,11 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
 */
   __pyx_t_7.__pyx_n = 1;
   __pyx_t_7.strict = 0;
-  __pyx_t_1 = ((struct __pyx_vtabstruct_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.open(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), 0, &__pyx_t_7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.open(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), 0, &__pyx_t_7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/subtitles/codeccontext.py":137
+  /* "av/subtitles/codeccontext.py":144
  *         self.open(strict=False)
  * 
  *         proxy: SubtitleProxy = SubtitleProxy()             # <<<<<<<<<<<<<<
@@ -4633,13 +4936,13 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 137, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __pyx_v_proxy = ((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleProxy *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/subtitles/codeccontext.py":138
+  /* "av/subtitles/codeccontext.py":145
  * 
  *         proxy: SubtitleProxy = SubtitleProxy()
  *         got_frame: cython.int = 0             # <<<<<<<<<<<<<<
@@ -4648,16 +4951,16 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
 */
   __pyx_v_got_frame = 0;
 
-  /* "av/subtitles/codeccontext.py":140
+  /* "av/subtitles/codeccontext.py":147
  *         got_frame: cython.int = 0
  * 
  *         err_check(             # <<<<<<<<<<<<<<
  *             lib.avcodec_decode_subtitle2(
  *                 self.ptr,
 */
-  __pyx_t_8 = __pyx_f_2av_5error_err_check(avcodec_decode_subtitle2(__pyx_v_self->__pyx_base.ptr, (&__pyx_v_proxy->__pyx_struct), (&__pyx_v_got_frame), __pyx_v_packet->ptr), 0, NULL); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 140, __pyx_L1_error)
+  __pyx_t_8 = __pyx_f_2av_5error_err_check(avcodec_decode_subtitle2(__pyx_v_self->__pyx_base.ptr, (&__pyx_v_proxy->__pyx_struct), (&__pyx_v_got_frame), __pyx_v_packet->ptr), 0, NULL); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 147, __pyx_L1_error)
 
-  /* "av/subtitles/codeccontext.py":149
+  /* "av/subtitles/codeccontext.py":156
  *         )
  * 
  *         if got_frame:             # <<<<<<<<<<<<<<
@@ -4667,7 +4970,7 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
   __pyx_t_6 = (__pyx_v_got_frame != 0);
   if (__pyx_t_6) {
 
-    /* "av/subtitles/codeccontext.py":150
+    /* "av/subtitles/codeccontext.py":157
  * 
  *         if got_frame:
  *             return SubtitleSet(proxy)             # <<<<<<<<<<<<<<
@@ -4680,14 +4983,14 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
       PyObject *__pyx_callargs[2] = {__pyx_t_2, ((PyObject *)__pyx_v_proxy)};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 150, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 157, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_1);
     }
     __pyx_r = ((PyObject *)__pyx_t_1);
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "av/subtitles/codeccontext.py":149
+    /* "av/subtitles/codeccontext.py":156
  *         )
  * 
  *         if got_frame:             # <<<<<<<<<<<<<<
@@ -4696,7 +4999,7 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
 */
   }
 
-  /* "av/subtitles/codeccontext.py":151
+  /* "av/subtitles/codeccontext.py":158
  *         if got_frame:
  *             return SubtitleSet(proxy)
  *         return None             # <<<<<<<<<<<<<<
@@ -4705,7 +5008,7 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
   goto __pyx_L0;
 
-  /* "av/subtitles/codeccontext.py":127
+  /* "av/subtitles/codeccontext.py":134
  *         return []
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -4729,15 +5032,15 @@ static PyObject *__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_de
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_5decode2(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_7decode2(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_4decode2, "SubtitleCodecContext.decode2(Packet packet: Packet)\n\nReturns SubtitleSet if you really need it.");
-static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_5decode2(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_6decode2, "SubtitleCodecContext.decode2(Packet packet: Packet)\n\nReturns SubtitleSet if you really need it.");
+static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_7decode2(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -4767,32 +5070,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_packet,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 127, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 134, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 127, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 134, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "decode2", 0) < (0)) __PYX_ERR(0, 127, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "decode2", 0) < (0)) __PYX_ERR(0, 134, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("decode2", 1, 1, 1, i); __PYX_ERR(0, 127, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("decode2", 1, 1, 1, i); __PYX_ERR(0, 134, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 127, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 134, __pyx_L3_error)
     }
     __pyx_v_packet = ((struct __pyx_obj_2av_6packet_Packet *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("decode2", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 127, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("decode2", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 134, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4803,8 +5106,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_packet), __pyx_mstate_global->__pyx_ptype_2av_6packet_Packet, 0, "packet", 0))) __PYX_ERR(0, 128, __pyx_L1_error)
-  __pyx_r = __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_4decode2(((struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self), __pyx_v_packet);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_packet), __pyx_mstate_global->__pyx_ptype_2av_6packet_Packet, 0, "packet", 0))) __PYX_ERR(0, 135, __pyx_L1_error)
+  __pyx_r = __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_6decode2(((struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self), __pyx_v_packet);
 
   /* function exit code */
   goto __pyx_L0;
@@ -4823,7 +5126,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_4decode2(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet) {
+static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_6decode2(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, struct __pyx_obj_2av_6packet_Packet *__pyx_v_packet) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -4832,7 +5135,7 @@ static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_4
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("decode2", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_decode2(__pyx_v_self, __pyx_v_packet, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_decode2(__pyx_v_self, __pyx_v_packet, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 134, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -4856,15 +5159,15 @@ static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_4
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_7__reduce_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_9__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_6__reduce_cython__, "SubtitleCodecContext.__reduce_cython__()");
-static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_7__reduce_cython__(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_8__reduce_cython__, "SubtitleCodecContext.__reduce_cython__()");
+static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_9__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -4890,14 +5193,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   const Py_ssize_t __pyx_kwds_len = unlikely(__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
   if (unlikely(__pyx_kwds_len < 0)) return NULL;
   if (unlikely(__pyx_kwds_len > 0)) {__Pyx_RejectKeywords("__reduce_cython__", __pyx_kwds); return NULL;}
-  __pyx_r = __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_6__reduce_cython__(((struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self));
+  __pyx_r = __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_8__reduce_cython__(((struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_6__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self) {
+static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_8__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_lineno = 0;
@@ -4937,15 +5240,15 @@ static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_6
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_9__setstate_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_11__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_8__setstate_cython__, "SubtitleCodecContext.__setstate_cython__(__pyx_state)");
-static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_9__setstate_cython__(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_10__setstate_cython__, "SubtitleCodecContext.__setstate_cython__(__pyx_state)");
+static PyObject *__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_11__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -5011,7 +5314,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_8__setstate_cython__(((struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self), __pyx_v___pyx_state);
+  __pyx_r = __pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_10__setstate_cython__(((struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *)__pyx_v_self), __pyx_v___pyx_state);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -5021,7 +5324,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_8__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state) {
+static PyObject *__pyx_pf_2av_9subtitles_12codeccontext_20SubtitleCodecContext_10__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_lineno = 0;
@@ -5133,9 +5436,10 @@ static int __pyx_setprop_2av_9subtitles_12codeccontext_20SubtitleCodecContext_su
 
 static PyMethodDef __pyx_methods_2av_9subtitles_12codeccontext_SubtitleCodecContext[] = {
   {"encode_subtitle", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_3encode_subtitle, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_2encode_subtitle},
-  {"decode2", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_5decode2, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_4decode2},
-  {"__reduce_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_7__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_6__reduce_cython__},
-  {"__setstate_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_9__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_8__setstate_cython__},
+  {"decode", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_5decode, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_4decode},
+  {"decode2", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_7decode2, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_6decode2},
+  {"__reduce_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_9__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_8__reduce_cython__},
+  {"__setstate_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9subtitles_12codeccontext_20SubtitleCodecContext_11__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9subtitles_12codeccontext_20SubtitleCodecContext_10__setstate_cython__},
   {0, 0, 0, 0}
 };
 
@@ -5304,15 +5608,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_vtabptr_2av_5codec_7context_CodecContext = (struct __pyx_vtabstruct_2av_5codec_7context_CodecContext*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext); if (unlikely(!__pyx_vtabptr_2av_5codec_7context_CodecContext)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_vtabptr_2av_9subtitles_12codeccontext_SubtitleCodecContext = &__pyx_vtable_2av_9subtitles_12codeccontext_SubtitleCodecContext;
   __pyx_vtable_2av_9subtitles_12codeccontext_SubtitleCodecContext.__pyx_base = *__pyx_vtabptr_2av_5codec_7context_CodecContext;
-  __pyx_vtable_2av_9subtitles_12codeccontext_SubtitleCodecContext.__pyx_base._send_packet_and_recv = (PyObject *(*)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_6packet_Packet *))__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext__send_packet_and_recv;
+  __pyx_vtable_2av_9subtitles_12codeccontext_SubtitleCodecContext.__pyx_base.decode = (PyObject *(*)(struct __pyx_obj_2av_5codec_7context_CodecContext *, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode *__pyx_optional_args))__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_decode;
   __pyx_vtable_2av_9subtitles_12codeccontext_SubtitleCodecContext.decode2 = (PyObject *(*)(struct __pyx_obj_2av_9subtitles_12codeccontext_SubtitleCodecContext *, struct __pyx_obj_2av_6packet_Packet *, int __pyx_skip_dispatch))__pyx_f_2av_9subtitles_12codeccontext_20SubtitleCodecContext_decode2;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_2 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_5codec_7context_CodecContext); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_5codec_7context_CodecContext); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 13, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_12codeccontext_SubtitleCodecContext_spec, __pyx_t_2);
   __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext)) __PYX_ERR(0, 12, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_12codeccontext_SubtitleCodecContext_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext) < (0)) __PYX_ERR(0, 12, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_12codeccontext_SubtitleCodecContext_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext = &__pyx_type_2av_9subtitles_12codeccontext_SubtitleCodecContext;
   #endif
@@ -5320,7 +5624,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext->tp_base = __pyx_mstate_global->__pyx_ptype_2av_5codec_7context_CodecContext;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext) < (0)) __PYX_ERR(0, 12, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext);
@@ -5330,10 +5634,10 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext, __pyx_vtabptr_2av_9subtitles_12codeccontext_SubtitleCodecContext) < (0)) __PYX_ERR(0, 12, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext) < (0)) __PYX_ERR(0, 12, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_SubtitleCodecContext, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext) < (0)) __PYX_ERR(0, 12, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext) < (0)) __PYX_ERR(0, 12, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext, __pyx_vtabptr_2av_9subtitles_12codeccontext_SubtitleCodecContext) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_SubtitleCodecContext, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_12codeccontext_SubtitleCodecContext) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_RefNannyFinishContext();
   return 0;
@@ -5460,7 +5764,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) __PYX_ERR(8, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 16, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_4core_Container = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.container.core", "Container",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -5470,8 +5774,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_4core_Container), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_9container_4core_Container),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(9, 16, __pyx_L1_error)
-  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(9, 16, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(9, 17, __pyx_L1_error)
+  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(9, 17, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.index"); if (unlikely(!__pyx_t_1)) __PYX_ERR(10, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -6095,39 +6399,39 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{1},{31},{32},{41},{179},{8},{25},{27},{7},{6},{2},{9},{21},{72},{20},{20},{18},{7},{12},{5},{8},{10},{8},{6},{3},{11},{14},{12},{10},{17},{13},{12},{10},{12},{19},{8},{8},{6},{109},{78},{131}};
-    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (542 bytes) */
-const char* const cstring = "(\265/\375`\030\003\245\020\000\366_Y\035 W\033\207\266\330\336g\320\352t\022\232*\002\\\236\2742\013\267E\013\240\200\200\000\253\006O\000N\000P\000,>\343\017\303l\276\271p,\014\031J&\035\362\263\206\037\363r\220\247v\3342v\372\363\374%\311_\317'\377\273@\246(kz\237\215]o\205\245\223\236\203\334J\3177)\271=\346\014\271-{\224\335\367OVL\376e\317\271\315\177\356+y\004[\035(\307\221\375]\222\247|\006\261\255Zl\326qf7m\354\306\215\r\004\252\243\345\177\256\255\355\201\243\333\n\217\372\031\303n\031\350xW\327\253\277\376\r\344sLg\317\307\255\330\323zWR\226<D\256\256O\357wmMI\275\214\034\343\272\214Y\215\241\252[K4\355\217\252W\205\326\331Y\355\251zoH5\206\370[\225\177?>wT\025 \266\023\263\205\257\336\312\336\216}\211\337\237D\262\241X\363%\276\350\263\236\224\256\214j\307\333\201XW\t\037\225\323\313\344C\036\371c\360\013\220#\014q\"`\256\0143h\275\r\377\025\321\206V\013I\200\001\007\" \344D/\310\272!\022\237\t0p\353\257\t\tb\354a\252\360A\310\014\035\255Bc\007\256~\365\230\005?f\301\303~\253\330M\253\006eA\220\357\035\331r;R\375\310\257\357\254\245\270=\307\022\007K(0\204Hse\033\2214\247\035*\241i\251\322f\304\010\246&8\335\203\275\220EmLA\352\030\306\2714\212D\374\000z4\002j\303\310\37452\216\315\031\006\0147O#\300e\204}R\244\310\326aP\026\266R\254\340\017p\300\202\237\365\001%?`\025i\034J\320\2550\261\222&@\034`\013p\017L\207\331\014\350\350\327\356\033\031\021g.!\326\362]\r\031B\033\3327\265\345m\026\277\024z\306\222\034\036\267\261\001\007\006\331\317\270\272)d\334\017\014\024\002\033\215k\221z\267HIrt\221g\346FX\272-\006\244~\006\321\344'";
-    PyObject *data = __Pyx_DecompressString(cstring, 542, 3);
+    const struct { const unsigned int length: 8; } index[] = {{1},{31},{32},{41},{179},{8},{25},{27},{7},{6},{2},{9},{21},{72},{20},{20},{18},{6},{7},{12},{5},{8},{10},{8},{6},{3},{11},{14},{12},{10},{17},{13},{12},{10},{12},{19},{8},{8},{6},{109},{78},{131}};
+    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (544 bytes) */
+const char* const cstring = "(\265/\375`\036\003\265\020\000\366_Y\035 W\033\207\266\330\336g\320\352t\022\232*\002\\\236\2742\013\267E\013\240\200\200\000\253\006O\000N\000P\000,>\343\017\303l\276\271p,\014\031J&\035\362\263\206\037\363r\220\247v\3342v\372\363\374%\311_\317'\377\273@\246(kz\237\215]o\205\245\223\236\203\334J\3177)\271=\346\014\271-{\224\335\367OVL\376e\317\271\315\177\356+y\004[\035(\307\221\375]\222\247|\006\261\255Zl\326qf7m\354\306\215\r\004\252\243\345\177\256\255\355\201\243\333\n\217\372\031\303n\031\350xW\327\253\277\376\r\344sLg\317\307\255\330\323zWR\226<D\256\256O\357wmMI\275\214\034\343\272\214Y\215\241\252[K4\355\217\252W\205\326\331Y\355\251zoH5\206\370[\225\177?>wT\025 \266\023\263\205\257\336\312\336\216}\211\337\237D\262\241X\363%\276\350\263\236\224\256\214j\307\333\201XW\t\037\225\323\313\344C\036\371c\360\013\220#\014q\"`\256\0143h\275\r\377\025\321\206V\013I\200\001\007\" \344D/\310\272!\022\237\t0p\353\257\t\tb\354a\252\360A\310\014\035\255Bc\007\256~\365\230\005?f\301\303~\253\330M\253\006eA\220\357\035\331r;R\375\310\257\357\254\245\270=\307\022\007L(0\204Hse\033\2210\307\035*\241i\251\322f\304\010\246&\270\334\203\275\220Em\014B\346\030\306\0315\211D\374\000z4\002j\303\310\37452\216\315\031\006\0147O#\300e\204}R\244\310VcP\033\274b\254\340\017p\300\202_\353\007%3`\035\322\024P\342\2555\261\223&N\034`\013|\017LG\332\010\330\350\321n'\237\315\210#\363\t\261\226\357j\310\220\332\320\272\251-o\263\370\215\320+\026\3440\271\215\r\2700\310|\306\325M\031\343~\301@\023\330\330\370\020\251w\2134$\007\027\271fn\204\245\333b@j`\020N~\002";
+    PyObject *data = __Pyx_DecompressString(cstring, 544, 3);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
     #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (622 bytes) */
-const char* const cstring = "BZh91AY&SY\005\032\000\340\000\000:_\200@\000@\367w@\277!\331\000\277\377\377\340@\002J\341\335\334\035\006\204\322&\3214\321\350M\000\000\001\243M\032\rCC$\324\036\240\323L@\000\006\200\001\252y\251\251<\247\250\323\324\001\240\000\000\000\002P\200#$\322\237\242\236\324\324\331A\220\310\364\203OS\321F\220\001\356\262\3444N\311\\\253_\006\220h9\3147\242Y\010V|\231\214\017m\247\003\257tm\323\017\020\017\\\t\206\243\260\205\253'*\003\0202\202\n\231\033\036&\223\n\361\222\300\317\231\n\225\225\232\343_3Q\007\214\rhS\206\016LW\"=\323oP\007\337s\231\241I$WBA\301@\327\020W\267\212\325n\032\213\325\305f\315\376\024\2628\201\243\235\212\212C\276\3028\021G\261A]X\277\025\237\256\007\205}:\310\251\340\375\317O\234=6\242\375o\264/0]\n4\315\241%\343\357\014\315\205\316\277c\325|\202\010C\364.}(\216:Lu\322iK\320\347\027\245\233\211\035\316U\\x(\352\202\310E*E\223\225l\201>\221Wu\201\274\260\001\370\034,E)\214\322p9\226r\3102\222\025\020\222\213&\2031\000\202\306\261:\334v\326\325#=\233\033\020F I!'5\371\025'S\336\371\214\322\246*\251\244g\224\335kj\266\200\361\204\243'\337\n\352\000uFL@\204\"\232\330\014R3\311\nRs\\\355\347$M*\365\262\323\264D\3246D*\271\213qH\246Rc\233$\322\026\222d,\344\321\305\223\271\315cx\350\214*\260\244\343'\003\322Q\330\366(<K\211,\010$K\203\311\340Y\017\025No\357\n\"wF;\350\032\353\220\222_?\377\001\306~\353k\207\226s\253.\224\010E\003\203\337\300L\206v\257\325-$\302\341*I\034\256\006\010\271\326nB\251\302\032\277\253\251\"\270d,\231H\342\215\210\365\217\035\254\203\305\322\227\240\013nh *y\031Q\204O\240\200\370=\224\032\312\002\331YE\205\025\335@\016\013\312\344\303\222\013$$\030\302\267B/H>\335\242\034T\342\233\002\366\007^\245\021\202\253}\216\204\r\331\344\250\nbc\373\032[\306\355\221\361\216\202\356@\366\027rE8P\220\005\032\000\340";
+const char* const cstring = "BZh91AY&SY$\330wr\000\000:_\200@\000@\367w@\277!\331\000\277\377\377\340@\002n\241\331\212\323\206\200\210\322d\364\247\211?J\r\006\201\240h\323\324hcCC@\006C@\000\000\000\006\251\346\222O)\3524\365\000h\000\000\000\000\224\322&\nf\220\247\20153Pd46\240\323\324\364a\264\000{\270\362CD\366N\0277\017\027 \340\3610\373\323\214C/\344\325F\017\241\302U~c\234\311\025$\253\007\233O\244\014zm\206\361\350>\370\rjGG\234\351c\227\010 \347\322\205\261\256^\333\033\346yC\343[\270c\214<\325\244\211\204\247\340\300\017\337\274L\320\265j\257\224H8 8\342\n/\344\254\256\034E\326\005\250\357\376\021\223@\300\331\010b\204a\337\220\320\006D\\\250\241iG\025O]\007\215\272u\231c\306;b\337,:ke\364\276\260\275\001l*\3645\204\327-\341\250\322\\\353\365=W\230`\306\037\241j\364\253@\364\241\013\265\032\267\251\316Ql\237\221-\260Ic\301A+\002\230\310\261'o\013d\301F\350b\316\353\003y^\005L\014,E)\214\322`s,\345\3102\222\025\020\222\213'A\335@Pe\270do\033]\034\252M\031\032\300\261\025\255S\023v\207QM\363\372\346\210\333<\354*9\031\364\034\264zi\220\300^V\026\026\206\226@J\206J\201\010W= c`\367\3437\255(\265e\367\2336\313Ed\253\332Cq\r2\013-B\270\2116ss\233\265\033\014\246\331\212\223yb\355\335\007\310\334BC\2118\212Jp\010\264\345\246.T\210\327\032z\014\032E\302%4\0311\344\203\234{\302\254\335\322\226\352\207\0369\2155\353\375@\242\374-\316\315\367\325$<k\001\340@Q\232\200\265\204\\\3332\266%e\300F\270\264\024\001\302P\206O\340$p\303\214z\302\263-\2431M\321,Y\361\"\245\313[\260`\227)z\000\266\346\202\002\247\221\225\030D\372\010\017\203\334\240\326P\026\312\312.\024W\215\302!y\334\240x0\246\304\303\034-v%\026\3029v\220rG&\322\027\310!{\025g\013+\351\206\030\033uf\230\021\211\217\354y\356\037\266g\302[\005\265\203\361w$S\205\t\002M\207w ";
     PyObject *data = __Pyx_DecompressString(cstring, 622, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (525 bytes) */
-const char* const cstring = "x\332}S\301n\3330\014\355\247\360\326$\310\202\255\350\206\335\206-]\201]\262`\005v%h\211\216\325(\222'\321I\374\367\243b'M\261b\006\242<\213\357Q|\024\375eI!D\001\362>\032\022\206\334U\342\30436L\226\323\030\346`\242e88i\240\013\333\020\017\001\312\216y$\347\331\202\304\1773\234EUW\327\234VQC\322\220\300\262\227&\006p\031,{WqR\221\357!KrF8\025R\200\365\367\365\273\373\317\367@\301B\342g6\222Kb\343)g\316\020kM\353\274\270\000\322\267\234\027\360\243\206>v\020x\250\246U\336\265@\032\016\220Y\n\200\333\223)\022\027\003\252\334\205\315-X\227\364\020\267\347\242~$\237yA\326\242\362\230\366'\2538\370\301\263\277\311\324\014\315\321X\361\371\252/\326e\252<s(\353\306\270< \333\222\331j\025\243\262bX\305\300\231}\275h)eN\363\001K\272\242\230\030\366\234dl3\254\207\376\305\252t\005\352\230\240uf\353\325\005\342\272?\352\357A\033\211+>\312/\256\237\306j\227\245\252e\014\242\333F\311\214N\315'2\\iI\203\205;\304\rK\326\3160\242\023\336e\304\035)O\237]\264\235N\205>\201v\372?\030ic\253P\017\035E\005\356\2458-\314?\035\371\201\215\230\330v\346\032\231\223\215\253\r>\226\027\275\243\361\004E\226k\352\274\234\360x\302\025>g\270\214,\ng%\357\311w\234]\020\230\3502\207\202\306*\267\256E\275\232\226\3044\3632r\2359\307b+Hi\223\361\216\366\370\221S\212\tuE\323\260\331\302\354B\322\241!\177bNo.\361\327\231\252\347S\222\017\357\255^D\341\247\036\037.\020f\223\257\277\257_\2477\207D\245\256\363\326\233\331>\r\337\021~\353\205\237b\227\014k\242u\377s\030\203\331\377\334\234\245\225J\363(}\323\317\013\341/\377~\222\007";
-    PyObject *data = __Pyx_DecompressString(cstring, 525, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (527 bytes) */
+const char* const cstring = "x\332}S\301n\3330\014\355\247\360\326$\310\202\255\350\206\335\206-]\201]\262`\005v%h\211\216\325(\222'\321I\374\367\243b'M\261b\006\242<\213\357Q|\024\375eI!D\001\362>\032\022\206\334U\342\30436L\226\323\030\346`\242e88i\240\013\333\020\017\001\312\216y$\347\331\202\304\1773\234EUW\327\234VQC\322\220\300\262\227&\006p\031,{WqR\221\357!KrF8\025R\200\365\367\365\273\373\317\367@\301B\342g6\222Kb\343)g\316\020kM\353\274\270\000\322\267\234\027\360\243\206>v\020x\250\246U\336\265@\032\016\220Y\n\200\333\223)\022\027\003\252\334\205\315-X\227\364\020\267\347\242~$\237yA\326\242\362\230\366'\2538\370\301\263\277\311\324\014\315\321X\361\371\252/\326e\252<s(\353\306\270< \333\222\331j\025\243\262bX\305\300\231}\275h)eN\363\001K\272\242\230\030\366\234dl3\254\207\376\305\252t\005\352\230\240uf\353\325\005\342\272?\352\357A\033\211+>\312/\256\237\306j\227\245\252e\014\242\333F\311\214N\315'2\\iI\203\205a\275C\334\260d\355\017#:\341]F\334\221\262\365\331E\333\351l\350\023h\247\377\203\2356\266\n\365\350QT\340^\212\337\302\374\323\221\037\330\210\211mg\256\2219\231\271\332\340cy\321\233\032OPd\271\246\316\313\t\217'\\\341s\206\313\340\242pV\362\236|\307\331\005\201\211.s(h\254r\353Z\324\013jIL3/\203\327\231s,\266\202\2246\031\357h\217\0379\245\230PW4\r\233-\314.$\035\035\362'\346\364\346\022\177\235\251z>%\371\360\336\352u\024~\352\361\341\002a6\371\372\373\372uzsHT\352:o\275\231\355\323\3605\341\267^\370)v\311\260&Z\367?\207a\230\375\317\315YZ\2514\217\3227\375\274\020\376\002\215\375\224k";
+    PyObject *data = __Pyx_DecompressString(cstring, 527, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (1048 bytes) */
-const char* const bytes = "?Cannot allocate subtitle_headerCannot encode with unknown codecFailed to allocate subtitle encode bufferNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.add_noteavcodec_encode_subtitle()cannot decode unknown codecdisableenablegcisenabledpacket cannot be Noneself.parser,self.ptr cannot be converted to a Python object for pickling__Pyx_PyDict_NextRefSubtitleCodecContextcline_in_tracebackdecode2__getstate__items__main____module____name__packetpop__pyx_state__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex____set_name__setdefault__setstate____setstate_cython__subtitle__test__valuesint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_10dictionary_Dictionary *(AVDictionary *)\000wrap_dictionarystruct __pyx_obj_2av_6buffer_ByteSource *(PyObject *, struct __pyx_opt_args_2av_6buffer_bytesource *__pyx_optional_args)\000bytesource";
+    #else /* compression: none (1054 bytes) */
+const char* const bytes = "?Cannot allocate subtitle_headerCannot encode with unknown codecFailed to allocate subtitle encode bufferNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.add_noteavcodec_encode_subtitle()cannot decode unknown codecdisableenablegcisenabledpacket cannot be Noneself.parser,self.ptr cannot be converted to a Python object for pickling__Pyx_PyDict_NextRefSubtitleCodecContextcline_in_tracebackdecodedecode2__getstate__items__main____module____name__packetpop__pyx_state__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex____set_name__setdefault__setstate____setstate_cython__subtitle__test__valuesint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_10dictionary_Dictionary *(AVDictionary *)\000wrap_dictionarystruct __pyx_obj_2av_6buffer_ByteSource *(PyObject *, struct __pyx_opt_args_2av_6buffer_bytesource *__pyx_optional_args)\000bytesource";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 38; i++) {
+    for (int i = 0; i < 39; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
       if (likely(string) && i >= 14) PyUnicode_InternInPlace(&string);
@@ -6138,7 +6442,7 @@ const char* const bytes = "?Cannot allocate subtitle_headerCannot encode with un
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 38; i < 41; i++) {
+    for (int i = 39; i < 42; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -6149,14 +6453,14 @@ const char* const bytes = "?Cannot allocate subtitle_headerCannot encode with un
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 41; i++) {
+    for (Py_ssize_t i = 0; i < 42; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 38;
+      PyObject **table = stringtab + 39;
       for (Py_ssize_t i=0; i<3; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000

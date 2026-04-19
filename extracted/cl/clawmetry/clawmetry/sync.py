@@ -1433,17 +1433,27 @@ def sync_session_metadata(config: dict, state: dict = None) -> int:
         # as batches flush, so later batches benefit from a stronger
         # signal at the cost of slightly less consistent fallback.
         _default_model = ""
+        _sid_to_key: dict[str, str] = {}  # sessionId → session key (for channel info)
+        _sid_to_meta: dict[str, dict] = {}  # sessionId → {provider, chatType, subject}
         _idx_path = sessions_dir / "sessions.json"
         if _idx_path.exists():
             try:
                 with open(_idx_path) as _fi:
                     _idx = json.load(_fi)
                 for _k, _meta in _idx.items():
-                    if isinstance(_meta, dict) and "subagent" not in _k:
-                        _m = (_meta.get("model") or "").strip()
-                        if _m:
-                            _default_model = _m
-                            break
+                    if isinstance(_meta, dict):
+                        _sid = _meta.get("sessionId", "")
+                        if _sid:
+                            _sid_to_key[_sid] = _k
+                            _sid_to_meta[_sid] = {
+                                "provider": _meta.get("provider", ""),
+                                "chatType": _meta.get("chatType", ""),
+                                "subject": _meta.get("subject") or _meta.get("displayName") or "",
+                            }
+                        if "subagent" not in _k:
+                            _m = (_meta.get("model") or "").strip()
+                            if _m and not _default_model:
+                                _default_model = _m
             except Exception:
                 pass
         model_counts: dict = {}
@@ -1531,10 +1541,17 @@ def sync_session_metadata(config: dict, state: dict = None) -> int:
 
                 if model:
                     model_counts[model] = model_counts.get(model, 0) + 1
+                # Resolve display name from session key when available
+                _sk = _sid_to_key.get(sid, "")
+                _sm = _sid_to_meta.get(sid, {})
+                _dn = label or _sm.get("subject") or _sk or sid[:8]
                 batch.append(
                     {
                         "session_id": sid,
-                        "display_name": label or sid[:8],
+                        "display_name": _dn,
+                        "session_key": _sk,
+                        "channel": _sm.get("provider", ""),
+                        "chat_type": _sm.get("chatType", ""),
                         "status": "completed",
                         "model": model,
                         "recent_model": last_seen_model or model,
@@ -2818,6 +2835,122 @@ def start_log_streamer(config: dict, paths: dict) -> threading.Thread:
     return t
 
 
+def start_event_streamer(config: dict, state: dict, paths: dict) -> threading.Thread:
+    """Real-time session event streamer — watches JSONL files for changes
+    and pushes new events immediately (like Dropbox file sync).
+
+    Only makes API calls when new data appears. Tracks file sizes locally
+    to detect changes without polling the server.
+    """
+    api_key = config["api_key"]
+    enc_key = config.get("encryption_key")
+    node_id = config["node_id"]
+    sessions_dir = paths["sessions_dir"]
+
+    # Track file sizes to detect changes
+    _file_sizes: dict[str, int] = {}
+    _file_offsets: dict[str, int] = {}  # line offsets per file
+
+    def _scan_and_push():
+        """Check all JSONL files for new content. Push immediately if found."""
+        if not os.path.isdir(sessions_dir):
+            return 0
+        total_pushed = 0
+        jsonl_files = glob.glob(os.path.join(sessions_dir, "*.jsonl"))
+        # Only check recently modified files (last 2 hours) to avoid scanning stale ones
+        cutoff = time.time() - 7200
+        active = [f for f in jsonl_files if os.path.getmtime(f) > cutoff]
+
+        # Build subagent map (reuse sync_sessions logic)
+        file_to_subagent: dict[str, str] = {}
+        idx_path = os.path.join(sessions_dir, "sessions.json")
+        if os.path.isfile(idx_path):
+            try:
+                with open(idx_path) as _fi:
+                    _idx = json.load(_fi)
+                for _k, _meta in _idx.items():
+                    if ":subagent:" in _k and isinstance(_meta, dict):
+                        _sf = _meta.get("sessionFile", "")
+                        if _sf:
+                            file_to_subagent[os.path.basename(_sf)] = _k.split(":")[-1]
+            except Exception:
+                pass
+
+        for fpath in active:
+            fname = os.path.basename(fpath)
+            try:
+                cur_size = os.path.getsize(fpath)
+            except OSError:
+                continue
+            prev_size = _file_sizes.get(fname, 0)
+            if cur_size <= prev_size:
+                # No change — skip (no API call)
+                _file_sizes[fname] = cur_size
+                continue
+
+            # File grew — read only the new lines
+            _file_sizes[fname] = cur_size
+            offset = _file_offsets.get(fname, state.get("last_event_ids", {}).get(fname, 0))
+            batch: list[dict] = []
+            new_offset = offset
+            try:
+                with open(fpath, "r", errors="replace") as f:
+                    for i, raw in enumerate(f):
+                        if i < offset:
+                            continue
+                        raw = raw.strip()
+                        new_offset = i + 1
+                        if not raw:
+                            continue
+                        try:
+                            batch.append(json.loads(raw))
+                        except Exception:
+                            continue
+            except Exception as e:
+                log.debug(f"Event streamer read error ({fname}): {e}")
+                continue
+
+            if batch:
+                subagent_id = file_to_subagent.get(fname)
+                try:
+                    _flush_session_batch(batch, fname, api_key, enc_key, node_id, subagent_id)
+                    total_pushed += len(batch)
+                    _file_offsets[fname] = new_offset
+                    # Update shared state so main loop doesn't re-push
+                    state.setdefault("last_event_ids", {})[fname] = new_offset
+                except Exception as e:
+                    log.debug(f"Event streamer push error ({fname}): {e}")
+            else:
+                _file_offsets[fname] = new_offset
+
+        return total_pushed
+
+    def _streamer_loop():
+        log.info(f"Event streamer started — watching {sessions_dir}")
+        # Initialize sizes so we don't re-push old data
+        if os.path.isdir(sessions_dir):
+            for f in glob.glob(os.path.join(sessions_dir, "*.jsonl")):
+                fname = os.path.basename(f)
+                _file_sizes[fname] = os.path.getsize(f)
+                _file_offsets[fname] = state.get("last_event_ids", {}).get(fname, 0)
+
+        while True:
+            try:
+                pushed = _scan_and_push()
+                if pushed:
+                    log.debug(f"Event streamer pushed {pushed} events")
+                    # Save state after each push so main loop stays in sync
+                    save_state(state)
+            except Exception as e:
+                log.debug(f"Event streamer error: {e}")
+            # Fast check — only sleeps 1s between scans (stat() is cheap)
+            time.sleep(1)
+
+    t = threading.Thread(target=_streamer_loop, daemon=True, name="event-streamer")
+    t.start()
+    return t
+
+
 def run_daemon() -> None:
     if not _acquire_pid_lock():
         print(
@@ -2892,8 +3025,9 @@ def run_daemon() -> None:
     _validate_log_offsets(state, paths)
     save_state(state)
 
-    # Start real-time log streamer in background
+    # Start real-time streamers in background
     start_log_streamer(config, paths)
+    start_event_streamer(config, state, paths)
 
     # Backfill older sessions in a background thread so the main loop
     # (and Brain tab) shows current activity immediately. The backfill

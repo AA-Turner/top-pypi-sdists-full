@@ -15,16 +15,21 @@ from cython.cimports.av.utils import dict_to_avdict, to_avrational
 @cython.cfunc
 def close_output(self: OutputContainer):
     self.streams = StreamContainer()
-    if self._started and not self._done:
+    if self._myflag & 12 == 4:  # enum.started and not enum.done
+        # If the underlying Python IO file was already closed (e.g. during GC
+        # finalization where cycle ordering is undefined), skip the trailer.
+        if self.file is not None and getattr(self.file.file, "closed", False):
+            self._myflag |= 8  # enum.done = True
+            return
         # We must only ever call av_write_trailer *once*, otherwise we get a
         # segmentation fault. Therefore no matter whether it succeeds or not
-        # we must absolutely set self._done.
+        # we must absolutely set enum.done.
         try:
             self.err_check(lib.av_write_trailer(self.ptr))
         finally:
             if self.file is None and not (self.ptr.oformat.flags & lib.AVFMT_NOFILE):
                 lib.avio_closep(cython.address(self.ptr.pb))
-            self._done = True
+            self._myflag |= 8  # enum.done = True
 
 
 @cython.cclass
@@ -35,8 +40,10 @@ class OutputContainer(Container):
         with cython.nogil:
             self.packet_ptr = lib.av_packet_alloc()
 
-    def __dealloc__(self):
+    def __del__(self):
         close_output(self)
+
+    def __dealloc__(self):
         with cython.nogil:
             lib.av_packet_free(cython.address(self.packet_ptr))
 
@@ -270,7 +277,7 @@ class OutputContainer(Container):
 
         # Construct the user-land stream
         py_codec_context: CodecContext = wrap_codec_context(ctx, codec, None)
-        py_codec_context._template_initialized = True
+        py_codec_context._ctxflags |= 1  # _template_initialized = True
         py_stream: Stream = wrap_stream(self, stream, py_codec_context)
         self.streams.add_stream(py_stream)
 
@@ -426,7 +433,7 @@ class OutputContainer(Container):
     @cython.ccall
     def start_encoding(self):
         """Write the file header! Called automatically."""
-        if self._started:
+        if self._myflag & 4:  # started
             return
 
         # TODO: This does NOT handle options coming from 3 sources.
@@ -441,7 +448,7 @@ class OutputContainer(Container):
                 for k, v in self.options.items():
                     ctx.options.setdefault(k, v)
 
-                if not ctx._template_initialized:
+                if not (ctx._ctxflags & 1):  # template_initialized
                     ctx.open()
 
                     # Track option consumption.
@@ -486,7 +493,7 @@ class OutputContainer(Container):
             log = logging.getLogger(__name__)
             log.warning("Some options were not used: %s" % unused_options)
 
-        self._started = True
+        self._myflag |= 4
 
     @property
     def supported_codecs(self):

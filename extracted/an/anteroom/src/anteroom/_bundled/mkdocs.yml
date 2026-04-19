@@ -128,6 +128,7 @@ nav:
       - knowledge/sources.md
       - knowledge/managing-memory.md
       - knowledge/memory-promotion.md
+      - knowledge/attribution.md
       - knowledge/config-reference.md
       - knowledge/api-reference.md
   - Extend:
@@ -231,6 +232,7 @@ nav:
       - security/sandboxing.md
       - security/bash-sandboxing.md
       - security/audit-log.md
+      - security/data-retention.md
       - security/prompt-injection-defense.md
       - security/hardening.md
       - security/dlp.md
@@ -250,3 +252,6 @@ nav:
     - advanced/local-docs.md
     - advanced/workflows.md
     - advanced/contributing.md
+    - Architecture Decisions:
+      - decisions/index.md
+      - decisions/0001-mkdocs-vs-properdocs.md

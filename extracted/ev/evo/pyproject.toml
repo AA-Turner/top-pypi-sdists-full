@@ -56,7 +56,7 @@ dependencies = [
     "pygments",
     "pyyaml",
     "pillow",
-    "rosbags>=0.11.0",
+    "rosbags>=0.11.1",
     "packaging",
 ]
 
@@ -84,6 +84,12 @@ extend-exclude = "fastentrypoints.py|evo/core/transformations.py|test/tum_benchm
 ignore_missing_imports = true
 files = ["evo/", "test/", "contrib/", "examples/"]
 exclude = ["test/tum_benchmark_tools/"]
+
+[[tool.mypy.overrides]]
+# Workaround for broken apsw pyi (?).
+module = "apsw.*"
+ignore_errors = true
+follow_imports = "skip"
 
 
 [tool.pixi.workspace]

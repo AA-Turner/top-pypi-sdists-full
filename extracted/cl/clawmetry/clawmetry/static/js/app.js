@@ -524,6 +524,7 @@ function switchTab(name) {
   if (name === 'clusters') loadClusters();
   if (name === 'limits') loadRateLimits();
   if (name === 'flow') initFlow();
+  if (name === 'context') loadContextInspector();
   if (name === 'history') loadHistory();
   if (name === 'brain') loadBrainPage();
   if (name === 'security') { loadSecurityPage(); loadSecurityPosture(); }
@@ -1379,7 +1380,7 @@ async function loadSkills() {
         : (sk.status === 'dead' || sk.status === 'unused' ? '\u2014' : 'recently');
       var rowBg = idx % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)';
       html += '<tr style="background:' + rowBg + ';border-bottom:1px solid var(--border-primary);">' +
-        '<td style="padding:10px 10px;font-weight:600;color:var(--text-primary);">' + escHtml(sk.name) + '</td>' +
+        '<td style="padding:10px 10px;font-weight:600;color:var(--text-primary);"><a href="#" onclick="event.preventDefault();openSkillBrowser(\'' + escHtml(sk.name) + '\')" style="color:var(--text-primary);text-decoration:none;border-bottom:1px dashed var(--border-primary);" title="Browse skill files">' + escHtml(sk.name) + '</a></td>' +
         '<td style="padding:10px 10px;color:var(--text-muted);">' + escHtml(desc) + '</td>' +
         '<td style="padding:10px 10px;">' + _skillStatusPill(sk.status) + '</td>' +
         '<td style="padding:10px 10px;color:var(--text-muted);">' + lastUsed + '</td>' +
@@ -1393,6 +1394,87 @@ async function loadSkills() {
     listEl.innerHTML = html;
   } catch (e) {
     if (listEl) listEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:16px;">Couldn\u2019t load right now.</div>';
+  }
+}
+
+// ── Skills Browser ────────────────────────────────────────────────────────
+async function openSkillBrowser(skillName) {
+  var listEl = document.getElementById('skills-list');
+  var browserEl = document.getElementById('skills-browser');
+  var treeEl = document.getElementById('skills-browser-tree');
+  var contentEl = document.getElementById('skills-browser-content');
+  if (!browserEl || !treeEl || !contentEl) return;
+
+  listEl.style.display = 'none';
+  browserEl.style.display = '';
+  treeEl.innerHTML = '<div style="padding:12px;color:var(--text-muted);">Loading...</div>';
+  contentEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:60px;">Loading skill...</div>';
+
+  try {
+    var data = await fetch('/api/skills/' + encodeURIComponent(skillName)).then(function(r) { return r.json(); });
+    var files = data.files || [];
+    var statusCol = {'healthy':'#22c55e','dead':'#ef4444','stuck':'#f59e0b','unused':'#6b7280'};
+
+    // Build tree
+    var html = '<div style="padding:8px 12px;border-bottom:1px solid var(--border);margin-bottom:4px;">';
+    html += '<div style="font-weight:700;font-size:13px;color:var(--text-primary);">' + escHtml(skillName) + '</div>';
+    html += '<div style="font-size:10px;color:' + (statusCol[data.status] || '#888') + ';margin-top:2px;">' + (data.status || '').toUpperCase() + ' &middot; ' + (data.header_tokens || 0) + ' header tokens</div>';
+    if (data.description) html += '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">' + escHtml(data.description) + '</div>';
+    html += '</div>';
+
+    files.forEach(function(f) {
+      var indent = (f.depth || 0) * 16;
+      var isDir = f.path.endsWith('/');
+      var icon = f.path.endsWith('.md') ? '📄' : (f.path.endsWith('.py') ? '🐍' : (f.path.endsWith('.sh') ? '📜' : (f.path.endsWith('.js') || f.path.endsWith('.ts') ? '📦' : '📄')));
+      var sizeStr = f.size > 1024 ? (f.size / 1024).toFixed(1) + 'K' : f.size + 'B';
+      html += '<div onclick="loadSkillFile(\'' + escHtml(skillName) + '\',\'' + escHtml(f.path) + '\')" style="padding:4px 12px 4px ' + (12 + indent) + 'px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12px;" onmouseover="this.style.background=\'var(--bg-hover)\'" onmouseout="this.style.background=\'\'">';
+      html += '<span>' + icon + '</span>';
+      html += '<span style="color:var(--text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(f.path.split('/').pop()) + '</span>';
+      html += '<span style="color:var(--text-faint);font-size:10px;">' + sizeStr + '</span>';
+      html += '</div>';
+    });
+    treeEl.innerHTML = html;
+
+    // Auto-load SKILL.md
+    loadSkillFile(skillName, 'SKILL.md');
+  } catch(e) {
+    treeEl.innerHTML = '<div style="padding:12px;color:var(--text-error);">Error: ' + escHtml(String(e)) + '</div>';
+  }
+}
+
+async function loadSkillFile(skillName, filePath) {
+  var contentEl = document.getElementById('skills-browser-content');
+  if (!contentEl) return;
+  contentEl.innerHTML = '<div style="color:var(--text-muted);padding:20px;">Loading...</div>';
+
+  try {
+    var data = await fetch('/api/skills/' + encodeURIComponent(skillName) + '/file?path=' + encodeURIComponent(filePath)).then(function(r) { return r.json(); });
+    if (data.error) { contentEl.innerHTML = '<div style="color:var(--text-error);padding:20px;">' + escHtml(data.error) + '</div>'; return; }
+
+    var header = '<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:12px;">';
+    header += '<div style="font-size:13px;font-weight:600;color:var(--text-primary);">' + escHtml(filePath) + '</div>';
+    header += '<div style="font-size:11px;color:var(--text-muted);">' + escHtml(skillName) + ' &middot; ' + (data.language || 'text') + ' &middot; ' + data.size + ' bytes</div>';
+    header += '</div>';
+
+    var content = data.content || '';
+    if (data.language === 'markdown') {
+      // Simple markdown rendering
+      content = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      content = content.replace(/^### (.+)$/gm, '<h3 style="margin:16px 0 8px;font-size:14px;color:var(--text-primary);">$1</h3>');
+      content = content.replace(/^## (.+)$/gm, '<h2 style="margin:20px 0 8px;font-size:16px;color:var(--text-primary);">$1</h2>');
+      content = content.replace(/^# (.+)$/gm, '<h1 style="margin:20px 0 8px;font-size:18px;color:var(--text-primary);">$1</h1>');
+      content = content.replace(/`([^`]+)`/g, '<code style="background:var(--bg-secondary);padding:1px 5px;border-radius:3px;font-size:12px;">$1</code>');
+      content = content.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      content = content.replace(/^- (.+)$/gm, '<div style="padding-left:16px;">&bull; $1</div>');
+      content = content.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:12px 0;">');
+      content = '<div style="font-size:13px;line-height:1.7;color:var(--text-secondary);">' + content + '</div>';
+    } else {
+      content = '<pre style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:12px 16px;font-size:12px;line-height:1.6;overflow-x:auto;color:var(--text-primary);white-space:pre-wrap;">' + escHtml(content) + '</pre>';
+    }
+
+    contentEl.innerHTML = header + content;
+  } catch(e) {
+    contentEl.innerHTML = '<div style="color:var(--text-error);padding:20px;">Error: ' + escHtml(String(e)) + '</div>';
   }
 }
 
@@ -2059,7 +2141,19 @@ function renderBrainDetail(detail) {
 
 var _brainFilter = 'all';
 var _brainTypeFilter = 'all';
+var _brainChannelFilter = 'all';
 var _brainAllEvents = [];
+
+var _channelIcons = {
+  'telegram': '📱', 'whatsapp': '💬', 'discord': '🎮', 'slack': '📢',
+  'signal': '📡', 'irc': '💻', 'imessage': '🍎', 'webchat': '🌐',
+  'googlechat': '📧', 'cli': '🖥️', 'cron': '⏰'
+};
+var _channelColors = {
+  'telegram': '#2f9ef4', 'whatsapp': '#25d366', 'discord': '#5865F2', 'slack': '#4A154B',
+  'signal': '#3a76f0', 'irc': '#6B7280', 'imessage': '#34C759', 'webchat': '#0EA5E9',
+  'googlechat': '#1A73E8', 'cli': '#94a3b8', 'cron': '#6B7280'
+};
 
 var _brainTypeIcons = {
   'EXEC': '⚙️', 'SHELL': '⚙️', 'READ': '📖', 'WRITE': '✏️',
@@ -2129,13 +2223,36 @@ function renderBrainTypeChips(events) {
   container.innerHTML = html;
 }
 
+function renderBrainChannelChips(channels) {
+  var container = document.getElementById('brain-channel-chips');
+  if (!container) return;
+  if (!channels || Object.keys(channels).length < 2) { container.innerHTML = ''; return; }
+  var html = '<button class="brain-ch-chip" onclick="setBrainChannelFilter(\'all\',this)" style="padding:2px 9px;border-radius:10px;border:1px solid #666;background:' + (_brainChannelFilter === 'all' ? 'rgba(100,100,200,0.15)' : 'transparent') + ';color:#888;font-size:10px;cursor:pointer;font-weight:' + (_brainChannelFilter === 'all' ? '600' : '400') + ';">All channels</button>';
+  Object.keys(channels).sort().forEach(function(ch) {
+    var ico = _channelIcons[ch] || '📨';
+    var col = _channelColors[ch] || '#888';
+    var isActive = _brainChannelFilter === ch;
+    html += '<button class="brain-ch-chip" onclick="setBrainChannelFilter(\'' + ch + '\',this)" style="padding:2px 9px;border-radius:10px;border:1px solid ' + col + ';background:' + (isActive ? col + '22' : 'transparent') + ';color:' + col + ';font-size:10px;cursor:pointer;font-weight:' + (isActive ? '600' : '400') + ';">' + ico + ' ' + ch + ' (' + channels[ch] + ')</button>';
+  });
+  container.innerHTML = html;
+}
+
+function setBrainChannelFilter(ch, btn) {
+  _brainChannelFilter = ch;
+  renderBrainChannelChips(window._brainChannelCounts || {});
+  renderBrainStream(_brainAllEvents);
+}
+
 function renderBrainStream(events) {
   var el = document.getElementById('brain-stream');
   if (!el) return;
   var filtered = _brainFilter === 'all' ? events : events.filter(function(ev) { return ev.source === _brainFilter; });
-    if (_brainTypeFilter !== 'all') {
-      filtered = filtered.filter(function(ev) { return ev.type === _brainTypeFilter; });
-    }
+  if (_brainTypeFilter !== 'all') {
+    filtered = filtered.filter(function(ev) { return ev.type === _brainTypeFilter; });
+  }
+  if (_brainChannelFilter !== 'all') {
+    filtered = filtered.filter(function(ev) { return (ev.channel || '') === _brainChannelFilter; });
+  }
   filtered = filtered.slice().sort(function(a,b){
     var ta = a.time ? new Date(a.time).getTime() : 0;
     var tb = b.time ? new Date(b.time).getTime() : 0;
@@ -2151,18 +2268,117 @@ function renderBrainStream(events) {
     var evType = ev.type || 'TOOL';
     var icon = _brainTypeIcons[evType] || '🔧';
     var fullSrc = ev.sourceLabel || ev.source || 'main';
-    /* Short agent ID: show role/last segment only; full ID in title attribute */
     var srcParts = fullSrc.split(':');
     var shortSrc = srcParts[srcParts.length - 1] || fullSrc;
     if (shortSrc.length > 12) shortSrc = shortSrc.slice(0, 8) + '\u2026';
     var roleIcon = fullSrc.indexOf('subagent') >= 0 ? '\uD83E\uDD16' : '\uD83E\uDDE0';
-    html += '<div class="brain-event" onclick="this.classList.toggle(\'expanded\')">';
+    // Channel badge
+    var chBadge = '';
+    var ch = ev.channel || '';
+    if (ch) {
+      var chIco = _channelIcons[ch] || '📨';
+      var chCol = _channelColors[ch] || '#667';
+      var chLabel = ch.charAt(0).toUpperCase() + ch.slice(1);
+      if (ev.channelSubject) chLabel += ':' + (ev.channelSubject.length > 14 ? ev.channelSubject.slice(0, 12) + '\u2026' : ev.channelSubject);
+      chBadge = '<span class="brain-channel" style="color:' + chCol + ';font-size:10px;flex-shrink:0;opacity:0.8;white-space:nowrap;" title="' + escHtml(ch + (ev.channelSubject ? ': ' + ev.channelSubject : '')) + '">' + chIco + ' ' + escHtml(chLabel) + '</span>';
+    }
+    // Skill badge — detect from detail path or ev.skill field
+    var skillBadge = '';
+    var skillName = ev.skill || '';
+    if (!skillName) {
+      var det = ev.detail || '';
+      var skillMatch = det.match(/\/skills\/([^\/\s]+)/);
+      if (skillMatch) skillName = skillMatch[1];
+      // Also detect cron-invoked skills from [cron:uuid name] pattern
+      if (!skillName && det.indexOf('[cron:') === 0) {
+        var cronNameMatch = det.match(/\[cron:[0-9a-f-]+ ([^\]]+)\]/);
+        if (cronNameMatch) skillName = cronNameMatch[1];
+      }
+    }
+    if (skillName) {
+      skillBadge = '<span class="brain-skill" style="color:#f59e0b;font-size:10px;flex-shrink:0;white-space:nowrap;" title="Skill: ' + escHtml(skillName) + '">🎯 ' + escHtml(skillName.length > 16 ? skillName.slice(0, 14) + '\u2026' : skillName) + '</span>';
+    }
+    // Build turn timeline for USER events (Phase 4: Agent Runtime Timeline)
+    var turnTimeline = '';
+    if (evType === 'USER') {
+      // Find all events in this turn (from this USER to the next USER)
+      var evIdx = filtered.indexOf(ev);
+      var turnEvents = [];
+      for (var ti = evIdx + 1; ti < filtered.length; ti++) {
+        if (filtered[ti].type === 'USER') break;
+        turnEvents.push(filtered[ti]);
+      }
+      if (turnEvents.length > 0) {
+        var turnStart = ev.time ? new Date(ev.time).getTime() : 0;
+        var turnEnd = turnEvents.length > 0 && turnEvents[turnEvents.length-1].time ? new Date(turnEvents[turnEvents.length-1].time).getTime() : turnStart;
+        var turnDuration = turnStart && turnEnd ? ((turnStart - turnEnd) / 1000).toFixed(1) : '?';
+        var llmCalls = turnEvents.filter(function(e){return e.type==='AGENT'||e.type==='THINK';}).length;
+        var toolCalls = turnEvents.filter(function(e){return e.type==='EXEC'||e.type==='READ'||e.type==='WRITE'||e.type==='BROWSER'||e.type==='SEARCH'||e.type==='TOOL';}).length;
+        // Detect sub-agent events (different source = sub-agent)
+        var parentSource = ev.source || 'main';
+        var subagentSources = {};
+        turnEvents.forEach(function(te) {
+          var teSrc = te.source || 'main';
+          if (teSrc !== parentSource && teSrc !== 'main') {
+            subagentSources[teSrc] = (subagentSources[teSrc] || 0) + 1;
+          }
+        });
+        var subagentCount = Object.keys(subagentSources).length;
+
+        // Summary badge
+        turnTimeline = '<div class="brain-turn-summary" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;font-size:10px;color:var(--text-muted);">';
+        turnTimeline += '<span style="background:rgba(139,92,246,0.15);color:#a78bfa;padding:1px 6px;border-radius:3px;">&#9881; ' + turnEvents.length + ' steps</span>';
+        if (llmCalls > 0) turnTimeline += '<span style="background:rgba(59,130,246,0.15);color:#60a5fa;padding:1px 6px;border-radius:3px;">&#129302; ' + llmCalls + ' LLM</span>';
+        if (toolCalls > 0) turnTimeline += '<span style="background:rgba(245,158,11,0.15);color:#f59e0b;padding:1px 6px;border-radius:3px;">&#128295; ' + toolCalls + ' tools</span>';
+        if (subagentCount > 0) turnTimeline += '<span style="background:rgba(236,72,153,0.15);color:#ec4899;padding:1px 6px;border-radius:3px;">&#129302; ' + subagentCount + ' sub-agent' + (subagentCount > 1 ? 's' : '') + '</span>';
+        if (turnDuration !== '?' && parseFloat(turnDuration) > 0) turnTimeline += '<span style="background:rgba(16,185,129,0.15);color:#10b981;padding:1px 6px;border-radius:3px;">&#9202; ' + turnDuration + 's</span>';
+        turnTimeline += '</div>';
+        // Expandable timeline detail
+        turnTimeline += '<div class="brain-turn-detail" style="display:none;margin-top:6px;padding:6px 0 2px 16px;border-left:2px solid rgba(139,92,246,0.3);">';
+        var currentSubagent = null;
+        turnEvents.forEach(function(te) {
+          var teIcon = _brainTypeIcons[te.type] || '&#128295;';
+          var teTime = formatBrainTime(te.time);
+          var teDetail = (te.detail || '').substring(0, 120);
+          var teCol = {'AGENT':'#a855f7','THINK':'#94a3b8','EXEC':'#f59e0b','READ':'#6ee7b7','WRITE':'#10b981','BROWSER':'#ec4899','SEARCH':'#06b6d4','TOOL':'#f97316','RESULT':'#6ee7b7','SPAWN':'#ec4899'}[te.type] || '#888';
+          var teSrc = te.source || 'main';
+          var isSubagent = teSrc !== parentSource && teSrc !== 'main';
+
+          // Sub-agent group header
+          if (isSubagent && currentSubagent !== teSrc) {
+            if (currentSubagent) turnTimeline += '</div>'; // close previous
+            currentSubagent = teSrc;
+            var saLabel = (te.sourceLabel || teSrc).split(':').pop();
+            if (saLabel.length > 10) saLabel = saLabel.slice(0, 8);
+            var saEvents = subagentSources[teSrc] || 0;
+            turnTimeline += '<div style="margin:4px 0 2px 0;padding:4px 8px;background:rgba(236,72,153,0.08);border:1px solid rgba(236,72,153,0.2);border-radius:6px;">';
+            turnTimeline += '<div style="font-size:10px;font-weight:600;color:#ec4899;margin-bottom:3px;">&#129302; Sub-agent: ' + escHtml(saLabel) + ' (' + saEvents + ' steps)</div>';
+          } else if (!isSubagent && currentSubagent) {
+            turnTimeline += '</div>'; // close sub-agent group
+            currentSubagent = null;
+          }
+
+          var indent = isSubagent ? 'padding-left:12px;' : '';
+          turnTimeline += '<div style="display:flex;gap:6px;align-items:flex-start;padding:2px 0;font-size:11px;' + indent + '">';
+          turnTimeline += '<span style="color:var(--text-faint);min-width:50px;flex-shrink:0;">' + teTime + '</span>';
+          turnTimeline += '<span style="color:' + teCol + ';min-width:55px;font-weight:600;flex-shrink:0;">' + teIcon + ' ' + te.type + '</span>';
+          turnTimeline += '<span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(teDetail) + '</span>';
+          turnTimeline += '</div>';
+        });
+        if (currentSubagent) turnTimeline += '</div>'; // close last sub-agent group
+        turnTimeline += '</div>';
+      }
+    }
+    html += '<div class="brain-event" onclick="this.classList.toggle(\'expanded\');var td=this.querySelector(\'.brain-turn-detail\');if(td)td.style.display=td.style.display===\'none\'?\'\':\'none\';">';
     html += '<div class="brain-meta">';
     html += '<span class="brain-time">' + formatBrainTime(ev.time) + '</span>';
     html += '<span class="brain-type" style="background:rgba(100,100,100,0.15);color:' + color + ';padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;min-width:70px;text-align:center;display:inline-block;white-space:nowrap;">' + icon + ' ' + escHtml(evType) + '</span>';
     html += '<span class="brain-source" style="color:' + color + ';flex-shrink:0;" title="' + escHtml(fullSrc) + '">' + roleIcon + ' ' + escHtml(shortSrc) + '</span>';
+    html += chBadge;
+    html += skillBadge;
     html += '</div>';
     html += '<span class="brain-detail">' + renderBrainDetail(ev.detail || '') + '</span>';
+    html += turnTimeline;
     html += '</div>';
   });
   el.innerHTML = html;
@@ -2319,6 +2535,132 @@ function _buildSourcesList(events) {
   return sources;
 }
 
+// ── LLM Context Inspector ─────────────────────────────────────────────────
+async function loadContextInspector() {
+  try {
+    // Fetch overview for model + token info
+    var ov = await fetch('/api/overview').then(function(r){return r.json();}).catch(function(){return {};});
+    // Fetch brain history for compaction events + turn count
+    var brain = await fetch('/api/brain-history').then(function(r){return r.json();}).catch(function(){return {events:[]};});
+    // Fetch skills for header token count
+    var skills = await fetch('/api/skills').then(function(r){return r.json();}).catch(function(){return {skills:[],summary:{}};});
+
+    var contextWindow = ov.contextWindow || 200000;
+    var mainTokens = ov.mainTokens || 0;
+    var model = ov.model || 'unknown';
+    var events = brain.events || [];
+
+    // Context window usage bar
+    var pct = contextWindow > 0 ? Math.min(100, Math.round(mainTokens / contextWindow * 100)) : 0;
+    var usageFill = document.getElementById('ctx-usage-fill');
+    if (usageFill) usageFill.style.width = pct + '%';
+    var usageText = document.getElementById('ctx-usage-text');
+    if (usageText) usageText.textContent = _fmtTokens(mainTokens) + ' / ' + _fmtTokens(contextWindow) + ' tokens (' + pct + '%)';
+    var windowMax = document.getElementById('ctx-window-max');
+    if (windowMax) windowMax.textContent = _fmtTokens(contextWindow);
+    var threshold = document.getElementById('ctx-compact-threshold');
+    if (threshold) threshold.textContent = 'Compaction at ~' + _fmtTokens(Math.round(contextWindow * 0.8));
+
+    // Stats cards
+    var turns = events.filter(function(e){return e.type === 'USER';}).length;
+    var compactions = events.filter(function(e){return e.type === 'CONTEXT' && (e.detail||'').indexOf('Compact') >= 0;}).length;
+    var el;
+    el = document.getElementById('ctx-total-turns'); if (el) el.textContent = turns;
+    el = document.getElementById('ctx-compactions'); if (el) el.textContent = compactions;
+    el = document.getElementById('ctx-model-name'); if (el) { el.textContent = model.split('/').pop(); el.style.fontSize = model.length > 20 ? '14px' : '20px'; }
+
+    // Context composition breakdown
+    var skillHeaderTokens = (skills.summary || {}).total_header_tokens || 0;
+    var memoryFiles = ov.memoryCount || 0;
+    var memorySize = ov.memorySize || 0;
+    var memoryTokens = Math.round(memorySize / 4); // rough estimate
+
+    // Estimate system prompt sections based on known OpenClaw structure
+    var sections = [
+      {name: '## Tooling', tokens: Math.round(contextWindow * 0.015), color: '#3b82f6', desc: 'Tool list + descriptions'},
+      {name: '## Safety', tokens: 120, color: '#ef4444', desc: 'Safety guardrails'},
+      {name: '## Skills', tokens: skillHeaderTokens || Math.round(contextWindow * 0.008), color: '#f59e0b', desc: (skills.skills||[]).length + ' skill headers always loaded'},
+      {name: '## Memories', tokens: 200, color: '#8b5cf6', desc: 'Memory tool guidance'},
+      {name: '## Workspace', tokens: 150, color: '#06b6d4', desc: 'Working directory + docs path'},
+      {name: '## Heartbeats', tokens: 80, color: '#10b981', desc: 'Heartbeat prompt'},
+      {name: 'Bootstrap: SOUL.md', tokens: memoryTokens > 0 ? Math.min(5000, Math.round(memoryTokens * 0.2)) : 750, color: '#e879f9', desc: 'Agent identity + personality'},
+      {name: 'Bootstrap: AGENTS.md', tokens: memoryTokens > 0 ? Math.min(5000, Math.round(memoryTokens * 0.15)) : 500, color: '#c084fc', desc: 'Workspace configuration'},
+      {name: 'Bootstrap: TOOLS.md', tokens: memoryTokens > 0 ? Math.min(5000, Math.round(memoryTokens * 0.1)) : 400, color: '#a78bfa', desc: 'Custom tool instructions'},
+      {name: 'Bootstrap: MEMORY.md', tokens: memoryTokens > 0 ? Math.min(5000, Math.round(memoryTokens * 0.3)) : 1000, color: '#818cf8', desc: 'Persistent agent memory'},
+      {name: 'Tool schemas (JSON)', tokens: Math.round(contextWindow * 0.035), color: '#64748b', desc: 'Hidden but counted in context'},
+      {name: 'Conversation history', tokens: Math.max(0, mainTokens - Math.round(contextWindow * 0.08)), color: '#22c55e', desc: 'Recent messages + tool results'},
+    ];
+
+    var totalSysPrompt = 0;
+    sections.forEach(function(s) { if (s.name.indexOf('Conversation') === -1) totalSysPrompt += s.tokens; });
+    var sysTotalEl = document.getElementById('ctx-sysprompt-total');
+    if (sysTotalEl) sysTotalEl.textContent = '~' + _fmtTokens(totalSysPrompt) + ' tokens (estimated)';
+
+    // Render composition bars
+    var barsEl = document.getElementById('ctx-composition-bars');
+    if (barsEl) {
+      var maxTokens = Math.max.apply(null, sections.map(function(s){return s.tokens;}));
+      var html = '';
+      sections.forEach(function(s) {
+        var barPct = maxTokens > 0 ? Math.max(1, Math.round(s.tokens / maxTokens * 100)) : 0;
+        html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">';
+        html += '<div style="min-width:160px;font-size:11px;color:var(--text-secondary);white-space:nowrap;">' + escHtml(s.name) + '</div>';
+        html += '<div style="flex:1;height:14px;background:var(--bg-primary);border-radius:4px;overflow:hidden;border:1px solid var(--border);">';
+        html += '<div style="height:100%;width:' + barPct + '%;background:' + s.color + ';border-radius:4px;transition:width 0.5s;"></div>';
+        html += '</div>';
+        html += '<div style="min-width:70px;text-align:right;font-size:11px;color:var(--text-muted);font-family:monospace;">' + _fmtTokens(s.tokens) + '</div>';
+        html += '</div>';
+      });
+      barsEl.innerHTML = html;
+    }
+
+    // Render system prompt sections (expandable)
+    var secEl = document.getElementById('ctx-sysprompt-sections');
+    if (secEl) {
+      var html = '';
+      sections.filter(function(s){return s.name.indexOf('Conversation') === -1;}).forEach(function(s) {
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);">';
+        html += '<span style="width:8px;height:8px;border-radius:50%;background:' + s.color + ';flex-shrink:0;"></span>';
+        html += '<span style="font-size:12px;color:var(--text-primary);min-width:160px;">' + escHtml(s.name) + '</span>';
+        html += '<span style="font-size:11px;color:var(--text-muted);flex:1;">' + escHtml(s.desc) + '</span>';
+        html += '<span style="font-size:11px;color:var(--text-secondary);font-family:monospace;">' + _fmtTokens(s.tokens) + '</span>';
+        html += '</div>';
+      });
+      secEl.innerHTML = html;
+    }
+
+    // Compaction log
+    var compactionEvents = events.filter(function(e) {
+      return e.type === 'CONTEXT' && (e.detail||'').toLowerCase().indexOf('compact') >= 0;
+    });
+    var logEl = document.getElementById('ctx-compaction-log');
+    if (logEl) {
+      if (compactionEvents.length === 0) {
+        logEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">No compactions yet. Context hasn\'t exceeded the ~' + _fmtTokens(Math.round(contextWindow * 0.8)) + ' threshold.</div>';
+      } else {
+        var html = '';
+        compactionEvents.forEach(function(ev) {
+          html += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;">';
+          html += '<span style="color:var(--text-muted);margin-right:8px;">' + formatBrainTime(ev.time) + '</span>';
+          html += '<span style="color:#f59e0b;font-weight:600;">Compaction</span> ';
+          html += '<span style="color:var(--text-secondary);">' + escHtml((ev.detail||'').substring(0, 200)) + '</span>';
+          html += '</div>';
+        });
+        logEl.innerHTML = html;
+      }
+    }
+  } catch(e) {
+    var barsEl = document.getElementById('ctx-composition-bars');
+    if (barsEl) barsEl.innerHTML = '<div style="color:var(--text-error);font-size:12px;">Error loading context data: ' + escHtml(String(e)) + '</div>';
+  }
+}
+
+function _fmtTokens(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return String(n);
+}
+
 async function loadBrainPage(silent) {
   if (window.CLOUD_MODE) return;
   try {
@@ -2331,6 +2673,13 @@ async function loadBrainPage(silent) {
     _brainAllEvents = events;
     renderBrainFilterChips(data.sources || []);
     renderBrainTypeChips(events);
+    // Channel filter chips
+    window._brainChannelCounts = data.channels || {};
+    if (!Object.keys(window._brainChannelCounts).length) {
+      // Build from events if API didn't provide
+      events.forEach(function(ev) { if (ev.channel) window._brainChannelCounts[ev.channel] = (window._brainChannelCounts[ev.channel]||0) + 1; });
+    }
+    renderBrainChannelChips(window._brainChannelCounts);
     renderBrainChart(events);
     if (typeof syncBrainGraph === 'function') syncBrainGraph(events);
     var streamEl = document.getElementById('brain-stream');
@@ -4173,11 +4522,12 @@ async function loadSystemHealth() {
         if (hbGap != null) {
           hbDetail = hbGap >= 3600 ? Math.floor(hbGap/3600) + 'h ' + Math.floor((hbGap%3600)/60) + 'm ago' : Math.floor(hbGap/60) + 'm ago';
         }
-        var hbInterval = Math.floor(hbData.interval_seconds / 60);
+        var hbInterval = hbData.interval_seconds ? Math.floor(hbData.interval_seconds / 60) : 0;
         var hbColor = hbStatus === 'ok' ? 'var(--text-success)' : (hbStatus === 'warning' ? '#f59e0b' : (hbStatus === 'silent' ? 'var(--text-error)' : 'var(--text-muted)'));
+        var hbIntervalStr = hbInterval > 0 ? 'every ' + hbInterval + 'm' : '';
         hbEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border-secondary);font-size:13px;">'
           + hbDot + ' <span style="font-weight:600;color:' + hbColor + ';">' + hbLabel + '</span>'
-          + (hbDetail ? '<span style="color:var(--text-muted);font-size:11px;margin-left:auto;">Last: ' + hbDetail + ' (every ' + hbInterval + 'm)</span>' : '<span style="color:var(--text-muted);font-size:11px;margin-left:auto;">Interval: ' + hbInterval + 'm</span>')
+          + (hbDetail ? '<span style="color:var(--text-muted);font-size:11px;margin-left:auto;">Last: ' + hbDetail + (hbIntervalStr ? ' (' + hbIntervalStr + ')' : '') + '</span>' : (hbIntervalStr ? '<span style="color:var(--text-muted);font-size:11px;margin-left:auto;">' + hbIntervalStr + '</span>' : ''))
           + '</div>';
       }
     } catch(e) {}
@@ -6001,10 +6351,43 @@ function initFlow() {
     }, 1000);
   }).catch(function(){});
 
+  // Populate skills in Flow diagram
+  _populateFlowSkills();
+
   // Connect to the typed flow-events SSE (tails gateway.log + session JSONL)
   _startFlowSse();
-  
+
   setInterval(updateFlowStats, updateInterval);
+}
+
+function _populateFlowSkills() {
+  fetch('/api/skills').then(function(r){return r.json();}).then(function(d) {
+    var skills = (d.skills || []).filter(function(s) { return s.status !== 'dead'; }).slice(0, 6);
+    var container = document.getElementById('flow-skills-list');
+    if (!container || !skills.length) return;
+    var ns = 'http://www.w3.org/2000/svg';
+    var statusColors = {healthy:'#22c55e', stuck:'#f59e0b', unused:'#6b7280', dead:'#ef4444'};
+    skills.forEach(function(sk, i) {
+      var y = 95 + i * 30;
+      var g = document.createElementNS(ns, 'g');
+      g.setAttribute('class', 'flow-node');
+      var rect = document.createElementNS(ns, 'rect');
+      rect.setAttribute('x', '700'); rect.setAttribute('y', String(y));
+      rect.setAttribute('width', '120'); rect.setAttribute('height', '24');
+      rect.setAttribute('rx', '6'); rect.setAttribute('ry', '6');
+      rect.setAttribute('fill', '#7c2d12'); rect.setAttribute('stroke', '#9a3412');
+      rect.setAttribute('stroke-width', '1'); rect.setAttribute('filter', 'url(#dropShadowLight)');
+      var dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('cx', '712'); dot.setAttribute('cy', String(y + 12));
+      dot.setAttribute('r', '3'); dot.setAttribute('fill', statusColors[sk.status] || '#888');
+      var text = document.createElementNS(ns, 'text');
+      text.setAttribute('x', '720'); text.setAttribute('y', String(y + 16));
+      text.setAttribute('style', 'font-size:10px;fill:#fed7aa;font-weight:600;');
+      text.textContent = sk.name.length > 14 ? sk.name.slice(0, 12) + '\u2026' : sk.name;
+      g.appendChild(rect); g.appendChild(dot); g.appendChild(text);
+      container.appendChild(g);
+    });
+  }).catch(function(){});
 }
 
 // Add subtle animation to help users understand the flow

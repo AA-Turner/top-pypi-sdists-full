@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -19,6 +18,38 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["workflows"])
 
 _MAX_INPUTS_BYTES = 65536  # 64KB cap on serialized inputs
+
+
+def _audit_writer(request: Request) -> Any:
+    """Return ``app.state.audit_writer`` when audit is enabled, else None."""
+    writer = getattr(request.app.state, "audit_writer", None)
+    if writer is None or not getattr(writer, "enabled", False):
+        return None
+    return writer
+
+
+def _actor_id_from_request(request: Request, override: str | None = None) -> str:
+    """Resolve the actor identity for workflow governance events (#925).
+
+    Precedence: explicit *override* from the request body (so a CLI
+    caller can stamp its own identity) > ``request.state.user_id`` set
+    by the auth middleware > ``config.identity.user_id`` from the
+    running server > ``"operator"`` fallback. The fallback is only
+    reached in tests or unidentified recovery flows.
+    """
+    if override:
+        trimmed = override.strip()
+        if trimmed:
+            return trimmed[:256]
+    state_user = getattr(request.state, "user_id", None)
+    if isinstance(state_user, str) and state_user:
+        return state_user[:256]
+    config = getattr(request.app.state, "config", None)
+    if config is not None and getattr(config, "identity", None) is not None:
+        uid = getattr(config.identity, "user_id", None)
+        if isinstance(uid, str) and uid:
+            return uid[:256]
+    return "operator"
 
 
 class EnqueueRunRequest(BaseModel):
@@ -53,10 +84,14 @@ async def enqueue_workflow_run(request: Request, body: EnqueueRunRequest) -> dic
         if len(serialized.encode("utf-8")) > _MAX_INPUTS_BYTES:
             raise HTTPException(status_code=422, detail="Inputs exceed 64KB limit")
 
-    # Resolve workflow
+    # Resolve workflow (pack-aware, #924)
     from ..services.workflow_resolution import resolve_workflow_path
 
-    path = resolve_workflow_path(body.workflow_id, allow_filesystem=False)
+    path = resolve_workflow_path(
+        body.workflow_id,
+        allow_filesystem=False,
+        db=request.app.state.db,
+    )
     if not path:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
@@ -115,30 +150,30 @@ async def enqueue_workflow_run(request: Request, body: EnqueueRunRequest) -> dic
 
 @router.get("/workflows")
 async def list_workflows(request: Request) -> list[dict[str, Any]]:
-    """List available workflow definitions."""
-    definitions = []
-    seen_ids: set[str] = set()
-    # Built-in workflows
-    builtin_dir = Path(__file__).parent.parent / "workflows"
-    if builtin_dir.exists():
-        for f in sorted(builtin_dir.glob("*.yaml")):
-            definitions.append({"id": f.stem, "source": "built_in"})
-            seen_ids.add(f.stem)
-    # Package-shipped examples
-    pkg_examples = Path(__file__).parent.parent / "workflows" / "examples"
-    if pkg_examples.exists():
-        for f in sorted(pkg_examples.glob("*.yaml")):
-            if f.stem not in seen_ids:
-                definitions.append({"id": f.stem, "source": "example"})
-                seen_ids.add(f.stem)
-    # Source-tree examples (development)
-    src_examples = Path(__file__).parent.parent.parent.parent / "examples" / "workflows"
-    if src_examples.exists():
-        for f in sorted(src_examples.glob("*.yaml")):
-            if f.stem not in seen_ids:
-                definitions.append({"id": f.stem, "source": "example"})
-                seen_ids.add(f.stem)
-    return definitions
+    """List available workflow definitions (#924: pack-aware).
+
+    Delegates to ``workflow_registry.list_available_workflows`` so the
+    web picker and the CLI share a single source of truth. Filesystem
+    entries win on id collision.
+
+    Response shape is additive: ``pack_id`` and ``namespace`` are
+    populated for pack-sourced entries and ``null`` for filesystem
+    entries. The ``source`` field gains a new value ``"pack"`` alongside
+    the existing ``"built_in"`` and ``"example"``.
+    """
+    from ..services.workflow_registry import list_available_workflows
+
+    db = getattr(request.app.state, "db", None)
+    refs = list_available_workflows(db)
+    return [
+        {
+            "id": ref.id,
+            "source": ref.source,
+            "pack_id": ref.pack_id,
+            "namespace": ref.namespace,
+        }
+        for ref in refs
+    ]
 
 
 @router.get("/workflow-runs")
@@ -367,7 +402,9 @@ class RespondRequest(BaseModel):
 
 
 @router.post("/workflow-runs/{run_id}/cancel")
-async def cancel_workflow_run(request: Request, run_id: str) -> CancelResponse:
+async def cancel_workflow_run(
+    request: Request, run_id: str, body: ApprovalActionRequest | None = None
+) -> CancelResponse:
     """Request cancellation of a workflow run."""
     from ..services.workflow_engine import WorkflowEngine
     from ..services.workflow_storage import get_workflow_run as ws_get
@@ -387,6 +424,16 @@ async def cancel_workflow_run(request: Request, run_id: str) -> CancelResponse:
         updated = await WorkflowEngine.request_cancel(db, run_id, event_bus=event_bus)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
+
+    from ..services import lineage
+
+    override = body.resolved_by if body else None
+    lineage.emit_workflow_cancel(
+        _audit_writer(request),
+        run_id=run_id,
+        cancelled_by=_actor_id_from_request(request, override),
+        from_status=run["status"],
+    )
 
     return CancelResponse(run_id=run_id, status=updated["status"])
 
@@ -409,10 +456,22 @@ async def approve_workflow_run(
     if not pending:
         raise HTTPException(status_code=404, detail="No pending approval request")
 
-    resolved_by = body.resolved_by if body else None
-    resolved = ws.resolve_approval_request(db, pending["id"], status="approved", resolved_by=resolved_by or "operator")
+    resolved_by_override = body.resolved_by if body else None
+    resolver = _actor_id_from_request(request, resolved_by_override)
+    resolved = ws.resolve_approval_request(db, pending["id"], status="approved", resolved_by=resolver)
     if not resolved:
         raise HTTPException(status_code=409, detail="Approval request already resolved")
+
+    from ..services import lineage
+
+    lineage.emit_workflow_approval(
+        _audit_writer(request),
+        run_id=run_id,
+        request_id=pending["id"],
+        outcome="approved",
+        resolved_by=resolver,
+        tool_name=pending.get("tool_name", ""),
+    )
 
     return {"run_id": run_id, "approval_id": pending["id"], "status": "approved"}
 
@@ -433,12 +492,24 @@ async def deny_workflow_run(request: Request, run_id: str, body: ApprovalActionR
     if not pending:
         raise HTTPException(status_code=404, detail="No pending approval request")
 
-    resolved_by = body.resolved_by if body else None
-    resolved = ws.resolve_approval_request(db, pending["id"], status="denied", resolved_by=resolved_by or "operator")
+    resolved_by_override = body.resolved_by if body else None
+    resolver = _actor_id_from_request(request, resolved_by_override)
+    resolved = ws.resolve_approval_request(db, pending["id"], status="denied", resolved_by=resolver)
     if not resolved:
         raise HTTPException(status_code=409, detail="Approval request already resolved")
 
     ws.update_workflow_run(db, run_id, status="paused", stop_reason="approval_denied")
+
+    from ..services import lineage
+
+    lineage.emit_workflow_approval(
+        _audit_writer(request),
+        run_id=run_id,
+        request_id=pending["id"],
+        outcome="denied",
+        resolved_by=resolver,
+        tool_name=pending.get("tool_name", ""),
+    )
 
     return {"run_id": run_id, "approval_id": pending["id"], "status": "denied"}
 
@@ -457,18 +528,29 @@ async def respond_workflow_run(request: Request, run_id: str, body: RespondReque
     if not pending:
         raise HTTPException(status_code=404, detail="No pending human decision")
 
+    resolver = _actor_id_from_request(request, body.resolved_by)
     try:
         resolved = ws.resolve_human_decision(
             db,
             pending["id"],
             selected_option=body.selected_option,
-            resolved_by=body.resolved_by or "operator",
+            resolved_by=resolver,
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
 
     if not resolved:
         raise HTTPException(status_code=409, detail="Decision already resolved")
+
+    from ..services import lineage
+
+    lineage.emit_workflow_decision(
+        _audit_writer(request),
+        run_id=run_id,
+        decision_id=pending["id"],
+        option_id=body.selected_option,
+        resolved_by=resolver,
+    )
 
     return {"run_id": run_id, "decision_id": pending["id"], "selected_option": body.selected_option}
 
@@ -523,7 +605,11 @@ async def resume_workflow_run(request: Request, run_id: str) -> dict[str, Any]:
     else:
         from ..services.workflow_resolution import resolve_workflow_path
 
-        path = resolve_workflow_path(run["workflow_id"], allow_filesystem=False)
+        path = resolve_workflow_path(
+            run["workflow_id"],
+            allow_filesystem=False,
+            db=request.app.state.db,
+        )
         if not path:
             raise HTTPException(status_code=422, detail="Cannot resolve workflow definition for resume")
         definition = load_definition(path)

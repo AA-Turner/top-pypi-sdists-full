@@ -503,35 +503,208 @@ class TestHandleApproveReject:
         return f"@user/memory/{name}"
 
     def test_approve_transitions(self, db: ThreadSafeConnection) -> None:
+        # #925: handlers now route through HTTP first; mock the routing
+        # helper to raise ServerNotRunningError so the local-fallback
+        # path (the original behaviour exercised by these tests) runs.
+        from anteroom.cli._decision_routing import ServerNotRunningError
         from anteroom.cli.memory_cli import _handle_approve
 
         cfg = _cfg_with_promotion()
         fqn = self._propose(cfg, db, "appcli1")
         console, buf = _capture_console()
         args = _make_args(fqn=fqn, edit_content=None, edit_category=None)
-        with patch("anteroom.cli.memory_cli.console", console):
+        with (
+            patch("anteroom.cli.memory_cli.console", console),
+            patch(
+                "anteroom.cli._decision_routing.call_decision_endpoint",
+                side_effect=ServerNotRunningError("no server"),
+            ),
+        ):
             _handle_approve(cfg, db, args)
         assert "Approved:" in buf.getvalue()
         assert "active" in buf.getvalue()
 
     def test_approve_missing_fqn_exits(self, db: ThreadSafeConnection) -> None:
+        from anteroom.cli._decision_routing import ServerNotRunningError
         from anteroom.cli.memory_cli import _handle_approve
 
         cfg = _cfg_with_promotion()
         console, buf = _capture_console()
         args = _make_args(fqn="@user/memory/none", edit_content=None, edit_category=None)
-        with patch("anteroom.cli.memory_cli.console", console), pytest.raises(SystemExit):
+        with (
+            patch("anteroom.cli.memory_cli.console", console),
+            patch(
+                "anteroom.cli._decision_routing.call_decision_endpoint",
+                side_effect=ServerNotRunningError("no server"),
+            ),
+            pytest.raises(SystemExit),
+        ):
             _handle_approve(cfg, db, args)
         assert "Error:" in buf.getvalue()
 
     def test_reject_transitions(self, db: ThreadSafeConnection) -> None:
+        from anteroom.cli._decision_routing import ServerNotRunningError
         from anteroom.cli.memory_cli import _handle_reject
 
         cfg = _cfg_with_promotion()
         fqn = self._propose(cfg, db, "rejcli1")
         console, buf = _capture_console()
         args = _make_args(fqn=fqn, reason="stale")
-        with patch("anteroom.cli.memory_cli.console", console):
+        with (
+            patch("anteroom.cli.memory_cli.console", console),
+            patch(
+                "anteroom.cli._decision_routing.call_decision_endpoint",
+                side_effect=ServerNotRunningError("no server"),
+            ),
+        ):
             _handle_reject(cfg, db, args)
         assert "Rejected:" in buf.getvalue()
         assert "stale" in buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Retention / pin handlers (#625)
+# ---------------------------------------------------------------------------
+
+
+def _retention_cfg(**overrides: Any) -> Any:
+    """Build a config object with a real MemoryRetentionConfig."""
+    from unittest.mock import MagicMock
+
+    from anteroom.config import (
+        MemoryConfig,
+        MemoryPromotionConfig,
+        MemoryRetentionConfig,
+    )
+
+    cfg = MagicMock()
+    cfg.memory = MemoryConfig(
+        promotion=MemoryPromotionConfig(),
+        retention=MemoryRetentionConfig(**overrides),
+    )
+    cfg.identity = None
+    return cfg
+
+
+class TestHandlePin:
+    def test_pin_prints_confirmation(self, db: ThreadSafeConnection) -> None:
+        from anteroom.cli.memory_cli import _handle_pin
+
+        create_memory(db, "x", scope="user", category="preference", name="pin-h1")
+        console, buf = _capture_console()
+        with patch("anteroom.cli.memory_cli.console", console):
+            _handle_pin(db, _make_args(fqn="@user/memory/pin-h1"))
+        assert "Pinned:" in buf.getvalue()
+
+    def test_pin_missing_exits(self, db: ThreadSafeConnection) -> None:
+        from anteroom.cli.memory_cli import _handle_pin
+
+        console, buf = _capture_console()
+        with patch("anteroom.cli.memory_cli.console", console), pytest.raises(SystemExit):
+            _handle_pin(db, _make_args(fqn="@user/memory/none"))
+        assert "Not found" in buf.getvalue()
+
+
+class TestHandleUnpin:
+    def test_unpin_prints_confirmation(self, db: ThreadSafeConnection) -> None:
+        from anteroom.cli.memory_cli import _handle_pin, _handle_unpin
+
+        create_memory(db, "x", scope="user", category="preference", name="unpin-h1")
+        with patch("anteroom.cli.memory_cli.console", Console(file=StringIO())):
+            _handle_pin(db, _make_args(fqn="@user/memory/unpin-h1"))
+
+        console, buf = _capture_console()
+        with patch("anteroom.cli.memory_cli.console", console):
+            _handle_unpin(db, _make_args(fqn="@user/memory/unpin-h1"))
+        assert "Unpinned:" in buf.getvalue()
+
+    def test_unpin_missing_exits(self, db: ThreadSafeConnection) -> None:
+        from anteroom.cli.memory_cli import _handle_unpin
+
+        console, buf = _capture_console()
+        with patch("anteroom.cli.memory_cli.console", console), pytest.raises(SystemExit):
+            _handle_unpin(db, _make_args(fqn="@user/memory/none"))
+        assert "Not found" in buf.getvalue()
+
+
+class TestHandleRetentionPreview:
+    def test_preview_disabled_policy_prints_message(self, db: ThreadSafeConnection) -> None:
+        from anteroom.cli.memory_cli import _handle_retention_preview
+
+        cfg = _retention_cfg(enabled=False)
+        console, buf = _capture_console()
+        with patch("anteroom.cli.memory_cli.console", console):
+            _handle_retention_preview(cfg, db, _make_args())
+        assert "disabled" in buf.getvalue().lower()
+
+    def test_preview_enabled_shows_candidates(self, db: ThreadSafeConnection) -> None:
+        from anteroom.cli.memory_cli import _handle_retention_preview
+        from anteroom.services.memory_service import update_memory_metadata
+
+        art = create_memory(db, "x", scope="user", category="preference", name="prev-h1")
+        update_memory_metadata(db, art["fqn"], memory_status="rejected")
+        cfg = _retention_cfg(enabled=True, purge_statuses=["rejected"])
+        console, buf = _capture_console()
+        with patch("anteroom.cli.memory_cli.console", console):
+            _handle_retention_preview(cfg, db, _make_args())
+        assert "prev-h1" in buf.getvalue()
+        assert "status" in buf.getvalue()
+
+    def test_preview_does_not_delete(self, db: ThreadSafeConnection) -> None:
+        from anteroom.cli.memory_cli import _handle_retention_preview
+        from anteroom.services.memory_service import (
+            get_memory,
+            update_memory_metadata,
+        )
+
+        art = create_memory(db, "x", scope="user", category="preference", name="prev-h2")
+        update_memory_metadata(db, art["fqn"], memory_status="rejected")
+        cfg = _retention_cfg(enabled=True, purge_statuses=["rejected"])
+        with patch("anteroom.cli.memory_cli.console", Console(file=StringIO())):
+            _handle_retention_preview(cfg, db, _make_args())
+        assert get_memory(db, art["fqn"]) is not None
+
+
+class TestHandleRetentionPurge:
+    def test_purge_without_confirm_exits(self, db: ThreadSafeConnection) -> None:
+        from anteroom.cli.memory_cli import _handle_retention_purge
+
+        cfg = _retention_cfg(enabled=True, purge_statuses=["rejected"])
+        console, buf = _capture_console()
+        with patch("anteroom.cli.memory_cli.console", console), pytest.raises(SystemExit):
+            _handle_retention_purge(cfg, db, _make_args(confirm=False))
+        assert "Refusing" in buf.getvalue()
+
+    def test_purge_with_confirm_deletes(self, db: ThreadSafeConnection) -> None:
+        # #925: route to local fallback path so the existing local-mode
+        # behaviour is exercised.
+        from anteroom.cli._decision_routing import ServerNotRunningError
+        from anteroom.cli.memory_cli import _handle_retention_purge
+        from anteroom.services.memory_service import (
+            get_memory,
+            update_memory_metadata,
+        )
+
+        art = create_memory(db, "x", scope="user", category="preference", name="purge-h1")
+        update_memory_metadata(db, art["fqn"], memory_status="rejected")
+        cfg = _retention_cfg(enabled=True, purge_statuses=["rejected"])
+        console, buf = _capture_console()
+        with (
+            patch("anteroom.cli.memory_cli.console", console),
+            patch(
+                "anteroom.cli._decision_routing.call_decision_endpoint",
+                side_effect=ServerNotRunningError("no server"),
+            ),
+        ):
+            _handle_retention_purge(cfg, db, _make_args(confirm=True))
+        assert "Purged" in buf.getvalue()
+        assert get_memory(db, art["fqn"]) is None
+
+    def test_purge_with_policy_disabled_is_noop(self, db: ThreadSafeConnection) -> None:
+        from anteroom.cli.memory_cli import _handle_retention_purge
+
+        cfg = _retention_cfg(enabled=False)
+        console, buf = _capture_console()
+        with patch("anteroom.cli.memory_cli.console", console):
+            _handle_retention_purge(cfg, db, _make_args(confirm=True))
+        assert "disabled" in buf.getvalue().lower()

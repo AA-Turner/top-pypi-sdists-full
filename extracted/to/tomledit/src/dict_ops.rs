@@ -8,7 +8,7 @@ use crate::comments::CommentPreservation;
 use crate::document::Document;
 use crate::item::Item;
 use crate::item_ops::{self, Key, unsupported_op};
-use crate::item_proxy::{ItemProxy, with_proxy_item};
+use crate::item_proxy::with_proxy_or_doc_item;
 use crate::py_pairs::extract_pair;
 
 // ---------------------------------------------------------------------------
@@ -281,10 +281,7 @@ pub(crate) fn extract_update_pairs(other: &Bound<'_, PyAny>) -> PyResult<Vec<(St
 
 /// Extract key-value pairs from `**kwargs`.
 pub(crate) fn extract_kwargs(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Vec<(String, Item)>> {
-    match kwargs {
-        Some(kw) => dict_to_pairs(kw),
-        None => Ok(Vec::new()),
-    }
+    kwargs.map_or_else(|| Ok(Vec::new()), dict_to_pairs)
 }
 
 /// Apply pre-extracted update pairs to an item.
@@ -377,35 +374,11 @@ impl ResolvedUpdate {
 /// access and document reads before the caller takes a write lock on the
 /// target document.
 pub(crate) fn resolve_update(other: &Bound<'_, PyAny>) -> PyResult<ResolvedUpdate> {
-    if let Some(item) = resolve_toml_item(other)? {
+    if let Some(item) = with_proxy_or_doc_item(other, ItemRs::clone)? {
         Ok(ResolvedUpdate::Toml(item))
     } else {
         Ok(ResolvedUpdate::Pairs(extract_update_pairs(other)?))
     }
-}
-
-/// Resolve a TOML-aware source for merging.
-///
-/// When `other` is an [`ItemProxy`] or [`Document`], clones the underlying
-/// item so the caller can merge it without holding any read lock.  This
-/// avoids both same-document aliasing conflicts and cross-document ABBA
-/// deadlocks.
-///
-/// Returns `None` when `other` is a plain Python object.
-fn resolve_toml_item(other: &Bound<'_, PyAny>) -> PyResult<Option<ItemRs>> {
-    if let Ok(proxy) = other.cast::<ItemProxy>() {
-        let proxy_ref = proxy.get();
-        let (_doc, inner) = proxy_ref.read_checked(other.py())?;
-        let item = proxy_ref.navigate(&inner)?.clone();
-        return Ok(Some(item));
-    }
-    if let Ok(doc_bound) = other.cast::<Document>() {
-        let doc = doc_bound.get();
-        let inner = doc.inner.read();
-        let item = inner.as_item().clone();
-        return Ok(Some(item));
-    }
-    Ok(None)
 }
 
 /// Merge `other` (a Python object) into `target`, dispatching to
@@ -416,15 +389,8 @@ pub(crate) fn merge_other_into(
     target: &mut ItemRs,
     other: &Bound<'_, PyAny>,
 ) -> PyResult<Vec<String>> {
-    if let Some(result) =
-        with_proxy_item(other, |other_item| merge_table_entries(target, other_item))?
-    {
+    if let Some(result) = with_proxy_or_doc_item(other, |item| merge_table_entries(target, item))? {
         return result;
-    }
-    if let Ok(doc_bound) = other.cast::<Document>() {
-        let doc = doc_bound.get();
-        let inner = doc.inner.read();
-        return merge_table_entries(target, inner.as_item());
     }
     // Plain mapping / iterable — no TOML decor to preserve.
     apply_update_pairs(target, extract_update_pairs(other)?)
@@ -483,14 +449,13 @@ fn normalize_plain_dict_key<'py>(key: &Bound<'py, PyAny>, py: Python<'py>) -> Py
 /// Remove a key from a table-like item, returning the removed item and key.
 pub(crate) fn table_pop(item: &mut ItemRs, key: &str) -> PyResult<(Item, Key)> {
     match item {
-        ItemRs::Table(table) => match table.remove(key) {
-            Some(v) => Ok((Item(v), Key::Str(key.into()))),
-            None => Err(PyKeyError::new_err(key.to_owned())),
-        },
-        ItemRs::Value(ValueRs::InlineTable(it)) => match inline_table_remove(it, key) {
-            Some(v) => Ok((Item(ItemRs::Value(v)), Key::Str(key.into()))),
-            None => Err(PyKeyError::new_err(key.to_owned())),
-        },
+        ItemRs::Table(table) => table
+            .remove(key)
+            .map(|v| (Item(v), Key::Str(key.into())))
+            .ok_or_else(|| PyKeyError::new_err(key.to_owned())),
+        ItemRs::Value(ValueRs::InlineTable(it)) => inline_table_remove(it, key)
+            .map(|v| (Item(ItemRs::Value(v)), Key::Str(key.into())))
+            .ok_or_else(|| PyKeyError::new_err(key.to_owned())),
         _ => Err(unsupported_op(item, "pop()")),
     }
 }

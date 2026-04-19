@@ -15,6 +15,7 @@ from .renderer import (
     _sorted_landing_names,
     group_steps,
     provenance_key,
+    render_python_literal,
 )
 
 
@@ -1762,6 +1763,7 @@ from pyspark.ml.classification import (
 {% endif %}{% if best_model_type is none or best_model_type == "random_forest" %}    RandomForestClassifier,
 {% endif %}{% if best_model_type is none or best_model_type == "xgboost" %}    GBTClassifier,
 {% endif %})
+from pyspark.ml import PipelineModel
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.functions import vector_to_array
 from pyspark.ml.linalg import VectorUDT
@@ -1769,6 +1771,7 @@ from pyspark.ml.evaluation import BinaryClassificationEvaluator, MulticlassClass
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType, StructField, DoubleType
 from customer_retention.stages.modeling.feature_profile import FeatureProfile, ColumnProfile, build_feature_profile, compare_feature_profiles
+from customer_retention.stages.modeling.shap_attribution import compute_shap_attribution, log_attribution
 {% if feature_spec_path %}
 from customer_retention.stages.modeling.feature_spec import FeatureSpec
 {% endif %}
@@ -1798,7 +1801,7 @@ _vector_schema = StructType([
     StructField("label", DoubleType(), True),
 ])
 {% if config.training and config.training.exploration_feature_profile %}
-_EXPLORATION_PROFILE = {{ config.training.exploration_feature_profile }}
+_EXPLORATION_PROFILE = {{ config.training.exploration_feature_profile | py_source }}
 {% else %}
 _EXPLORATION_PROFILE = None
 {% endif %}
@@ -1875,7 +1878,7 @@ def prepare_features(df):
     if TIMESTAMP_COLUMN in df.columns:
         keep.append(TIMESTAMP_COLUMN)
     assembled = assembler.transform(df).select(*keep)
-    return assembled, feature_cols
+    return assembled, feature_cols, assembler
 
 def _temporal_split(assembled, test_size):
     import datetime
@@ -1953,8 +1956,9 @@ def _mlflow_evaluate_predictions(predictions):
         extra_metrics=None,
     )
 
-def _log_best_model(model, df, feature_cols, test_df):
+def _log_best_model(model, df, feature_cols, test_df, assembler):
     _registered_name = f"{CATALOG}.{SCHEMA}.model_{COMPOSITE_NAME}"
+    _logged_pipeline = PipelineModel(stages=[assembler, model])
     try:
         from databricks.feature_engineering import FeatureEngineeringClient, FeatureLookup
         fe = FeatureEngineeringClient()
@@ -1969,15 +1973,16 @@ def _log_best_model(model, df, feature_cols, test_df):
             label=TARGET, exclude_columns=entity_cols,
         )
         fe.log_model(
-            model=model, artifact_path="best_model", flavor=mlflow.spark,
+            model=_logged_pipeline, artifact_path="best_model", flavor=mlflow.spark,
             training_set=training_set,
             registered_model_name=_registered_name,
         )
         print(f"[TRAINING] Model registered: {_registered_name}")
     except ImportError:
-        _sig = infer_signature(test_df, model.transform(test_df))
+        _raw_sample = df.select(*feature_cols, F.col(TARGET).alias("label")).limit(5)
+        _sig = infer_signature(_raw_sample, _logged_pipeline.transform(_raw_sample))
         mlflow.spark.log_model(
-            model, "best_model", dfs_tmpdir=_DFS_TMPDIR,
+            _logged_pipeline, "best_model", dfs_tmpdir=_DFS_TMPDIR,
             pip_requirements=_PIP_REQS, signature=_sig,
             registered_model_name=_registered_name,
         )
@@ -2047,7 +2052,7 @@ def train_and_evaluate():
 {% endif %}
 
     with log_timing("prepare_features", logger):
-        assembled, feature_cols = prepare_features(df)
+        assembled, feature_cols, _assembler = prepare_features(df)
     assembled_count = _assert_rows(assembled.count(), "after_assembly")
     print(f"[TRAINING] Assembled: {assembled_count:,} rows, {len(feature_cols)} features")
     _results["feature_count"] = len(feature_cols)
@@ -2259,8 +2264,16 @@ def train_and_evaluate():
                 json.dump({"feature_columns": feature_cols, "count": len(feature_cols)}, f)
             mlflow.log_artifact(_features_path)
         if best_model is not None:
-            _registered_model_name = _log_best_model(best_model, df, feature_cols, test_df)
+            _registered_model_name = _log_best_model(best_model, df, feature_cols, test_df, _assembler)
             _registered_model_version = _promote_to_production(_registered_model_name, _parent_run.info.run_id)
+            with log_timing("shap_attribution", logger):
+                _attribution = compute_shap_attribution(
+                    pipeline_model=PipelineModel(stages=[_assembler, best_model]),
+                    df=df,
+                    feature_columns=feature_cols,
+                )
+                log_attribution(_attribution)
+            print(f"[TRAINING] SHAP attribution logged: {len(_attribution.importances)} features, sample_size={_attribution.sample_size}")
 
     _results["best_model"] = best_model_name
     _results["best_roc_auc"] = best_auc
@@ -2931,6 +2944,7 @@ class DatabricksCodeRenderer:
         self._env.globals["spark_provenance_block"] = spark_provenance_block
         self._env.globals["sorted_landing_names"] = _sorted_landing_names
         self._env.filters["python_repr"] = repr
+        self._env.filters["py_source"] = render_python_literal
 
     _NOTEBOOK_HEADER = "# Databricks notebook source\n"
 

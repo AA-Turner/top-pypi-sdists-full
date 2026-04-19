@@ -187,8 +187,9 @@ def compile_from_spec(
     if execution_profile is not None:
         from .mission_profiles import apply_execution_profile, discover_workflows
 
-        workflows = discover_workflows()
-        plan, _lane_limits = apply_execution_profile(plan, execution_profile, workflows)
+        # #924: pack-aware discovery + resolution (spec-backed branch).
+        workflows = discover_workflows(db)
+        plan, _lane_limits = apply_execution_profile(plan, execution_profile, workflows, db=db)
 
     return plan
 
@@ -286,6 +287,7 @@ async def compile_from_prompt(
     adapter_defaults: AdapterDefaults | None = None,
     artifact_context: list[dict[str, Any]] | None = None,
     execution_profile: Any | None = None,
+    db: "ThreadSafeConnection | None" = None,
 ) -> CompiledPlan:
     system = _PLAN_SYSTEM_PROMPT
     if artifact_context:
@@ -314,8 +316,11 @@ async def compile_from_prompt(
     if execution_profile is not None:
         from .mission_profiles import apply_execution_profile, discover_workflows
 
-        workflows = discover_workflows()
-        plan, _lane_limits = apply_execution_profile(plan, execution_profile, workflows)
+        # #924: pack-aware discovery + resolution (prompt-backed branch).
+        # db is the new kwarg on this function; passes None safely when
+        # the caller doesn't supply it (back-compat).
+        workflows = discover_workflows(db)
+        plan, _lane_limits = apply_execution_profile(plan, execution_profile, workflows, db=db)
 
     return plan
 

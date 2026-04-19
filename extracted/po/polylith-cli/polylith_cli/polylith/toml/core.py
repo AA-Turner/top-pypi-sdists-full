@@ -53,7 +53,7 @@ def collect_configured_pdm_exclude_patterns(data: dict) -> set:
     return set(exclude)
 
 def collect_configured_poetry_exclude_patterns(data: dict) -> set:
-    exclude = data['tool']['poetry'].get('exclude', [])
+    exclude = data.get('tool', {}).get('poetry', {}).get('exclude', [])
     return set(exclude)
 
 def collect_configured_uv_exclude_patterns(data: dict) -> set:
@@ -74,8 +74,11 @@ def collect_configured_exclude_patterns(data: dict, target_name: Union[str, None
         return collect_configured_uv_exclude_patterns(data)
     return set()
 
+def is_poetry_without_pep_621_support(data) -> bool:
+    return repo.is_poetry(data) and (not repo.is_pep_621_ready(data))
+
 def get_project_package_includes(namespace: str, data) -> List[dict]:
-    if repo.is_poetry(data):
+    if is_poetry_without_pep_621_support(data):
         return data['tool']['poetry'].get('packages', [])
     includes = get_hatch_project_packages(data) if repo.is_hatch(data) else get_project_packages_from_polylith_section(data)
     return [transform_to_package(namespace, key) for key in includes.keys()]
@@ -113,9 +116,6 @@ def get_pep_621_optional_dependencies(data) -> List[str]:
     groups = data['project'].get('optional-dependencies', {})
     matrix = list(groups.values()) if isinstance(groups, dict) else []
     return sum(matrix, [])
-
-def is_poetry_without_pep_621_support(data) -> bool:
-    return repo.is_poetry(data) and (not repo.is_pep_621_ready(data))
 
 def parse_project_dependencies(data) -> dict:
     if is_poetry_without_pep_621_support(data):

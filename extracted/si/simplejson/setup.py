@@ -1,61 +1,47 @@
 #!/usr/bin/env python
-from __future__ import with_statement
-
 import os
 import sys
 try:
     from setuptools import setup, Extension, Command
+    from setuptools.command.build_ext import build_ext
 except ImportError:
     from distutils.core import setup, Extension, Command
-from distutils.command.build_ext import build_ext
+    from distutils.command.build_ext import build_ext
 from distutils.errors import CCompilerError, DistutilsExecError, \
     DistutilsPlatformError
 
 IS_PYPY = hasattr(sys, 'pypy_translation_info')
 IS_GRAALPY = getattr(getattr(sys, "implementation", None), "name", None) == "graalpy"
-VERSION = '3.20.2'
+VERSION = '4.0.1'
 DESCRIPTION = "Simple, fast, extensible JSON encoder/decoder for Python"
 
 with open('README.rst', 'r') as f:
     LONG_DESCRIPTION = f.read()
 
-PYTHON_REQUIRES = '>=2.5, !=3.0.*, !=3.1.*, !=3.2.*'
+PYTHON_REQUIRES = '>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, !=3.6.*, !=3.7.*'
 
 CLASSIFIERS = [
     'Development Status :: 5 - Production/Stable',
+    'Environment :: WebAssembly :: Emscripten',
     'Intended Audience :: Developers',
-    'License :: OSI Approved :: MIT License',
-    'License :: OSI Approved :: Academic Free License (AFL)',
     'Programming Language :: Python',
     'Programming Language :: Python :: 2',
-    'Programming Language :: Python :: 2.5',
-    'Programming Language :: Python :: 2.6',
     'Programming Language :: Python :: 2.7',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.3',
-    'Programming Language :: Python :: 3.4',
-    'Programming Language :: Python :: 3.5',
-    'Programming Language :: Python :: 3.6',
-    'Programming Language :: Python :: 3.7',
     'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
     'Programming Language :: Python :: Implementation :: CPython',
+    'Programming Language :: Python :: Implementation :: GraalPy',
     'Programming Language :: Python :: Implementation :: PyPy',
     'Topic :: Software Development :: Libraries :: Python Modules',
 ]
 
-if sys.platform == 'win32' and sys.version_info < (2, 7):
-    # 2.6's distutils.msvc9compiler can raise an IOError when failing to
-    # find the compiler
-    # It can also raise ValueError https://bugs.python.org/issue7511
-    ext_errors = (CCompilerError, DistutilsExecError, DistutilsPlatformError,
-                  IOError, ValueError)
-else:
-    ext_errors = (CCompilerError, DistutilsExecError, DistutilsPlatformError)
+ext_errors = (CCompilerError, DistutilsExecError, DistutilsPlatformError)
 
 
 class BuildFailed(Exception):
@@ -102,7 +88,11 @@ def run_setup(with_binary):
     if with_binary:
         kw = dict(
             ext_modules=[
-                Extension("simplejson._speedups", ["simplejson/_speedups.c"]),
+                Extension(
+                    "simplejson._speedups",
+                    sources=["simplejson/_speedups.c"],
+                    depends=["simplejson/_speedups_scan.h"],
+                ),
             ],
             cmdclass=dict(cmdclass, build_ext=ve_build_ext),
         )
@@ -119,7 +109,7 @@ def run_setup(with_binary):
         author="Bob Ippolito",
         author_email="bob@redivi.com",
         url="https://github.com/simplejson/simplejson",
-        license="MIT License",
+        license="MIT OR AFL-2.1",
         packages=['simplejson', 'simplejson.tests'],
         platforms=['any'],
         **kw)

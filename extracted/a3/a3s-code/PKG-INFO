@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a3s-code
-Version: 1.9.2
+Version: 1.9.3
 Summary: A3S Code Python bootstrap package that fetches platform-native binaries from GitHub Releases
 Project-URL: Homepage, https://github.com/A3S-Lab/Code
 Project-URL: Repository, https://github.com/A3S-Lab/Code

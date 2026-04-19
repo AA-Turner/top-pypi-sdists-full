@@ -7,7 +7,7 @@ from typing import Any, Callable, Coroutine
 
 logger = logging.getLogger(__name__)
 
-AskCallback = Callable[[str, list[str] | None], Coroutine[Any, Any, str]]
+AskCallback = Callable[[str, list[str] | None], Coroutine[Any, Any, str | None]]
 
 DEFINITION: dict[str, Any] = {
     "name": "ask_user",
@@ -37,7 +37,7 @@ DEFINITION: dict[str, Any] = {
     },
 }
 
-_CANCEL_SENTINEL = ""
+_CANCEL_SENTINEL: None = None
 
 
 async def handle(
@@ -49,6 +49,10 @@ async def handle(
     """Prompt the user and return their answer.
 
     The _ask_callback is injected by the tool_executor at call time.
+    Callback contract: returns ``None`` for cancel (user typed ``x``,
+    pressed Ctrl-D/Ctrl-C, or system aborted the prompt); returns a
+    string — including ``""`` — for a real submission (an empty string
+    means "user pressed Enter with no content").
     """
     if not question or not question.strip():
         return {"error": "Question cannot be empty"}
@@ -64,7 +68,7 @@ async def handle(
 
     try:
         answer = await _ask_callback(question.strip(), clean_options)
-        if answer == _CANCEL_SENTINEL:
+        if answer is _CANCEL_SENTINEL:
             return {"cancelled": True, "answer": ""}
         return {"answer": answer}
     except (EOFError, KeyboardInterrupt):

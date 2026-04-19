@@ -1,7 +1,7 @@
 /*
  * Open Chinese Convert
  *
- * Copyright 2010-2014 Carbo Kuo <byvoid@byvoid.com>
+ * Copyright 2010-2026 Carbo Kuo and contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,10 @@
 #include <list>
 #include <unordered_map>
 
+#if defined(_WIN32) || defined(_WIN64)
+#include "WinUtil.hpp"
+#endif
+
 #include <rapidjson/document.h>
 
 #include "Config.hpp"
@@ -30,6 +34,7 @@
 #include "Exception.hpp"
 #include "MarisaDict.hpp"
 #include "MaxMatchSegmentation.hpp"
+#include "PluginSegmentation.hpp"
 #include "TextDict.hpp"
 
 #ifdef ENABLE_DARTS
@@ -42,9 +47,105 @@ namespace opencc {
 
 namespace {
 
+std::string GetParentDirectory(const std::string& path);
+
+#if defined(_WIN32) || defined(_WIN64)
+using internal::Utf8FromWide;
+using internal::WideFromUtf8;
+
+std::string NormalizeModulePath(const std::string& path) {
+  if (path.empty()) {
+    return "";
+  }
+
+  std::wstring widePath = WideFromUtf8(path);
+  if (widePath.empty()) {
+    return path;
+  }
+
+  HANDLE handle =
+      CreateFileW(widePath.c_str(), 0,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING,
+                  FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) {
+    return path;
+  }
+
+  std::wstring finalPath(MAX_PATH, L'\0');
+  for (;;) {
+    DWORD copied =
+        GetFinalPathNameByHandleW(handle, finalPath.data(),
+                                  static_cast<DWORD>(finalPath.size()),
+                                  FILE_NAME_NORMALIZED);
+    if (copied == 0) {
+      CloseHandle(handle);
+      return path;
+    }
+    if (copied < finalPath.size()) {
+      finalPath.resize(copied);
+      break;
+    }
+    finalPath.resize(copied + 1);
+  }
+  CloseHandle(handle);
+
+  const std::wstring uncPrefix = L"\\\\?\\UNC\\";
+  const std::wstring localPrefix = L"\\\\?\\";
+  if (finalPath.rfind(uncPrefix, 0) == 0) {
+    finalPath = L"\\" + finalPath.substr(7);
+  } else if (finalPath.rfind(localPrefix, 0) == 0) {
+    finalPath = finalPath.substr(4);
+  }
+  return Utf8FromWide(finalPath);
+}
+
+std::string GetModulePath(HMODULE module) {
+  std::wstring buffer(MAX_PATH, L'\0');
+  for (;;) {
+    DWORD copied =
+        GetModuleFileNameW(module, buffer.data(), static_cast<DWORD>(buffer.size()));
+    if (copied == 0) {
+      return "";
+    }
+    if (copied < buffer.size() - 1) {
+      buffer.resize(copied);
+      return NormalizeModulePath(Utf8FromWide(buffer));
+    }
+    buffer.resize(buffer.size() * 2);
+  }
+}
+
+std::string GetCurrentProcessModulePath() {
+  return GetModulePath(nullptr);
+}
+
+std::string GetCurrentLibraryModulePath() {
+  HMODULE module = nullptr;
+  if (!GetModuleHandleExW(
+          GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+              GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+          reinterpret_cast<LPCWSTR>(&GetCurrentLibraryModulePath), &module)) {
+    return "";
+  }
+  return GetModulePath(module);
+}
+
+void AppendWindowsPortableSearchPaths(std::vector<std::string>& paths,
+                                      const std::string& modulePath) {
+  const std::string parent = GetParentDirectory(modulePath);
+  if (parent.empty()) {
+    return;
+  }
+  paths.push_back(parent);
+  paths.push_back(parent + "../share/opencc");
+}
+#endif
+
 class ConfigInternal {
 public:
   std::vector<std::string> paths;
+  std::string configDirectory;
 
   const JSONValue& GetProperty(const JSONValue& doc, const char* name) {
     if (!doc.HasMember(name)) {
@@ -145,7 +246,32 @@ public:
       DictPtr dict = ParseDict(GetObjectProperty(doc, "dict"));
       segmentation = SegmentationPtr(new MaxMatchSegmentation(dict));
     } else {
-      throw InvalidFormat("Unknown segmentation type: " + type);
+      PluginConfigPairs configPairs;
+      configPairs.push_back(std::make_pair("__config_dir", configDirectory));
+      if (doc.HasMember("resources")) {
+        const JSONValue& resources = GetObjectProperty(doc, "resources");
+        for (auto it = resources.MemberBegin(); it != resources.MemberEnd();
+             ++it) {
+          if (!it->value.IsString()) {
+            throw InvalidFormat("Segmentation resource must be a string: " +
+                                std::string(it->name.GetString()));
+          }
+          configPairs.push_back(std::make_pair(it->name.GetString(),
+                                               it->value.GetString()));
+        }
+      }
+      for (auto it = doc.MemberBegin(); it != doc.MemberEnd(); ++it) {
+        const std::string key = it->name.GetString();
+        if (key == "type" || key == "resources") {
+          continue;
+        }
+        if (!it->value.IsString()) {
+          throw InvalidFormat("Segmentation plugin property must be a string: " +
+                              key);
+        }
+        configPairs.push_back(std::make_pair(key, it->value.GetString()));
+      }
+      segmentation = CreatePluginSegmentation(type, configPairs);
     }
     return segmentation;
   }
@@ -202,6 +328,15 @@ public:
       }
     }
 
+    const char* envPath = std::getenv("OPENCC_DATA_DIR");
+    if (envPath != nullptr) {
+      auto path = std::string(envPath) + '/' + fileName;
+      ifs.open(UTF8Util::GetPlatformString(path).c_str());
+      if (ifs.is_open()) {
+        return path;
+      }
+    }
+
     throw FileNotFound(fileName);
   }
 };
@@ -218,13 +353,17 @@ std::string GetParentDirectory(const std::string& path) {
 }
 
 bool isRegularFile(const std::string& path) {
-    struct stat info;
-
-    if (stat(path.c_str(), &info) != 0)
-        return false;
-
-    // Check if it's a regular file
-    return (info.st_mode & S_IFMT) == S_IFREG;
+#if defined(_WIN32) || defined(_WIN64)
+  const DWORD attributes = GetFileAttributesW(WideFromUtf8(path).c_str());
+  return attributes != INVALID_FILE_ATTRIBUTES &&
+         (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+#else
+  struct stat info;
+  if (stat(path.c_str(), &info) != 0) {
+    return false;
+  }
+  return (info.st_mode & S_IFMT) == S_IFREG;
+#endif
 }
 
 } // namespace
@@ -248,6 +387,13 @@ ConverterPtr Config::NewFromFile(const std::string& fileName,
       impl->paths.push_back(parent);
     }
   }
+#if defined(_WIN32) || defined(_WIN64)
+  if (argv0 != nullptr) {
+    AppendWindowsPortableSearchPaths(impl->paths, argv0);
+  }
+  AppendWindowsPortableSearchPaths(impl->paths, GetCurrentProcessModulePath());
+  AppendWindowsPortableSearchPaths(impl->paths, GetCurrentLibraryModulePath());
+#endif
   if (PACKAGE_DATA_DIRECTORY != "") {
     impl->paths.push_back(PACKAGE_DATA_DIRECTORY);
   }
@@ -269,6 +415,7 @@ ConverterPtr Config::NewFromFile(const std::string& fileName,
   if (!configDirectory.empty()) {
     impl->paths.push_back(configDirectory);
   }
+  impl->configDirectory = configDirectory;
   return NewFromString(content, impl->paths);
 }
 
@@ -305,6 +452,9 @@ ConverterPtr Config::NewFromString(const std::string& json,
 
   ConfigInternal* impl = reinterpret_cast<ConfigInternal*>(internal);
   impl->paths = paths;
+  if (impl->configDirectory.empty()) {
+    impl->configDirectory = paths.empty() ? "" : paths.front();
+  }
 
   // Required: segmentation
   SegmentationPtr segmentation =

@@ -1,7 +1,8 @@
 import time
 import warnings
+from tabulate import tabulate
 
-VERSION = "0.9.0"
+VERSION = "1.0.0"
 
 class ModelConfig():
     def __init__(self, mcfg={}):
@@ -11,6 +12,7 @@ class ModelConfig():
         self.__add_attr__('if_fixed_branch',None)
         self.__add_attr__('fixed_topk',0)
         self.__add_attr__('verbose',False)
+        self.__add_attr__('remove_dangling',True)
 
     def __add_attr__(self, attr_name, defaultV):
         self.__setattr__(attr_name, defaultV if not self.cfg.__contains__(attr_name) else self.cfg[attr_name])
@@ -36,6 +38,40 @@ def tuple2str(t: tuple, splitch=','):
             s += splitch
     return s
 
+def num2str(num, csv=False):
+    if csv:
+        return '{}'.format(num)
+    else:
+        return '{:,}'.format(num)
+
+def print_table(ptable, header, f):
+    saveformat = 'txt'
+    if f is not None and '.csv' in f:
+        saveformat = 'csv'
+
+    if f is None:
+        print(tabulate(ptable, headers=header))
+    else:
+        fp = open(f, 'w')
+        if saveformat == 'csv':
+            headerstr = ''
+            for i, item in enumerate(header):
+                headerstr += item
+                if i < len(header) - 1:
+                    headerstr += ','
+            headerstr += '\n'
+            fp.write(headerstr)
+            for row in ptable:
+                str = ''
+                for i, ele in enumerate(row):
+                    str += ele
+                    if i != len(row) - 1:
+                        str += ','
+                str += '\n'
+                fp.write(str)
+        else:
+            fp.write(tabulate(ptable, headers=header))
+        fp.close()
 
 # modify from https://github.com/XPixelGroup/BasicSR/blob/master/basicsr/utils/registry.py # noqa: E501
 class Registry():

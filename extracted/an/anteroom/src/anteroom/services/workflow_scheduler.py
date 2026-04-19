@@ -97,7 +97,7 @@ async def check_and_enqueue(
             else:
                 from .workflow_resolution import resolve_workflow_path
 
-                path_result = resolve_workflow_path(workflow_ref, allow_filesystem=False)
+                path_result = resolve_workflow_path(workflow_ref, allow_filesystem=False, db=db)
                 if not path_result:
                     raise ValueError(f"Workflow not found: {workflow_ref!r}")
                 path = path_result

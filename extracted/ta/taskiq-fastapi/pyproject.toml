@@ -6,7 +6,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Taskiq team", email = "taskiq@no-reply.com" }]
 maintainers = [{ name = "Taskiq team", email = "taskiq@no-reply.com" }]
-version = "0.4.0"
+version = "0.5.0"
 requires-python = ">=3.10"
 classifiers = [
     "Typing :: Typed",
@@ -23,7 +23,7 @@ classifiers = [
     "Development Status :: 3 - Alpha",
 ]
 keywords = ["taskiq", "tasks", "distributed", "async", "fastapi"]
-dependencies = ["taskiq>=0.8.0", "fastapi>=0.93.0"]
+dependencies = ["taskiq>=0.8.0", "fastapi>=0.133.0,<1"]
 
 [dependency-groups]
 dev = [

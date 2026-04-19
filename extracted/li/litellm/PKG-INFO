@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.83.9
+Version: 1.83.10
 Summary: Library to easily interface with LLM API providers
 Author: BerriAI
 License-Expression: MIT
@@ -19,16 +19,16 @@ Requires-Dist: pydantic==2.12.5
 Requires-Dist: jsonschema==4.23.0
 Requires-Dist: diskcache==5.6.3 ; extra == 'caching'
 Requires-Dist: prisma==0.11.0 ; extra == 'extra-proxy'
-Requires-Dist: azure-identity==1.25.2 ; python_full_version >= '3.9' and extra == 'extra-proxy'
+Requires-Dist: azure-identity==1.25.2 ; extra == 'extra-proxy'
 Requires-Dist: azure-keyvault-secrets==4.10.0 ; extra == 'extra-proxy'
 Requires-Dist: google-cloud-kms==2.24.2 ; extra == 'extra-proxy'
 Requires-Dist: google-cloud-iam==2.19.1 ; extra == 'extra-proxy'
 Requires-Dist: resend==2.23.0 ; extra == 'extra-proxy'
-Requires-Dist: redisvl==0.4.1 ; python_full_version >= '3.9' and python_full_version < '3.14' and extra == 'extra-proxy'
-Requires-Dist: a2a-sdk==0.3.24 ; python_full_version >= '3.10' and extra == 'extra-proxy'
+Requires-Dist: redisvl==0.4.1 ; python_full_version < '3.14' and extra == 'extra-proxy'
+Requires-Dist: a2a-sdk==0.3.24 ; extra == 'extra-proxy'
 Requires-Dist: google-cloud-aiplatform==1.133.0 ; extra == 'google'
 Requires-Dist: grpcio==1.78.0 ; extra == 'grpc'
-Requires-Dist: mlflow==3.9.0 ; python_full_version >= '3.10' and extra == 'mlflow'
+Requires-Dist: mlflow==3.9.0 ; extra == 'mlflow'
 Requires-Dist: gunicorn==23.0.0 ; extra == 'proxy'
 Requires-Dist: uvicorn==0.33.0 ; extra == 'proxy'
 Requires-Dist: uvloop==0.21.0 ; sys_platform != 'win32' and extra == 'proxy'
@@ -36,23 +36,23 @@ Requires-Dist: fastapi==0.124.4 ; extra == 'proxy'
 Requires-Dist: backoff==2.2.1 ; extra == 'proxy'
 Requires-Dist: pyyaml==6.0.3 ; extra == 'proxy'
 Requires-Dist: rq==2.7.0 ; extra == 'proxy'
-Requires-Dist: orjson==3.10.15 ; extra == 'proxy'
+Requires-Dist: orjson==3.11.5 ; extra == 'proxy'
 Requires-Dist: apscheduler==3.11.2 ; extra == 'proxy'
-Requires-Dist: fastapi-sso==0.16.0 ; extra == 'proxy'
-Requires-Dist: pyjwt==2.11.0 ; python_full_version >= '3.9' and extra == 'proxy'
-Requires-Dist: python-multipart==0.0.20 ; extra == 'proxy'
+Requires-Dist: fastapi-sso==0.19.0 ; extra == 'proxy'
+Requires-Dist: pyjwt==2.11.0 ; extra == 'proxy'
+Requires-Dist: python-multipart==0.0.26 ; extra == 'proxy'
 Requires-Dist: cryptography==46.0.7 ; extra == 'proxy'
 Requires-Dist: pynacl==1.6.2 ; extra == 'proxy'
 Requires-Dist: websockets==15.0.1 ; extra == 'proxy'
 Requires-Dist: boto3==1.42.59 ; extra == 'proxy'
-Requires-Dist: azure-identity==1.25.2 ; python_full_version >= '3.9' and extra == 'proxy'
+Requires-Dist: azure-identity==1.25.2 ; extra == 'proxy'
 Requires-Dist: azure-storage-blob==12.28.0 ; extra == 'proxy'
-Requires-Dist: mcp==1.26.0 ; python_full_version >= '3.10' and extra == 'proxy'
-Requires-Dist: litellm-proxy-extras==0.4.66 ; extra == 'proxy'
-Requires-Dist: litellm-enterprise==0.1.37 ; extra == 'proxy'
+Requires-Dist: mcp==1.26.0 ; extra == 'proxy'
+Requires-Dist: litellm-proxy-extras==0.4.67 ; extra == 'proxy'
+Requires-Dist: litellm-enterprise==0.1.38 ; extra == 'proxy'
 Requires-Dist: restrictedpython==8.1 ; extra == 'proxy'
 Requires-Dist: rich==13.9.4 ; extra == 'proxy'
-Requires-Dist: polars==1.38.1 ; python_full_version >= '3.10' and extra == 'proxy'
+Requires-Dist: polars==1.38.1 ; extra == 'proxy'
 Requires-Dist: soundfile==0.12.1 ; extra == 'proxy'
 Requires-Dist: pyroscope-io==0.8.16 ; sys_platform != 'win32' and extra == 'proxy'
 Requires-Dist: google-cloud-aiplatform==1.133.0 ; extra == 'proxy-runtime'
@@ -70,12 +70,12 @@ Requires-Dist: mangum==0.17.0 ; extra == 'proxy-runtime'
 Requires-Dist: azure-ai-contentsafety==1.0.0 ; extra == 'proxy-runtime'
 Requires-Dist: azure-storage-file-datalake==12.20.0 ; extra == 'proxy-runtime'
 Requires-Dist: pypdf==6.7.5 ; python_full_version < '3.14' and extra == 'proxy-runtime'
-Requires-Dist: llm-sandbox==0.3.31 ; python_full_version >= '3.10' and extra == 'proxy-runtime'
+Requires-Dist: llm-sandbox==0.3.31 ; extra == 'proxy-runtime'
 Requires-Dist: detect-secrets==1.5.0 ; extra == 'proxy-runtime'
-Requires-Dist: semantic-router==0.1.12 ; python_full_version >= '3.9' and python_full_version < '3.14' and extra == 'semantic-router'
-Requires-Dist: aurelio-sdk==0.0.19 ; python_full_version >= '3.9' and python_full_version < '3.14' and extra == 'semantic-router'
+Requires-Dist: semantic-router==0.1.12 ; python_full_version < '3.14' and extra == 'semantic-router'
+Requires-Dist: aurelio-sdk==0.0.19 ; python_full_version < '3.14' and extra == 'semantic-router'
 Requires-Dist: numpydoc==1.8.0 ; extra == 'utils'
-Requires-Python: >=3.9, <3.14
+Requires-Python: >=3.10, <3.14
 Project-URL: Homepage, https://litellm.ai
 Project-URL: Repository, https://github.com/BerriAI/litellm
 Project-URL: Documentation, https://docs.litellm.ai
