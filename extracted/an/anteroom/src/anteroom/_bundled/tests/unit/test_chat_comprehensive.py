@@ -593,7 +593,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
-            result, meta = await _build_chat_system_prompt(
+            result, meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -636,7 +636,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
-            result, _meta = await _build_chat_system_prompt(
+            result, _meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -679,7 +679,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
-            result, _meta = await _build_chat_system_prompt(
+            result, _meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -729,7 +729,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
             mock_storage.get_canvas_for_conversation.return_value = canvas_data
-            result, _meta = await _build_chat_system_prompt(
+            result, _meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -780,7 +780,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
             mock_storage.get_canvas_for_conversation.return_value = canvas_data
-            result, _meta = await _build_chat_system_prompt(
+            result, _meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -822,7 +822,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
-            result, _meta = await _build_chat_system_prompt(
+            result, _meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -872,7 +872,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
-            result, _meta = await _build_chat_system_prompt(
+            result, _meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -920,7 +920,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.rag.format_rag_context", return_value="\nRAG CONTEXT"),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
-            _result, meta = await _build_chat_system_prompt(
+            _result, meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -973,7 +973,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.rag.strip_rag_context", side_effect=lambda x: x),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
-            _result, meta = await _build_chat_system_prompt(
+            _result, meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -1020,7 +1020,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.rag.strip_rag_context", side_effect=lambda x: x),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
-            _result, meta = await _build_chat_system_prompt(
+            _result, meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -1065,7 +1065,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
-            _result, meta = await _build_chat_system_prompt(
+            _result, meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -1115,7 +1115,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.rag.format_rag_context", return_value="\nRAG KW"),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
-            _result, meta = await _build_chat_system_prompt(
+            _result, meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -1162,7 +1162,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
-            _result, meta = await _build_chat_system_prompt(
+            _result, meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -1208,7 +1208,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
-            result, _meta = await _build_chat_system_prompt(
+            result, _meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,
@@ -1255,7 +1255,7 @@ class TestBuildChatSystemPrompt:
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
-            result, _meta = await _build_chat_system_prompt(
+            result, _meta, _recalled = await _build_chat_system_prompt(
                 ai_service=ai_service,
                 tool_registry=tool_registry,
                 mcp_manager=mcp_manager,

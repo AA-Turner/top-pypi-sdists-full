@@ -1,7 +1,7 @@
 [package]
 name = "tomledit"
 license = "Apache-2.0 OR MIT"
-version = "1.1.2"
+version = "1.1.4"
 edition = "2024"
 readme = "README.md"
 
@@ -18,4 +18,4 @@ toml_edit = "0.25.9"
 
 [dependencies.pyo3]
 version = "0.28"
-features = ["generate-import-lib"]
+features = ["generate-import-lib", "parking_lot"]

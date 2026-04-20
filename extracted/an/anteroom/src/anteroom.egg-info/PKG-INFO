@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anteroom
-Version: 1.167.0
+Version: 1.168.0
 Summary: Anteroom - your gateway to AI conversation
 License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3
@@ -30,6 +30,11 @@ Requires-Dist: usearch>=2.0
 Requires-Dist: numpy>=1.24.0
 Requires-Dist: urllib3>=2.6.3
 Requires-Dist: pyperclip>=1.8.0
+Requires-Dist: mkdocs<2,>=1.6
+Requires-Dist: mkdocs-material>=9.5
+Requires-Dist: mkdocs-minify-plugin>=0.8
+Requires-Dist: mkdocs-redirects>=1.2
+Requires-Dist: pygments>=2.20
 Requires-Dist: aiohttp>=3.12.14
 Requires-Dist: requests>=2.32.4
 Requires-Dist: filelock>=3.20.3
@@ -58,11 +63,6 @@ Requires-Dist: litellm>=1.55.0; extra == "providers"
 Provides-Extra: encryption
 Requires-Dist: sqlcipher3>=0.5.0; extra == "encryption"
 Provides-Extra: docs-serve
-Requires-Dist: mkdocs<2,>=1.6; extra == "docs-serve"
-Requires-Dist: mkdocs-material>=9.5; extra == "docs-serve"
-Requires-Dist: mkdocs-minify-plugin>=0.8; extra == "docs-serve"
-Requires-Dist: mkdocs-redirects>=1.2; extra == "docs-serve"
-Requires-Dist: pygments<2.20,>=2.16; extra == "docs-serve"
 Provides-Extra: kitchensink
 Requires-Dist: pytest>=8.3.5; extra == "kitchensink"
 Requires-Dist: pytest-asyncio>=0.26.0; extra == "kitchensink"
@@ -193,13 +193,13 @@ A full-featured chat interface with spaces, folders, tags, file attachments, can
 
 ### CLI REPL
 
-An agentic terminal with **12 built-in tools** (+ 3 optional MS Office tools), MCP integration, sub-agent orchestration, a skills system, and planning mode &mdash; all with Rich markdown rendering.
+An agentic terminal with **13 built-in tools** (+ 3 optional MS Office tools), MCP integration, sub-agent orchestration, a skills system, and planning mode &mdash; all with Rich markdown rendering.
 
 ```
 $ aroom chat
 
 anteroom v1.85.0 — the secure AI gateway
-  model: gpt-4o | tools: 12 built-in + 3 MCP | safety: ask_for_writes
+  model: gpt-4o | tools: 13 built-in + 3 MCP | safety: ask_for_writes
 
 > Refactor the auth module to use JWT tokens
 
@@ -246,7 +246,7 @@ echo "review this" | aroom exec - --quiet      # pipe stdin
 
 The AI reads files, edits code, runs commands, searches your codebase, generates documents, creates presentations, and spawns parallel sub-agents &mdash; with safety gates at every step.
 
-**Built-in tools:** `read_file` `write_file` `edit_file` `bash` `glob_files` `grep` `create_canvas` `update_canvas` `patch_canvas` `run_agent` `ask_user` `introspect`
+**Built-in tools:** `read_file` `write_file` `edit_file` `bash` `glob_files` `grep` `create_canvas` `update_canvas` `patch_canvas` `run_agent` `save_memory` `ask_user` `introspect`
 
 **Optional tools** (install with `pip install anteroom[office]`): `docx` `xlsx` `pptx` &mdash; create, read, and edit Word, Excel, and PowerPoint files directly
 
@@ -405,7 +405,7 @@ JPMorgan built a private AI gateway for 250,000 employees. Goldman Sachs built o
 |---|---|
 | **Web UI** | Conversations, spaces, folders, tags, attachments, canvas, themes, keyboard shortcuts |
 | **CLI** | REPL, one-shot, exec mode, planning, skills, @file references, Rich rendering |
-| **Tools** | 12 built-in + 3 optional office tools + unlimited MCP tools, parallel execution, sub-agents |
+| **Tools** | 13 built-in + 3 optional office tools + unlimited MCP tools, parallel execution, sub-agents |
 | **Packs** | 7 artifact types, 6-layer precedence, git distribution, lock files, health checks |
 | **Spaces** | Workspace management, auto-discovery, repository cloning, per-space config overlays |
 | **Security** | OWASP ASVS L2, CSRF, CSP, HSTS, SRI, rate limiting, DLP, prompt injection defense |
@@ -430,7 +430,7 @@ ruff check src/ tests/              # lint
 ruff format src/ tests/             # format
 ```
 
-**Local docs:** `pip install anteroom[docs-serve] && aroom docs` serves the full documentation site at `http://127.0.0.1:8400`.
+**Local docs:** `aroom docs` serves the full documentation site at `http://127.0.0.1:8400`.
 
 **Stack:** Python 3.10+ &bull; FastAPI &bull; SQLite &bull; Vanilla JS &bull; Rich &bull; prompt-toolkit &bull; OpenAI SDK &bull; MCP SDK
 

@@ -37,6 +37,7 @@ from ..services.context_trust import (
 )
 from ..services.tool_result_compact import compact_tool_output
 from ..tools import ToolRegistry, register_default_tools
+from ..tools.tool_context import build_tool_extra_context
 from . import renderer
 from .instructions import (
     CONVENTIONS_TOKEN_WARNING_THRESHOLD,
@@ -755,6 +756,26 @@ def _show_resume_info(db: Any, conv: dict[str, Any], ai_messages: list[dict[str,
             sources = meta.get("rag_sources") if isinstance(meta, dict) else None
             if sources:
                 renderer.render_rag_sources(sources)
+    # Render the auto-propose notice for the most recent assistant turn
+    # that produced one (#1454).  Walking from newest to oldest means the
+    # LAST visible inline notice during the live stream is what reappears
+    # on resume — keeping replay visually consistent with the live turn.
+    for msg in reversed(stored):
+        if msg.get("role") != "assistant":
+            continue
+        meta_raw = msg.get("metadata")
+        meta: Any = meta_raw
+        if isinstance(meta_raw, str):
+            try:
+                meta = json.loads(meta_raw)
+            except (TypeError, ValueError):
+                meta = None
+        if not isinstance(meta, dict):
+            continue
+        ap_items = meta.get("memory_auto_proposed")
+        if isinstance(ap_items, list) and ap_items:
+            renderer.render_auto_propose_notice(ap_items)
+            break
 
 
 def _show_usage_stats(db: Any, config: Any) -> None:
@@ -1791,12 +1812,13 @@ def _handle_attribution_command() -> None:
 
 
 def _restore_last_attribution_from(stored_messages: list[dict[str, Any]]) -> None:
-    """Restore the in-memory attribution cache from persisted metadata (#923).
+    """Restore the in-memory caches from persisted message metadata.
 
     Called after every resume path (``--continue``, ``/last``, ``/resume``,
     ``/fork``) so that typing ``/attribution`` right after resume shows the
-    snapshot that was saved with the last assistant turn, instead of the
-    "No attribution recorded for this session yet" fallback.
+    snapshot that was saved with the last assistant turn (#923), and so the
+    auto-propose inline notice (#1454) survives reload alongside the
+    attribution footer.
     """
     for msg in reversed(stored_messages):
         if msg.get("role") != "assistant":
@@ -1810,10 +1832,14 @@ def _restore_last_attribution_from(stored_messages: list[dict[str, Any]]) -> Non
                 meta = None
         if not isinstance(meta, dict):
             renderer.set_last_attribution(None)
+            renderer.set_last_auto_propose_notice(None)
             return
         renderer.set_last_attribution(meta.get("attribution"))
+        _ap_items = meta.get("memory_auto_proposed")
+        renderer.set_last_auto_propose_notice(_ap_items if isinstance(_ap_items, list) else None)
         return
     renderer.set_last_attribution(None)
+    renderer.set_last_auto_propose_notice(None)
 
 
 def _handle_memory_command(user_input: str, *, cmd: str, db: Any, config: AppConfig | None = None) -> None:
@@ -3422,12 +3448,13 @@ async def run_cli(
             result = await tool_registry.call_tool(
                 tool_name,
                 arguments,
-                _extra_context={
-                    "bg_manager": _bg_manager_ref[0],
-                    "detach_manager": _detach_manager_ref[0],
-                    "conversation_id": conversation_id,
-                    "db": db,
-                },
+                _extra_context=build_tool_extra_context(
+                    bg_manager=_bg_manager_ref[0],
+                    detach_manager=_detach_manager_ref[0],
+                    conversation_id=conversation_id,
+                    db=db,
+                    config=config,
+                ),
             )
             _audit_tool_call(audit_writer, tool_name, arguments, result, conversation_id)
             return result
@@ -7883,6 +7910,57 @@ async def _run_repl(
                                             renderer.render_attribution_footer(_attr_snap)
                                     except Exception:
                                         logger.debug("attribution: failed in CLI turn end", exc_info=True)
+                                # Auto-propose memory candidates (#1454): selective
+                                # post-turn extraction. Skipped in plan mode and when
+                                # disabled by config. Never raises — runner returns a
+                                # quiet result on every failure path.
+                                if (
+                                    _last_assistant_msg is not None
+                                    and not _plan_active[0]
+                                    and getattr(getattr(config.memory, "auto_propose", None), "enabled", False)
+                                ):
+                                    try:
+                                        from ..services.auto_propose_runner import run_auto_propose
+                                        from ._audit_helper import get_cli_audit_writer as _get_cli_audit_writer
+
+                                        _ap_audit = _get_cli_audit_writer(config)
+                                        _ap_result = await run_auto_propose(
+                                            assistant_text=_last_assistant_msg.get("content", "") or "",
+                                            ai_service=ai_service,
+                                            db=db,
+                                            audit_writer=_ap_audit,
+                                            config=config,
+                                            identity_user_id=(config.identity.user_id if config.identity else ""),
+                                            recalled_memories=(_mr_memories if "_mr_memories" in dir() else []),
+                                            conversation_id=conv["id"],
+                                            message_id=_last_assistant_msg["id"],
+                                            project_slug=(space.get("name") if space else None),
+                                        )
+                                        if _ap_result.items:
+                                            _ap_payload = [
+                                                {
+                                                    "fqn": it.fqn,
+                                                    "category": it.category,
+                                                    "content_preview": it.content_preview,
+                                                }
+                                                for it in _ap_result.items
+                                            ]
+                                            try:
+                                                storage.merge_message_metadata(
+                                                    db,
+                                                    _last_assistant_msg["id"],
+                                                    {"memory_auto_proposed": _ap_payload},
+                                                )
+                                            except Exception:
+                                                logger.debug(
+                                                    "auto_propose: failed to persist payload",
+                                                    exc_info=True,
+                                                )
+                                            renderer.set_last_auto_propose_notice(_ap_payload)
+                                            if getattr(config.memory.auto_propose, "notify_inline", True):
+                                                renderer.render_auto_propose_notice(_ap_payload)
+                                    except Exception:
+                                        logger.debug("auto_propose: failed at CLI turn end", exc_info=True)
                                 context_tokens = _estimate_tokens(ai_messages)
                                 renderer.render_context_footer(
                                     current_tokens=context_tokens,

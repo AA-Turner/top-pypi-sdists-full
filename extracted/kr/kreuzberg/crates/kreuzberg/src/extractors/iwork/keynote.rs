@@ -172,7 +172,12 @@ impl DocumentExtractor for KeynoteExtractor {
             }
 
             #[cfg(not(feature = "tokio-runtime"))]
-            parse_keynote(content)?
+            {
+                if config.cancel_token.as_ref().map(|t| t.is_cancelled()).unwrap_or(false) {
+                    return Err(crate::error::KreuzbergError::Cancelled);
+                }
+                parse_keynote(content)?
+            }
         };
 
         let mut doc = build_keynote_internal_document(&data);

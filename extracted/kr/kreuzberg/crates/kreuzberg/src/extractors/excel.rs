@@ -215,6 +215,9 @@ impl DocumentExtractor for ExcelExtractor {
             }
             #[cfg(not(feature = "tokio-runtime"))]
             {
+                if config.cancel_token.as_ref().map(|t| t.is_cancelled()).unwrap_or(false) {
+                    return Err(crate::error::KreuzbergError::Cancelled);
+                }
                 crate::extraction::excel::read_excel_bytes(content, extension)?
             }
         };

@@ -2369,6 +2369,47 @@ def render_attribution_footer(snapshot: Any) -> None:
     console.print(f"  [{MUTED}]\\[ctx] {' · '.join(parts)}  — /attribution for detail[/{MUTED}]")
 
 
+# ---------------------------------------------------------------------------
+# Auto-propose memory notice (#1454)
+# ---------------------------------------------------------------------------
+
+# Compact items list (each {fqn, category, content_preview}) for the most
+# recent assistant turn. Restored on conversation resume from
+# ``messages.metadata["memory_auto_proposed"]`` so the inline notice
+# survives reload / replay.
+_last_auto_propose_notice: list[dict[str, Any]] | None = None
+
+
+def set_last_auto_propose_notice(items: list[dict[str, Any]] | None) -> None:
+    """Cache the latest auto-propose result for resume / replay restore."""
+    global _last_auto_propose_notice
+    _last_auto_propose_notice = items if items else None
+
+
+def get_last_auto_propose_notice() -> list[dict[str, Any]] | None:
+    """Return the cached auto-propose items, or ``None`` if the last turn produced none."""
+    return _last_auto_propose_notice
+
+
+def render_auto_propose_notice(items: list[dict[str, Any]] | None) -> None:
+    """Render a compact one-line notice when auto-propose surfaces candidates.
+
+    Items shape: ``[{"fqn": str, "category": str, "content_preview": str}]``.
+    Renders nothing when ``items`` is empty / None — callers don't need to
+    pre-check.
+    """
+    if not items:
+        return
+    count = len(items)
+    suffix = "memory" if count == 1 else "memories"
+    # Keep the notice tight: count + first FQN + reviewer hint.
+    first_fqn = items[0].get("fqn", "")
+    head = f"💡 {count} {suffix} queued for review"
+    if first_fqn:
+        head += f" — first: {first_fqn}"
+    console.print(f"  [{MUTED}]{head}  · /memory candidates to review[/{MUTED}]")
+
+
 def render_rag_status(status: str, chunk_count: int = 0, reason: str | None = None) -> None:
     """Render RAG retrieval status with consistent formatting.
 

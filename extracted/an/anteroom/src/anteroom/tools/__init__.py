@@ -353,6 +353,16 @@ class ToolRegistry:
                 extra_kwargs["_conversation_id"] = _extra_context["conversation_id"]
             if "db" in _extra_context:
                 extra_kwargs["_db"] = _extra_context["db"]
+        # save_memory promotion-pipeline context injection (#217)
+        if name == "save_memory" and _extra_context:
+            if "db" in _extra_context:
+                extra_kwargs["_db"] = _extra_context["db"]
+            if "conversation_id" in _extra_context:
+                extra_kwargs["_conversation_id"] = _extra_context["conversation_id"]
+            if "config" in _extra_context:
+                extra_kwargs["_config"] = _extra_context["config"]
+            if "user_id" in _extra_context:
+                extra_kwargs["_user_id"] = _extra_context["user_id"]
         # Strip 'background'/'detach' from LLM arguments before passing to handler
         if name == "bash" and "background" in arguments:
             extra_kwargs["_background"] = arguments.pop("background")
@@ -417,7 +427,7 @@ def cap_tools(
 
 def register_default_tools(registry: ToolRegistry, working_dir: str | None = None) -> None:
     """Register all built-in tools."""
-    from . import ask_user, bash, edit, glob_tool, grep, introspect, read, subagent, write
+    from . import ask_user, bash, edit, glob_tool, grep, introspect, read, save_memory, subagent, write
     from .canvas import (
         CANVAS_CREATE_DEFINITION,
         CANVAS_PATCH_DEFINITION,
@@ -440,6 +450,8 @@ def register_default_tools(registry: ToolRegistry, working_dir: str | None = Non
     registry.register(subagent.DEFINITION["name"], subagent.handle, subagent.DEFINITION)
     registry.register(ask_user.DEFINITION["name"], ask_user.handle, ask_user.DEFINITION)
     registry.register(introspect.DEFINITION["name"], introspect.handle, introspect.DEFINITION)
+    # save_memory (#217) — agent-initiated memory candidates via memory_promotion pipeline
+    registry.register(save_memory.DEFINITION["name"], save_memory.handle, save_memory.DEFINITION)
 
     # Background task status tool (#1311)
     registry.register(

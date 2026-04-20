@@ -186,10 +186,10 @@ class CSSMediaRule(cssrule.CSSRuleRules):
                     factories = {
                         '@page': cssutils.css.CSSPageRule,
                         '@media': CSSMediaRule,
+                        '@font-face': cssutils.css.CSSFontFaceRule,
                     }
                     if atval in (
                         '@charset ',
-                        '@font-face',
                         '@import',
                         '@namespace',
                         '@variables',
@@ -254,7 +254,7 @@ class CSSMediaRule(cssrule.CSSRuleRules):
     cssText = property(
         _getCssText,
         _setCssText,
-        doc="(DOM) The parsable textual representation of this " "rule.",
+        doc="(DOM) The parsable textual representation of this rule.",
     )
 
     @property
@@ -320,7 +320,6 @@ class CSSMediaRule(cssrule.CSSRuleRules):
         # check hierarchy
         if (
             isinstance(rule, cssutils.css.CSSCharsetRule)
-            or isinstance(rule, cssutils.css.CSSFontFaceRule)
             or isinstance(rule, cssutils.css.CSSImportRule)
             or isinstance(rule, cssutils.css.CSSNamespaceRule)
             or isinstance(rule, cssutils.css.MarginRule)
@@ -336,7 +335,7 @@ class CSSMediaRule(cssrule.CSSRuleRules):
 
     type = property(
         lambda self: self.MEDIA_RULE,
-        doc="The type of this rule, as defined by a CSSRule " "type constant.",
+        doc="The type of this rule, as defined by a CSSRule type constant.",
     )
 
     wellformed = property(lambda self: self.media.wellformed)

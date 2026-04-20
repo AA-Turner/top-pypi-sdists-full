@@ -85,7 +85,12 @@ impl DocumentExtractor for DocExtractor {
             }
 
             #[cfg(not(feature = "tokio-runtime"))]
-            extract_doc_text(content)
+            {
+                if config.cancel_token.as_ref().map(|t| t.is_cancelled()).unwrap_or(false) {
+                    return Err(crate::error::KreuzbergError::Cancelled);
+                }
+                extract_doc_text(content)
+            }
         }?;
 
         let mut doc = InternalDocument::new("doc");

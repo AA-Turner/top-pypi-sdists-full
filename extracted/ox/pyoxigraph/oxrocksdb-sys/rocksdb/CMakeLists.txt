@@ -918,6 +918,7 @@ set(SOURCES
         util/data_structure.cc
         util/dynamic_bloom.cc
         util/hash.cc
+        util/io_dispatcher_imp.cc
         util/murmurhash.cc
         util/random.cc
         util/rate_limiter.cc
@@ -1381,6 +1382,7 @@ if(WITH_TESTS)
         db/db_bloom_filter_test.cc
         db/db_compaction_filter_test.cc
         db/db_compaction_test.cc
+        db/db_compaction_abort_test.cc
         db/db_clip_test.cc
         db/db_dynamic_level_test.cc
         db/db_encryption_test.cc
@@ -1546,6 +1548,7 @@ if(WITH_TESTS)
         utilities/transactions/lock/point/point_lock_manager_stress_test.cc
         utilities/transactions/write_committed_transaction_ts_test.cc
         utilities/transactions/write_prepared_transaction_test.cc
+        utilities/transactions/write_prepared_transaction_test_seqno.cc
         utilities/transactions/write_unprepared_transaction_test.cc
         utilities/transactions/lock/range/range_locking_test.cc
         utilities/transactions/timestamped_snapshot_test.cc

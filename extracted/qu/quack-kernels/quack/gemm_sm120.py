@@ -47,12 +47,14 @@ class GemmSm120(GemmSm90):
         pingpong: bool = False,
         is_persistent: bool = True,
         gather_A: bool = False,
+        use_pdl: bool = True,
     ):
         # Don't call super().__init__ — we set up our own config
         self.acc_dtype = acc_dtype
         self.pingpong = pingpong
         self.is_persistent = is_persistent
         self.use_clc_persistence = False
+        self.use_pdl = use_pdl
         self.fp8_slow_accum = False
         self.gather_A = gather_A
         if self.pingpong:
@@ -222,11 +224,11 @@ class GemmSm120(GemmSm90):
         varlen_manager = VarlenManager.create(
             varlen_params,
             len_m_static=Int32(
-                mA_mkl.shape[0]
+                cute.size(mA_mkl, mode=[0])
                 if varlen_k or varlen_params.mAIdx is None
                 else varlen_params.mAIdx.shape[0]
             ),
-            len_k_static=Int32(mA_mkl.shape[1]),
+            len_k_static=Int32(cute.size(mA_mkl, mode=[1])),
         )
 
         TileSchedulerCls = partial(
@@ -381,7 +383,9 @@ class GemmSm120(GemmSm90):
                     self.pingpong_barrier_arrive(warp_group_idx=0, stage="mma")
                     self.pingpong_barrier_arrive(warp_group_idx=0, stage="epi")
 
-            k_tile_cnt_static = cute.ceil_div(mA_mkl.shape[1], self.cta_tile_shape_mnk[2])
+            k_tile_cnt_static = cute.ceil_div(
+                cute.size(mA_mkl, mode=[1]), self.cta_tile_shape_mnk[2]
+            )
             c_tile_cnt = cute.size(cute.ceil_div(self.cta_tile_shape_mnk[:2], self.epi_tile))
 
             ab_read_state = make_pipeline_state(pipeline.PipelineUserType.Consumer, self.ab_stage)

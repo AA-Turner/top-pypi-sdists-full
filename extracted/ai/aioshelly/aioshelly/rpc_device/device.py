@@ -367,7 +367,7 @@ class RpcDevice:
 
     async def blu_trv_set_boost(self, trv_id: int, duration: int | None = None) -> None:
         """Start boost mode for BLU TRV."""
-        params = {
+        params: dict[str, Any] = {
             "id": trv_id,
             "method": "Trv.SetBoost",
         }
@@ -601,6 +601,47 @@ class RpcDevice:
         val = json_dumps(value) if isinstance(value, (dict, list)) else value
         params = {"key": key, "value": val}
         await self.call_rpc("KVS.Set", params)
+
+    async def media_play_or_pause(self) -> None:
+        """Send play or pause command."""
+        await self.call_rpc("Media.MediaPlayer.PlayOrPause")
+
+    async def media_stop(self) -> None:
+        """Send stop command."""
+        await self.call_rpc("Media.MediaPlayer.Stop")
+
+    async def media_next(self) -> None:
+        """Send next command."""
+        await self.call_rpc("Media.MediaPlayer.Next")
+
+    async def media_previous(self) -> None:
+        """Send previous command."""
+        await self.call_rpc("Media.MediaPlayer.Previous")
+
+    async def media_set_volume(self, volume: int) -> None:
+        """Set media volume."""
+        params = {"volume": volume}
+        await self.call_rpc("Media.SetVolume", params)
+
+    async def media_play_media(self, media_id: int) -> None:
+        """Play media by ID."""
+        params = {"id": media_id}
+        await self.call_rpc("Media.MediaPlayer.Play", params)
+
+    async def media_list_media(self) -> list[dict[str, Any]]:
+        """List media."""
+        result = await self.call_rpc("Media.List")
+        return result["list"]
+
+    async def media_play_radio_station(self, media_id: int) -> None:
+        """Play favourite radio station by ID."""
+        params = {"id": media_id}
+        await self.call_rpc("Media.Radio.PlayFavourite", params)
+
+    async def media_list_radio_stations(self) -> list[dict[str, Any]]:
+        """List favourite radio stations."""
+        result = await self.call_rpc("Media.Radio.ListFavourites")
+        return result["list"]
 
     async def poll(self) -> None:
         """Poll device for calls that do not receive push updates."""

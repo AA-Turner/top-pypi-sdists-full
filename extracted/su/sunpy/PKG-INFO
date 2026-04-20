@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sunpy
-Version: 7.1.1
+Version: 7.1.2
 Summary: SunPy core package: Python for Solar Physics
 Author-email: The SunPy Community <sunpy@googlegroups.com>
 License-Expression: BSD-3-Clause
@@ -56,7 +56,7 @@ Requires-Dist: mpl-animators>=1.2.0; extra == "map"
 Requires-Dist: reproject>=0.13.0; extra == "map"
 Requires-Dist: scipy>=1.12.0; extra == "map"
 Provides-Extra: opencv
-Requires-Dist: opencv-python>=4.8.0.74; extra == "opencv"
+Requires-Dist: opencv-python!=4.13.0.*,>=4.8.0.74; extra == "opencv"
 Provides-Extra: net
 Requires-Dist: beautifulsoup4>=4.13.1; extra == "net"
 Requires-Dist: drms>=0.7.1; extra == "net"
@@ -120,12 +120,15 @@ Requires-Dist: sunpy[docs]; extra == "docs-gallery"
 Requires-Dist: astroquery>=0.4.6; extra == "docs-gallery"
 Requires-Dist: jplephem>=2.19; extra == "docs-gallery"
 Requires-Dist: pillow; extra == "docs-gallery"
+Requires-Dist: exifread; extra == "docs-gallery"
 Provides-Extra: dev
 Requires-Dist: sunpy[docs,tests]; extra == "dev"
 Dynamic: license-file
 
+``sunpy``
+=========
+
 SunPy core package: Python for Solar Physics
-============================================
 
 |SunPy Logo|
 

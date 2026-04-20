@@ -1,3 +1,4 @@
+use tombi_config::SchemaFormatRules;
 use tombi_severity_level::SeverityLevelDefaultWarn;
 use tombi_x_keyword::StringFormat;
 
@@ -8,6 +9,8 @@ pub struct SchemaContext<'a> {
     pub root_schema: Option<&'a crate::DocumentSchema>,
     pub sub_schema_uri_map: Option<&'a crate::SubSchemaUriMap>,
     pub deprecated_lint_level: Option<SeverityLevelDefaultWarn>,
+    pub schema_format_rules: Option<&'a crate::SchemaFormatRulesMap>,
+    pub schema_overrides: Option<&'a crate::SchemaOverridesMap>,
     pub schema_visits: SchemaVisits,
     pub store: &'a crate::SchemaStore,
     pub strict: Option<bool>,
@@ -27,8 +30,87 @@ impl SchemaContext<'_> {
     }
 
     #[inline]
-    pub fn deprecated_lint_level(&self) -> Option<SeverityLevelDefaultWarn> {
-        self.deprecated_lint_level
+    pub fn deprecated_lint_level(
+        &self,
+        current_schema: Option<&crate::CurrentSchema<'_>>,
+        accessors: &[crate::Accessor],
+    ) -> Option<SeverityLevelDefaultWarn> {
+        self.schema_overrides(current_schema)
+            .and_then(|overrides| overrides.deprecated.find(accessors))
+            .map(|override_item| override_item.level)
+            .or(self.deprecated_lint_level)
+    }
+
+    #[inline]
+    pub fn schema_array_values_order_enabled(
+        &self,
+        current_schema: Option<&crate::CurrentSchema<'_>>,
+    ) -> bool {
+        self.schema_format_rules(current_schema)
+            .and_then(|rules| rules.array_values_order.as_ref())
+            .and_then(|rule| rule.enabled)
+            .unwrap_or_default()
+            .value()
+    }
+
+    #[inline]
+    pub fn schema_table_keys_order_enabled(
+        &self,
+        current_schema: Option<&crate::CurrentSchema<'_>>,
+    ) -> bool {
+        self.schema_format_rules(current_schema)
+            .and_then(|rules| rules.table_keys_order.as_ref())
+            .and_then(|rule| rule.enabled)
+            .unwrap_or_default()
+            .value()
+    }
+
+    fn schema_format_rules(
+        &self,
+        current_schema: Option<&crate::CurrentSchema<'_>>,
+    ) -> Option<&SchemaFormatRules> {
+        let schema_uri = self.normalize_schema_uri(current_schema)?;
+        self.schema_format_rules?.get(&schema_uri)
+    }
+
+    pub fn array_order_override(
+        &self,
+        current_schema: Option<&crate::CurrentSchema<'_>>,
+        accessors: &[crate::Accessor],
+    ) -> Option<&crate::ArrayOrderOverride> {
+        self.schema_overrides(current_schema)?
+            .array_values_order
+            .find(accessors)
+    }
+
+    pub fn table_order_override(
+        &self,
+        current_schema: Option<&crate::CurrentSchema<'_>>,
+        accessors: &[crate::Accessor],
+    ) -> Option<&crate::TableOrderOverride> {
+        self.schema_overrides(current_schema)?
+            .table_keys_order
+            .find(accessors)
+    }
+
+    fn schema_overrides(
+        &self,
+        current_schema: Option<&crate::CurrentSchema<'_>>,
+    ) -> Option<&crate::SchemaOverrides> {
+        let schema_uri = self.normalize_schema_uri(current_schema)?;
+        self.schema_overrides?.get(&schema_uri)
+    }
+
+    fn normalize_schema_uri(
+        &self,
+        current_schema: Option<&crate::CurrentSchema<'_>>,
+    ) -> Option<crate::SchemaUri> {
+        let current_schema = current_schema?;
+        let mut schema_uri = current_schema.schema_uri.clone().into_owned();
+        if schema_uri.fragment().is_some() {
+            schema_uri.set_fragment(None);
+        }
+        Some(schema_uri)
     }
 
     pub async fn get_subschema(

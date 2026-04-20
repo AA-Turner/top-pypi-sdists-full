@@ -41,7 +41,7 @@ keep_prompt(name="reflect")                                                     
 keep_flow(state="get", params={item_id: "now"}, token_budget=2000)                        # Current intentions
 keep_flow(state="query-resolve", params={query: "topic"}, token_budget=2000)              # What do I know?
 keep_flow(state="put", params={content: "what's true now", id: "now"})                    # Update intentions
-keep_flow(state="put", params={content: "learning", tags: {type: "learning"}})            # Capture insight
+keep_flow(state="put", params={content: "learning", tags: {kind: "learning"}})            # Capture insight
 keep_flow(state="put", params={uri: "https://example.com/doc", tags: {topic: "X"}})       # Index a document
 keep_flow(state="tag", params={id: "item", tags: {reviewed: "true"}})                     # Tag an item
 keep_help(topic="flow-actions")                                                            # Action reference
@@ -78,7 +78,7 @@ CLAUDE_CODE_HOOKS = {
             "hooks": [
                 {
                     "type": "command",
-                    "command": "keep now 'User prompt: ${.prompt|text}' --truncate 2>/dev/null || true",
+                    "command": "keep now 'User: ${.prompt|text}' --truncate -t type=conversation 2>/dev/null || true",
                     "statusMessage": "Reflecting...",
                 }
             ],

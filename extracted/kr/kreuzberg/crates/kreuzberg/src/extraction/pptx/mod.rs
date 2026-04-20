@@ -282,9 +282,7 @@ fn extract_pptx_from_container<R: std::io::Read + std::io::Seek>(
         }),
     });
 
-    let document = doc_builder
-        .map(|b| b.build())
-        .filter(|d| !d.is_empty());
+    let document = doc_builder.map(|b| b.build()).filter(|d| !d.is_empty());
 
     Ok(PptxExtractionResult {
         content,

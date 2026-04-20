@@ -75,6 +75,42 @@ def handle_one_of(schema, field, validator, parent_schema):
     return schema
 
 
+def handle_contains_only(schema, field, validator, parent_schema):
+    """Adds the validation logic for ``marshmallow.validate.ContainsOnly`` by
+    constraining each item of an array field to one of the allowed choices.
+
+    Only fires for array (List) fields; bails out cleanly for non-array fields
+    or empty choice sets so unrelated schemas pass through unchanged.
+
+    Args:
+        schema (dict): The original JSON schema we generated.
+        field (fields.Field): The field that generated the original schema.
+        validator (marshmallow.validate.ContainsOnly): The validator attached
+            to the field.
+        parent_schema (marshmallow.Schema): The Schema instance that the field
+            belongs to.
+
+    Returns:
+        dict: A possibly-new JSON Schema that has been post-processed.
+    """
+    if schema.get("type") != "array":
+        return schema
+
+    choices = field._serialize(validator.choices, field.name, None)
+    if not choices:
+        return schema
+
+    item_type = schema["items"].get("type", "string")
+    labels = validator.labels if validator.labels else choices
+    schema["items"]["anyOf"] = [
+        {"type": item_type, "title": label, "const": choice}
+        for choice, label in zip(choices, labels)
+    ]
+    schema["uniqueItems"] = True
+
+    return schema
+
+
 def handle_equal(schema, field, validator, parent_schema):
     """Adds the validation logic for ``marshmallow.validate.Equal`` by setting
     the JSONSchema `enum` property to value of the validator.
@@ -130,19 +166,13 @@ def handle_range(schema, field, validator, parent_schema):
         )
 
     if validator.min is not None:
-        # marshmallow 2 includes minimum by default
-        # marshmallow 3 supports "min_inclusive"
-        min_inclusive = getattr(validator, "min_inclusive", True)
-        if min_inclusive:
+        if validator.min_inclusive:
             schema["minimum"] = validator.min
         else:
             schema["exclusiveMinimum"] = validator.min
 
     if validator.max is not None:
-        # marshmallow 2 includes maximum by default
-        # marshmallow 3 supports "max_inclusive"
-        max_inclusive = getattr(validator, "max_inclusive", True)
-        if max_inclusive:
+        if validator.max_inclusive:
             schema["maximum"] = validator.max
         else:
             schema["exclusiveMaximum"] = validator.max

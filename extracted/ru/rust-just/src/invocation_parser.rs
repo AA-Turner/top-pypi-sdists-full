@@ -50,8 +50,13 @@ impl<'src: 'run, 'run> InvocationParser<'src, 'run> {
   fn parse_invocation(&mut self) -> RunResult<'src, Invocation<'src, 'run>> {
     let recipe = if let Some(next) = self.next() {
       if next.contains(':') {
+        let path = if self.next + 1 == self.arguments.len() {
+          next.strip_suffix("::").unwrap_or(next)
+        } else {
+          next
+        };
         let modulepath =
-          Modulepath::try_from([next].as_slice()).map_err(|()| Error::UnknownRecipe {
+          Modulepath::try_from([path].as_slice()).map_err(|()| Error::UnknownRecipe {
             recipe: next.into(),
             suggestion: None,
           })?;
@@ -99,11 +104,7 @@ impl<'src: 'run, 'run> InvocationParser<'src, 'run> {
     let mut i = 0;
     let mut positional_index = 0;
     let mut positional_accepted = 0;
-    loop {
-      let Some(argument) = rest.get(i) else {
-        break;
-      };
-
+    while let Some(argument) = rest.get(i) {
       if !end_of_options && *argument == "--" {
         end_of_options = true;
         i += 1;
@@ -393,7 +394,7 @@ mod tests {
     fs::write(&path, "mod foo").unwrap();
     fs::create_dir(tempdir.path().join("foo")).unwrap();
     fs::write(tempdir.path().join("foo/mod.just"), "bar:").unwrap();
-    let compilation = Compiler::compile(&Config::default(), &loader, &path).unwrap();
+    let compilation = Compiler::compile(&Config::new().unwrap(), &loader, &path).unwrap();
 
     let invocations =
       InvocationParser::parse_invocations(&compilation.justfile, &["foo", "bar"]).unwrap();
@@ -411,7 +412,7 @@ mod tests {
     fs::write(&path, "mod foo").unwrap();
     fs::create_dir(tempdir.path().join("foo")).unwrap();
     fs::write(tempdir.path().join("foo/mod.just"), "bar:").unwrap();
-    let compilation = Compiler::compile(&Config::default(), &loader, &path).unwrap();
+    let compilation = Compiler::compile(&Config::new().unwrap(), &loader, &path).unwrap();
 
     assert_matches!(
       InvocationParser::parse_invocations(&compilation.justfile, &["foo", "zzz"]).unwrap_err(),
@@ -430,7 +431,7 @@ mod tests {
 
     let loader = Loader::new();
     let compilation = Compiler::compile(
-      &Config::default(),
+      &Config::new().unwrap(),
       &loader,
       &tempdir.path().join("justfile"),
     )
@@ -453,7 +454,7 @@ mod tests {
 
     let loader = Loader::new();
     let compilation = Compiler::compile(
-      &Config::default(),
+      &Config::new().unwrap(),
       &loader,
       &tempdir.path().join("justfile"),
     )
@@ -474,7 +475,7 @@ mod tests {
 
     let loader = Loader::new();
     let compilation = Compiler::compile(
-      &Config::default(),
+      &Config::new().unwrap(),
       &loader,
       &tempdir.path().join("justfile"),
     )
@@ -493,7 +494,7 @@ mod tests {
 
     let loader = Loader::new();
     let compilation = Compiler::compile(
-      &Config::default(),
+      &Config::new().unwrap(),
       &loader,
       &tempdir.path().join("justfile"),
     )
@@ -516,7 +517,7 @@ mod tests {
 
     let loader = Loader::new();
     let compilation = Compiler::compile(
-      &Config::default(),
+      &Config::new().unwrap(),
       &loader,
       &tempdir.path().join("justfile"),
     )
@@ -622,6 +623,51 @@ foo baz qux='qux' bar='bar':
     assert_eq!(
       invocations[0].arguments,
       vec![vec![String::from("--bar")], Vec::new(), Vec::new()]
+    );
+  }
+
+  #[test]
+  fn trailing_separator_runs_default_recipe() {
+    let tempdir = tempfile::tempdir().unwrap();
+    tempdir.write("justfile", "mod foo");
+    tempdir.write("foo.just", "bar:");
+
+    let loader = Loader::new();
+    let compilation = Compiler::compile(
+      &Config::new().unwrap(),
+      &loader,
+      &tempdir.path().join("justfile"),
+    )
+    .unwrap();
+
+    let invocations =
+      InvocationParser::parse_invocations(&compilation.justfile, &["foo::"]).unwrap();
+
+    assert_eq!(invocations.len(), 1);
+    assert_eq!(invocations[0].recipe.recipe_path().to_string(), "foo::bar");
+    assert!(invocations[0].arguments.is_empty());
+  }
+
+  #[test]
+  fn trailing_separator_not_last_argument() {
+    let tempdir = tempfile::tempdir().unwrap();
+    tempdir.write("justfile", "mod foo");
+    tempdir.write("foo.just", "bar:");
+
+    let loader = Loader::new();
+    let compilation = Compiler::compile(
+      &Config::new().unwrap(),
+      &loader,
+      &tempdir.path().join("justfile"),
+    )
+    .unwrap();
+
+    assert_matches!(
+      InvocationParser::parse_invocations(&compilation.justfile, &["foo::", "bar"]).unwrap_err(),
+      Error::UnknownRecipe {
+        recipe,
+        suggestion: None
+      } if recipe == "foo::",
     );
   }
 }

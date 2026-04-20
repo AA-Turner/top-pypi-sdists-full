@@ -40,6 +40,67 @@ test_lint! {
 
 test_lint! {
     #[test]
+    fn test_tombi_schema_root_format_rules(
+        r#"
+        [[schemas]]
+        path = "schemas/type-test.schema.json"
+        include = ["*.toml"]
+
+        [schemas.format.rules.array-values-order]
+        enabled = false
+
+        [schemas.format.rules.table-keys-order]
+        enabled = false
+        "#,
+        SchemaPath(tombi_schema_path()),
+    ) -> Ok(_)
+}
+
+test_lint! {
+    #[test]
+    fn test_tombi_sub_schema_format_rules(
+        r#"
+        [[schemas]]
+        root = "tool.taskipy"
+        path = "schemas/partial-taskipy.schema.json"
+        include = ["pyproject.toml"]
+
+        [schemas.format.rules.array-values-order]
+        enabled = false
+
+        [schemas.format.rules.table-keys-order]
+        enabled = false
+        "#,
+        SchemaPath(tombi_schema_path()),
+    ) -> Ok(_)
+}
+
+test_lint! {
+    #[test]
+    fn test_tombi_schema_overrides(
+        r#"
+        [[schemas]]
+        path = "schemas/type-test.schema.json"
+        include = ["*.toml"]
+
+        [[schemas.overrides]]
+        targets = [""]
+
+        [schemas.overrides.format.rules]
+        table-keys-order = "ascending"
+
+        [[schemas.overrides]]
+        targets = ["items[0].name"]
+
+        [schemas.overrides.format.rules.array-values-order]
+        enabled = false
+        "#,
+        SchemaPath(tombi_schema_path()),
+    ) -> Ok(_)
+}
+
+test_lint! {
+    #[test]
     fn test_tombi_schema_lint_rules_key_empty_undefined(
         r#"
         [lint.rules]

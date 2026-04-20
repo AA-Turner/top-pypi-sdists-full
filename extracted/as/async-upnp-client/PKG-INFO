@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: async_upnp_client
-Version: 0.46.2
+Version: 0.47.0
 Summary: Async UPnP Client
 Author-email: Steven Looman <steven.looman@gmail.com>
 License-Expression: Apache-2.0

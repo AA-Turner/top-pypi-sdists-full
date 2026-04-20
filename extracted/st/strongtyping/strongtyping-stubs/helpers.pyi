@@ -1,3 +1,0 @@
-from typing import TypedDict
-
-def validate_typed_dict(base: TypedDict, /, data: dict) -> bool: ...

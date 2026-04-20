@@ -786,7 +786,9 @@ class StateSpace:
                 self.solver.add(expr)
                 self._exprs_known[expr] = True
             elif already_known is not True:
-                raise CrossHairInternal
+                raise CrossHairInternal(
+                    f"Expression '{expr}' was already added to the solver"
+                )
 
     def rand(self) -> random.Random:
         return self._random
@@ -919,10 +921,17 @@ class StateSpace:
         self._search_position = stem
         chosen_expr = expr if choose_true else z3Not(expr)
         if in_debug():
-            debug(
-                f"SMT chose: {chosen_expr} (chance: {chosen_probability}) at",
-                ch_stack(),
-            )
+            expr_str = str(chosen_expr)
+            if "\n" in expr_str:
+                debug(
+                    f"SMT chose (w/ chance: {chosen_probability}):\n{expr_str}\nat",
+                    ch_stack(),
+                )
+            else:
+                debug(
+                    f"SMT chose: {chosen_expr} (chance: {chosen_probability})\nat",
+                    ch_stack(),
+                )
         z3Aassert(self.solver, chosen_expr)
         self._exprs_known[expr] = choose_true
         return choose_true
@@ -1148,7 +1157,6 @@ class StateSpace:
         assert is_tracing()
         with NoTracing():
             if self.is_detached:
-                debug("Path is already detached")
                 return
             # Give ourselves a time extension for deferred assumptions and
             # (likely) counterexample generation to follow.

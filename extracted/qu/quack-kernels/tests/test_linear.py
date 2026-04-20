@@ -1,4 +1,5 @@
 # Copyright (C) 2025, Tri Dao.
+from dataclasses import replace
 import math
 import pytest
 import torch
@@ -12,10 +13,12 @@ from quack.gemm_interface import (
     gemm_add,
     gemm_add_inplace,
     gemm_tuned,
+    default_config,
     gemm_dact,
     gemm_gated,
     gemm_dgated,
     gemm_ref,
+    gemm_add_ref,
     gemm_act_ref,
     gemm_dact_ref,
     gemm_gated_ref,
@@ -72,6 +75,83 @@ def test_linear(in_features, out_features, has_bias, input_dtype):
         assert (bias.grad - bias_ref.grad).abs().max() < 2 * (
             bias_pt.grad - bias_ref.grad
         ).abs().max() + 1e-6
+
+
+@pytest.mark.parametrize("swap_ab", [False, True])
+@pytest.mark.parametrize("out_major", ["m", "n"])
+@pytest.mark.parametrize("B_major", ["k", "n"])
+@pytest.mark.parametrize("A_major", ["k", "m"])
+@pytest.mark.parametrize("input_dtype", [torch.bfloat16])
+@pytest.mark.parametrize("n", [1504, 2048])
+@pytest.mark.parametrize("k", [736, 1024])
+@pytest.mark.parametrize("m", [960])
+def test_gemm(m, k, n, input_dtype, A_major, B_major, out_major, swap_ab):
+    device = "cuda"
+    torch.random.manual_seed(0)
+    A = torch.randn((m, k), device=device, dtype=input_dtype)
+    if A_major == "m":
+        A = A.T.contiguous().T
+    B = torch.randn((k, n), device=device, dtype=input_dtype) / math.sqrt(k)
+    if B_major == "k":
+        B = B.T.contiguous().T
+    out = torch.empty((m, n), device=device, dtype=input_dtype)
+    if out_major == "m":
+        out = out.T.contiguous().T
+    config = replace(default_config(torch.device(device)), swap_ab=swap_ab)
+    gemm_tuned.fn(A, B, out, config=config)
+    out_ref = gemm_ref(A.float(), B.float())
+    out_pt = gemm_ref(A, B)
+    assert (out - out_ref).abs().max() < 2 * (out_pt - out_ref).abs().max() + 1e-5
+
+
+@pytest.mark.parametrize("swap_ab", [False, True])
+@pytest.mark.parametrize("out_major", ["m", "n"])
+@pytest.mark.parametrize("B_major", ["k", "n"])
+@pytest.mark.parametrize("A_major", ["k", "m"])
+@pytest.mark.parametrize("batched", [False, True])
+@pytest.mark.parametrize("bias_dtype", [None, torch.float32, torch.bfloat16])
+@pytest.mark.parametrize("concat_tensor", ["A", "B", "out"])
+@pytest.mark.parametrize("input_dtype", [torch.bfloat16])
+@pytest.mark.parametrize("n", [1504, 2048])
+@pytest.mark.parametrize("k", [736, 1024])
+@pytest.mark.parametrize("m", [960])
+def test_gemm_concat_layout(
+    m, k, n, input_dtype, concat_tensor, bias_dtype, batched, A_major, B_major, out_major, swap_ab
+):
+    """Test concat_layout on each tensor with all major/stride combinations."""
+    if bias_dtype is not None and batched:
+        pytest.skip("batched + bias not supported")
+    device = "cuda"
+    torch.random.manual_seed(0)
+    concat = (concat_tensor,)
+    if bias_dtype is not None and concat_tensor == "B":
+        concat = ("B", "bias")
+    batch_shape = (3,) if batched else ()
+    A = torch.randn((*batch_shape, m, k), device=device, dtype=input_dtype) / math.sqrt(k)
+    if A_major == "m":
+        A = A.mT.contiguous().mT
+    B = torch.randn((*batch_shape, k, n), device=device, dtype=input_dtype) / math.sqrt(k)
+    if B_major == "k":
+        B = B.mT.contiguous().mT
+    out = torch.empty((*batch_shape, m, n), device=device, dtype=input_dtype)
+    if out_major == "m":
+        out = out.mT.contiguous().mT
+    bias = torch.randn(n, device=device, dtype=bias_dtype) if bias_dtype is not None else None
+    config = replace(default_config(torch.device(device)), swap_ab=swap_ab)
+    gemm_tuned.fn(A, B, out, config=config, bias=bias, concat_layout=concat)
+    # For ref: gemm_ref always produces n-major output and interleaves rows for concat="out".
+    # When the kernel's out is m-major, the kernel interleaves columns instead.
+    # Match by creating the ref with matching out major.
+    if concat_tensor == "out" and out_major == "m":
+        # Kernel interleaves columns. Ref: compute flat, then interleave columns.
+        out_ref_flat = gemm_ref(A.float(), B.float(), bias=bias)
+        out_ref = torch.cat([out_ref_flat[..., ::2], out_ref_flat[..., 1::2]], dim=-1)
+        out_pt_flat = gemm_ref(A, B, bias=bias)
+        out_pt = torch.cat([out_pt_flat[..., ::2], out_pt_flat[..., 1::2]], dim=-1)
+    else:
+        out_ref = gemm_ref(A.float(), B.float(), bias=bias, concat_layout=concat)
+        out_pt = gemm_ref(A, B, bias=bias, concat_layout=concat)
+    assert (out - out_ref).abs().max() < 2 * (out_pt - out_ref).abs().max() + 1e-5
 
 
 @pytest.mark.parametrize("store_preact", [False, True])
@@ -135,18 +215,36 @@ def test_gemm_dact(n, k, input_dtype, activation):
 @pytest.mark.parametrize("n", [1504, 2048])
 @pytest.mark.parametrize("k", [736, 1024])
 @pytest.mark.parametrize("m", [960, 1920])
-def test_gemm_add_inplace(m, k, n, input_dtype):
+@pytest.mark.parametrize("is_concat_layout_out", [False, True])
+def test_gemm_add_inplace(m, k, n, input_dtype, is_concat_layout_out):
     """Test in-place GEMM with addition: C += A @ B."""
     device = "cuda"
     torch.random.manual_seed(0)
     A = torch.randn((m, k), device=device, dtype=input_dtype)
-    B = torch.randn((k, n), device=device, dtype=input_dtype)
+    B = torch.randn((k, n), device=device, dtype=input_dtype) / math.sqrt(k)
+    concat = ("C", "out") if is_concat_layout_out else None
     C = torch.randn((m, n), device=device, dtype=input_dtype)
     # Save original C for reference computation
     C_og = C.clone()
-    gemm_add_inplace(A, B, C, tuned=False)
-    C_ref = C_og.float() + torch.mm(A.float(), B.float())
-    C_pt = C_og + torch.mm(A, B)
+    gemm_add_inplace(A, B, C, tuned=False, concat_layout=concat)
+    C_ref = gemm_add_ref(
+        A.float(),
+        B.float(),
+        C_og.float(),
+        alpha=1.0,
+        beta=1.0,
+        out_dtype=torch.float32,
+        concat_layout=concat,
+    )
+    C_pt = gemm_add_ref(
+        A,
+        B,
+        C_og,
+        alpha=1.0,
+        beta=1.0,
+        out_dtype=input_dtype,
+        concat_layout=concat,
+    )
     assert (C - C_ref).abs().max() < 2 * (C_pt - C_ref).abs().max() + 1e-5
 
 
@@ -230,32 +328,53 @@ def test_gemm_add_sm100_unaligned_epilogue_tile_n(tile_m, cluster_m, tile_n, swa
 @pytest.mark.parametrize("n", [512, 1024])
 @pytest.mark.parametrize("k", [256, 768])
 @pytest.mark.parametrize("m", [480, 960])
-def test_gemm_add_inplace_alpha_beta(m, k, n, input_dtype, alpha, beta, alpha_beta_type):
+@pytest.mark.parametrize("is_concat_layout_out", [False, True])
+def test_gemm_add_inplace_alpha_beta(
+    m, k, n, input_dtype, alpha, beta, alpha_beta_type, is_concat_layout_out
+):
     """Test in-place GEMM with alpha/beta scaling: C = alpha * A @ B + beta * C."""
     device = "cuda"
     torch.random.manual_seed(42)
     A = torch.randn((m, k), device=device, dtype=input_dtype)
-    B = torch.randn((k, n), device=device, dtype=input_dtype)
+    B = torch.randn((k, n), device=device, dtype=input_dtype) / math.sqrt(k)
     C = torch.randn((m, n), device=device, dtype=input_dtype)
+    concat = ("C", "out") if is_concat_layout_out else None
     if alpha_beta_type == "tensor":
         alpha = torch.tensor(alpha, device=device, dtype=torch.float32)
         beta = torch.tensor(beta, device=device, dtype=torch.float32)
     C_og = C.clone()
-    gemm_add_inplace(A, B, C, alpha=alpha, beta=beta, tuned=False)
-    alpha_val = alpha.item() if torch.is_tensor(alpha) else alpha
-    beta_val = beta.item() if torch.is_tensor(beta) else beta
-    C_ref = alpha_val * torch.mm(A.float(), B.float()) + beta_val * C_og.float()
-    C_pt = alpha_val * torch.mm(A, B) + beta_val * C_og
+    gemm_add_inplace(A, B, C, alpha=alpha, beta=beta, tuned=False, concat_layout=concat)
+    C_ref = gemm_add_ref(
+        A.float(),
+        B.float(),
+        C_og.float(),
+        alpha=alpha.item() if torch.is_tensor(alpha) else alpha,
+        beta=beta.item() if torch.is_tensor(beta) else beta,
+        out_dtype=torch.float32,
+        concat_layout=concat,
+    )
+    C_pt = gemm_add_ref(
+        A,
+        B,
+        C_og,
+        alpha=alpha,
+        beta=beta,
+        concat_layout=concat,
+        out_dtype=input_dtype,
+    )
     assert (C - C_ref).abs().max() < 2 * (C_pt - C_ref).abs().max() + 1e-4
 
 
 @pytest.mark.parametrize("store_preact", [True, False])
 @pytest.mark.parametrize("activation", ["swiglu", "swiglu_oai", "reglu", "geglu", "glu"])
 @pytest.mark.parametrize("input_dtype", [torch.bfloat16])
-@pytest.mark.parametrize("has_bias", [False, True])
+@pytest.mark.parametrize("bias_dtype", [None, torch.float32, torch.bfloat16])
 @pytest.mark.parametrize("out_features", [1504, 2048])
 @pytest.mark.parametrize("in_features", [736, 4096])
-def test_gemm_gated(in_features, out_features, has_bias, input_dtype, activation, store_preact):
+@pytest.mark.parametrize("is_concat_layout_B", [False, True])
+def test_gemm_gated(
+    in_features, out_features, bias_dtype, input_dtype, activation, store_preact, is_concat_layout_B
+):
     """Test GEMM with gated activation forward computation."""
     device = "cuda"
     torch.random.manual_seed(0)
@@ -267,19 +386,49 @@ def test_gemm_gated(in_features, out_features, has_bias, input_dtype, activation
         torch.randn((2 * out_features, in_features), device=device, dtype=input_dtype)
         / math.sqrt(in_features)
     ).requires_grad_()
-    bias = torch.randn(2 * out_features, device=device) if has_bias else None
+    B = w.T
+    bias = (
+        torch.randn(2 * out_features, device=device, dtype=bias_dtype)
+        if bias_dtype is not None
+        else None
+    )
+    concat = (
+        ("B", "bias")
+        if is_concat_layout_B and bias_dtype is not None
+        else ("B",)
+        if is_concat_layout_B
+        else None
+    )
     preact, postact = gemm_gated(
-        x, w.T, bias=bias, activation=activation, store_preact=store_preact, tuned=False
+        x,
+        B,
+        bias=bias,
+        activation=activation,
+        store_preact=store_preact,
+        tuned=False,
+        concat_layout=concat,
     )
     preact_ref, postact_ref = gemm_gated_ref(
-        x.float(), w.float().T, bias=bias, activation=activation, store_preact=store_preact
+        x.float(),
+        B.float(),
+        bias=bias,
+        activation=activation,
+        store_preact=store_preact,
+        concat_layout=concat,
     )
     preact_pt, postact_pt = gemm_gated_ref(
-        x, w.T, bias=bias, activation=activation, store_preact=store_preact
+        x,
+        B,
+        bias=bias,
+        activation=activation,
+        store_preact=store_preact,
+        concat_layout=concat,
     )
+    assert postact.shape == (x.shape[0], out_features)
     assert (postact - postact_ref).abs().max() < 2 * (postact_pt - postact_ref).abs().max() + 1e-6
     if store_preact:
         assert preact is not None and preact_ref is not None
+        assert preact.shape == (x.shape[0], 2 * out_features)
         assert (preact - preact_ref).abs().max() < 2 * (preact_pt - preact_ref).abs().max() + 1e-5
 
 

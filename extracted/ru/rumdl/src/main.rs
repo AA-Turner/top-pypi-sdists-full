@@ -43,6 +43,7 @@ struct Cli {
     /// Path to configuration file
     #[arg(
         long,
+        short = 'c',
         global = true,
         help = "Path to configuration file",
         conflicts_with_all = ["no_config", "isolated"]
@@ -107,7 +108,7 @@ enum Commands {
         #[arg(long, short = 'f')]
         fixable: bool,
         /// Filter by category (use --list-categories to see options)
-        #[arg(long, short = 'c', value_name = "CATEGORY")]
+        #[arg(long, value_name = "CATEGORY")]
         category: Option<String>,
         /// Include full documentation in output (for json/json-lines)
         #[arg(long)]
@@ -246,6 +247,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         Color::Always => colored::control::set_override(true),
         Color::Never => colored::control::set_override(false),
         Color::Auto => colored::control::unset_override(),
+    }
+
+    // Validate --config path upfront so any subcommand that accepts it fails
+    // loudly on a missing path rather than silently ignoring the flag. This
+    // also catches misuse of the new `-c` short alias on subcommands like
+    // `rumdl rule`, which used to treat `-c` as the short form of --category.
+    if let Some(ref path) = cli.config
+        && !std::path::Path::new(path).is_file()
+    {
+        eprintln!("error: config file not found: {path}");
+        if matches!(cli.command, Commands::Rule { .. }) {
+            eprintln!("note: `-c` is the short alias for `--config`.");
+            eprintln!("      To filter rules by category, use `--category {path}`.");
+        }
+        exit::tool_error();
     }
 
     // Catch panics and print a message, exit 1

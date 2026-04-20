@@ -926,13 +926,35 @@ class MemoryRetentionConfig:
 
 
 @dataclass
+class MemoryAutoProposeConfig:
+    """Selective auto-propose memory candidate pipeline (#1454).
+
+    Off by default. When enabled, after each final assistant turn, an
+    LLM-driven extractor scans the response for durable facts and
+    proposes them through the existing governed promotion pipeline as
+    ``candidate`` memories — never silently active. Bounded by per-turn
+    cap, the existing per-conversation rate limit on
+    ``MemoryPromotionConfig``, and a cooldown that suppresses repeats
+    of the same fact in the same conversation.
+    """
+
+    enabled: bool = False  # opt-in; default no extraction
+    max_candidates_per_turn: int = 1  # hard cap on proposals per assistant turn
+    categories: list[str] = field(default_factory=lambda: ["preference", "project_fact", "decision", "workflow_hint"])
+    min_confidence: float = 0.8  # 0.0-1.0; LLM-reported confidence floor
+    notify_inline: bool = True  # render inline notice in CLI/web after extraction
+    cooldown_turns: int = 5  # suppress repeats of the same content within N turns
+
+
+@dataclass
 class MemoryConfig:
-    """Memory subsystem settings. Currently promotion (#920) and
-    retention (#625) live here; recall, storage, and lifecycle settings
-    can grow in place without restructuring the config tree."""
+    """Memory subsystem settings. Promotion (#920), retention (#625),
+    and auto-propose (#1454) live here; recall, storage, and lifecycle
+    settings can grow in place without restructuring the config tree."""
 
     promotion: MemoryPromotionConfig = field(default_factory=MemoryPromotionConfig)
     retention: MemoryRetentionConfig = field(default_factory=MemoryRetentionConfig)
+    auto_propose: MemoryAutoProposeConfig = field(default_factory=MemoryAutoProposeConfig)
 
 
 @dataclass
@@ -2843,6 +2865,75 @@ def load_config(
     _valid_statuses = {"active", "candidate", "pending_review", "rejected", "archived"}
     ret_purge_statuses = [s for s in _candidates if s in _valid_statuses] or ["rejected"]
 
+    # Memory auto-propose (#1454) — selective extraction of candidate memories
+    auto_propose_raw = memory_raw.get("auto_propose", {})
+    if not isinstance(auto_propose_raw, dict):
+        auto_propose_raw = {}
+
+    ap_enabled = str(
+        auto_propose_raw.get(
+            "enabled",
+            os.environ.get("AI_CHAT_MEMORY_AUTO_PROPOSE_ENABLED", "false"),
+        )
+    ).lower() in ("true", "1", "yes")
+    ap_notify_inline = str(
+        auto_propose_raw.get(
+            "notify_inline",
+            os.environ.get("AI_CHAT_MEMORY_AUTO_PROPOSE_NOTIFY_INLINE", "true"),
+        )
+    ).lower() not in ("false", "0", "no")
+    try:
+        ap_max_candidates_per_turn = max(
+            1,
+            int(
+                auto_propose_raw.get(
+                    "max_candidates_per_turn",
+                    os.environ.get("AI_CHAT_MEMORY_AUTO_PROPOSE_MAX_CANDIDATES_PER_TURN", 1),
+                )
+            ),
+        )
+    except (ValueError, TypeError):
+        ap_max_candidates_per_turn = 1
+    try:
+        ap_cooldown_turns = max(
+            0,
+            int(
+                auto_propose_raw.get(
+                    "cooldown_turns",
+                    os.environ.get("AI_CHAT_MEMORY_AUTO_PROPOSE_COOLDOWN_TURNS", 5),
+                )
+            ),
+        )
+    except (ValueError, TypeError):
+        ap_cooldown_turns = 5
+    try:
+        ap_min_confidence = float(
+            auto_propose_raw.get(
+                "min_confidence",
+                os.environ.get("AI_CHAT_MEMORY_AUTO_PROPOSE_MIN_CONFIDENCE", 0.8),
+            )
+        )
+    except (ValueError, TypeError):
+        ap_min_confidence = 0.8
+    if ap_min_confidence < 0.0:
+        ap_min_confidence = 0.0
+    elif ap_min_confidence > 1.0:
+        ap_min_confidence = 1.0
+
+    _raw_categories = auto_propose_raw.get(
+        "categories",
+        os.environ.get("AI_CHAT_MEMORY_AUTO_PROPOSE_CATEGORIES"),
+    )
+    _default_categories = ["preference", "project_fact", "decision", "workflow_hint"]
+    if isinstance(_raw_categories, list):
+        _ap_candidates = [str(v).strip() for v in _raw_categories if str(v).strip()]
+    elif isinstance(_raw_categories, str) and _raw_categories.strip():
+        _ap_candidates = [s.strip() for s in _raw_categories.split(",") if s.strip()]
+    else:
+        _ap_candidates = list(_default_categories)
+    _valid_ap_categories = {"preference", "project_fact", "decision", "workflow_hint"}
+    ap_categories = [c for c in _ap_candidates if c in _valid_ap_categories] or list(_default_categories)
+
     memory_config = MemoryConfig(
         promotion=MemoryPromotionConfig(
             default_review_state=mem_default_review_state,
@@ -2859,6 +2950,14 @@ def load_config(
             min_age_days=ret_min_age_days,
             purge_statuses=ret_purge_statuses,
             respect_pins=ret_respect_pins,
+        ),
+        auto_propose=MemoryAutoProposeConfig(
+            enabled=ap_enabled,
+            max_candidates_per_turn=ap_max_candidates_per_turn,
+            categories=ap_categories,
+            min_confidence=ap_min_confidence,
+            notify_inline=ap_notify_inline,
+            cooldown_turns=ap_cooldown_turns,
         ),
     )
 

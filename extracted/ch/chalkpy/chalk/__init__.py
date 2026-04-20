@@ -37,6 +37,7 @@ from chalk.operators import StaticOperator, scan_parquet
 from chalk.prompts import Prompt, completion, run_prompt
 from chalk.queries.named_query import NamedQuery
 from chalk.queries.query_context import ChalkContext
+from chalk.queries.scheduled_aggregate_backfill import AggregateBackfillTarget, ScheduledAggregateBackfill
 from chalk.queries.scheduled_query import ScheduledQuery
 from chalk.sql import make_sql_file_resolver
 from chalk.state import State
@@ -50,6 +51,7 @@ realtime = online
 embedding = embed
 
 __all__ = (
+    "AggregateBackfillTarget",
     "AnyDataclass",
     "BranchId",
     "ChalkContext",
@@ -76,6 +78,7 @@ __all__ = (
     "Prompt",
     "Resolver",
     "ScheduleOptions",
+    "ScheduledAggregateBackfill",
     "ScheduledQuery",
     "State",
     "StaticOperator",

@@ -171,7 +171,7 @@ function registerBootstrapContextEngine(api: any, mode: "install" | "configure")
       info: {
         id: "keep",
         name: "keep (setup required)",
-        version: "0.139.1",
+        version: "0.140.0",
         ownsCompaction: false,
       },
       async assemble(params: { messages: any[]; tokenBudget?: number }) {
@@ -625,7 +625,7 @@ export default function register(api: any) {
       info: {
         id: "keep",
         name: "keep reflective memory",
-        version: "0.139.1",
+        version: "0.140.0",
         ownsCompaction: false,
       },
 
@@ -697,7 +697,7 @@ export default function register(api: any) {
             params: {
               content,
               id: itemId,
-              tags: sessionTags({ ...params, extra: { role } }),
+              tags: sessionTags({ ...params, extra: { role, type: "conversation", source: "openclaw" } }),
             },
           });
 
@@ -741,7 +741,7 @@ export default function register(api: any) {
             params: {
               content: turnContent,
               id: itemId,
-              tags: sessionTags(params),
+              tags: sessionTags({ ...params, extra: { type: "conversation", source: "openclaw" } }),
             },
           });
 
@@ -886,7 +886,7 @@ export default function register(api: any) {
               params: {
                 content,
                 id: itemId,
-                tags: sessionTags({ ...params, extra: { role } }),
+                tags: sessionTags({ ...params, extra: { role, type: "conversation", source: "openclaw" } }),
               },
             });
           } catch (err: any) {

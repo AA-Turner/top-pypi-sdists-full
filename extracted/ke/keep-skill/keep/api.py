@@ -79,6 +79,7 @@ from .recovery import is_malformed_db_error
 from .document_store import PartInfo, VersionInfo
 from .types import (
     Item, ItemContext, EdgeRef, TagMap,
+    build_item_context, eval_when_predicate,
     casefold_tags, casefold_tags_for_index, filter_non_system_tags,
     iter_tag_pairs, note_display_name, normalize_edge_value, set_tag_values, tag_values, parse_ref, format_ref,
     SYSTEM_TAG_PREFIX, local_date, utc_now,
@@ -272,6 +273,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         self._startup_maintenance_thread: Optional[threading.Thread] = None
         self._last_spawn_time: float = 0.0
         self._tagdoc_cache: dict[str, Optional[dict[str, str]]] = {}
+        self._cel_cache: dict[str, Any] = {}  # compiled CEL programs keyed by source string
         self._ignore_patterns: Optional[list[str]] = None
         self._ignore_patterns_ts: float = 0.0
         self._context_cache = ContextCache()
@@ -522,6 +524,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         id: str,
         merged_tags: dict[str, str],
         doc_coll: str,
+        *,
+        summary: str = "",
     ) -> None:
         """Upsert current edge rows and target labels without delete/backfill churn."""
         if id.startswith("."):
@@ -552,6 +556,19 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 inverse = inverse[0]
             if not inverse:
                 continue
+
+            # Evaluate _when condition against source note
+            when_source = td_tags.get("_when", "")
+            if when_source:
+                item_ctx = build_item_context(
+                    id=id,
+                    tags=merged_tags,
+                    summary=summary,
+                    content_type=merged_tags.get("_content_type", ""),
+                    uri=merged_tags.get("_source_uri", ""),
+                )
+                if not eval_when_predicate(when_source, item_ctx, cache=self._cel_cache):
+                    continue  # condition not met — skip this edge tag
 
             for current_value in tag_values(merged_tags, key):
                 if not current_value:
@@ -637,10 +654,11 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 )
                 self._restore_current_edges_without_backfill(
                     doc_id, migrated_tags, doc_coll,
+                    summary=record.summary,
                 )
                 changed_docs += 1
 
-            for version in self._document_store.list_versions(doc_coll, doc_id, limit=10000):
+            for version in self._document_store.list_versions(doc_coll, doc_id, limit=0):
                 version_tags = dict(version.tags)
                 migrated_version_tags = dict(version.tags)
                 self._normalize_edge_tag_values(migrated_version_tags, doc_coll)
@@ -690,6 +708,165 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             "versions": changed_versions,
             "parts": changed_parts,
         }
+
+    def _filter_tag_specs_by_when(
+        self,
+        specs: list[dict],
+        item_tags: dict[str, Any],
+        item_id: str = "",
+        item_summary: str = "",
+    ) -> list[dict]:
+        """Remove tag specs whose ``_when`` condition is not met by the item."""
+        result = []
+        item_ctx = build_item_context(
+            id=item_id,
+            tags=item_tags,
+            summary=item_summary,
+            content_type=item_tags.get("_content_type", ""),
+            uri=item_tags.get("_source_uri", ""),
+        )
+        for spec in specs:
+            when_source = spec.get("_when", "")
+            if not when_source or eval_when_predicate(
+                when_source, item_ctx, cache=self._cel_cache,
+            ):
+                result.append(spec)
+        return result
+
+    # Content-kind values that should live under ``kind`` instead of ``type``.
+    # Entity-type values (conversation, paper, vulnerability, …) stay in ``type``.
+    _TYPE_TO_KIND_VALUES: frozenset[str] = frozenset({
+        "learning", "breakdown", "gotcha", "reference", "teaching",
+        "meeting", "pattern", "possibility", "decision",
+    })
+
+    def _migrate_type_to_kind(self, doc_coll: str) -> dict[str, int]:
+        """Move content-kind values from ``type`` to ``kind`` tag in-place.
+
+        After this migration ``type`` holds only entity-type values
+        (conversation, paper, …) and ``kind`` holds content-kind values
+        (learning, breakdown, …).  If a note's ``type`` contains both
+        entity-type and content-kind values, only the content-kind ones
+        are moved; the entity-type values remain.
+        """
+        changed_docs = 0
+        changed_versions = 0
+        changed_parts = 0
+        chroma_coll = self._resolve_chroma_collection()
+
+        for doc_id in self._document_store.list_ids(doc_coll):
+            record = self._document_store.get(doc_coll, doc_id)
+            if record is None:
+                continue
+
+            # --- head document ---
+            migrated_tags = self._retag_type_to_kind(dict(record.tags))
+            if migrated_tags is not None:
+                self._document_store.update_tags(doc_coll, doc_id, migrated_tags)
+                self._rewrite_index_tags_without_timestamp(
+                    chroma_coll, doc_id, casefold_tags_for_index(migrated_tags),
+                )
+                changed_docs += 1
+
+            # --- versions ---
+            for version in self._document_store.list_versions(
+                doc_coll, doc_id, limit=0,
+            ):
+                migrated_vtags = self._retag_type_to_kind(dict(version.tags))
+                if migrated_vtags is not None:
+                    self._document_store.replace_version_content(
+                        doc_coll, doc_id, version.version,
+                        version.summary, migrated_vtags, version.content_hash,
+                    )
+                    indexed = dict(migrated_vtags)
+                    indexed["_version"] = str(version.version)
+                    indexed["_base_id"] = doc_id
+                    self._rewrite_index_tags_without_timestamp(
+                        chroma_coll,
+                        f"{doc_id}@v{version.version}",
+                        casefold_tags_for_index(indexed),
+                    )
+                    changed_versions += 1
+
+            # --- parts ---
+            for part in self._document_store.list_parts(doc_coll, doc_id):
+                migrated_ptags = self._retag_type_to_kind(dict(part.tags))
+                if migrated_ptags is not None:
+                    self._document_store.update_part_tags(
+                        doc_coll, doc_id, part.part_num, migrated_ptags,
+                    )
+                    indexed = dict(migrated_ptags)
+                    indexed["_part_num"] = str(part.part_num)
+                    indexed["_base_id"] = doc_id
+                    self._rewrite_index_tags_without_timestamp(
+                        chroma_coll,
+                        f"{doc_id}@p{part.part_num}",
+                        casefold_tags_for_index(indexed),
+                    )
+                    changed_parts += 1
+
+        return {
+            "documents": changed_docs,
+            "versions": changed_versions,
+            "parts": changed_parts,
+        }
+
+    def _retag_type_to_kind(self, tags: dict[str, Any]) -> dict[str, Any] | None:
+        """Move content-kind values from ``type`` to ``kind``.
+
+        Returns the mutated *tags* dict if any values were moved, else ``None``
+        (no change needed).
+        """
+        type_vals = tag_values(tags, "type")
+        if not type_vals:
+            return None
+
+        to_move = [v for v in type_vals if v in self._TYPE_TO_KIND_VALUES]
+        if not to_move:
+            return None
+
+        # Values that stay in type (entity-type values)
+        keep_in_type = [v for v in type_vals if v not in self._TYPE_TO_KIND_VALUES]
+        set_tag_values(tags, "type", keep_in_type)
+
+        # Merge into existing kind values (hermes may already have set kind)
+        existing_kind = tag_values(tags, "kind")
+        merged_kind = list(dict.fromkeys(existing_kind + to_move))
+        set_tag_values(tags, "kind", merged_kind)
+
+        return tags
+
+    def _run_type_to_kind_migration(self, doc_coll: str) -> dict[str, int]:
+        """Rename content-kind values once per store."""
+        if self._config.type_to_kind_migrated:
+            return {"documents": 0, "versions": 0, "parts": 0}
+        if not self._document_store.list_ids(doc_coll, limit=1):
+            self._config.type_to_kind_migrated = True
+            try:
+                save_config(self._config)
+            except Exception as e:
+                logger.debug("Failed to persist type_to_kind_migrated: %s", e)
+            return {"documents": 0, "versions": 0, "parts": 0}
+
+        try:
+            logger.info("Migrating content-kind values from 'type' to 'kind' tag")
+            stats = self._migrate_type_to_kind(doc_coll)
+            self._config.type_to_kind_migrated = True
+            try:
+                save_config(self._config)
+            except Exception as e:
+                logger.debug("Failed to persist type_to_kind_migrated: %s", e)
+            logger.info(
+                "type→kind migration complete (%d docs, %d versions, %d parts)",
+                stats["documents"], stats["versions"], stats["parts"],
+            )
+            return stats
+        except Exception as e:
+            logger.warning(
+                "type→kind migration failed; content-kind values remain in 'type' "
+                "until it succeeds: %s", e,
+            )
+            return {"documents": 0, "versions": 0, "parts": 0}
 
     # Provider+model combinations known to be symmetric (task param is a no-op).
     # Key: provider name, Value: set of model prefixes that are symmetric,
@@ -965,6 +1142,12 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             if self._closing.is_set():
                 return
 
+            # Move content-kind values from ``type`` to ``kind`` tag
+            self._run_type_to_kind_migration(doc_coll)
+
+            if self._closing.is_set():
+                return
+
             # Embed-task-type migration (deferred path)
             if (
                 self._config.embedding is not None
@@ -1074,6 +1257,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         from .system_docs import migrate_system_documents
         result = migrate_system_documents(self, progress=progress)
         self._tagdoc_cache.clear()  # tagdocs may have changed
+        self._cel_cache.clear()
+        self._cel_cache.clear()
         self._context_cache.clear()
         self._scan_tagdoc_backfills()
         return result
@@ -1110,6 +1295,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         doc_tags: dict[str, str],
         *,
         item_id: str | None = None,
+        item_summary: str = "",
         required: bool = False,
     ) -> str | None:
         """Find a .prompt/* doc matching the given tags and return its prompt text.
@@ -1127,6 +1313,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             prefix: "analyze", "summarize", "supernode", etc.
             doc_tags: Tags of the document being processed
             item_id: Optional item ID for scope-glob matching
+            item_summary: Summary of the item being processed (for _when CEL)
             required: When True, raise if no matching prompt doc resolves.
 
         Returns:
@@ -1154,8 +1341,23 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             if not prompt_text:
                 continue
 
-            # Check scope tag (glob against item ID)
+            # Check _when condition (CEL expression against item context)
             rec_tags = rec.tags if hasattr(rec, 'tags') else {}
+            when_source = rec_tags.get("_when", "")
+            when_matched = False
+            if when_source:
+                item_ctx = build_item_context(
+                    id=item_id or "",
+                    tags=doc_tags,
+                    summary=item_summary,
+                    content_type=doc_tags.get("_content_type", ""),
+                    uri=doc_tags.get("_source_uri", ""),
+                )
+                if not eval_when_predicate(when_source, item_ctx, cache=self._cel_cache):
+                    continue  # item doesn't match this prompt's condition
+                when_matched = True
+
+            # Check scope tag (glob against item ID)
             scope = rec_tags.get("scope")
             if isinstance(scope, list):
                 scope = scope[0] if scope else None
@@ -1170,6 +1372,14 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 continue
             elif scope and not item_id:
                 continue  # scope requires item_id
+
+            # If _when matched, it takes precedence over body match rules.
+            # Specificity 1 beats the bare default (0).
+            if when_matched:
+                if 1 > best_specificity:
+                    best_specificity = 1
+                    best_prompt = prompt_text
+                continue
 
             # Parse match rules from body (before ## Prompt)
             query_lines, _, _ = _parse_meta_doc(content)
@@ -2297,6 +2507,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         merged_tags: dict[str, str],
         existing_tags: dict[str, str],
         doc_coll: str,
+        *,
+        summary: str = "",
     ) -> None:
         """Create/update/delete edges based on tagdoc _inverse declarations.
 
@@ -2352,13 +2564,36 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             if isinstance(inverse, list):
                 inverse = inverse[0]
 
+            # Evaluate _when condition from tagdoc against source note.
+            # When false, edge *creation* is suppressed but edge *removal*
+            # must still run — a previously-matching source may have stopped
+            # matching after a tag change.
+            when_allows_creation = True
+            when_source = td_tags.get("_when", "")
+            if when_source:
+                item_ctx = build_item_context(
+                    id=id,
+                    tags=merged_tags,
+                    summary=summary,
+                    content_type=merged_tags.get("_content_type", ""),
+                    uri=merged_tags.get("_source_uri", ""),
+                )
+                if not eval_when_predicate(when_source, item_ctx, cache=self._cel_cache):
+                    when_allows_creation = False
+
             current_values = tag_values(merged_tags, key)
             previous_values = tag_values(existing_tags, key)
             previous_value_set = set(previous_values)
             current_value_set = set(current_values)
 
-            removed_values = [v for v in previous_values if v not in current_value_set]
-            added_values = [v for v in current_values if v not in previous_value_set]
+            if when_allows_creation:
+                removed_values = [v for v in previous_values if v not in current_value_set]
+                added_values = [v for v in current_values if v not in previous_value_set]
+            else:
+                # _when is false: delete ALL edges for this key (previous
+                # AND current values) and create nothing.
+                removed_values = list(dict.fromkeys(previous_values + current_values))
+                added_values = []
 
             # Tag values removed → queue edge deletions.
             for removed in removed_values:
@@ -2967,6 +3202,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             self._process_tagdoc_inverse_change(id, merged_tags, old_tagdoc_tags, doc_coll)
             tag_key = id.removeprefix(".tag/").split("/")[0]
             self._tagdoc_cache.pop(tag_key, None)
+            self._cel_cache.clear()  # tagdoc _when may have changed
 
         # Save old embedding before ChromaDB upsert overwrites it (for version archival)
         old_embedding = None
@@ -3021,7 +3257,10 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             self._store.delete(chroma_coll, id, delete_versions=True)
 
         with _tracer.start_as_current_span("edge_tags"):
-            self._process_edge_tags(id, merged_tags, existing_tags, doc_coll)
+            self._process_edge_tags(
+                id, merged_tags, existing_tags, doc_coll,
+                summary=final_summary,
+            )
 
         # .ignore update: purge items matching current patterns
         if id == ".ignore":
@@ -3672,12 +3911,38 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         # don't inherit parent tags (see analyze.py), so without this
         # expansion a tag filter would never reach them.
         tag_join_base_ids: list[str] = []
+        # IDs from inverse-edge tag filters (e.g. cited_by=source_id)
+        inverse_edge_ids: Optional[set[str]] = None
         if tags:
             casefolded_tags = casefold_tags(tags)
             for k in casefolded_tags:
                 if not k.startswith(SYSTEM_TAG_PREFIX):
                     validate_tag_key(k)
-            where = self._build_tag_where(casefolded_tags)
+
+            # Separate inverse-edge filters from regular tag filters.
+            # An inverse-edge filter is a tag key that matches an inverse
+            # predicate (i.e., .tag/KEY exists with _inverse pointing back).
+            regular_tags: dict[str, Any] = {}
+            for k, v in casefolded_tags.items():
+                td = self._get_tagdoc_tags(k, doc_coll)
+                if td is not None and td.get("_inverse"):
+                    # This key is itself an inverse predicate — resolve
+                    # via the edges table instead of tag matching.
+                    for source_id in tag_values(casefolded_tags, k):
+                        if not source_id:
+                            continue
+                        found = self._document_store.find_by_inverse_edge(
+                            doc_coll, k, source_id,
+                        )
+                        if inverse_edge_ids is None:
+                            inverse_edge_ids = set(found)
+                        else:
+                            inverse_edge_ids &= set(found)
+                else:
+                    regular_tags[k] = v
+
+            casefolded_tags = regular_tags
+            where = self._build_tag_where(casefolded_tags) if casefolded_tags else None
 
             if where is not None:
                 parent_ids_set = self._ids_matching_tags(
@@ -3826,6 +4091,21 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                      if (i.tags.get("_base_id") or
                          (i.id.split("@")[0] if "@" in i.id else i.id))
                      in scope_ids]
+
+        # Filter by inverse-edge results (e.g. find -t cited_by=source)
+        if inverse_edge_ids is not None:
+            if not items:
+                # No semantic/FTS results — return inverse-edge targets directly
+                for tid in sorted(inverse_edge_ids)[:limit]:
+                    doc = self._document_store.get(doc_coll, tid)
+                    if doc is not None:
+                        items.append(Item(id=doc.id, summary=doc.summary, tags=dict(doc.tags)))
+            else:
+                base_ids = inverse_edge_ids
+                items = [i for i in items
+                         if (i.tags.get("_base_id") or
+                             (i.id.split("@")[0] if "@" in i.id else i.id))
+                         in base_ids]
 
         # Deep follow: prefer edge-following when edges exist in the store,
         # fall back to tag-following for stores without edges.
@@ -5046,7 +5326,10 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         self._document_store.update_tags(doc_coll, id, final_tags)
         self._store.update_tags(chroma_coll, id, casefold_tags_for_index(final_tags))
 
-        self._process_edge_tags(id, final_tags, current_tags, doc_coll)
+        self._process_edge_tags(
+            id, final_tags, current_tags, doc_coll,
+            summary=existing.summary,
+        )
 
         # Tag changes can affect meta-doc resolution (tag-based queries)
         self._context_cache.notify_write(
@@ -5478,12 +5761,17 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     logger.warning("Incremental analysis LLM call failed: %s", e)
                     new_parts = []
 
-                # Classify new parts with tag specs
+                # Classify new parts with tag specs (filtered by _when)
                 if tag_specs and new_parts:
-                    try:
-                        classifier.classify(new_parts, tag_specs)
-                    except Exception as e:
-                        logger.warning("Tag classification skipped: %s", e)
+                    filtered_specs = self._filter_tag_specs_by_when(
+                        tag_specs, dict(doc_record.tags), id,
+                        doc_record.summary,
+                    )
+                    if filtered_specs:
+                        try:
+                            classifier.classify(new_parts, filtered_specs)
+                        except Exception as e:
+                            logger.warning("Tag classification skipped: %s", e)
 
                 # Append new parts (don't delete old ones)
                 if new_parts:
@@ -5510,10 +5798,15 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 prompt_override=analysis_prompt,
             )
             if tag_specs and raw_parts:
-                try:
-                    classifier.classify(raw_parts, tag_specs)
-                except Exception as e:
-                    logger.warning("Tag classification skipped: %s", e)
+                filtered_specs = self._filter_tag_specs_by_when(
+                    tag_specs, dict(doc_record.tags), id,
+                    doc_record.summary,
+                )
+                if filtered_specs:
+                    try:
+                        classifier.classify(raw_parts, filtered_specs)
+                    except Exception as e:
+                        logger.warning("Tag classification skipped: %s", e)
             analyze_result = {"parts": raw_parts}
         else:
             analyze_result = process_analyze(

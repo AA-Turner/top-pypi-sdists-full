@@ -44,6 +44,7 @@ DEFAULT_TOOL_TIERS: dict[str, ToolTier] = {
     "introspect": ToolTier.READ,
     "write_file": ToolTier.WRITE,
     "edit_file": ToolTier.WRITE,
+    "save_memory": ToolTier.WRITE,
     "create_canvas": ToolTier.READ,
     "update_canvas": ToolTier.READ,
     "patch_canvas": ToolTier.READ,

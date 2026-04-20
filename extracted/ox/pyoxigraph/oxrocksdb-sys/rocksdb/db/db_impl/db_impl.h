@@ -455,19 +455,20 @@ class DBImpl : public DB {
 
   void EnableManualCompaction() override;
   void DisableManualCompaction() override;
+  void AbortAllCompactions() override;
+  void ResumeAllCompactions() override;
 
   using DB::SetOptions;
   Status SetOptions(
-      ColumnFamilyHandle* column_family,
-      const std::unordered_map<std::string, std::string>& options_map) override;
+      const std::unordered_map<ColumnFamilyHandle*,
+                               std::unordered_map<std::string, std::string>>&
+          column_families_opts_map) override;
 
   Status SetDBOptions(
       const std::unordered_map<std::string, std::string>& options_map) override;
 
   using DB::NumberLevels;
   int NumberLevels(ColumnFamilyHandle* column_family) override;
-  using DB::MaxMemCompactionLevel;
-  int MaxMemCompactionLevel(ColumnFamilyHandle* column_family) override;
   using DB::Level0StopWriteTrigger;
   int Level0StopWriteTrigger(ColumnFamilyHandle* column_family) override;
   const std::string& GetName() const override;
@@ -2787,6 +2788,14 @@ class DBImpl : public DB {
   // manual compactions. It is accessed in read mode outside the DB mutex in
   // compaction code paths.
   std::atomic<int> manual_compaction_paused_ = false;
+
+  // If non-zero, all compaction jobs (background automatic compactions,
+  // manual compactions via CompactRange, and foreground CompactFiles calls)
+  // are being aborted. Compactions will be signaled to stop. Any new
+  // compaction job would fail immediately. The value indicates how many threads
+  // have called AbortAllCompactions(). It is accessed in read mode outside the
+  // DB mutex in compaction code paths.
+  std::atomic<int> compaction_aborted_ = 0;
 
   // This condition variable is signaled on these conditions:
   // * whenever bg_compaction_scheduled_ goes down to 0

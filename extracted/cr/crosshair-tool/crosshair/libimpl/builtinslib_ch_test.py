@@ -816,6 +816,26 @@ def check_str_split(string: str, sep: str, maxsplit: int) -> ResultComparison:
     return compare_results(lambda s, *a: s.split(*a), string, sep, maxsplit)
 
 
+def check_str_split_whitespace(string: str, maxsplit: int) -> ResultComparison:
+    """
+    ``str.split()`` with default *sep* (whitespace runs).
+
+    pre: len(string) <= 4 and -2 <= maxsplit <= 4
+    post: _
+    """
+    return compare_results(lambda s, m: s.split(maxsplit=m), string, maxsplit)
+
+
+def check_str_rsplit_whitespace(string: str, maxsplit: int) -> ResultComparison:
+    """
+    ``str.rsplit()`` with default *sep* (whitespace runs).
+
+    pre: len(string) <= 4 and -2 <= maxsplit <= 4
+    post: _
+    """
+    return compare_results(lambda s, m: s.rsplit(maxsplit=m), string, maxsplit)
+
+
 def check_str_splitlines(string: str, keepends: bool) -> ResultComparison:
     """post: _"""
     if "\r" in string:
@@ -862,7 +882,10 @@ def check_str_title(string: str):
 def check_str_translate(
     string: str, tbl: Union[Mapping[int, int], List[str]]
 ) -> ResultComparison:
-    """post: _"""
+    """
+    pre: len(string) <= 3 and len(tbl) <= 16
+    post: _
+    """
     return compare_results(lambda s, *a: s.translate(*a), string, tbl)
 
 
@@ -1188,4 +1211,4 @@ def test_builtin(fn_name: str) -> None:
     fn = getattr(this_module, fn_name)
     messages = run_checkables(analyze_function(fn))
     errors = [m for m in messages if m.state > MessageType.PRE_UNSAT]
-    assert errors == []
+    assert errors == [], [(m.state, m.message) for m in errors]

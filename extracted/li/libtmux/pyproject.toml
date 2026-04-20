@@ -1,6 +1,6 @@
 [project]
 name = "libtmux"
-version = "0.55.0"
+version = "0.55.1"
 description = "Typed library that provides an ORM wrapper for tmux, a terminal multiplexer."
 requires-python = ">=3.10,<4.0"
 authors = [
@@ -51,18 +51,12 @@ Changes = "https://github.com/tmux-python/libtmux/blob/master/CHANGES"
 
 [dependency-groups]
 dev = [
-  # Docs
-  "sphinx<9",
-  "furo",
-  "gp-libs",
+  # Docs (via gp-sphinx)
+  "gp-sphinx==0.0.1a9",
+  "sphinx-autodoc-api-style==0.0.1a9",
+  "sphinx-autodoc-pytest-fixtures==0.0.1a9",
   "sphinx-autobuild",
-  "sphinx-autodoc-typehints",
-  "sphinx-inline-tabs",
-  "sphinxext-opengraph",
-  "sphinx-copybutton",
-  "sphinxext-rediraffe",
-  "myst-parser",
-  "linkify-it-py",
+  "types-docutils",
   # Testing
   "typing-extensions; python_version < '3.11'",
   "gp-libs",
@@ -81,17 +75,10 @@ dev = [
 ]
 
 docs = [
-  "sphinx<9",
-  "furo",
-  "gp-libs",
+  "gp-sphinx==0.0.1a9",
+  "sphinx-autodoc-api-style==0.0.1a9",
+  "sphinx-autodoc-pytest-fixtures==0.0.1a9",
   "sphinx-autobuild",
-  "sphinx-autodoc-typehints",
-  "sphinx-inline-tabs",
-  "sphinxext-opengraph",
-  "sphinx-copybutton",
-  "sphinxext-rediraffe",
-  "myst-parser",
-  "linkify-it-py",
 ]
 testing = [
   "typing-extensions; python_version < '3.11'",
@@ -126,6 +113,7 @@ files = [
   "src",
   "tests",
 ]
+
 
 [tool.coverage.run]
 branch = true
@@ -234,6 +222,9 @@ testpaths = [
   "tests",
   "docs",
   "README.md",
+]
+markers = [
+  "integration: sphinx integration tests (require full sphinx build)",
 ]
 filterwarnings = [
   "ignore:The frontend.Option(Parser)? class.*:DeprecationWarning::",

@@ -390,8 +390,6 @@ ifdef COMPILE_WITH_TSAN
         # Turn off -pg when enabling TSAN testing, because that induces
         # a link failure.  TODO: find the root cause
 	PROFILING_FLAGS =
-	# LUA is not supported under TSAN
-	LUA_PATH =
 	# Limit keys for crash test under TSAN to avoid error:
 	# "ThreadSanitizer: DenseSlabAllocator overflow. Dying."
 	CRASH_TEST_EXT_ARGS += --max_key=1000000
@@ -508,32 +506,6 @@ ifndef DISABLE_WARNING_AS_ERROR
 endif
 
 
-ifdef LUA_PATH
-
-ifndef LUA_INCLUDE
-LUA_INCLUDE=$(LUA_PATH)/include
-endif
-
-LUA_INCLUDE_FILE=$(LUA_INCLUDE)/lualib.h
-
-ifeq ("$(wildcard $(LUA_INCLUDE_FILE))", "")
-# LUA_INCLUDE_FILE does not exist
-$(error Cannot find lualib.h under $(LUA_INCLUDE).  Try to specify both LUA_PATH and LUA_INCLUDE manually)
-endif
-LUA_FLAGS = -I$(LUA_INCLUDE) -DLUA -DLUA_COMPAT_ALL
-CFLAGS += $(LUA_FLAGS)
-CXXFLAGS += $(LUA_FLAGS)
-
-ifndef LUA_LIB
-LUA_LIB = $(LUA_PATH)/lib/liblua.a
-endif
-ifeq ("$(wildcard $(LUA_LIB))", "") # LUA_LIB does not exist
-$(error $(LUA_LIB) does not exist.  Try to specify both LUA_PATH and LUA_LIB manually)
-endif
-EXEC_LDFLAGS += $(LUA_LIB)
-
-endif
-
 ifeq ($(NO_THREEWAY_CRC32C), 1)
 	CXXFLAGS += -DNO_THREEWAY_CRC32C
 endif
@@ -604,8 +576,8 @@ ifneq ($(filter check-headers, $(MAKECMDGOALS)),)
 # TODO: add/support JNI headers
 	DEV_HEADER_DIRS := $(sort include/ $(dir $(ALL_SOURCES)))
 # Some headers like in port/ are platform-specific
-	DEV_HEADERS_TO_CHECK := $(shell $(FIND) $(DEV_HEADER_DIRS) -type f -name '*.h' | grep -E -v 'port/|plugin/|lua/|range_tree/|secondary_index/')
-	PUBLIC_HEADERS_TO_CHECK := $(shell $(FIND) include/ -type f -name '*.h' | grep -E -v 'lua/')
+	DEV_HEADERS_TO_CHECK := $(shell $(FIND) $(DEV_HEADER_DIRS) -type f -name '*.h' | grep -E -v 'port/|plugin/|range_tree/|secondary_index/')
+	PUBLIC_HEADERS_TO_CHECK := $(shell $(FIND) include/ -type f -name '*.h')
 else
 	DEV_HEADERS_TO_CHECK :=
 	PUBLIC_HEADERS_TO_CHECK :=
@@ -833,7 +805,7 @@ endif  # PLATFORM_SHARED_EXT
 .PHONY: check clean coverage ldb_tests package dbg gen-pc build_size \
 	release tags tags0 valgrind_check format static_lib shared_lib all \
 	rocksdbjavastatic rocksdbjava install install-static install-shared \
-	uninstall analyze tools tools_lib check-headers checkout_folly
+	uninstall analyze tools tools_lib check-headers checkout_folly clang-tidy
 
 all: $(LIBRARY) $(BENCHMARKS) tools tools_lib test_libs $(TESTS)
 
@@ -1020,6 +992,11 @@ watch-log:
 
 dump-log:
 	bash -c '$(quoted_perl_command)' < LOG
+
+# Machine-parseable progress output for automated monitoring (e.g., Claude Code)
+# Outputs JSON: {"status":"running","completed":45,"total":100,"failed":0,"percent":45,"eta_seconds":120}
+check-progress:
+	@build_tools/check_progress.sh
 
 # If J != 1 and GNU parallel is installed, run the tests in parallel,
 # via the check_0 rule above.  Otherwise, run them sequentially.
@@ -1232,6 +1209,10 @@ tags0:
 format:
 	build_tools/format-diff.sh
 
+# Non-interactive format (auto-apply without prompts, for CI/automation/Claude Code)
+format-auto:
+	build_tools/format-diff.sh -y
+
 check-format:
 	build_tools/format-diff.sh -c
 
@@ -1240,6 +1221,15 @@ check-buck-targets:
 
 check-sources:
 	build_tools/check-sources.sh
+
+# Run clang-tidy on locally changed files, filtered to changed lines only.
+# Requires compile_commands.json (generate with cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON).
+# Override CLANG_TIDY_BINARY and CLANG_TIDY_JOBS as needed:
+#   make clang-tidy CLANG_TIDY_BINARY=/usr/bin/clang-tidy CLANG_TIDY_JOBS=8
+CLANG_TIDY_BINARY ?= /opt/homebrew/opt/llvm/bin/clang-tidy
+CLANG_TIDY_JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+clang-tidy:
+	python3 tools/run_clang_tidy.py --clang-tidy-binary $(CLANG_TIDY_BINARY) -j $(CLANG_TIDY_JOBS)
 
 package:
 	bash build_tools/make_package.sh $(SHARED_MAJOR).$(SHARED_MINOR)
@@ -1468,6 +1458,9 @@ db_compaction_filter_test: $(OBJ_DIR)/db/db_compaction_filter_test.o $(TEST_LIBR
 	$(AM_LINK)
 
 db_compaction_test: $(OBJ_DIR)/db/db_compaction_test.o $(TEST_LIBRARY) $(LIBRARY)
+	$(AM_LINK)
+
+db_compaction_abort_test: $(OBJ_DIR)/db/db_compaction_abort_test.o $(TEST_LIBRARY) $(LIBRARY)
 	$(AM_LINK)
 
 db_clip_test: $(OBJ_DIR)/db/db_clip_test.o $(TEST_LIBRARY) $(LIBRARY)
@@ -1845,6 +1838,9 @@ write_committed_transaction_ts_test: $(OBJ_DIR)/utilities/transactions/write_com
 write_prepared_transaction_test: $(OBJ_DIR)/utilities/transactions/write_prepared_transaction_test.o $(TEST_LIBRARY) $(LIBRARY)
 	$(AM_LINK)
 
+write_prepared_transaction_test_seqno: $(OBJ_DIR)/utilities/transactions/write_prepared_transaction_test_seqno.o $(TEST_LIBRARY) $(LIBRARY)
+	$(AM_LINK)
+
 write_unprepared_transaction_test: $(OBJ_DIR)/utilities/transactions/write_unprepared_transaction_test.o $(TEST_LIBRARY) $(LIBRARY)
 	$(AM_LINK)
 
@@ -1948,6 +1944,9 @@ blob_source_test: $(OBJ_DIR)/db/blob/blob_source_test.o $(TEST_LIBRARY) $(LIBRAR
 	$(AM_LINK)
 
 blob_garbage_meter_test: $(OBJ_DIR)/db/blob/blob_garbage_meter_test.o $(TEST_LIBRARY) $(LIBRARY)
+	$(AM_LINK)
+
+io_dispatcher_test: $(OBJ_DIR)/util/io_dispatcher_test.o $(TEST_LIBRARY) $(LIBRARY)
 	$(AM_LINK)
 
 timer_test: $(OBJ_DIR)/util/timer_test.o $(TEST_LIBRARY) $(LIBRARY)
@@ -2562,7 +2561,7 @@ list_all_tests:
 
 # Remove the rules for which dependencies should not be generated and see if any are left.
 #If so, include the dependencies; if not, do not include the dependency files
-ROCKS_DEP_RULES=$(filter-out clean format check-format check-buck-targets check-headers check-sources jclean jtest package analyze tags rocksdbjavastatic% unity.% unity_test checkout_folly, $(MAKECMDGOALS))
+ROCKS_DEP_RULES=$(filter-out clean format check-format check-buck-targets check-headers check-sources clang-tidy jclean jtest package analyze tags rocksdbjavastatic% unity.% unity_test checkout_folly, $(MAKECMDGOALS))
 ifneq ("$(ROCKS_DEP_RULES)", "")
 -include $(DEPFILES)
 endif

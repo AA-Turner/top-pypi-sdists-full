@@ -49,19 +49,18 @@ pub async fn handle_hover(
         return Ok(None);
     }
 
-    let (root, document_tree, toml_version, position) = {
-        let document_sources = backend.document_sources.read().await;
-        let Some(document_source) = document_sources.get(&text_document_uri) else {
-            return Ok(None);
-        };
-
-        (
-            document_source.ast(),
-            document_source.document_tree(),
-            document_source.toml_version,
-            position.into_lsp(document_source.line_index()),
-        )
+    let Ok(document_sources) = backend.document_sources.try_read() else {
+        return Ok(None);
     };
+    let Some(document_source) = document_sources.get(&text_document_uri) else {
+        return Ok(None);
+    };
+    let (root, document_tree, toml_version, position) = (
+        document_source.ast(),
+        document_source.document_tree(),
+        document_source.toml_version,
+        position.into_lsp(document_source.line_index()),
+    );
 
     let source_schema = schema_store
         .resolve_source_schema_from_ast(&root, Some(Either::Left(&text_document_uri)))
@@ -98,6 +97,8 @@ pub async fn handle_hover(
                 .and_then(|s| s.root_schema.as_deref()),
             sub_schema_uri_map: source_schema.as_ref().map(|s| &s.sub_schema_uri_map),
             deprecated_lint_level: source_schema.as_ref().and_then(|s| s.deprecated_lint_level),
+            schema_format_rules: source_schema.as_ref().map(|s| &s.schema_format_rules),
+            schema_overrides: source_schema.as_ref().map(|s| &s.schema_overrides),
             schema_visits: Default::default(),
             store: &schema_store,
             strict: None,

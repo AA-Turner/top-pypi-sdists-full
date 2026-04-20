@@ -47,6 +47,7 @@ class ErrorCode(IntEnum):
     OCR_ERROR = 6
     MISSING_DEPENDENCY = 7
     EMBEDDING = 8
+    CANCELLED = 9
 
 
 @dataclass(frozen=True, slots=True)

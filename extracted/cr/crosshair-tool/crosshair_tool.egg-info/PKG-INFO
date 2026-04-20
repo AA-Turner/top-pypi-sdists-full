@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crosshair-tool
-Version: 0.0.102
+Version: 0.0.103
 Summary: Analyze Python code for correctness using symbolic execution.
 Home-page: https://github.com/pschanely/CrossHair
 Author: Phillip Schanely
@@ -39,8 +39,8 @@ Requires-Dist: mypy==1.18.1; extra == "dev"
 Requires-Dist: numpy==1.24.0; python_version < "3.12" and extra == "dev"
 Requires-Dist: numpy==2.3.3; python_version >= "3.12" and extra == "dev"
 Requires-Dist: pre-commit~=2.20; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: pytest==8.3.5; extra == "dev"
+Requires-Dist: pytest-xdist==3.8.0; extra == "dev"
 Requires-Dist: setuptools; extra == "dev"
 Requires-Dist: sphinx>=3.4.3; extra == "dev"
 Requires-Dist: sphinx-rtd-theme>=0.5.1; extra == "dev"

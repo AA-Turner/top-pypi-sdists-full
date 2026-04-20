@@ -757,7 +757,7 @@ DEFAULT_PROMOTION_ALIASES = ["candidate", "validated", "production"]
 
 
 def promote_assets(project, source, target, kinds=None, asset=None,
-                   instance="latest", with_aliases=False, alias="candidate"):
+                   instance="latest", with_aliases=True, alias="candidate"):
     """
     Promote assets from one branch to another.
 

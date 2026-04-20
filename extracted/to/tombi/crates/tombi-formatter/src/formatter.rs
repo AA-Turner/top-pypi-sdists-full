@@ -69,7 +69,7 @@ impl<'a> Formatter<'a> {
 
         if let Some(tombi_document_comment_directive) = &tombi_document_comment_directive
             && let Some(format) = &tombi_document_comment_directive.format
-            && format.disabled.unwrap_or(false)
+            && format.disabled.unwrap_or_default()
         {
             match self.source_uri_or_path.map(|path| match path {
                 Either::Left(url) => url.to_string(),
@@ -135,6 +135,12 @@ impl<'a> Formatter<'a> {
                 deprecated_lint_level: source_schema
                     .as_ref()
                     .and_then(|schema| schema.deprecated_lint_level),
+                schema_format_rules: source_schema
+                    .as_ref()
+                    .map(|schema| &schema.schema_format_rules),
+                schema_overrides: source_schema
+                    .as_ref()
+                    .map(|schema| &schema.schema_overrides),
                 schema_visits: Default::default(),
                 store: self.schema_store,
                 strict: tombi_document_comment_directive

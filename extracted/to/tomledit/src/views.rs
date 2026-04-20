@@ -30,7 +30,7 @@ macro_rules! impl_view_read_checked {
                 py: Python<'py>,
             ) -> PyResult<(&'py Document, parking_lot::RwLockReadGuard<'py, DocumentRs>)> {
                 let doc = self.document.bind(py).get();
-                let guard = doc.read_checked(&self.path, self.revision)?;
+                let guard = doc.read_checked(py, &self.path, self.revision)?;
                 Ok((doc, guard))
             }
         }
@@ -113,19 +113,6 @@ fn get_keys(doc: &DocumentRs, path: &[Key]) -> PyResult<Vec<String>> {
     dict_ops::item_keys(item)
 }
 
-/// Build a Python list of key strings directly from the TOML iterator,
-/// without an intermediate Rust Vec.
-fn keys_to_pylist<'py>(
-    doc: &DocumentRs,
-    path: &[Key],
-    py: Python<'py>,
-) -> PyResult<Bound<'py, PyList>> {
-    let item = item_ops::navigate_path(doc, path)?;
-    let list = PyList::empty(py);
-    dict_ops::for_each_key(item, |k| list.append(k))?;
-    Ok(list)
-}
-
 fn get_len(doc: &DocumentRs, path: &[Key]) -> PyResult<usize> {
     let item = item_ops::navigate_path(doc, path)?;
     let tbl = item
@@ -155,7 +142,7 @@ fn with_child_proxies(
 ) -> PyResult<()> {
     let doc = document.bind(py).get();
     let snapshots: Vec<(String, ProxyParts)> = {
-        let inner = doc.read_checked(path, view_revision)?;
+        let inner = doc.read_checked(py, path, view_revision)?;
         let revision = doc.revision();
         let item = item_ops::navigate_path(&inner, path)?;
         dict_ops::item_keys(item)?
@@ -207,8 +194,11 @@ impl KeysView {
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyIterator>> {
-        let (_doc, inner) = self.read_checked(py)?;
-        let list = keys_to_pylist(&inner, &self.path, py)?;
+        let keys = {
+            let (_doc, inner) = self.read_checked(py)?;
+            get_keys(&inner, &self.path)?
+        };
+        let list = PyList::new(py, keys)?;
         Ok(list.try_iter()?.unbind())
     }
 
@@ -410,11 +400,7 @@ impl ValuesView {
             Ok(())
         })?;
         proxies.reverse();
-        let list = PyList::empty(py);
-        for proxy in proxies {
-            list.append(proxy)?;
-        }
-        Ok(list.try_iter()?.unbind())
+        Ok(PyList::new(py, proxies)?.try_iter()?.unbind())
     }
 
     // No __eq__: Python's dict_values has no equality support (returns
@@ -503,10 +489,7 @@ impl ItemsView {
             Ok(())
         })?;
         pairs.reverse();
-        let list = PyList::empty(py);
-        for (k, proxy) in pairs {
-            list.append((k, proxy.into_bound(py)).into_pyobject(py)?)?;
-        }
+        let list = PyList::new(py, pairs.into_iter().map(|(k, p)| (k, p.into_bound(py))))?;
         Ok(list.try_iter()?.unbind())
     }
 

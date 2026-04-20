@@ -1764,7 +1764,7 @@ from pyspark.ml.classification import (
 {% endif %}{% if best_model_type is none or best_model_type == "xgboost" %}    GBTClassifier,
 {% endif %})
 from pyspark.ml import PipelineModel
-from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.feature import SQLTransformer, VectorAssembler
 from pyspark.ml.functions import vector_to_array
 from pyspark.ml.linalg import VectorUDT
 from pyspark.ml.evaluation import BinaryClassificationEvaluator, MulticlassClassificationEvaluator
@@ -1862,6 +1862,33 @@ def _apply_feature_spec_gate(df, spec):
 def load_training_data():
     return spark.table(gold_table())
 
+_NAFILLED_SUFFIX = "__nafilled"
+
+
+def _build_null_filler(feature_cols):
+    # SQLTransformer emits a copy of every feature column with NULL and NaN
+    # coerced to 0.0, under a `<col>__nafilled` alias. We use SELECT * so the
+    # filler never references columns that might be absent at scoring time:
+    #   - At training, SELECT * passes entity_id / event_timestamp / label
+    #     through untouched and adds the *__nafilled* copies alongside.
+    #   - At fe.score_batch time, FE feeds only the feature columns; SELECT *
+    #     passes those through and the same *__nafilled* projection runs.
+    # The VectorAssembler then reads inputCols=[<col>__nafilled, ...] so the
+    # vector is built from the null-safe copies in both worlds.
+    #
+    # pyspark.ml.Imputer is ruled out by Coding_Practices.md past ~100 cols
+    # (serialized model exceeds the 1 GB ceiling). SQLTransformer is a pure
+    # Transformer with no .fit() step so it scales to any column count.
+    projections = ["*"]
+    projections.extend(
+        f"COALESCE(nanvl(CAST(`{c}` AS DOUBLE), 0.0), 0.0) AS `{c}{_NAFILLED_SUFFIX}`"
+        for c in feature_cols
+    )
+    return SQLTransformer(
+        statement="SELECT " + ", ".join(projections) + " FROM __THIS__"
+    )
+
+
 def prepare_features(df):
     exclude_prefixes = ["original_"]
     feature_cols = [
@@ -1872,13 +1899,17 @@ def prepare_features(df):
     if not feature_cols:
         col_types = {c: df.schema[c].dataType.typeName() for c in df.columns}
         raise ValueError(f"[TRAINING] No numeric feature columns found. Column types: {col_types}")
-    df = df.fillna(0, subset=feature_cols)
-    assembler = VectorAssembler(inputCols=feature_cols, outputCol="features", handleInvalid="error")
+    filler = _build_null_filler(feature_cols)
+    filled = filler.transform(df)
+    filled_cols = [f"{c}{_NAFILLED_SUFFIX}" for c in feature_cols]
+    assembler = VectorAssembler(
+        inputCols=filled_cols, outputCol="features", handleInvalid="keep"
+    )
     keep = ["features", F.col(TARGET).alias("label")]
     if TIMESTAMP_COLUMN in df.columns:
         keep.append(TIMESTAMP_COLUMN)
-    assembled = assembler.transform(df).select(*keep)
-    return assembled, feature_cols, assembler
+    assembled = assembler.transform(filled).select(*keep)
+    return assembled, feature_cols, filler, assembler
 
 def _temporal_split(assembled, test_size):
     import datetime
@@ -1956,9 +1987,9 @@ def _mlflow_evaluate_predictions(predictions):
         extra_metrics=None,
     )
 
-def _log_best_model(model, df, feature_cols, test_df, assembler):
+def _log_best_model(model, df, feature_cols, test_df, filler, assembler):
     _registered_name = f"{CATALOG}.{SCHEMA}.model_{COMPOSITE_NAME}"
-    _logged_pipeline = PipelineModel(stages=[assembler, model])
+    _logged_pipeline = PipelineModel(stages=[filler, assembler, model])
     try:
         from databricks.feature_engineering import FeatureEngineeringClient, FeatureLookup
         fe = FeatureEngineeringClient()
@@ -2052,7 +2083,7 @@ def train_and_evaluate():
 {% endif %}
 
     with log_timing("prepare_features", logger):
-        assembled, feature_cols, _assembler = prepare_features(df)
+        assembled, feature_cols, _filler, _assembler = prepare_features(df)
     assembled_count = _assert_rows(assembled.count(), "after_assembly")
     print(f"[TRAINING] Assembled: {assembled_count:,} rows, {len(feature_cols)} features")
     _results["feature_count"] = len(feature_cols)
@@ -2264,11 +2295,11 @@ def train_and_evaluate():
                 json.dump({"feature_columns": feature_cols, "count": len(feature_cols)}, f)
             mlflow.log_artifact(_features_path)
         if best_model is not None:
-            _registered_model_name = _log_best_model(best_model, df, feature_cols, test_df, _assembler)
+            _registered_model_name = _log_best_model(best_model, df, feature_cols, test_df, _filler, _assembler)
             _registered_model_version = _promote_to_production(_registered_model_name, _parent_run.info.run_id)
             with log_timing("shap_attribution", logger):
                 _attribution = compute_shap_attribution(
-                    pipeline_model=PipelineModel(stages=[_assembler, best_model]),
+                    pipeline_model=PipelineModel(stages=[_filler, _assembler, best_model]),
                     df=df,
                     feature_columns=feature_cols,
                 )

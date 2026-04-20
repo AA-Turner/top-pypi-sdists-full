@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip_compile_multi
-Version: 3.3.0
+Version: 3.3.1
 Summary: Compile multiple requirements files to lock dependency versions
 Home-page: https://github.com/peterdemin/pip-compile-multi
 Author: Peter Demin
@@ -70,6 +70,16 @@ Links
 
 History
 =======
+
+3.3.1 (2025-04-19)
+------------------
+
+* Add support for `--emit-find-links/--no-emit-find-links`.
+  (Issue `#554`_, PR `#556`_, thanks to `Aidas Bendoraitis`_.)
+
+.. _#554: https://github.com/peterdemin/pip-compile-multi/issues/554
+.. _#556: https://github.com/peterdemin/pip-compile-multi/pull/556
+.. _Aidas Bendoraitis: https://github.com/archatas
 
 3.3.0 (2025-03-25)
 ------------------

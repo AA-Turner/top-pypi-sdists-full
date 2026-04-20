@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import datetime
 from io import StringIO
@@ -5,7 +6,9 @@ from io import StringIO
 import pytest
 
 from pymobiledevice3.cli import syslog as syslog_module
-from pymobiledevice3.services.os_trace import SyslogEntry, SyslogLogLevel
+from pymobiledevice3.services.os_trace import SyslogEntry, SyslogLabel, SyslogLogLevel
+
+pytestmark = [pytest.mark.cli]
 
 _FAKE_SERVICE_PROVIDER = object()
 
@@ -239,3 +242,161 @@ async def test_syslog_live_regex_filters_and_writes_plain_output_to_out(monkeypa
     assert printed_lines[0].endswith("daemon ready")
     assert printed_lines[1].endswith("worker ready")
     assert out_lines == printed_lines
+
+
+def test_format_json_line_with_label():
+    entry = SyslogEntry(
+        pid=42,
+        timestamp=datetime(2026, 4, 18, 10, 15, 32, 123456),
+        level=SyslogLogLevel.ERROR,
+        image_name="/p/App",
+        image_offset=16,
+        filename="/p/App",
+        message="hello",
+        label=SyslogLabel(subsystem="com.foo.bar", category="cat"),
+    )
+    obj = json.loads(syslog_module.format_json_line(entry))
+    assert obj == {
+        "pid": 42,
+        "timestamp": "2026-04-18T10:15:32.123456",
+        "level": "ERROR",
+        "image_name": "/p/App",
+        "image_offset": 16,
+        "filename": "/p/App",
+        "message": "hello",
+        "label": {"subsystem": "com.foo.bar", "category": "cat"},
+    }
+
+
+def test_format_json_line_handles_null_label():
+    entry = _create_syslog_entry("plain")  # no label
+    obj = json.loads(syslog_module.format_json_line(entry))
+    assert obj["label"] is None
+    assert obj["message"] == "plain"
+
+
+def test_format_json_line_preserves_unicode():
+    entry = _create_syslog_entry("hello 🚀 мир")
+    raw = syslog_module.format_json_line(entry)
+    assert "🚀" in raw  # ensure_ascii=False keeps raw unicode
+    assert json.loads(raw)["message"] == "hello 🚀 мир"
+
+
+@pytest.mark.asyncio
+async def test_syslog_live_json_emits_valid_ndjson(monkeypatch, capsys):
+    printed_lines, _ = await _run_syslog_live(
+        monkeypatch,
+        capsys,
+        _create_syslog_entries(["hello", "world"]),
+        output_format=syslog_module.SyslogFormat.JSON,
+    )
+    assert len(printed_lines) == 2
+    parsed = [json.loads(line) for line in printed_lines]
+    assert [p["message"] for p in parsed] == ["hello", "world"]
+    assert all(p["level"] == "INFO" for p in parsed)
+    assert all(p["pid"] == 123 for p in parsed)
+
+
+@pytest.mark.asyncio
+async def test_syslog_live_json_ignores_text_filters(monkeypatch, capsys):
+    # Every text-mode filter flag must be ignored in JSON mode.
+    printed_lines, _ = await _run_syslog_live(
+        monkeypatch,
+        capsys,
+        _create_syslog_entries(["keep this", "skip this"]),
+        output_format=syslog_module.SyslogFormat.JSON,
+        match=["keep"],
+        invert_match=["skip"],
+        match_insensitive=["KEEP"],
+        invert_match_insensitive=["SKIP"],
+        regex=["keep"],
+        insensitive_regex=["KEEP"],
+        start_after="never-appears",
+        include_label=True,
+        image_offset=True,
+    )
+    # All entries emitted; none are filtered out.
+    assert len(printed_lines) == 2
+    messages = [json.loads(line)["message"] for line in printed_lines]
+    assert messages == ["keep this", "skip this"]
+
+
+@pytest.mark.asyncio
+async def test_syslog_live_json_applies_process_name_filter(monkeypatch, capsys):
+    entries = [
+        _create_syslog_entry("from test-process"),
+        SyslogEntry(
+            pid=456,
+            timestamp=datetime(2024, 1, 1, 0, 0, 1),
+            level=SyslogLogLevel.INFO,
+            image_name="/usr/libexec/other",
+            image_offset=0,
+            filename="/usr/libexec/other",
+            message="from other",
+        ),
+    ]
+    printed_lines, _ = await _run_syslog_live(
+        monkeypatch,
+        capsys,
+        entries,
+        output_format=syslog_module.SyslogFormat.JSON,
+        process_name="test-process",
+    )
+    assert len(printed_lines) == 1
+    assert json.loads(printed_lines[0])["message"] == "from test-process"
+
+
+@pytest.mark.asyncio
+async def test_syslog_live_json_applies_pid_filter(monkeypatch, capsys):
+    entries = [
+        _create_syslog_entry("pid 123"),  # default pid is 123
+        SyslogEntry(
+            pid=999,
+            timestamp=datetime(2024, 1, 1, 0, 0, 1),
+            level=SyslogLogLevel.INFO,
+            image_name="/usr/libexec/test-process",
+            image_offset=0,
+            filename="/usr/libexec/test-process",
+            message="pid 999",
+        ),
+    ]
+    printed_lines, _ = await _run_syslog_live(
+        monkeypatch,
+        capsys,
+        entries,
+        output_format=syslog_module.SyslogFormat.JSON,
+        pid=999,
+    )
+    assert len(printed_lines) == 1
+    assert json.loads(printed_lines[0])["pid"] == 999
+
+
+@pytest.mark.asyncio
+async def test_syslog_live_json_tees_to_out(monkeypatch, capsys):
+    out = StringIO()
+    printed_lines, out_value = await _run_syslog_live(
+        monkeypatch,
+        capsys,
+        _create_syslog_entries(["one", "two"]),
+        output_format=syslog_module.SyslogFormat.JSON,
+        out=out,
+    )
+    out_lines = out_value.strip().splitlines()
+    assert out_lines == printed_lines  # same NDJSON to both stdout and file
+    assert [json.loads(line)["message"] for line in out_lines] == ["one", "two"]
+
+
+@pytest.mark.asyncio
+async def test_syslog_live_json_suppresses_start_after_banner(monkeypatch, capsys):
+    # In text mode, `--start-after` prints a "Waiting for..." banner to stdout.
+    # That would corrupt NDJSON; JSON mode must suppress it.
+    printed_lines, _ = await _run_syslog_live(
+        monkeypatch,
+        capsys,
+        _create_syslog_entries(["one"]),
+        output_format=syslog_module.SyslogFormat.JSON,
+        start_after="anything",
+    )
+    assert len(printed_lines) == 1
+    # The single line must parse as valid JSON — no banner contamination.
+    assert json.loads(printed_lines[0])["message"] == "one"

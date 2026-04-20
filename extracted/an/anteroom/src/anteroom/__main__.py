@@ -5,10 +5,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import errno
+import importlib.util
 import json
 import logging
 import os
-import shutil
 import socket
 import subprocess
 import sys
@@ -62,16 +62,14 @@ def _exec_mkdocs_serve(host: str, port: int, mkdocs_yml: Path) -> int:
 
 def _run_docs(args: argparse.Namespace) -> None:
     """Serve the Anteroom documentation site locally via MkDocs."""
-    if shutil.which("mkdocs") is None:
+    if importlib.util.find_spec("mkdocs") is None:
         print("MkDocs is not installed.", file=sys.stderr)
-        print("Install docs-serving dependencies with:", file=sys.stderr)
-        print("  pip install anteroom[docs-serve]", file=sys.stderr)
+        print("Reinstall anteroom or run: pip install mkdocs-material", file=sys.stderr)
         sys.exit(1)
 
     mkdocs_yml = _find_mkdocs_yml()
     if mkdocs_yml is None:
         print("Cannot find mkdocs.yml.", file=sys.stderr)
-        print("If installed via pip, try: pip install anteroom[docs-serve]", file=sys.stderr)
         sys.exit(1)
 
     if getattr(args, "docs_build", False):
@@ -1152,10 +1150,9 @@ def _run_docs_start(config: AppConfig, args: argparse.Namespace) -> None:
     """Start the docs server as a detached background process."""
     from .services.server_manager import ServerManager
 
-    if shutil.which("mkdocs") is None:
+    if importlib.util.find_spec("mkdocs") is None:
         print("MkDocs is not installed.", file=sys.stderr)
-        print("Install docs-serving dependencies with:", file=sys.stderr)
-        print("  pip install anteroom[docs-serve]", file=sys.stderr)
+        print("Reinstall anteroom or run: pip install mkdocs-material", file=sys.stderr)
         sys.exit(1)
 
     port: int = getattr(args, "docs_port", 8400)

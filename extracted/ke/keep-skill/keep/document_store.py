@@ -24,6 +24,7 @@ from .const import SQLITE_BUSY_TIMEOUT_MS
 from .recovery import is_malformed_db_error
 from .tracing import get_tracer
 from .types import (
+    build_item_context, eval_when_predicate,
     normalize_id,
     normalize_tag_map,
     parse_ref,
@@ -36,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 
 # Schema version for migrations
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 
 
 @dataclass
@@ -1070,6 +1071,13 @@ class DocumentStore:
                                             'predicate', old.predicate,
                                             'target_id', old.target_id));
                     END
+                """)
+
+            # Version 15 → 16: index for inverse-edge find queries
+            if current_version < 16:
+                self._execute("""
+                    CREATE INDEX IF NOT EXISTS idx_edges_inverse_source
+                    ON edges (collection, inverse, source_id)
                 """)
 
             self._execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
@@ -2218,13 +2226,15 @@ class DocumentStore:
         Returns:
             List of VersionInfo, newest archived first
         """
+        # limit <= 0 means no limit (SQLite LIMIT -1 = unlimited)
+        effective_limit = limit if limit > 0 else -1
         cursor = self._execute("""
             SELECT version, summary, tags_json, content_hash, created_at
             FROM document_versions
             WHERE id = ? AND collection = ?
             ORDER BY version DESC
             LIMIT ?
-        """, (id, collection, limit))
+        """, (id, collection, effective_limit))
 
         versions = []
         for row in cursor:
@@ -4008,11 +4018,21 @@ class DocumentStore:
         return cur.rowcount
 
     def backfill_version_edges_for_predicate(
-        self, collection: str, predicate: str, inverse: str,
+        self,
+        collection: str,
+        predicate: str,
+        inverse: str,
+        *,
+        when_source: str = "",
     ) -> int:
-        """Rebuild materialized version edges for one predicate across a collection."""
+        """Rebuild materialized version edges for one predicate across a collection.
+
+        If *when_source* is a non-empty CEL expression, each version's tags
+        are evaluated against it and only matching versions produce edge rows.
+        """
         if not predicate or not inverse:
             return 0
+
         with self._lock:
             self._execute("BEGIN IMMEDIATE")
             try:
@@ -4025,7 +4045,7 @@ class DocumentStore:
                 )
                 rows = self._execute(
                     """
-                    SELECT id, version, tags_json, created_at
+                    SELECT id, version, tags_json, created_at, summary
                     FROM document_versions
                     WHERE collection = ?
                     """,
@@ -4034,6 +4054,19 @@ class DocumentStore:
                 inserted = 0
                 for row in rows:
                     tags = json.loads(row["tags_json"]) if row["tags_json"] else {}
+
+                    # Evaluate _when condition against this version's tags
+                    if when_source:
+                        item_ctx = build_item_context(
+                            id=row["id"],
+                            tags=tags,
+                            summary=row["summary"] or "",
+                            content_type=tags.get("_content_type", ""),
+                            uri=tags.get("_source_uri", ""),
+                        )
+                        if not eval_when_predicate(when_source, item_ctx):
+                            continue
+
                     for value in tag_values(tags, predicate):
                         target_id = self._version_edge_target_id(value)
                         if not target_id:
@@ -4079,6 +4112,33 @@ class DocumentStore:
             (collection, target_id),
         ).fetchall()
         return [(r["inverse"], r["source_id"], r["created"]) for r in rows]
+
+    def find_by_inverse_edge(
+        self,
+        collection: str,
+        inverse: str,
+        source_id: str,
+        *,
+        limit: int = 200,
+    ) -> list[str]:
+        """Return target IDs reachable via an inverse edge predicate from *source_id*.
+
+        For example, if source A has ``cites: B``, then
+        ``find_by_inverse_edge(coll, "cited_by", "A")`` returns ``["B"]``
+        (targets where A's edge points, queried from the inverse direction).
+
+        Uses idx_edges_inverse_source for efficient lookup.
+        """
+        rows = self._execute(
+            """
+            SELECT DISTINCT target_id
+            FROM edges
+            WHERE collection = ? AND inverse = ? AND source_id = ?
+            LIMIT ?
+            """,
+            (collection, inverse, source_id, limit),
+        ).fetchall()
+        return [r["target_id"] for r in rows]
 
     def get_inverse_version_edges(
         self,

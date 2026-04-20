@@ -553,6 +553,38 @@ mod completion_labels {
 
         test_completion_labels! {
             #[tokio::test]
+            async fn tombi_extension_tombi_completion_variant_after_path_enabled(
+                r#"
+                [extensions]
+                "tombi-toml/tombi" = {
+                  lsp = {
+                    completion = {
+                      █
+                      path.enabled = true,
+                    },
+                  },
+                }
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_format_rules_array_bracket_space_width(
+                r#"
+                [format.rules]
+                array-bracket-space-width = █
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "0",
+                "42",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
             async fn tombi_lsp_comp(
                 r#"
                 [lsp]
@@ -603,8 +635,25 @@ mod completion_labels {
                 "include",
                 "path",
                 "root",
+                "format",
                 "lint",
+                "overrides",
                 "toml-version",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_schemars_overrides_rules(
+                r#"
+                [[schemas]]
+                overrides = [{ targets = [""], format.rules.█ }]
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "array-values-order",
+                "table-keys-order",
+                "{}",
             ]);
         }
 
@@ -2083,6 +2132,25 @@ mod completion_labels {
         }
     }
 
+    mod one_of_regression {
+        use super::*;
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn one_of_variant_after_path_enabled(
+                r#"
+                completion = {
+                  █
+                  path.enabled = true,
+                }
+                "#,
+                SchemaPath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/feature-toggle-one-of-test.schema.json"
+                )),
+            ) -> Ok([]);
+        }
+    }
+
     mod without_schema {
         use super::*;
 
@@ -2502,7 +2570,9 @@ mod completion_labels {
                         toml_version: None,
                         path: schema_uri.to_string(),
                         include: vec!["*.toml".to_string()],
-                    lint: None,
+                        lint: None,
+                        format: None,
+                        overrides: None,
                     }));
                 }
 
@@ -2521,6 +2591,8 @@ mod completion_labels {
                         include: vec!["*.toml".to_string()],
                         root: subschema.root.to_string(),
                         lint: None,
+                        format: None,
+                        overrides: None,
                     }));
                 }
 

@@ -2,8 +2,8 @@ use std::{borrow::Cow, ops::Deref, str::FromStr, sync::Arc};
 
 use crate::resolve_json_pointer;
 use crate::{
-    AllOfSchema, AnyOfSchema, CatalogUri, DocumentSchema, OneOfSchema, RootAccessor, RootAccessors,
-    SourceSchema, SubSchemaUriMap, ValueSchema, get_tombi_schemastore_content,
+    AllOfSchema, AnyOfSchema, CatalogUri, DocumentSchema, OneOfSchema, PatternAccessor,
+    PatternAccessors, SourceSchema, SubSchemaUriMap, ValueSchema, get_tombi_schemastore_content,
     http_client::HttpClient, json::JsonCatalog,
 };
 use itertools::{Either, Itertools};
@@ -72,7 +72,7 @@ impl SchemaStore {
 
     /// Offline mode
     pub fn offline(&self) -> bool {
-        self.options.offline.unwrap_or(false)
+        self.options.offline.unwrap_or_default()
     }
 
     /// Cache options
@@ -194,11 +194,13 @@ impl SchemaStore {
                 title: None,
                 description: None,
                 deprecated_lint_level: schema.deprecated_lint_level(),
+                format_rules: schema.format().and_then(|format| format.rules.clone()),
+                overrides: schema_overrides(schema),
                 schema_uri,
                 catalog_uri: None,
                 include: schema.include().to_vec(),
                 toml_version: schema.toml_version(),
-                sub_root_accessors: schema.root().and_then(RootAccessor::parse),
+                sub_root_accessors: schema.root().and_then(PatternAccessor::parse),
             });
         }))
         .await;
@@ -336,6 +338,8 @@ impl SchemaStore {
                     title: Some(schema.name),
                     description: Some(schema.description),
                     deprecated_lint_level: None,
+                    format_rules: None,
+                    overrides: Default::default(),
                     schema_uri: schema.url,
                     catalog_uri: Some(catalog_uri.clone()),
                     include: schema.file_match,
@@ -648,18 +652,33 @@ impl SchemaStore {
             None
         };
 
-        let (root_schema, sub_schema_uri_map, toml_version, deprecated_lint_level) =
-            if let Some(source_schema) = source_schema {
-                let toml_version = source_schema.toml_version();
-                (
-                    source_schema.root_schema,
-                    source_schema.sub_schema_uri_map,
-                    toml_version,
-                    source_schema.deprecated_lint_level,
-                )
-            } else {
-                (None, Default::default(), None, None)
-            };
+        let (
+            root_schema,
+            sub_schema_uri_map,
+            toml_version,
+            deprecated_lint_level,
+            schema_format_rules,
+            schema_overrides,
+        ) = if let Some(source_schema) = source_schema {
+            let toml_version = source_schema.toml_version();
+            (
+                source_schema.root_schema,
+                source_schema.sub_schema_uri_map,
+                toml_version,
+                source_schema.deprecated_lint_level,
+                source_schema.schema_format_rules,
+                source_schema.schema_overrides,
+            )
+        } else {
+            (
+                None,
+                Default::default(),
+                None,
+                None,
+                Default::default(),
+                Default::default(),
+            )
+        };
 
         Ok(Some(SourceSchema::new(
             self.try_get_document_schema(schema_uri)
@@ -668,6 +687,8 @@ impl SchemaStore {
             sub_schema_uri_map,
             toml_version,
             deprecated_lint_level,
+            schema_format_rules,
+            schema_overrides,
         )))
     }
 
@@ -781,6 +802,16 @@ impl SchemaStore {
                                     sub_root_accessors.clone(),
                                     document_schema.schema_uri.clone(),
                                 );
+                                if let Some(format_rules) = &matching_schema.format_rules {
+                                    source_schema.schema_format_rules.insert(
+                                        document_schema.schema_uri.clone(),
+                                        format_rules.clone(),
+                                    );
+                                }
+                                source_schema.schema_overrides.insert(
+                                    document_schema.schema_uri.clone(),
+                                    matching_schema.overrides.clone(),
+                                );
                             }
                         }
                         None => {
@@ -789,11 +820,25 @@ impl SchemaStore {
                                 sub_root_accessors.clone(),
                                 document_schema.schema_uri.clone(),
                             );
+                            let mut schema_format_rules = crate::SchemaFormatRulesMap::default();
+                            if let Some(format_rules) = &matching_schema.format_rules {
+                                schema_format_rules.insert(
+                                    document_schema.schema_uri.clone(),
+                                    format_rules.clone(),
+                                );
+                            }
+                            let mut schema_overrides = crate::SchemaOverridesMap::default();
+                            schema_overrides.insert(
+                                document_schema.schema_uri.clone(),
+                                matching_schema.overrides.clone(),
+                            );
                             let new_source = SourceSchema::new(
                                 None,
                                 sub_schema_uri_map,
                                 matching_schema.toml_version,
                                 matching_schema.deprecated_lint_level,
+                                schema_format_rules,
+                                schema_overrides,
                             );
                             source_schema = Some(new_source);
                         }
@@ -805,20 +850,50 @@ impl SchemaStore {
                                     existing.toml_version().or(matching_schema.toml_version);
                                 let sub_schema_uri_map =
                                     std::mem::take(&mut existing.sub_schema_uri_map);
+                                let mut schema_format_rules =
+                                    std::mem::take(&mut existing.schema_format_rules);
+                                let mut schema_overrides =
+                                    std::mem::take(&mut existing.schema_overrides);
+                                if let Some(format_rules) = &matching_schema.format_rules {
+                                    schema_format_rules.insert(
+                                        document_schema.schema_uri.clone(),
+                                        format_rules.clone(),
+                                    );
+                                }
+                                schema_overrides.insert(
+                                    document_schema.schema_uri.clone(),
+                                    matching_schema.overrides.clone(),
+                                );
                                 *existing = SourceSchema::new(
                                     Some(document_schema),
                                     sub_schema_uri_map,
                                     toml_version,
                                     matching_schema.deprecated_lint_level,
+                                    schema_format_rules,
+                                    schema_overrides,
                                 );
                             }
                         }
                         None => {
+                            let mut schema_format_rules = crate::SchemaFormatRulesMap::default();
+                            if let Some(format_rules) = &matching_schema.format_rules {
+                                schema_format_rules.insert(
+                                    document_schema.schema_uri.clone(),
+                                    format_rules.clone(),
+                                );
+                            }
+                            let mut schema_overrides = crate::SchemaOverridesMap::default();
+                            schema_overrides.insert(
+                                document_schema.schema_uri.clone(),
+                                matching_schema.overrides.clone(),
+                            );
                             let new_source = SourceSchema::new(
                                 Some(document_schema),
                                 Default::default(),
                                 matching_schema.toml_version,
                                 matching_schema.deprecated_lint_level,
+                                schema_format_rules,
+                                schema_overrides,
                             );
                             source_schema = Some(new_source);
                         }
@@ -878,7 +953,7 @@ impl SchemaStore {
                 for (accessors, schema_uri) in &source_schema.sub_schema_uri_map {
                     log::trace!(
                         "find sub schema {:?} from {}",
-                        RootAccessors::from(accessors.clone()),
+                        PatternAccessors::from(accessors.clone()),
                         schema_uri
                     );
                 }
@@ -896,6 +971,8 @@ impl SchemaStore {
             title: options.title.clone(),
             description: options.description.clone(),
             deprecated_lint_level: None,
+            format_rules: None,
+            overrides: Default::default(),
             schema_uri,
             catalog_uri: None,
             include,
@@ -937,7 +1014,7 @@ fn matches_schema_include(
                     || (path_for_matching != absolute_source_path
                         && glob_pat.matches_path(absolute_source_path))
             })
-            .unwrap_or(false)
+            .unwrap_or_default()
     })
 }
 
@@ -1035,6 +1112,79 @@ fn canonicalize_path_for_matching(path: &std::path::Path) -> std::path::PathBuf 
                 .unwrap_or_else(|| path.to_path_buf())
         }
     })
+}
+
+fn schema_overrides(schema: &tombi_config::SchemaItem) -> crate::SchemaOverrides {
+    let mut overrides = crate::SchemaOverrides::default();
+
+    for override_item in schema.overrides().into_iter().flatten() {
+        let format_rules = override_item
+            .format
+            .as_ref()
+            .and_then(|format| format.rules.as_ref());
+        let lint_rules = override_item
+            .lint
+            .as_ref()
+            .and_then(|lint| lint.rules.as_ref());
+        let targets = override_item
+            .targets
+            .iter()
+            .filter_map(|target| parse_override_target(target))
+            .collect_vec();
+
+        if let Some(level) = lint_rules.and_then(|r| r.deprecated) {
+            overrides.deprecated.extend(
+                targets
+                    .iter()
+                    .cloned()
+                    .map(|target| crate::DeprecatedOverride { target, level }),
+            );
+        }
+
+        if let Some(rule) = format_rules.and_then(|r| r.array_values_order.as_ref()) {
+            let disabled = !rule.enabled().unwrap_or_default().value();
+            let order = rule.order();
+            overrides
+                .array_values_order
+                .extend(
+                    targets
+                        .iter()
+                        .cloned()
+                        .map(|target| crate::ArrayOrderOverride {
+                            target,
+                            disabled,
+                            order,
+                        }),
+                );
+        }
+
+        if let Some(rule) = format_rules.and_then(|r| r.table_keys_order.as_ref()) {
+            let disabled = !rule.enabled().unwrap_or_default().value();
+            let order = rule.order();
+            overrides
+                .table_keys_order
+                .extend(
+                    targets
+                        .iter()
+                        .cloned()
+                        .map(|target| crate::TableOrderOverride {
+                            target,
+                            disabled,
+                            order,
+                        }),
+                );
+        }
+    }
+
+    overrides
+}
+
+fn parse_override_target(target: &str) -> Option<Vec<PatternAccessor>> {
+    if target.is_empty() {
+        Some(Vec::new())
+    } else {
+        PatternAccessor::parse(target)
+    }
 }
 
 #[cfg(test)]

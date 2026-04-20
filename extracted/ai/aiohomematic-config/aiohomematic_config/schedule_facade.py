@@ -54,6 +54,7 @@ class DeviceScheduleData:
     max_entries: int
     available_target_channels: dict[str, Any]
     schedule_domain: str | None
+    supported_schedule_fields: list[str] = dataclasses.field(default_factory=list)
     schedule_enabled: Mapping[str, bool] | None = None
 
 
@@ -164,6 +165,7 @@ async def get_device_schedule(
         max_entries=wp_dp.max_entries,
         available_target_channels={k: dataclasses.asdict(v) for k, v in wp_dp.available_target_channels.items()},
         schedule_domain=wp_dp.schedule_domain,
+        supported_schedule_fields=sorted(f.value for f in wp_dp.supported_schedule_fields),
         schedule_enabled=wp_dp.schedule_enabled,
     )
 

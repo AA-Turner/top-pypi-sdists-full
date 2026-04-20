@@ -30,6 +30,7 @@ from ..services.async_tasks import silence_task
 from ..services.context_trust import trusted_section_marker, untrusted_section_marker, wrap_untrusted
 from ..services.space_storage import get_space_local_dirs
 from ..tools.path_utils import safe_resolve_pathlib
+from ..tools.tool_context import build_tool_extra_context_web
 
 logger = logging.getLogger(__name__)
 
@@ -669,6 +670,13 @@ async def _build_chat_system_prompt(
 
     # Memory recall (#921)
     from ..config import MemoryRecallConfig as _MemoryRecallConfig
+    from ..services.memory_recall import RecalledMemory as _RecalledMemory
+
+    # Structured recall list — populated by the try-block below when recall
+    # runs. Returned alongside ``extra``/``meta`` so downstream consumers
+    # (e.g. the #1454 auto-propose runner) can dedupe candidates against the
+    # full ``content`` field, not just the summary dicts in ``meta``.
+    recalled: list[_RecalledMemory] = []
 
     mr_config_raw = getattr(config, "memory_recall", None)
     mr_config: _MemoryRecallConfig | None = mr_config_raw if isinstance(mr_config_raw, _MemoryRecallConfig) else None
@@ -755,7 +763,7 @@ async def _build_chat_system_prompt(
     except Exception:
         logger.debug("Codebase index unavailable, continuing without it", exc_info=True)
 
-    return extra, meta
+    return extra, meta, recalled
 
 
 @dataclass
@@ -1106,12 +1114,14 @@ async def _execute_web_tool(ctx: ToolExecutorContext, tool_name: str, arguments:
             arguments,
             confirm_callback=_confirm,
             rule_enforcer_override=ctx.rule_enforcer,
-            _extra_context={
-                "bg_manager": ctx.bg_manager,
-                "detach_manager": ctx.detach_manager,
-                "conversation_id": ctx.conversation_id,
-                "db": ctx.db,
-            },
+            _extra_context=build_tool_extra_context_web(
+                bg_manager=ctx.bg_manager,
+                detach_manager=ctx.detach_manager,
+                conversation_id=ctx.conversation_id,
+                db=ctx.db,
+                config=ctx.request_config,
+                user_id=ctx.uid,
+            ),
         )
         if result.get("_approval_decision") == "allowed_once":
             result["_approval_decision"] = _scope_to_decision(ctx.confirm_ctx)
@@ -1200,6 +1210,10 @@ class StreamContext:
     last_token_broadcast: float = 0.0
     prompt_meta: dict[str, Any] = field(default_factory=dict)
     user_msg: dict[str, Any] | None = None
+    # Structured RecalledMemory list captured pre-turn (#1454). The chat
+    # router needs the full ``content`` field for auto-propose dedupe;
+    # ``prompt_meta["memory_recall_items"]`` only carries summary dicts.
+    recalled_memories: list[Any] = field(default_factory=list)
 
 
 _DISCONNECT_POLL_INTERVAL = 3  # seconds
@@ -1858,6 +1872,63 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                     except Exception:
                         logger.debug("attribution: failed to build/emit snapshot", exc_info=True)
 
+                # Auto-propose memory candidates (#1454): selective post-turn
+                # extraction. Skipped in plan mode and when disabled by config.
+                # The runner returns a quiet AutoProposeResult on every failure
+                # path, so this block never breaks the stream.
+                _ap_config = getattr(getattr(ctx.request.app.state.config, "memory", None), "auto_propose", None)
+                if (
+                    current_assistant_msg
+                    and not ctx.plan_mode
+                    and _ap_config is not None
+                    and getattr(_ap_config, "enabled", False)
+                ):
+                    try:
+                        from ..services.auto_propose_runner import run_auto_propose
+
+                        _ap_identity = getattr(ctx.request.app.state.config, "identity", None)
+                        _ap_user_id = getattr(_ap_identity, "user_id", "") if _ap_identity else ""
+                        _ap_audit = getattr(ctx.request.app.state, "audit_writer", None)
+                        _ap_result = await run_auto_propose(
+                            assistant_text=current_assistant_msg.get("content", "") or "",
+                            ai_service=ctx.ai_service,
+                            db=ctx.db,
+                            audit_writer=_ap_audit,
+                            config=ctx.request.app.state.config,
+                            identity_user_id=_ap_user_id,
+                            recalled_memories=ctx.recalled_memories,
+                            conversation_id=ctx.conversation_id,
+                            message_id=current_assistant_msg["id"],
+                        )
+                        if _ap_result.items:
+                            _ap_payload = [
+                                {
+                                    "fqn": it.fqn,
+                                    "category": it.category,
+                                    "content_preview": it.content_preview,
+                                }
+                                for it in _ap_result.items
+                            ]
+                            try:
+                                storage.merge_message_metadata(
+                                    ctx.db,
+                                    current_assistant_msg["id"],
+                                    {"memory_auto_proposed": _ap_payload},
+                                )
+                            except Exception:
+                                logger.debug("auto_propose: failed to persist payload", exc_info=True)
+                            yield {
+                                "event": "memory_auto_proposed",
+                                "data": json.dumps(
+                                    {
+                                        "assistant_message_id": current_assistant_msg["id"],
+                                        "items": _ap_payload,
+                                    }
+                                ),
+                            }
+                    except Exception:
+                        logger.debug("auto_propose: failed in chat stream", exc_info=True)
+
                 _done_payload: dict[str, Any] = {"plan_mode": ctx.plan_mode}
                 if current_assistant_msg:
                     _done_payload["assistant_message_id"] = current_assistant_msg["id"]
@@ -2408,7 +2479,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
 
     _att_filenames = [a["filename"] for a in attachment_contents if a.get("filename")] if attachment_contents else []
 
-    extra_system_prompt, prompt_meta = await _build_chat_system_prompt(
+    extra_system_prompt, prompt_meta, recalled_memories = await _build_chat_system_prompt(
         ai_service=ai_service,
         tool_registry=tool_registry,
         mcp_manager=mcp_manager,
@@ -2580,6 +2651,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
         request=request,
         prompt_meta=prompt_meta,
         user_msg=user_msg,
+        recalled_memories=recalled_memories,
     )
 
     return EventSourceResponse(_stream_chat_events(stream_ctx))

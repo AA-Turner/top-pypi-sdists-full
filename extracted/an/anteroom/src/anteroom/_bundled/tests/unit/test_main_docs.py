@@ -154,7 +154,7 @@ class TestFindMkdocsYml:
 
 
 class TestRunDocs:
-    """Test _run_docs behaviour with mocked subprocess/shutil."""
+    """Test _run_docs behaviour with mocked subprocess/importlib."""
 
     @staticmethod
     def _make_args(
@@ -169,7 +169,7 @@ class TestRunDocs:
 
         args = self._make_args()
         with (
-            patch("anteroom.__main__.shutil.which", return_value=None),
+            patch("anteroom.__main__.importlib.util.find_spec", return_value=None),
             pytest.raises(SystemExit, match="1"),
         ):
             _run_docs(args)
@@ -180,7 +180,7 @@ class TestRunDocs:
         args = self._make_args()
         with (
             patch("anteroom.__main__.subprocess.run"),
-            patch("anteroom.__main__.shutil.which", return_value="/usr/bin/mkdocs"),
+            patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=None),
             pytest.raises(SystemExit, match="1"),
         ):
@@ -196,7 +196,7 @@ class TestRunDocs:
         mock_run = MagicMock(return_value=MagicMock(returncode=0))
 
         with (
-            patch("anteroom.__main__.shutil.which", return_value="/usr/bin/mkdocs"),
+            patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
             patch("anteroom.__main__.subprocess.run", mock_run),
         ):
@@ -223,7 +223,7 @@ class TestRunDocs:
         mock_run = MagicMock(return_value=MagicMock(returncode=0))
 
         with (
-            patch("anteroom.__main__.shutil.which", return_value="/usr/bin/mkdocs"),
+            patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
             patch("anteroom.__main__.subprocess.run", mock_run),
         ):
@@ -242,7 +242,7 @@ class TestRunDocs:
         args = self._make_args()
 
         with (
-            patch("anteroom.__main__.shutil.which", return_value="/usr/bin/mkdocs"),
+            patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
             patch("anteroom.__main__.subprocess.run", side_effect=KeyboardInterrupt),
         ):
@@ -258,7 +258,7 @@ class TestRunDocs:
         args = self._make_args()
 
         with (
-            patch("anteroom.__main__.shutil.which", return_value="/usr/bin/mkdocs"),
+            patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
             patch(
                 "anteroom.__main__.subprocess.run",
@@ -280,7 +280,7 @@ class TestRunDocs:
         mock_run = MagicMock(return_value=MagicMock(returncode=0))
 
         with (
-            patch("anteroom.__main__.shutil.which", return_value="/usr/bin/mkdocs"),
+            patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
             patch("anteroom.__main__.subprocess.run", mock_run),
             pytest.raises(SystemExit) as exc_info,
@@ -307,7 +307,7 @@ class TestRunDocs:
         mock_run = MagicMock(return_value=MagicMock(returncode=1))
 
         with (
-            patch("anteroom.__main__.shutil.which", return_value="/usr/bin/mkdocs"),
+            patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
             patch("anteroom.__main__.subprocess.run", mock_run),
             pytest.raises(SystemExit) as exc_info,
@@ -326,7 +326,7 @@ class TestRunDocs:
         mock_run = MagicMock(return_value=MagicMock(returncode=0))
 
         with (
-            patch("anteroom.__main__.shutil.which", return_value="/usr/bin/mkdocs"),
+            patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
             patch("anteroom.__main__.subprocess.run", mock_run),
             pytest.raises(SystemExit) as exc_info,
@@ -342,7 +342,7 @@ class TestRunDocs:
         args = self._make_args(port=99999)
 
         with (
-            patch("anteroom.__main__.shutil.which", return_value="/usr/bin/mkdocs"),
+            patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
             pytest.raises(SystemExit, match="1"),
         ):

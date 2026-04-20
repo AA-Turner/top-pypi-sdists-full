@@ -181,7 +181,12 @@ impl DocumentExtractor for NumbersExtractor {
             }
 
             #[cfg(not(feature = "tokio-runtime"))]
-            parse_numbers(content)?
+            {
+                if config.cancel_token.as_ref().map(|t| t.is_cancelled()).unwrap_or(false) {
+                    return Err(crate::error::KreuzbergError::Cancelled);
+                }
+                parse_numbers(content)?
+            }
         };
 
         let mut doc = build_numbers_internal_document(&data);

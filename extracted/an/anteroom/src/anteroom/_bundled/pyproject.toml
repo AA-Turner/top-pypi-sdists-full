@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "anteroom"
-version = "1.167.0"
+version = "1.168.0"
 description = "Anteroom - your gateway to AI conversation"
 readme = "README.md"
 license = "Apache-2.0"
@@ -36,6 +36,13 @@ dependencies = [
     "numpy>=1.24.0",
     "urllib3>=2.6.3",
     "pyperclip>=1.8.0",
+    # Docs server (aroom docs) — mkdocs invoked directly via python -m mkdocs
+    "mkdocs>=1.6,<2",
+    "mkdocs-material>=9.5",
+    "mkdocs-minify-plugin>=0.8",
+    "mkdocs-redirects>=1.2",
+    # pygments>=2.20 required for GHSA-5239-wwwm-4pmq fix
+    "pygments>=2.20",
     # Transitive dependency floors for CVE remediation (see #194)
     "aiohttp>=3.12.14",
     "requests>=2.32.4",
@@ -77,13 +84,7 @@ providers = [
 encryption = [
     "sqlcipher3>=0.5.0",
 ]
-docs-serve = [
-    "mkdocs>=1.6,<2",
-    "mkdocs-material>=9.5",
-    "mkdocs-minify-plugin>=0.8",
-    "mkdocs-redirects>=1.2",
-    "pygments>=2.16,<2.20",
-]
+docs-serve = []  # Deprecated: docs deps are now in base; remove next release
 kitchensink = [
     "pytest>=8.3.5",
     "pytest-asyncio>=0.26.0",

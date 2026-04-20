@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lightrag-hku
-Version: 1.4.14
+Version: 1.4.15
 Summary: LightRAG: Simple and Fast Retrieval-Augmented Generation
 Author: Zirui Guo
 License: MIT
@@ -310,6 +310,8 @@ docker compose up
 ```
 
 > Historical versions of LightRAG docker images can be found here: [LightRAG Docker Images]( https://github.com/HKUDS/LightRAG/pkgs/container/lightrag)
+>
+> Official GHCR images published by GitHub Actions are signed with Sigstore Cosign using GitHub OIDC. See [docs/DockerDeployment.md](./docs/DockerDeployment.md#verify-official-ghcr-images-with-cosign) for verification commands.
 
 ### Create .env File With Setup Tool
 

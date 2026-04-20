@@ -6,6 +6,7 @@ from typing import Collection, List, Optional, Sequence, Tuple
 
 import chalk._gen.chalk.artifacts.v1.export_pb2 as export_pb
 from chalk._gen.chalk.artifacts.v1 import chart_pb2 as chart_pb
+from chalk._gen.chalk.artifacts.v1 import cron_aggregate_backfill_pb2 as cron_aggregate_backfill_pb
 from chalk._gen.chalk.artifacts.v1.cdc_pb2 import CDCSource, CDCTableReference
 from chalk._gen.chalk.artifacts.v1.cron_query_pb2 import CronQuery, RecomputeSettings
 from chalk._gen.chalk.common.v1 import chalk_error_pb2
@@ -38,6 +39,7 @@ from chalk.parsed._proto.validation import validate_artifacts
 from chalk.parsed.to_proto import ToProtoConverter
 from chalk.parsed.user_types_to_json import get_lsp_gql
 from chalk.queries.named_query import NAMED_QUERY_REGISTRY
+from chalk.queries.scheduled_aggregate_backfill import SCHEDULED_AGGREGATE_BACKFILL_REGISTRY, AggregateBackfillTarget
 from chalk.queries.scheduled_query import CRON_QUERY_REGISTRY
 from chalk.sql._internal.sql_source import BaseSQLSource, TableIngestMixIn
 from chalk.sql._internal.sql_source_group import SQLSourceGroup
@@ -163,6 +165,26 @@ def get_lsp_proto(
     return lsp
 
 
+def _features_with_inline_backfill_schedule(fqns: list[str]) -> list[str]:
+    """Return the subset of feature FQNs that already have an inline backfill_schedule set."""
+    conflicts = []
+    for fqn in fqns:
+        parts = fqn.split(".", 1)
+        if len(parts) != 2:
+            continue
+        namespace, feature_name = parts
+        feature_class = FeatureSetBase.registry.get(namespace)
+        if feature_class is None:
+            continue
+        for feature in feature_class.features:
+            if feature.name == feature_name:
+                wm = getattr(feature, "window_materialization", None)
+                if isinstance(wm, dict) and wm.get("backfill_schedule") is not None:
+                    conflicts.append(fqn)
+                break
+    return conflicts
+
+
 def export_from_registry(*, include_captured_global_values: bool = False) -> export_pb.Export:
     """
     This is separate from trying to `import_all_files` so that
@@ -257,6 +279,46 @@ def export_from_registry(*, include_captured_global_values: bool = False) -> exp
             )
         )
 
+    cron_aggregate_backfills: List[cron_aggregate_backfill_pb.CronAggregateBackfill] = []
+    for backfill in SCHEDULED_AGGREGATE_BACKFILL_REGISTRY.values():
+        if backfill.errors:
+            failed_protos.append(
+                build_failed_import(
+                    "\n".join(backfill.errors),
+                    f"scheduled aggregate backfill '{backfill.name}'",
+                )
+            )
+            continue
+
+        inline_conflicts = _features_with_inline_backfill_schedule(backfill.features)
+        if inline_conflicts:
+            failed_protos.append(
+                build_failed_import(
+                    f"ScheduledAggregateBackfill '{backfill.name}' includes features that already have an inline backfill_schedule: {inline_conflicts}. Remove the backfill_schedule from the feature's materialization config or remove the feature from the ScheduledAggregateBackfill.",
+                    f"scheduled aggregate backfill '{backfill.name}'",
+                )
+            )
+            continue
+
+        proto_target = {
+            AggregateBackfillTarget.ONLINE: cron_aggregate_backfill_pb.CRON_AGGREGATE_BACKFILL_TARGET_ONLINE,
+            AggregateBackfillTarget.OFFLINE: cron_aggregate_backfill_pb.CRON_AGGREGATE_BACKFILL_TARGET_OFFLINE,
+        }[backfill.target]
+        cron_aggregate_backfills.append(
+            cron_aggregate_backfill_pb.CronAggregateBackfill(
+                name=backfill.name,
+                features=backfill.features,
+                schedule=(
+                    timedelta_to_duration(backfill.schedule)
+                    if isinstance(backfill.schedule, timedelta)
+                    else backfill.schedule
+                ),
+                target=proto_target,
+                query_tags=backfill.query_tags,
+                resource_group=backfill.resource_group,
+            )
+        )
+
     charts: List[chart_pb.Chart] = []
     for chart in _Chart.registry:
         try:
@@ -315,6 +377,7 @@ def export_from_registry(*, include_captured_global_values: bool = False) -> exp
         lsp=lsp,
         failed=failed_protos,
         conversion_errors=errors,
+        cron_aggregate_backfills=cron_aggregate_backfills,
     )
     if include_captured_global_values:
         export.captured_global_variables.CopyFrom(get_global_variables_info_from_export(export))

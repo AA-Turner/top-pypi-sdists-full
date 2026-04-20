@@ -399,6 +399,80 @@ def test_show_resume_info_renders_recap_and_rag_sources() -> None:
     renderer.render_rag_sources.assert_called_once_with([{"title": "Doc"}])
 
 
+def test_show_resume_info_renders_auto_propose_notice_for_most_recent_turn() -> None:
+    """Replay parity (#1454): the inline auto-propose notice from the most
+    recent assistant turn that produced one is re-rendered after `--continue`.
+
+    Two assistant turns each have items; only the newer one's notice should
+    re-render (matches the live-stream behavior where each turn replaces the
+    cached inline notice).
+    """
+    db = MagicMock()
+    conv = {"id": "conv-1", "title": "Saved chat"}
+    ai_messages = [{"role": "user", "content": "hi"}]
+    older_items = [{"fqn": "@user/memory/old", "category": "preference", "content_preview": "old"}]
+    newer_items = [{"fqn": "@user/memory/new", "category": "decision", "content_preview": "new"}]
+    stored = [
+        {"role": "user", "content": "first", "metadata": None},
+        {
+            "role": "assistant",
+            "content": "first answer",
+            "metadata": {"memory_auto_proposed": older_items},
+        },
+        {"role": "user", "content": "second", "metadata": None},
+        {
+            "role": "assistant",
+            "content": "second answer",
+            "metadata": {"memory_auto_proposed": newer_items},
+        },
+    ]
+
+    with (
+        patch("anteroom.cli.repl.storage.list_messages", return_value=stored),
+        patch("anteroom.cli.repl.renderer") as renderer,
+    ):
+        _show_resume_info(db, conv, ai_messages)
+
+    # Only ONE call, with the most recent items.
+    renderer.render_auto_propose_notice.assert_called_once_with(newer_items)
+
+
+def test_show_resume_info_renders_no_auto_propose_when_metadata_absent() -> None:
+    """No `memory_auto_proposed` on any turn → render is never called."""
+    db = MagicMock()
+    conv = {"id": "conv-1", "title": "Saved chat"}
+    stored = [
+        {"role": "assistant", "content": "answer", "metadata": {"rag_sources": [{"title": "Doc"}]}},
+    ]
+    with (
+        patch("anteroom.cli.repl.storage.list_messages", return_value=stored),
+        patch("anteroom.cli.repl.renderer") as renderer,
+    ):
+        _show_resume_info(db, conv, [])
+    renderer.render_auto_propose_notice.assert_not_called()
+
+
+def test_show_resume_info_parses_json_string_metadata_for_auto_propose() -> None:
+    """The persisted metadata column comes back as a JSON string for some
+    backends; resume must parse defensively and still render the notice."""
+    import json as _json
+
+    items = [{"fqn": "@user/memory/x", "category": "preference", "content_preview": "X."}]
+    stored = [
+        {
+            "role": "assistant",
+            "content": "answer",
+            "metadata": _json.dumps({"memory_auto_proposed": items}),
+        },
+    ]
+    with (
+        patch("anteroom.cli.repl.storage.list_messages", return_value=stored),
+        patch("anteroom.cli.repl.renderer") as renderer,
+    ):
+        _show_resume_info(MagicMock(), {"id": "c", "title": "t"}, [])
+    renderer.render_auto_propose_notice.assert_called_once_with(items)
+
+
 def test_show_usage_stats_prints_costs_and_model_breakdown() -> None:
     db = MagicMock()
     config = SimpleNamespace(

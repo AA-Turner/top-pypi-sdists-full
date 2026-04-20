@@ -357,7 +357,7 @@ async fn validate_array(
         };
 
         for (index, value) in array_value.values().iter().enumerate() {
-            if evaluated.get(index).copied().unwrap_or(false) {
+            if evaluated.get(index).copied().unwrap_or_default() {
                 continue;
             }
             evaluated[index] = true;
@@ -566,6 +566,7 @@ async fn validate_array(
             array_schema.deprecated,
             accessors,
             array_value,
+            Some(current_schema),
             schema_context,
             array_value.comment_directives(),
             lint_rules.as_ref().map(|rules| &rules.common),

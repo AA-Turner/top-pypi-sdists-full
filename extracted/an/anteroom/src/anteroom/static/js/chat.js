@@ -14,6 +14,7 @@ const Chat = (() => {
     let _currentRagSources = [];  // per-response RAG source provenance from prompt_meta
     let _currentAttachedSources = [];  // per-response attached source labels from prompt_meta
     let _currentAttribution = null;  // per-response attribution snapshot from the `attribution` SSE event (#923)
+    let _currentAutoProposed = null;  // per-response auto-propose payload from the `memory_auto_proposed` SSE event (#1454)
     const _UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
     // Remote collaboration state
@@ -441,6 +442,13 @@ const Chat = (() => {
                     _currentAttribution = data.snapshot;
                 }
                 break;
+            case 'memory_auto_proposed':
+                // #1454 — stash auto-propose items so finalizeAssistant()
+                // can render an inline "memory queued for review" banner.
+                if (data && Array.isArray(data.items) && data.items.length > 0) {
+                    _currentAutoProposed = data.items;
+                }
+                break;
             case 'workflow_cancel_requested':
                 hideThinking();
                 if (typeof showToast === 'function') {
@@ -491,6 +499,10 @@ const Chat = (() => {
         if (_currentAttribution) {
             _addAttributionFooter(currentAssistantEl, _currentAttribution);
             _currentAttribution = null;
+        }
+        if (_currentAutoProposed) {
+            _addAutoProposeBanner(currentAssistantEl, _currentAutoProposed);
+            _currentAutoProposed = null;
         }
         currentAssistantEl = null;
         currentAssistantContent = '';
@@ -591,6 +603,52 @@ const Chat = (() => {
         details.appendChild(body);
 
         msgEl.appendChild(details);
+    }
+
+    // #1454 — inline banner shown after an assistant turn when the
+    // auto-propose runner surfaced one or more candidate memories.
+    // All user-derived strings go through textContent, never innerHTML,
+    // so a hostile LLM-extracted value renders as literal text. See
+    // tests/js/chat_auto_propose.test.js for the XSS negative.
+    function _addAutoProposeBanner(msgEl, items) {
+        if (!msgEl || !Array.isArray(items) || items.length === 0) return;
+
+        const banner = document.createElement('div');
+        banner.className = 'memory-auto-propose-banner';
+
+        const icon = document.createElement('span');
+        icon.className = 'memory-auto-propose-icon';
+        icon.textContent = '\uD83D\uDCA1';  // 💡
+        banner.appendChild(icon);
+
+        const text = document.createElement('span');
+        text.className = 'memory-auto-propose-text';
+        const count = items.length;
+        const noun = count === 1 ? 'memory' : 'memories';
+        text.textContent = ` ${count} ${noun} queued for review`;
+        banner.appendChild(text);
+
+        const reviewBtn = document.createElement('button');
+        reviewBtn.type = 'button';
+        reviewBtn.className = 'memory-auto-propose-review';
+        reviewBtn.textContent = 'Review';
+        reviewBtn.addEventListener('click', () => {
+            // Open the memory panel and switch to the review queue tab.
+            // MemoryPanel is a sibling module loaded into the same page;
+            // gracefully degrade if it isn't available (e.g. embedded views).
+            if (typeof MemoryPanel === 'undefined' || !MemoryPanel) return;
+            try {
+                MemoryPanel.openPanel();
+                if (typeof MemoryPanel._switchTab === 'function') {
+                    MemoryPanel._switchTab('review');
+                }
+            } catch (_e) {
+                // No-op — banner is informational, button is best-effort.
+            }
+        });
+        banner.appendChild(reviewBtn);
+
+        msgEl.appendChild(banner);
     }
 
     function _attrSection(title, items, fields) {
@@ -2375,7 +2433,9 @@ const Chat = (() => {
                 });
             }
 
-            // Render persisted RAG source provenance footer + attribution footer (#923)
+            // Render persisted RAG source provenance footer + attribution
+            // footer (#923) + auto-propose banner (#1454) so reload/resume
+            // restores the same surfaces the live stream rendered.
             if (msg.role === 'assistant' && msg.metadata) {
                 try {
                     const meta = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;
@@ -2384,6 +2444,9 @@ const Chat = (() => {
                     }
                     if (meta && meta.attribution && typeof meta.attribution === 'object') {
                         _addAttributionFooter(el, meta.attribution);
+                    }
+                    if (meta && Array.isArray(meta.memory_auto_proposed) && meta.memory_auto_proposed.length > 0) {
+                        _addAutoProposeBanner(el, meta.memory_auto_proposed);
                     }
                 } catch (_) { /* ignore malformed metadata */ }
             }
@@ -2796,5 +2859,7 @@ const Chat = (() => {
         _openSaveMemoryForm: openSaveMemoryForm,
         // Exposed for Vitest (#923 attribution footer).
         _addAttributionFooter: _addAttributionFooter,
+        // Exposed for Vitest (#1454 auto-propose banner).
+        _addAutoProposeBanner: _addAutoProposeBanner,
     };
 })();

@@ -240,6 +240,115 @@ class TestProxyListMethods:
         arr.extend(arr)
         assert arr == [1, 2, 3, 1, 2, 3]
 
+    def test_append_aot_preserves_indent(self) -> None:
+        """Appending into an AoT whose entries are indented should produce a
+        new entry indented to match."""
+        doc = Document.parse(
+            toml_literal("""
+            [[fruit]]
+              name = "apple"
+
+              [[fruit.variety]]
+                name = "red delicious"
+
+              [[fruit.variety]]
+                name = "granny smith"
+        """)
+        )
+        doc["fruit"][0]["variety"].append({"name": "cox"})
+        assert doc.as_toml() == toml_literal("""
+            [[fruit]]
+              name = "apple"
+
+              [[fruit.variety]]
+                name = "red delicious"
+
+              [[fruit.variety]]
+                name = "granny smith"
+
+              [[fruit.variety]]
+                name = "cox"
+        """)
+
+    def test_insert_aot_preserves_indent(self) -> None:
+        """Inserting into an indented AoT also propagates the indent."""
+        doc = Document.parse(
+            toml_literal("""
+            [[fruit]]
+              name = "apple"
+
+              [[fruit.variety]]
+                name = "red"
+
+              [[fruit.variety]]
+                name = "green"
+        """)
+        )
+        doc["fruit"][0]["variety"].insert(1, {"name": "cox"})
+        assert doc.as_toml() == toml_literal("""
+            [[fruit]]
+              name = "apple"
+
+              [[fruit.variety]]
+                name = "red"
+
+              [[fruit.variety]]
+                name = "cox"
+
+              [[fruit.variety]]
+                name = "green"
+        """)
+
+    def test_insert_aot_at_front_of_nested_preserves_indent(self) -> None:
+        """Insert at index 0 of an indented (nested-style) AoT — both the
+        new front entry and the survivor stay indented."""
+        doc = Document.parse(
+            toml_literal("""
+            [[fruit]]
+              name = "apple"
+
+              [[fruit.variety]]
+                name = "red"
+        """)
+        )
+        doc["fruit"][0]["variety"].insert(0, {"name": "cox"})
+        assert doc.as_toml() == toml_literal("""
+            [[fruit]]
+              name = "apple"
+
+              [[fruit.variety]]
+                name = "cox"
+
+              [[fruit.variety]]
+                name = "red"
+        """)
+
+    def test_extend_aot_preserves_indent(self) -> None:
+        """Extending an indented AoT indents every new entry."""
+        doc = Document.parse(
+            toml_literal("""
+            [[fruit]]
+              name = "apple"
+
+              [[fruit.variety]]
+                name = "red"
+        """)
+        )
+        doc["fruit"][0]["variety"].extend([{"name": "cox"}, {"name": "gala"}])
+        assert doc.as_toml() == toml_literal("""
+            [[fruit]]
+              name = "apple"
+
+              [[fruit.variety]]
+                name = "red"
+
+              [[fruit.variety]]
+                name = "cox"
+
+              [[fruit.variety]]
+                name = "gala"
+        """)
+
     def test_append_aot(self) -> None:
         doc = Document.parse(
             toml_literal("""
@@ -791,7 +900,7 @@ class TestAdd:
         assert result[1] == {"name": "b"}
 
     def test_radd_aot(self) -> None:
-        """__radd__ on an AoT exercises empty_array_like for AoT kind."""
+        """__radd__ on an AoT builds a fresh empty AoT to receive the elements."""
         doc = Document.parse(
             toml_literal("""
             [[items]]
@@ -1925,3 +2034,22 @@ class TestWriteLockDeadlocks:
         val = doc["arr"].pop(tricky)
         assert val == 3
         assert doc["arr"] == [1, 2]
+
+
+# ---------------------------------------------------------------------------
+# Multiply / repeat with edge counts
+# ---------------------------------------------------------------------------
+
+
+class TestListMultiplyEdges:
+    @pytest.mark.parametrize("count", [0, -5])
+    def test_mul_non_positive_returns_empty(self, count: int) -> None:
+        doc = Document.parse("arr = [1, 2, 3]\n")
+        result = doc["arr"] * count
+        assert list(result) == []
+
+    def test_imul_one_is_noop(self) -> None:
+        doc = Document.parse("arr = [1, 2]\n")
+        arr = doc["arr"]
+        arr *= 1
+        assert list(arr) == [1, 2]

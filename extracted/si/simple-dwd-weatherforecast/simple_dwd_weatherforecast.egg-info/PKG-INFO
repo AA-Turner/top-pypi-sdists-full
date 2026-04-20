@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simple_dwd_weatherforecast
-Version: 3.4.1
+Version: 3.4.2
 Summary: A simple tool to retrieve a weather forecast from DWD OpenData
 Home-page: https://github.com/FL550/simple_dwd_weatherforecast.git
 Author: Max Fermor
@@ -340,9 +340,13 @@ You can download airquality measurements and forecasts with this package. You ca
 
 #### Usage example
 ```python
+import asyncio
+
 from simple_dwd_weatherforecast.dwdairquality import AirQuality
 
-station = AirQuality.get_station_from_location(53.092022, 8.127382, "hourly")
+station = asyncio.run(
+    AirQuality.get_station_from_location(53.092022, 8.127382, "hourly")
+)
 
 station.update()
 

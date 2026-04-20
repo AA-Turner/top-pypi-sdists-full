@@ -730,6 +730,52 @@ class LazyFramePlaceholder:
             name=name,
         )
 
+    def onnx_inference_udf(self, onnx_model_path: str) -> LazyFramePlaceholder:
+        """Run ONNX model inference on this DataFrame.
+
+        The DataFrame must contain a column for each model input (matching
+        the names from :meth:`get_onnx_model_metadata`) plus a ``__cidx__``
+        column. The returned DataFrame contains the model's output columns
+        along with ``__cidx__`` and ``__valid__`` columns.
+
+        Requires the ``chalkdf-onnx-runtime`` package to be installed.
+
+        Parameters
+        ----------
+        onnx_model_path
+            Filesystem path to a ``.onnx`` model file.
+
+        Returns
+        -------
+        DataFrame
+            A new DataFrame with the model's output columns, ``__cidx__``,
+            and ``__valid__``.
+
+        Raises
+        ------
+        RuntimeError
+            If the ONNX module is not available or the model cannot be loaded.
+
+        Examples
+        --------
+        >>> meta = DataFrame.get_onnx_model_metadata("model.onnx")
+        >>> df = DataFrame.from_arrow(
+        ...     pa.table({
+        ...         meta["input_names"][0]: pa.array([[1.0] * 10], type=pa.list_(pa.float32())),
+        ...         "__cidx__": [0],
+        ...     })
+        ... )
+        >>> result = df.onnx_inference_udf(onnx_model_path="model.onnx").to_arrow()
+        >>> result.column_names
+        ['output', '__valid__', '__cidx__']
+        """
+
+        return LazyFramePlaceholder._construct(
+            self_dataframe=self,
+            function_name="onnx_inference_udf",
+            onnx_model_path=onnx_model_path,
+        )
+
     def filter(self, expr: Underscore) -> LazyFramePlaceholder:
         """Filter rows based on a boolean expression.
 

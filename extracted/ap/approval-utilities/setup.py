@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from setuptools import find_packages, setup
 
@@ -12,7 +12,7 @@ from setup_utils import (  # pylint: disable=wrong-import-position
     get_version,
 )
 
-requires: Dict[str, Any] = {}
+requires: dict[str, Any] = {}
 setup(
     name="approval_utilities",
     version=get_version(),
@@ -20,7 +20,7 @@ setup(
     author="ApprovalTests Contributors",
     author_email="llewellyn.falco@gmail.com",
     url="https://github.com/approvals/ApprovalTests.Python",
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     packages=find_packages(include=["approval_utilities*"]),
     package_data={},
     install_requires=[],

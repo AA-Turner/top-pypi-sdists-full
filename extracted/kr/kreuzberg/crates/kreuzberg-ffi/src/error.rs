@@ -65,7 +65,8 @@
 //! - `kreuzberg_error_code_unsupported_format()` -> 6
 //! - `kreuzberg_error_code_internal()` -> 7
 //! - `kreuzberg_error_code_embedding()` -> 8
-//! - `kreuzberg_error_code_count()` -> 9
+//! - `kreuzberg_error_code_cancelled()` -> 9
+//! - `kreuzberg_error_code_count()` -> 10
 //! - `kreuzberg_error_code_name(code: u32)` -> *const c_char (error name)
 //!
 //! # Thread Safety
@@ -88,7 +89,7 @@ use std::ffi::CStr;
 /// # Repr and Stability
 ///
 /// - Uses `#[repr(u32)]` for C ABI compatibility
-/// - Error codes are guaranteed stable (0-8, never changing)
+/// - Error codes are guaranteed stable (0-9, never changing)
 /// - Can be safely cast to `int32_t` in C/C++ code
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -164,7 +165,7 @@ impl ErrorCode {
 
     /// Converts from numeric error code to enum variant.
     ///
-    /// Returns `None` if the code is outside the valid range [0, 8].
+    /// Returns `None` if the code is outside the valid range [0, 9].
     ///
     /// # Examples
     ///
@@ -190,14 +191,14 @@ impl ErrorCode {
         }
     }
 
-    /// Checks if a numeric code is valid (within [0, 8]).
+    /// Checks if a numeric code is valid (within [0, 9]).
     ///
     /// # Examples
     ///
     /// ```rust,ignore
     /// assert!(ErrorCode::is_valid(0));
-    /// assert!(ErrorCode::is_valid(8));
-    /// assert!(!ErrorCode::is_valid(9));
+    /// assert!(ErrorCode::is_valid(9));
+    /// assert!(!ErrorCode::is_valid(10));
     /// ```
     #[inline]
     pub fn is_valid(code: u32) -> bool {
@@ -343,7 +344,7 @@ pub extern "C" fn kreuzberg_error_code_count() -> u32 {
 ///
 /// # Arguments
 ///
-/// - `code`: Numeric error code (0-8)
+/// - `code`: Numeric error code (0-9)
 ///
 /// # Returns
 ///
@@ -387,7 +388,7 @@ pub extern "C" fn kreuzberg_error_code_name(code: u32) -> *const c_char {
 ///
 /// # Arguments
 ///
-/// - `code`: Numeric error code (0-8)
+/// - `code`: Numeric error code (0-9)
 ///
 /// # Returns
 ///

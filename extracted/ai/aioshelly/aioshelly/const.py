@@ -83,6 +83,7 @@ MODEL_PLUS_WALL_DIMMER = "SNDM-0013US"
 MODEL_PRO_1 = "SPSW-001XE16EU"
 MODEL_PRO_1_V2 = "SPSW-101XE16EU"
 MODEL_PRO_1_V3 = "SPSW-201XE16EU"
+MODEL_PRO_1_V3_UL = "SPSW-201XE15UL"
 MODEL_PRO_1PM = "SPSW-001PE16EU"
 MODEL_PRO_1PM_V2 = "SPSW-101PE16EU"
 MODEL_PRO_1PM_V3 = "SPSW-201PE16EU"
@@ -134,6 +135,7 @@ MODEL_I4_G3 = "S3SN-0024X"
 MODEL_MULTICOLOR_BULB_G3 = "S3BL-C010007AEU"
 MODEL_OUT_PLUG_S_G3 = "S3PL-20112EU"
 MODEL_PILL_G3 = "S3SN-0U53X"
+MODEL_PLUG_M_G3 = "S3PL-30110EU"
 MODEL_PLUG_PM_G3 = "S3PL-30116EU"
 MODEL_PLUG_S_G3 = "S3PL-00112EU"
 MODEL_PM_MINI_G3 = "S3PM-001PCEU16"
@@ -149,6 +151,7 @@ MODEL_CURY_G4 = "S4PB-00CU000002"
 MODEL_DIMMER_G4 = "S4DM-0A101WWL"
 MODEL_EM_MINI_G4 = "S4EM-001PXCEU16"
 MODEL_FLOOD_G4 = "S4SN-0071A"
+MODEL_FLOOD_S_G4 = "S4SN-0071Z"
 MODEL_I4_G4 = "S4SN-0A24X"
 MODEL_PLUG_US_G4 = "S4PL-00116US"
 MODEL_POWER_STRIP_4_G4 = "S4PL-00416EU"
@@ -736,6 +739,14 @@ DEVICES = {
         supported=True,
         model_id=None,  # Uses same model ID as MODEL_PRO_1
     ),
+    MODEL_PRO_1_V3_UL: ShellyDevice(
+        model=MODEL_PRO_1_V3_UL,
+        name="Shelly Pro 1 UL",
+        min_fw_date=GEN2_MIN_FIRMWARE_DATE,
+        gen=GEN2,
+        supported=True,
+        model_id=None,  # Uses same model ID as MODEL_PRO_1
+    ),
     MODEL_PRO_1PM: ShellyDevice(
         model=MODEL_PRO_1PM,
         name="Shelly Pro 1PM",
@@ -1126,6 +1137,14 @@ DEVICES = {
         supported=True,
         model_id=0x1023,
     ),
+    MODEL_PLUG_M_G3: ShellyDevice(
+        model=MODEL_PLUG_M_G3,
+        name="Shelly Plug M Gen3",
+        min_fw_date=GEN3_MIN_FIRMWARE_DATE,
+        gen=GEN3,
+        supported=True,
+        model_id=0x1865,
+    ),
     MODEL_PLUG_S_G3: ShellyDevice(
         model=MODEL_PLUG_S_G3,
         name="Shelly Plug S Gen3",
@@ -1237,6 +1256,14 @@ DEVICES = {
         gen=GEN4,
         supported=True,
         model_id=0x1822,
+    ),
+    MODEL_FLOOD_S_G4: ShellyDevice(
+        model=MODEL_FLOOD_S_G4,
+        name="Shelly Flood S Gen4",
+        min_fw_date=GEN4_MIN_FIRMWARE_DATE,
+        gen=GEN4,
+        supported=True,
+        model_id=0x1826,
     ),
     MODEL_PLUG_US_G4: ShellyDevice(
         model=MODEL_PLUG_US_G4,

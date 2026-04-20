@@ -1408,17 +1408,17 @@ fn test_rule_command_invalid_category_error() {
 fn test_rule_command_short_flags() {
     let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
 
-    // Test -f (fixable) and -c (category) short flags
+    // -f is the short form of --fixable. --category has no short form because
+    // -c is reserved for the global --config flag.
     let output = Command::new(rumdl_exe)
-        .args(["rule", "-f", "-c", "heading", "-o", "json"])
+        .args(["rule", "-f", "--category", "heading", "-o", "json"])
         .output()
-        .expect("Failed to execute 'rumdl rule -f -c heading -o json'");
+        .expect("Failed to execute 'rumdl rule -f --category heading -o json'");
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let rules: Vec<serde_json::Value> = serde_json::from_str(&stdout).expect("Failed to parse JSON");
 
     assert!(!rules.is_empty(), "Should return at least one rule");
 
-    // All rules should be fixable and in heading category
     for rule in &rules {
         let fix_avail = rule.get("fix_availability").and_then(|f| f.as_str()).unwrap();
         let category = rule.get("category").and_then(|c| c.as_str()).unwrap();
@@ -1426,6 +1426,114 @@ fn test_rule_command_short_flags() {
         assert!(matches!(fix_avail, "Always" | "Sometimes"), "Rule should be fixable");
         assert_eq!(category, "heading", "Rule should be in heading category");
     }
+}
+
+#[test]
+fn test_config_short_flag_loads_file() {
+    // -c is the short alias for --config. This is the conventional short flag
+    // in the wider ecosystem (markdownlint-cli, ruff, etc.) and tools like
+    // MegaLinter pass it by default.
+    let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let config_path = temp_dir.path().join("custom.toml");
+    std::fs::write(&config_path, "[global]\ndisable = [\"MD013\"]\n").expect("Failed to write config");
+
+    let md_path = temp_dir.path().join("long.md");
+    std::fs::write(
+        &md_path,
+        "# Heading\n\nThis line is deliberately much longer than eighty characters to trigger MD013 when it is enabled by default.\n",
+    )
+    .expect("Failed to write markdown file");
+
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["check", "-c"])
+        .arg(&config_path)
+        .arg(&md_path)
+        .output()
+        .expect("Failed to execute 'rumdl check -c <path> <file>'");
+
+    assert!(
+        output.status.success(),
+        "rumdl check -c <path> should succeed when MD013 is disabled in config; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_rule_short_c_with_bogus_path_errors_with_category_hint() {
+    // `-c` is the global short alias for `--config`. On the `rule` subcommand,
+    // passing a value that isn't a file must fail non-zero so that old
+    // invocations like `rumdl rule -c heading` (which used to mean
+    // `--category heading`) surface loudly rather than returning unfiltered
+    // output. The error must also point users to `--category`.
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "-c", "heading", "-o", "json"])
+        .output()
+        .expect("Failed to execute 'rumdl rule -c heading -o json'");
+
+    assert!(
+        !output.status.success(),
+        "rumdl rule -c heading must not succeed when 'heading' is not a config file"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("config file not found"),
+        "stderr should explain the missing path; got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--category"),
+        "stderr should hint at --category on the rule subcommand; got: {stderr}"
+    );
+}
+
+#[test]
+fn test_check_with_missing_config_path_exits_non_zero() {
+    // A missing --config path must be fatal. Historically `rumdl check`
+    // printed "Config error" but still exited 0, silently linting with
+    // defaults instead of honoring the user's explicit config choice.
+    let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let md_path = temp_dir.path().join("sample.md");
+    std::fs::write(&md_path, "# Heading\n").expect("Failed to write markdown file");
+    let missing_config = temp_dir.path().join("does-not-exist.toml");
+
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["check", "-c"])
+        .arg(&missing_config)
+        .arg(&md_path)
+        .output()
+        .expect("Failed to execute 'rumdl check -c <missing> <file>'");
+
+    assert!(
+        !output.status.success(),
+        "rumdl check with a missing --config path must exit non-zero"
+    );
+}
+
+#[test]
+fn test_rule_with_valid_config_path_succeeds() {
+    // A valid --config path on the rule subcommand should be accepted even
+    // though rule currently ignores config contents. Validation is about
+    // catching user error, not about requiring every subcommand to consume
+    // the config.
+    let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let config_path = temp_dir.path().join("ok.toml");
+    std::fs::write(&config_path, "[global]\n").expect("Failed to write config");
+
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "-c"])
+        .arg(&config_path)
+        .args(["-o", "json"])
+        .output()
+        .expect("Failed to execute 'rumdl rule -c <valid> -o json'");
+
+    assert!(
+        output.status.success(),
+        "rumdl rule with a valid --config path should succeed; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]

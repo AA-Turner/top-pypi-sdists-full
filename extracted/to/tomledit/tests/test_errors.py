@@ -36,10 +36,21 @@ class TestUnsupportedValueTypes:
         with pytest.raises(TypeError, match="None is not a valid TOML value"):
             doc["x"] = None
 
-    def test_bytearray_rejected(self) -> None:
+    @pytest.mark.parametrize(
+        "value",
+        [
+            bytearray(b"hello"),
+            {1, 2, 3},
+            1 + 2j,
+            object(),
+            (1, 2, 3),
+        ],
+        ids=["bytearray", "set", "complex", "object", "tuple"],
+    )
+    def test_unsupported_assignment_rejected(self, value: object) -> None:
         doc = Document.parse("x = 1\n")
         with pytest.raises(TypeError):
-            doc["x"] = bytearray(b"hello")
+            doc["x"] = value
 
 
 # ---------------------------------------------------------------------------
@@ -394,12 +405,6 @@ class TestDictProxyPopDoubleBorrow:
         assert result == 80
         assert "port" not in doc["server"]
 
-    def test_document_delitem_with_proxy_key(self) -> None:
-        doc = Document.parse('key = "b"\na = 1\nb = 2\n')
-        key = doc["key"]
-        del doc[key]  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        assert "b" not in doc
-
     def test_document_pop_with_proxy_key(self) -> None:
         doc = Document.parse('key = "b"\na = 1\nb = 2\n')
         key = doc["key"]
@@ -447,3 +452,79 @@ class TestNonStringKeyErrors:
         doc = Document({"a": 1})
         with pytest.raises(TypeError, match="keys must be strings"):
             doc[42] = "x"  # type: ignore[index]  # ty: ignore[invalid-assignment]
+
+
+# ---------------------------------------------------------------------------
+# Unsupported Python types as TOML values
+# ---------------------------------------------------------------------------
+
+
+class TestUnsupportedConversion:
+    """Passing types with no TOML mapping should raise TypeError."""
+
+    def test_append_unsupported(self) -> None:
+        doc = Document.parse("arr = [1, 2]\n")
+        with pytest.raises(TypeError):
+            doc["arr"].append(object())
+
+    def test_insert_unsupported(self) -> None:
+        doc = Document.parse("arr = [1, 2]\n")
+        with pytest.raises(TypeError):
+            doc["arr"].insert(0, object())
+
+    def test_extend_unsupported(self) -> None:
+        doc = Document.parse("arr = [1, 2]\n")
+        with pytest.raises(TypeError):
+            doc["arr"].extend([object()])
+
+    def test_setitem_int_unsupported(self) -> None:
+        doc = Document.parse("arr = [1, 2]\n")
+        with pytest.raises(TypeError):
+            doc["arr"][0] = object()
+
+    def test_setitem_slice_unsupported(self) -> None:
+        doc = Document.parse("arr = [1, 2, 3]\n")
+        with pytest.raises(TypeError):
+            doc["arr"][0:2] = [object()]
+
+    def test_iadd_unsupported(self) -> None:
+        doc = Document.parse("arr = [1, 2]\n")
+        with pytest.raises(TypeError):
+            doc["arr"] += [object()]
+
+    def test_dict_value_unsupported(self) -> None:
+        doc = Document.parse("[t]\nk = 1\n")
+        with pytest.raises(TypeError):
+            doc["t"]["new"] = object()
+
+    def test_update_unsupported(self) -> None:
+        doc = Document.parse("[t]\nk = 1\n")
+        with pytest.raises(TypeError):
+            doc["t"].update({"new": object()})
+
+    def test_setdefault_unsupported(self) -> None:
+        doc = Document.parse("[t]\nk = 1\n")
+        with pytest.raises(TypeError):
+            doc["t"].setdefault("new", object())
+
+    def test_or_unsupported(self) -> None:
+        doc = Document.parse("[t]\nk = 1\n")
+        with pytest.raises(TypeError):
+            _ = doc["t"] | {"new": object()}
+
+    def test_aot_insert_non_table(self) -> None:
+        doc = Document.parse("[[arr]]\nk = 1\n")
+        with pytest.raises(TypeError):
+            doc["arr"].insert(0, 42)
+
+
+# ---------------------------------------------------------------------------
+# IndexError on list operations
+# ---------------------------------------------------------------------------
+
+
+class TestListIndexErrors:
+    def test_pop_index_out_of_range(self) -> None:
+        doc = Document.parse("arr = [1]\n")
+        with pytest.raises(IndexError):
+            doc["arr"].pop(5)

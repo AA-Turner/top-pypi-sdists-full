@@ -299,6 +299,7 @@ async fn validate_table(
                     current_schema.value_schema.deprecated().await,
                     &new_accessors,
                     value,
+                    Some(&current_schema),
                     schema_context,
                     table_value.comment_directives(),
                     table_rules.as_ref().map(|rules| &rules.common),
@@ -562,6 +563,8 @@ async fn validate_table(
                             root_schema: schema_context.root_schema,
                             sub_schema_uri_map: schema_context.sub_schema_uri_map,
                             deprecated_lint_level: schema_context.deprecated_lint_level,
+                            schema_format_rules: schema_context.schema_format_rules,
+                            schema_overrides: schema_context.schema_overrides,
                             schema_visits: schema_context.schema_visits.clone(),
                             store: schema_context.store,
                             strict: Some(false),
@@ -624,6 +627,8 @@ async fn validate_table(
                     root_schema: schema_context.root_schema,
                     sub_schema_uri_map: schema_context.sub_schema_uri_map,
                     deprecated_lint_level: schema_context.deprecated_lint_level,
+                    schema_format_rules: schema_context.schema_format_rules,
+                    schema_overrides: schema_context.schema_overrides,
                     schema_visits: schema_context.schema_visits.clone(),
                     store: schema_context.store,
                     strict: Some(false),
@@ -747,6 +752,7 @@ async fn validate_table(
             table_schema.deprecated,
             accessors,
             table_value,
+            Some(current_schema),
             schema_context,
             table_value.comment_directives(),
             table_rules.as_ref().map(|rules| &rules.common),
@@ -1036,28 +1042,31 @@ fn collect_evaluated_properties_from_referable_schemas<'a>(
 ) -> BoxFuture<'a, crate::EvaluatedLocations> {
     async move {
         let mut result = crate::EvaluatedLocations::new();
-        for schema_item in applicator.schemas().read().await.iter() {
-            if let Ok(Some(schema)) = schema_item
-                .to_current_schema(
-                    current_schema.schema_uri.clone(),
-                    current_schema.definitions.clone(),
-                    schema_context.store,
+        let Some(schemas) = tombi_schema_store::resolve_and_collect_schemas(
+            applicator.schemas(),
+            current_schema.schema_uri.clone(),
+            current_schema.definitions.clone(),
+            schema_context.store,
+            &schema_context.schema_visits,
+            accessors,
+        )
+        .await
+        else {
+            return result;
+        };
+
+        for schema in &schemas {
+            result.merge_from(
+                collect_evaluated_properties_from_value_schema(
+                    table_value,
+                    accessors,
+                    schema.value_schema.as_ref(),
+                    schema,
+                    schema_context,
+                    visited_schema_values,
                 )
-                .await
-                .inspect_err(|err| log::warn!("{err}"))
-            {
-                result.merge_from(
-                    collect_evaluated_properties_from_value_schema(
-                        table_value,
-                        accessors,
-                        schema.value_schema.as_ref(),
-                        &schema,
-                        schema_context,
-                        visited_schema_values,
-                    )
-                    .await,
-                );
-            }
+                .await,
+            );
         }
         result
     }

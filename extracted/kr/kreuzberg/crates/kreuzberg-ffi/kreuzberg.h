@@ -9,8 +9,8 @@
 
 #define KREUZBERG_VERSION_MAJOR 4
 #define KREUZBERG_VERSION_MINOR 9
-#define KREUZBERG_VERSION_PATCH 1
-#define KREUZBERG_VERSION "4.9.1"
+#define KREUZBERG_VERSION_PATCH 2
+#define KREUZBERG_VERSION "4.9.2"
 
 
 #include <stdarg.h>
@@ -1581,7 +1581,7 @@ KREUZBERG_EXPORT uint32_t kreuzberg_error_code_count(void);
  *
  * # Arguments
  *
- * - `code`: Numeric error code (0-8)
+ * - `code`: Numeric error code (0-9)
  *
  * # Returns
  *
@@ -1610,7 +1610,7 @@ KREUZBERG_EXPORT const char *kreuzberg_error_code_name(uint32_t code);
  *
  * # Arguments
  *
- * - `code`: Numeric error code (0-8)
+ * - `code`: Numeric error code (0-9)
  *
  * # Returns
  *

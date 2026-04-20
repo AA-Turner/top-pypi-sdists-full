@@ -49,14 +49,19 @@ class RMSNorm(ReductionBase):
 
     def _set_cluster_n(self):
         arch = cutlass.base_dsl.BaseDSL._get_dsl().get_arch_enum()
-        # SM8x (Ampere/Ada) and SM12x (consumer Blackwell) lack cluster support
-        if arch < Arch.sm_90 or arch.major == 12:
+        # SM8x (Ampere/Ada) lacks cluster support
+        if arch < Arch.sm_90:
             self.cluster_n = 1
             return
+        # SM12x supports cluster up to 8
+        max_cluster = 8 if arch.major == 12 else 16
         N = self.N
         # cluster_n = 4 is faster and cluster_n = 2 for N=64k for some reason
         # Similarly cluster_n = 8 is faster for N=128k
-        if const_expr(self.dtype.width == 16):
+        if arch.major == 12 and const_expr(self.dtype.width >= 32):
+            # SM12x 99 KB SMEM: fp32 needs tighter clustering (conservative for residual case)
+            thresholds = [(8 * 1024, 1), (16 * 1024, 2), (32 * 1024, 4), (64 * 1024, 8)]
+        elif const_expr(self.dtype.width == 16):
             thresholds = [(16 * 1024, 1), (32 * 1024, 2), (64 * 1024, 4), (128 * 1024, 8)]
         else:
             thresholds = [(32 * 1024, 1), (64 * 1024, 2), (128 * 1024, 4), (256 * 1024, 8)]
@@ -64,7 +69,7 @@ class RMSNorm(ReductionBase):
             if N <= limit:
                 self.cluster_n = cluster
                 return
-        self.cluster_n = 16
+        self.cluster_n = max_cluster
 
     @cute.jit
     def __call__(
@@ -551,16 +556,23 @@ class RMSNormBackward(ReductionBase):
 
     def _set_cluster_n(self):
         arch = cutlass.base_dsl.BaseDSL._get_dsl().get_arch_enum()
-        # SM8x (Ampere/Ada) and SM12x (consumer Blackwell) lack cluster support
-        if arch < Arch.sm_90 or arch.major == 12:
+        # SM8x (Ampere/Ada) lacks cluster support
+        if arch < Arch.sm_90:
             self.cluster_n = 1
             return
+        # SM12x supports cluster up to 8
+        max_cluster = 8 if arch.major == 12 else 16
         N = self.N
-        for limit, cluster in [(8 * 1024, 1), (16 * 1024, 2), (32 * 1024, 4), (64 * 1024, 8)]:
+        if arch.major == 12 and const_expr(self.dtype.width >= 32):
+            # SM12x 99 KB SMEM: fp32 bwd double-buffers 2 tensors, needs much tighter clustering
+            thresholds = [(1024, 1), (8 * 1024, 2), (16 * 1024, 4), (32 * 1024, 8)]
+        else:
+            thresholds = [(8 * 1024, 1), (16 * 1024, 2), (32 * 1024, 4), (64 * 1024, 8)]
+        for limit, cluster in thresholds:
             if N <= limit:
                 self.cluster_n = cluster
                 return
-        self.cluster_n = 16
+        self.cluster_n = max_cluster
 
     @cute.jit
     def __call__(
@@ -1109,6 +1121,14 @@ def rmsnorm_bwd(
 
 
 class RMSNormFunction(torch.autograd.Function):
+    """Autograd wrapper for rmsnorm.
+
+    All input reshaping (flattening batch dims, per-head layout) is done in the
+    rmsnorm() wrapper BEFORE calling .apply(). This function receives already-
+    flattened tensors so that tensor ranks never change between recompilations,
+    which is required for torch.compile compatibility.
+    """
+
     @staticmethod
     def forward(
         ctx,
@@ -1121,15 +1141,9 @@ class RMSNormFunction(torch.autograd.Function):
         eps=1e-6,
         prenorm=False,
     ):
-        x_shape_og = x.shape
-        per_head = (weight is not None and weight.dim() == 2) or (
-            bias is not None and bias.dim() == 2
-        )
-        last_shape = x_shape_og[-1:] if not per_head else x_shape_og[-2:]
-        # Flatten input, ensuring last dim is contiguous
-        x = _ensure_contiguous(x.reshape(-1, *last_shape))
+        x = _ensure_contiguous(x)
         if residual is not None:
-            residual = _ensure_contiguous(residual.reshape(-1, *last_shape))
+            residual = _ensure_contiguous(residual)
         need_grad = any(ctx.needs_input_grad[:3])
         out, residual_out, rstd = rmsnorm_fwd(
             x,
@@ -1143,43 +1157,30 @@ class RMSNormFunction(torch.autograd.Function):
         )
         ctx.save_for_backward(x if residual is None else residual_out, weight, rstd)
         ctx.has_bias = bias is not None
-        ctx.per_head = per_head
-        ctx.eps = eps
-        ctx.x_shape_og = x_shape_og
-        ctx.residual_dtype = residual.dtype if residual is not None else None
+        ctx.has_residual = residual is not None
         ctx.prenorm = prenorm
         if residual_out is None or not prenorm:
-            return out.reshape(x_shape_og)
+            return out
         else:
-            return out.reshape(x_shape_og), residual_out.reshape(x_shape_og)
+            return out, residual_out
 
     @staticmethod
     def backward(ctx, dout, *args):
         x, weight, rstd = ctx.saved_tensors
-        has_bias = ctx.has_bias
-        per_head = ctx.per_head
-        x_shape_og = ctx.x_shape_og
-        last_shape = x_shape_og[-2:] if per_head else x_shape_og[-1:]
-        if ctx.prenorm and ctx.residual_dtype is not None:
-            dresidual_out = args[0]
-            dresidual_out = _ensure_contiguous(dresidual_out.reshape(-1, *last_shape))
+        dout = _ensure_contiguous(dout)
+        if ctx.prenorm and ctx.has_residual:
+            dresidual_out = _ensure_contiguous(args[0])
         else:
             dresidual_out = None
-        # Reshape dout to match the shape used in forward
-        dout = _ensure_contiguous(dout.reshape(-1, *last_shape))
         dx, dw, db, dresidual = rmsnorm_bwd(
             x,
             weight,
             dout,
             rstd,
             dresidual_out,
-            has_bias,
-            has_residual=ctx.residual_dtype is not None,
+            ctx.has_bias,
+            has_residual=ctx.has_residual,
         )
-        dx = dx.view(x_shape_og)
-        if dresidual is not None:
-            dresidual = dresidual.reshape(x_shape_og)
-
         return dx, dw, db, dresidual, *([None] * 4)
 
 
@@ -1196,14 +1197,29 @@ def rmsnorm(
     """RMSNorm with automatic differentiation support.
 
     Args:
-        x: Input tensor of shape (M, N)
-        weight: Optional weight tensor of shape (N,)
+        x: Input tensor of shape (M, N) or (B, S, H, D) for per-head mode
+        weight: Optional weight tensor of shape (N,) or (H, D) for per-head mode
         eps: Small value for numerical stability
 
     Returns:
         Normalized output tensor of same shape as x
     """
-    return RMSNormFunction.apply(x, weight, bias, residual, out_dtype, residual_dtype, eps, prenorm)
+    x_shape_og = x.shape
+    per_head = (weight is not None and weight.dim() == 2) or (bias is not None and bias.dim() == 2)
+    last_shape = x_shape_og[-1:] if not per_head else x_shape_og[-2:]
+    # Flatten batch dims before entering autograd.Function so tensor ranks
+    # are determined by per_head (which dynamo guards on via the if-branch),
+    # not by the original input shape. This ensures torch.compile can
+    # recompile the backward subgraph correctly when switching between
+    # per_head=False and per_head=True.
+    x_flat = x.reshape(-1, *last_shape)
+    res_flat = residual.reshape(-1, *last_shape) if residual is not None else None
+    result = RMSNormFunction.apply(
+        x_flat, weight, bias, res_flat, out_dtype, residual_dtype, eps, prenorm
+    )
+    if isinstance(result, tuple):
+        return tuple(r.reshape(x_shape_og) for r in result)
+    return result.reshape(x_shape_og)
 
 
 class QuackRMSNorm(torch.nn.RMSNorm):

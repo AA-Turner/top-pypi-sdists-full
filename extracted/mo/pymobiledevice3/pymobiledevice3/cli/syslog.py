@@ -1,13 +1,16 @@
+import json
 import logging
 import os
 import posixpath
 import re
 from contextlib import nullcontext
+from enum import Enum
 from pathlib import Path
 from typing import Annotated, Optional, TextIO
 
 import typer
 from typer_injector import InjectingTyper
+from typing_extensions import assert_never
 
 from pymobiledevice3.cli.cli_common import (
     ServiceProviderDep,
@@ -28,6 +31,30 @@ cli = InjectingTyper(
 )
 
 
+class SyslogFormat(str, Enum):
+    TEXT = "text"
+    JSON = "json"
+
+
+def format_json_line(syslog_entry: SyslogEntry) -> str:
+    label: Optional[dict[str, str]] = None
+    if syslog_entry.label is not None:
+        label = {"subsystem": syslog_entry.label.subsystem, "category": syslog_entry.label.category}
+    return json.dumps(
+        {
+            "pid": syslog_entry.pid,
+            "timestamp": syslog_entry.timestamp.isoformat(),
+            "level": syslog_entry.level.name,
+            "image_name": syslog_entry.image_name,
+            "image_offset": syslog_entry.image_offset,
+            "filename": syslog_entry.filename,
+            "message": syslog_entry.message,
+            "label": label,
+        },
+        ensure_ascii=False,
+    )
+
+
 @cli.command("live-old")
 @async_command
 async def syslog_live_old(service_provider: ServiceProviderDep) -> None:
@@ -37,9 +64,7 @@ async def syslog_live_old(service_provider: ServiceProviderDep) -> None:
             print(line)
 
 
-def format_line(
-    color: bool, pid: int, syslog_entry: SyslogEntry, include_label: bool, image_offset: bool = False
-) -> Optional[str]:
+def format_line(syslog_entry: SyslogEntry, *, include_label: bool, image_offset: bool, color: bool) -> str:
     log_level_colors = {
         SyslogLogLevel.NOTICE.name: "white",
         SyslogLogLevel.INFO.name: "white",
@@ -58,9 +83,6 @@ def format_line(
     process_name = posixpath.basename(filename)
     image_offset_str = f"+0x{syslog_entry.image_offset:x}" if image_offset and image_name else ""
     label = ""
-
-    if (pid != -1) and (syslog_pid != pid):
-        return None
 
     if syslog_entry.label is not None:
         label = f"[{syslog_entry.label.subsystem}][{syslog_entry.label.category}]"
@@ -154,6 +176,12 @@ def _highlight_regex_filters(styled_line: str, match_regex: list[re.Pattern[str]
     return styled_line
 
 
+def _emit_line(line: str, out: Optional[TextIO]) -> None:
+    print(line, flush=True)
+    if out:
+        print(line, file=out, flush=True)
+
+
 async def syslog_live(
     service_provider: LockdownServiceProvider,
     out: Optional[TextIO],
@@ -168,48 +196,63 @@ async def syslog_live(
     insensitive_regex: list[str],
     image_offset: bool = False,
     start_after: Optional[str] = None,
+    output_format: SyslogFormat = SyslogFormat.TEXT,
 ) -> None:
     match_regex = [re.compile(f".*({r}).*", re.DOTALL) for r in regex]
     match_regex += [re.compile(f".*({r}).*", re.IGNORECASE | re.DOTALL) for r in insensitive_regex]
     started = start_after is None
 
-    if start_after is not None:
+    if start_after is not None and output_format is SyslogFormat.TEXT:
         print(f'Waiting for "{start_after}" ...', flush=True)
 
-    should_color_output = user_requested_colored_output()
+    should_color_output = output_format is SyslogFormat.TEXT and user_requested_colored_output()
 
     async for syslog_entry in OsTraceService(lockdown=service_provider).syslog(pid=pid):
         if process_name and posixpath.basename(syslog_entry.filename) != process_name:
             continue
 
-        line = format_line(False, pid, syslog_entry, include_label, image_offset)
-        styled_line = format_line(should_color_output, pid, syslog_entry, include_label, image_offset)
-
-        if line is None or styled_line is None:
+        if pid != -1 and syslog_entry.pid != pid:
             continue
 
-        if not started:
-            if start_after not in line:
+        if output_format is SyslogFormat.JSON:
+            json_line = format_json_line(syslog_entry)
+            _emit_line(json_line, out)
+
+        elif output_format is SyslogFormat.TEXT:
+            line = format_line(
+                syslog_entry,
+                include_label=include_label,
+                image_offset=image_offset,
+                color=False,
+            )
+
+            if not started:
+                if start_after not in line:
+                    continue
+                started = True
+
+            if _should_skip_line(line, invert_match, invert_match_insensitive):
                 continue
-            started = True
 
-        if _should_skip_line(line, invert_match, invert_match_insensitive):
-            continue
+            if not _should_keep_line(line, match, match_insensitive, match_regex):
+                continue
 
-        if not _should_keep_line(line, match, match_insensitive, match_regex):
-            continue
-
-        if should_color_output:
-            styled_line = _highlight_match_filters(styled_line, match, match_insensitive)
-            styled_line = _highlight_regex_filters(styled_line, match_regex)
-
-        print(styled_line, flush=True)
-
-        if out:
             if should_color_output:
-                print(styled_line, file=out, flush=True)
+                styled_line = format_line(
+                    syslog_entry,
+                    include_label=include_label,
+                    image_offset=image_offset,
+                    color=True,
+                )
+                styled_line = _highlight_match_filters(styled_line, match, match_insensitive)
+                styled_line = _highlight_regex_filters(styled_line, match_regex)
             else:
-                print(line, file=out, flush=True)
+                styled_line = line
+
+            _emit_line(styled_line, out)
+
+        else:
+            assert_never(output_format)
 
 
 @cli.command("live")
@@ -221,7 +264,9 @@ async def cli_syslog_live(
         typer.Option(
             "--out",
             "-o",
-            help="log file",
+            help="Save every log entry to this file. NOTE: stdout is not suppressed — entries are "
+            "printed to both stdout and the file (tee-like). Redirect stdout with '>/dev/null' to keep "
+            "only the file.",
         ),
     ] = None,
     pid: Annotated[
@@ -241,7 +286,8 @@ async def cli_syslog_live(
         typer.Option(
             "--match",
             "-m",
-            help="filter only logs matching this expression (repeatable; all must match - conjunction)",
+            help="filter only logs matching this expression "
+            "(repeatable; all must match - conjunction). Text mode only.",
         ),
     ] = None,
     invert_match: Annotated[
@@ -249,7 +295,8 @@ async def cli_syslog_live(
         typer.Option(
             "--invert-match",
             "-v",
-            help="filter only logs not matching this expression (repeatable; any match excludes - disjunction)",
+            help="filter only logs not matching this expression "
+            "(repeatable; any match excludes - disjunction). Text mode only.",
         ),
     ] = None,
     match_insensitive: Annotated[
@@ -258,7 +305,7 @@ async def cli_syslog_live(
             "--match-insensitive",
             "-mi",
             help="filter only logs matching this expression, case-insensitively "
-            "(repeatable; all must match - conjunction)",
+            "(repeatable; all must match - conjunction). Text mode only.",
         ),
     ] = None,
     invert_match_insensitive: Annotated[
@@ -267,14 +314,14 @@ async def cli_syslog_live(
             "--invert-match-insensitive",
             "-vi",
             help="filter only logs not matching this expression, case-insensitively "
-            "(repeatable; any match excludes - disjunction)",
+            "(repeatable; any match excludes - disjunction). Text mode only.",
         ),
     ] = None,
     include_label: Annotated[
         bool,
         typer.Option(
             "--label",
-            help="should include label",
+            help="should include label (text mode only; JSON always emits the label field).",
         ),
     ] = False,
     regex: Annotated[
@@ -282,7 +329,8 @@ async def cli_syslog_live(
         typer.Option(
             "--regex",
             "-e",
-            help="filter only lines matching given regex (repeatable; any match includes - disjunction)",
+            help="filter only lines matching given regex "
+            "(repeatable; any match includes - disjunction). Text mode only.",
         ),
     ] = None,
     insensitive_regex: Annotated[
@@ -291,7 +339,7 @@ async def cli_syslog_live(
             "--insensitive-regex",
             "-ei",
             help="filter only lines matching given regex, case-insensitively "
-            "(repeatable; any match includes - disjunction)",
+            "(repeatable; any match includes - disjunction). Text mode only.",
         ),
     ] = None,
     image_offset: Annotated[
@@ -299,16 +347,25 @@ async def cli_syslog_live(
         typer.Option(
             "--image-offset",
             "-io",
-            help="Include image offset in log line",
+            help="Include image offset in log line (text mode only; JSON always emits image_offset).",
         ),
     ] = False,
     start_after: Annotated[
         Optional[str],
         typer.Option(
             "--start-after",
-            help="Start printing only after this string is seen",
+            help="Start printing only after this string is seen. Text mode only.",
         ),
     ] = None,
+    output_format: Annotated[
+        SyslogFormat,
+        typer.Option(
+            "--format",
+            help="Output format. 'json' emits one JSON per line (NDJSON); only --pid and --process-name "
+            "apply, other filters are ignored.",
+            case_sensitive=False,
+        ),
+    ] = SyslogFormat.TEXT,
 ) -> None:
     """view live syslog lines"""
 
@@ -327,6 +384,7 @@ async def cli_syslog_live(
             insensitive_regex or [],
             image_offset,
             start_after,
+            output_format,
         )
 
 

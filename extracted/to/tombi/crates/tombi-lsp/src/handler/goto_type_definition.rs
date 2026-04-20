@@ -51,7 +51,9 @@ pub async fn handle_goto_type_definition(
         return Ok(Default::default());
     }
 
-    let document_sources = backend.document_sources.read().await;
+    let Ok(document_sources) = backend.document_sources.try_read() else {
+        return Ok(Default::default());
+    };
     let Some(document_source) = document_sources.get(&text_document_uri) else {
         return Ok(Default::default());
     };
@@ -97,6 +99,8 @@ pub async fn handle_goto_type_definition(
                     .and_then(|s| s.root_schema.as_deref()),
                 sub_schema_uri_map: source_schema.as_ref().map(|s| &s.sub_schema_uri_map),
                 deprecated_lint_level: source_schema.as_ref().and_then(|s| s.deprecated_lint_level),
+                schema_format_rules: source_schema.as_ref().map(|s| &s.schema_format_rules),
+                schema_overrides: source_schema.as_ref().map(|s| &s.schema_overrides),
                 schema_visits: Default::default(),
                 store: &schema_store,
                 strict: None,

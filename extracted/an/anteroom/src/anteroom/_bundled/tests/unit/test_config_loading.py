@@ -2530,6 +2530,141 @@ class TestMemoryRetentionConfig:
 
 
 # ---------------------------------------------------------------------------
+# Memory auto-propose config (#1454)
+# ---------------------------------------------------------------------------
+
+
+class TestMemoryAutoProposeConfig:
+    def test_auto_propose_defaults(self, tmp_path: Path) -> None:
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        ap = config.memory.auto_propose
+        assert ap.enabled is False
+        assert ap.max_candidates_per_turn == 1
+        assert ap.categories == ["preference", "project_fact", "decision", "workflow_hint"]
+        assert ap.min_confidence == 0.8
+        assert ap.notify_inline is True
+        assert ap.cooldown_turns == 5
+
+    def test_auto_propose_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {
+                    "auto_propose": {
+                        "enabled": True,
+                        "max_candidates_per_turn": 3,
+                        "categories": ["preference", "decision"],
+                        "min_confidence": 0.5,
+                        "notify_inline": False,
+                        "cooldown_turns": 10,
+                    }
+                },
+            },
+        )
+        config, _ = load_config(cfg)
+        ap = config.memory.auto_propose
+        assert ap.enabled is True
+        assert ap.max_candidates_per_turn == 3
+        assert ap.categories == ["preference", "decision"]
+        assert ap.min_confidence == 0.5
+        assert ap.notify_inline is False
+        assert ap.cooldown_turns == 10
+
+    def test_auto_propose_enabled_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_AUTO_PROPOSE_ENABLED", "true")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.auto_propose.enabled is True
+
+    def test_auto_propose_max_per_turn_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_AUTO_PROPOSE_MAX_CANDIDATES_PER_TURN", "4")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.auto_propose.max_candidates_per_turn == 4
+
+    def test_auto_propose_min_confidence_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_AUTO_PROPOSE_MIN_CONFIDENCE", "0.65")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.auto_propose.min_confidence == 0.65
+
+    def test_auto_propose_categories_env_var_csv(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_AUTO_PROPOSE_CATEGORIES", "preference,decision")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.auto_propose.categories == ["preference", "decision"]
+
+    def test_auto_propose_categories_invalid_filtered(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {
+                    "auto_propose": {
+                        "categories": ["preference", "garbage", "another_invalid"],
+                    }
+                },
+            },
+        )
+        config, _ = load_config(cfg)
+        # Invalid categories silently dropped; valid ones survive.
+        assert config.memory.auto_propose.categories == ["preference"]
+
+    def test_auto_propose_categories_all_invalid_falls_back(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {"auto_propose": {"categories": ["bogus"]}},
+            },
+        )
+        config, _ = load_config(cfg)
+        # All-invalid input falls back to the full default category list.
+        assert config.memory.auto_propose.categories == [
+            "preference",
+            "project_fact",
+            "decision",
+            "workflow_hint",
+        ]
+
+    def test_auto_propose_min_confidence_clamped(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {"auto_propose": {"min_confidence": 1.7}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.memory.auto_propose.min_confidence == 1.0
+
+    def test_auto_propose_max_per_turn_clamped_to_one(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {"auto_propose": {"max_candidates_per_turn": 0}},
+            },
+        )
+        config, _ = load_config(cfg)
+        # Floor of 1 — never run with zero cap (would still produce overhead).
+        assert config.memory.auto_propose.max_candidates_per_turn == 1
+
+    def test_auto_propose_invalid_min_confidence_falls_back(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "memory": {"auto_propose": {"min_confidence": "garbage"}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.memory.auto_propose.min_confidence == 0.8
+
+
+# ---------------------------------------------------------------------------
 # Compliance config (lines 1866-1896)
 # ---------------------------------------------------------------------------
 
