@@ -188,6 +188,10 @@ impl CheckpointTimer {
             || 0,
         );
 
+        #[allow(
+            unused_mut,
+            reason = "mut needed when triple-store/ring-index/vector-index/text-index features push sections"
+        )]
         let mut sections: Vec<Box<dyn grafeo_common::storage::Section>> =
             vec![Box::new(catalog_section), Box::new(lpg)];
 
@@ -249,7 +253,7 @@ mod tests {
         let fm = Arc::new(GrafeoFileManager::create(&path).unwrap());
 
         let mut timer = CheckpointTimer::start(
-            Duration::from_secs(60), // Long interval
+            Duration::from_mins(1), // Long interval
             fm,
             store,
             catalog,

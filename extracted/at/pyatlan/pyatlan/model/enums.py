@@ -2767,6 +2767,13 @@ class ConnectionDQEnvironmentSetupStatus(str, Enum):
     FAILED = "FAILED"
 
 
+class ContextLifecycleStatus(str, Enum):
+    DRAFT = "DRAFT"
+    ACTIVE = "ACTIVE"
+    DEPRECATED = "DEPRECATED"
+    ARCHIVED = "ARCHIVED"
+
+
 class DataMeshDatasetType(str, Enum):
     RAW = "Raw"
     REFINED = "Refined"
@@ -2971,6 +2978,9 @@ class FileType(str, Enum):
     YXDB = "yxdb"
     XLSM = "xlsm"
     HYPER = "hyper"
+    YAML = "yaml"
+    SQL = "sql"
+    MD = "md"
 
 
 class FivetranConnectorStatus(str, Enum):
@@ -3100,6 +3110,7 @@ class QuickSightDatasetImportMode(str, Enum):
 
 class QuickSightFolderType(str, Enum):
     SHARED = "SHARED"
+    RESTRICTED = "RESTRICTED"
 
 
 class S3ObjectLockMode(str, Enum):

@@ -13,13 +13,19 @@
 # limitations under the License.
 
 from json import loads
+from typing import TYPE_CHECKING
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.constants import HTTPMethod
+from rucio.common.exception import RucioException
 from rucio.common.utils import build_url
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from typing import Literal
 
 
 class ScopeClient(BaseClient):
@@ -72,13 +78,32 @@ class ScopeClient(BaseClient):
         -------
         A list containing the names of all scopes.
         """
-
-        path = '/'.join(['scopes/'])
+        path = "scopes/"
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             scopes = loads(r.text)
             return scopes
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def list_scope_owners(self) -> 'Iterable[dict[Literal["scope", "account"], str]]':
+        """
+        Sends the request to list the owners of each scope.
+
+        Returns
+        -------
+        A list containing the scopes and their owner, requires server >= 40.0
+        """
+        path = 'scopes/owner'
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, method=HTTPMethod.GET)
+        if r.status_code == codes.ok:
+            scopes = loads(r.text)
+            return scopes
+        elif r.status_code == codes.not_found:
+            raise RucioException("list_scope_owners requires a rucio server version >=40.")
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
@@ -111,6 +136,41 @@ class ScopeClient(BaseClient):
         if r.status_code == codes.ok:
             scopes = loads(r.text)
             return scopes
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def update_scope(self, account: str, scope: str) -> bool:
+        """
+        Change the ownership of a scope
+
+        Parameters
+        ----------
+        account :
+            New account to assign as scope owner
+        scope :
+            Scope to change ownership of
+
+        Returns
+        -------
+        bool
+            True if the operation was successful
+
+        Raises
+        ------
+        AccountNotFound
+            If account doesn't exist.
+        ScopeNotFound
+            If scope doesn't exist.
+        CannotAuthenticate, AccessDenied
+            Insufficient permission/incorrect credentials to change ownership.
+        """
+
+        path = '/'.join(['scopes', account, scope])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, method=HTTPMethod.PUT)
+        if r.status_code == codes.created:
+            return True
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)

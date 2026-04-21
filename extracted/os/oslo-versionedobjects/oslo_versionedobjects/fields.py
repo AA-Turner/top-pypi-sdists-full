@@ -12,14 +12,26 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from __future__ import annotations
+
 import abc
-from collections import abc as collections_abc
+from collections.abc import Collection, Iterable, Mapping
+import copy
 import datetime
+import logging
 import re
+from typing import (
+    Any,
+    cast,
+    Generic,
+    overload,
+    SupportsIndex,
+    TypeVar,
+    TYPE_CHECKING,
+)
 import uuid
 import warnings
 
-import copy
 import netaddr
 from oslo_utils import strutils
 from oslo_utils import timeutils
@@ -29,32 +41,53 @@ from oslo_versionedobjects._i18n import _
 from oslo_versionedobjects import _utils
 from oslo_versionedobjects import exception
 
+if TYPE_CHECKING:
+    from oslo_versionedobjects import base
+    from typing_extensions import Self
+
+LOG = logging.getLogger('field')
+
+# Type variable for generic Field type
+T = TypeVar('T')
+
 
 class KeyTypeError(TypeError):
-    def __init__(self, expected, value):
+    def __init__(self, expected: type, value: Any) -> None:
         super().__init__(
-            _('Key %(key)s must be of type %(expected)s not %(actual)s'
-              ) % {'key': repr(value),
-                   'expected': expected.__name__,
-                   'actual': value.__class__.__name__,
-                   })
+            _('Key %(key)s must be of type %(expected)s not %(actual)s')
+            % {
+                'key': repr(value),
+                'expected': expected.__name__,
+                'actual': value.__class__.__name__,
+            }
+        )
 
 
 class ElementTypeError(TypeError):
-    def __init__(self, expected, key, value):
+    def __init__(self, expected: str, key: Any, value: Any) -> None:
         super().__init__(
-            _('Element %(key)s:%(val)s must be of type %(expected)s'
-              ' not %(actual)s'
-              ) % {'key': key,
-                   'val': repr(value),
-                   'expected': expected,
-                   'actual': value.__class__.__name__,
-                   })
+            _(
+                'Element %(key)s:%(val)s must be of type %(expected)s'
+                ' not %(actual)s'
+            )
+            % {
+                'key': key,
+                'val': repr(value),
+                'expected': expected,
+                'actual': value.__class__.__name__,
+            }
+        )
 
 
-class AbstractFieldType(metaclass=abc.ABCMeta):
+U = TypeVar('U')
+E = TypeVar('E')  # Element type for compound fields (List, Dict, Set)
+
+
+class AbstractFieldType(Generic[T], metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def coerce(self, obj, attr, value):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> T:
         """This is called to coerce (if possible) a value on assignment.
 
         This method should convert the value given into the designated type,
@@ -65,10 +98,12 @@ class AbstractFieldType(metaclass=abc.ABCMeta):
         :param:value: The value being set
         :returns: A properly-typed value
         """
-        pass
+        ...
 
     @abc.abstractmethod
-    def from_primitive(self, obj, attr, value):
+    def from_primitive(
+        self, obj: base.VersionedObject, attr: str, value: object
+    ) -> T:
         """This is called to deserialize a value.
 
         This method should deserialize a value from the form given by
@@ -79,10 +114,14 @@ class AbstractFieldType(metaclass=abc.ABCMeta):
         :param:value: The serialized form of the value
         :returns: The natural form of the value
         """
-        pass
+        ...
 
+    # TODO(stephenfin): We could probably type this better with a second
+    # generic parameter, but do we care enough?
     @abc.abstractmethod
-    def to_primitive(self, obj, attr, value):
+    def to_primitive(
+        self, obj: base.VersionedObject, attr: str, value: T
+    ) -> object:
         """This is called to serialize a value.
 
         This method should serialize a value to the form expected by
@@ -93,39 +132,44 @@ class AbstractFieldType(metaclass=abc.ABCMeta):
         :param:value: The natural form of the value
         :returns: The serialized form of the value
         """
-        pass
+        ...
 
     @abc.abstractmethod
-    def describe(self):
+    def describe(self) -> str:
         """Returns a string describing the type of the field."""
-        pass
+        ...
 
     @abc.abstractmethod
-    def stringify(self, value):
+    def stringify(self, value: T) -> str:
         """Returns a short stringified version of a value."""
-        pass
+        ...
 
 
-class FieldType(AbstractFieldType):
-    @staticmethod
-    def coerce(obj, attr, value):
+class FieldType(AbstractFieldType[T]):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> T:
+        return cast(T, value)
+
+    def from_primitive(
+        self, obj: base.VersionedObject, attr: str, value: object
+    ) -> T:
+        return cast(T, value)
+
+    def to_primitive(
+        self, obj: base.VersionedObject, attr: str, value: T
+    ) -> object:
         return value
 
-    @staticmethod
-    def from_primitive(obj, attr, value):
-        return value
-
-    @staticmethod
-    def to_primitive(obj, attr, value):
-        return value
-
-    def describe(self):
+    def describe(self) -> str:
         return self.__class__.__name__
 
-    def stringify(self, value):
+    def stringify(self, value: T) -> str:
         return str(value)
 
-    def get_schema(self):
+    # TODO(stephenfin): This is a minimal JSON Schema schema. We can type this
+    # better.
+    def get_schema(self) -> dict[str, Any]:
         raise NotImplementedError()
 
 
@@ -133,52 +177,67 @@ class UnspecifiedDefault:
     pass
 
 
-class Field:
-    def __init__(self, field_type, nullable=False,
-                 default=UnspecifiedDefault, read_only=False):
+class Field(Generic[T]):
+    _type: FieldType[T]
+    _nullable: bool
+    _default: T | type[UnspecifiedDefault]
+    _read_only: bool
+
+    def __init__(
+        self,
+        field_type: FieldType[T],
+        nullable: bool = False,
+        default: T | type[UnspecifiedDefault] = UnspecifiedDefault,
+        read_only: bool = False,
+    ) -> None:
         self._type = field_type
         self._nullable = nullable
         self._default = default
         self._read_only = read_only
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if isinstance(self._default, set):
             # TODO(stephenfin): Drop this when we switch from
             # 'inspect.getargspec' to 'inspect.getfullargspec', since our
             # hashes will have to change anyway
             # make a py27 and py35 compatible representation. See bug 1771804
-            default = 'set([%s])' % ','.join(
-                sorted([str(v) for v in self._default])
+            default = 'set([{}])'.format(
+                ','.join(sorted([str(v) for v in self._default]))
             )
         else:
             default = str(self._default)
-        return '{}(default={},nullable={})'.format(
-            self._type.__class__.__name__, default, self._nullable)
+        return (
+            f'{self._type.__class__.__name__}'
+            f'(default={default},nullable={self._nullable})'
+        )
 
     @property
-    def nullable(self):
+    def nullable(self) -> bool:
         return self._nullable
 
     @property
-    def default(self):
+    def default(self) -> T | type[UnspecifiedDefault]:
         return self._default
 
     @property
-    def read_only(self):
+    def read_only(self) -> bool:
         return self._read_only
 
-    def _null(self, obj, attr):
+    def _null(self, obj: base.VersionedObject | None, attr: str) -> T | None:
         if self.nullable:
             return None
-        elif self._default != UnspecifiedDefault:
+
+        if self._default != UnspecifiedDefault:
             # NOTE(danms): We coerce the default value each time the field
             # is set to None as our contract states that we'll let the type
             # examine the object and attribute name at that time.
             return self._type.coerce(obj, attr, copy.deepcopy(self._default))
-        else:
-            raise ValueError(_("Field `%s' cannot be None") % attr)
 
-    def coerce(self, obj, attr, value):
+        raise ValueError(_("Field `%s' cannot be None") % attr)
+
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> T | None:
         """Coerce a value to a suitable type.
 
         This is called any time you set a value on an object, like:
@@ -198,11 +257,25 @@ class Field:
         :returns: The properly-typed value
         """
         if value is None:
+            # _null may return None (if nullable) which is valid for T when
+            # T includes None; otherwise it raises or returns default
             return self._null(obj, attr)
-        else:
-            return self._type.coerce(obj, attr, value)
 
-    def from_primitive(self, obj, attr, value):
+        return self._type.coerce(obj, attr, value)
+
+    @overload
+    def from_primitive(
+        self, obj: base.VersionedObject, attr: str, value: None
+    ) -> None: ...
+
+    @overload
+    def from_primitive(
+        self, obj: base.VersionedObject, attr: str, value: object
+    ) -> T: ...
+
+    def from_primitive(
+        self, obj: base.VersionedObject, attr: str, value: object | None
+    ) -> T | None:
         """Deserialize a value from primitive form.
 
         This is responsible for deserializing a value from primitive
@@ -216,10 +289,12 @@ class Field:
         """
         if value is None:
             return None
-        else:
-            return self._type.from_primitive(obj, attr, value)
 
-    def to_primitive(self, obj, attr, value):
+        return self._type.from_primitive(obj, attr, value)
+
+    def to_primitive(
+        self, obj: base.VersionedObject, attr: str, value: T
+    ) -> object:
         """Serialize a value to primitive form.
 
         This is responsible for serializing a value to primitive
@@ -233,22 +308,24 @@ class Field:
         """
         if value is None:
             return None
-        else:
-            return self._type.to_primitive(obj, attr, value)
 
-    def describe(self):
+        return self._type.to_primitive(obj, attr, value)
+
+    def describe(self) -> str:
         """Return a short string describing the type of this field."""
         name = self._type.describe()
         prefix = self.nullable and 'Nullable' or ''
         return prefix + name
 
-    def stringify(self, value):
+    def stringify(self, value: T) -> str:
         if value is None:
             return 'None'
-        else:
-            return self._type.stringify(value)
 
-    def get_schema(self):
+        return self._type.stringify(value)
+
+    # TODO(stephenfin): This is a minimal JSON Schema schema. We can type this
+    # better.
+    def get_schema(self) -> dict[str, Any]:
         schema = self._type.get_schema()
         schema.update({'readonly': self.read_only})
         if self.nullable:
@@ -259,23 +336,24 @@ class Field:
         return schema
 
 
-class String(FieldType):
-    @staticmethod
-    def coerce(obj, attr, value):
+class String(FieldType[str]):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> str:
         # FIXME(danms): We should really try to avoid the need to do this
         accepted_types = (int, float, str, datetime.datetime)
         if isinstance(value, accepted_types):
             return str(value)
 
-        raise ValueError(_('A string is required in field %(attr)s, '
-                           'not a %(type)s') %
-                         {'attr': attr, 'type': type(value).__name__})
+        raise ValueError(
+            _('A string is required in field %(attr)s, not a %(type)s')
+            % {'attr': attr, 'type': type(value).__name__}
+        )
 
-    @staticmethod
-    def stringify(value):
-        return '\'%s\'' % value
+    def stringify(self, value: str) -> str:
+        return f'\'{value}\''
 
-    def get_schema(self):
+    def get_schema(self) -> dict[str, Any]:
         return {'type': ['string']}
 
 
@@ -284,78 +362,90 @@ class SensitiveString(String):
 
     Passwords in the string value are masked when stringified.
     """
-    def stringify(self, value):
-        return super().stringify(
-            strutils.mask_password(value))
+
+    def stringify(self, value: str) -> str:
+        return super().stringify(strutils.mask_password(value))
 
 
 class VersionPredicate(String):
-    @staticmethod
-    def coerce(obj, attr, value):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> str:
         if not isinstance(value, str):
-            raise ValueError(_('Version %(val)s should be a string type, not '
-                               '%(real_type)s') %
-                             {'val': value, 'real_type': type(value)})
+            raise ValueError(
+                _('Version %(val)s should be a string type, not %(real_type)s')
+                % {'val': value, 'real_type': type(value)}
+            )
         try:
             versionutils.VersionPredicate(value)
         except ValueError:
-            raise ValueError(_('Version %(val)s is not a valid predicate in '
-                               'field %(attr)s') %
-                             {'val': value, 'attr': attr})
+            raise ValueError(
+                _('Version %(val)s is not a valid predicate in field %(attr)s')
+                % {'val': value, 'attr': attr}
+            )
         return value
 
 
 class Enum(String):
-    def __init__(self, valid_values, **kwargs):
+    def __init__(self, valid_values: Collection[str]) -> None:
         if not valid_values:
             raise exception.EnumRequiresValidValuesError()
+
         try:
             # Test validity of the values
             for value in valid_values:
                 super().coerce(None, 'init', value)
         except (TypeError, ValueError):
             raise exception.EnumValidValuesInvalidError()
+
         self._valid_values = valid_values
-        super().__init__(**kwargs)
+
+        super().__init__()
 
     @property
-    def valid_values(self):
+    def valid_values(self) -> Collection[str]:
         return copy.copy(self._valid_values)
 
-    def coerce(self, obj, attr, value):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> str:
         if value not in self._valid_values:
             msg = _("Field value %s is invalid") % value
             raise ValueError(msg)
         return super().coerce(obj, attr, value)
 
-    def stringify(self, value):
+    def stringify(self, value: str) -> str:
         if value not in self._valid_values:
             msg = _("Field value %s is invalid") % value
             raise ValueError(msg)
         return super().stringify(value)
 
-    def get_schema(self):
+    def get_schema(self) -> dict[str, Any]:
         schema = super().get_schema()
         schema['enum'] = self._valid_values
         return schema
 
 
-class StringPattern(FieldType):
-    def get_schema(self):
-        if hasattr(self, "PATTERN"):
-            return {'type': ['string'], 'pattern': self.PATTERN}
-        else:
+class StringPattern(FieldType[T]):
+    PATTERN: str
+
+    def get_schema(self) -> dict[str, Any]:
+        if not hasattr(self, "PATTERN"):
             msg = _("%s has no pattern") % self.__class__.__name__
             raise AttributeError(msg)
 
+        return {'type': ['string'], 'pattern': self.PATTERN}
 
-class UUID(StringPattern):
 
-    PATTERN = (r'^[a-fA-F0-9]{8}-?[a-fA-F0-9]{4}-?[a-fA-F0-9]{4}-?[a-fA-F0-9]'
-               r'{4}-?[a-fA-F0-9]{12}$')
+class UUID(StringPattern[str]):
+    PATTERN = (
+        r'^[a-fA-F0-9]{8}-?[a-fA-F0-9]{4}-?[a-fA-F0-9]{4}-?[a-fA-F0-9]'
+        r'{4}-?[a-fA-F0-9]{12}$'
+    )
 
-    @staticmethod
-    def coerce(obj, attr, value):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> str:
         # FIXME(danms): We should actually verify the UUIDness here
         with warnings.catch_warnings():
             # Change the warning action only if no other filter exists
@@ -363,31 +453,32 @@ class UUID(StringPattern):
             # like 'error' for this warning.
             warnings.filterwarnings(action="once", append=True)
             try:
-                uuid.UUID("%s" % value)
+                uuid.UUID(f"{value}")
             except Exception:
                 # This is to ensure no breaking behaviour for current
                 # users
-                warnings.warn("%s is an invalid UUID. Using UUIDFields "
-                              "with invalid UUIDs is no longer "
-                              "supported, and will be removed in a future "
-                              "release. Please update your "
-                              "code to input valid UUIDs or accept "
-                              "ValueErrors for invalid UUIDs. See "
-                              "https://docs.openstack.org/oslo.versionedobjects/latest/reference/fields.html#oslo_versionedobjects.fields.UUIDField "  # noqa
-                              "for further details" %
-                              repr(value).encode('utf8'),
-                              FutureWarning)
+                warnings.warn(
+                    f"{value!r} is an invalid UUID. Using UUIDFields "
+                    f"with invalid UUIDs is no longer "
+                    f"supported, and will be removed in a future "
+                    f"release. Please update your "
+                    f"code to input valid UUIDs or accept "
+                    f"ValueErrors for invalid UUIDs. See "
+                    f"https://docs.openstack.org/oslo.versionedobjects/latest/reference/fields.html#oslo_versionedobjects.fields.UUIDField "  # noqa
+                    f"for further details",
+                    FutureWarning,
+                )
 
-            return "%s" % value
+            return f"{value}"
 
 
-class MACAddress(StringPattern):
-
+class MACAddress(StringPattern[str]):
     PATTERN = r'^[0-9a-f]{2}(:[0-9a-f]{2}){5}$'
     _REGEX = re.compile(PATTERN)
 
-    @staticmethod
-    def coerce(obj, attr, value):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> str:
         if isinstance(value, str):
             lowered = value.lower().replace('-', ':')
             if MACAddress._REGEX.match(lowered):
@@ -395,13 +486,13 @@ class MACAddress(StringPattern):
         raise ValueError(_("Malformed MAC %s") % (value,))
 
 
-class PCIAddress(StringPattern):
-
+class PCIAddress(StringPattern[str]):
     PATTERN = r'^[0-9a-f]{4}:[0-9a-f]{2}:[0-1][0-9a-f].[0-7]$'
     _REGEX = re.compile(PATTERN)
 
-    @staticmethod
-    def coerce(obj, attr, value):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> str:
         if isinstance(value, str):
             newvalue = value.lower()
             if PCIAddress._REGEX.match(newvalue):
@@ -409,177 +500,220 @@ class PCIAddress(StringPattern):
         raise ValueError(_("Malformed PCI address %s") % (value,))
 
 
-class Integer(FieldType):
-    @staticmethod
-    def coerce(obj, attr, value):
+class Integer(FieldType[int]):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> int:
         return int(value)
 
-    def get_schema(self):
+    def get_schema(self) -> dict[str, Any]:
         return {'type': ['integer']}
 
 
-class NonNegativeInteger(FieldType):
-    @staticmethod
-    def coerce(obj, attr, value):
+class NonNegativeInteger(FieldType[int]):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> int:
         v = int(value)
         if v < 0:
             raise ValueError(_('Value must be >= 0 for field %s') % attr)
         return v
 
-    def get_schema(self):
+    def get_schema(self) -> dict[str, Any]:
         return {'type': ['integer'], 'minimum': 0}
 
 
-class Float(FieldType):
-    def coerce(self, obj, attr, value):
+class Float(FieldType[float]):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> float:
         return float(value)
 
-    def get_schema(self):
+    def get_schema(self) -> dict[str, Any]:
         return {'type': ['number']}
 
 
-class NonNegativeFloat(FieldType):
-    @staticmethod
-    def coerce(obj, attr, value):
+class NonNegativeFloat(FieldType[float]):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> float:
         v = float(value)
         if v < 0:
             raise ValueError(_('Value must be >= 0 for field %s') % attr)
         return v
 
-    def get_schema(self):
+    def get_schema(self) -> dict[str, Any]:
         return {'type': ['number'], 'minimum': 0}
 
 
-class Boolean(FieldType):
-    @staticmethod
-    def coerce(obj, attr, value):
+class Boolean(FieldType[bool]):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> bool:
         return bool(value)
 
-    def get_schema(self):
+    def get_schema(self) -> dict[str, Any]:
         return {'type': ['boolean']}
 
 
 class FlexibleBoolean(Boolean):
-    @staticmethod
-    def coerce(obj, attr, value):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> bool:
         return strutils.bool_from_string(value)
 
 
-class DateTime(FieldType):
-    def __init__(self, tzinfo_aware=True, *args, **kwargs):
+class DateTime(FieldType[datetime.datetime]):
+    def __init__(
+        self, tzinfo_aware: bool = True, *args: Any, **kwargs: Any
+    ) -> None:
         self.tzinfo_aware = tzinfo_aware
         super().__init__(*args, **kwargs)
 
-    def coerce(self, obj, attr, value):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> datetime.datetime:
         if isinstance(value, str):
             # NOTE(danms): Being tolerant of isotime strings here will help us
             # during our objects transition
-            value = timeutils.parse_isotime(value)
-        elif not isinstance(value, datetime.datetime):
-            raise ValueError(_('A datetime.datetime is required '
-                               'in field %(attr)s, not a %(type)s') %
-                             {'attr': attr, 'type': type(value).__name__})
+            ts = timeutils.parse_isotime(value)
+        elif isinstance(value, datetime.datetime):
+            ts = value
+        else:
+            raise ValueError(
+                _(
+                    'A datetime.datetime is required '
+                    'in field %(attr)s, not a %(type)s'
+                )
+                % {'attr': attr, 'type': type(value).__name__}
+            )
 
-        if value.utcoffset() is None and self.tzinfo_aware:
+        if ts.utcoffset() is None and self.tzinfo_aware:
             # NOTE(danms): Legacy objects from sqlalchemy are stored in UTC,
             # but are returned without a timezone attached.
             # As a transitional aid, assume a tz-naive object is in UTC.
-            value = value.replace(tzinfo=datetime.timezone.utc)
+            ts = ts.replace(tzinfo=datetime.timezone.utc)
         elif not self.tzinfo_aware:
-            value = value.replace(tzinfo=None)
-        return value
+            ts = ts.replace(tzinfo=None)
+        return ts
 
-    def from_primitive(self, obj, attr, value):
+    def from_primitive(
+        self, obj: base.VersionedObject, attr: str, value: Any
+    ) -> datetime.datetime:
         return self.coerce(obj, attr, timeutils.parse_isotime(value))
 
-    def get_schema(self):
+    def get_schema(self) -> dict[str, Any]:
         return {'type': ['string'], 'format': 'date-time'}
 
-    @staticmethod
-    def to_primitive(obj, attr, value):
+    def to_primitive(
+        self, obj: base.VersionedObject, attr: str, value: datetime.datetime
+    ) -> object:
         return _utils.isotime(value)
 
-    @staticmethod
-    def stringify(value):
+    def stringify(self, value: datetime.datetime) -> str:
         return _utils.isotime(value)
 
 
-class IPAddress(StringPattern):
-    @staticmethod
-    def coerce(obj, attr, value):
+class IPAddress(StringPattern[netaddr.IPAddress]):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> netaddr.IPAddress:
         try:
             return netaddr.IPAddress(value)
         except netaddr.AddrFormatError as e:
             raise ValueError(str(e))
 
-    def from_primitive(self, obj, attr, value):
+    def from_primitive(
+        self, obj: base.VersionedObject, attr: str, value: object
+    ) -> netaddr.IPAddress:
         return self.coerce(obj, attr, value)
 
-    @staticmethod
-    def to_primitive(obj, attr, value):
+    def to_primitive(
+        self, obj: base.VersionedObject, attr: str, value: T
+    ) -> object:
         return str(value)
 
 
 class IPV4Address(IPAddress):
-    @staticmethod
-    def coerce(obj, attr, value):
-        result = IPAddress.coerce(obj, attr, value)
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> netaddr.IPAddress:
+        result = super().coerce(obj, attr, value)
         if result.version != 4:
-            raise ValueError(_('Network "%(val)s" is not valid '
-                               'in field %(attr)s') %
-                             {'val': value, 'attr': attr})
+            raise ValueError(
+                _('Network "%(val)s" is not valid in field %(attr)s')
+                % {'val': value, 'attr': attr}
+            )
         return result
 
-    def get_schema(self):
+    def get_schema(self) -> dict[str, Any]:
         return {'type': ['string'], 'format': 'ipv4'}
 
 
 class IPV6Address(IPAddress):
-    @staticmethod
-    def coerce(obj, attr, value):
-        result = IPAddress.coerce(obj, attr, value)
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> netaddr.IPAddress:
+        result = super().coerce(obj, attr, value)
         if result.version != 6:
-            raise ValueError(_('Network "%(val)s" is not valid '
-                               'in field %(attr)s') %
-                             {'val': value, 'attr': attr})
+            raise ValueError(
+                _('Network "%(val)s" is not valid in field %(attr)s')
+                % {'val': value, 'attr': attr}
+            )
         return result
 
-    def get_schema(self):
+    def get_schema(self) -> dict[str, Any]:
         return {'type': ['string'], 'format': 'ipv6'}
 
 
 class IPV4AndV6Address(IPAddress):
-    @staticmethod
-    def coerce(obj, attr, value):
-        result = IPAddress.coerce(obj, attr, value)
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> netaddr.IPAddress:
+        result = super().coerce(obj, attr, value)
         if result.version != 4 and result.version != 6:
-            raise ValueError(_('Network "%(val)s" is not valid '
-                               'in field %(attr)s') %
-                             {'val': value, 'attr': attr})
+            raise ValueError(
+                _('Network "%(val)s" is not valid in field %(attr)s')
+                % {'val': value, 'attr': attr}
+            )
         return result
 
-    def get_schema(self):
-        return {'oneOf': [IPV4Address().get_schema(),
-                          IPV6Address().get_schema()]}
+    def get_schema(self) -> dict[str, Any]:
+        return {
+            'oneOf': [IPV4Address().get_schema(), IPV6Address().get_schema()]
+        }
 
 
-class IPNetwork(IPAddress):
-    @staticmethod
-    def coerce(obj, attr, value):
+class IPNetwork(StringPattern[netaddr.IPNetwork]):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> netaddr.IPNetwork:
         try:
             return netaddr.IPNetwork(value)
         except netaddr.AddrFormatError as e:
             raise ValueError(str(e))
 
+    def from_primitive(
+        self, obj: base.VersionedObject, attr: str, value: object
+    ) -> netaddr.IPNetwork:
+        return self.coerce(obj, attr, value)
+
+    def to_primitive(
+        self, obj: base.VersionedObject, attr: str, value: T
+    ) -> object:
+        return str(value)
+
 
 class IPV4Network(IPNetwork):
+    PATTERN = (
+        r'^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-'
+        r'9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2]['
+        r'0-9]|3[0-2]))$'
+    )
 
-    PATTERN = (r'^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-'
-               r'9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2]['
-               r'0-9]|3[0-2]))$')
-
-    @staticmethod
-    def coerce(obj, attr, value):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> netaddr.IPNetwork:
         try:
             return netaddr.IPNetwork(value, version=4)
         except netaddr.AddrFormatError as e:
@@ -587,19 +721,19 @@ class IPV4Network(IPNetwork):
 
 
 class IPV6Network(IPNetwork):
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.PATTERN = self._create_pattern()
 
-    @staticmethod
-    def coerce(obj, attr, value):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> netaddr.IPNetwork:
         try:
             return netaddr.IPNetwork(value, version=6)
         except netaddr.AddrFormatError as e:
             raise ValueError(str(e))
 
-    def _create_pattern(self):
+    def _create_pattern(self) -> str:
         ipv6seg = '[0-9a-fA-F]{1,4}'
         ipv4seg = '(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])'
 
@@ -620,91 +754,332 @@ class IPV6Network(IPNetwork):
             # 1::5:6:7:8 1:2:3::5:6:7:8 1:2:3::8
             '(' + ipv6seg + ':){1,3}(:' + ipv6seg + '){1,4}|'
             # 1::4:5:6:7:8 1:2::4:5:6:7:8 1:2::8
-            '(' + ipv6seg + ':){1,2}(:' + ipv6seg + '){1,5}|' +
+            '('
+            + ipv6seg
+            + ':){1,2}(:'
+            + ipv6seg
+            + '){1,5}|'
+            +
             # 1::3:4:5:6:7:8 1::3:4:5:6:7:8 1::8
-            ipv6seg + ':((:' + ipv6seg + '){1,6})|'
+            ipv6seg
+            + ':((:'
+            + ipv6seg
+            + '){1,6})|'
             # ::2:3:4:5:6:7:8 ::2:3:4:5:6:7:8 ::8 ::
             ':((:' + ipv6seg + '){1,7}|:)|'
             # fe80::7:8%eth0 fe80::7:8%1
             'fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|'
             # ::255.255.255.255 ::ffff:255.255.255.255 ::ffff:0:255.255.255.255
             '::(ffff(:0{1,4}){0,1}:){0,1}'
-            '(' + ipv4seg + r'\.){3,3}' +
-            ipv4seg + '|'
+            '(' + ipv4seg + r'\.){3,3}' + ipv4seg + '|'
             # 2001:db8:3:4::192.0.2.33 64:ff9b::192.0.2.33
             '(' + ipv6seg + ':){1,4}:'
-            '(' + ipv4seg + r'\.){3,3}' +
-            ipv4seg +
+            '('
+            + ipv4seg
+            + r'\.){3,3}'
+            + ipv4seg
+            +
             # /128
             r'(\/(d|dd|1[0-1]d|12[0-8]))$'
+        )
+
+
+class CoercedCollectionMixin(Generic[T]):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self._element_type: Field[T] | None = None
+        self._obj: Any = None
+        self._field: str | None = None
+        super().__init__(*args, **kwargs)
+
+    def enable_coercing(
+        self, element_type: Field[T], obj: Any, field: str
+    ) -> None:
+        self._element_type = element_type
+        self._obj = obj
+        self._field = field
+
+
+class CoercedList(CoercedCollectionMixin[T], list[T]):
+    """List which coerces its elements
+
+    List implementation which overrides all element-adding methods and
+    coercing the element(s) being added to the required element type
+    """
+
+    def _coerce_item(self, index: int, item: Any) -> Any:
+        if hasattr(self, "_element_type") and self._element_type is not None:
+            att_name = f"{self._field}[{index}]"
+            return self._element_type.coerce(self._obj, att_name, item)
+
+        return item
+
+    def __setitem__(self, i: int | slice, y: Any) -> None:  # type: ignore[override]
+        if type(i) is slice:  # compatibility with py3 and [::] slices
+            start = i.start or 0
+            step = i.step or 1
+            coerced_items = [
+                self._coerce_item(start + index * step, item)
+                for index, item in enumerate(y)
+            ]
+            super().__setitem__(i, coerced_items)
+        else:
+            super().__setitem__(i, self._coerce_item(i, y))
+
+    def append(self, x: Any) -> None:
+        super().append(self._coerce_item(len(self) + 1, x))
+
+    def extend(self, t: Any) -> None:
+        coerced_items = [
+            self._coerce_item(len(self) + index, item)
+            for index, item in enumerate(t)
+        ]
+        super().extend(coerced_items)
+
+    def insert(self, i: SupportsIndex, x: Any) -> None:
+        # Convert SupportsIndex to int for _coerce_item which expects int
+        index = int(i)
+        super().insert(i, self._coerce_item(index, x))
+
+    def __add__(  # type: ignore[override]
+        self, y: Iterable[Any]
+    ) -> Self:
+        result = type(self)(self)
+        if self._element_type is not None and self._field is not None:
+            result.enable_coercing(self._element_type, self._obj, self._field)
+        coerced_items = [
+            result._coerce_item(len(result) + index, item)
+            for index, item in enumerate(y)
+        ]
+        result.extend(coerced_items)
+        return result
+
+    def __iadd__(  # type: ignore[override]
+        self, y: Iterable[Any]
+    ) -> Self:
+        coerced_items = [
+            self._coerce_item(len(self) + index, item)
+            for index, item in enumerate(y)
+        ]
+        super().__iadd__(coerced_items)
+        return self
+
+    def __setslice__(self, i: int, j: int, y: Any) -> None:
+        coerced_items = [
+            self._coerce_item(i + index, item) for index, item in enumerate(y)
+        ]
+        super().__setslice__(i, j, coerced_items)  # type: ignore[misc]
+
+
+class CoercedDict(CoercedCollectionMixin[T], dict[str, T]):
+    """Dict which coerces its values
+
+    Dict implementation which overrides all element-adding methods and
+    coercing the element(s) being added to the required element type
+    """
+
+    def _coerce_dict(self, d: dict[str, Any]) -> dict[str, Any]:
+        res: dict[str, Any] = {}
+        for key, element in d.items():
+            res[key] = self._coerce_item(key, element)
+        return res
+
+    def _coerce_item(self, key: str, item: Any) -> Any:
+        if not isinstance(key, str):
+            raise KeyTypeError(str, key)
+
+        if hasattr(self, "_element_type") and self._element_type is not None:
+            att_name = f"{self._field}[{key}]"
+            return self._element_type.coerce(self._obj, att_name, item)
+
+        return item
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        super().__setitem__(key, self._coerce_item(key, value))
+
+    def update(  # type: ignore[override]
+        self, other: dict[str, Any] | None = None, **kwargs: Any
+    ) -> None:
+        if other is not None:
+            super().update(
+                self._coerce_dict(other), **self._coerce_dict(kwargs)
+            )
+        else:
+            super().update(**self._coerce_dict(kwargs))
+
+    def setdefault(self, key: str, default: Any = None) -> Any:
+        return super().setdefault(key, self._coerce_item(key, default))
+
+
+class CoercedSet(CoercedCollectionMixin[T], set[T]):
+    """Set which coerces its values
+
+    Set implementation which overrides all element-adding methods and
+    coercing the element(s) being added to the required element type
+    """
+
+    def _coerce_element(self, element: Any) -> Any:
+        if hasattr(self, "_element_type") and self._element_type is not None:
+            return self._element_type.coerce(
+                self._obj, f"{self._field}[{element}]", element
             )
 
+        return element
 
-class CompoundFieldType(FieldType):
-    def __init__(self, element_type, **field_args):
-        self._element_type = Field(element_type, **field_args)
+    def _coerce_iterable(self, values: Iterable[Any]) -> set[T]:
+        coerced = set()
+        for element in values:
+            coerced.add(self._coerce_element(element))
+        return coerced
+
+    def add(self, value: Any) -> None:
+        super().add(self._coerce_element(value))
+
+    def update(self, values: Iterable[Any]) -> None:  # type: ignore[override]
+        super().update(self._coerce_iterable(values))
+
+    def symmetric_difference_update(self, values: Iterable[Any]) -> None:
+        super().symmetric_difference_update(self._coerce_iterable(values))
+
+    def __or__(  # type: ignore[override]
+        self, y: Iterable[Any]
+    ) -> Self:
+        result = type(self)(self)
+        if self._element_type is not None and self._field is not None:
+            result.enable_coercing(self._element_type, self._obj, self._field)
+        result.update(y)
+        return result
+
+    def __ior__(  # type: ignore[override]
+        self, y: Iterable[Any]
+    ) -> Self:
+        return super().__ior__(self._coerce_iterable(y))
+
+    def __xor__(  # type: ignore[override]
+        self, y: Iterable[Any]
+    ) -> Self:
+        result = type(self)(self)
+        if self._element_type is not None and self._field is not None:
+            result.enable_coercing(self._element_type, self._obj, self._field)
+        result.symmetric_difference_update(y)
+        return result
+
+    def __ixor__(  # type: ignore[override]
+        self, y: Iterable[Any]
+    ) -> Self:
+        return super().__ixor__(self._coerce_iterable(y))
 
 
-class List(CompoundFieldType):
-    def coerce(self, obj, attr, value):
+class CompoundFieldType(FieldType[Any], Generic[E]):
+    """Base class for compound field types like List, Dict, Set.
 
-        if (not isinstance(value, collections_abc.Iterable) or
-                isinstance(value, (str, collections_abc.Mapping))):
-            raise ValueError(_('A list is required in field %(attr)s, '
-                               'not a %(type)s') %
-                             {'attr': attr, 'type': type(value).__name__})
-        coerced_list = CoercedList()
+    E is the element type stored in the container.
+    """
+
+    def __init__(self, element_type: FieldType[E], **field_args: Any) -> None:
+        if isinstance(element_type, type):
+            raise TypeError(
+                _(
+                    'Element type must be a FieldType instance, not a class. '
+                    'Use %(type)s() instead of %(type)s.'
+                )
+                % {'type': element_type.__name__}
+            )
+        # Declare as instance attribute to avoid mypy treating Field as a
+        # descriptor (Field implements __get__/__set__ for VersionedObject)
+        self._element_type: Field[E] = Field(element_type, **field_args)
+
+
+class List(CompoundFieldType[E]):
+    """A field type for lists of elements of type E."""
+
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> list[E]:
+        if not isinstance(value, Iterable) or isinstance(
+            value, (str, Mapping)
+        ):
+            raise ValueError(
+                _('A list is required in field %(attr)s, not a %(type)s')
+                % {'attr': attr, 'type': type(value).__name__}
+            )
+        coerced_list: CoercedList[E] = CoercedList()
         coerced_list.enable_coercing(self._element_type, obj, attr)
         coerced_list.extend(value)
         return coerced_list
 
-    def to_primitive(self, obj, attr, value):
+    def to_primitive(
+        self, obj: base.VersionedObject, attr: str, value: list[E]
+    ) -> list[object]:
         return [self._element_type.to_primitive(obj, attr, x) for x in value]
 
-    def from_primitive(self, obj, attr, value):
+    def from_primitive(
+        self, obj: base.VersionedObject, attr: str, value: Any
+    ) -> list[E]:
         return [self._element_type.from_primitive(obj, attr, x) for x in value]
 
-    def stringify(self, value):
-        return '[%s]' % (
-            ','.join([self._element_type.stringify(x) for x in value]))
+    def stringify(self, value: list[E]) -> str:
+        return '[{}]'.format(
+            ','.join([self._element_type.stringify(x) for x in value])
+        )
 
-    def get_schema(self):
-        return {'type': ['array'], 'items': self._element_type.get_schema()}
+    def get_schema(self) -> dict[str, Any]:
+        return {
+            'type': ['array'],
+            'items': self._element_type.get_schema(),
+        }
 
 
-class Dict(CompoundFieldType):
-    def coerce(self, obj, attr, value):
+class Dict(CompoundFieldType[E]):
+    """A field type for dicts with string keys and values of type E."""
+
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> dict[str, E]:
         if not isinstance(value, dict):
-            raise ValueError(_('A dict is required in field %(attr)s, '
-                               'not a %(type)s') %
-                             {'attr': attr, 'type': type(value).__name__})
-        coerced_dict = CoercedDict()
+            raise ValueError(
+                _('A dict is required in field %(attr)s, not a %(type)s')
+                % {'attr': attr, 'type': type(value).__name__}
+            )
+        coerced_dict: CoercedDict[E] = CoercedDict()
         coerced_dict.enable_coercing(self._element_type, obj, attr)
         coerced_dict.update(value)
         return coerced_dict
 
-    def to_primitive(self, obj, attr, value):
-        primitive = {}
+    def to_primitive(
+        self, obj: base.VersionedObject, attr: str, value: dict[str, E]
+    ) -> dict[str, object]:
+        primitive: dict[str, object] = {}
         for key, element in value.items():
             primitive[key] = self._element_type.to_primitive(
-                obj, f'{attr}["{key}"]', element)
+                obj, f'{attr}["{key}"]', element
+            )
         return primitive
 
-    def from_primitive(self, obj, attr, value):
-        concrete = {}
+    def from_primitive(
+        self, obj: base.VersionedObject, attr: str, value: Any
+    ) -> dict[str, E]:
+        concrete: dict[str, E] = {}
         for key, element in value.items():
             concrete[key] = self._element_type.from_primitive(
-                obj, f'{attr}["{key}"]', element)
+                obj, f'{attr}["{key}"]', element
+            )
         return concrete
 
-    def stringify(self, value):
-        return '{%s}' % (
-            ','.join([f'{key}={self._element_type.stringify(val)}'
-                      for key, val in sorted(value.items())]))
+    def stringify(self, value: dict[str, E]) -> str:
+        return '{{{}}}'.format(
+            ','.join(
+                [
+                    f'{key}={self._element_type.stringify(val)}'
+                    for key, val in sorted(value.items())
+                ]
+            )
+        )
 
-    def get_schema(self):
-        return {'type': ['object'],
-                'additionalProperties': self._element_type.get_schema()}
+    def get_schema(self) -> dict[str, Any]:
+        return {
+            'type': ['object'],
+            'additionalProperties': self._element_type.get_schema(),
+        }
 
 
 class DictProxyField:
@@ -719,62 +1094,82 @@ class DictProxyField:
     key_type should return a type that unambiguously responds to str
     so that calling key_type on it yields the same thing.
     """
-    def __init__(self, dict_field_name, key_type=int):
+
+    def __init__(self, dict_field_name: str, key_type: type = int) -> None:
         self._fld_name = dict_field_name
         self._key_type = key_type
 
-    def __get__(self, obj, obj_type):
+    def __get__(
+        self, obj: Any, obj_type: type | None = None
+    ) -> DictProxyField | dict[Any, Any] | None:
         if obj is None:
             return self
         if getattr(obj, self._fld_name) is None:
-            return
-        return {self._key_type(k): v
-                for k, v in getattr(obj, self._fld_name).items()}
+            return None
+        return {
+            self._key_type(k): v
+            for k, v in getattr(obj, self._fld_name).items()
+        }
 
-    def __set__(self, obj, val):
+    def __set__(self, obj: Any, val: dict[Any, Any] | None) -> None:
         if val is None:
             setattr(obj, self._fld_name, val)
         else:
             setattr(obj, self._fld_name, {str(k): v for k, v in val.items()})
 
 
-class Set(CompoundFieldType):
-    def coerce(self, obj, attr, value):
+class Set(CompoundFieldType[E]):
+    """A field type for sets of elements of type E."""
+
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> set[E]:
         if not isinstance(value, set):
-            raise ValueError(_('A set is required in field %(attr)s, '
-                               'not a %(type)s') %
-                             {'attr': attr, 'type': type(value).__name__})
-        coerced_set = CoercedSet()
+            raise ValueError(
+                _('A set is required in field %(attr)s, not a %(type)s')
+                % {'attr': attr, 'type': type(value).__name__}
+            )
+        coerced_set: CoercedSet[E] = CoercedSet()
         coerced_set.enable_coercing(self._element_type, obj, attr)
         coerced_set.update(value)
         return coerced_set
 
-    def to_primitive(self, obj, attr, value):
+    def to_primitive(
+        self, obj: base.VersionedObject, attr: str, value: set[E]
+    ) -> tuple[object, ...]:
         return tuple(
-            self._element_type.to_primitive(obj, attr, x) for x in value)
+            self._element_type.to_primitive(obj, attr, x) for x in value
+        )
 
-    def from_primitive(self, obj, attr, value):
-        return {self._element_type.from_primitive(obj, attr, x)
-                for x in value}
+    def from_primitive(
+        self, obj: base.VersionedObject, attr: str, value: Any
+    ) -> set[E]:
+        return {self._element_type.from_primitive(obj, attr, x) for x in value}
 
-    def stringify(self, value):
-        return 'set([%s])' % (
-            ','.join([self._element_type.stringify(x) for x in value]))
+    def stringify(self, value: set[E]) -> str:
+        return 'set([{}])'.format(
+            ','.join([self._element_type.stringify(x) for x in value])
+        )
 
-    def get_schema(self):
-        return {'type': ['array'], 'uniqueItems': True,
-                'items': self._element_type.get_schema()}
+    def get_schema(self) -> dict[str, Any]:
+        return {
+            'type': ['array'],
+            'uniqueItems': True,
+            'items': self._element_type.get_schema(),
+        }
 
 
-class Object(FieldType):
-    def __init__(self, obj_name, subclasses=False, **kwargs):
+class Object(FieldType['base.VersionedObject']):
+    def __init__(
+        self, obj_name: str, subclasses: bool = False, **kwargs: Any
+    ) -> None:
         self._obj_name = obj_name
         self._subclasses = subclasses
         super().__init__(**kwargs)
 
     @staticmethod
-    def _get_all_obj_names(obj):
-        obj_names = []
+    def _get_all_obj_names(obj: Any) -> list[str]:
+        obj_names: list[str] = []
         for parent in obj.__class__.mro():
             # Skip mix-ins which are not versioned object subclasses
             if not hasattr(parent, "obj_name"):
@@ -782,7 +1177,9 @@ class Object(FieldType):
             obj_names.append(parent.obj_name())
         return obj_names
 
-    def coerce(self, obj, attr, value):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> base.VersionedObject:
         try:
             obj_name = value.obj_name()
         except AttributeError:
@@ -804,159 +1201,199 @@ class Object(FieldType):
             val_mod = ''
             if hasattr(value, '__module__'):
                 val_mod = ''.join([value.__module__, '.'])
-            raise ValueError(_('An object of type %(type)s is required '
-                               'in field %(attr)s, not a %(valtype)s') %
-                             {'type': ''.join([obj_mod, self._obj_name]),
-                              'attr': attr, 'valtype': ''.join([val_mod,
-                                                                obj_name])})
-        return value
+            raise ValueError(
+                _(
+                    'An object of type %(type)s is required '
+                    'in field %(attr)s, not a %(valtype)s'
+                )
+                % {
+                    'type': ''.join([obj_mod, self._obj_name]),
+                    'attr': attr,
+                    'valtype': ''.join([val_mod, obj_name]),
+                }
+            )
+        # We've validated value is the correct object type above
+        return cast('base.VersionedObject', value)
 
-    @staticmethod
-    def to_primitive(obj, attr, value):
+    def to_primitive(
+        self, obj: base.VersionedObject, attr: str, value: base.VersionedObject
+    ) -> object:
         return value.obj_to_primitive()
 
-    @staticmethod
-    def from_primitive(obj, attr, value):
+    def from_primitive(
+        self, obj: base.VersionedObject, attr: str, value: Any
+    ) -> base.VersionedObject:
         # FIXME(danms): Avoid circular import from base.py
         from oslo_versionedobjects import base as obj_base
+
         # NOTE (ndipanov): If they already got hydrated by the serializer, just
         # pass them back unchanged
         if isinstance(value, obj_base.VersionedObject):
             return value
         return obj.obj_from_primitive(value, obj._context)
 
-    def describe(self):
-        return "Object<%s>" % self._obj_name
+    def describe(self) -> str:
+        return f"Object<{self._obj_name}>"
 
-    def stringify(self, value):
+    def stringify(self, value: base.VersionedObject) -> str:
         if 'uuid' in value.fields:
-            ident = '(%s)' % (value.obj_attr_is_set('uuid') and value.uuid or
-                              'UNKNOWN')
+            if value.obj_attr_is_set('uuid'):
+                assert hasattr(value, 'uuid')  # narrow type
+                ident = f'({value.uuid})'
+            else:
+                ident = '(UNKNOWN)'
         elif 'id' in value.fields:
-            ident = '(%s)' % (value.obj_attr_is_set('id') and value.id or
-                              'UNKNOWN')
+            if value.obj_attr_is_set('id'):
+                assert hasattr(value, 'id')  # narrow type
+                ident = f'({value.id})'
+            else:
+                ident = '(UNKNOWN)'
         else:
             ident = ''
 
         return f'{value.obj_name()}{ident}'
 
-    def get_schema(self):
+    def get_schema(self) -> dict[str, Any]:
         from oslo_versionedobjects import base as obj_base
+
         obj_classes = obj_base.VersionedObjectRegistry.obj_classes()
-        if self._obj_name in obj_classes:
-            cls = obj_classes[self._obj_name][0]
-            namespace_key = cls._obj_primitive_key('namespace')
-            name_key = cls._obj_primitive_key('name')
-            version_key = cls._obj_primitive_key('version')
-            data_key = cls._obj_primitive_key('data')
-            changes_key = cls._obj_primitive_key('changes')
-            field_schemas = {key: field.get_schema()
-                             for key, field in cls.fields.items()}
-            required_fields = [key for key, field in sorted(cls.fields.items())
-                               if not field.nullable]
-            schema = {
-                'type': ['object'],
-                'properties': {
-                    namespace_key: {
-                        'type': 'string'
-                    },
-                    name_key: {
-                        'type': 'string'
-                    },
-                    version_key: {
-                        'type': 'string'
-                    },
-                    changes_key: {
-                        'type': 'array',
-                        'items': {
-                            'type': 'string'
-                        }
-                    },
-                    data_key: {
-                        'type': 'object',
-                        'description': 'fields of %s' % self._obj_name,
-                        'properties': field_schemas,
-                    },
-                },
-                'required': [namespace_key, name_key, version_key, data_key]
-            }
-
-            if required_fields:
-                schema['properties'][data_key]['required'] = required_fields
-
-            return schema
-        else:
+        if self._obj_name not in obj_classes:
             raise exception.UnsupportedObjectError(objtype=self._obj_name)
 
+        cls = obj_classes[self._obj_name][0]
+        namespace_key = cls._obj_primitive_key('namespace')
+        name_key = cls._obj_primitive_key('name')
+        version_key = cls._obj_primitive_key('version')
+        data_key = cls._obj_primitive_key('data')
+        changes_key = cls._obj_primitive_key('changes')
+        field_schemas = {
+            key: field.get_schema() for key, field in cls.fields.items()
+        }
+        required_fields = [
+            key
+            for key, field in sorted(cls.fields.items())
+            if not field.nullable
+        ]
+        schema: dict[str, Any] = {
+            'type': ['object'],
+            'properties': {
+                namespace_key: {'type': 'string'},
+                name_key: {'type': 'string'},
+                version_key: {'type': 'string'},
+                changes_key: {
+                    'type': 'array',
+                    'items': {'type': 'string'},
+                },
+                data_key: {
+                    'type': 'object',
+                    'description': f'fields of {self._obj_name}',
+                    'properties': field_schemas,
+                },
+            },
+            'required': [namespace_key, name_key, version_key, data_key],
+        }
 
-class AutoTypedField(Field):
-    AUTO_TYPE = None
+        if required_fields:
+            schema['properties'][data_key]['required'] = required_fields
 
-    def __init__(self, **kwargs):
-        super().__init__(self.AUTO_TYPE, **kwargs)
+        return schema
 
 
-class StringField(AutoTypedField):
+class AutoTypedField(Field[T]):
+    """Base class for fields with automatic type detection."""
+
+    AUTO_TYPE: FieldType[T]
+
+    def __init__(
+        self,
+        nullable: bool = False,
+        default: T | type[UnspecifiedDefault] = UnspecifiedDefault,
+        read_only: bool = False,
+    ) -> None:
+        super().__init__(
+            self.AUTO_TYPE,
+            nullable=nullable,
+            default=default,
+            read_only=read_only,
+        )
+
+
+class StringField(AutoTypedField[str]):
     AUTO_TYPE = String()
 
 
-class SensitiveStringField(AutoTypedField):
+class SensitiveStringField(AutoTypedField[str]):
     """Field type that masks passwords when the field is stringified."""
+
     AUTO_TYPE = SensitiveString()
 
 
-class VersionPredicateField(AutoTypedField):
+class VersionPredicateField(AutoTypedField[str]):
     AUTO_TYPE = VersionPredicate()
 
 
-class BaseEnumField(AutoTypedField):
-    '''Base class for all enum field types
+class BaseEnumField(AutoTypedField[Any]):
+    """Base class for all enum field types
 
     This class should not be directly instantiated. Instead
     subclass it and set AUTO_TYPE to be a SomeEnum()
     where SomeEnum is a subclass of Enum.
-    '''
+    """
 
-    def __init__(self, **kwargs):
+    _type: Enum
+
+    def __init__(
+        self,
+        nullable: bool = False,
+        default: str | type[UnspecifiedDefault] = UnspecifiedDefault,
+        read_only: bool = False,
+    ) -> None:
         if self.AUTO_TYPE is None:
-            raise exception.EnumFieldUnset(
-                fieldname=self.__class__.__name__)
+            raise exception.EnumFieldUnset(fieldname=self.__class__.__name__)
 
         if not isinstance(self.AUTO_TYPE, Enum):
             raise exception.EnumFieldInvalid(
                 typename=self.AUTO_TYPE.__class__.__name__,
-                fieldname=self.__class__.__name__)
+                fieldname=self.__class__.__name__,
+            )
 
-        super().__init__(**kwargs)
+        super().__init__(
+            nullable=nullable,
+            default=default,
+            read_only=read_only,
+        )
 
-    def __repr__(self):
-        valid_values = self._type.valid_values
-        args = {
+    def __repr__(self) -> str:
+        enum_type = self._type
+        valid_values = enum_type.valid_values
+        args: dict[str, Any] = {
             'nullable': self._nullable,
             'default': self._default,
-            }
-        args.update({'valid_values': valid_values})
-        return '{}({})'.format(self._type.__class__.__name__,
-                               ','.join([f'{k}={v}'
-                                         for k, v in sorted(args.items())]))
+            'valid_values': valid_values,
+        }
+        return '{}({})'.format(
+            self._type.__class__.__name__,
+            ','.join([f'{k}={v}' for k, v in sorted(args.items())]),
+        )
 
     @property
-    def valid_values(self):
-        """Return the list of valid values for the field."""
-        return self._type.valid_values
+    def valid_values(self) -> Collection[str]:
+        """Return the valid values for the field."""
+        enum_type = self._type
+        return enum_type.valid_values
 
 
 class EnumField(BaseEnumField):
-    '''Anonymous enum field type
+    """Anonymous enum field type
 
     This class allows for anonymous enum types to be
     declared, simply by passing in a list of valid values
     to its constructor. It is generally preferable though,
     to create an explicit named enum type by sub-classing
     the BaseEnumField type directly.
-    '''
+    """
 
-    def __init__(self, valid_values, **kwargs):
+    def __init__(self, valid_values: Collection[Any], **kwargs: Any) -> None:
         self.AUTO_TYPE = Enum(valid_values=valid_values)
         super().__init__(**kwargs)
 
@@ -971,7 +1408,6 @@ class StateMachine(EnumField):
         .. code-block:: python
 
             class FakeStateMachineField(fields.EnumField, fields.StateMachine):
-
                 ACTIVE = 'ACTIVE'
                 PENDING = 'PENDING'
                 ERROR = 'ERROR'
@@ -983,65 +1419,68 @@ class StateMachine(EnumField):
                         ERROR,
                         DELETED,
                     },
-                    PENDING: {
-                        ACTIVE,
-                        ERROR
-                    },
+                    PENDING: {ACTIVE, ERROR},
                     ERROR: {
                         PENDING,
                     },
-                    DELETED: {}  # This is a terminal state
+                    DELETED: {},  # This is a terminal state
                 }
 
                 _TYPES = (ACTIVE, PENDING, ERROR, DELETED)
 
                 def __init__(self, **kwargs):
                     super(FakeStateMachineField, self).__init__(
-                    self._TYPES, **kwargs)
+                        self._TYPES, **kwargs
+                    )
 
     """
+
     # This is dict of states, that have dicts of states an object is
     # allowed to transition to
 
-    ALLOWED_TRANSITIONS = {}
+    ALLOWED_TRANSITIONS: dict[str, set[str]] = {}
 
-    def _my_name(self, obj):
+    def _my_name(self, obj: base.VersionedObject) -> str:
         for name, field in obj.fields.items():
             if field == self:
                 return name
         return 'unknown'
 
-    def coerce(self, obj, attr, value):
+    def coerce(
+        self, obj: base.VersionedObject | None, attr: str, value: Any
+    ) -> str:
         super().coerce(obj, attr, value)
+
+        if not obj or attr not in obj:
+            return str(value)
+
         my_name = self._my_name(obj)
-        msg = _("%(object)s.%(name)s is not allowed to transition out of "
-                "%(value)s state")
+        msg = _(
+            "%(object)s.%(name)s is not allowed to transition out of "
+            "%(value)s state"
+        )
 
-        if attr in obj:
-            current_value = getattr(obj, attr)
-        else:
-            return value
-
+        current_value = getattr(obj, attr)
         if current_value in self.ALLOWED_TRANSITIONS:
-
             if value in self.ALLOWED_TRANSITIONS[current_value]:
-                return value
-            else:
-                msg = _(
-                    "%(object)s.%(name)s is not allowed to transition out of "
-                    "'%(current_value)s' state to '%(value)s' state, choose "
-                    "from %(options)r")
+                return str(value)
+
+            msg = _(
+                "%(object)s.%(name)s is not allowed to transition out of "
+                "'%(current_value)s' state to '%(value)s' state, choose "
+                "from %(options)r"
+            )
         msg = msg % {
             'object': obj.obj_name(),
             'name': my_name,
             'current_value': current_value,
             'value': value,
-            'options': [x for x in self.ALLOWED_TRANSITIONS[current_value]]
+            'options': [x for x in self.ALLOWED_TRANSITIONS[current_value]],
         }
         raise ValueError(msg)
 
 
-class UUIDField(AutoTypedField):
+class UUIDField(AutoTypedField[str]):
     """UUID Field Type
 
     .. warning::
@@ -1057,8 +1496,9 @@ class UUIDField(AutoTypedField):
 
             import oslo_versionedobjects.fields as ovo_fields
 
+
             class UUID(ovo_fields.UUID):
-                 def coerce(self, obj, attr, value):
+                def coerce(self, obj, attr, value):
                     uuid.UUID(value)
                     return str(value)
 
@@ -1071,36 +1511,37 @@ class UUIDField(AutoTypedField):
 
     This will become default behaviour in the future.
     """
+
     AUTO_TYPE = UUID()
 
 
-class MACAddressField(AutoTypedField):
+class MACAddressField(AutoTypedField[str]):
     AUTO_TYPE = MACAddress()
 
 
-class PCIAddressField(AutoTypedField):
+class PCIAddressField(AutoTypedField[str]):
     AUTO_TYPE = PCIAddress()
 
 
-class IntegerField(AutoTypedField):
+class IntegerField(AutoTypedField[int]):
     AUTO_TYPE = Integer()
 
 
-class NonNegativeIntegerField(AutoTypedField):
+class NonNegativeIntegerField(AutoTypedField[int]):
     AUTO_TYPE = NonNegativeInteger()
 
 
-class FloatField(AutoTypedField):
+class FloatField(AutoTypedField[float]):
     AUTO_TYPE = Float()
 
 
-class NonNegativeFloatField(AutoTypedField):
+class NonNegativeFloatField(AutoTypedField[float]):
     AUTO_TYPE = NonNegativeFloat()
 
 
 # This is a strict interpretation of boolean
 # values using Python's semantics for truth/falsehood
-class BooleanField(AutoTypedField):
+class BooleanField(AutoTypedField[bool]):
     AUTO_TYPE = Boolean()
 
 
@@ -1109,245 +1550,117 @@ class BooleanField(AutoTypedField):
 # truth/falsehood. ie strings like 'yes', 'no',
 # 'on', 'off', 't', 'f' get mapped to values you
 # would expect.
-class FlexibleBooleanField(AutoTypedField):
+class FlexibleBooleanField(AutoTypedField[bool]):
     AUTO_TYPE = FlexibleBoolean()
 
 
-class DateTimeField(AutoTypedField):
-    def __init__(self, tzinfo_aware=True, **kwargs):
+class DateTimeField(AutoTypedField[datetime.datetime]):
+    def __init__(self, tzinfo_aware: bool = True, **kwargs: Any) -> None:
         self.AUTO_TYPE = DateTime(tzinfo_aware=tzinfo_aware)
         super().__init__(**kwargs)
 
 
-class DictOfStringsField(AutoTypedField):
+class DictOfStringsField(AutoTypedField[dict[str, str]]):
     AUTO_TYPE = Dict(String())
 
 
-class DictOfNullableStringsField(AutoTypedField):
+class DictOfNullableStringsField(AutoTypedField[dict[str, str | None]]):
     AUTO_TYPE = Dict(String(), nullable=True)
 
 
-class DictOfIntegersField(AutoTypedField):
+class DictOfIntegersField(AutoTypedField[dict[str, int]]):
     AUTO_TYPE = Dict(Integer())
 
 
-class ListOfStringsField(AutoTypedField):
+class ListOfStringsField(AutoTypedField[list[str]]):
     AUTO_TYPE = List(String())
 
 
-class DictOfListOfStringsField(AutoTypedField):
+class DictOfListOfStringsField(AutoTypedField[dict[str, list[str]]]):
     AUTO_TYPE = Dict(List(String()))
 
 
-class ListOfEnumField(AutoTypedField):
-    def __init__(self, valid_values, **kwargs):
+class ListOfEnumField(AutoTypedField[list[str]]):
+    def __init__(self, valid_values: list[str], **kwargs: Any) -> None:
+        self._valid_values = valid_values
         self.AUTO_TYPE = List(Enum(valid_values))
         super().__init__(**kwargs)
 
-    def __repr__(self):
-        valid_values = self._type._element_type._type.valid_values
-        args = {
+    def __repr__(self) -> str:
+        args: dict[str, Any] = {
             'nullable': self._nullable,
             'default': self._default,
-            }
-        args.update({'valid_values': valid_values})
-        return '{}({})'.format(self._type.__class__.__name__,
-                               ','.join([f'{k}={v}'
-                                         for k, v in sorted(args.items())]))
+            'valid_values': self._valid_values,
+        }
+        return '{}({})'.format(
+            self._type.__class__.__name__,
+            ','.join([f'{k}={v}' for k, v in sorted(args.items())]),
+        )
 
 
-class SetOfIntegersField(AutoTypedField):
+class SetOfIntegersField(AutoTypedField[set[int]]):
     AUTO_TYPE = Set(Integer())
 
 
-class ListOfSetsOfIntegersField(AutoTypedField):
+class ListOfSetsOfIntegersField(AutoTypedField[list[set[int]]]):
     AUTO_TYPE = List(Set(Integer()))
 
 
-class ListOfIntegersField(AutoTypedField):
+class ListOfIntegersField(AutoTypedField[list[int]]):
     AUTO_TYPE = List(Integer())
 
 
-class ListOfDictOfNullableStringsField(AutoTypedField):
+class ListOfDictOfNullableStringsField(
+    AutoTypedField[list[dict[str, str | None]]]
+):
     AUTO_TYPE = List(Dict(String(), nullable=True))
 
 
-class ObjectField(AutoTypedField):
-    def __init__(self, objtype, subclasses=False, **kwargs):
+class ObjectField(AutoTypedField['base.VersionedObject']):
+    def __init__(
+        self, objtype: str, subclasses: bool = False, **kwargs: Any
+    ) -> None:
         self.AUTO_TYPE = Object(objtype, subclasses)
         self.objname = objtype
         super().__init__(**kwargs)
 
 
-class ListOfObjectsField(AutoTypedField):
-    def __init__(self, objtype, subclasses=False, **kwargs):
+class ListOfObjectsField(AutoTypedField[list['base.VersionedObject']]):
+    def __init__(
+        self, objtype: str, subclasses: bool = False, **kwargs: Any
+    ) -> None:
         self.AUTO_TYPE = List(Object(objtype, subclasses))
         self.objname = objtype
         super().__init__(**kwargs)
 
 
-class ListOfUUIDField(AutoTypedField):
+class ListOfUUIDField(AutoTypedField[list[str]]):
     AUTO_TYPE = List(UUID())
 
 
-class IPAddressField(AutoTypedField):
+class IPAddressField(AutoTypedField['netaddr.IPAddress']):
     AUTO_TYPE = IPAddress()
 
 
-class IPV4AddressField(AutoTypedField):
+class IPV4AddressField(AutoTypedField['netaddr.IPAddress']):
     AUTO_TYPE = IPV4Address()
 
 
-class IPV6AddressField(AutoTypedField):
+class IPV6AddressField(AutoTypedField['netaddr.IPAddress']):
     AUTO_TYPE = IPV6Address()
 
 
-class IPV4AndV6AddressField(AutoTypedField):
+class IPV4AndV6AddressField(AutoTypedField['netaddr.IPAddress']):
     AUTO_TYPE = IPV4AndV6Address()
 
 
-class IPNetworkField(AutoTypedField):
+class IPNetworkField(AutoTypedField['netaddr.IPNetwork']):
     AUTO_TYPE = IPNetwork()
 
 
-class IPV4NetworkField(AutoTypedField):
+class IPV4NetworkField(AutoTypedField['netaddr.IPNetwork']):
     AUTO_TYPE = IPV4Network()
 
 
-class IPV6NetworkField(AutoTypedField):
+class IPV6NetworkField(AutoTypedField['netaddr.IPNetwork']):
     AUTO_TYPE = IPV6Network()
-
-
-class CoercedCollectionMixin:
-    def __init__(self, *args, **kwargs):
-        self._element_type = None
-        self._obj = None
-        self._field = None
-        super().__init__(*args, **kwargs)
-
-    def enable_coercing(self, element_type, obj, field):
-        self._element_type = element_type
-        self._obj = obj
-        self._field = field
-
-
-class CoercedList(CoercedCollectionMixin, list):
-    """List which coerces its elements
-
-    List implementation which overrides all element-adding methods and
-    coercing the element(s) being added to the required element type
-    """
-    def _coerce_item(self, index, item):
-        if hasattr(self, "_element_type") and self._element_type is not None:
-            att_name = "%s[%i]" % (self._field, index)
-            return self._element_type.coerce(self._obj, att_name, item)
-        else:
-            return item
-
-    def __setitem__(self, i, y):
-        if type(i) is slice:  # compatibility with py3 and [::] slices
-            start = i.start or 0
-            step = i.step or 1
-            coerced_items = [self._coerce_item(start + index * step, item)
-                             for index, item in enumerate(y)]
-            super().__setitem__(i, coerced_items)
-        else:
-            super().__setitem__(i, self._coerce_item(i, y))
-
-    def append(self, x):
-        super().append(self._coerce_item(len(self) + 1, x))
-
-    def extend(self, t):
-        coerced_items = [self._coerce_item(len(self) + index, item)
-                         for index, item in enumerate(t)]
-        super().extend(coerced_items)
-
-    def insert(self, i, x):
-        super().insert(i, self._coerce_item(i, x))
-
-    def __iadd__(self, y):
-        coerced_items = [self._coerce_item(len(self) + index, item)
-                         for index, item in enumerate(y)]
-        return super().__iadd__(coerced_items)
-
-    def __setslice__(self, i, j, y):
-        coerced_items = [self._coerce_item(i + index, item)
-                         for index, item in enumerate(y)]
-        return super().__setslice__(i, j, coerced_items)
-
-
-class CoercedDict(CoercedCollectionMixin, dict):
-    """Dict which coerces its values
-
-    Dict implementation which overrides all element-adding methods and
-    coercing the element(s) being added to the required element type
-    """
-
-    def _coerce_dict(self, d):
-        res = {}
-        for key, element in d.items():
-            res[key] = self._coerce_item(key, element)
-        return res
-
-    def _coerce_item(self, key, item):
-        if not isinstance(key, str):
-            raise KeyTypeError(str, key)
-        if hasattr(self, "_element_type") and self._element_type is not None:
-            att_name = f"{self._field}[{key}]"
-            return self._element_type.coerce(self._obj, att_name, item)
-        else:
-            return item
-
-    def __setitem__(self, key, value):
-        super().__setitem__(key,
-                            self._coerce_item(key, value))
-
-    def update(self, other=None, **kwargs):
-        if other is not None:
-            super().update(self._coerce_dict(other),
-                           **self._coerce_dict(kwargs))
-        else:
-            super().update(**self._coerce_dict(kwargs))
-
-    def setdefault(self, key, default=None):
-        return super().setdefault(key,
-                                  self._coerce_item(key,
-                                                    default))
-
-
-class CoercedSet(CoercedCollectionMixin, set):
-    """Set which coerces its values
-
-    Dict implementation which overrides all element-adding methods and
-    coercing the element(s) being added to the required element type
-    """
-    def _coerce_element(self, element):
-        if hasattr(self, "_element_type") and self._element_type is not None:
-            return self._element_type.coerce(self._obj,
-                                             "{}[{}]".format(
-                                                 self._field, element),
-                                             element)
-        else:
-            return element
-
-    def _coerce_iterable(self, values):
-        coerced = set()
-        for element in values:
-            coerced.add(self._coerce_element(element))
-        return coerced
-
-    def add(self, value):
-        return super().add(self._coerce_element(value))
-
-    def update(self, values):
-        return super().update(self._coerce_iterable(values))
-
-    def symmetric_difference_update(self, values):
-        return super().symmetric_difference_update(
-            self._coerce_iterable(values))
-
-    def __ior__(self, y):
-        return super().__ior__(self._coerce_iterable(y))
-
-    def __ixor__(self, y):
-        return super().__ixor__(self._coerce_iterable(y))

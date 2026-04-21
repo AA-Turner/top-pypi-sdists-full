@@ -1,11 +1,14 @@
 //! SpanProcessor - Core logic for tracking and completing spans across requests
 
 use dashmap::DashMap;
+use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::anthropic::common::{ServerToolUseBlock, ToolUseBlock};
 use crate::anthropic::request::{ContentBlock, MessageContent, PostMessagesRequest};
-use crate::anthropic::response::{
-    MessageResponse, ResponseContentBlock, WebSearchToolResultContent,
+use crate::anthropic::response::{MessageResponse, ResponseContentBlock};
+use crate::anthropic::tool_result::{
+    CodeExecutionToolResultBlock, WebFetchToolResultBlock, WebSearchToolResultBlock,
 };
 
 use super::matching::{
@@ -52,6 +55,20 @@ impl SpanProcessor {
             tool_to_nested_context: DashMap::new(),
             pending_tool_spans: DashMap::new(),
             spawning_tool_child_end_times: DashMap::new(),
+        }
+    }
+
+    /// Correct the start time of a spawning tool that was registered mid-stream.
+    /// Used at end-of-stream to apply the single-tool timing rule (LLM_end + 1ms).
+    pub fn patch_spawning_tool_start_time(&self, tool_use_id: &str, new_start: u64) {
+        if let Some(mut entry) = self.pending_tool_spans.get_mut(tool_use_id) {
+            entry.start_time_unix_nano = new_start;
+        }
+        for mut entry in self.pending_spawning_tools.iter_mut() {
+            if entry.value().tool_use_id == tool_use_id {
+                entry.value_mut().start_time_unix_nano = new_start;
+                break;
+            }
         }
     }
 
@@ -146,7 +163,10 @@ impl SpanProcessor {
         let effective_ctx = self.resolve_effective_context(ctx, nested_context);
 
         for block in &response.content {
-            if let ResponseContentBlock::ToolUse { id, name, input } = block {
+            if let ResponseContentBlock::ToolUse(ToolUseBlock {
+                id, name, input, ..
+            }) = block
+            {
                 let tool_type = match SpawningToolType::from_name(name) {
                     Some(t) => t,
                     None => continue,
@@ -214,7 +234,10 @@ impl SpanProcessor {
         ctx: &RegistrationContext,
     ) {
         for block in &response.content {
-            if let ResponseContentBlock::ToolUse { id, name, input } = block {
+            if let ResponseContentBlock::ToolUse(ToolUseBlock {
+                id, name, input, ..
+            }) = block
+            {
                 if !SpawningToolType::is_spawning_tool(name) {
                     continue;
                 }
@@ -244,6 +267,9 @@ impl SpanProcessor {
                         (None, ctx.clone())
                     };
 
+                let input_value = serde_json::to_value(input)
+                    .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+
                 let pending_tool = PendingToolSpan {
                     start_time_unix_nano: tool_ctx.start_time_unix_nano,
                     trace_id_bytes: tool_ctx.trace_id_bytes,
@@ -251,7 +277,7 @@ impl SpanProcessor {
                     span_ids_path: tool_ctx.span_ids_path,
                     span_path: tool_ctx.span_path,
                     tool_name: name.clone(),
-                    tool_input: input.clone(),
+                    tool_input: input_value,
                     nested_prompt: None,
                     preset_span_id_bytes: preset_span_id,
                     spawning_tool_use_id: nested_context.map(|ctx| ctx.parent_tool_use_id.clone()),
@@ -264,36 +290,51 @@ impl SpanProcessor {
         }
     }
 
-    /// Register regular tool calls from a response
+    /// Register regular tool calls from a response.
+    ///
+    /// `tool_start_times` maps tool_use_id → the unix_nano when that block's
+    /// ContentBlockStop arrived in the stream. When present, this is used as the
+    /// span start time instead of the whole-stream end time in `ctx`.
     pub fn register_tool_calls(
         &self,
         response: &MessageResponse,
         nested_context: Option<&NestedContext>,
         ctx: &RegistrationContext,
+        tool_start_times: &HashMap<String, u64>,
     ) {
         let effective_ctx = self.resolve_effective_context(ctx, nested_context);
 
         for block in &response.content {
             let (id, name, input) = match block {
-                ResponseContentBlock::ToolUse { id, name, input } => (id, name, input),
-                ResponseContentBlock::ServerToolUse {
+                ResponseContentBlock::ToolUse(ToolUseBlock {
                     id, name, input, ..
-                } => (id, name, input),
+                }) => (id, name.to_owned(), input),
+                ResponseContentBlock::ServerToolUse(ServerToolUseBlock {
+                    id, name, input, ..
+                }) => (id, name.to_string(), input),
                 _ => continue,
             };
 
-            if SpawningToolType::is_spawning_tool(name) {
+            if SpawningToolType::is_spawning_tool(&name) {
                 continue;
             }
 
+            let input_value = serde_json::to_value(input)
+                .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+
+            let start_time = tool_start_times
+                .get(id)
+                .copied()
+                .unwrap_or(effective_ctx.start_time_unix_nano);
+
             let pending_tool = PendingToolSpan {
-                start_time_unix_nano: effective_ctx.start_time_unix_nano,
+                start_time_unix_nano: start_time,
                 trace_id_bytes: effective_ctx.trace_id_bytes.clone(),
                 parent_span_id_bytes: effective_ctx.parent_span_id_bytes.clone(),
                 span_ids_path: effective_ctx.span_ids_path.clone(),
                 span_path: effective_ctx.span_path.clone(),
-                tool_name: name.clone(),
-                tool_input: input.clone(),
+                tool_name: name.to_string(),
+                tool_input: input_value.clone(),
                 nested_prompt: nested_context.map(|ctx| ctx.prompt.clone()),
                 preset_span_id_bytes: None,
                 spawning_tool_use_id: nested_context.map(|ctx| ctx.parent_tool_use_id.clone()),
@@ -325,42 +366,34 @@ impl SpanProcessor {
         // First, collect all server tool uses by their ID
         let mut server_tool_uses: HashMap<String, (String, serde_json::Value)> = HashMap::new();
         for block in &response.content {
-            if let ResponseContentBlock::ServerToolUse {
+            if let ResponseContentBlock::ServerToolUse(ServerToolUseBlock {
                 id, name, input, ..
-            } = block
+            }) = block
             {
-                server_tool_uses.insert(id.clone(), (name.clone(), input.clone()));
+                let input_value = serde_json::to_value(input)
+                    .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+                server_tool_uses.insert(id.clone(), (name.to_string(), input_value));
             }
         }
 
         // Then, find matching tool results and create completed spans
         for block in &response.content {
             let (tool_use_id, tool_output) = match block {
-                ResponseContentBlock::WebSearchToolResult {
+                ResponseContentBlock::WebSearchToolResult(WebSearchToolResultBlock {
                     tool_use_id,
                     content,
                     ..
-                } => {
-                    let output = match content {
-                        WebSearchToolResultContent::Results(results) => {
-                            serde_json::to_string(results).unwrap_or_default()
-                        }
-                        WebSearchToolResultContent::Error { error_code, .. } => {
-                            format!("Error: {}", error_code)
-                        }
-                    };
-                    (tool_use_id, Some(output))
-                }
-                ResponseContentBlock::WebFetchToolResult {
+                }) => (tool_use_id, serde_json::to_string(content).ok()),
+                ResponseContentBlock::WebFetchToolResult(WebFetchToolResultBlock {
                     tool_use_id,
                     content,
                     ..
-                } => (tool_use_id, Some(content.to_string())),
-                ResponseContentBlock::CodeExecutionToolResult {
+                }) => (tool_use_id, serde_json::to_string(content).ok()),
+                ResponseContentBlock::CodeExecutionToolResult(CodeExecutionToolResultBlock {
                     tool_use_id,
                     content,
                     ..
-                } => (tool_use_id, Some(content.to_string())),
+                }) => (tool_use_id, serde_json::to_string(content).ok()),
                 _ => continue,
             };
 
@@ -452,7 +485,9 @@ impl SpanProcessor {
 
                             completed.push(CompletedToolSpan {
                                 start_time_unix_nano: pending.start_time_unix_nano,
-                                end_time_unix_nano,
+                                // subtract one millisecond so that in JS this is less than following request span's start time
+                                end_time_unix_nano: (end_time_unix_nano - 1_000_000)
+                                    .max(pending.start_time_unix_nano),
                                 trace_id_bytes: pending.trace_id_bytes,
                                 parent_span_id_bytes: pending.parent_span_id_bytes,
                                 span_id_bytes,
@@ -510,6 +545,8 @@ impl SpanProcessor {
                             let description = pending
                                 .tool_input
                                 .get("description")
+                                // for WebFetch
+                                .or(pending.tool_input.get("url"))
                                 .and_then(|v| v.as_str())
                                 .map(|s| s.to_string());
 
@@ -528,7 +565,9 @@ impl SpanProcessor {
 
                             completed.push(CompletedSpawningToolSpan {
                                 start_time_unix_nano: pending.start_time_unix_nano,
-                                end_time_unix_nano: actual_end_time,
+                                // subtract one millisecond so that in JS this is less than following request span's start time
+                                end_time_unix_nano: (actual_end_time - 1_000_000)
+                                    .max(pending.start_time_unix_nano),
                                 trace_id_bytes: pending.trace_id_bytes,
                                 parent_span_id_bytes: pending.parent_span_id_bytes,
                                 tool_span_id_bytes,
@@ -544,6 +583,9 @@ impl SpanProcessor {
                             });
 
                             // Clean up nested context entries and pending spawning tools
+                            self.tool_to_nested_context
+                                .retain(|call_id, _| call_id != tool_use_id);
+                            // Fallback, also delete by prompt. TODO: do we need this now that we delete by id?
                             self.tool_to_nested_context
                                 .retain(|_, ctx| ctx.prompt != prompt);
                             self.pending_spawning_tools.remove(&prompt);

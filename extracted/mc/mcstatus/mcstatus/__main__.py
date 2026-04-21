@@ -5,7 +5,7 @@ import argparse
 import json
 import socket
 import sys
-from typing import TYPE_CHECKING, TypeAlias
+from typing import Any, TYPE_CHECKING, TypeAlias
 
 import dns.resolver
 
@@ -15,7 +15,7 @@ from mcstatus.responses import JavaStatusResponse
 if TYPE_CHECKING:
     from mcstatus.motd import Motd
 
-SupportedServers: TypeAlias = "JavaServer | LegacyServer | BedrockServer"
+SupportedServers: TypeAlias = JavaServer | LegacyServer | BedrockServer
 
 PING_PACKET_FAIL_WARNING = (
     "warning: contacting {address} failed with a 'ping' packet but succeeded with a 'status' packet,\n"
@@ -43,7 +43,7 @@ def _kind(serv: SupportedServers) -> str:
         return "Java"
     if isinstance(serv, LegacyServer):
         return "Java (pre-1.7)"
-    if isinstance(serv, BedrockServer):
+    if isinstance(serv, BedrockServer):  # pyright: ignore[reportUnnecessaryIsInstance] # be explicit
         return "Bedrock"
     raise ValueError(f"unsupported server for kind: {serv}")
 
@@ -54,7 +54,6 @@ def _ping_with_fallback(server: SupportedServers) -> float:
         return server.status().latency
 
     # try faster ping packet first, falling back to status with a warning.
-    ping_exc = None
     try:
         return server.ping(tries=1)
     except Exception as e:  # noqa: BLE001 # blindly catching Exception
@@ -94,7 +93,7 @@ def status_cmd(server: SupportedServers) -> int:
 
 
 def json_cmd(server: SupportedServers) -> int:
-    data = {"online": False, "kind": _kind(server)}
+    data: dict[str, Any] = {"online": False, "kind": _kind(server)}
 
     status_res = query_res = exn = None
     try:
@@ -152,10 +151,12 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
         """,
     )
 
-    parser.add_argument("address", help="The address of the server.")
+    _ = parser.add_argument("address", help="The address of the server.")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--bedrock", help="Specifies that 'address' is a Bedrock server (default: Java).", action="store_true")
-    group.add_argument(
+    _ = group.add_argument(
+        "--bedrock", help="Specifies that 'address' is a Bedrock server (default: Java).", action="store_true"
+    )
+    _ = group.add_argument(
         "--legacy", help="Specifies that 'address' is a pre-1.7 Java server (default: 1.7+).", action="store_true"
     )
 

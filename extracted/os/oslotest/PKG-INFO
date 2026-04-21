@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oslotest
-Version: 6.1.0
+Version: 6.1.1
 Summary: Oslo test framework
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 Project-URL: Homepage, https://docs.openstack.org/oslotest

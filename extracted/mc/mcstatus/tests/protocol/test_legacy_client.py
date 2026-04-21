@@ -1,14 +1,14 @@
 import pytest
 
-from mcstatus._protocol.connection import Connection
 from mcstatus._protocol.legacy_client import LegacyClient
 from mcstatus.motd import Motd
 from mcstatus.responses.legacy import LegacyStatusPlayers, LegacyStatusResponse, LegacyStatusVersion
+from tests.protocol.helpers import SyncBufferConnection
 
 
 def test_invalid_kick_reason():
     with pytest.raises(IOError, match=r"^Received invalid kick packet reason$"):
-        LegacyClient.parse_response("Invalid Reason".encode("UTF-16BE"), 123.0)
+        _ = LegacyClient.parse_response("Invalid Reason".encode("UTF-16BE"), 123.0)
 
 
 @pytest.mark.parametrize(
@@ -40,8 +40,8 @@ def test_parse_response(response: bytes, expected: LegacyStatusResponse):
 
 
 def test_invalid_packet_id():
-    socket = Connection()
+    socket = SyncBufferConnection()
     socket.receive(bytearray.fromhex("00"))
     server = LegacyClient(socket)
     with pytest.raises(IOError, match=r"^Received invalid packet ID$"):
-        server.read_status()
+        _ = server.read_status()

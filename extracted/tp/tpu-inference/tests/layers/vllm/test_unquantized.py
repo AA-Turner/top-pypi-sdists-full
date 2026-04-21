@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import tempfile
+from unittest import mock
+from unittest.mock import MagicMock, patch
 
 import jax
 import pytest
@@ -35,15 +37,26 @@ from vllm.model_executor.layers.linear import (ColumnParallelLinear,
                                                RowParallelLinear)
 from vllm.model_executor.model_loader import get_model as vllm_get_model
 
+from tests.layers.common import utils as test_utils
+from tpu_inference.layers.common.moe import MoEBackend
+from tpu_inference.layers.common.quantization.configs import QuantLinearConfig
 from tpu_inference.layers.vllm.quantization import get_tpu_quantization_config
 from tpu_inference.layers.vllm.quantization.unquantized import (
     VllmUnquantizedConfig, VllmUnquantizedFusedMoEMethod,
-    VllmUnquantizedLinearMethod)
-
-from . import utils as test_utils
+    VllmUnquantizedLinearMethod, _load_weight_for_layer)
 
 P = PartitionSpec
 MODELS = ["Qwen/Qwen2-1.5B-Instruct"]
+
+
+@pytest.fixture(autouse=True)
+def mock_get_pp_group():
+    with patch("tpu_inference.distributed.jax_parallel_state.get_pp_group",
+               return_value=MagicMock(is_first_rank=True,
+                                      is_last_rank=True,
+                                      rank_in_group=0,
+                                      world_size=1)):
+        yield
 
 
 @pytest.fixture(autouse=True)
@@ -109,7 +122,8 @@ def test_loading_model(model, mesh):
     vllm_config.quant_config = get_tpu_quantization_config(vllm_config, mesh)
     vllm_config.device_config.device = "cpu"
 
-    vllm_model = vllm_get_model(vllm_config=vllm_config)
+    with set_current_vllm_config(vllm_config):
+        vllm_model = vllm_get_model(vllm_config=vllm_config)
     layers = test_utils.find_all_layer_type(vllm_model, LinearBase)
     for layer in layers:
         assert isinstance(layer.quant_config, VllmUnquantizedConfig)
@@ -139,9 +153,6 @@ def test_row_parallel_linear(model, bias, num_devices, enable_sp,
     vllm_config = engine_args.create_engine_config()
     vllm_config.compilation_config.pass_config.enable_sp = enable_sp
 
-    input_tensor = torch.rand(10, 4096, dtype=dtype) / 10
-    input_tensor = input_tensor.to('cpu')
-
     with set_current_vllm_config(vllm_config):
         row_linear = RowParallelLinear(
             input_size=4096,
@@ -150,6 +161,9 @@ def test_row_parallel_linear(model, bias, num_devices, enable_sp,
             params_dtype=dtype,
             return_bias=False,
         )
+
+    input_tensor = torch.rand(10, row_linear.input_size, dtype=dtype) / 10
+    input_tensor = input_tensor.to('cpu')
 
     weight_data = torch.rand_like(row_linear.weight.data) / 10
     if bias:
@@ -216,9 +230,6 @@ def test_column_parallel_linear(model, bias, num_devices, enable_sp,
     vllm_config = engine_args.create_engine_config()
     vllm_config.compilation_config.pass_config.enable_sp = enable_sp
 
-    input_tensor = torch.rand(10, 4096, dtype=dtype) / 10
-    input_tensor = input_tensor.to('cpu')
-
     with set_current_vllm_config(vllm_config):
         column_linear = ColumnParallelLinear(
             input_size=4096,
@@ -227,6 +238,9 @@ def test_column_parallel_linear(model, bias, num_devices, enable_sp,
             params_dtype=dtype,
             return_bias=False,
         )
+
+    input_tensor = torch.rand(10, column_linear.input_size, dtype=dtype) / 10
+    input_tensor = input_tensor.to('cpu')
 
     weight_data = torch.rand_like(column_linear.weight.data) / 10
     if bias:
@@ -293,9 +307,6 @@ def test_qkv_parallel_linear(model, bias, num_devices, enable_sp, fuse_matmuls,
     vllm_config = engine_args.create_engine_config()
     vllm_config.compilation_config.pass_config.enable_sp = enable_sp
 
-    input_tensor = torch.rand(10, 4096, dtype=dtype) / 10
-    input_tensor = input_tensor.to('cpu')
-
     with set_current_vllm_config(vllm_config):
         qkv_linear = QKVParallelLinear(
             hidden_size=4096,
@@ -306,6 +317,9 @@ def test_qkv_parallel_linear(model, bias, num_devices, enable_sp, fuse_matmuls,
             params_dtype=dtype,
             return_bias=False,
         )
+
+    input_tensor = torch.rand(10, qkv_linear.input_size, dtype=dtype) / 10
+    input_tensor = input_tensor.to('cpu')
 
     weight_data = torch.rand_like(qkv_linear.weight.data) / 10
     if bias:
@@ -375,9 +389,6 @@ def test_merged_column_parallel_linear(model, bias, num_devices, fuse_matmuls,
     vllm_config = engine_args.create_engine_config()
     vllm_config.compilation_config.pass_config.enable_sp = enable_sp
 
-    input_tensor = torch.rand(10, 4096, dtype=dtype) / 10
-    input_tensor = input_tensor.to('cpu')
-
     # Call vLLM code
     with set_current_vllm_config(vllm_config):
         merged_column_linear = MergedColumnParallelLinear(
@@ -387,6 +398,10 @@ def test_merged_column_parallel_linear(model, bias, num_devices, fuse_matmuls,
             params_dtype=dtype,
             return_bias=False,
         )
+
+    input_tensor = torch.rand(10, merged_column_linear.input_size,
+                              dtype=dtype) / 10
+    input_tensor = input_tensor.to('cpu')
 
     weight_data = torch.rand_like(merged_column_linear.weight.data) / 10
     if bias:
@@ -412,7 +427,9 @@ def test_merged_column_parallel_linear(model, bias, num_devices, fuse_matmuls,
             return_bias=False,
             quant_config=quant_config,
         )
-        jax_merged_column_linear.quant_method.fuse_matmuls = fuse_matmuls
+        assert isinstance(jax_merged_column_linear.quant_method.linear_config,
+                          QuantLinearConfig)
+        jax_merged_column_linear.quant_method.linear_config.fuse_matmuls = fuse_matmuls
 
     jax_merged_column_linear.weight.data = weight_data
     if bias:
@@ -475,6 +492,8 @@ def test_fused_moe(use_ep, num_devices, num_tokens, intermediate_size,
     )
     vllm_config = engine_args.create_engine_config()
     vllm_config.model_config.dtype = dtype
+    vllm_config.parallel_config = ParallelConfig(
+        tensor_parallel_size=mesh.devices.size, enable_expert_parallel=use_ep)
 
     quant_config = get_tpu_quantization_config(vllm_config, mesh)
     with set_current_vllm_config(vllm_config):
@@ -501,11 +520,15 @@ def test_fused_moe(use_ep, num_devices, num_tokens, intermediate_size,
     expected = test_utils.ref_moe(a, score, w1, w2, w1_bias, w2_bias,
                                   vllm_fused_moe.top_k,
                                   vllm_fused_moe.renormalize,
-                                  vllm_fused_moe.activation)
+                                  vllm_fused_moe.activation.value)
 
     with torchax.default_env(), set_forward_context(None, vllm_config):
         assert isinstance(vllm_fused_moe.quant_method,
                           VllmUnquantizedFusedMoEMethod)
+        if use_ep:
+            assert vllm_fused_moe.quant_method.moe_backend == MoEBackend.GMM_EP
+        else:
+            assert vllm_fused_moe.quant_method.moe_backend == MoEBackend.GMM_TP
 
         jax_a = a.to('jax')
         score = score.to('jax')
@@ -529,6 +552,7 @@ def test_fused_moe(use_ep, num_devices, num_tokens, intermediate_size,
 @pytest.mark.parametrize("topk", [8])
 @pytest.mark.parametrize("has_bias", [False, True])
 @pytest.mark.parametrize("enable_attn_dp", [False, True])
+@mock.patch("os.environ", {"USE_MOE_EP_KERNEL": "1"})
 def test_fused_moe_use_kernel(num_devices, num_tokens, intermediate_size,
                               hidden_size, num_experts, topk, has_bias,
                               enable_attn_dp):
@@ -592,7 +616,7 @@ def test_fused_moe_use_kernel(num_devices, num_tokens, intermediate_size,
     vllm_config = engine_args.create_engine_config()
     vllm_config.model_config.dtype = dtype
     vllm_config.parallel_config = ParallelConfig(
-        tensor_parallel_size=mesh.devices.size)
+        tensor_parallel_size=mesh.devices.size, enable_expert_parallel=True)
 
     quant_config = get_tpu_quantization_config(vllm_config, mesh)
     with set_current_vllm_config(vllm_config):
@@ -609,7 +633,6 @@ def test_fused_moe_use_kernel(num_devices, num_tokens, intermediate_size,
             has_bias=has_bias,
         )
         vllm_fused_moe.moe_parallel_config.use_ep = True
-        vllm_fused_moe.quant_method.use_kernel = True
 
     vllm_fused_moe.w13_weight.data = w1
     vllm_fused_moe.w2_weight.data = w2
@@ -620,17 +643,19 @@ def test_fused_moe_use_kernel(num_devices, num_tokens, intermediate_size,
     expected = test_utils.ref_moe(a, score, w1, w2, w1_bias, w2_bias,
                                   vllm_fused_moe.top_k,
                                   vllm_fused_moe.renormalize,
-                                  vllm_fused_moe.activation)
+                                  vllm_fused_moe.activation.value)
 
     with torchax.default_env(), set_forward_context(None, vllm_config):
         assert isinstance(vllm_fused_moe.quant_method,
                           VllmUnquantizedFusedMoEMethod)
+        assert vllm_fused_moe.quant_method.moe_backend == MoEBackend.FUSED_MOE
+
         jax_a = a.to('jax')
         score = score.to('jax')
 
         vllm_fused_moe.quant_method.process_weights_after_loading(
             vllm_fused_moe)
-        vllm_fused_moe.quant_method.block_size = {
+        vllm_fused_moe.quant_method.extra_backend_kwargs.update({
             "bt": 32,
             "bf": 512,
             "bd1": 512,
@@ -639,7 +664,7 @@ def test_fused_moe_use_kernel(num_devices, num_tokens, intermediate_size,
             "bfc": 256,
             "bd1c": 256,
             "bd2c": 256,
-        }
+        })
         actual = vllm_fused_moe(jax_a, score)
 
         torch.testing.assert_close(
@@ -649,3 +674,64 @@ def test_fused_moe_use_kernel(num_devices, num_tokens, intermediate_size,
             atol=1e-2,
             rtol=1e-2,
         )
+
+
+# --- _load_weight_for_layer tests ---
+
+
+def _make_layer_with_weight(shape, dtype):
+    """Create a simple torch.nn.Module with a 'weight' attribute."""
+    layer = torch.nn.Module()
+    layer.weight = torch.randn(shape, dtype=dtype)
+    return layer
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+@patch("vllm.envs.VLLM_TPU_USING_PATHWAYS", False)
+def test_load_weight_for_layer_non_pathways(dtype):
+    """_load_weight_for_layer falls back to t2j when not using Pathways."""
+    layer = _make_layer_with_weight((4, 8), dtype)
+    mesh = test_utils.get_spmd_mesh(1)
+    sharding = NamedSharding(mesh, P(None, None))
+    result = _load_weight_for_layer(layer, "weight", sharding)
+    expected = t2j(layer.weight, use_dlpack=False)
+    assert result.shape == expected.shape
+    assert result.dtype == expected.dtype
+    import numpy as np
+    np.testing.assert_array_equal(np.asarray(result), np.asarray(expected))
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+@patch(
+    "tpu_inference.layers.vllm.quantization.unquantized.is_pathways_dummy_load",
+    return_value=False)
+@patch("vllm.envs.VLLM_TPU_USING_PATHWAYS", True)
+def test_load_weight_for_layer_pathways_real_weights(_, dtype):
+    """_load_weight_for_layer converts via numpy + device_put under Pathways (real weights)."""
+    layer = _make_layer_with_weight((4, 8), dtype)
+    mesh = test_utils.get_spmd_mesh(1)
+    sharding = NamedSharding(mesh, P(None, None))
+    result = _load_weight_for_layer(layer, "weight", sharding)
+    # Check shape and values are preserved (converted through float32 intermediate)
+    assert result.shape == (4, 8)
+    # Under Pathways path the dtype is converted via to_jax_dtype
+    from tpu_inference.utils import to_jax_dtype
+    assert result.dtype == to_jax_dtype(dtype)
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+@patch(
+    "tpu_inference.layers.vllm.quantization.unquantized.is_pathways_dummy_load",
+    return_value=True)
+@patch("vllm.envs.VLLM_TPU_USING_PATHWAYS", True)
+def test_load_weight_for_layer_pathways_dummy(_, dtype):
+    """_load_weight_for_layer creates dummy weights on TPU when in pathways dummy mode."""
+    layer = _make_layer_with_weight((4, 8), dtype)
+    mesh = test_utils.get_spmd_mesh(1)
+    sharding = NamedSharding(mesh, P(None, None))
+    result = _load_weight_for_layer(layer, "weight", sharding)
+    assert result.shape == (4, 8)
+    from tpu_inference.utils import to_jax_dtype
+    assert result.dtype == to_jax_dtype(dtype)
+    # The original tensor's storage should have been freed
+    assert layer.weight.untyped_storage().size() == 0

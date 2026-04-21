@@ -687,8 +687,21 @@ class AndroidAutomationHandler(BaseAutomationHandler):
         success, output = await adb_exec.run("shell", script, decode=True)
         return {"success": success, "output": output}
 
-    async def run_command(self, command: str) -> Dict[str, Any]:
-        """Run a shell command inside the Android emulator via adb shell."""
+    async def run_command(
+        self, command: str, timeout: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """Run a shell command inside the Android emulator via adb shell.
+
+        Args:
+            command: The shell command to run (inside the emulator, via adb).
+            timeout: Optional timeout in seconds.  When ``None`` (default),
+                waits indefinitely.  SDK callers propagate their
+                ``sb.shell.run(cmd, timeout=...)`` value here so long-running
+                Android commands (e.g. ``uiautomator dump`` on a heavy PWA
+                under concurrent emulator CPU contention) can be given a
+                realistic budget instead of being cut off by a server-side
+                hardcoded default.
+        """
         process = await asyncio.create_subprocess_exec(
             "adb",
             "-s",
@@ -698,7 +711,21 @@ class AndroidAutomationHandler(BaseAutomationHandler):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await process.communicate()
+        try:
+            if timeout is None:
+                stdout, stderr = await process.communicate()
+            else:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(), timeout=timeout
+                )
+        except asyncio.TimeoutError:
+            process.kill()
+            return {
+                "success": False,
+                "stdout": "",
+                "stderr": f"Command timed out after {timeout}s",
+                "return_code": -1,
+            }
         return {
             "success": process.returncode == 0,
             "stdout": stdout.decode() if stdout else "",
@@ -770,22 +797,27 @@ class AndroidFileHandler(BaseFileHandler):
         else:
             raise RuntimeError(f"Failed to write file: {output}")
 
-    async def write_bytes(self, path: str, content_b64: str) -> Dict[str, Any]:
-        """Write binary content to file."""
-        # Decode base64 and write to temp file, then push to device
+    async def write_bytes(
+        self, path: str, content_b64: str, timeout: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """Write binary content to file.
+
+        ``timeout`` (seconds) is forwarded to the underlying ``adb push``
+        when set; otherwise the ``CommandExecutor`` default applies.
+        """
         import os
         import tempfile
 
         content_bytes = base64.b64decode(content_b64)
-
-        # Create temp file
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp.write(content_bytes)
             tmp_path = tmp.name
 
         try:
-            # Push file to device
-            success, output = await adb_exec.run("push", tmp_path, path, decode=True)
+            run_kwargs: Dict[str, Any] = {"decode": True}
+            if timeout is not None:
+                run_kwargs["timeout"] = timeout
+            success, output = await adb_exec.run("push", tmp_path, path, **run_kwargs)
             if success:
                 return {}
             else:

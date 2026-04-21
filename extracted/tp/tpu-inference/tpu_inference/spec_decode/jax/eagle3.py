@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Implements the Eagle3 proposer for speculative decoding on JAX/TPU."""
-import functools
 from dataclasses import replace
 from typing import Any, Optional
 
@@ -24,9 +23,11 @@ from jax import lax
 from jax.sharding import NamedSharding, PartitionSpec
 from vllm.config import VllmConfig
 
+from tpu_inference import envs
 from tpu_inference.layers.common.attention_metadata import AttentionMetadata
 from tpu_inference.logger import init_logger
-from tpu_inference.models.common.model_loader import get_model
+from tpu_inference.models.common.model_loader import (
+    get_model, resolve_model_architecture)
 from tpu_inference.runner import utils as runner_utils
 from tpu_inference.utils import device_array
 
@@ -68,26 +69,58 @@ class Eagle3Proposer:
 
     def load_model(self, target_model: Any) -> None:
         """Loads the draft model."""
-        self.model_fn, self.compute_logits_fn, self.combine_hidden_states_fn, _, self.state, _, _ = get_model(
+        self.model_fn, self.compute_logits_fn, self.pooler_fn, self.combine_hidden_states_fn, _, self.state, _, _ = get_model(
             self.vllm_config, self.rng_key, self.mesh, is_draft_model=True)
-
-        draft_embed_tokens = getattr(self.state.model, 'embed_tokens', None)
-        if draft_embed_tokens is None or ~jnp.any(
-                draft_embed_tokens.embedding):
-            logger.info(
-                "Draft model does not have embedding. Setting draft model's embed_tokens to target model's embed"
+        draft_model_impl = envs.DRAFT_MODEL_IMPL_TYPE
+        target_model_impl = envs.MODEL_IMPL_TYPE
+        if draft_model_impl == 'auto':
+            draft_model_impl = resolve_model_architecture(
+                self.vllm_config, True)
+        if target_model_impl == 'auto':
+            target_model_impl = resolve_model_architecture(
+                self.vllm_config, False)
+        if draft_model_impl != target_model_impl:
+            raise ValueError(
+                "The implementation of the draft model must be the same as the target model."
             )
-            self.state.model.embed_tokens = target_model.model.embed
-        elif jnp.array_equal(draft_embed_tokens.embedding,
-                             target_model.model.embed.embedding):
-            logger.info(
-                "Draft model's embed_tokens is identical to target model's embed. Sharing the embedding."
-            )
-            self.state.model.embed_tokens = target_model.model.embed
+        # TODO(ranlihao): Handles the case where the draft model and target model have different implementations. This may require converting the parameters of the target model to match the draft model's format.
+        # Reuse the target model's embedding if the draft model doesn't have its own or if they are identical, to save memory.
+        if draft_model_impl == "flax_nnx":
+            draft_embed_tokens = getattr(self.state.model, 'embed_tokens',
+                                         None)
+            if draft_embed_tokens is None or ~jnp.any(
+                    draft_embed_tokens.embedding):
+                logger.info(
+                    "Draft model does not have embedding. Setting draft model's embed_tokens to target model's embed"
+                )
+                self.state.model.embed_tokens = target_model.model.embed
+            elif jnp.array_equal(draft_embed_tokens.embedding,
+                                 target_model.model.embed.embedding):
+                logger.info(
+                    "Draft model's embed_tokens is identical to target model's embed. Sharing the embedding."
+                )
+                self.state.model.embed_tokens = target_model.model.embed
+            else:
+                logger.info("Draft model has its own embed_tokens.")
         else:
-            logger.info("Draft model has its own embed_tokens.")
+            EMBED_TOKENS_KEY = 'vllm_model.model.embed_tokens.weight'
+            draft_embed_tokens = self.state.get(EMBED_TOKENS_KEY, None)
+            target_embed_tokens = target_model.get(EMBED_TOKENS_KEY, None)
+            if draft_embed_tokens is None or ~jnp.any(draft_embed_tokens):
+                logger.info(
+                    "Draft model does not have embedding. Setting draft model's embed_tokens to target model's embed"
+                )
+                self.state[EMBED_TOKENS_KEY] = target_embed_tokens
+            elif target_embed_tokens is not None and jnp.array_equal(
+                    draft_embed_tokens, target_embed_tokens):
+                logger.info(
+                    "Draft model's embed_tokens is identical to target model's embed. Sharing the embedding."
+                )
+                self.state[EMBED_TOKENS_KEY] = target_embed_tokens
+            else:
+                logger.info("Draft model has its own embed_tokens.")
 
-    @functools.partial(jax.jit, static_argnums=(0, ))
+    @jax.jit(static_argnums=(0, ))
     def _prepare_input_ids(
             self, query_start_loc: jax.Array, target_token_ids: jax.Array,
             next_token_ids: jax.Array,
@@ -113,7 +146,7 @@ class Eagle3Proposer:
 
         return input_ids, last_token_indices
 
-    @functools.partial(jax.jit, static_argnums=(0, ))
+    @jax.jit(static_argnums=(0, ))
     def _update_inputs_for_loop_speculation(
         self, positions: jax.Array, seq_lens: jax.Array,
         block_tables: jax.Array
@@ -156,13 +189,13 @@ class Eagle3Proposer:
 
         return positions, clamped_positions, new_seq_lens, query_start_loc, new_block_tables
 
-    @functools.partial(jax.jit, static_argnums=(0, ))
+    @jax.jit(static_argnums=(0, ))
     def _stack_draft_token_ids(
             self, draft_token_ids_list: list[jax.Array]) -> jnp.ndarray:
         """JIT-compiled helper for stacking draft token IDs."""
         return jnp.stack(draft_token_ids_list, axis=1)
 
-    @functools.partial(jax.jit, static_argnums=(0, ))
+    @jax.jit(static_argnums=(0, ))
     def _prepare_hidden_states_and_input_ids(
         self,
         state: nnx.State,
@@ -289,7 +322,7 @@ class Eagle3Proposer:
             self.state, token_indices, query_start_loc, seq_lens, input_ids,
             aux_hidden_states, attn_metadata, next_token_ids, num_reqs)
 
-    @functools.partial(jax.jit, static_argnums=(0, ))
+    @jax.jit(static_argnums=(0, ))
     def _filter_token_and_prepare_initial_inputs(
         self,
         state: nnx.State,
@@ -325,7 +358,7 @@ class Eagle3Proposer:
 
         return target_hidden_states, input_ids, last_token_indices, attn_metadata
 
-    @functools.partial(jax.jit, static_argnums=(0, ))
+    @jax.jit(static_argnums=(0, ))
     def _select_draft_token_ids(
         self,
         state: nnx.State,
@@ -338,7 +371,7 @@ class Eagle3Proposer:
             NamedSharding(self.mesh, PartitionSpec(None, None)))
         return self._get_draft_token_ids(state, sample_hidden_states)
 
-    @functools.partial(jax.jit, static_argnums=(0, ))
+    @jax.jit(static_argnums=(0, ))
     def _get_draft_token_ids(self, state: nnx.State,
                              hidden_states: jax.Array) -> jax.Array:
         lora_metadata = None
@@ -347,7 +380,7 @@ class Eagle3Proposer:
         return lax.with_sharding_constraint(
             draft_token_ids, NamedSharding(self.mesh, PartitionSpec()))
 
-    @functools.partial(jax.jit, static_argnums=(0, ))
+    @jax.jit(static_argnums=(0, ))
     def _select_inputs_for_loop_speculation(
             self, state: nnx.State, positions: jax.Array, residual: jax.Array,
             hidden_states: jax.Array,
@@ -387,6 +420,7 @@ class Eagle3Proposer:
             input_ids,
             target_hidden_states,
             attn_metadata,
+            tuple(self.runner.layer_name_to_kvcache_index.items()),
         )
 
         if self.num_speculative_tokens == 1:
@@ -418,6 +452,7 @@ class Eagle3Proposer:
                 input_ids_loop,
                 hidden_states,  # This should be the hidden_states from previous step
                 attn_metadata,
+                tuple(self.runner.layer_name_to_kvcache_index.items()),
             )
             hidden_states = residual[0]
             draft_token_ids = self._get_draft_token_ids(

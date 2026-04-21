@@ -14,7 +14,10 @@ mod intraday_timezone;
 mod request_pool;
 pub mod state;
 mod subscription_pool;
+mod transport;
 mod worker;
+
+pub use transport::{ServerAddr, Socks5Proxy, TlsConfig, Transport};
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::str::FromStr;
@@ -53,39 +56,51 @@ fn parse_operation_lossless(operation: &str) -> Operation {
     }
 }
 
-fn configure_session_options(
+fn apply_direct_transport(
+    options: &mut SessionOptions,
+    servers: &[ServerAddr],
+) -> Result<(), BlpError> {
+    for (index, addr) in servers.iter().enumerate() {
+        match &addr.proxy {
+            Some(proxy) => {
+                let socks5 = xbbg_core::socks5::Socks5Config::new(&proxy.host, proxy.port)?;
+                options.set_server_address_with_proxy(&addr.host, addr.port, &socks5, index)?;
+            }
+            None => {
+                options.set_server_address(&addr.host, addr.port, index)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Apply non-transport session behavior: pool sizes, keep-alive, slow-consumer
+/// watermarks, identity auth, etc. Endpoint configuration (server addresses,
+/// SOCKS5, TLS) is handled separately in `start_configured_session` so ZFP
+/// options from `ZfpUtil::getOptionsForLeasedLines` are never clobbered.
+fn configure_session_behavior(
     options: &mut SessionOptions,
     config: &EngineConfig,
     record_subscription_receive_times: bool,
 ) -> Result<(), BlpError> {
-    let fallback = vec![(config.server_host.clone(), config.server_port)];
-    let servers = if config.servers.is_empty() {
-        &fallback
-    } else {
-        &config.servers
-    };
-    // Build optional SOCKS5 proxy config
-    let socks5 = match (config.socks5_host.as_deref(), config.socks5_port) {
-        (Some(host), Some(port)) => Some(xbbg_core::socks5::Socks5Config::new(host, port)?),
-        (Some(_), None) => {
-            return Err(BlpError::InvalidArgument {
-                detail: "socks5_host set without socks5_port".into(),
-            });
-        }
-        _ => None,
-    };
-
-    for (index, (host, port)) in servers.iter().enumerate() {
-        if let Some(ref proxy) = socks5 {
-            options.set_server_address_with_proxy(host, *port, proxy, index)?;
-        } else {
-            options.set_server_address(host, *port, index)?;
-        }
-    }
     options.set_num_start_attempts(config.num_start_attempts)?;
     options.set_auto_restart_on_disconnection(config.auto_restart_on_disconnection);
     options.set_max_event_queue_size(config.max_event_queue_size);
     let _ = options.set_bandwidth_save_mode_disabled(true);
+
+    options.set_keep_alive_enabled(config.keep_alive_enabled)?;
+    if let Some(ms) = config.keep_alive_inactivity_ms {
+        options.set_keep_alive_inactivity_time_ms(ms)?;
+    }
+    if let Some(ms) = config.keep_alive_response_timeout_ms {
+        options.set_keep_alive_response_timeout_ms(ms)?;
+    }
+    if let Some(hi) = config.slow_consumer_hi_water_mark {
+        options.set_slow_consumer_warning_hi_watermark(hi)?;
+    }
+    if let Some(lo) = config.slow_consumer_lo_water_mark {
+        options.set_slow_consumer_warning_lo_watermark(lo)?;
+    }
 
     if record_subscription_receive_times {
         options.set_record_subscription_receive_times(true);
@@ -95,24 +110,6 @@ fn configure_session_options(
         let _ = apply_session_identity_options(options, auth_config)?;
     }
 
-    if let (Some(creds), Some(trust)) = (
-        config.tls_client_credentials.as_ref(),
-        config.tls_trust_material.as_ref(),
-    ) {
-        let password = config
-            .tls_client_credentials_password
-            .as_deref()
-            .unwrap_or("");
-        let mut tls = xbbg_core::tls::TlsOptions::from_files(creds, password, trust)?;
-        if let Some(ms) = config.tls_handshake_timeout_ms {
-            tls.set_tls_handshake_timeout_ms(ms);
-        }
-        if let Some(ms) = config.tls_crl_fetch_timeout_ms {
-            tls.set_crl_fetch_timeout_ms(ms);
-        }
-        options.set_tls_options(&tls);
-    }
-
     Ok(())
 }
 
@@ -120,48 +117,39 @@ fn start_configured_session(
     config: &EngineConfig,
     record_subscription_receive_times: bool,
 ) -> Result<Session, BlpError> {
-    let mut options = SessionOptions::new()?;
+    config.transport.validate()?;
 
-    if let Some(ref zfp_remote) = config.zfp_remote {
-        let tls = build_tls_options(config)?;
-        xbbg_core::zfp::configure_zfp_options(&mut options, &tls, *zfp_remote)?;
+    let mut options = SessionOptions::new()?;
+    let tls = config.tls.as_ref().map(TlsConfig::build).transpose()?;
+
+    match &config.transport {
+        Transport::Direct(servers) => {
+            apply_direct_transport(&mut options, servers)?;
+            if let Some(tls) = &tls {
+                options.set_tls_options(tls);
+            }
+        }
+        Transport::Zfp(remote) => {
+            // SDK contract (blpapi_zfputil.h): ZfpUtil::getOptionsForLeasedLines
+            // returns SessionOptions "only valid for private leased line
+            // connectivity". TLS is bundled into that call; re-applying TLS
+            // afterwards is redundant and risks overwriting transport-level
+            // flags the SDK may set from `getOptionsForLeasedLines`.
+            let tls = tls.as_ref().ok_or_else(|| BlpError::InvalidArgument {
+                detail: "zfp_remote requires TLS (tls_client_credentials + tls_trust_material)"
+                    .into(),
+            })?;
+            xbbg_core::zfp::configure_zfp_options(&mut options, tls, *remote)?;
+        }
     }
 
-    configure_session_options(&mut options, config, record_subscription_receive_times)?;
+    configure_session_behavior(&mut options, config, record_subscription_receive_times)?;
 
     let session = Session::new(&options)?;
     session
         .start_and_wait(SESSION_STARTUP_TIMEOUT_MS)
         .map_err(|err| attach_auth_context(err, config.auth.as_ref()))?;
     Ok(session)
-}
-
-fn build_tls_options(config: &EngineConfig) -> Result<xbbg_core::tls::TlsOptions, BlpError> {
-    let creds =
-        config
-            .tls_client_credentials
-            .as_deref()
-            .ok_or_else(|| BlpError::InvalidArgument {
-                detail: "ZFP requires tls_client_credentials".into(),
-            })?;
-    let trust = config
-        .tls_trust_material
-        .as_deref()
-        .ok_or_else(|| BlpError::InvalidArgument {
-            detail: "ZFP requires tls_trust_material".into(),
-        })?;
-    let password = config
-        .tls_client_credentials_password
-        .as_deref()
-        .unwrap_or("");
-    let mut tls = xbbg_core::tls::TlsOptions::from_files(creds, password, trust)?;
-    if let Some(ms) = config.tls_handshake_timeout_ms {
-        tls.set_tls_handshake_timeout_ms(ms);
-    }
-    if let Some(ms) = config.tls_crl_fetch_timeout_ms {
-        tls.set_crl_fetch_timeout_ms(ms);
-    }
-    Ok(tls)
 }
 
 fn attach_auth_context(error: BlpError, auth: Option<&AuthConfig>) -> BlpError {
@@ -234,22 +222,6 @@ pub enum SessionLifecycleState {
     Up,
     Down,
     Terminated,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum SubscriptionRecoveryPolicy {
-    #[default]
-    None,
-    Resubscribe,
-}
-
-impl SubscriptionRecoveryPolicy {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::Resubscribe => "resubscribe",
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -343,6 +315,13 @@ pub struct TopicStatusInfo {
     pub topic: String,
     pub state: TopicLifecycleState,
     pub last_change_us: i64,
+    /// Whether Bloomberg currently has active streams for this topic.
+    /// Set by `SubscriptionStreamsActivated` / `SubscriptionStreamsDeactivated`.
+    /// The SDK (v3.11.6+) auto-recovers streams across transient disconnections;
+    /// callers use this to see "stream alive but temporarily silent" vs. "streaming".
+    pub streams_active: bool,
+    /// Microsecond timestamp of the most recent streams_active transition.
+    pub streams_changed_us: i64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -369,12 +348,6 @@ pub struct SessionStatusInfo {
     pub last_change_us: i64,
     pub disconnect_count: u64,
     pub reconnect_count: u64,
-    pub recovery_policy: SubscriptionRecoveryPolicy,
-    pub recovery_attempt_count: u64,
-    pub recovery_success_count: u64,
-    pub last_recovery_attempt_us: Option<i64>,
-    pub last_recovery_success_us: Option<i64>,
-    pub last_recovery_error: Option<String>,
 }
 
 impl Default for SessionStatusInfo {
@@ -384,12 +357,6 @@ impl Default for SessionStatusInfo {
             last_change_us: timestamp_now_us(),
             disconnect_count: 0,
             reconnect_count: 0,
-            recovery_policy: SubscriptionRecoveryPolicy::None,
-            recovery_attempt_count: 0,
-            recovery_success_count: 0,
-            last_recovery_attempt_us: None,
-            last_recovery_success_us: None,
-            last_recovery_error: None,
         }
     }
 }
@@ -454,7 +421,6 @@ impl SubscriptionStatusState {
         topics: Vec<String>,
         keys: Vec<SlabKey>,
         metrics: HashMap<SlabKey, Arc<SubscriptionMetrics>>,
-        recovery_policy: SubscriptionRecoveryPolicy,
     ) -> Self {
         let mut status = Self {
             keys,
@@ -467,7 +433,6 @@ impl SubscriptionStatusState {
             events: VecDeque::with_capacity(SUBSCRIPTION_EVENT_HISTORY_LIMIT),
             session: SessionStatusInfo {
                 state: SessionLifecycleState::Up,
-                recovery_policy,
                 ..SessionStatusInfo::default()
             },
             services: HashMap::new(),
@@ -476,7 +441,7 @@ impl SubscriptionStatusState {
         let now = timestamp_now_us();
         let topics = status.topics.clone();
         let keys = status.keys.clone();
-        for (topic, key) in topics.into_iter().zip(keys.into_iter()) {
+        for (topic, key) in topics.into_iter().zip(keys) {
             status.topic_to_key.insert(topic.clone(), key);
             status.key_to_topic.insert(key, topic.clone());
             status.topic_states.insert(
@@ -485,6 +450,8 @@ impl SubscriptionStatusState {
                     topic,
                     state: TopicLifecycleState::Pending,
                     last_change_us: now,
+                    streams_active: false,
+                    streams_changed_us: now,
                 },
             );
         }
@@ -498,7 +465,7 @@ impl SubscriptionStatusState {
         metrics: Vec<Arc<SubscriptionMetrics>>,
     ) {
         let now = timestamp_now_us();
-        for ((topic, key), metric) in topics.iter().zip(keys.iter()).zip(metrics.into_iter()) {
+        for ((topic, key), metric) in topics.iter().zip(keys.iter()).zip(metrics) {
             self.topic_to_key.insert(topic.clone(), *key);
             self.key_to_topic.insert(*key, topic.clone());
             self.topics.push(topic.clone());
@@ -510,6 +477,8 @@ impl SubscriptionStatusState {
                     topic: topic.clone(),
                     state: TopicLifecycleState::Pending,
                     last_change_us: now,
+                    streams_active: false,
+                    streams_changed_us: now,
                 },
             );
         }
@@ -533,10 +502,6 @@ impl SubscriptionStatusState {
 
     pub fn session(&self) -> &SessionStatusInfo {
         &self.session
-    }
-
-    pub fn set_recovery_policy(&mut self, recovery_policy: SubscriptionRecoveryPolicy) {
-        self.session.recovery_policy = recovery_policy;
     }
 
     pub fn services(&self) -> &HashMap<String, ServiceStatusInfo> {
@@ -593,7 +558,22 @@ impl SubscriptionStatusState {
                 topic: topic.to_string(),
                 state,
                 last_change_us: now,
+                streams_active: false,
+                streams_changed_us: now,
             });
+    }
+
+    /// Flip `streams_active` for a topic (driven by SubscriptionStreams{Activated,Deactivated}).
+    /// Returns the previous value if the topic existed, else None.
+    pub fn set_topic_streams_active(&mut self, topic: &str, active: bool) -> Option<bool> {
+        let now = timestamp_now_us();
+        let entry = self.topic_states.get_mut(topic)?;
+        let prev = entry.streams_active;
+        if prev != active {
+            entry.streams_active = active;
+            entry.streams_changed_us = now;
+        }
+        Some(prev)
     }
 
     pub fn mark_topic_started(&mut self, key: SlabKey) -> Option<String> {
@@ -784,43 +764,6 @@ impl SubscriptionStatusState {
             "DataLoss",
             topic,
             detail,
-        );
-    }
-
-    pub fn record_recovery_attempt(&mut self, detail: Option<String>) {
-        self.session.recovery_attempt_count += 1;
-        self.session.last_recovery_attempt_us = Some(timestamp_now_us());
-        self.session.last_recovery_error = None;
-        self.push_event(
-            SubscriptionEventCategory::Session,
-            SubscriptionEventLevel::Info,
-            "RecoveryAttempt",
-            None,
-            detail,
-        );
-    }
-
-    pub fn record_recovery_success(&mut self, detail: Option<String>) {
-        self.session.recovery_success_count += 1;
-        self.session.last_recovery_success_us = Some(timestamp_now_us());
-        self.session.last_recovery_error = None;
-        self.push_event(
-            SubscriptionEventCategory::Session,
-            SubscriptionEventLevel::Info,
-            "RecoverySucceeded",
-            None,
-            detail,
-        );
-    }
-
-    pub fn record_recovery_error(&mut self, detail: String) {
-        self.session.last_recovery_error = Some(detail.clone());
-        self.push_event(
-            SubscriptionEventCategory::Session,
-            SubscriptionEventLevel::Warning,
-            "RecoveryFailed",
-            None,
-            Some(detail),
         );
     }
 }
@@ -1221,15 +1164,9 @@ impl std::fmt::Display for ValidationMode {
 /// Configuration for the Engine.
 #[derive(Clone)]
 pub struct EngineConfig {
-    /// Server host for single-server mode (e.g., "localhost").
-    pub server_host: String,
-    /// Server port for single-server mode (e.g., 8194).
-    pub server_port: u16,
-    /// Multiple servers for failover. When non-empty, overrides server_host/server_port.
-    /// SDK tries servers in order — index 0 first, then index 1, etc.
-    pub servers: Vec<(String, u16)>,
-    /// ZFP over leased lines. When set, overrides host/port/servers.
-    pub zfp_remote: Option<xbbg_core::zfp::ZfpRemote>,
+    /// How sessions reach Bloomberg — direct TCP (optionally with per-server
+    /// SOCKS5) or ZFP leased lines. See [`Transport`].
+    pub transport: Transport,
     /// Max event queue size (Bloomberg SDK setting)
     pub max_event_queue_size: usize,
     /// Command channel capacity (backpressure)
@@ -1252,43 +1189,56 @@ pub struct EngineConfig {
     pub field_cache_path: Option<std::path::PathBuf>,
     /// Structured Bloomberg session auth configuration.
     pub auth: Option<AuthConfig>,
-    /// TLS client credentials file path (PKCS#12).
-    pub tls_client_credentials: Option<String>,
-    /// TLS client credentials password.
-    pub tls_client_credentials_password: Option<String>,
-    /// TLS trust material file path (PKCS#7).
-    pub tls_trust_material: Option<String>,
-    /// TLS handshake timeout in milliseconds.
-    pub tls_handshake_timeout_ms: Option<i32>,
-    /// CRL fetch timeout in milliseconds.
-    pub tls_crl_fetch_timeout_ms: Option<i32>,
+    /// Optional TLS material. Required for `Transport::Zfp`; optional for
+    /// `Transport::Direct` when connecting to B-PIPE over TLS.
+    pub tls: Option<TlsConfig>,
     /// Number of times the SDK will attempt to connect before giving up.
     pub num_start_attempts: usize,
     /// Whether the SDK should auto-restart the session after disconnection.
     pub auto_restart_on_disconnection: bool,
-    /// Max attempts to recover subscriptions after reconnect (default: 3).
-    pub max_recovery_attempts: usize,
-    /// Timeout in ms for the full recovery sequence (default: 30000).
-    pub recovery_timeout_ms: u64,
     /// Retry policy for transient request failures (default: no retry).
     pub retry_policy: RetryPolicy,
-    /// Interval in ms between worker health checks (default: 30000).
-    pub health_check_interval_ms: u64,
+    /// Hard per-request timeout in ms. Workers cancel the Bloomberg request and
+    /// fail the oneshot if no response arrives in this window. Guarantees that
+    /// a request cannot hang forever even if Bloomberg or the SDK misbehaves.
+    /// Default: 0 (disabled) — callers must opt in by setting a non-zero value.
+    /// Large historical requests (e.g. full-day `bdtick`) routinely exceed any
+    /// fixed bound, so the library does not impose one by default.
+    pub request_timeout_ms: u64,
+    /// If a topic's subscription streams have been deactivated for more than
+    /// this many ms without reactivation, emit a one-shot escalated Warning
+    /// event. The SDK (v3.11.6+) is still trying to recover; this is a hint
+    /// to callers who poll status that their data is quiet, not dead. Set to
+    /// 0 to disable. Default: 30_000 (30s).
+    pub streams_deactivated_warn_ms: u64,
     /// Bloomberg SDK internal log level. Bridges SDK logs into xbbg tracing.
     /// Must be set before first session starts. Default: Off.
     pub sdk_log_level: crate::sdk_logging::SdkLogLevel,
-    /// SOCKS5 proxy hostname. When set, all server connections route through this proxy.
-    pub socks5_host: Option<String>,
-    /// SOCKS5 proxy port (required when socks5_host is set).
-    pub socks5_port: Option<u16>,
+    /// Enable BLPAPI keep-alive pings. SDK default: true.
+    pub keep_alive_enabled: bool,
+    /// Milliseconds of inactivity before the keep-alive ping is sent. When
+    /// `None`, the SDK default (20_000 = 20s) is left in place. Raise this
+    /// for laggy VPN/WAN connections where the aggressive 30s total window
+    /// (20s inactivity + 10s response) causes spurious `SessionConnectionDown`.
+    pub keep_alive_inactivity_ms: Option<i32>,
+    /// Milliseconds to wait for a keep-alive response before declaring the
+    /// connection dead. When `None`, the SDK default (10_000 = 10s) is used.
+    pub keep_alive_response_timeout_ms: Option<i32>,
+    /// Hi water mark for the "slow consumer warning" event, as a fraction of
+    /// `max_event_queue_size` (0.0..=1.0). SDK default 0.75. When `None`,
+    /// the SDK default is kept.
+    pub slow_consumer_hi_water_mark: Option<f32>,
+    /// Lo water mark for the "slow consumer warning cleared" event, as a
+    /// fraction of `max_event_queue_size` (0.0..1.0). SDK default 0.5. When
+    /// `None`, the SDK default is kept. Must be strictly less than
+    /// `slow_consumer_hi_water_mark`.
+    pub slow_consumer_lo_water_mark: Option<f32>,
 }
 impl Default for EngineConfig {
     fn default() -> Self {
         Self {
-            server_host: "localhost".to_string(),
-            server_port: 8194,
-            servers: Vec::new(),
-            zfp_remote: None,
+            transport: Transport::default_direct(),
+            tls: None,
             max_event_queue_size: 10_000,
             command_queue_size: 256,
             subscription_flush_threshold: 1,
@@ -1303,20 +1253,17 @@ impl Default for EngineConfig {
             validation_mode: ValidationMode::default(),
             field_cache_path: None,
             auth: None,
-            tls_client_credentials: None,
-            tls_client_credentials_password: None,
-            tls_trust_material: None,
-            tls_handshake_timeout_ms: None,
-            tls_crl_fetch_timeout_ms: None,
             num_start_attempts: 3,
             auto_restart_on_disconnection: true,
-            max_recovery_attempts: 3,
-            recovery_timeout_ms: 30_000,
             retry_policy: RetryPolicy::default(),
-            health_check_interval_ms: 30_000,
+            request_timeout_ms: 0,
+            streams_deactivated_warn_ms: 30_000,
+            keep_alive_enabled: true,
+            keep_alive_inactivity_ms: None,
+            keep_alive_response_timeout_ms: None,
+            slow_consumer_hi_water_mark: None,
+            slow_consumer_lo_water_mark: None,
             sdk_log_level: crate::sdk_logging::SdkLogLevel::Off,
-            socks5_host: None,
-            socks5_port: None,
         }
     }
 }
@@ -1379,8 +1326,7 @@ impl Engine {
             request_workers = config.request_pool_size,
             subscription_workers = config.subscription_pool_size,
             total_bloomberg_sessions = total_sessions,
-            host = %config.server_host,
-            port = config.server_port,
+            transport = %config.transport,
             "Engine ready"
         );
 
@@ -1564,7 +1510,6 @@ impl Engine {
             None,
             None,
             None,
-            None,
         )
         .await
     }
@@ -1590,7 +1535,6 @@ impl Engine {
         stream_capacity: Option<usize>,
         flush_threshold: Option<usize>,
         overflow_policy: Option<OverflowPolicy>,
-        recovery_policy: Option<SubscriptionRecoveryPolicy>,
     ) -> Result<SubscriptionStream, BlpAsyncError> {
         let (tx, rx) =
             mpsc::channel(stream_capacity.unwrap_or(self.config.subscription_stream_capacity));
@@ -1615,12 +1559,7 @@ impl Engine {
             .await?;
 
         let metrics = keys.iter().cloned().zip(raw_metrics).collect();
-        *status.lock() = SubscriptionStatusState::from_active(
-            topics.clone(),
-            keys,
-            metrics,
-            recovery_policy.unwrap_or_default(),
-        );
+        *status.lock() = SubscriptionStatusState::from_active(topics.clone(), keys, metrics);
 
         let stream = SubscriptionStream {
             rx,
@@ -2292,7 +2231,6 @@ mod tests {
             ],
             vec![10, 11],
             HashMap::from([(10, metric.clone()), (11, metric)]),
-            SubscriptionRecoveryPolicy::None,
         );
 
         let topic = status.record_failure(

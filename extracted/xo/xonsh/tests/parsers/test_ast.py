@@ -95,6 +95,11 @@ def test_multilline_no_transform(xonsh_execer_parse):
     if not kw and b:
         pass
 """,
+        """def f(x, /):
+    if not x:
+        return 0
+    return x + 1
+""",
         """import os
 path = '/path/to/wakka'
 paths = []
@@ -125,6 +130,48 @@ def test_whitespace_subproc(test_input, xonsh_execer_parse):
     assert xonsh_execer_parse(test_input)
 
 
+def test_paren_boolop_no_subshell(xonsh_execer):
+    """``(cd subdir && ls)`` must not create a subshell that duplicates ``cd``.
+
+    Regression: the non-greedy ``subproc_toks`` result for ``ls`` was falsely
+    rejected by the consistency check because ``maxcol`` captured the closing
+    ``)``. This caused a greedy fallback that wrapped the entire line into
+    ``xonsh -c`` subshell, executing ``cd`` twice.
+    """
+    import builtins
+
+    ctx = set(dir(builtins))
+    tree = xonsh_execer.parse("(cd subdir && ls)\n", ctx=ctx)
+    assert tree is not None
+    # The AST should not contain 'xonsh' or '-c' strings (no subshell)
+    for node in pyast.walk(tree):
+        if isinstance(node, pyast.Constant) and node.value == "xonsh":
+            pytest.fail("Found subshell 'xonsh -c' in AST — cd would run twice")
+
+
+@pytest.mark.parametrize(
+    "test_input",
+    [
+        "cd /tmp/123 && ls\n",
+        "echo /tmp/123 && echo done\n",
+        "cd /tmp/123 || ls\n",
+    ],
+)
+def test_subproc_with_numeric_path_and_boolop(test_input, xonsh_execer_parse):
+    """Paths with numeric components like /tmp/123 must not be parsed as Python division.
+
+    See https://github.com/xonsh/xonsh/issues/5253
+    """
+    tree = xonsh_execer_parse(test_input)
+    assert tree is not None
+    # The AST should NOT contain BinOp(Div) — that would mean /tmp/123 was parsed as division
+    for node in pyast.walk(tree):
+        if isinstance(node, pyast.BinOp) and isinstance(node.op, pyast.Div):
+            pytest.fail(
+                f"Path with numeric component was incorrectly parsed as Python division: {test_input!r}"
+            )
+
+
 @pytest.mark.parametrize(
     "inp,exp",
     [
@@ -141,3 +188,14 @@ def test_whitespace_subproc(test_input, xonsh_execer_parse):
 def test_isexpression(xonsh_execer, inp, exp):
     obs = isexpression(inp)
     assert exp is obs
+
+
+def test_const_str_sets_is_raw():
+    """const_str must set is_raw on all Python versions so that
+    p_subproc_atom_str can distinguish raw strings from normal ones."""
+    raw = ast.const_str("hello", is_raw=True)
+    assert hasattr(raw, "is_raw")
+    assert raw.is_raw is True
+
+    normal = ast.const_str("hello", is_raw=False)
+    assert not getattr(normal, "is_raw", False)

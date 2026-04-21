@@ -74,6 +74,14 @@ class AccountNetworkPolicy:
     egress: Optional[NetworkPolicyEgress] = None
     """The network policies applying for egress traffic."""
 
+    ingress: Optional[CustomerFacingIngressNetworkPolicy] = None
+    """The network policies applying for ingress traffic."""
+
+    ingress_dry_run: Optional[CustomerFacingIngressNetworkPolicy] = None
+    """The ingress policy for dry run mode. Dry run will always run even if the request is allowed by
+    the ingress policy. When this field is set, the policy will be evaluated and emit logs only
+    without blocking requests."""
+
     network_policy_id: Optional[str] = None
     """The unique identifier for the network policy."""
 
@@ -84,6 +92,10 @@ class AccountNetworkPolicy:
             body["account_id"] = self.account_id
         if self.egress:
             body["egress"] = self.egress.as_dict()
+        if self.ingress:
+            body["ingress"] = self.ingress.as_dict()
+        if self.ingress_dry_run:
+            body["ingress_dry_run"] = self.ingress_dry_run.as_dict()
         if self.network_policy_id is not None:
             body["network_policy_id"] = self.network_policy_id
         return body
@@ -95,6 +107,10 @@ class AccountNetworkPolicy:
             body["account_id"] = self.account_id
         if self.egress:
             body["egress"] = self.egress
+        if self.ingress:
+            body["ingress"] = self.ingress
+        if self.ingress_dry_run:
+            body["ingress_dry_run"] = self.ingress_dry_run
         if self.network_policy_id is not None:
             body["network_policy_id"] = self.network_policy_id
         return body
@@ -105,6 +121,8 @@ class AccountNetworkPolicy:
         return cls(
             account_id=d.get("account_id", None),
             egress=_from_dict(d, "egress", NetworkPolicyEgress),
+            ingress=_from_dict(d, "ingress", CustomerFacingIngressNetworkPolicy),
+            ingress_dry_run=_from_dict(d, "ingress_dry_run", CustomerFacingIngressNetworkPolicy),
             network_policy_id=d.get("network_policy_id", None),
         )
 
@@ -848,6 +866,8 @@ class CreatePrivateEndpointRule:
 
     error_message: Optional[str] = None
 
+    gcp_endpoint: Optional[GcpEndpoint] = None
+
     group_id: Optional[str] = None
     """Not used by customer-managed private endpoint services.
     
@@ -873,6 +893,8 @@ class CreatePrivateEndpointRule:
             body["endpoint_service"] = self.endpoint_service
         if self.error_message is not None:
             body["error_message"] = self.error_message
+        if self.gcp_endpoint:
+            body["gcp_endpoint"] = self.gcp_endpoint.as_dict()
         if self.group_id is not None:
             body["group_id"] = self.group_id
         if self.resource_id is not None:
@@ -890,6 +912,8 @@ class CreatePrivateEndpointRule:
             body["endpoint_service"] = self.endpoint_service
         if self.error_message is not None:
             body["error_message"] = self.error_message
+        if self.gcp_endpoint:
+            body["gcp_endpoint"] = self.gcp_endpoint
         if self.group_id is not None:
             body["group_id"] = self.group_id
         if self.resource_id is not None:
@@ -905,6 +929,7 @@ class CreatePrivateEndpointRule:
             domain_names=d.get("domain_names", None),
             endpoint_service=d.get("endpoint_service", None),
             error_message=d.get("error_message", None),
+            gcp_endpoint=_from_dict(d, "gcp_endpoint", GcpEndpoint),
             group_id=d.get("group_id", None),
             resource_id=d.get("resource_id", None),
             resource_names=d.get("resource_names", None),
@@ -1029,6 +1054,375 @@ class CspEnablementAccountSetting:
             etag=d.get("etag", None),
             setting_name=d.get("setting_name", None),
         )
+
+
+@dataclass
+class CustomerFacingIngressNetworkPolicy:
+    """This proto is under development. The network policies applying for ingress traffic. Any changes
+    here should also be synced to estore/namespaces/lakehousenetworkmanager/latest.proto."""
+
+    public_access: Optional[CustomerFacingIngressNetworkPolicyPublicAccess] = None
+
+    def as_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicy into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.public_access:
+            body["public_access"] = self.public_access.as_dict()
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicy into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.public_access:
+            body["public_access"] = self.public_access
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> CustomerFacingIngressNetworkPolicy:
+        """Deserializes the CustomerFacingIngressNetworkPolicy from a dictionary."""
+        return cls(public_access=_from_dict(d, "public_access", CustomerFacingIngressNetworkPolicyPublicAccess))
+
+
+@dataclass
+class CustomerFacingIngressNetworkPolicyAuthentication:
+    identities: Optional[List[CustomerFacingIngressNetworkPolicyAuthenticationIdentity]] = None
+    """Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES."""
+
+    identity_type: Optional[CustomerFacingIngressNetworkPolicyAuthenticationIdentityType] = None
+
+    def as_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyAuthentication into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.identities:
+            body["identities"] = [v.as_dict() for v in self.identities]
+        if self.identity_type is not None:
+            body["identity_type"] = self.identity_type.value
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyAuthentication into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.identities:
+            body["identities"] = self.identities
+        if self.identity_type is not None:
+            body["identity_type"] = self.identity_type
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> CustomerFacingIngressNetworkPolicyAuthentication:
+        """Deserializes the CustomerFacingIngressNetworkPolicyAuthentication from a dictionary."""
+        return cls(
+            identities=_repeated_dict(d, "identities", CustomerFacingIngressNetworkPolicyAuthenticationIdentity),
+            identity_type=_enum(d, "identity_type", CustomerFacingIngressNetworkPolicyAuthenticationIdentityType),
+        )
+
+
+@dataclass
+class CustomerFacingIngressNetworkPolicyAuthenticationIdentity:
+    principal_id: Optional[int] = None
+
+    principal_type: Optional[CustomerFacingIngressNetworkPolicyAuthenticationIdentityPrincipalType] = None
+
+    def as_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyAuthenticationIdentity into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.principal_id is not None:
+            body["principal_id"] = self.principal_id
+        if self.principal_type is not None:
+            body["principal_type"] = self.principal_type.value
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyAuthenticationIdentity into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.principal_id is not None:
+            body["principal_id"] = self.principal_id
+        if self.principal_type is not None:
+            body["principal_type"] = self.principal_type
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> CustomerFacingIngressNetworkPolicyAuthenticationIdentity:
+        """Deserializes the CustomerFacingIngressNetworkPolicyAuthenticationIdentity from a dictionary."""
+        return cls(
+            principal_id=d.get("principal_id", None),
+            principal_type=_enum(
+                d, "principal_type", CustomerFacingIngressNetworkPolicyAuthenticationIdentityPrincipalType
+            ),
+        )
+
+
+class CustomerFacingIngressNetworkPolicyAuthenticationIdentityPrincipalType(Enum):
+
+    PRINCIPAL_TYPE_SERVICE_PRINCIPAL = "PRINCIPAL_TYPE_SERVICE_PRINCIPAL"
+    PRINCIPAL_TYPE_USER = "PRINCIPAL_TYPE_USER"
+
+
+class CustomerFacingIngressNetworkPolicyAuthenticationIdentityType(Enum):
+
+    IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS = "IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS"
+    IDENTITY_TYPE_ALL_USERS = "IDENTITY_TYPE_ALL_USERS"
+    IDENTITY_TYPE_SELECTED_IDENTITIES = "IDENTITY_TYPE_SELECTED_IDENTITIES"
+
+
+@dataclass
+class CustomerFacingIngressNetworkPolicyIpRanges:
+    ip_ranges: Optional[List[str]] = None
+    """We only support IPv4 and IPv4 CIDR notation for now."""
+
+    def as_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyIpRanges into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.ip_ranges:
+            body["ip_ranges"] = [v for v in self.ip_ranges]
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyIpRanges into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.ip_ranges:
+            body["ip_ranges"] = self.ip_ranges
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> CustomerFacingIngressNetworkPolicyIpRanges:
+        """Deserializes the CustomerFacingIngressNetworkPolicyIpRanges from a dictionary."""
+        return cls(ip_ranges=d.get("ip_ranges", None))
+
+
+@dataclass
+class CustomerFacingIngressNetworkPolicyPublicAccess:
+    restriction_mode: CustomerFacingIngressNetworkPolicyPublicAccessRestrictionMode
+
+    allow_rules: Optional[List[CustomerFacingIngressNetworkPolicyPublicIngressRule]] = None
+
+    deny_rules: Optional[List[CustomerFacingIngressNetworkPolicyPublicIngressRule]] = None
+
+    def as_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyPublicAccess into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.allow_rules:
+            body["allow_rules"] = [v.as_dict() for v in self.allow_rules]
+        if self.deny_rules:
+            body["deny_rules"] = [v.as_dict() for v in self.deny_rules]
+        if self.restriction_mode is not None:
+            body["restriction_mode"] = self.restriction_mode.value
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyPublicAccess into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.allow_rules:
+            body["allow_rules"] = self.allow_rules
+        if self.deny_rules:
+            body["deny_rules"] = self.deny_rules
+        if self.restriction_mode is not None:
+            body["restriction_mode"] = self.restriction_mode
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> CustomerFacingIngressNetworkPolicyPublicAccess:
+        """Deserializes the CustomerFacingIngressNetworkPolicyPublicAccess from a dictionary."""
+        return cls(
+            allow_rules=_repeated_dict(d, "allow_rules", CustomerFacingIngressNetworkPolicyPublicIngressRule),
+            deny_rules=_repeated_dict(d, "deny_rules", CustomerFacingIngressNetworkPolicyPublicIngressRule),
+            restriction_mode=_enum(
+                d, "restriction_mode", CustomerFacingIngressNetworkPolicyPublicAccessRestrictionMode
+            ),
+        )
+
+
+class CustomerFacingIngressNetworkPolicyPublicAccessRestrictionMode(Enum):
+
+    FULL_ACCESS = "FULL_ACCESS"
+    RESTRICTED_ACCESS = "RESTRICTED_ACCESS"
+
+
+@dataclass
+class CustomerFacingIngressNetworkPolicyPublicIngressRule:
+    """An ingress rule is enforced when a request satisfies all specified attributes — including
+    request origin, destination, and authentication."""
+
+    authentication: Optional[CustomerFacingIngressNetworkPolicyAuthentication] = None
+
+    destination: Optional[CustomerFacingIngressNetworkPolicyRequestDestination] = None
+
+    label: Optional[str] = None
+    """User-provided name for this ingress rule. Helps identify which rule caused a request to be
+    denied or dry-run denied."""
+
+    origin: Optional[CustomerFacingIngressNetworkPolicyPublicRequestOrigin] = None
+
+    def as_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyPublicIngressRule into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.authentication:
+            body["authentication"] = self.authentication.as_dict()
+        if self.destination:
+            body["destination"] = self.destination.as_dict()
+        if self.label is not None:
+            body["label"] = self.label
+        if self.origin:
+            body["origin"] = self.origin.as_dict()
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyPublicIngressRule into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.authentication:
+            body["authentication"] = self.authentication
+        if self.destination:
+            body["destination"] = self.destination
+        if self.label is not None:
+            body["label"] = self.label
+        if self.origin:
+            body["origin"] = self.origin
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> CustomerFacingIngressNetworkPolicyPublicIngressRule:
+        """Deserializes the CustomerFacingIngressNetworkPolicyPublicIngressRule from a dictionary."""
+        return cls(
+            authentication=_from_dict(d, "authentication", CustomerFacingIngressNetworkPolicyAuthentication),
+            destination=_from_dict(d, "destination", CustomerFacingIngressNetworkPolicyRequestDestination),
+            label=d.get("label", None),
+            origin=_from_dict(d, "origin", CustomerFacingIngressNetworkPolicyPublicRequestOrigin),
+        )
+
+
+@dataclass
+class CustomerFacingIngressNetworkPolicyPublicRequestOrigin:
+    all_ip_ranges: Optional[bool] = None
+    """Matches all IPv4 and IPv6 ranges (both public and private)."""
+
+    excluded_ip_ranges: Optional[CustomerFacingIngressNetworkPolicyIpRanges] = None
+    """Excluded means: all public IP ranges except this one."""
+
+    included_ip_ranges: Optional[CustomerFacingIngressNetworkPolicyIpRanges] = None
+    """Will not allow IP ranges with private IPs."""
+
+    def as_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyPublicRequestOrigin into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.all_ip_ranges is not None:
+            body["all_ip_ranges"] = self.all_ip_ranges
+        if self.excluded_ip_ranges:
+            body["excluded_ip_ranges"] = self.excluded_ip_ranges.as_dict()
+        if self.included_ip_ranges:
+            body["included_ip_ranges"] = self.included_ip_ranges.as_dict()
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyPublicRequestOrigin into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.all_ip_ranges is not None:
+            body["all_ip_ranges"] = self.all_ip_ranges
+        if self.excluded_ip_ranges:
+            body["excluded_ip_ranges"] = self.excluded_ip_ranges
+        if self.included_ip_ranges:
+            body["included_ip_ranges"] = self.included_ip_ranges
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> CustomerFacingIngressNetworkPolicyPublicRequestOrigin:
+        """Deserializes the CustomerFacingIngressNetworkPolicyPublicRequestOrigin from a dictionary."""
+        return cls(
+            all_ip_ranges=d.get("all_ip_ranges", None),
+            excluded_ip_ranges=_from_dict(d, "excluded_ip_ranges", CustomerFacingIngressNetworkPolicyIpRanges),
+            included_ip_ranges=_from_dict(d, "included_ip_ranges", CustomerFacingIngressNetworkPolicyIpRanges),
+        )
+
+
+@dataclass
+class CustomerFacingIngressNetworkPolicyRequestDestination:
+    all_destinations: Optional[bool] = None
+    """When true, match all destinations, no other destination fields can be set. When not set or
+    false, at least one specific destination must be provided."""
+
+    workspace_api: Optional[CustomerFacingIngressNetworkPolicyWorkspaceApiDestination] = None
+
+    workspace_ui: Optional[CustomerFacingIngressNetworkPolicyWorkspaceUiDestination] = None
+    """Workspace destinations"""
+
+    def as_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyRequestDestination into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.all_destinations is not None:
+            body["all_destinations"] = self.all_destinations
+        if self.workspace_api:
+            body["workspace_api"] = self.workspace_api.as_dict()
+        if self.workspace_ui:
+            body["workspace_ui"] = self.workspace_ui.as_dict()
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyRequestDestination into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.all_destinations is not None:
+            body["all_destinations"] = self.all_destinations
+        if self.workspace_api:
+            body["workspace_api"] = self.workspace_api
+        if self.workspace_ui:
+            body["workspace_ui"] = self.workspace_ui
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> CustomerFacingIngressNetworkPolicyRequestDestination:
+        """Deserializes the CustomerFacingIngressNetworkPolicyRequestDestination from a dictionary."""
+        return cls(
+            all_destinations=d.get("all_destinations", None),
+            workspace_api=_from_dict(d, "workspace_api", CustomerFacingIngressNetworkPolicyWorkspaceApiDestination),
+            workspace_ui=_from_dict(d, "workspace_ui", CustomerFacingIngressNetworkPolicyWorkspaceUiDestination),
+        )
+
+
+@dataclass
+class CustomerFacingIngressNetworkPolicyWorkspaceApiDestination:
+    scopes: Optional[List[str]] = None
+
+    def as_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyWorkspaceApiDestination into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.scopes:
+            body["scopes"] = [v for v in self.scopes]
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyWorkspaceApiDestination into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.scopes:
+            body["scopes"] = self.scopes
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> CustomerFacingIngressNetworkPolicyWorkspaceApiDestination:
+        """Deserializes the CustomerFacingIngressNetworkPolicyWorkspaceApiDestination from a dictionary."""
+        return cls(scopes=d.get("scopes", None))
+
+
+@dataclass
+class CustomerFacingIngressNetworkPolicyWorkspaceUiDestination:
+    all_destinations: Optional[bool] = None
+    """Must be set to true."""
+
+    def as_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyWorkspaceUiDestination into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.all_destinations is not None:
+            body["all_destinations"] = self.all_destinations
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the CustomerFacingIngressNetworkPolicyWorkspaceUiDestination into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.all_destinations is not None:
+            body["all_destinations"] = self.all_destinations
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> CustomerFacingIngressNetworkPolicyWorkspaceUiDestination:
+        """Deserializes the CustomerFacingIngressNetworkPolicyWorkspaceUiDestination from a dictionary."""
+        return cls(all_destinations=d.get("all_destinations", None))
 
 
 @dataclass
@@ -2897,6 +3291,41 @@ class FetchIpAccessListResponse:
 
 
 @dataclass
+class GcpEndpoint:
+    psc_endpoint_uri: Optional[str] = None
+    """Output only. The URI of the created PSC endpoint."""
+
+    service_attachment: Optional[str] = None
+    """The full url of the target service attachment. Example:
+    projects/my-gcp-project/regions/us-east4/serviceAttachments/my-service-attachment"""
+
+    def as_dict(self) -> dict:
+        """Serializes the GcpEndpoint into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.psc_endpoint_uri is not None:
+            body["psc_endpoint_uri"] = self.psc_endpoint_uri
+        if self.service_attachment is not None:
+            body["service_attachment"] = self.service_attachment
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the GcpEndpoint into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.psc_endpoint_uri is not None:
+            body["psc_endpoint_uri"] = self.psc_endpoint_uri
+        if self.service_attachment is not None:
+            body["service_attachment"] = self.service_attachment
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> GcpEndpoint:
+        """Deserializes the GcpEndpoint from a dictionary."""
+        return cls(
+            psc_endpoint_uri=d.get("psc_endpoint_uri", None), service_attachment=d.get("service_attachment", None)
+        )
+
+
+@dataclass
 class GenericWebhookConfig:
     password: Optional[str] = None
     """[Input-Only][Optional] Password for webhook."""
@@ -4067,6 +4496,8 @@ class NccPrivateEndpointRule:
 
     error_message: Optional[str] = None
 
+    gcp_endpoint: Optional[GcpEndpoint] = None
+
     group_id: Optional[str] = None
     """Not used by customer-managed private endpoint services.
     
@@ -4119,6 +4550,8 @@ class NccPrivateEndpointRule:
             body["endpoint_service"] = self.endpoint_service
         if self.error_message is not None:
             body["error_message"] = self.error_message
+        if self.gcp_endpoint:
+            body["gcp_endpoint"] = self.gcp_endpoint.as_dict()
         if self.group_id is not None:
             body["group_id"] = self.group_id
         if self.network_connectivity_config_id is not None:
@@ -4158,6 +4591,8 @@ class NccPrivateEndpointRule:
             body["endpoint_service"] = self.endpoint_service
         if self.error_message is not None:
             body["error_message"] = self.error_message
+        if self.gcp_endpoint:
+            body["gcp_endpoint"] = self.gcp_endpoint
         if self.group_id is not None:
             body["group_id"] = self.group_id
         if self.network_connectivity_config_id is not None:
@@ -4188,6 +4623,7 @@ class NccPrivateEndpointRule:
             endpoint_name=d.get("endpoint_name", None),
             endpoint_service=d.get("endpoint_service", None),
             error_message=d.get("error_message", None),
+            gcp_endpoint=_from_dict(d, "gcp_endpoint", GcpEndpoint),
             group_id=d.get("group_id", None),
             network_connectivity_config_id=d.get("network_connectivity_config_id", None),
             resource_id=d.get("resource_id", None),
@@ -5170,6 +5606,8 @@ class UpdatePrivateEndpointRule:
 
     error_message: Optional[str] = None
 
+    gcp_endpoint: Optional[GcpEndpoint] = None
+
     resource_names: Optional[List[str]] = None
     """Only used by private endpoints towards AWS S3 service.
     
@@ -5186,6 +5624,8 @@ class UpdatePrivateEndpointRule:
             body["enabled"] = self.enabled
         if self.error_message is not None:
             body["error_message"] = self.error_message
+        if self.gcp_endpoint:
+            body["gcp_endpoint"] = self.gcp_endpoint.as_dict()
         if self.resource_names:
             body["resource_names"] = [v for v in self.resource_names]
         return body
@@ -5199,6 +5639,8 @@ class UpdatePrivateEndpointRule:
             body["enabled"] = self.enabled
         if self.error_message is not None:
             body["error_message"] = self.error_message
+        if self.gcp_endpoint:
+            body["gcp_endpoint"] = self.gcp_endpoint
         if self.resource_names:
             body["resource_names"] = self.resource_names
         return body
@@ -5210,6 +5652,7 @@ class UpdatePrivateEndpointRule:
             domain_names=d.get("domain_names", None),
             enabled=d.get("enabled", None),
             error_message=d.get("error_message", None),
+            gcp_endpoint=_from_dict(d, "gcp_endpoint", GcpEndpoint),
             resource_names=d.get("resource_names", None),
         )
 
@@ -8688,7 +9131,12 @@ class TokenManagementAPI:
         self._api = api_client
 
     def create_obo_token(
-        self, application_id: str, *, comment: Optional[str] = None, lifetime_seconds: Optional[int] = None
+        self,
+        application_id: str,
+        *,
+        comment: Optional[str] = None,
+        lifetime_seconds: Optional[int] = None,
+        scopes: Optional[List[str]] = None,
     ) -> CreateOboTokenResponse:
         """Creates a token on behalf of a service principal.
 
@@ -8698,6 +9146,7 @@ class TokenManagementAPI:
           Comment that describes the purpose of the token.
         :param lifetime_seconds: int (optional)
           The number of seconds before the token expires.
+        :param scopes: List[str] (optional)
 
         :returns: :class:`CreateOboTokenResponse`
         """
@@ -8709,6 +9158,8 @@ class TokenManagementAPI:
             body["comment"] = comment
         if lifetime_seconds is not None:
             body["lifetime_seconds"] = lifetime_seconds
+        if scopes is not None:
+            body["scopes"] = [v for v in scopes]
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -8883,7 +9334,13 @@ class TokensAPI:
     def __init__(self, api_client):
         self._api = api_client
 
-    def create(self, *, comment: Optional[str] = None, lifetime_seconds: Optional[int] = None) -> CreateTokenResponse:
+    def create(
+        self,
+        *,
+        comment: Optional[str] = None,
+        lifetime_seconds: Optional[int] = None,
+        scopes: Optional[List[str]] = None,
+    ) -> CreateTokenResponse:
         """Creates and returns a token for a user. If this call is made through token authentication, it creates
         a token with the same client ID as the authenticated token. If the user's token quota is exceeded,
         this call returns an error **QUOTA_EXCEEDED**.
@@ -8894,6 +9351,8 @@ class TokensAPI:
           The lifetime of the token, in seconds.
 
           If the lifetime is not specified, this token remains valid for 2 years.
+        :param scopes: List[str] (optional)
+          Optional scopes of the token.
 
         :returns: :class:`CreateTokenResponse`
         """
@@ -8903,6 +9362,8 @@ class TokensAPI:
             body["comment"] = comment
         if lifetime_seconds is not None:
             body["lifetime_seconds"] = lifetime_seconds
+        if scopes is not None:
+            body["scopes"] = [v for v in scopes]
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",

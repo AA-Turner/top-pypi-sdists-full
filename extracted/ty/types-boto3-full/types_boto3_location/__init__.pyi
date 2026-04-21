@@ -13,9 +13,11 @@ Usage::
         Client,
         ForecastGeofenceEventsPaginator,
         GetDevicePositionHistoryPaginator,
+        JobCompletedWaiter,
         ListDevicePositionsPaginator,
         ListGeofenceCollectionsPaginator,
         ListGeofencesPaginator,
+        ListJobsPaginator,
         ListKeysPaginator,
         ListMapsPaginator,
         ListPlaceIndexesPaginator,
@@ -28,11 +30,14 @@ Usage::
     session = Session()
     client: LocationServiceClient = session.client("location")
 
+    job_completed_waiter: JobCompletedWaiter = client.get_waiter("job_completed")
+
     forecast_geofence_events_paginator: ForecastGeofenceEventsPaginator = client.get_paginator("forecast_geofence_events")
     get_device_position_history_paginator: GetDevicePositionHistoryPaginator = client.get_paginator("get_device_position_history")
     list_device_positions_paginator: ListDevicePositionsPaginator = client.get_paginator("list_device_positions")
     list_geofence_collections_paginator: ListGeofenceCollectionsPaginator = client.get_paginator("list_geofence_collections")
     list_geofences_paginator: ListGeofencesPaginator = client.get_paginator("list_geofences")
+    list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
     list_keys_paginator: ListKeysPaginator = client.get_paginator("list_keys")
     list_maps_paginator: ListMapsPaginator = client.get_paginator("list_maps")
     list_place_indexes_paginator: ListPlaceIndexesPaginator = client.get_paginator("list_place_indexes")
@@ -49,6 +54,7 @@ from .paginator import (
     ListDevicePositionsPaginator,
     ListGeofenceCollectionsPaginator,
     ListGeofencesPaginator,
+    ListJobsPaginator,
     ListKeysPaginator,
     ListMapsPaginator,
     ListPlaceIndexesPaginator,
@@ -56,6 +62,7 @@ from .paginator import (
     ListTrackerConsumersPaginator,
     ListTrackersPaginator,
 )
+from .waiter import JobCompletedWaiter
 
 Client = LocationServiceClient
 
@@ -63,9 +70,11 @@ __all__ = (
     "Client",
     "ForecastGeofenceEventsPaginator",
     "GetDevicePositionHistoryPaginator",
+    "JobCompletedWaiter",
     "ListDevicePositionsPaginator",
     "ListGeofenceCollectionsPaginator",
     "ListGeofencesPaginator",
+    "ListJobsPaginator",
     "ListKeysPaginator",
     "ListMapsPaginator",
     "ListPlaceIndexesPaginator",

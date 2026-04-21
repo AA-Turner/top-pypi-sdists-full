@@ -80,21 +80,23 @@ class RawTextToSpeechClient:
             - This ensures proper pronunciation as a whole number
 
         target_language_code : TextToSpeechLanguage
-            The language code in BCP-47 format. This parameter is primarily used by the pre-TTS text normalization model to handle language-specific text processing such as number formatting, abbreviations, and special characters.
+            The language code in BCP-47 format.
 
         speaker : typing.Optional[TextToSpeechSpeaker]
             The speaker voice to be used for the output audio.
 
-            **Default:** Shubh (for bulbul:v3), Anushka (for bulbul:v2)
+            **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2)
 
             **Model Compatibility (Speakers compatible with respective model):**
             - **bulbul:v3:**
-              - Shubh (default), Aditya, Ritu, Priya, Neha, Rahul, Pooja, Rohan, Simran, Kavya, Amit, Dev, Ishita, Shreya, Ratan, Varun, Manan, Sumit, Roopa, Kabir, Aayan, Ashutosh, Advait, Amelia, Sophia, Anand, Tanya, Tarun, Sunny, Mani, Gokul, Vijay, Shruti, Suhani, Mohit, Kavitha, Rehan, Soham, Rupali
+              - shubh (default), aditya, ritu, priya, neha, rahul, pooja, rohan, simran, kavya, amit, dev, ishita, shreya, ratan, varun, manan, sumit, roopa, kabir, aayan, ashutosh, advait, anand, tanya, tarun, sunny, mani, gokul, vijay, shruti, suhani, mohit, kavitha, rehan, soham, rupali
             - **bulbul:v2:**
-              - Female: Anushka, Manisha, Vidya, Arya
-              - Male: Abhilash, Karun, Hitesh
+              - Female: anushka, manisha, vidya, arya
+              - Male: abhilash, karun, hitesh
 
             **Note:** Speaker selection must match the chosen model version.
+
+            **Important:** Speaker names are case-sensitive and must be lowercase (e.g., `ritu` not `Ritu`).
 
         pitch : typing.Optional[float]
             Controls the pitch of the audio. Lower values result in a deeper voice, while higher values make it sharper. The suitable range is between -0.75 and 0.75. Default is 0.0.
@@ -147,7 +149,7 @@ class RawTextToSpeechClient:
         dict_id : typing.Optional[str]
             The ID of a pronunciation dictionary to apply during synthesis. When provided, matching words in the input text will be replaced with their custom pronunciations before generating speech.
 
-            Create and manage dictionaries via the [Pronunciation Dictionary API](/api-reference-docs/text-to-speech/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
+            Create and manage dictionaries via the [Pronunciation Dictionary API](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
 
         enable_cached_responses : typing.Optional[bool]
             Enable caching for the request. When enabled, identical requests will return cached audio instead of regenerating. Default is false.
@@ -282,7 +284,7 @@ class RawTextToSpeechClient:
 
         This endpoint supports streaming audio using the specified output codec (e.g., `audio/mpeg` for MP3). The response is returned as a binary audio stream, which can be played or saved directly by the client.
 
-        Supports the `dict_id` parameter to apply a [pronunciation dictionary](/api-reference-docs/text-to-speech/pronunciation-dictionary/create) during synthesis.
+        Supports the `dict_id` parameter to apply a [pronunciation dictionary](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create) during synthesis.
 
         Parameters
         ----------
@@ -303,9 +305,11 @@ class RawTextToSpeechClient:
         speaker : typing.Optional[TextToSpeechSpeaker]
             The speaker voice to be used for the output audio.
 
-            **Default:** Shubh (for bulbul:v3), Anushka (for bulbul:v2)
+            **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2)
 
             **Note:** Speaker selection must match the chosen model version.
+
+            **Important:** Speaker names are case-sensitive and must be lowercase (e.g., `ritu` not `Ritu`).
 
         pitch : typing.Optional[float]
             Controls the pitch of the audio. Range: -0.75 to 0.75. Default is 0.0.
@@ -346,7 +350,7 @@ class RawTextToSpeechClient:
         dict_id : typing.Optional[str]
             The ID of a pronunciation dictionary to apply during synthesis. When provided, matching words in the input text will be replaced with their custom pronunciations before generating speech.
 
-            Create and manage dictionaries via the [Pronunciation Dictionary API](/api-reference-docs/text-to-speech/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
+            Create and manage dictionaries via the [Pronunciation Dictionary API](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
 
         output_audio_codec : typing.Optional[SpeechStreamCodec]
             Specifies the codec for the streamed output audio (e.g., 'mp3').
@@ -515,21 +519,23 @@ class AsyncRawTextToSpeechClient:
             - This ensures proper pronunciation as a whole number
 
         target_language_code : TextToSpeechLanguage
-            The language code in BCP-47 format. This parameter is primarily used by the pre-TTS text normalization model to handle language-specific text processing such as number formatting, abbreviations, and special characters.
+            The language code in BCP-47 format.
 
         speaker : typing.Optional[TextToSpeechSpeaker]
             The speaker voice to be used for the output audio.
 
-            **Default:** Shubh (for bulbul:v3), Anushka (for bulbul:v2)
+            **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2)
 
             **Model Compatibility (Speakers compatible with respective model):**
             - **bulbul:v3:**
-              - Shubh (default), Aditya, Ritu, Priya, Neha, Rahul, Pooja, Rohan, Simran, Kavya, Amit, Dev, Ishita, Shreya, Ratan, Varun, Manan, Sumit, Roopa, Kabir, Aayan, Ashutosh, Advait, Amelia, Sophia, Anand, Tanya, Tarun, Sunny, Mani, Gokul, Vijay, Shruti, Suhani, Mohit, Kavitha, Rehan, Soham, Rupali
+              - shubh (default), aditya, ritu, priya, neha, rahul, pooja, rohan, simran, kavya, amit, dev, ishita, shreya, ratan, varun, manan, sumit, roopa, kabir, aayan, ashutosh, advait, anand, tanya, tarun, sunny, mani, gokul, vijay, shruti, suhani, mohit, kavitha, rehan, soham, rupali
             - **bulbul:v2:**
-              - Female: Anushka, Manisha, Vidya, Arya
-              - Male: Abhilash, Karun, Hitesh
+              - Female: anushka, manisha, vidya, arya
+              - Male: abhilash, karun, hitesh
 
             **Note:** Speaker selection must match the chosen model version.
+
+            **Important:** Speaker names are case-sensitive and must be lowercase (e.g., `ritu` not `Ritu`).
 
         pitch : typing.Optional[float]
             Controls the pitch of the audio. Lower values result in a deeper voice, while higher values make it sharper. The suitable range is between -0.75 and 0.75. Default is 0.0.
@@ -582,7 +588,7 @@ class AsyncRawTextToSpeechClient:
         dict_id : typing.Optional[str]
             The ID of a pronunciation dictionary to apply during synthesis. When provided, matching words in the input text will be replaced with their custom pronunciations before generating speech.
 
-            Create and manage dictionaries via the [Pronunciation Dictionary API](/api-reference-docs/text-to-speech/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
+            Create and manage dictionaries via the [Pronunciation Dictionary API](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
 
         enable_cached_responses : typing.Optional[bool]
             Enable caching for the request. When enabled, identical requests will return cached audio instead of regenerating. Default is false.
@@ -717,7 +723,7 @@ class AsyncRawTextToSpeechClient:
 
         This endpoint supports streaming audio using the specified output codec (e.g., `audio/mpeg` for MP3). The response is returned as a binary audio stream, which can be played or saved directly by the client.
 
-        Supports the `dict_id` parameter to apply a [pronunciation dictionary](/api-reference-docs/text-to-speech/pronunciation-dictionary/create) during synthesis.
+        Supports the `dict_id` parameter to apply a [pronunciation dictionary](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create) during synthesis.
 
         Parameters
         ----------
@@ -738,9 +744,11 @@ class AsyncRawTextToSpeechClient:
         speaker : typing.Optional[TextToSpeechSpeaker]
             The speaker voice to be used for the output audio.
 
-            **Default:** Shubh (for bulbul:v3), Anushka (for bulbul:v2)
+            **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2)
 
             **Note:** Speaker selection must match the chosen model version.
+
+            **Important:** Speaker names are case-sensitive and must be lowercase (e.g., `ritu` not `Ritu`).
 
         pitch : typing.Optional[float]
             Controls the pitch of the audio. Range: -0.75 to 0.75. Default is 0.0.
@@ -781,7 +789,7 @@ class AsyncRawTextToSpeechClient:
         dict_id : typing.Optional[str]
             The ID of a pronunciation dictionary to apply during synthesis. When provided, matching words in the input text will be replaced with their custom pronunciations before generating speech.
 
-            Create and manage dictionaries via the [Pronunciation Dictionary API](/api-reference-docs/text-to-speech/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
+            Create and manage dictionaries via the [Pronunciation Dictionary API](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
 
         output_audio_codec : typing.Optional[SpeechStreamCodec]
             Specifies the codec for the streamed output audio (e.g., 'mp3').

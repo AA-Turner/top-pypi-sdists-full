@@ -19,6 +19,7 @@
 import gettext
 import logging
 import os
+from typing import Any, cast
 import warnings
 
 import fixtures
@@ -34,11 +35,12 @@ DB_SCHEMA = ""
 class TranslationFixture(fixtures.Fixture):
     """Use gettext NullTranslation objects in tests."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
         nulltrans = gettext.NullTranslations()
-        gettext_fixture = fixtures.MonkeyPatch('gettext.translation',
-                                               lambda *x, **y: nulltrans)
+        gettext_fixture = fixtures.MonkeyPatch(
+            'gettext.translation', lambda *x, **y: nulltrans
+        )
         self.gettext_patcher = self.useFixture(gettext_fixture)
 
 
@@ -49,13 +51,14 @@ class NullHandler(logging.Handler):
     log_fixture.get_logging_handle_error_fixture to detect formatting errors in
     debug level logs without saving the logs.
     """
+
     def handle(self, record):
         self.format(record)
 
     def emit(self, record):
         pass
 
-    def createLock(self):
+    def createLock(self) -> None:
         self.lock = None
 
 
@@ -86,7 +89,7 @@ class StandardLogging(fixtures.Fixture):
 
     """
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
 
         # set root logger to debug
@@ -102,7 +105,8 @@ class StandardLogging(fixtures.Fixture):
         # Collect logs
         fs = '%(asctime)s %(levelname)s [%(name)s] %(message)s'
         self.logger = self.useFixture(
-            fixtures.FakeLogger(format=fs, level=None))
+            fixtures.FakeLogger(format=fs, level=None)
+        )
         # TODO(sdague): why can't we send level through the fake
         # logger? Tests prove that it breaks, but it's worth getting
         # to the bottom of.
@@ -123,24 +127,37 @@ class OutputStreamCapture(fixtures.Fixture):
     runs instead. Useful to see what was happening during failed
     tests.
     """
-    def setUp(self):
+
+    def setUp(self) -> None:
         super().setUp()
         if os.environ.get('OS_STDOUT_CAPTURE') in _TRUE_VALUES:
             self.out = self.useFixture(fixtures.StringStream('stdout'))
             self.useFixture(
-                fixtures.MonkeyPatch('sys.stdout', self.out.stream))
+                fixtures.MonkeyPatch('sys.stdout', self.out.stream)
+            )
         if os.environ.get('OS_STDERR_CAPTURE') in _TRUE_VALUES:
             self.err = self.useFixture(fixtures.StringStream('stderr'))
             self.useFixture(
-                fixtures.MonkeyPatch('sys.stderr', self.err.stream))
+                fixtures.MonkeyPatch('sys.stderr', self.err.stream)
+            )
 
     @property
-    def stderr(self):
-        return self.err._details["stderr"].as_text()
+    def stderr(self) -> str | None:
+        if (
+            self.err._details is None
+            or self.err._details.get('stderr') is None
+        ):
+            return None
+        return cast(str, self.err._details["stderr"].as_text())
 
     @property
-    def stdout(self):
-        return self.out._details["stdout"].as_text()
+    def stdout(self) -> str | None:
+        if (
+            self.out._details is None
+            or self.out._details.get('stdout') is None
+        ):
+            return None
+        return cast(str, self.out._details['stdout'].as_text())
 
 
 class Timeout(fixtures.Fixture):
@@ -154,7 +171,7 @@ class Timeout(fixtures.Fixture):
     extremely long tests to specify they need more time.
     """
 
-    def __init__(self, timeout, scaling=1):
+    def __init__(self, timeout: Any, scaling: int = 1) -> None:
         super().__init__()
         try:
             self.test_timeout = int(timeout)
@@ -166,7 +183,7 @@ class Timeout(fixtures.Fixture):
         else:
             raise ValueError('scaling value must be >= 1')
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
         if self.test_timeout > 0:
             self.useFixture(fixtures.Timeout(self.test_timeout, gentle=True))
@@ -175,14 +192,11 @@ class Timeout(fixtures.Fixture):
 class WarningsFixture(fixtures.Fixture):
     """Filters out warnings during test runs."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
         # NOTE(sdague): Make deprecation warnings only happen once. Otherwise
         # this gets kind of crazy given the way that upstream python libs use
         # this.
         warnings.simplefilter("once", DeprecationWarning)
-        warnings.filterwarnings('ignore',
-                                message='With-statements now directly support'
-                                        ' multiple context managers')
 
         self.addCleanup(warnings.resetwarnings)

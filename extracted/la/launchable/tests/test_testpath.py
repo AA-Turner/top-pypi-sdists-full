@@ -4,8 +4,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+
 # hello smart tests
-from launchable.testpath import FilePathNormalizer, parse_test_path, unparse_test_path
+from launchable.testpath import FilePathNormalizer, parse_test_path, prepend_path_if_missing, relative_subpath, unparse_test_path
 
 
 class TestPathEncodingTest(unittest.TestCase):
@@ -134,6 +135,37 @@ class TestFilePathNormalizer(unittest.TestCase):
                 })
         except subprocess.CalledProcessError as e:
             self.fail("Failed to execute a command: {}\nSTDOUT: {}\nSTDERR: {}\n".                format(e, e.stdout, e.stderr))
+
+
+class TestPathHelpers(unittest.TestCase):
+    def test_relative_subpath(self):
+        self.assertEqual(
+            "tests",
+            relative_subpath(str(pathlib.Path("repo", "tests")), str(pathlib.Path("repo"))))
+
+    def test_relative_subpath_returns_empty_when_same_path(self):
+        self.assertEqual(
+            "",
+            relative_subpath(str(pathlib.Path("repo")), str(pathlib.Path("repo"))))
+
+    def test_relative_subpath_returns_empty_when_not_under_base(self):
+        self.assertEqual(
+            "",
+            relative_subpath(str(pathlib.Path("repo", "tests")), str(pathlib.Path("other"))))
+
+    def test_prepend_path_if_missing(self):
+        self.assertEqual(
+            "tests/a.spec.ts",
+            prepend_path_if_missing("a.spec.ts", "tests"))
+
+    def test_prepend_path_if_missing_when_already_prefixed(self):
+        self.assertEqual(
+            "tests/a.spec.ts",
+            prepend_path_if_missing("tests/a.spec.ts", "tests"))
+
+    def test_prepend_path_if_missing_when_empty_input(self):
+        self.assertEqual("", prepend_path_if_missing("", "tests"))
+        self.assertEqual("a.spec.ts", prepend_path_if_missing("a.spec.ts", ""))
 
 
 if __name__ == '__main__':

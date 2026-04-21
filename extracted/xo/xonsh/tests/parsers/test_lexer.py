@@ -342,11 +342,35 @@ def test_double_raw_string_literal():
 
 
 def test_single_f_string_literal():
-    assert check_token("f'{yo}'", ["STRING", "f'{yo}'", 0])
+    if sys.version_info >= (3, 12):
+        assert check_tokens(
+            "f'{yo}'",
+            [
+                ("FSTRING_START", "f'", 0),
+                ("LBRACE", "{", 2),
+                ("NAME", "yo", 3),
+                ("RBRACE", "}", 5),
+                ("FSTRING_END", "'", 6),
+            ],
+        )
+    else:
+        assert check_token("f'{yo}'", ["STRING", "f'{yo}'", 0])
 
 
 def test_double_f_string_literal():
-    assert check_token('f"{yo}"', ["STRING", 'f"{yo}"', 0])
+    if sys.version_info >= (3, 12):
+        assert check_tokens(
+            'f"{yo}"',
+            [
+                ("FSTRING_START", 'f"', 0),
+                ("LBRACE", "{", 2),
+                ("NAME", "yo", 3),
+                ("RBRACE", "}", 5),
+                ("FSTRING_END", '"', 6),
+            ],
+        )
+    else:
+        assert check_token('f"{yo}"', ["STRING", 'f"{yo}"', 0])
 
 
 def test_single_unicode_literal():
@@ -371,14 +395,28 @@ def test_path_string_literal():
 
 
 def test_path_fstring_literal():
-    assert check_token("pf'/foo'", ["STRING", "pf'/foo'", 0])
-    assert check_token('pf"/foo"', ["STRING", 'pf"/foo"', 0])
-    assert check_token("fp'/foo'", ["STRING", "fp'/foo'", 0])
-    assert check_token('fp"/foo"', ["STRING", 'fp"/foo"', 0])
-    assert check_token("pF'/foo'", ["STRING", "pF'/foo'", 0])
-    assert check_token('pF"/foo"', ["STRING", 'pF"/foo"', 0])
-    assert check_token("Fp'/foo'", ["STRING", "Fp'/foo'", 0])
-    assert check_token('Fp"/foo"', ["STRING", 'Fp"/foo"', 0])
+    if sys.version_info >= (3, 12):
+        # PEP 701: f-strings produce granular tokens
+        assert check_tokens(
+            "pf'/foo'",
+            [
+                ("FSTRING_START", "pf'", 0),
+                ("FSTRING_MIDDLE", "/foo", 3),
+                ("FSTRING_END", "'", 7),
+            ],
+        )
+    else:
+        assert check_token("pf'/foo'", ["STRING", "pf'/foo'", 0])
+        assert check_token('pf"/foo"', ["STRING", 'pf"/foo"', 0])
+        assert check_token("fp'/foo'", ["STRING", "fp'/foo'", 0])
+        assert check_token('fp"/foo"', ["STRING", 'fp"/foo"', 0])
+        assert check_token("pF'/foo'", ["STRING", "pF'/foo'", 0])
+        assert check_token('pF"/foo"', ["STRING", 'pF"/foo"', 0])
+        assert check_token("Fp'/foo'", ["STRING", "Fp'/foo'", 0])
+        assert check_token('Fp"/foo"', ["STRING", 'Fp"/foo"', 0])
+
+
+from tests.parsers.test_lexer_fstring_llm import *  # noqa: F401, F403
 
 
 def test_regex_globs():
@@ -417,6 +455,12 @@ def test_ioredir2(case):
     assert check_tokens_subproc(case, [("IOREDIRECT2", case, 2)], stop=-2)
 
 
+@pytest.mark.parametrize("case", ["a>p", "all>p", "e>p", "err>p", "2>p"])
+def test_ioredir2_pipe(case):
+    """`a>p`/`e>p` and variants are single IOREDIRECT2 tokens."""
+    assert check_tokens_subproc(case, [("IOREDIRECT2", case, 2)], stop=-2)
+
+
 @pytest.mark.parametrize("case", [">", ">>", "<", "e>", "> ", ">>   ", "<  ", "e> "])
 def test_redir_whitespace(case):
     inp = f"![{case}/path/to/file]"
@@ -444,6 +488,23 @@ def test_redir_whitespace(case):
         ("echo -n $HOME", ["echo", "-n", "$HOME"]),
         ("echo --go=away", ["echo", "--go=away"]),
         ("echo --go=$HOME", ["echo", "--go=$HOME"]),
+        ("echo a#b c # d", ["echo", "a#b", "c"]),
+        ("echo a#b", ["echo", "a#b"]),
+        ("echo # comment", ["echo"]),
+        # Multi-line string followed by code on next line
+        ('x = """\nline2"""\ny = 1', ["x", "=", '"""\nline2"""', "y", "=", "1"]),
+        ('"""\nfoo\n"""', ['"""\nfoo\n"""']),
+        ("x = '''hello'''\ny = 2", ["x", "=", "'''hello'''", "y", "=", "2"]),
+        ("x = '''\nfoo\n'''\ny = 2", ["x", "=", "'''\nfoo\n'''", "y", "=", "2"]),
+        # Multiple multi-line strings
+        (
+            'a = """\n1"""\nb = """\n2"""',
+            ["a", "=", '"""\n1"""', "b", "=", '"""\n2"""'],
+        ),
+        # String then newline then col 0 token
+        ('"a"\nb', ['"a"', "b"]),
+        # Comment then next line
+        ("echo hi # comment\necho bye", ["echo", "hi", "echo", "bye"]),
     ],
 )
 def test_lexer_split(s, exp):

@@ -2,6 +2,7 @@
 # this repository contains the full copyright notices and license terms.
 import datetime
 import hashlib
+import json
 import logging
 import random
 import time
@@ -21,7 +22,6 @@ from trytond.model import (
 from trytond.pool import Pool
 from trytond.pyson import Eval
 from trytond.status import processing
-from trytond.tools import grouped_slice, reduce_ids
 from trytond.tools import timezone as tz
 from trytond.transaction import Transaction, TransactionError
 from trytond.worker import run_task
@@ -96,10 +96,12 @@ class Cron(DeactivableMixin, ModelSQL, ModelView):
             ('ir.queue|clean', "Clean Task Queue"),
             ('ir.error|clean', "Clean Errors"),
             ('ir.cron.log|clean', "Clean Cron Logs"),
+            ('ir.filestore.queue|remove', "Remove Deleted Binaries"),
             ('ir.model|refresh_materialized', "Refresh Materialized Models"),
             ], "Method", required=True, states=_states)
 
-    logs = fields.One2Many('ir.cron.log', 'cron', "Logs", readonly=True)
+    logs = fields.One2Many(
+        'ir.cron.log', 'cron', "Logs", readonly=True, order=[('id', 'DESC')])
 
     del _states
 
@@ -137,16 +139,15 @@ class Cron(DeactivableMixin, ModelSQL, ModelView):
             with transaction.new_transaction() as transaction:
                 cursor = transaction.connection.cursor()
                 For = database.get_select_for_skip_locked()
-                for sub_crons in grouped_slice(crons):
-                    ids = [c.id for c in sub_crons]
-                    query = table.select(
-                        table.id,
-                        where=reduce_ids(table.id, ids),
-                        for_=For('UPDATE'))
-                    cursor.execute(*query)
-                    not_running = {i for i, in cursor}
-                    running.update(
-                        (i, True) for i in ids if i not in not_running)
+                ids = [c.id for c in crons]
+                query = table.select(
+                    table.id,
+                    where=fields.SQL_OPERATORS['in'](table.id, ids),
+                    for_=For('UPDATE'))
+                cursor.execute(*query)
+                not_running = {i for i, in cursor}
+                running.update(
+                    (i, True) for i in ids if i not in not_running)
         return running
 
     @classmethod
@@ -311,7 +312,7 @@ class Cron(DeactivableMixin, ModelSQL, ModelView):
     @classmethod
     def notify(
             cls, icon, action_id, action_value,
-            message_id, n=None, **variables):
+            message_id, n=None, user_domain=None, **variables):
         "Notify subscribed users to the current cron task"
         pool = Pool()
         User = pool.get('res.user')
@@ -322,9 +323,14 @@ class Cron(DeactivableMixin, ModelSQL, ModelView):
             notifications = []
             if action_id is not None:
                 action_id = ModelData.get_id(action_id)
-            users = User.search([
-                    ('notifications', 'in', method),
-                    ])
+            if action_value is not None and not isinstance(action_value, str):
+                action_value = json.dumps(action_value)
+            domain = [
+                ('notifications', 'in', method),
+                ]
+            if user_domain is not None:
+                domain.append(user_domain)
+            users = User.search(domain)
             for language, users in groupby(
                     users, key=lambda u: u.language):
                 language = language.code if language else None

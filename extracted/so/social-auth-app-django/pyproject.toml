@@ -5,11 +5,11 @@ requires = ["setuptools>=78.0.2"]
 [dependency-groups]
 dev = [
   "coverage>=3.6",
-  "django-stubs-ext==5.2.8",
-  "django-stubs==5.2.8",
-  "mypy==1.19.1",
+  "django-stubs-ext==6.0.3",
+  "django-stubs==6.0.3",
+  "mypy==1.20.1",
   "pre-commit",
-  "pyright==1.1.407",
+  "pyright==1.1.408",
   "tox"
 ]
 
@@ -21,6 +21,10 @@ authors = [
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Web Environment",
+  "Framework :: Django :: 5.1",
+  "Framework :: Django :: 5.2",
+  "Framework :: Django :: 6.0",
+  "Framework :: Django",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
@@ -42,18 +46,18 @@ license-files = ["LICENSE"]
 name = "social-auth-app-django"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "5.7.0"
+version = "5.8.0"
 
 [project.optional-dependencies]
 # This is present until pip implements supports for PEP 735
 # see https://github.com/pypa/pip/issues/12963
 dev = [
   "coverage>=3.6",
-  "django-stubs-ext==5.2.8",
-  "django-stubs==5.2.8",
-  "mypy==1.19.1",
+  "django-stubs-ext==6.0.3",
+  "django-stubs==6.0.3",
+  "mypy==1.20.1",
   "pre-commit",
-  "pyright==1.1.407",
+  "pyright==1.1.408",
   "tox"
 ]
 

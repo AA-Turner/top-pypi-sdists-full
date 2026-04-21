@@ -26,7 +26,7 @@ if tp.TYPE_CHECKING:
 __version__ = "0.1.1"
 CACHE: "dict[str, tp.Any] | None" = None
 CUSTOM_STYLES: "dict[str, Style]" = {}
-DEBUG = False
+DEBUG = os.environ.get("XONSH_DEBUG", "") not in ("", "0", "False")
 
 
 def _print_duplicate_message(duplicates):
@@ -37,6 +37,25 @@ def _print_duplicate_message(duplicates):
         vals = [m + ":" + c for m, c in vals]
         msg += "\n  ".join(sorted(vals))
         print(msg, file=sys.stderr)
+
+
+def _safe_iter(gen):
+    """Iterate a generator, catching exceptions from broken pygments plugins.
+
+    Pygments discovers plugin lexers/formatters/styles via entry points.
+    If a third-party package registers a broken entry point (e.g. voltron
+    trying to import gdb internals outside of a gdb session), the generator
+    dies on the first error.  Built-in entries are yielded before plugins,
+    so we lose at most some plugin entries.
+    """
+    it = iter(gen)
+    while True:
+        try:
+            yield next(it)
+        except StopIteration:
+            return
+        except Exception:
+            return
 
 
 def _discover_lexers():
@@ -110,10 +129,13 @@ def _discover_lexers():
         from collections import defaultdict
 
         duplicates = defaultdict(set)
-    for longname, _, filenames, _ in get_all_lexers():
-        cls = find_lexer_class(longname)
-        mod = inspect.getmodule(cls)
-        val = (mod.__name__, cls.__name__)
+    for longname, _, filenames, _ in _safe_iter(get_all_lexers()):
+        try:
+            cls = find_lexer_class(longname)
+            mod = inspect.getmodule(cls)
+            val = (mod.__name__, cls.__name__)
+        except Exception:
+            continue
         for filename in filenames:
             if filename.startswith("*."):
                 filename = filename[1:]
@@ -152,7 +174,7 @@ def _discover_formatters():
         from collections import defaultdict
 
         duplicates = defaultdict(set)
-    for cls in get_all_formatters():
+    for cls in _safe_iter(get_all_formatters()):
         mod = inspect.getmodule(cls)
         val = (mod.__name__, cls.__name__)
         # add extentions
@@ -204,7 +226,7 @@ def _discover_styles():
         from collections import defaultdict
 
         duplicates = defaultdict(set)
-    for name in get_all_styles():
+    for name in _safe_iter(get_all_styles()):
         cls = get_style_by_name(name)
         mod = inspect.getmodule(cls)
         val = (mod.__name__, cls.__name__)
@@ -233,7 +255,7 @@ def _discover_filters():
         from collections import defaultdict
 
         duplicates = defaultdict(set)
-    for name in get_all_filters():
+    for name in _safe_iter(get_all_filters()):
         filter = get_filter_by_name(name)
         cls = type(filter)
         mod = inspect.getmodule(cls)
@@ -291,11 +313,12 @@ def add_custom_style(name: str, style: "Style"):
 
 def load(filename):
     """Loads the cache from a filename."""
+    import ast
+
     global CACHE
     with open(filename) as f:
         s = f.read()
-    ctx = globals()
-    CACHE = eval(s, ctx, ctx)
+    CACHE = ast.literal_eval(s)
     return CACHE
 
 
@@ -316,9 +339,16 @@ def load_or_build():
     """
     global CACHE
     fname = cache_filename()
+    _EXPECTED_KEYS = {"lexers", "formatters", "styles", "filters"}
     if os.path.exists(fname):
-        load(fname)
-    else:
+        try:
+            load(fname)
+        except (ValueError, SyntaxError):
+            CACHE = None
+        if CACHE is not None and not _EXPECTED_KEYS.issubset(CACHE):
+            # Cache is corrupt or has an old/incomplete structure — rebuild.
+            CACHE = None
+    if CACHE is None:
         import sys
 
         if DEBUG:

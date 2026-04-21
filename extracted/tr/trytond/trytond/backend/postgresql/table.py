@@ -3,7 +3,8 @@
 import logging
 import re
 
-from psycopg2.sql import SQL, Identifier
+from psycopg import ClientCursor
+from psycopg.sql import SQL, Identifier
 from sql import Column
 from sql.operators import NotEqual
 
@@ -28,10 +29,9 @@ class TableHandler(TableHandlerInterface):
         self.__constraints = None
         self.__fk_deltypes = None
         self.__indexes = None
-        self._model = model
 
         transaction = Transaction()
-        cursor = transaction.connection.cursor()
+        cursor = ClientCursor(transaction.connection)
 
         # Create new table if necessary
         if (not (view_exists := self.view_exist(self.table_name))
@@ -55,11 +55,6 @@ class TableHandler(TableHandlerInterface):
 
         if view_exists:
             return
-
-        if model.__doc__ and self.is_owner:
-            cursor.execute(SQL('COMMENT ON TABLE {} IS %s').format(
-                        Identifier(self.table_name)),
-                (model.__doc__,))
 
         def migrate_to_identity(table, column):
             previous_seq_name = f"{table}_{column}_seq"
@@ -147,7 +142,7 @@ class TableHandler(TableHandlerInterface):
     @classmethod
     def table_rename(cls, old_name, new_name):
         transaction = Transaction()
-        cursor = transaction.connection.cursor()
+        cursor = ClientCursor(transaction.connection)
         # Rename table
         if (cls.table_exist(old_name)
                 and not cls.table_exist(new_name)):
@@ -176,7 +171,7 @@ class TableHandler(TableHandlerInterface):
         return column_name in self._columns
 
     def column_rename(self, old_name, new_name):
-        cursor = Transaction().connection.cursor()
+        cursor = ClientCursor(Transaction().connection)
         if self.column_exist(old_name):
             if not self.column_exist(new_name):
                 cursor.execute(SQL(
@@ -188,7 +183,7 @@ class TableHandler(TableHandlerInterface):
                 if not self.history:
                     history_table = self.table_name + '__history'
                     if self.__class__.table_exist(history_table):
-                        history_h = self.__class__(self._model, True)
+                        history_h = self.__class__(self.model, True)
                         history_h.column_rename(old_name, new_name)
             else:
                 logger.warning(
@@ -284,7 +279,7 @@ class TableHandler(TableHandlerInterface):
             self.__fk_deltypes = None
 
     def alter_size(self, column_name, column_type):
-        cursor = Transaction().connection.cursor()
+        cursor = ClientCursor(Transaction().connection)
         cursor.execute(
             SQL("ALTER TABLE {} ALTER COLUMN {} TYPE {}").format(
                 Identifier(self.table_name),
@@ -293,7 +288,7 @@ class TableHandler(TableHandlerInterface):
         self._update_definitions(columns=True)
 
     def alter_type(self, column_name, column_type):
-        cursor = Transaction().connection.cursor()
+        cursor = ClientCursor(Transaction().connection)
         cursor.execute(SQL('ALTER TABLE {} ALTER {} TYPE {}').format(
                 Identifier(self.table_name),
                 Identifier(column_name),
@@ -318,29 +313,20 @@ class TableHandler(TableHandlerInterface):
         else:
             test = value
         if self._columns[column_name]['default'] != test:
-            cursor = Transaction().connection.cursor()
+            cursor = ClientCursor(Transaction().connection)
             cursor.execute(
-                SQL(
-                    'ALTER TABLE {} ALTER COLUMN {} SET DEFAULT %s').format(
-                    Identifier(self.table_name),
-                    Identifier(column_name)),
+                SQL('ALTER TABLE {} ALTER COLUMN {} SET DEFAULT %s')
+                .format(Identifier(self.table_name), Identifier(column_name)),
                 (value,))
 
-    def add_column(self, column_name, sql_type, default=None, comment=''):
-        cursor = Transaction().connection.cursor()
+    def add_column(self, column_name, sql_type, default=None):
+        cursor = ClientCursor(Transaction().connection)
         database = Transaction().database
 
         column_type = database.sql_type(sql_type)
         match = VARCHAR_SIZE_RE.match(sql_type)
         field_size = int(match.group(1)) if match else None
 
-        def add_comment():
-            if comment and self.is_owner:
-                cursor.execute(
-                    SQL('COMMENT ON COLUMN {}.{} IS %s').format(
-                        Identifier(self.table_name),
-                        Identifier(column_name)),
-                    (comment,))
         if self.column_exist(column_name):
             if (column_name in ('create_date', 'write_date')
                     and column_type[1].lower() != 'timestamp(6)'):
@@ -352,7 +338,6 @@ class TableHandler(TableHandlerInterface):
                         Identifier(self.table_name),
                         Identifier(column_name)))
 
-            add_comment()
             base_type = column_type[0].lower()
             typname = self._columns[column_name]['typname']
             if base_type != typname:
@@ -413,7 +398,6 @@ class TableHandler(TableHandlerInterface):
                 Identifier(self.table_name),
                 Identifier(column_name),
                 SQL(column_type)))
-        add_comment()
 
         if default:
             # check if table is non-empty:
@@ -436,7 +420,7 @@ class TableHandler(TableHandlerInterface):
         if isinstance(columns, str):
             columns = [columns]
 
-        cursor = Transaction().connection.cursor()
+        cursor = ClientCursor(Transaction().connection)
         if ref_columns:
             ref_columns_name = '_' + '_'.join(ref_columns)
         else:
@@ -490,7 +474,7 @@ class TableHandler(TableHandlerInterface):
         if not self.column_exist(column_name):
             return
 
-        with Transaction().connection.cursor() as cursor:
+        with ClientCursor(Transaction().connection) as cursor:
             if action == 'add':
                 if self._columns[column_name]['notnull']:
                     return
@@ -535,7 +519,7 @@ class TableHandler(TableHandlerInterface):
             if ident in self._constraints:
                 # This constrain already exist
                 return
-            cursor = Transaction().connection.cursor()
+            cursor = ClientCursor(Transaction().connection)
             if isinstance(constraint, Exclude):
                 definition = constraint.__str__(using=index_method(constraint))
             else:
@@ -552,14 +536,14 @@ class TableHandler(TableHandlerInterface):
         ident = self.convert_name((table or self.table_name) + "_" + ident)
         if ident not in self._constraints:
             return
-        cursor = Transaction().connection.cursor()
+        cursor = ClientCursor(Transaction().connection)
         cursor.execute(
             SQL('ALTER TABLE {} DROP CONSTRAINT {} CASCADE').format(
                 Identifier(self.table_name), Identifier(ident)))
         self._update_definitions(constraints=True)
 
     def set_indexes(self, indexes, concurrently=False):
-        cursor = Transaction().connection.cursor()
+        cursor = ClientCursor(Transaction().connection)
         old = set(self._indexes)
         for index in indexes:
             translator = self.index_translator_for(index)
@@ -593,7 +577,7 @@ class TableHandler(TableHandlerInterface):
     def drop_column(self, column_name):
         if not self.column_exist(column_name):
             return
-        cursor = Transaction().connection.cursor()
+        cursor = ClientCursor(Transaction().connection)
         cursor.execute(SQL('ALTER TABLE {} DROP COLUMN {}').format(
                 Identifier(self.table_name),
                 Identifier(column_name)))
@@ -601,7 +585,7 @@ class TableHandler(TableHandlerInterface):
 
     @classmethod
     def drop_table(cls, model, table, cascade=False):
-        cursor = Transaction().connection.cursor()
+        cursor = ClientCursor(Transaction().connection)
         cursor.execute('DELETE FROM ir_model_data WHERE model = %s', (model,))
 
         query = 'DROP TABLE {}'

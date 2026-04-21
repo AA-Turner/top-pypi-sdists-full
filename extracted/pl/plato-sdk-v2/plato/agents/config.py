@@ -52,6 +52,12 @@ class AgentConfig(BaseSettings):
     )
 
     runtime: Literal["vm", "apple"] = "vm"
+    browser_tooling: bool = False
+    """Opt-in flag: when True, the agent runtime injects the ``agent-browser``
+    CLI command reference into its system prompt and prepends ``$HOME/.bun/bin``
+    to its shell PATH. Defaults ``False`` so no behavior change for agents that
+    don't want browser tooling — worlds must explicitly set this on the agent
+    config when they want the model to use ``agent-browser``."""
 
     @classmethod
     def get_field_secrets(cls) -> dict[str, Secret]:

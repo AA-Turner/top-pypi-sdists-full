@@ -73,6 +73,7 @@ __all__ = (
     "ListRegistriesPaginatorName",
     "ListRegistryRecordsPaginatorName",
     "ListWorkloadIdentitiesPaginatorName",
+    "ListingModeType",
     "MemoryCreatedWaiterName",
     "MemoryStatusType",
     "MemoryStrategyStatusType",
@@ -211,6 +212,7 @@ ListPolicyGenerationsPaginatorName = Literal["list_policy_generations"]
 ListRegistriesPaginatorName = Literal["list_registries"]
 ListRegistryRecordsPaginatorName = Literal["list_registry_records"]
 ListWorkloadIdentitiesPaginatorName = Literal["list_workload_identities"]
+ListingModeType = Literal["DEFAULT", "DYNAMIC"]
 MemoryCreatedWaiterName = Literal["memory_created"]
 MemoryStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
 MemoryStrategyStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]

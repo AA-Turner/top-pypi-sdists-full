@@ -2693,19 +2693,14 @@ class MainController:
                 editor_token = get_editor_auth_token_from_file()
 
             def _loop(token: str):
-                import os
                 from urllib.parse import urlparse
 
                 from abstra_internals.agents.tools.browser import BrowserTools
 
                 bt = BrowserTools(listen_network=True, listen_console=True)
                 if token:
-                    frontend_host = os.environ.get("ABSTRA_FRONTEND_HOST", "")
-                    domain = (
-                        urlparse(frontend_host).hostname
-                        if frontend_host
-                        else "localhost"
-                    )
+                    base_url = self._get_browser_base_url()
+                    domain = urlparse(base_url).hostname or "localhost"
                     bt._browser_context.add_cookies(
                         [
                             {

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional, Sequence, Type
+from typing import Any
 
 from sklearn.cluster import Birch
 from sklearn.tree._tree import Tree
@@ -79,7 +79,7 @@ try:
         CyPinballLoss,
     }
 except ImportError:
-    pass
+    CyHalfMultinomialLoss = None
 
 # This import is for the parent class of all loss functions, which is used to
 # set the dispatch function for all loss functions.
@@ -153,19 +153,19 @@ class ReduceNode(Node):
         self,
         state: dict[str, Any],
         load_context: LoadContext,
-        constructor: Type[Any],
-        trusted: Optional[Sequence[str]] = None,
+        constructor: tuple[str, str],
+        trusted: list[str] | None = None,
     ) -> None:
         super().__init__(state, load_context, trusted)
         reduce = state["__reduce__"]
+        ctor_module, ctor_class = constructor
         self.children = {
             "attrs": get_tree(state["content"], load_context, trusted=trusted),
             "args": get_tree(reduce["args"], load_context, trusted=trusted),
             "constructor": TypeNode(
                 {
-                    "__class__": constructor.__name__,
-                    "__module__": get_module(constructor),
-                    "__id__": id(constructor),
+                    "__class__": ctor_class,
+                    "__module__": ctor_module,
                 },
                 load_context,
                 trusted=trusted,
@@ -213,10 +213,15 @@ class TreeNode(ReduceNode):
         self,
         state: dict[str, Any],
         load_context: LoadContext,
-        trusted: Optional[Sequence[str]] = None,
+        trusted: list[str] | None = None,
     ) -> None:
         self.trusted = self._get_trusted(trusted, [get_module(Tree) + ".Tree"])
-        super().__init__(state, load_context, constructor=Tree, trusted=self.trusted)
+        super().__init__(
+            state,
+            load_context,
+            constructor=(get_module(Tree), "Tree"),
+            trusted=self.trusted,
+        )
 
 
 def loss_get_state(obj: Any, save_context: SaveContext) -> dict[str, Any]:
@@ -225,18 +230,30 @@ def loss_get_state(obj: Any, save_context: SaveContext) -> dict[str, Any]:
         state = reduce_get_state(obj, save_context)
         state["__loader__"] = "LossNode"
     elif type(obj) == reduce[1][0]:
-        # the output is of the form:
+        # The output is commonly of the form:
         # >>> CyPinballLoss(1).__reduce__()
         # (<cyfunction __pyx_unpickle_CyPinballLoss at 0x7b1d00099ff0>,
         #             (<class '_loss.CyPinballLoss'>, 232784418, (1.0,)))
+        #
+        # CyHalfMultinomialLoss differs slightly and may return a 3-tuple:
+        # >>> CyHalfMultinomialLoss().__reduce__()
+        # (<cyfunction __pyx_unpickle_CyHalfMultinomialLoss at 0x...>,
+        #  (<class '_loss.CyHalfMultinomialLoss'>, 238750788, None), ())
+        #
+        # In that case, the constructor takes no args and the state lives
+        # in reduce[2].
         state = {
             "__class__": obj.__class__.__name__,
             "__module__": get_module(type(obj)),
             "__loader__": "LossNode",
         }
         state["__reduce__"] = {}
-        state["__reduce__"]["args"] = get_state(reduce[1][2], save_context)
-        state["content"] = get_state({}, save_context)
+        if len(reduce) == 3:
+            state["__reduce__"]["args"] = get_state((), save_context)
+            state["content"] = get_state(reduce[2], save_context)
+        else:
+            state["__reduce__"]["args"] = get_state(reduce[1][2], save_context)
+            state["content"] = get_state({}, save_context)
 
     return state
 
@@ -246,7 +263,7 @@ class LossNode(ReduceNode):
         self,
         state: dict[str, Any],
         load_context: LoadContext,
-        trusted: Optional[Sequence[str]] = None,
+        trusted: list[str] | None = None,
     ) -> None:
         # TODO: make sure trusted here makes sense and used.
         self.trusted = self._get_trusted(
@@ -255,7 +272,7 @@ class LossNode(ReduceNode):
         super().__init__(
             state,
             load_context,
-            constructor=gettype(state["__module__"], state["__class__"]),
+            constructor=(state["__module__"], state["__class__"]),
             trusted=self.trusted,
         )
 
@@ -287,7 +304,7 @@ class _DictWithDeprecatedKeysNode(Node):
         self,
         state: dict[str, Any],
         load_context: LoadContext,
-        trusted: Optional[Sequence[str]] = None,
+        trusted: list[str] | None = None,
     ) -> None:
         super().__init__(state, load_context, trusted)
         self.trusted = [
@@ -320,6 +337,11 @@ if LossFunction is not None:
 
 if CyLossFunction is not None:
     GET_STATE_DISPATCH_FUNCTIONS.append((CyLossFunction, loss_get_state))
+
+# CyHalfMultinomialLoss is not a subclass of CyLossFunction, so it needs its
+# own dispatch entry. It's already in ALLOWED_LOSSES so LossNode will trust it.
+if CyHalfMultinomialLoss is not None:
+    GET_STATE_DISPATCH_FUNCTIONS.append((CyHalfMultinomialLoss, loss_get_state))
 
 for type_ in UNSUPPORTED_TYPES:
     GET_STATE_DISPATCH_FUNCTIONS.append((type_, unsupported_get_state))

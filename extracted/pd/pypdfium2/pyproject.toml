@@ -9,13 +9,13 @@ requires = [
     "packaging",
     # XXX dependence on wheel is historical, with setuptools >= v70.1.0 this is not needed anymore
     "wheel !=0.38.0, !=0.38.1",
-    "ctypesgen @ git+https://github.com/pypdfium2-team/ctypesgen@168c5855577687a860c14722da6f04520dbcdea6",
+    "ctypesgen @ git+https://github.com/pypdfium2-team/ctypesgen@85eb5bd446f63a2a0373831dbf4dedc854d5bd40",
 ]
 
 [tool.cibuildwheel]
 build-frontend = "build"
 test-command = [
-    "python -m pypdfium2 --version",
+    "python -m pypdfium2_cli --version",
     "python {project}/utils/minitest.py",
 ]
 

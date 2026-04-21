@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: python-iso639
-Version: 2026.1.31
+Version: 2026.4.20
 Summary: ISO 639 language codes, names, and other associated information
 Author-email: "Jackson L. Lee" <jacksonlunlee@gmail.com>
-License: Apache 2.0
+License-Expression: Apache-2.0
 Project-URL: Source, https://github.com/jacksonllee/iso639
 Keywords: ISO 639,language codes,languages,linguistics
 Classifier: Development Status :: 5 - Production/Stable
@@ -11,7 +11,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -28,12 +27,12 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Provides-Extra: dev
-Requires-Dist: black==26.1.0; extra == "dev"
-Requires-Dist: build==1.4.0; extra == "dev"
-Requires-Dist: flake8==7.3.0; extra == "dev"
-Requires-Dist: mypy==1.19.1; extra == "dev"
-Requires-Dist: pytest==9.0.2; extra == "dev"
-Requires-Dist: twine==6.2.0; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: twine; extra == "dev"
 Dynamic: license-file
 
 # python-iso639
@@ -55,8 +54,22 @@ Current features:
 
 ## Installation
 
+Using pip:
+
 ```bash
 pip install python-iso639
+```
+
+Using uv:
+
+```bash
+uv add python-iso639
+```
+
+Using conda:
+
+```bash
+conda install -c conda-forge python-iso639
 ```
 
 ## Usage
@@ -306,7 +319,7 @@ e.g., [`dataclasses.asdict`](https://docs.python.org/3/library/dataclasses.html#
     ```python
     >>> import iso639
     >>> iso639.DATA_LAST_UPDATED
-    datetime.date(2026, 1, 15)
+    datetime.date(2026, 4, 15)
     ```
 
 * `ALL_LANGUAGES`: The list of all `Language` objects based on the included language code data
@@ -316,7 +329,7 @@ e.g., [`dataclasses.asdict`](https://docs.python.org/3/library/dataclasses.html#
     >>> type(iso639.ALL_LANGUAGES)
     <class 'set'>
     >>> len(iso639.ALL_LANGUAGES)
-    8313
+    8315
     ```
 
 ## Links

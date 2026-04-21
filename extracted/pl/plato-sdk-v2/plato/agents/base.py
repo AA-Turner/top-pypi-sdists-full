@@ -12,6 +12,10 @@ from typing import ClassVar, Generic, TypeVar, get_args, get_origin
 
 from pydantic import TypeAdapter
 
+from plato.agents.browser_tooling import (
+    AGENT_BROWSER_INSTRUCTIONS,
+    AGENT_BROWSER_PATH_EXPORT,
+)
 from plato.agents.config import AgentConfig
 from plato.agents.schema import get_agent_schema
 from plato.runtimes.config import RuntimeConfig
@@ -124,6 +128,36 @@ class BaseAgent(ABC, Generic[ConfigT]):
     def get_schema(cls) -> dict:
         """Get full schema for the agent including config and build schemas."""
         return get_agent_schema(cls)
+
+    _NVM_SOURCE = '. "${NVM_DIR:-/root/.nvm}/nvm.sh"'
+    """Shell fragment that sources nvm. Agents run as root so nvm installs at
+    ``/root/.nvm``; ``$NVM_DIR`` is set by nvm's install.sh to the same path
+    and we prefer it when set in case a future base image moves it."""
+
+    def _shell_env_prefix(self) -> str:
+        """Return the shell prefix that sets up the agent subprocess PATH.
+
+        Always sources nvm so node-based CLIs (claude, gemini, codex) resolve.
+        When ``config.browser_tooling`` is set, also prepends ``$HOME/.bun/bin``
+        so the ``agent-browser`` CLI (bun-installed) is on PATH.
+        """
+        prefix = self._NVM_SOURCE
+        if self.config.browser_tooling:
+            prefix = f"{prefix}; {AGENT_BROWSER_PATH_EXPORT}"
+        return prefix
+
+    def _append_browser_tooling_prompt(self, prompt: str | None) -> str | None:
+        """Append the ``agent-browser`` block to a system prompt when opted in.
+
+        Returns ``prompt`` unchanged when ``config.browser_tooling`` is False.
+        When True, appends the shared command-reference block so the model
+        knows which CLI calls are available.
+        """
+        if not self.config.browser_tooling:
+            return prompt
+        if not prompt:
+            return AGENT_BROWSER_INSTRUCTIONS
+        return f"{prompt}\n\n{AGENT_BROWSER_INSTRUCTIONS}"
 
     @classmethod
     def reset_commands(cls, workspace_paths: list[str]) -> list[str]:

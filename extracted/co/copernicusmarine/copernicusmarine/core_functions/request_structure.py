@@ -2,16 +2,19 @@ import fnmatch
 import importlib.util
 import json
 import logging
+import os
 import pathlib
 import re
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional, Type, TypeVar, Union
+from typing import Any, Type, TypeVar
 
 import pandas as pd
 from dateutil.tz import UTC
 from pydantic import BaseModel, ValidationError, field_validator
 
+from copernicusmarine.catalogue_parser.models import (
+    get_version_from_dataset_id,
+)
 from copernicusmarine.core_functions.credentials_utils import (
     get_and_check_username_password,
 )
@@ -26,6 +29,7 @@ from copernicusmarine.core_functions.exceptions import (
 )
 from copernicusmarine.core_functions.models import (
     DEFAULT_COORDINATES_SELECTION_METHOD,
+    DEFAULT_FILE_EXTENSIONS,
     DEFAULT_FILE_FORMAT,
     DEFAULT_VERTICAL_AXIS,
     CoordinatesSelectionMethod,
@@ -58,25 +62,25 @@ SubsetRequest_ = TypeVar("SubsetRequest_", bound="SubsetRequest")
 class SubsetRequest(BaseModel):
     dataset_id: str
     username: str
-    dataset_version: Optional[str] = None
-    dataset_part: Optional[str] = None
-    variables: Optional[list[str]] = None
-    minimum_x: Optional[float] = None
-    maximum_x: Optional[float] = None
-    minimum_y: Optional[float] = None
-    maximum_y: Optional[float] = None
-    minimum_depth: Optional[float] = None
-    maximum_depth: Optional[float] = None
+    dataset_version: str | None = None
+    dataset_part: str | None = None
+    variables: list[str] | None = None
+    minimum_x: float | None = None
+    maximum_x: float | None = None
+    minimum_y: float | None = None
+    maximum_y: float | None = None
+    minimum_depth: float | None = None
+    maximum_depth: float | None = None
     vertical_axis: VerticalAxis = DEFAULT_VERTICAL_AXIS
-    start_datetime: Optional[datetime] = None
-    end_datetime: Optional[datetime] = None
-    platform_ids: Optional[list[str]] = None
+    start_datetime: datetime | None = None
+    end_datetime: datetime | None = None
+    platform_ids: list[str] | None = None
     coordinates_selection_method: CoordinatesSelectionMethod = (
         DEFAULT_COORDINATES_SELECTION_METHOD
     )
-    output_filename: Optional[str] = None
+    output_filename: str | None = None
     file_format: FileFormat = DEFAULT_FILE_FORMAT
-    service: Optional[str] = None
+    service: str | None = None
     output_directory: pathlib.Path = pathlib.Path(".")
     overwrite: bool = False
     skip_existing: bool = False
@@ -106,8 +110,8 @@ class SubsetRequest(BaseModel):
     @field_validator("start_datetime", "end_datetime", mode="before")
     @classmethod
     def parse_datetime(
-        cls, v: Optional[Union[datetime, pd.Timestamp, str]]
-    ) -> Optional[datetime]:
+        cls, v: datetime | pd.Timestamp | str | None
+    ) -> datetime | None:
         if v is None or v == "":
             return None
         if isinstance(v, str):
@@ -120,7 +124,7 @@ class SubsetRequest(BaseModel):
     def from_file(
         cls: Type[SubsetRequest_],
         filepath: pathlib.Path,
-        username: Optional[str] = None,
+        username: str | None = None,
     ) -> SubsetRequest_:
         with open(filepath) as json_file:
             json_content = json.load(json_file)
@@ -246,28 +250,28 @@ def convert_motu_api_request_to_structure(
 
 
 def create_subset_request(
-    dataset_id: Optional[str] = None,
-    dataset_version: Optional[str] = None,
-    dataset_part: Optional[str] = None,
-    username: Optional[str] = None,
-    password: Optional[str] = None,
-    variables: Optional[list[str]] = None,
-    minimum_depth: Optional[float] = None,
-    maximum_depth: Optional[float] = None,
+    dataset_id: str | None = None,
+    dataset_version: str | None = None,
+    dataset_part: str | None = None,
+    username: str | None = None,
+    password: str | None = None,
+    variables: list[str] | None = None,
+    minimum_depth: float | None = None,
+    maximum_depth: float | None = None,
     vertical_axis: VerticalAxis = DEFAULT_VERTICAL_AXIS,
-    start_datetime: Optional[Union[datetime, pd.Timestamp, str]] = None,
-    end_datetime: Optional[Union[datetime, pd.Timestamp, str]] = None,
-    platform_ids: Optional[list[str]] = None,
+    start_datetime: datetime | pd.Timestamp | str | None = None,
+    end_datetime: datetime | pd.Timestamp | str | None = None,
+    platform_ids: list[str] | None = None,
     coordinates_selection_method: CoordinatesSelectionMethod = (
         DEFAULT_COORDINATES_SELECTION_METHOD
     ),
-    output_filename: Optional[str] = None,
-    file_format: Optional[FileFormat] = None,
-    service: Optional[str] = None,
-    request_file: Optional[pathlib.Path] = None,
-    output_directory: Optional[pathlib.Path] = None,
-    credentials_file: Optional[pathlib.Path] = None,
-    motu_api_request: Optional[str] = None,
+    output_filename: str | None = None,
+    file_format: FileFormat | None = None,
+    service: str | None = None,
+    request_file: pathlib.Path | None = None,
+    output_directory: pathlib.Path | None = None,
+    credentials_file: pathlib.Path | None = None,
+    motu_api_request: str | None = None,
     overwrite: bool = False,
     skip_existing: bool = False,
     dry_run: bool = False,
@@ -277,18 +281,18 @@ def create_subset_request(
     netcdf3_compatible: bool = False,
     chunk_size_limit: int = 0,
     raise_if_updating: bool = False,
-    minimum_longitude: Optional[float] = None,
-    maximum_longitude: Optional[float] = None,
-    minimum_latitude: Optional[float] = None,
-    maximum_latitude: Optional[float] = None,
-    alias_min_x: Optional[float] = None,
-    alias_max_x: Optional[float] = None,
-    alias_min_y: Optional[float] = None,
-    alias_max_y: Optional[float] = None,
-    minimum_x: Optional[float] = None,
-    maximum_x: Optional[float] = None,
-    minimum_y: Optional[float] = None,
-    maximum_y: Optional[float] = None,
+    minimum_longitude: float | None = None,
+    maximum_longitude: float | None = None,
+    minimum_latitude: float | None = None,
+    maximum_latitude: float | None = None,
+    alias_min_x: float | None = None,
+    alias_max_x: float | None = None,
+    alias_min_y: float | None = None,
+    alias_max_y: float | None = None,
+    minimum_x: float | None = None,
+    maximum_x: float | None = None,
+    minimum_y: float | None = None,
+    maximum_y: float | None = None,
 ) -> SubsetRequest:
     if staging:
         logger.warning(
@@ -299,17 +303,17 @@ def create_subset_request(
     if overwrite:
         if skip_existing:
             raise MutuallyExclusiveArguments("overwrite", "skip_existing")
-    if request_file and not username and not credentials_file:
+    if request_file:
         with open(request_file) as json_file:
             json_content = json.load(json_file)
-        if "username" in json_content:
+        if "username" in json_content and not username:
             username = json_content["username"]
-        if "password" in json_content:
+        if "password" in json_content and not password:
             password = json_content["password"]
-        if "credentials_file" in json_content:
+        if "credentials_file" in json_content and not credentials_file:
             credentials_file = pathlib.Path(json_content["credentials_file"])
 
-    username, password = get_and_check_username_password(
+    username, _ = get_and_check_username_password(
         username,
         password,
         credentials_file,
@@ -322,15 +326,24 @@ def create_subset_request(
         subset_request = SubsetRequest.from_file(
             request_file, username=username
         )
+        if dataset_id:
+            subset_request.dataset_id = dataset_id
     if motu_api_request:
         motu_api_subset_request = convert_motu_api_request_to_structure(
             motu_api_request, username=username
         )
         subset_request = subset_request.update(
-            motu_api_subset_request.__dict__
+            motu_api_subset_request.model_dump(
+                exclude_unset=True, exclude_none=True
+            )
         )
-    if not subset_request.dataset_id:
-        raise ValueError("Please provide a dataset id for a subset request.")
+    (
+        subset_request.dataset_id,
+        subset_request.dataset_version,
+    ) = process_dataset_id_and_dataset_version(
+        subset_request.dataset_id,
+        dataset_version or subset_request.dataset_version,
+    )
     if netcdf3_compatible:
         documentation_url = (
             f"https://toolbox-docs.marine.copernicus.eu"
@@ -369,7 +382,6 @@ def create_subset_request(
         )
 
     request_update_dict = {
-        "dataset_version": dataset_version,
         "dataset_part": dataset_part,
         "variables": variables,
         "minimum_x": (
@@ -419,21 +431,32 @@ def create_subset_request(
         request_update_dict["staging"] = staging
     if disable_progress_bar or dry_run:
         request_update_dict["disable_progress_bar"] = True
+    if (
+        output_filename
+        and (suffix := pathlib.Path(output_filename).suffix)
+        in DEFAULT_FILE_EXTENSIONS
+    ):
+        if suffix == ".nc":
+            request_update_dict["file_format"] = "netcdf"
+        elif suffix == ".csv":
+            request_update_dict["file_format"] = "csv"
+        elif suffix == ".zarr":
+            request_update_dict["file_format"] = "zarr"
 
     return subset_request.update(request_update_dict)
 
 
 def get_geographical_inputs(
-    minimum_longitude: Optional[float],
-    maximum_longitude: Optional[float],
-    minimum_latitude: Optional[float],
-    maximum_latitude: Optional[float],
-    minimum_x: Optional[float],
-    maximum_x: Optional[float],
-    minimum_y: Optional[float],
-    maximum_y: Optional[float],
-    dataset_part: Optional[str],
-) -> tuple[Optional[float], Optional[float], Optional[float], Optional[float]]:
+    minimum_longitude: float | None,
+    maximum_longitude: float | None,
+    minimum_latitude: float | None,
+    maximum_latitude: float | None,
+    minimum_x: float | None,
+    maximum_x: float | None,
+    minimum_y: float | None,
+    maximum_y: float | None,
+    dataset_part: str | None,
+) -> tuple[float | None, float | None, float | None, float | None]:
     """
     Returns the geographical selection of the user.
 
@@ -461,7 +484,7 @@ def get_geographical_inputs(
 
     Returns
     -------
-    tuple[Optional[float], Optional[float], Optional[float], Optional[float]]
+    tuple[float | None, float | None, float | None, float | None]
         The geographical selection of the user. (minimum_x_axis, maximum_x_axis, minimum_y_axis, maximum_y_axis).
 
     Raises
@@ -505,32 +528,42 @@ def get_geographical_inputs(
             )
 
 
-@dataclass
-class GetRequest:
+class GetRequest(BaseModel):
     dataset_id: str
-    dataset_url: Optional[str] = None
-    dataset_version: Optional[str] = None
-    dataset_part: Optional[str] = None
+    username: str
+    dataset_url: str | None = None
+    dataset_version: str | None = None
+    dataset_part: str | None = None
     no_directories: bool = False
-    output_directory: str = "."
+    output_directory: pathlib.Path = pathlib.Path(".")
     overwrite: bool = False
-    filter: Optional[str] = None
-    regex: Optional[str] = None
-    file_list: Optional[pathlib.Path] = None
+    filter: str | None = None
+    regex: str | None = None
+    file_list: pathlib.Path | None = None
     sync: bool = False
     sync_delete: bool = False
     index_parts: bool = False
-    direct_download: Optional[list[str]] = None
+    direct_download: list[str] | None = None
     dry_run: bool = False
     skip_existing: bool = False
+    disable_progress_bar: bool = False
+    create_file_list: str | None = None
+    max_concurrent_requests: int = 15
 
-    def update(self, new_dict: dict):
-        """Method to update values in GetRequest object.
-        Skips "None" values
-        """
-        for key, value in new_dict.items():
-            if value is not None:
-                self.__dict__.update({key: value})
+    def update(self, new_dict: dict) -> "GetRequest":
+        filtered_dict = {
+            key: value
+            for key, value in new_dict.items()
+            if value is not None
+            and not (isinstance(value, (list, tuple, str)) and not value)
+        }
+        data = self.model_dump(
+            exclude_defaults=True,
+            exclude_unset=True,
+            exclude_none=True,
+        )
+        data.update(filtered_dict)
+        return self.model_validate(data)
 
     def enforce_types(self):
         type_enforced_dict = {}
@@ -564,15 +597,122 @@ class GetRequest:
         full_regex = self.regex
         if self.filter:
             filter_regex = filter_to_regex(self.filter)
-            full_regex = overload_regex_with_additionnal_filter(
+            full_regex = overload_regex_with_additional_filter(
                 filter_regex, full_regex
             )
         if self.file_list:
             file_list_regex = file_list_to_regex(self.file_list)
-            full_regex = overload_regex_with_additionnal_filter(
+            full_regex = overload_regex_with_additional_filter(
                 file_list_regex, full_regex
             )
         self.regex = full_regex
+
+
+def create_get_request(
+    dataset_id: str | None,
+    dataset_version: str | None,
+    dataset_part: str | None,
+    username: str | None,
+    password: str | None,
+    credentials_file: pathlib.Path | None,
+    no_directories: bool,
+    output_directory: pathlib.Path | None,
+    overwrite: bool,
+    request_file: pathlib.Path | None,
+    filter: str | None,
+    regex: str | None,
+    file_list: pathlib.Path | None,
+    create_file_list: str | None,
+    sync: bool,
+    sync_delete: bool,
+    skip_existing: bool,
+    index_parts: bool,
+    dry_run: bool,
+    max_concurrent_requests: int,
+    disable_progress_bar: bool,
+) -> GetRequest:
+    logger.debug("Checking username and password...")
+    if request_file:
+        with open(request_file) as json_file:
+            json_content = json.load(json_file)
+        if "username" in json_content and not username:
+            username = json_content["username"]
+        if "password" in json_content and not password:
+            password = json_content["password"]
+        if "credentials_file" in json_content and not credentials_file:
+            credentials_file = pathlib.Path(json_content["credentials_file"])
+
+    username, _ = get_and_check_username_password(
+        username, password, credentials_file
+    )
+    get_request = GetRequest(dataset_id=dataset_id or "", username=username)
+
+    if request_file:
+        get_request.from_file(request_file)
+        if dataset_id:
+            get_request.dataset_id = dataset_id
+    (
+        get_request.dataset_id,
+        get_request.dataset_version,
+    ) = process_dataset_id_and_dataset_version(
+        get_request.dataset_id,
+        dataset_version or get_request.dataset_version,
+    )
+
+    request_update_dict = {
+        "output_directory": output_directory,
+        "username": username,
+        "max_concurrent_requests": max_concurrent_requests,
+        "disable_progress_bar": disable_progress_bar,
+    }
+    # To be able to distinguish between set and unset values
+    if dataset_part:
+        request_update_dict["dataset_part"] = dataset_part
+    if no_directories:
+        request_update_dict["no_directories"] = no_directories
+    if overwrite:
+        request_update_dict["overwrite"] = overwrite
+    if skip_existing:
+        request_update_dict["skip_existing"] = skip_existing
+
+    if filter:
+        get_request.regex = filter_to_regex(filter)
+    if regex:
+        get_request.regex = overload_regex_with_additional_filter(
+            regex, get_request.regex
+        )
+    if sync or sync_delete:
+        request_update_dict["sync"] = True
+        if not get_request.dataset_version:
+            raise ValueError(
+                "Sync requires to set a dataset version. "
+                "Please use --dataset-version option."
+            )
+    if sync_delete:
+        request_update_dict["sync_delete"] = sync_delete
+    if index_parts:
+        request_update_dict["index_parts"] = index_parts
+        get_request.regex = overload_regex_with_additional_filter(
+            filter_to_regex("*index_*"), get_request.regex
+        )
+    if create_file_list is not None:
+        if not (
+            create_file_list.endswith(".txt")
+            or create_file_list.endswith(".csv")
+        ):
+            raise ValueError(
+                "Download file list must be a '.txt' or '.csv' file. "
+                f"Got '{create_file_list}' instead."
+            )
+        request_update_dict["create_file_list"] = create_file_list
+    if file_list:
+        direct_download_files = get_direct_download_files(file_list)
+        if direct_download_files:
+            get_request.direct_download = direct_download_files
+    if create_file_list or dry_run:
+        request_update_dict["dry_run"] = True
+
+    return get_request.update(request_update_dict)
 
 
 def filter_to_regex(filter: str) -> str:
@@ -586,7 +726,53 @@ def file_list_to_regex(file_list_path: pathlib.Path) -> str:
     return pattern
 
 
-def overload_regex_with_additionnal_filter(
-    regex: str, filter: Optional[str]
+def overload_regex_with_additional_filter(
+    regex: str, filter: str | None
 ) -> str:
     return "(" + regex + "|" + filter + ")" if filter else regex
+
+
+def get_direct_download_files(
+    file_list_path: pathlib.Path,
+) -> list[str]:
+    if not os.path.exists(file_list_path):
+        raise FileNotFoundError(
+            f"File {file_list_path} does not exist."
+            " Please provide a valid path to a '.txt' file."
+        )
+    with open(file_list_path) as f:
+        direct_download_files = [line.strip() for line in f.readlines()]
+    return direct_download_files
+
+
+def process_dataset_id_and_dataset_version(
+    dataset_id: str,
+    user_input_dataset_version: str | None,
+) -> tuple[str, str | None]:
+    if not dataset_id:
+        raise ValueError("Dataset id must be provided.")
+    dataset_id_without_version, dataset_version = get_version_from_dataset_id(
+        dataset_id, raise_on_error=False
+    )
+    if user_input_dataset_version and dataset_version:
+        raise ValueError(
+            f"Dataset id '{dataset_id_without_version}' contains "
+            f"version '{dataset_version}', "
+            f"but dataset-version is also provided with value "
+            f"'{user_input_dataset_version}'. "
+            f"Please only use the dataset_version argument."
+        )
+    elif dataset_version and not user_input_dataset_version:
+        logger.warning(
+            "The dataset version has been included "
+            "in the dataset_id argument. "
+            "This is not recommended. "
+            "Please either omit the version —allowing "
+            "the Toolbox to select it "
+            "automatically— or specify it "
+            "using the dataset_version argument."
+        )
+    return (
+        dataset_id_without_version,
+        dataset_version or user_input_dataset_version,
+    )

@@ -10,25 +10,48 @@ from pathlib import Path
 import pytest
 
 from xonsh.built_ins import (
+    DynamicAccessProxy,
     call_macro,
     convert_macro_arg,
     ensure_list_of_strs,
     enter_macro,
     expand_path,
+    globsearch,
     helper,
     in_macro_call,
     list_of_list_of_strs_outer_product,
     list_of_strs_or_callables,
     path_literal,
     pathsearch,
+    regexmatchsearch,
     regexsearch,
     reglob,
+    resetting_signal_handle,
     superhelper,
 )
 from xonsh.environ import Env
 from xonsh.pytest.tools import skip_if_on_windows
 
 HOME_PATH = os.path.expanduser("~")
+
+
+def test_dynamic_access_proxy_setattr():
+    """__setattr__ must write to the target object, not the proxy."""
+    import builtins
+
+    target = types.SimpleNamespace(x=1)
+    builtins.__test_proxy_target__ = target
+    proxy = DynamicAccessProxy("tp", "__test_proxy_target__")
+    try:
+        proxy.x = 42
+        assert target.x == 42
+        assert proxy.x == 42
+
+        proxy.new_attr = "hello"
+        assert target.new_attr == "hello"
+        assert proxy.new_attr == "hello"
+    finally:
+        del builtins.__test_proxy_target__
 
 
 @pytest.fixture(autouse=True)
@@ -39,6 +62,52 @@ def xonsh_execer_autouse(xonsh_execer):
 @pytest.mark.parametrize("testfile", reglob("test_.*"))
 def test_reglob_tests(testfile):
     assert testfile.startswith("test_")
+
+
+@skip_if_on_windows
+class TestDotglob:
+    """Test that $DOTGLOB is respected uniformly by all globbing forms."""
+
+    @pytest.fixture(autouse=True)
+    def glob_tree(self, tmp_path, xession):
+        (tmp_path / "visible").touch()
+        (tmp_path / ".hidden").touch()
+        self.tmp = tmp_path
+        self.xession = xession
+
+    def _basenames(self, paths):
+        return {os.path.basename(p) for p in paths}
+
+    def _glob(self):
+        return self._basenames(globsearch(str(self.tmp / "*")))
+
+    def _reglob(self):
+        results = regexsearch(str(self.tmp / ".*"))
+        return self._basenames(results)
+
+    def test_glob_excludes_dotfiles_by_default(self):
+        self.xession.env["DOTGLOB"] = False
+        assert ".hidden" not in self._glob()
+
+    def test_glob_includes_dotfiles_when_enabled(self):
+        self.xession.env["DOTGLOB"] = True
+        assert ".hidden" in self._glob()
+
+    def test_reglob_excludes_dotfiles_by_default(self):
+        self.xession.env["DOTGLOB"] = False
+        assert ".hidden" not in self._reglob()
+
+    def test_reglob_includes_dotfiles_when_enabled(self):
+        self.xession.env["DOTGLOB"] = True
+        assert ".hidden" in self._reglob()
+
+    def test_all_forms_agree(self):
+        """Both glob and reglob must give the same answer for $DOTGLOB."""
+        for dotglob in (False, True):
+            self.xession.env["DOTGLOB"] = dotglob
+            glob_has_hidden = ".hidden" in self._glob()
+            reglob_has_hidden = ".hidden" in self._reglob()
+            assert glob_has_hidden == reglob_has_hidden == dotglob
 
 
 @pytest.fixture
@@ -72,6 +141,7 @@ def test_repath_HOME_PATH_itself(home_env):
 
 @skip_if_on_windows
 def test_repath_HOME_PATH_contents(home_env):
+    home_env.env["DOTGLOB"] = True
     exp = os.listdir(HOME_PATH)
     exp = {os.path.join(HOME_PATH, p) for p in exp}
     obs = set(pathsearch(regexsearch, "~/.*"))
@@ -127,6 +197,45 @@ def test_repath_containing_asterisk(path, pattern):
 )
 def test_repath_containing_plus_sign(path, pattern):
     check_repath(path, pattern)
+
+
+@skip_if_on_windows
+class TestRegexMatchSearch:
+    """Test m`` modifier — regex glob returning capture groups."""
+
+    def test_returns_tuples(self, tmp_path, xession):
+        (tmp_path / "data" / "train" / "images").mkdir(parents=True)
+        (tmp_path / "data" / "train" / "images" / "cat.png").touch()
+        pattern = str(tmp_path / "data/(.*)/(.*)/(.*)\\.png")
+        results = regexmatchsearch(pattern)
+        assert ("train", "images", "cat") in results
+
+    def test_single_group_returns_strings(self, tmp_path, xession):
+        (tmp_path / "main.py").touch()
+        (tmp_path / "utils.py").touch()
+        pattern = str(tmp_path / "(.*)\\.py")
+        results = regexmatchsearch(pattern)
+        assert "main" in results
+        assert "utils" in results
+        assert all(isinstance(r, str) for r in results)
+
+    def test_no_groups_returns_paths(self, tmp_path, xession):
+        (tmp_path / "hello.txt").touch()
+        pattern = str(tmp_path / "hello\\.txt")
+        results = regexmatchsearch(pattern)
+        assert str(tmp_path / "hello.txt") in results
+        assert all(isinstance(r, str) for r in results)
+
+    def test_respects_dotglob(self, tmp_path, xession):
+        (tmp_path / ".hidden").touch()
+        (tmp_path / "visible").touch()
+        pattern = str(tmp_path / "(.*)")
+        xession.env["DOTGLOB"] = False
+        results = regexmatchsearch(pattern)
+        assert ".hidden" not in results
+        xession.env["DOTGLOB"] = True
+        results = regexmatchsearch(pattern)
+        assert ".hidden" in results
 
 
 def test_helper_int(home_env):
@@ -439,3 +548,23 @@ def test_xonshpathliteral_contextmanager(tmp_path):
             os.chdir(start_cwd)
         except Exception:
             pass
+
+
+def test_resetting_signal_handle_off_main_thread_is_noop():
+    """Regression for xonsh#3689: setup() called from a non-main thread must
+    not crash with ValueError('signal only works in main thread')."""
+    import signal
+    import threading
+
+    errors: list[BaseException] = []
+
+    def worker():
+        try:
+            resetting_signal_handle(signal.SIGTERM, lambda s, f: None)
+        except BaseException as exc:
+            errors.append(exc)
+
+    t = threading.Thread(target=worker)
+    t.start()
+    t.join()
+    assert errors == []

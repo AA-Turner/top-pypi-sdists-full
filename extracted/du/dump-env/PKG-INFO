@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: dump-env
-Version: 1.6.0
+Version: 1.7.0
 Summary: A utility tool to create .env files
 License: MIT
+License-File: LICENSE
 Keywords: dotenv,.env,templates,secrets,CI/CD
 Author: Nikita Sobolev
 Author-email: mail@sobolevn.me
@@ -17,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Project-URL: Homepage, https://dump-env.readthedocs.io
 Project-URL: Repository, https://github.com/wemake-services/dump-env
@@ -149,6 +151,17 @@ $ export ANSWER='42'
 $ dump-env -s template.env --strict-source
 Missing env vars: TOKEN, VALUE
 ```
+
+### Unquoted values
+
+If you use `dotenv-linter`, you may want to disable quoted output:
+
+```bash
+$ dump-env -t .env.template -p SECRET_ --no-quote-values > .env
+```
+
+By default, `dump-env` quotes values with spaces and other special
+characters to preserve compatibility with .env parsers.
 
 ## Creating secret variables in some CIs
 

@@ -19,6 +19,7 @@ from . import fields
 from .fields import on_change_result
 from .fields.field import _set_value
 from .model import Model
+from .modelstorage import _pyson_encoder, _record_eval_pyson
 
 __all__ = ['ModelView']
 
@@ -273,7 +274,6 @@ class ModelView(Model):
         result = cls._fields_view_get_cache.get(key)
         if result:
             return result
-        result = {'model': cls.__name__}
         pool = Pool()
         View = pool.get('ir.ui.view')
 
@@ -288,7 +288,7 @@ class ModelView(Model):
                     ],
                 ]
             views = View.search(domain)
-            views = [v for v in views if v.rng_type == view_type]
+            views = [v for v in views if v.real_type == view_type]
             if views:
                 view = views[0]
                 view_id = view.id
@@ -297,10 +297,11 @@ class ModelView(Model):
 
         # if a view was found
         if view:
-            result = view.view_get(model=cls.__name__)
+            result = dict(view.view_get(model=cls.__name__))
 
         # otherwise, build some kind of default view
         else:
+            result = {}
             if view_type == 'form':
                 res = cls.fields_get()
                 xml = '''<?xml version="1.0"?>''' \
@@ -348,8 +349,7 @@ class ModelView(Model):
             tree, result['type'], view_id=view_id,
             field_children=result['field_childs'], level=level)
 
-        cls._fields_view_get_cache.set(key, result)
-        return result
+        return cls._fields_view_get_cache.set(key, result)
 
     @classmethod
     def view_toolbar_get(cls):
@@ -389,8 +389,7 @@ class ModelView(Model):
             'exports': exports,
             'emails': emails,
             }
-        cls._view_toolbar_get_cache.set(key, result)
-        return result
+        return cls._view_toolbar_get_cache.set(key, result)
 
     @classmethod
     def view_attributes(cls):
@@ -432,7 +431,7 @@ class ModelView(Model):
                 if nodes and depends:
                     view_depends.extend(depends)
 
-        fields_width = {}
+        fields_width = collections.defaultdict(list)
         fields_optional = {}
         tree_root = tree.getroottree().getroot()
 
@@ -499,10 +498,7 @@ class ModelView(Model):
             width, _ = Transaction().context.get('screen_size', (None, None))
             if Transaction().context.get('view_tree_width'):
                 ViewTreeWidth = pool.get('ir.ui.view_tree_width')
-                col_widths = ViewTreeWidth.get_width(cls.__name__, width)
-                fields_width.update({fname: w
-                        for fname, w in col_widths.items()
-                        if w > 0})
+                fields_width = ViewTreeWidth.get_width(cls.__name__, width)
 
             if view_id:
                 ViewTreeOptional = pool.get('ir.ui.view_tree_optional')
@@ -573,7 +569,7 @@ class ModelView(Model):
         ActionWindow = pool.get('ir.action.act_window')
 
         if fields_width is None:
-            fields_width = {}
+            fields_width = collections.defaultdict(list)
         if fields_optional is None:
             fields_optional = {}
         if _fields_attrs is None:
@@ -641,9 +637,13 @@ class ModelView(Model):
                     fields_attrs[fname].setdefault('views', {}).update(views)
 
             if type == 'tree':
-                if element.get('name') in fields_width:
-                    element.set(
-                        'width', str(fields_width[element.get('name')]))
+                try:
+                    width = fields_width[element.get('name')].pop(0)
+                except IndexError:
+                    pass
+                else:
+                    if width is not None:
+                        element.set('width', str(width))
                 if element.get('optional'):
                     if element.get('name') in fields_optional:
                         optional = str(int(
@@ -747,6 +747,7 @@ class ModelView(Model):
 
             transaction = Transaction()
             check_access = transaction.check_access
+            log = transaction.context.get('_log', False)
 
             assert len(records) == len(set(records)), "Duplicate records"
 
@@ -765,9 +766,19 @@ class ModelView(Model):
                         raise AccessButtonError(
                             gettext('ir.msg_access_button_error',
                                 button=func.__name__,
-                                model=cls.__name__))
+                                **cls.__names__()))
                 else:
                     ModelAccess.check(cls.__name__, 'write')
+
+                states = cls._buttons.get(func.__name__, {})
+                for state_name in {'invisible', 'readonly'} & states.keys():
+                    state = _pyson_encoder.encode(states[state_name])
+                    for record in records:
+                        if _record_eval_pyson(record, state, encoded=True):
+                            raise AccessButtonError(
+                                gettext('ir.msg_button_state_record',
+                                    button=func.__name__,
+                                    **cls.__names__(record=record)))
 
             if (transaction.user != 0) and check_access:
                 button_rules = Button.get_rules(
@@ -783,7 +794,7 @@ class ModelView(Model):
             if names:
                 ButtonClick.reset(cls.__name__, names, records)
 
-            if check_access and issubclass(cls, ModelStorage):
+            if (check_access or log) and issubclass(cls, ModelStorage):
                 cls.log(records, 'button', func.__name__)
             with without_check_access():
                 return func(cls, records, *args, **kwargs)

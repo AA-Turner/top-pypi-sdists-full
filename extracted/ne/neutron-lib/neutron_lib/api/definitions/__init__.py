@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from neutron_lib.api.definitions import aap_reject_multicast
 from neutron_lib.api.definitions import address_group
 from neutron_lib.api.definitions import address_scope
 from neutron_lib.api.definitions import agent
@@ -107,6 +108,7 @@ from neutron_lib.api.definitions import portbindings_extended
 from neutron_lib.api.definitions import project_default_networks
 from neutron_lib.api.definitions import project_id
 from neutron_lib.api.definitions import provider_net
+from neutron_lib.api.definitions import pvlan
 from neutron_lib.api.definitions import qinq
 from neutron_lib.api.definitions import qos
 from neutron_lib.api.definitions import qos_bw_limit_direction
@@ -174,9 +176,11 @@ from neutron_lib.api.definitions import vpn_aes_ccm_gcm
 from neutron_lib.api.definitions import vpn_aes_ctr
 from neutron_lib.api.definitions import vpn_endpoint_groups
 from neutron_lib.api.definitions import vpn_flavors
+from neutron_lib.api.definitions import vpn_no_sha1_3des
 
 
 _ALL_API_DEFINITIONS = {
+    aap_reject_multicast,
     address_group,
     address_scope,
     agent,
@@ -274,6 +278,7 @@ _ALL_API_DEFINITIONS = {
     project_default_networks,
     project_id,
     provider_net,
+    pvlan,
     qinq,
     qos,
     qos_bw_limit_direction,
@@ -340,4 +345,5 @@ _ALL_API_DEFINITIONS = {
     vpn_aes_ctr,
     vpn_endpoint_groups,
     vpn_flavors,
+    vpn_no_sha1_3des,
 }

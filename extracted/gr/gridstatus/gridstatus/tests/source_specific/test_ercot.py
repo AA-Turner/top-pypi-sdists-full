@@ -1,6 +1,7 @@
 import datetime
 from io import StringIO
 from typing import Dict
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -57,6 +58,7 @@ from gridstatus.ercot_60d_utils import (
     _categorize_strings,
     extract_curve,
     process_as_offer_curves,
+    process_sced_resource_as_offers,
 )
 from gridstatus.ercot_constants import (
     LOAD_FORECAST_BY_MODEL_COLUMNS,
@@ -251,6 +253,180 @@ class TestErcot(BaseTestISO):
         df = self.iso.get_real_time_system_conditions()
         assert df.shape == (1, 15)
         assert df.columns[0] == "Time"
+
+    """get_operations_messages"""
+
+    expected_operations_messages_cols = [
+        "Time",
+        "Notice",
+        "Type",
+        "Status",
+    ]
+
+    SAMPLE_OPS_MESSAGES_DF = pd.DataFrame(
+        {
+            "Date & Time": [
+                "Apr 14, 2026 2:23:50 AM",
+                "Apr 14, 2026 12:04:02 AM",
+            ],
+            "Notice": [
+                "ERCOT has cancelled the following notice: Railroad DC Tie derated.",
+                "No sudden loss of generation greater than 450 MW occurred.",
+            ],
+            "Type": [
+                "Operational Information",
+                "Operational Information",
+            ],
+            "Status": [
+                "Cancelled",
+                "Active",
+            ],
+        },
+    )
+
+    def test_get_operations_messages(self):
+        with mock.patch(
+            "gridstatus.ercot.pd.read_html",
+            return_value=[self.SAMPLE_OPS_MESSAGES_DF.copy()],
+        ):
+            df = self.iso.get_operations_messages()
+
+        assert df.columns.tolist() == self.expected_operations_messages_cols
+        assert len(df) == 2
+        assert isinstance(df["Time"].dtype, pd.DatetimeTZDtype)
+        assert str(df["Time"].dt.tz) == str(self.iso.default_timezone)
+        assert df["Notice"].iloc[0] is not None
+        assert df["Type"].iloc[0] == "Operational Information"
+        assert set(df["Status"]) == {"Active", "Cancelled"}
+
+    def test_get_operations_messages_sorted_by_time(self):
+        with mock.patch(
+            "gridstatus.ercot.pd.read_html",
+            return_value=[self.SAMPLE_OPS_MESSAGES_DF.copy()],
+        ):
+            df = self.iso.get_operations_messages()
+
+        assert df["Time"].is_monotonic_increasing
+
+    def test_get_operations_messages_single_row(self):
+        single_row_df = pd.DataFrame(
+            {
+                "Date & Time": ["Mar 10, 2026 9:00:00 AM"],
+                "Notice": ["Advisory issued due to tool unavailability."],
+                "Type": ["Advisory"],
+                "Status": ["Active"],
+            },
+        )
+        with mock.patch(
+            "gridstatus.ercot.pd.read_html",
+            return_value=[single_row_df],
+        ):
+            df = self.iso.get_operations_messages()
+
+        assert len(df) == 1
+        assert df.columns.tolist() == self.expected_operations_messages_cols
+        assert df["Type"].iloc[0] == "Advisory"
+
+    def test_get_operations_messages_historical_deduplicates(self):
+        snap1 = pd.DataFrame(
+            {
+                "Date & Time": [
+                    "Jan 10, 2026 2:00:00 PM",
+                    "Jan 9, 2026 12:00:00 AM",
+                ],
+                "Notice": ["Msg A", "Msg B"],
+                "Type": ["Operational Information", "Operational Information"],
+                "Status": ["Active", "Active"],
+            },
+        )
+        snap2 = pd.DataFrame(
+            {
+                "Date & Time": [
+                    "Jan 15, 2026 8:00:00 AM",
+                    "Jan 10, 2026 2:00:00 PM",
+                ],
+                "Notice": ["Msg C", "Msg A"],
+                "Type": ["Advisory", "Operational Information"],
+                "Status": ["Active", "Active"],
+            },
+        )
+
+        with mock.patch(
+            "gridstatus.ercot.requests.get",
+        ) as mock_requests_get:
+            mock_cdx_resp = mock.Mock()
+            mock_cdx_resp.json.return_value = [
+                ["timestamp", "statuscode"],
+                ["20260110000000", "200"],
+                ["20260115000000", "200"],
+            ]
+            mock_cdx_resp.raise_for_status = mock.Mock()
+            mock_requests_get.return_value = mock_cdx_resp
+
+            with mock.patch(
+                "gridstatus.ercot.pd.read_html",
+                side_effect=[[snap1], [snap2]],
+            ):
+                df = self.iso.get_operations_messages(
+                    date="2026-01-01",
+                    end="2026-02-01",
+                )
+
+        assert len(df) == 3
+        assert df["Notice"].tolist() == ["Msg B", "Msg A", "Msg C"]
+        assert df["Time"].is_monotonic_increasing
+
+    def test_get_operations_messages_historical_filters_to_range(self):
+        snap = pd.DataFrame(
+            {
+                "Date & Time": [
+                    "Jan 15, 2026 8:00:00 AM",
+                    "Dec 28, 2025 3:00:00 PM",
+                ],
+                "Notice": ["In range", "Out of range"],
+                "Type": ["Operational Information", "Operational Information"],
+                "Status": ["Active", "Active"],
+            },
+        )
+
+        with mock.patch(
+            "gridstatus.ercot.requests.get",
+        ) as mock_requests_get:
+            mock_cdx_resp = mock.Mock()
+            mock_cdx_resp.json.return_value = [
+                ["timestamp", "statuscode"],
+                ["20260115000000", "200"],
+            ]
+            mock_cdx_resp.raise_for_status = mock.Mock()
+            mock_requests_get.return_value = mock_cdx_resp
+
+            with mock.patch(
+                "gridstatus.ercot.pd.read_html",
+                return_value=[snap],
+            ):
+                df = self.iso.get_operations_messages(
+                    date="2026-01-01",
+                    end="2026-02-01",
+                )
+
+        assert len(df) == 1
+        assert df["Notice"].iloc[0] == "In range"
+
+    def test_get_operations_messages_historical_wayback(self):
+        with api_vcr.use_cassette(
+            "test_get_operations_messages_historical_wayback.yaml",
+        ):
+            df = self.iso.get_operations_messages(
+                date="2026-01-01",
+                end="2026-01-15",
+            )
+        assert df.columns.tolist() == self.expected_operations_messages_cols
+        assert len(df) > 0
+        assert isinstance(df["Time"].dtype, pd.DatetimeTZDtype)
+        assert df["Time"].min() >= pd.Timestamp("2026-01-01", tz="US/Central")
+        assert df["Time"].max() < pd.Timestamp("2026-01-15", tz="US/Central")
+        assert df["Time"].is_monotonic_increasing
+        assert df.duplicated(subset=["Time", "Notice"]).sum() == 0
 
     @pytest.mark.integration
     def test_get_energy_storage_resources(self):
@@ -1359,6 +1535,41 @@ class TestErcot(BaseTestISO):
         assert df["SCED Timestamp"].dt.date.unique() == [date.date()]
 
         self._check_highest_price_as_offer_selected_sced(df)
+
+    """get_3_day_highest_price_sced"""
+
+    def _check_3_day_highest_price_sced(self, df: pd.DataFrame):
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "SCED Timestamp",
+            "QSE",
+            "DME",
+            "Load Resource",
+            "Highest Price Dispatched by SCED",
+            "Proxy Extension",
+        ]
+        assert df.dtypes["Interval Start"] == "datetime64[ns, US/Central]"
+        assert df.dtypes["Interval End"] == "datetime64[ns, US/Central]"
+        assert df.dtypes["SCED Timestamp"] == "datetime64[ns, US/Central]"
+        for col in ["QSE", "DME", "Load Resource", "Proxy Extension"]:
+            assert df.dtypes[col] == "object"
+        assert df.dtypes["Highest Price Dispatched by SCED"] == "float64"
+        assert (
+            (df["Interval End"] - df["Interval Start"]) == pd.Timedelta(minutes=5)
+        ).all()
+        assert set(df["Proxy Extension"].unique()).issubset({"Yes", "No"})
+
+    def test_get_3_day_highest_price_sced(self):
+        date = self.local_start_of_today() - pd.DateOffset(days=4)
+
+        with api_vcr.use_cassette(
+            f"test_get_3_day_highest_price_sced_{date}.yaml",
+        ):
+            df = self.iso.get_3_day_highest_price_sced(date)
+
+        self._check_3_day_highest_price_sced(df)
+        assert df["SCED Timestamp"].dt.date.unique() == [date.date()]
 
     """test get_as_reports"""
 
@@ -3055,6 +3266,66 @@ class TestErcot(BaseTestISO):
             end + pd.DateOffset(days=1) - pd.Timedelta(hours=1)
         ).tz_localize(self.iso.default_timezone)
 
+    """get_dam_asdc_aggregated"""
+
+    # Per NP4-19-CD documentation, the dataset advertises REGDN, REGUP, RRSPF,
+    # RRSFF, RRSUF, ECRSS, and ECRSM; in practice the published files also
+    # include the pre-ECRS NSPIN and NSPNM products.
+    allowed_dam_asdc_aggregated_as_types = {
+        "REGDN",
+        "REGUP",
+        "RRSPF",
+        "RRSFF",
+        "RRSUF",
+        "ECRSS",
+        "ECRSM",
+        "NSPIN",
+        "NSPNM",
+    }
+
+    def _check_get_dam_asdc_aggregated(self, df: pd.DataFrame):
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "AS Type",
+            "Price",
+            "Quantity",
+        ]
+        assert df.dtypes["Interval Start"] == "datetime64[ns, US/Central]"
+        assert df.dtypes["Interval End"] == "datetime64[ns, US/Central]"
+        assert df.dtypes["AS Type"] == "object"
+        assert df.dtypes["Price"] == "float64"
+        assert df.dtypes["Quantity"] == "float64"
+        assert (
+            (df["Interval End"] - df["Interval Start"]) == pd.Timedelta(hours=1)
+        ).all()
+        assert set(df["AS Type"].unique()).issubset(
+            self.allowed_dam_asdc_aggregated_as_types,
+        )
+
+    def test_get_dam_asdc_aggregated_latest(self):
+        with api_vcr.use_cassette("test_get_dam_asdc_aggregated_latest.yaml"):
+            df = self.iso.get_dam_asdc_aggregated("latest")
+        self._check_get_dam_asdc_aggregated(df)
+
+    def test_get_dam_asdc_aggregated_date_range(self):
+        date = pd.Timestamp.now().normalize() - pd.Timedelta(days=2)
+        end = date + pd.Timedelta(days=1)
+
+        with api_vcr.use_cassette(
+            f"test_get_dam_asdc_aggregated_date_range_{date}_{end}.yaml",
+        ):
+            df = self.iso.get_dam_asdc_aggregated(date, end)
+
+        self._check_get_dam_asdc_aggregated(df)
+
+        assert df["Interval Start"].min() == date.tz_localize(
+            self.iso.default_timezone,
+        )
+        assert df["Interval End"].max() == end.tz_localize(
+            self.iso.default_timezone,
+        )
+
     """get_as_deployment_factors_projected"""
 
     def _check_as_deployment_factors_projected(self, df: pd.DataFrame):
@@ -3918,6 +4189,242 @@ def check_60_day_sced_disclosure(df_dict: Dict[str, pd.DataFrame]) -> None:
     if SCED_RESOURCE_AS_OFFERS_KEY in df_dict:
         resource_as_offers = df_dict[SCED_RESOURCE_AS_OFFERS_KEY]
         assert resource_as_offers.columns.tolist() == SCED_RESOURCE_AS_OFFERS_COLUMNS
+
+
+def _make_sced_resource_as_offers_df(rows):
+    """Build a DataFrame matching the raw SCED Resource AS Offers schema.
+
+    Accepts dicts with explicit values. Missing PRICE/QUANTITY columns
+    default to 0 (affected-period format) or can be set to np.nan by the
+    caller (corrected-period format).
+    """
+    as_suffixes = ["URS", "DRS", "RRSPF", "RRSUF", "RRSFF", "NS", "ECRS"]
+    n_blocks = 6
+    all_cols = ["SCED Timestamp", "Resource Name"]
+    for i in range(1, n_blocks + 1):
+        for suffix in as_suffixes:
+            all_cols.append(f"PRICE{i}_{suffix}")
+        all_cols.append(f"QUANTITY_MW{i}")
+
+    data = []
+    for row in rows:
+        record = {col: 0 for col in all_cols}
+        record.update(row)
+        data.append(record)
+    return pd.DataFrame(data, columns=all_cols)
+
+
+# fmt: off
+# Actual rows from ERCOT 60-Day SCED Resource AS Offers, OD 2026-01-15
+# (affected period: nulls converted to zeros)
+_AEEC_ANTLP_3_ONRES_AFFECTED = {
+    "SCED Timestamp": "2026-01-15 00:00:18",
+    "Resource Name": "AEEC_ANTLP_3",
+    "QUANTITY_MW1": 24.0, "QUANTITY_MW2": 9.8, "QUANTITY_MW3": 24.0,
+    "QUANTITY_MW4": 0.0, "QUANTITY_MW5": 0.0, "QUANTITY_MW6": 54.0,
+    "PRICE1_URS": 7.50, "PRICE2_URS": 0.0, "PRICE3_URS": 0.0,
+    "PRICE4_URS": 0.0, "PRICE5_URS": 0.0, "PRICE6_URS": 1423.91,
+    "PRICE1_DRS": 0.0, "PRICE2_DRS": 0.0, "PRICE3_DRS": 0.0,
+    "PRICE4_DRS": 0.0, "PRICE5_DRS": 0.0, "PRICE6_DRS": 0.0,
+    "PRICE1_RRSPF": 0.0, "PRICE2_RRSPF": 8.0, "PRICE3_RRSPF": 0.0,
+    "PRICE4_RRSPF": 0.0, "PRICE5_RRSPF": 0.0, "PRICE6_RRSPF": 974.41,
+    "PRICE1_RRSUF": 0.0, "PRICE2_RRSUF": 0.0, "PRICE3_RRSUF": 0.0,
+    "PRICE4_RRSUF": 0.0, "PRICE5_RRSUF": 0.0, "PRICE6_RRSUF": 974.41,
+    "PRICE1_RRSFF": 0.0, "PRICE2_RRSFF": 0.0, "PRICE3_RRSFF": 0.0,
+    "PRICE4_RRSFF": 0.0, "PRICE5_RRSFF": 0.0, "PRICE6_RRSFF": 974.41,
+    "PRICE1_NS": 0.0, "PRICE2_NS": 0.0, "PRICE3_NS": 8.0,
+    "PRICE4_NS": 0.0, "PRICE5_NS": 0.0, "PRICE6_NS": 172.32,
+    "PRICE1_ECRS": 0.0, "PRICE2_ECRS": 0.0, "PRICE3_ECRS": 0.0,
+    "PRICE4_ECRS": 0.0, "PRICE5_ECRS": 0.0, "PRICE6_ECRS": 974.41,
+}
+_AEEC_ANTLP_3_REGDN_AFFECTED = {
+    "SCED Timestamp": "2026-01-15 00:00:18",
+    "Resource Name": "AEEC_ANTLP_3",
+    "QUANTITY_MW1": 24.0, "QUANTITY_MW2": 0.0, "QUANTITY_MW3": 0.0,
+    "QUANTITY_MW4": 0.0, "QUANTITY_MW5": 0.0, "QUANTITY_MW6": 54.0,
+    "PRICE1_URS": 0.0, "PRICE2_URS": 0.0, "PRICE3_URS": 0.0,
+    "PRICE4_URS": 0.0, "PRICE5_URS": 0.0, "PRICE6_URS": 0.0,
+    "PRICE1_DRS": 10.0, "PRICE2_DRS": 0.0, "PRICE3_DRS": 0.0,
+    "PRICE4_DRS": 0.0, "PRICE5_DRS": 0.0, "PRICE6_DRS": 1999.99,
+    "PRICE1_RRSPF": 0.0, "PRICE2_RRSPF": 0.0, "PRICE3_RRSPF": 0.0,
+    "PRICE4_RRSPF": 0.0, "PRICE5_RRSPF": 0.0, "PRICE6_RRSPF": 0.0,
+    "PRICE1_RRSUF": 0.0, "PRICE2_RRSUF": 0.0, "PRICE3_RRSUF": 0.0,
+    "PRICE4_RRSUF": 0.0, "PRICE5_RRSUF": 0.0, "PRICE6_RRSUF": 0.0,
+    "PRICE1_RRSFF": 0.0, "PRICE2_RRSFF": 0.0, "PRICE3_RRSFF": 0.0,
+    "PRICE4_RRSFF": 0.0, "PRICE5_RRSFF": 0.0, "PRICE6_RRSFF": 0.0,
+    "PRICE1_NS": 0.0, "PRICE2_NS": 0.0, "PRICE3_NS": 0.0,
+    "PRICE4_NS": 0.0, "PRICE5_NS": 0.0, "PRICE6_NS": 0.0,
+    "PRICE1_ECRS": 0.0, "PRICE2_ECRS": 0.0, "PRICE3_ECRS": 0.0,
+    "PRICE4_ECRS": 0.0, "PRICE5_ECRS": 0.0, "PRICE6_ECRS": 0.0,
+}
+_AEEC_ANTLP_3_OFFNS_AFFECTED = {
+    "SCED Timestamp": "2026-01-15 00:00:18",
+    "Resource Name": "AEEC_ANTLP_3",
+    "QUANTITY_MW1": 54.0, "QUANTITY_MW2": 0.0, "QUANTITY_MW3": 0.0,
+    "QUANTITY_MW4": 0.0, "QUANTITY_MW5": 0.0, "QUANTITY_MW6": 54.0,
+    "PRICE1_URS": 0.0, "PRICE2_URS": 0.0, "PRICE3_URS": 0.0,
+    "PRICE4_URS": 0.0, "PRICE5_URS": 0.0, "PRICE6_URS": 0.0,
+    "PRICE1_DRS": 0.0, "PRICE2_DRS": 0.0, "PRICE3_DRS": 0.0,
+    "PRICE4_DRS": 0.0, "PRICE5_DRS": 0.0, "PRICE6_DRS": 0.0,
+    "PRICE1_RRSPF": 0.0, "PRICE2_RRSPF": 0.0, "PRICE3_RRSPF": 0.0,
+    "PRICE4_RRSPF": 0.0, "PRICE5_RRSPF": 0.0, "PRICE6_RRSPF": 0.0,
+    "PRICE1_RRSUF": 0.0, "PRICE2_RRSUF": 0.0, "PRICE3_RRSUF": 0.0,
+    "PRICE4_RRSUF": 0.0, "PRICE5_RRSUF": 0.0, "PRICE6_RRSUF": 0.0,
+    "PRICE1_RRSFF": 0.0, "PRICE2_RRSFF": 0.0, "PRICE3_RRSFF": 0.0,
+    "PRICE4_RRSFF": 0.0, "PRICE5_RRSFF": 0.0, "PRICE6_RRSFF": 0.0,
+    "PRICE1_NS": 8.0, "PRICE2_NS": 0.0, "PRICE3_NS": 0.0,
+    "PRICE4_NS": 0.0, "PRICE5_NS": 0.0, "PRICE6_NS": 172.32,
+    "PRICE1_ECRS": 0.0, "PRICE2_ECRS": 0.0, "PRICE3_ECRS": 0.0,
+    "PRICE4_ECRS": 0.0, "PRICE5_ECRS": 0.0, "PRICE6_ECRS": 0.0,
+}
+
+# Same resource from OD 2026-02-03 (corrected period: proper nulls)
+_N = np.nan
+_AEEC_ANTLP_3_ONRES_CORRECTED = {
+    "SCED Timestamp": "2026-02-03 00:00:23",
+    "Resource Name": "AEEC_ANTLP_3",
+    "QUANTITY_MW1": 16.0, "QUANTITY_MW2": 6.2, "QUANTITY_MW3": 16.0,
+    "QUANTITY_MW4": 0.0, "QUANTITY_MW5": 0.0, "QUANTITY_MW6": 36.0,
+    "PRICE1_URS": 7.50, "PRICE2_URS": _N, "PRICE3_URS": _N,
+    "PRICE4_URS": _N, "PRICE5_URS": _N, "PRICE6_URS": 1420.8,
+    "PRICE1_DRS": _N, "PRICE2_DRS": _N, "PRICE3_DRS": _N,
+    "PRICE4_DRS": _N, "PRICE5_DRS": _N, "PRICE6_DRS": _N,
+    "PRICE1_RRSPF": _N, "PRICE2_RRSPF": 8.0, "PRICE3_RRSPF": _N,
+    "PRICE4_RRSPF": _N, "PRICE5_RRSPF": _N, "PRICE6_RRSPF": 742.99,
+    "PRICE1_RRSUF": _N, "PRICE2_RRSUF": _N, "PRICE3_RRSUF": _N,
+    "PRICE4_RRSUF": _N, "PRICE5_RRSUF": _N, "PRICE6_RRSUF": 742.99,
+    "PRICE1_RRSFF": _N, "PRICE2_RRSFF": _N, "PRICE3_RRSFF": _N,
+    "PRICE4_RRSFF": _N, "PRICE5_RRSFF": _N, "PRICE6_RRSFF": 742.99,
+    "PRICE1_NS": _N, "PRICE2_NS": _N, "PRICE3_NS": 8.0,
+    "PRICE4_NS": _N, "PRICE5_NS": _N, "PRICE6_NS": 183.16,
+    "PRICE1_ECRS": _N, "PRICE2_ECRS": _N, "PRICE3_ECRS": _N,
+    "PRICE4_ECRS": _N, "PRICE5_ECRS": _N, "PRICE6_ECRS": 742.99,
+}
+_AEEC_ANTLP_3_REGDN_CORRECTED = {
+    "SCED Timestamp": "2026-02-03 00:00:23",
+    "Resource Name": "AEEC_ANTLP_3",
+    "QUANTITY_MW1": 16.0, "QUANTITY_MW2": 0.0, "QUANTITY_MW3": 0.0,
+    "QUANTITY_MW4": 0.0, "QUANTITY_MW5": 0.0, "QUANTITY_MW6": 36.0,
+    "PRICE1_URS": _N, "PRICE2_URS": _N, "PRICE3_URS": _N,
+    "PRICE4_URS": _N, "PRICE5_URS": _N, "PRICE6_URS": _N,
+    "PRICE1_DRS": 10.0, "PRICE2_DRS": _N, "PRICE3_DRS": _N,
+    "PRICE4_DRS": _N, "PRICE5_DRS": _N, "PRICE6_DRS": 1999.99,
+    "PRICE1_RRSPF": _N, "PRICE2_RRSPF": _N, "PRICE3_RRSPF": _N,
+    "PRICE4_RRSPF": _N, "PRICE5_RRSPF": _N, "PRICE6_RRSPF": _N,
+    "PRICE1_RRSUF": _N, "PRICE2_RRSUF": _N, "PRICE3_RRSUF": _N,
+    "PRICE4_RRSUF": _N, "PRICE5_RRSUF": _N, "PRICE6_RRSUF": _N,
+    "PRICE1_RRSFF": _N, "PRICE2_RRSFF": _N, "PRICE3_RRSFF": _N,
+    "PRICE4_RRSFF": _N, "PRICE5_RRSFF": _N, "PRICE6_RRSFF": _N,
+    "PRICE1_NS": _N, "PRICE2_NS": _N, "PRICE3_NS": _N,
+    "PRICE4_NS": _N, "PRICE5_NS": _N, "PRICE6_NS": _N,
+    "PRICE1_ECRS": _N, "PRICE2_ECRS": _N, "PRICE3_ECRS": _N,
+    "PRICE4_ECRS": _N, "PRICE5_ECRS": _N, "PRICE6_ECRS": _N,
+}
+_AEEC_ANTLP_3_OFFNS_CORRECTED = {
+    "SCED Timestamp": "2026-02-03 00:00:23",
+    "Resource Name": "AEEC_ANTLP_3",
+    "QUANTITY_MW1": 36.0, "QUANTITY_MW2": 0.0, "QUANTITY_MW3": 0.0,
+    "QUANTITY_MW4": 0.0, "QUANTITY_MW5": 0.0, "QUANTITY_MW6": 36.0,
+    "PRICE1_URS": _N, "PRICE2_URS": _N, "PRICE3_URS": _N,
+    "PRICE4_URS": _N, "PRICE5_URS": _N, "PRICE6_URS": _N,
+    "PRICE1_DRS": _N, "PRICE2_DRS": _N, "PRICE3_DRS": _N,
+    "PRICE4_DRS": _N, "PRICE5_DRS": _N, "PRICE6_DRS": _N,
+    "PRICE1_RRSPF": _N, "PRICE2_RRSPF": _N, "PRICE3_RRSPF": _N,
+    "PRICE4_RRSPF": _N, "PRICE5_RRSPF": _N, "PRICE6_RRSPF": _N,
+    "PRICE1_RRSUF": _N, "PRICE2_RRSUF": _N, "PRICE3_RRSUF": _N,
+    "PRICE4_RRSUF": _N, "PRICE5_RRSUF": _N, "PRICE6_RRSUF": _N,
+    "PRICE1_RRSFF": _N, "PRICE2_RRSFF": _N, "PRICE3_RRSFF": _N,
+    "PRICE4_RRSFF": _N, "PRICE5_RRSFF": _N, "PRICE6_RRSFF": _N,
+    "PRICE1_NS": 8.0, "PRICE2_NS": _N, "PRICE3_NS": _N,
+    "PRICE4_NS": _N, "PRICE5_NS": _N, "PRICE6_NS": 183.16,
+    "PRICE1_ECRS": _N, "PRICE2_ECRS": _N, "PRICE3_ECRS": _N,
+    "PRICE4_ECRS": _N, "PRICE5_ECRS": _N, "PRICE6_ECRS": _N,
+}
+# fmt: on
+
+
+class TestProcessScedResourceAsOffers:
+    """Tests for process_sced_resource_as_offers curve type detection.
+
+    ERCOT notice M-B040326-01: corrected files use NaN instead of zero
+    for empty AS Sub-Type Offer Prices. These tests use actual rows from
+    AEEC_ANTLP_3 on OD 2026-01-15 (affected) and OD 2026-02-03 (corrected)
+    to verify curve type classification works with both formats.
+    """
+
+    def test_online_with_zeros(self):
+        """Affected AEEC_ANTLP_3 ONRES row: zeros in inactive AS types."""
+        df = _make_sced_resource_as_offers_df([_AEEC_ANTLP_3_ONRES_AFFECTED])
+        result = process_sced_resource_as_offers(df)
+        assert result["Curve Type"].iloc[0] == "Online"
+
+    def test_online_with_nans(self):
+        """Corrected AEEC_ANTLP_3 ONRES row: NaN in inactive AS types."""
+        df = _make_sced_resource_as_offers_df([_AEEC_ANTLP_3_ONRES_CORRECTED])
+        result = process_sced_resource_as_offers(df)
+        assert result["Curve Type"].iloc[0] == "Online"
+
+    def test_regulation_down_with_zeros(self):
+        """Affected AEEC_ANTLP_3 REGDN row: zeros in all non-DRS columns."""
+        df = _make_sced_resource_as_offers_df([_AEEC_ANTLP_3_REGDN_AFFECTED])
+        result = process_sced_resource_as_offers(df)
+        assert result["Curve Type"].iloc[0] == "Regulation Down"
+
+    def test_regulation_down_with_nans(self):
+        """Corrected AEEC_ANTLP_3 REGDN row: NaN in all non-DRS columns."""
+        df = _make_sced_resource_as_offers_df([_AEEC_ANTLP_3_REGDN_CORRECTED])
+        result = process_sced_resource_as_offers(df)
+        assert result["Curve Type"].iloc[0] == "Regulation Down"
+
+    def test_offline_with_zeros(self):
+        """Affected AEEC_ANTLP_3 OFFNS row: zeros in all non-NS columns."""
+        df = _make_sced_resource_as_offers_df([_AEEC_ANTLP_3_OFFNS_AFFECTED])
+        result = process_sced_resource_as_offers(df)
+        assert result["Curve Type"].iloc[0] == "Offline"
+
+    def test_offline_with_nans(self):
+        """Corrected AEEC_ANTLP_3 OFFNS row: NaN in all non-NS columns."""
+        df = _make_sced_resource_as_offers_df([_AEEC_ANTLP_3_OFFNS_CORRECTED])
+        result = process_sced_resource_as_offers(df)
+        assert result["Curve Type"].iloc[0] == "Offline"
+
+    def test_three_rows_per_resource_with_nans(self):
+        """Corrected AEEC_ANTLP_3: all 3 rows classified correctly."""
+        df = _make_sced_resource_as_offers_df(
+            [
+                _AEEC_ANTLP_3_ONRES_CORRECTED,
+                _AEEC_ANTLP_3_REGDN_CORRECTED,
+                _AEEC_ANTLP_3_OFFNS_CORRECTED,
+            ],
+        )
+        result = process_sced_resource_as_offers(df)
+        assert list(result["Curve Type"]) == [
+            "Online",
+            "Regulation Down",
+            "Offline",
+        ]
+
+    def test_corrected_curves_exclude_nan_blocks(self):
+        """Corrected ONRES row: only blocks with real prices appear in curves."""
+        df = _make_sced_resource_as_offers_df([_AEEC_ANTLP_3_ONRES_CORRECTED])
+        result = process_sced_resource_as_offers(df)
+
+        # URS has prices in blocks 1 (7.50) and 6 (1420.8)
+        urs_curve = result["URS Offer Curve"].iloc[0]
+        assert urs_curve == [[16.0, 7.5], [36.0, 1420.8]]
+
+        # RRSPF has prices in blocks 2 (8.0) and 6 (742.99)
+        rrspf_curve = result["RRSPFR Offer Curve"].iloc[0]
+        assert rrspf_curve == [[6.2, 8.0], [36.0, 742.99]]
+
+        # DRS is entirely NaN — should be None
+        assert result["DRS Offer Curve"].iloc[0] is None
+
+    def test_output_columns(self):
+        """Verify processed output has the standard column set."""
+        df = _make_sced_resource_as_offers_df([_AEEC_ANTLP_3_ONRES_CORRECTED])
+        result = process_sced_resource_as_offers(df)
+        assert result.columns.tolist() == SCED_RESOURCE_AS_OFFERS_COLUMNS
 
 
 def check_60_day_dam_disclosure(df_dict):

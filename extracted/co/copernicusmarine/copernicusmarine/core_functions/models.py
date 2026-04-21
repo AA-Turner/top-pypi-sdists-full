@@ -1,9 +1,9 @@
 import pathlib
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal, Optional, Union, get_args
+from typing import Literal, get_args
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_serializer
 
 from copernicusmarine.catalogue_parser.models import (
     CopernicusMarineServiceNames,
@@ -14,7 +14,7 @@ FileFormat = Literal["netcdf", "zarr", "csv", "parquet"]
 DEFAULT_FILE_FORMAT: FileFormat = "netcdf"
 DEFAULT_FILE_FORMATS = list(get_args(FileFormat))
 
-FileExtension = Literal[".nc", ".zarr"]
+FileExtension = Literal[".nc", ".zarr", ".csv"]
 DEFAULT_FILE_EXTENSION: FileExtension = ".nc"
 DEFAULT_FILE_EXTENSIONS = list(get_args(FileExtension))
 
@@ -99,6 +99,13 @@ class FileGet(BaseModel):
     https_url: str
     #: Size of the file in MB.
     file_size: float
+
+    @field_serializer("file_size")
+    def serialize_file_size(self, file_size: float | None) -> str | None:
+        if file_size is not None:
+            return f"{file_size:.2f} MB"
+        return file_size
+
     #: Last modified date.
     last_modified_datetime: str
     #: ETag of the file.
@@ -123,13 +130,20 @@ class ResponseGet(BaseModel):
     #: Description of the files concerned by the query.
     files: list[FileGet]
     #: List of deleted files. Only if option ``sync-delete`` is passed.
-    files_deleted: Optional[list[str]]
+    files_deleted: list[str] | None
     #: List of not found files from the file list input.
-    files_not_found: Optional[list[str]]
+    files_not_found: list[str] | None
     #: Number of files to be downloaded.
     number_of_files_to_download: int
     #: Total size of the files that would be downloaded in MB.
-    total_size: Optional[float]
+    total_size: float | None
+
+    @field_serializer("total_size")
+    def serialize_total_size(self, total_size: float | None) -> str | None:
+        if total_size is not None:
+            return f"{total_size:.2f} MB"
+        return total_size
+
     #: Status of the request.
     status: StatusCode
     #: Message explaning the status.
@@ -174,7 +188,7 @@ class GeographicalExtent(BaseModel):
 
     minimum: float
     maximum: float
-    unit: Optional[str]
+    unit: str | None
     coordinate_id: str
 
 
@@ -201,20 +215,40 @@ class ResponseSubset(BaseModel):
     #: Estimation of the size of the final result file in MB.
     #: This estimation may not be accurate if you save the result as
     #: a compressed NetCDF file.
-    file_size: Optional[float]
+    file_size: float | None
+
+    @field_serializer("file_size")
+    def serialize_file_size(self, file_size: float | None) -> str | None:
+        if file_size is not None:
+            return f"{file_size:.2f} MB"
+        return file_size
+
     #: Estimation of the maximum amount of data needed to
     #: get the final result in MB.
-    data_transfer_size: Optional[float]
+    data_transfer_size: float | None
+
+    @field_serializer("data_transfer_size")
+    def serialize_data_transfer_size(
+        self, data_transfer_size: float | None
+    ) -> str | None:
+        if data_transfer_size is not None:
+            return f"{data_transfer_size:.2f} MB"
+        return data_transfer_size
+
     #: Variables of the subsetted dataset.
     variables: list[str]
     #: The bounds of the subsetted dataset.
-    coordinates_extent: list[Union[GeographicalExtent, TimeExtent]]
+    coordinates_extent: list[GeographicalExtent | TimeExtent]
     #: Status of the request.
     status: StatusCode
     #: Message explaning the status.
     message: StatusMessage
     #: Status of the files.
     file_status: FileStatus
+    #: List of file names when multiple files are produced.
+    #: Relevant for sparse datasets in netCDF format.
+    #: None when a single file is produced.
+    file_names: list[str] | None = None
 
 
 # Internal use only
@@ -246,9 +280,7 @@ class DatasetChunking:
             ].number_values
         return 0
 
-    def get_number_chunks_coordinate(
-        self, coordinate_id: str
-    ) -> Optional[float]:
+    def get_number_chunks_coordinate(self, coordinate_id: str) -> float | None:
         if coordinate_id in self.chunking_per_coordinate:
             return self.chunking_per_coordinate[coordinate_id].number_of_chunks
         return None

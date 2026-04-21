@@ -1,24 +1,71 @@
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import TYPE_CHECKING, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Optional, Tuple, Union
 
 import jax.numpy as jnp
 import torch
 import vllm.envs as vllm_envs
-from tpu_info import device
-from vllm.inputs import ProcessorInputs, PromptType
 from vllm.platforms.interface import Platform, PlatformEnum
 
 from tpu_inference import envs
 from tpu_inference.layers.common.sharding import ShardingConfigManager
 from tpu_inference.logger import init_logger
 
+# TODO(weiyulin): These dummy ops bypass vLLM's eager CUDA-specific imports during
+# Sequence Parallelism initialization. Our TPU SP implementation (see
+# vllmQuantLinearConfig) is independent of upstream compilation logic.
+# Revisit to see if these imports can be guarded or disabled for TPU.
+
+try:
+    import vllm._C  # noqa: F401
+except ImportError:
+    # Ensure the _C namespace exists
+    if not hasattr(torch.ops, "_C"):
+        torch.library.define("_C::dummy", "() -> ()")
+
+    def _register_dummy(name: str, schema: str):
+        if not hasattr(torch.ops._C, name):
+            torch.library.define(f"_C::{name}", schema)
+            torch.library.impl(f"_C::{name}", "default",
+                               lambda *args, **kwargs: None)
+
+    # Register the ops vLLM expects
+    _register_dummy("rms_norm",
+                    "(Tensor input, Tensor weight, float epsilon) -> Tensor")
+    _register_dummy(
+        "fused_add_rms_norm",
+        "(Tensor input, Tensor residual, Tensor weight, float epsilon) -> (Tensor, Tensor)"
+    )
+    _register_dummy(
+        "rotary_embedding",
+        "(Tensor positions, Tensor query, Tensor key, int head_size, Tensor cos_sin_cache, bool is_neox) -> ()"
+    )
+    _register_dummy("static_scaled_fp8_quant",
+                    "(Tensor input, Tensor scale) -> Tensor")
+    _register_dummy("dynamic_scaled_fp8_quant",
+                    "(Tensor input, Tensor scale) -> Tensor")
+    _register_dummy("dynamic_per_token_scaled_fp8_quant",
+                    "(Tensor input, Tensor scale) -> Tensor")
+    _register_dummy("silu_and_mul", "(Tensor input) -> Tensor")
+    _register_dummy(
+        "rms_norm_static_fp8_quant",
+        "(Tensor input, Tensor weight, Tensor scale, float epsilon) -> Tensor")
+    _register_dummy(
+        "fused_add_rms_norm_static_fp8_quant",
+        "(Tensor input, Tensor residual, Tensor weight, Tensor scale, float epsilon) -> (Tensor, Tensor)"
+    )
+    _register_dummy(
+        "rms_norm_dynamic_per_token_quant",
+        "(Tensor input, Tensor weight, Tensor scale, float epsilon) -> Tensor")
+
 if TYPE_CHECKING:
-    from vllm.attention.backends.registry import AttentionBackendEnum
-    from vllm.attention.selector import AttentionSelectorConfig
-    from vllm.config import BlockSize, ModelConfig, VllmConfig
+    from vllm.config import ModelConfig, VllmConfig
+    from vllm.config.cache import BlockSize
+    from vllm.inputs import ProcessorInputs, PromptType
     from vllm.pooling_params import PoolingParams
     from vllm.sampling_params import SamplingParams, SamplingType
+    from vllm.v1.attention.backends.registry import AttentionBackendEnum
+    from vllm.v1.attention.selector import AttentionSelectorConfig
 else:
     BlockSize = None
     ModelConfig = None
@@ -27,6 +74,8 @@ else:
     AttentionBackendEnum = None
     SamplingParams = None
     SamplingType = None
+    PromptType = None
+    ProcessorInputs = None
 
 logger = init_logger(__name__)
 
@@ -45,22 +94,36 @@ class TpuPlatform(Platform):
     ]
 
     additional_env_vars: list[str] = [
-        "PHASED_PROFILING_DIR", "TPU_CHIPS_PER_HOST_BOUNDS", "TPU_HOST_BOUNDS",
-        "TPU_MULTIHOST_BACKEND", "VLLM_MLA_DISABLE", "TPU_BACKEND_TYPE",
-        "NEW_MODEL_DESIGN"
+        "PHASED_PROFILING_DIR",
+        "TPU_CHIPS_PER_HOST_BOUNDS",
+        "TPU_HOST_BOUNDS",
+        "TPU_MULTIHOST_BACKEND",
+        "VLLM_MLA_DISABLE",
+        "TPU_BACKEND_TYPE",
+        "NEW_MODEL_DESIGN",
+        "MODEL_IMPL_TYPE",
+        "VLLM_DISABLE_SHARED_EXPERTS_STREAM",
+        "MOE_REQUANTIZE_BLOCK_SIZE",
+        "MOE_REQUANTIZE_WEIGHT_DTYPE",
+        "USE_JAX_PROFILER_SERVER",
+        "JAX_PROFILER_SERVER_PORT",
     ]
 
     @classmethod
     def get_attn_backend_cls(cls, selected_backend: "AttentionBackendEnum",
                              attn_selector_config: "AttentionSelectorConfig",
                              **kwargs) -> str:
-        from vllm.attention.backends.registry import AttentionBackendEnum
+        from vllm.v1.attention.backends.registry import AttentionBackendEnum
 
-        if selected_backend != AttentionBackendEnum.PALLAS:
-            logger.info("Cannot use %s backend on TPU.", selected_backend)
-
-        logger.info("Using Pallas V1 backend.")
-        return "tpu_inference.layers.vllm.attention.PallasAttentionBackend"
+        use_mla = attn_selector_config.use_mla
+        if use_mla:
+            selected_backend = AttentionBackendEnum.FLASH_ATTN_MLA
+        elif selected_backend != AttentionBackendEnum.FLASH_ATTN:
+            logger.info("Cannot use %s backend on TPU. Setting to FLASH_ATTN.",
+                        selected_backend)
+            selected_backend = AttentionBackendEnum.FLASH_ATTN
+        logger.info("Using %s backend.", selected_backend.name)
+        return selected_backend.get_path()
 
     @classmethod
     def get_device_name(cls, device_id: int = 0) -> str:
@@ -69,6 +132,12 @@ class TpuPlatform(Platform):
                 # Causes mutliprocess accessing IFRT when calling jax.devices()
                 return "TPU v6 lite"
             else:
+                # The tpu_info package, upon being imported, executes
+                # _initialize_libtpu_safely(), which attempts to start a new
+                # process (process.start()). Python's multiprocessing module
+                # forbids starting new processes, resulting in error.
+                # So import tpu_info here instead.
+                from tpu_info import device
                 chip_type, _ = device.get_local_chips()
                 return f"TPU {chip_type.name}"
         except Exception as e:
@@ -129,11 +198,6 @@ class TpuPlatform(Platform):
 
         from vllm.config import CompilationMode
 
-        cache_config = vllm_config.cache_config
-        # For v0, the default block size is 16.
-        if cache_config and cache_config.block_size is None:
-            cache_config.block_size = cast(BlockSize, 16)
-
         compilation_config = vllm_config.compilation_config
 
         # TPU only supports DYNAMO_TRACE_ONCE compilation level
@@ -144,21 +208,31 @@ class TpuPlatform(Platform):
         if compilation_config.backend == "":
             compilation_config.backend = "openxla"
 
-        # TODO(cuiq): remove this dependency.
-        if vllm_config.model_config:
-            from vllm.v1.attention.backends.pallas import \
-                PallasAttentionBackend
-            cache_config.block_size = PallasAttentionBackend.get_page_size(
-                vllm_config)  # type: ignore[assignment]
-            min_page_size = PallasAttentionBackend.get_min_page_size(
-                vllm_config)
-            if min_page_size > cache_config.block_size:
-                logger.warning(
-                    "Increase the page size from %s to %s to avoid SMEM OOM",
-                    cache_config.block_size,
-                    min_page_size,
-                )
-                cache_config.block_size = min_page_size  # type: ignore[assignment]
+        cache_config = vllm_config.cache_config
+        # For v0, the default block size is 16.
+        if cache_config and not cache_config.user_specified_block_size:
+            if vllm_config.model_config:
+                if vllm_config.model_config.use_mla:
+                    from tpu_inference.layers.vllm.backends.flash_attn_mla import \
+                        PallasMLAttentionBackend
+                    cache_config.block_size = PallasMLAttentionBackend.get_page_size(
+                        vllm_config)  # type: ignore[assignment]
+                else:
+                    from tpu_inference.layers.vllm.backends.flash_attn import \
+                        PallasAttentionBackend
+                    cache_config.block_size = PallasAttentionBackend.get_page_size(
+                        vllm_config)  # type: ignore[assignment]
+                    min_page_size = PallasAttentionBackend.get_min_page_size(
+                        vllm_config)
+                    if min_page_size > cache_config.block_size:
+                        logger.warning(
+                            "Increase the page size from %s to %s to avoid SMEM OOM",
+                            cache_config.block_size,
+                            min_page_size,
+                        )
+                        cache_config.block_size = min_page_size  # type: ignore[assignment]
+            logger.info(
+                f"Using KV cache block size: {cache_config.block_size}")
 
         parallel_config = vllm_config.parallel_config
         scheduler_config = vllm_config.scheduler_config
@@ -174,7 +248,9 @@ class TpuPlatform(Platform):
             else:
                 logger.info("Force using MultiprocExecutor for JAX on "
                             "single host with pipeline parallelism.")
-                parallel_config.distributed_executor_backend = "mp"
+                from tpu_inference.executors.multiproc_executor import \
+                    MultiprocExecutor
+                parallel_config.distributed_executor_backend = MultiprocExecutor
         elif multihost_backend == "ray":
             from tpu_inference.executors.ray_distributed_executor import \
                 RayDistributedExecutor
@@ -198,16 +274,23 @@ class TpuPlatform(Platform):
         if kv_transfer_config is not None:
             assert kv_transfer_config.kv_connector == "TPUConnector"
         # Late initialization to avoid circular import.
-        # Only perform qwix quantization if it is jax model.
-        if vllm_config.model_config is not None:
-            from tpu_inference.models.jax.utils.qwix.qwix_utils import \
-                update_vllm_config_for_qwix_quantization
-            if vllm_config.model_config:
-                update_vllm_config_for_qwix_quantization(vllm_config)
-
         from tpu_inference.core.sched.dp_scheduler import \
             update_vllm_config_for_dp_scheduler
         update_vllm_config_for_dp_scheduler(vllm_config)
+
+    @classmethod
+    def update_block_size_for_backend(cls, vllm_config: VllmConfig) -> None:
+        # TODO: TPU still sets block_size in check_and_update_config.
+        # Move that logic here so block_size is chosen by the backend.
+
+        # Align block/mamba sizes for hybrid model (may override user settings).
+        if vllm_config.model_config.is_hybrid:
+            backend_cls = cls._find_non_ssm_backend(vllm_config)
+            if backend_cls is None:
+                return
+            cls._align_hybrid_block_size(vllm_config, backend_cls)
+
+        return
 
     @classmethod
     def is_pin_memory_available(cls):
@@ -230,9 +313,8 @@ class TpuPlatform(Platform):
     @classmethod
     def validate_request(
         cls,
-        prompt: PromptType,
-        params: Union["SamplingParams", PoolingParams],
         processed_inputs: ProcessorInputs,
+        params: Union["SamplingParams", PoolingParams],
     ) -> None:
         """Raises if this request is unsupported on this platform"""
         from vllm.sampling_params import SamplingParams, SamplingType
@@ -256,3 +338,16 @@ class TpuPlatform(Platform):
     @classmethod
     def support_hybrid_kv_cache(cls) -> bool:
         return True
+
+    @classmethod
+    def current_device(cls) -> torch.device:
+        """
+        Get the current device for the current platform.
+
+        This is mostly a placeholder since this method isn't
+        currently called from TPU Inference but instead
+        from upstream vLLM.  This won't be an issue,
+        however, because we'll manually place tensors
+        on the TPU device(s).
+        """
+        return torch.device("cpu")

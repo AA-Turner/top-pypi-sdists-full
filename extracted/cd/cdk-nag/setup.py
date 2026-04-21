@@ -5,12 +5,12 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-nag",
-    "version": "2.37.55",
+    "version": "2.37.56",
     "description": "Check CDK v2 applications for best practices using a combination on available rule packs.",
     "license": "Apache-2.0",
     "url": "https://github.com/cdklabs/cdk-nag.git",
     "long_description_content_type": "text/markdown",
-    "author": "Arun Donti<donti@amazon.com>",
+    "author": "Amazon Web Services<aws-cdk-dev@amazon.com>",
     "bdist_wheel": {
         "universal": true
     },
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_nag._jsii": [
-            "cdk-nag@2.37.55.jsii.tgz"
+            "cdk-nag@2.37.56.jsii.tgz"
         ],
         "cdk_nag": [
             "py.typed"
@@ -35,10 +35,10 @@ kwargs = json.loads(
     "python_requires": "~=3.9",
     "install_requires": [
         "aws-cdk-lib>=2.176.0, <3.0.0",
-        "constructs>=10.0.5, <11.0.0",
-        "jsii>=1.116.0, <2.0.0",
+        "constructs>=10.5.1, <11.0.0",
+        "jsii>=1.128.0, <2.0.0",
         "publication>=0.0.3",
-        "typeguard>=2.13.3,<4.3.0"
+        "typeguard==2.13.3"
     ],
     "classifiers": [
         "Intended Audience :: Developers",
@@ -49,7 +49,7 @@ kwargs = json.loads(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Typing :: Typed",
-        "Development Status :: 5 - Production/Stable",
+        "Development Status :: 4 - Beta",
         "License :: OSI Approved"
     ],
     "scripts": []

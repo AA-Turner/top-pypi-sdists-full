@@ -3,6 +3,7 @@
 
 from sql import Column, Literal
 
+from trytond import backend
 from trytond.pool import Pool
 from trytond.tools import grouped_slice
 
@@ -31,10 +32,22 @@ def fmany2one(
             pool = Pool()
             Target = pool.get(target_model)
             table_h = cls.__table_handler__(module)
+            target_h = Target.__table_handler__(module)
             super().__register__(module)
-            table_h.add_fk(
-                sources, Target._table, target_fields,
-                on_delete=getattr(cls, name).ondelete)
+            if (all(table_h.column_exist(s) for s in sources)
+                    and all(target_h.column_exist(t) for t in target_fields)):
+                table_h.add_fk(
+                    sources, Target._table, target_fields,
+                    on_delete=getattr(cls, name).ondelete)
+
+        @classmethod
+        def __setup__(cls):
+            super().__setup__()
+            if any(isinstance(getattr(cls, s), Function) for s in sources):
+                try:
+                    delattr(Mixin, f'domain_{name}')
+                except AttributeError:
+                    pass
 
         @classmethod
         def preprocess_values(cls, mode, values):
@@ -50,7 +63,8 @@ def fmany2one(
         values = set(filter(all,
                 (tuple(getattr(r, s) for s in sources) for r in records)))
         values2id = {}
-        for sub_values in grouped_slice(values):
+        for sub_values in grouped_slice(
+                values, backend.MAX_QUERY_PARAMS // len(target_fields)):
             domain = ['OR']
             for values in sub_values:
                 domain.append(
@@ -92,8 +106,11 @@ def fmany2one(
 
     setattr(Mixin, name, Function(
             Many2One(target_model, string, ondelete=ondelete, **kwargs),
-            f'get_{name}', setter=f'set_{name}'))
+            f'get_{name}',
+            setter=f'set_{name}'
+            if not kwargs.get('readonly', False) else None))
     setattr(Mixin, f'get_{name}', getter)
-    setattr(Mixin, f'set_{name}', setter)
+    if not kwargs.get('readonly', False):
+        setattr(Mixin, f'set_{name}', setter)
     setattr(Mixin, f'domain_{name}', searcher)
     return Mixin

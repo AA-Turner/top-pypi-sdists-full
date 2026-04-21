@@ -221,7 +221,7 @@ impl std::fmt::Display for ParseErrorType {
         match self {
             ParseErrorType::OtherError(msg) => write!(f, "{msg}"),
             ParseErrorType::ExpectedToken { found, expected } => {
-                write!(f, "Expected {expected}, found {found}",)
+                write!(f, "Expected {expected}, found {found}")
             }
             ParseErrorType::Lexical(lex_error) => write!(f, "{lex_error}"),
             ParseErrorType::SimpleStatementsOnSameLine => {
@@ -501,6 +501,7 @@ pub enum StarTupleKind {
 pub enum FStringKind {
     Backslash,
     Comment,
+    LineBreak,
     NestedQuote,
 }
 
@@ -732,6 +733,11 @@ pub enum UnsupportedSyntaxErrorKind {
     ///     bag['bag']  # recursive bags!
     /// }'''
     ///
+    /// # line breaks in a non-triple-quoted replacement field
+    /// f"{
+    ///     1
+    /// }"
+    ///
     /// # arbitrary nesting
     /// f"{f"{f"{f"{f"{f"{1+1}"}"}"}"}"}"
     /// ```
@@ -836,6 +842,28 @@ pub enum UnsupportedSyntaxErrorKind {
     ///
     /// [PEP 646]: https://peps.python.org/pep-0646/#change-2-args-as-a-typevartuple
     StarAnnotation,
+
+    /// Represents the use of iterable unpacking inside a list comprehension
+    /// before Python 3.15.
+    ///
+    /// ## Examples
+    ///
+    /// Before Python 3.15, list comprehensions could not use iterable
+    /// unpacking in their element expression:
+    ///
+    /// ```python
+    /// [*x for x in y]  # SyntaxError
+    /// ```
+    ///
+    /// Starting with Python 3.15, [PEP 798] allows iterable unpacking within
+    /// list comprehensions:
+    ///
+    /// ```python
+    /// [*x for x in y]
+    /// ```
+    ///
+    /// [PEP 798]: https://peps.python.org/pep-0798/
+    IterableUnpackingInListComprehension,
 
     /// Represents the use of tuple unpacking in a `for` statement iterator clause before Python
     /// 3.9.
@@ -969,6 +997,9 @@ impl Display for UnsupportedSyntaxError {
             UnsupportedSyntaxErrorKind::Pep701FString(FStringKind::Comment) => {
                 "Cannot use comments in f-strings"
             }
+            UnsupportedSyntaxErrorKind::Pep701FString(FStringKind::LineBreak) => {
+                "Cannot use line breaks in non-triple-quoted f-string replacement fields"
+            }
             UnsupportedSyntaxErrorKind::Pep701FString(FStringKind::NestedQuote) => {
                 "Cannot reuse outer quote character in f-strings"
             }
@@ -979,6 +1010,9 @@ impl Display for UnsupportedSyntaxError {
                 "Cannot use star expression in index"
             }
             UnsupportedSyntaxErrorKind::StarAnnotation => "Cannot use star annotation",
+            UnsupportedSyntaxErrorKind::IterableUnpackingInListComprehension => {
+                "Cannot use iterable unpacking in a list comprehension"
+            }
             UnsupportedSyntaxErrorKind::UnparenthesizedUnpackInFor => {
                 "Cannot use iterable unpacking in `for` statements"
             }
@@ -1051,6 +1085,9 @@ impl UnsupportedSyntaxErrorKind {
                 Change::Added(PythonVersion::PY311)
             }
             UnsupportedSyntaxErrorKind::StarAnnotation => Change::Added(PythonVersion::PY311),
+            UnsupportedSyntaxErrorKind::IterableUnpackingInListComprehension => {
+                Change::Added(PythonVersion::PY315)
+            }
             UnsupportedSyntaxErrorKind::UnparenthesizedUnpackInFor => {
                 Change::Added(PythonVersion::PY39)
             }

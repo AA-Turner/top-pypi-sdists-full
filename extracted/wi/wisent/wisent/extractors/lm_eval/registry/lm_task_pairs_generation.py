@@ -349,9 +349,12 @@ def build_contrastive_pairs(
                     leaf_extractor = extractor
                 leaf_evaluator = getattr(leaf_extractor, 'evaluator_name', evaluator_name)
                 try:
-                    leaf_pairs = leaf_extractor.extract_contrastive_pairs(
-                        leaf_task, limit=pairs_per_task, train_ratio=train_ratio
-                    )
+                    if isinstance(leaf_extractor, HuggingFaceBenchmarkExtractor):
+                        leaf_pairs = leaf_extractor.extract_contrastive_pairs(limit=pairs_per_task)
+                    else:
+                        leaf_pairs = leaf_extractor.extract_contrastive_pairs(
+                            leaf_task, limit=pairs_per_task, train_ratio=train_ratio
+                        )
                     leaf_pairs = _add_evaluator_to_pairs(leaf_pairs, leaf_evaluator, leaf_name_full)
                     all_pairs.extend(leaf_pairs)
                 except Exception as e:
@@ -371,6 +374,11 @@ def build_contrastive_pairs(
         task_obj, _ = _load_subtask_from_parent(task_name, loader, log)
         if task_obj is None:
             raise
+
+    # If the loader returned a dict but the caller asked for a specific leaf,
+    # narrow down to that leaf so we do not aggregate unrelated subtasks.
+    if isinstance(task_obj, dict) and task_name in task_obj:
+        task_obj = task_obj[task_name]
 
     # Single task (ConfigurableTask)
     if isinstance(task_obj, ConfigurableTask):

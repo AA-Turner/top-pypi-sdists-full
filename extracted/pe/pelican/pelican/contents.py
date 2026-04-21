@@ -4,9 +4,8 @@ import locale
 import logging
 import os
 import re
-from datetime import timezone
 from html import unescape
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import ParseResult, unquote, urljoin, urlparse, urlunparse
 
 try:
@@ -28,6 +27,7 @@ from pelican.utils import (
     sanitised_join,
     set_date_tzinfo,
     slugify,
+    strip_toc_elements_from_html,
     truncate_html_paragraphs,
     truncate_html_words,
 )
@@ -46,7 +46,7 @@ class Content:
 
     """
 
-    default_template: Optional[str] = None
+    default_template: str | None = None
     mandatory_properties: tuple[str, ...] = ()
 
     @deprecated_attribute(old="filename", new="source_path", since=(3, 2, 0))
@@ -56,10 +56,10 @@ class Content:
     def __init__(
         self,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
-        settings: Optional[Settings] = None,
-        source_path: Optional[str] = None,
-        context: Optional[dict[Any, Any]] = None,
+        metadata: dict[str, Any] | None = None,
+        settings: Settings | None = None,
+        source_path: str | None = None,
+        context: dict[Any, Any] | None = None,
     ):
         if metadata is None:
             metadata = {}
@@ -242,7 +242,7 @@ class Content:
         )
         return metadata
 
-    def _expand_settings(self, key: str, klass: Optional[str] = None) -> str:
+    def _expand_settings(self, key: str, klass: str | None = None) -> str:
         if not klass:
             klass = self.__class__.__name__
         fq_key = (f"{klass}_{key}").upper()
@@ -282,10 +282,10 @@ class Content:
         # XXX Put this in a different location.
         if what in {"filename", "static", "attach"}:
 
-            def _get_linked_content(key: str, url: ParseResult) -> Optional[Content]:
+            def _get_linked_content(key: str, url: ParseResult) -> Content | None:
                 nonlocal value
 
-                def _find_path(path: str) -> Optional[Content]:
+                def _find_path(path: str) -> Content | None:
                     if path.startswith("/"):
                         path = path[1:]
                     else:
@@ -343,8 +343,7 @@ class Content:
                     value.geturl(),
                     extra={
                         "limit_msg": (
-                            "Other resources were not found "
-                            "and their urls not replaced"
+                            "Other resources were not found and their urls not replaced"
                         )
                     },
                 )
@@ -433,7 +432,7 @@ class Content:
         return self.get_content(self.get_siteurl())
 
     @memoized
-    def get_summary(self, siteurl: str) -> str:
+    def get_summary(self, _siteurl: str) -> str:
         """Returns the summary of an article.
 
         This is based on the summary metadata if set, otherwise truncate the
@@ -448,13 +447,19 @@ class Content:
             content = truncate_html_paragraphs(self.content, max_paragraphs)
 
         if self.settings["SUMMARY_MAX_LENGTH"] is None:
-            return content
+            summary = content
+        else:
+            summary = truncate_html_words(
+                content,
+                self.settings["SUMMARY_MAX_LENGTH"],
+                self.settings["SUMMARY_END_SUFFIX"],
+            )
 
-        return truncate_html_words(
-            content,
-            self.settings["SUMMARY_MAX_LENGTH"],
-            self.settings["SUMMARY_END_SUFFIX"],
-        )
+        # Strip TOC elements that would contain broken links in summary context
+        # TOC anchors only work in full article view, not in summaries/excerpts
+        summary = strip_toc_elements_from_html(summary)
+
+        return summary
 
     @property
     def summary(self) -> str:
@@ -496,9 +501,7 @@ class Content:
         else:
             return self.default_template
 
-    def get_relative_source_path(
-        self, source_path: Optional[str] = None
-    ) -> Optional[str]:
+    def get_relative_source_path(self, source_path: str | None = None) -> str | None:
         """Return the relative path (from the content path) to the given
         source_path.
 
@@ -554,6 +557,7 @@ class SkipStub(Content):
     def __init__(
         self, content, metadata=None, settings=None, source_path=None, context=None
     ):
+        del content, metadata, settings, context  # Unused arguments
         self.source_path = source_path
 
     def is_valid(self):
@@ -580,7 +584,7 @@ class Page(Content):
 
 
 class Article(Content):
-    mandatory_properties = ("title", "date", "category")
+    mandatory_properties = ("title", "date")
     allowed_statuses = ("published", "hidden", "draft", "skip")
     default_status = "published"
     default_template = "article"
@@ -593,7 +597,7 @@ class Article(Content):
             if self.date.tzinfo is None:
                 now = datetime.datetime.now()
             else:
-                now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+                now = datetime.datetime.now(datetime.UTC)
             if self.date > now:
                 self.status = "draft"
 

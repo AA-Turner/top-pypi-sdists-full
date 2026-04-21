@@ -49,6 +49,7 @@ from .literals import (
     GatewayStatusType,
     InboundTokenClaimValueTypeType,
     KeyTypeType,
+    ListingModeType,
     MemoryStatusType,
     MemoryStrategyStatusType,
     MemoryStrategyTypeType,
@@ -2450,6 +2451,7 @@ class ApiGatewayTargetConfigurationTypeDef(TypedDict):
 class McpServerTargetConfigurationTypeDef(TypedDict):
     endpoint: str
     mcpToolSchema: NotRequired[McpToolSchemaConfigurationTypeDef]
+    listingMode: NotRequired[ListingModeType]
 
 class CustomClaimValidationTypeOutputTypeDef(TypedDict):
     inboundTokenClaimName: str

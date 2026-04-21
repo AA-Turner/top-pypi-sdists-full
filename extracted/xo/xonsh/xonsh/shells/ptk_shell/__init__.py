@@ -10,6 +10,7 @@ from prompt_toolkit import ANSI
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, Suggestion
 from prompt_toolkit.clipboard import InMemoryClipboard
+from prompt_toolkit.document import Document
 from prompt_toolkit.enums import EditingMode
 from prompt_toolkit.formatted_text import PygmentsTokens, to_formatted_text
 from prompt_toolkit.history import ThreadedHistory
@@ -27,9 +28,9 @@ from prompt_toolkit.styles.pygments import pygments_token_to_classname
 from xonsh.built_ins import XSH
 from xonsh.events import events
 from xonsh.lib.lazyimps import pyghooks, pygments, winutils
-from xonsh.platform import HAS_PYGMENTS, ON_POSIX, ON_WINDOWS
+from xonsh.platform import HAS_PYGMENTS, ON_POSIX, ON_WINDOWS, win_ansi_support
 from xonsh.pygments_cache import get_all_styles
-from xonsh.shell import transform_command
+from xonsh.shell import deindent, transform_command
 from xonsh.shells.base_shell import BaseShell
 from xonsh.shells.ptk_shell.completer import PromptToolkitCompleter
 from xonsh.shells.ptk_shell.formatter import PTKPromptFormatter
@@ -312,8 +313,16 @@ class PromptToolkitShell(BaseShell):
         events.on_pre_prompt_format.fire()
         env = XSH.env
 
-        if next_command := env.get("XONSH_PROMPT_NEXT_CMD", ""):
+        next_command: str | Document = ""
+        if next_cmd_raw := env.get("XONSH_PROMPT_NEXT_CMD", ""):
             env["XONSH_PROMPT_NEXT_CMD"] = ""
+            cursor_marker = "<cursor>"
+            if cursor_marker in next_cmd_raw:
+                cursor_pos = next_cmd_raw.index(cursor_marker)
+                text = next_cmd_raw.replace(cursor_marker, "")
+                next_command = Document(text, cursor_pos)
+            else:
+                next_command = next_cmd_raw
 
         mouse_support = env.get("MOUSE_SUPPORT")
         auto_suggest = auto_suggest if env.get("XONSH_PROMPT_AUTO_SUGGEST") else None
@@ -337,6 +346,10 @@ class PromptToolkitShell(BaseShell):
         env["PROMPT_FIELDS"].reset()
 
         get_bottom_toolbar_tokens = self.bottom_toolbar_tokens
+        if get_bottom_toolbar_tokens is None:
+            # Explicitly clear PTK's cached toolbar — passing None to prompt()
+            # means "don't change", so we must set the attribute directly.
+            self.prompter.bottom_toolbar = None
         if env.get("UPDATE_PROMPT_ON_KEYPRESS"):
             get_prompt_tokens = self.prompt_tokens
             get_rprompt_tokens = self.rprompt_tokens
@@ -399,7 +412,36 @@ class PromptToolkitShell(BaseShell):
             prompt_args["cursor"] = cursor_shape
 
         events.on_pre_prompt.fire()
-        line = self.prompter.prompt(**prompt_args)
+        # Enable xterm modifyOtherKeys mode so the terminal sends
+        # distinct escape sequences for Shift+Enter, Ctrl+Enter, etc.
+        # Mode 2 = all keys except those with well-known behavior.
+        # Skip on legacy Windows conhost (pre-Win10 build 14393) which
+        # does not interpret VT/ANSI and would render the bytes verbatim
+        # around every prompt — see issue #6325.
+        output = self.prompter.app.output
+        emit_modify_other_keys = not ON_WINDOWS or win_ansi_support()
+        if emit_modify_other_keys:
+            output.write_raw("\x1b[>4;1m")
+            output.flush()
+        try:
+            while True:
+                try:
+                    line = self.prompter.prompt(**prompt_args)
+                    break
+                except Exception as e:
+                    # Retry on EINTR (errno 4) — tcsetattr in prompt_toolkit's
+                    # raw_mode() is not automatically retried by Python (PEP 475
+                    # doesn't cover termios).  This happens when a signal (e.g.
+                    # SIGCHLD from a process launcher like `uv run`) arrives
+                    # during terminal setup.
+                    if getattr(e, "args", (None,))[0] == 4:
+                        continue
+                    raise
+        finally:
+            if emit_modify_other_keys:
+                # Disable modifyOtherKeys to avoid affecting child processes.
+                output.write_raw("\x1b[>4;0m")
+                output.flush()
         events.on_post_prompt.fire()
         return line
 
@@ -415,7 +457,11 @@ class PromptToolkitShell(BaseShell):
         src = transform_command(src)
         try:
             code = self.execer.compile(
-                src, mode="single", glbs=self.ctx, locs=None, compile_empty_tree=False
+                deindent(src),
+                mode="single",
+                glbs=self.ctx,
+                locs=None,
+                compile_empty_tree=False,
             )
             self.reset_buffer()
         except Exception:  # pylint: disable=broad-except
@@ -509,9 +555,14 @@ class PromptToolkitShell(BaseShell):
         """Displays dots in multiline prompt"""
         if is_soft_wrap:
             return ""
-        width -= 1
         dots = XSH.env.get("MULTILINE_PROMPT")
-        dots = dots() if callable(dots) else dots
+        if callable(dots):
+            try:
+                # prompt_toolkit passes 1 for the first continuation,
+                # but the main prompt is line 1, so shift by 1.
+                dots = dots(line_number=line_number + 1, width=width)
+            except TypeError:
+                dots = dots()
         if not dots:
             return ""
         prefix = XSH.env.get(
@@ -527,15 +578,20 @@ class PromptToolkitShell(BaseShell):
             # [('class:pygments.color.reset',''), ('[ZeroWidthEscape]','\x1b]133;P;k=c\x07')]
             # [('class:pygments.color.reset',''), ('[ZeroWidthEscape]','\x1b]133;B\x07')]
 
-        basetoks = self.format_color(dots)
+        # Resolve both xonsh colors ({RED}) and ANSI escapes (\033[31m)
+        # so baselen counts only visible characters.  See #5898.
+        basetoks = tokenize_ansi(PygmentsTokens(self.format_color(dots)))
         baselen = sum(len(t[1]) for t in basetoks)
         if baselen == 0:
-            toks = [(Token, " " * (width + 1))]
-            if is_affix:  # to convert ↓ classes to str to allow +
-                return prefixtoks + to_formatted_text(PygmentsTokens(toks)) + suffixtoks
+            toks = [("", " " * width)]
+            if is_affix:
+                return prefixtoks + toks + suffixtoks
             else:
-                return PygmentsTokens(toks)
-        toks = basetoks * (width // baselen)
+                return toks
+        # Reserve the last column for a trailing space so the continuation
+        # aligns with the parent prompt, which is assumed to end with one.
+        width -= 1
+        toks = list(basetoks) * (width // baselen)
         n = width % baselen
         count = 0
         for tok in basetoks:
@@ -550,11 +606,11 @@ class PromptToolkitShell(BaseShell):
             count = newcount
             if n <= count:
                 break
-        toks.append((Token, " "))  # final space
+        toks.append(("", " "))
         if is_affix:
-            return prefixtoks + to_formatted_text(PygmentsTokens(toks)) + suffixtoks
+            return prefixtoks + toks + suffixtoks
         else:
-            return PygmentsTokens(toks)
+            return toks
 
     def format_color(self, string, hide=False, force_string=False, **kwargs):
         """Formats a color string using Pygments. This, therefore, returns

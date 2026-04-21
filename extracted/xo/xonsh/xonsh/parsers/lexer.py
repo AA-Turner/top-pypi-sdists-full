@@ -19,6 +19,9 @@ from xonsh.parsers.tokenize import (
     ENCODING,
     ENDMARKER,
     ERRORTOKEN,
+    FSTRING_END,
+    FSTRING_MIDDLE,
+    FSTRING_START,
     GREATER,
     INDENT,
     IOREDIRECT1,
@@ -33,6 +36,7 @@ from xonsh.parsers.tokenize import (
     RIGHTSHIFT,
     SEARCHPATH,
     STRING,
+    TYPE,
     TokenError,
     tokenize,
 )
@@ -104,6 +108,9 @@ def token_map():
     tm[IOREDIRECT1] = "IOREDIRECT1"
     tm[IOREDIRECT2] = "IOREDIRECT2"
     tm[STRING] = "STRING"
+    tm[FSTRING_START] = "FSTRING_START"
+    tm[FSTRING_MIDDLE] = "FSTRING_MIDDLE"
+    tm[FSTRING_END] = "FSTRING_END"
     tm[DOLLARNAME] = "DOLLAR_NAME"
     tm[NUMBER] = "NUMBER"
     tm[SEARCHPATH] = "SEARCHPATH"
@@ -113,6 +120,8 @@ def token_map():
     # python 3.10 (backwards and name token compatible) tokens
     tm[MATCH] = "MATCH"
     tm[CASE] = "CASE"
+    # python 3.12 (PEP 695) soft keyword
+    tm[TYPE] = "TYPE"
     return tm
 
 
@@ -136,7 +145,7 @@ def handle_name(state, token):
     if state["pymode"][-1][0]:
         if needs_whitespace and not has_whitespace:
             pass
-        elif token.string in kwmod.kwlist + ["match", "case"]:
+        elif token.string in kwmod.kwlist + ["match", "case", "type"]:
             typ = token.string.upper()
         yield _new_token(typ, token.string, token.start)
     else:
@@ -338,6 +347,7 @@ def special_handlers():
     _make_matcher_handler("!(", "BANG_LPAREN", False, ")", sh)
     _make_matcher_handler("![", "BANG_LBRACKET", False, "]", sh)
     _make_matcher_handler("@(", "AT_LPAREN", True, ")", sh)
+    _make_matcher_handler("@!(", "ATBANG_LPAREN", False, ")", sh)
     _make_matcher_handler("@$(", "ATDOLLAR_LPAREN", False, ")", sh)
     return sh
 
@@ -491,17 +501,24 @@ class Lexer:
         """Splits a string into a list of strings which are whitespace-separated
         tokens.
         """
-        self.input(s)
+        self.input(s, is_subproc=True)
         elements = []
         l = c = -1
         ws = "WS"
         nl = "\n"
+        newline_types = frozenset({"NEWLINE", "NL", "COMMENT"})
         for token in self:
             if token.type == ws:
                 continue
+            elif token.type in newline_types:
+                # After a newline token, force the next token to start a
+                # new element by setting c to an impossible value.
+                l = token.lineno + token.value.count(nl)
+                c = -1
+                continue
             elif l < token.lineno:
                 elements.append(token.value)
-            elif len(elements) > 0 and c == token.lexpos:
+            elif len(elements) > 0 and c == token.lexpos and c >= 0:
                 elements[-1] = elements[-1] + token.value
             else:
                 elements.append(token.value)
@@ -536,6 +553,7 @@ class Lexer:
                     "LBRACE",
                     "RBRACE",  # { }
                     "AT_LPAREN",  # @(
+                    "ATBANG_LPAREN",  # @!(
                     "BANG_LPAREN",  # !(
                     "BANG_LBRACKET",  # ![
                     "DOLLAR_LPAREN",  # $(

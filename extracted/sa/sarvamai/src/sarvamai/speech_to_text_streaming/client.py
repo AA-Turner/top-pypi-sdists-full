@@ -52,6 +52,16 @@ class SpeechToTextStreamingClient:
         mode: typing.Optional[SpeechToTextStreamingMode] = None,
         sample_rate: typing.Optional[str] = None,
         high_vad_sensitivity: typing.Optional[SpeechToTextStreamingHighVadSensitivity] = None,
+        positive_speech_threshold: typing.Optional[str] = None,
+        negative_speech_threshold: typing.Optional[str] = None,
+        min_speech_frames: typing.Optional[str] = None,
+        first_turn_min_speech_frames: typing.Optional[str] = None,
+        negative_frames_count: typing.Optional[str] = None,
+        negative_frames_window: typing.Optional[str] = None,
+        start_speech_volume_threshold: typing.Optional[str] = None,
+        interrupt_min_speech_frames: typing.Optional[str] = None,
+        pre_speech_pad_frames: typing.Optional[str] = None,
+        num_initial_ignored_frames: typing.Optional[str] = None,
         vad_signals: typing.Optional[SpeechToTextStreamingVadSignals] = None,
         flush_signal: typing.Optional[SpeechToTextStreamingFlushSignal] = None,
         input_audio_codec: typing.Optional[SpeechToTextStreamingInputAudioCodec] = None,
@@ -131,6 +141,48 @@ class SpeechToTextStreamingClient:
         high_vad_sensitivity : typing.Optional[SpeechToTextStreamingHighVadSensitivity]
             Enable high VAD (Voice Activity Detection) sensitivity
 
+        positive_speech_threshold : typing.Optional[str]
+            VAD probability threshold (0.0–1.0) above which a frame is considered speech.
+            Overrides the server default when provided.
+
+        negative_speech_threshold : typing.Optional[str]
+            VAD probability threshold (0.0–1.0) below which a frame is considered silence.
+            Overrides the server default (or the high_vad_sensitivity preset) when provided.
+
+        min_speech_frames : typing.Optional[str]
+            Minimum number of consecutive speech frames required to start a speech segment.
+            Overrides the server default when provided.
+
+        first_turn_min_speech_frames : typing.Optional[str]
+            Minimum speech frames required specifically for the first user turn.
+            Overrides the server default when provided.
+
+        negative_frames_count : typing.Optional[str]
+            Number of negative (silence) frames needed within the window to end a speech segment.
+            Overrides the server default (or the high_vad_sensitivity preset) when provided.
+
+        negative_frames_window : typing.Optional[str]
+            Sliding window size (in frames) over which negative frames are counted.
+            Overrides the server default (or the high_vad_sensitivity preset) when provided.
+
+        start_speech_volume_threshold : typing.Optional[str]
+            Volume level (dB) below which audio is considered too quiet to be speech.
+            When not provided, no volume-based filtering is applied.
+
+        interrupt_min_speech_frames : typing.Optional[str]
+            Minimum speech frames required to register a barge-in / interruption.
+            Overrides the server default when provided.
+
+        pre_speech_pad_frames : typing.Optional[str]
+            Number of audio frames to prepend before the detected speech onset,
+            ensuring the beginning of speech is not clipped.
+            Overrides the server default when provided.
+
+        num_initial_ignored_frames : typing.Optional[str]
+            Number of leading audio frames to skip entirely at connection start.
+            Useful for discarding connection setup noise.
+            Overrides the server default when provided.
+
         vad_signals : typing.Optional[SpeechToTextStreamingVadSignals]
             Enable VAD signals in response
 
@@ -161,6 +213,16 @@ class SpeechToTextStreamingClient:
                         "mode": mode,
                         "sample_rate": sample_rate,
                         "high_vad_sensitivity": high_vad_sensitivity,
+                        "positive_speech_threshold": positive_speech_threshold,
+                        "negative_speech_threshold": negative_speech_threshold,
+                        "min_speech_frames": min_speech_frames,
+                        "first_turn_min_speech_frames": first_turn_min_speech_frames,
+                        "negative_frames_count": negative_frames_count,
+                        "negative_frames_window": negative_frames_window,
+                        "start_speech_volume_threshold": start_speech_volume_threshold,
+                        "interrupt_min_speech_frames": interrupt_min_speech_frames,
+                        "pre_speech_pad_frames": pre_speech_pad_frames,
+                        "num_initial_ignored_frames": num_initial_ignored_frames,
                         "vad_signals": vad_signals,
                         "flush_signal": flush_signal,
                         "input_audio_codec": input_audio_codec,
@@ -222,6 +284,16 @@ class AsyncSpeechToTextStreamingClient:
         mode: typing.Optional[SpeechToTextStreamingMode] = None,
         sample_rate: typing.Optional[str] = None,
         high_vad_sensitivity: typing.Optional[SpeechToTextStreamingHighVadSensitivity] = None,
+        positive_speech_threshold: typing.Optional[str] = None,
+        negative_speech_threshold: typing.Optional[str] = None,
+        min_speech_frames: typing.Optional[str] = None,
+        first_turn_min_speech_frames: typing.Optional[str] = None,
+        negative_frames_count: typing.Optional[str] = None,
+        negative_frames_window: typing.Optional[str] = None,
+        start_speech_volume_threshold: typing.Optional[str] = None,
+        interrupt_min_speech_frames: typing.Optional[str] = None,
+        pre_speech_pad_frames: typing.Optional[str] = None,
+        num_initial_ignored_frames: typing.Optional[str] = None,
         vad_signals: typing.Optional[SpeechToTextStreamingVadSignals] = None,
         flush_signal: typing.Optional[SpeechToTextStreamingFlushSignal] = None,
         input_audio_codec: typing.Optional[SpeechToTextStreamingInputAudioCodec] = None,
@@ -301,6 +373,48 @@ class AsyncSpeechToTextStreamingClient:
         high_vad_sensitivity : typing.Optional[SpeechToTextStreamingHighVadSensitivity]
             Enable high VAD (Voice Activity Detection) sensitivity
 
+        positive_speech_threshold : typing.Optional[str]
+            VAD probability threshold (0.0–1.0) above which a frame is considered speech.
+            Overrides the server default when provided.
+
+        negative_speech_threshold : typing.Optional[str]
+            VAD probability threshold (0.0–1.0) below which a frame is considered silence.
+            Overrides the server default (or the high_vad_sensitivity preset) when provided.
+
+        min_speech_frames : typing.Optional[str]
+            Minimum number of consecutive speech frames required to start a speech segment.
+            Overrides the server default when provided.
+
+        first_turn_min_speech_frames : typing.Optional[str]
+            Minimum speech frames required specifically for the first user turn.
+            Overrides the server default when provided.
+
+        negative_frames_count : typing.Optional[str]
+            Number of negative (silence) frames needed within the window to end a speech segment.
+            Overrides the server default (or the high_vad_sensitivity preset) when provided.
+
+        negative_frames_window : typing.Optional[str]
+            Sliding window size (in frames) over which negative frames are counted.
+            Overrides the server default (or the high_vad_sensitivity preset) when provided.
+
+        start_speech_volume_threshold : typing.Optional[str]
+            Volume level (dB) below which audio is considered too quiet to be speech.
+            When not provided, no volume-based filtering is applied.
+
+        interrupt_min_speech_frames : typing.Optional[str]
+            Minimum speech frames required to register a barge-in / interruption.
+            Overrides the server default when provided.
+
+        pre_speech_pad_frames : typing.Optional[str]
+            Number of audio frames to prepend before the detected speech onset,
+            ensuring the beginning of speech is not clipped.
+            Overrides the server default when provided.
+
+        num_initial_ignored_frames : typing.Optional[str]
+            Number of leading audio frames to skip entirely at connection start.
+            Useful for discarding connection setup noise.
+            Overrides the server default when provided.
+
         vad_signals : typing.Optional[SpeechToTextStreamingVadSignals]
             Enable VAD signals in response
 
@@ -331,6 +445,16 @@ class AsyncSpeechToTextStreamingClient:
                         "mode": mode,
                         "sample_rate": sample_rate,
                         "high_vad_sensitivity": high_vad_sensitivity,
+                        "positive_speech_threshold": positive_speech_threshold,
+                        "negative_speech_threshold": negative_speech_threshold,
+                        "min_speech_frames": min_speech_frames,
+                        "first_turn_min_speech_frames": first_turn_min_speech_frames,
+                        "negative_frames_count": negative_frames_count,
+                        "negative_frames_window": negative_frames_window,
+                        "start_speech_volume_threshold": start_speech_volume_threshold,
+                        "interrupt_min_speech_frames": interrupt_min_speech_frames,
+                        "pre_speech_pad_frames": pre_speech_pad_frames,
+                        "num_initial_ignored_frames": num_initial_ignored_frames,
                         "vad_signals": vad_signals,
                         "flush_signal": flush_signal,
                         "input_audio_codec": input_audio_codec,

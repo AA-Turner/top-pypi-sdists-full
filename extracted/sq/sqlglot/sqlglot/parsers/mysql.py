@@ -247,11 +247,13 @@ class MySQLParser(parser.Parser):
         "KEY": lambda self: self._parse_index_constraint(),
         "SPATIAL": lambda self: self._parse_index_constraint(kind="SPATIAL"),
         "ZEROFILL": lambda self: self.expression(exp.ZeroFillColumnConstraint()),
+        "INVISIBLE": lambda self: self.expression(exp.InvisibleColumnConstraint()),
     }
 
     ALTER_PARSERS = {
         **parser.Parser.ALTER_PARSERS,
         "MODIFY": lambda self: self._parse_alter_table_alter(),
+        "AUTO_INCREMENT": lambda self: self._parse_property_assignment(exp.AutoIncrementProperty),
     }
 
     ALTER_ALTER_PARSERS = {
@@ -299,6 +301,14 @@ class MySQLParser(parser.Parser):
     STRING_ALIASES = True
     VALUES_FOLLOWED_BY_PAREN = False
     SUPPORTS_PARTITION_SELECTION = True
+
+    def _parse_alter_table_rename(self):
+        if self._match_texts(("INDEX", "KEY")):
+            old = self._parse_field(any_token=True)
+            self._match_text_seq("TO")
+            new = self._parse_field(any_token=True)
+            return self.expression(exp.RenameIndex(this=old, to=new))
+        return super()._parse_alter_table_rename()
 
     def _parse_generated_as_identity(
         self,

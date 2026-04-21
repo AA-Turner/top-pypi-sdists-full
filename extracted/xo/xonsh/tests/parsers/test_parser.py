@@ -6,79 +6,13 @@ import textwrap
 
 import pytest
 
-from xonsh.parser import Parser
 from xonsh.parsers.ast import AST, Call, Pass, With, is_const_str
 from xonsh.parsers.fstring_adaptor import FStringAdaptor
 from xonsh.pytest.tools import (
-    ON_WINDOWS,
-    VER_MAJOR_MINOR,
-    nodes_equal,
     skip_if_pre_3_8,
     skip_if_pre_3_10,
+    skip_if_pre_3_12,
 )
-
-
-@pytest.fixture
-def xsh(xession, monkeypatch, parser):
-    monkeypatch.setattr(xession.execer, "parser", parser)
-    return xession
-
-
-@pytest.fixture(scope="module")
-def parser():
-    return Parser(yacc_optimize=False, yacc_debug=True)
-
-
-@pytest.fixture
-def check_ast(parser, xsh):
-    def factory(inp, run=True, mode="eval", debug_level=0):
-        __tracebackhide__ = True
-        # expect a Python AST
-        exp = ast.parse(inp, mode=mode)
-        # observe something from xonsh
-        obs = parser.parse(inp, debug_level=debug_level)
-        # Check that they are equal
-        assert nodes_equal(exp, obs)
-        # round trip by running xonsh AST via Python
-        if run:
-            exec(compile(obs, "<test-ast>", mode))
-
-    return factory
-
-
-@pytest.fixture
-def check_stmts(check_ast):
-    def factory(inp, run=True, mode="exec", debug_level=0):
-        __tracebackhide__ = True
-        if not inp.endswith("\n"):
-            inp += "\n"
-        check_ast(inp, run=run, mode=mode, debug_level=debug_level)
-
-    return factory
-
-
-@pytest.fixture
-def check_xonsh_ast(xsh, parser):
-    def factory(
-        xenv,
-        inp,
-        run=True,
-        mode="eval",
-        debug_level=0,
-        return_obs=False,
-        globals=None,
-        locals=None,
-    ):
-        xsh.env.update(xenv)
-        obs = parser.parse(inp, debug_level=debug_level)
-        if obs is None:
-            return  # comment only
-        bytecode = compile(obs, "<test-xonsh-ast>", mode)
-        if run:
-            exec(bytecode, globals, locals)
-        return obs if return_obs else True
-
-    return factory
 
 
 @pytest.fixture
@@ -170,8 +104,6 @@ def test_string_literal_concat(first_prefix, second_prefix, check_ast):
 
 
 def test_f_env_var(check_xonsh_ast):
-    if VER_MAJOR_MINOR > (3, 11):
-        pytest.xfail("f-string with special syntax are not supported yet")
     check_xonsh_ast({}, 'f"{$HOME}"', run=False)
     check_xonsh_ast({}, "f'{$XONSH_DEBUG}'", run=False)
     check_xonsh_ast({}, 'F"{$PATH} and {$XONSH_DEBUG}"', run=False)
@@ -211,8 +143,6 @@ bar"""''',
 
 @pytest.mark.parametrize("inp, exp", fstring_adaptor_parameters)
 def test_fstring_adaptor(inp, exp, xsh, monkeypatch):
-    if VER_MAJOR_MINOR > (3, 11):
-        pytest.xfail("f-string with special syntax are not supported yet")
     joined_str_node = FStringAdaptor(inp, "f").run()
     assert isinstance(joined_str_node, ast.JoinedStr)
     node = ast.Expression(body=joined_str_node)
@@ -222,6 +152,80 @@ def test_fstring_adaptor(inp, exp, xsh, monkeypatch):
         monkeypatch.setitem(xsh.env, key, val)
     obs = eval(code)
     assert exp == obs
+
+
+@skip_if_pre_3_12
+@pytest.mark.parametrize(
+    "inp",
+    [
+        'f"{@$(echo hi)}"',
+        'f"{@!(echo hi)}"',
+        'f"result: @$(ls)"',
+        'f"result: @!(ls)"',
+        'f"{@$(echo hi)} world"',
+        'f"{$HOME} and {@$(ls)}"',
+    ],
+)
+def test_fstring_adaptor_captured_subproc(inp):
+    """FStringAdaptor must recognize @$(...) and @!(...) xonsh expressions.
+
+    Regression test: previously RE_XONSH_EXPR only covered $(...), @(...),
+    !(...) and similar — but @$(...) (captured injection) and @!(...)
+    (captured object) were missing, causing SyntaxError in f-strings.
+    """
+    joined_str_node = FStringAdaptor(inp, "f").run()
+    assert isinstance(joined_str_node, ast.JoinedStr)
+
+
+@pytest.mark.parametrize(
+    "inp",
+    [
+        'f"{len(x)} {$HOME}"',
+        'f"{len([])} {$HOME}"',
+        'f"{foo()} {$HOME}"',
+        'f"{a.b.c()} {$HOME}"',
+    ],
+)
+def test_fstring_adaptor_func_call_with_xonsh_expr(inp):
+    """FStringAdaptor must not crash on f-strings mixing function calls
+    with xonsh expressions.
+
+    Regression test: ``_fix_eval_field_params`` previously unconditionally
+    accessed ``node.func.value.id``, assuming every ``ast.Call`` in the
+    patched AST is a ``__xonsh__.eval_fstring_field(...)`` call. For
+    user calls like ``len(x)``, ``node.func`` is an ``ast.Name`` (no
+    ``.value``), and for ``a.b.c()`` ``node.func.value`` is itself an
+    ``ast.Attribute`` (no ``.id``) — both raise ``AttributeError``.
+    """
+    joined_str_node = FStringAdaptor(inp, "f").run()
+    assert isinstance(joined_str_node, ast.JoinedStr)
+
+
+fstring_adaptor_pathsearch_parameters = [
+    ("f'''{$HOME}/*'''", "/foo/bar/*"),
+    ("f'''{$HOME}/{$USER}'''", "/foo/bar/me"),
+    ("f'''prefix_{$HOME}_suffix'''", "prefix_/foo/bar_suffix"),
+]
+
+
+@pytest.mark.parametrize("inp, exp", fstring_adaptor_pathsearch_parameters)
+def test_fstring_adaptor_pathsearch(inp, exp, xsh, monkeypatch):
+    """Test FStringAdaptor with triple-quoted strings used by pathsearch/glob."""
+    joined_str_node = FStringAdaptor(inp, "f").run()
+    assert isinstance(joined_str_node, ast.JoinedStr)
+    node = ast.Expression(body=joined_str_node)
+    code = compile(node, "<test_fstring_adaptor_pathsearch>", mode="eval")
+    xenv = {"HOME": "/foo/bar", "USER": "me"}
+    for key, val in xenv.items():
+        monkeypatch.setitem(xsh.env, key, val)
+    obs = eval(code)
+    assert exp == obs
+
+
+from tests.parsers.test_parser_fstring_llm import (  # noqa: F401
+    TestPEP701FStrings,
+    TestPEP701XonshFStrings,
+)
 
 
 def test_raw_bytes_literal(check_ast):
@@ -1761,6 +1765,82 @@ def test_while_else(check_stmts):
     check_stmts("while False:\n  pass\nelse:\n  pass")
 
 
+def test_while_lineno(parser):
+    """While node must get the position of 'while', not the lookahead token."""
+    tree = parser.parse("while x:\n    pass\ny = 2\n")
+    w = tree.body[0]
+    assert w.lineno == 1
+    assert w.col_offset == 0
+
+
+def test_ternary_lineno(parser):
+    """IfExp node must get the position of the body expression."""
+    tree = parser.parse("x = a if b else c\n")
+    ie = tree.body[0].value
+    assert ie.lineno == 1
+    assert ie.col_offset == 4
+
+
+def test_not_lineno(parser):
+    """UnaryOp(Not) must get the position of 'not', not the lookahead."""
+    tree = parser.parse("x = not y\n")
+    u = tree.body[0].value
+    assert u.lineno == 1
+    assert u.col_offset == 4
+
+
+@pytest.mark.parametrize(
+    "code",
+    ["x = ()\n", "x = []\n", "x = {}\n"],
+)
+def test_empty_container_lineno(parser, code):
+    """Empty (), [], {} must get the position of the opening bracket."""
+    n = parser.parse(code).body[0].value
+    assert n.lineno == 1
+    assert n.col_offset == 4
+
+
+def test_unary_op_lineno(parser):
+    """UnaryOp(-/+/~) must get the operator's line, not the lookahead's."""
+    tree = parser.parse("x = (-\n  y)\n")
+    u = tree.body[0].value
+    assert u.lineno == 1
+    assert u.col_offset == 5
+
+
+def test_elif_lineno(parser):
+    """elif If node must get position of 'elif', not the test expression."""
+    tree = parser.parse("if x:\n    pass\nelif y:\n    pass\n")
+    elif_node = tree.body[0].orelse[0]
+    assert elif_node.lineno == 3
+    assert elif_node.col_offset == 0
+
+
+@pytest.mark.parametrize(
+    "code",
+    ["x = a + b + c\n", "x = a * b * c\n", "x = a << b << c\n", "x = a | b | c\n"],
+)
+def test_binop_multi_lineno(parser, code):
+    """Chained BinOp must get position of leftmost operand, not last operator."""
+    import ast as stdlib_ast
+
+    outer = parser.parse(code).body[0].value
+    ref = stdlib_ast.parse(code).body[0].value
+    assert outer.lineno == ref.lineno
+    assert outer.col_offset == ref.col_offset
+
+
+@pytest.mark.parametrize("code", ["f(a=1)\n", "f(**d)\n"])
+def test_keyword_arg_lineno(parser, code):
+    """Keyword arg node must get position of key/**, not value."""
+    import ast as stdlib_ast
+
+    kw = parser.parse(code).body[0].value.keywords[0]
+    ref = stdlib_ast.parse(code).body[0].value.keywords[0]
+    assert kw.lineno == ref.lineno
+    assert kw.col_offset == ref.col_offset
+
+
 def test_for(check_stmts):
     check_stmts("for x in range(6):\n  pass")
 
@@ -2066,6 +2146,38 @@ def test_func_x_divide_y_star_z_kwargs(check_stmts):
     check_stmts("def f(x, /, y, *, z, **kwargs):\n  return 42")
 
 
+def test_func_kwargs_trailing_comma(check_stmts):
+    check_stmts("def f(**kw,):\n  return kw")
+
+
+def test_func_x_kwargs_trailing_comma(check_stmts):
+    check_stmts("def f(x, **kw,):\n  return kw")
+
+
+def test_func_star_x_kwargs_trailing_comma(check_stmts):
+    check_stmts("def f(*, x, **kw,):\n  return kw")
+
+
+def test_func_x_star_y_kwargs_trailing_comma(check_stmts):
+    check_stmts("def f(x, *, y, **kw,):\n  return kw")
+
+
+def test_func_return_annotation_trailing_comma(check_stmts):
+    check_stmts("def f(**kw,) -> dict:\n  return kw")
+
+
+def test_subscript_trailing_comma(parser):
+    parser.parse("x = d[0,]\n")
+
+
+def test_subscript_multi_trailing_comma(parser):
+    parser.parse("x = d[0, 1,]\n")
+
+
+def test_func_annotation_subscript_trailing_comma(parser):
+    parser.parse("def f(x: tuple[int,]) -> tuple[str,]:\n  pass\n")
+
+
 def test_func_tx(check_stmts):
     check_stmts("def f(x:int):\n  return x")
 
@@ -2167,6 +2279,141 @@ def test_async_await(check_stmts):
     check_stmts("async def f():\n    await fut\n", False)
 
 
+def test_async_comp_for(check_stmts):
+    check_stmts("async def f():\n    return [x async for x in aiter]\n", False)
+
+
+def test_async_comp_for_with_if(check_stmts):
+    check_stmts(
+        "async def f():\n    return [x async for x in aiter if x > 0]\n",
+        False,
+    )
+
+
+def test_async_genexpr(check_stmts):
+    check_stmts("async def f():\n    return (x async for x in aiter)\n", False)
+
+
+def test_async_comp_for_set(check_stmts):
+    check_stmts("async def f():\n    return {x async for x in aiter}\n", False)
+
+
+def test_async_comp_for_dict(check_stmts):
+    check_stmts("async def f():\n    return {k: v async for k, v in aiter}\n", False)
+
+
+@skip_if_pre_3_12
+def test_type_alias(check_stmts):
+    check_stmts("type Point = tuple[int, int]")
+
+
+@skip_if_pre_3_12
+def test_type_alias_with_params(check_stmts):
+    check_stmts("type Alias[T] = list[T]")
+
+
+@skip_if_pre_3_12
+def test_type_alias_complex_params(check_stmts):
+    check_stmts("type Handler[*Ts, **P] = Callable[P, int]")
+
+
+@skip_if_pre_3_12
+def test_funcdef_type_params(check_stmts):
+    check_stmts("def func[T](x: T) -> T: ...\n", False)
+
+
+@skip_if_pre_3_12
+def test_funcdef_type_params_bound(check_stmts):
+    check_stmts("def func[T: int](x: T) -> T: ...\n", False)
+
+
+@skip_if_pre_3_12
+def test_classdef_type_params(check_stmts):
+    check_stmts("class MyClass[T]: ...\n", False)
+
+
+@skip_if_pre_3_12
+def test_classdef_type_params_with_bases(check_stmts):
+    check_stmts("class MyList[T](list): ...\n", False)
+
+
+def test_type_as_name(check_stmts):
+    """type is a soft keyword — still works as a regular name."""
+    check_stmts("x = type(1)")
+
+
+@skip_if_pre_3_12
+def test_pep695_combined(check_stmts):
+    """Multiple PEP 695 features together: generic class with bounded type var,
+    generic method, and type alias using the class."""
+    check_stmts(
+        "type Num = int | float\n"
+        "class Stack[T: Num]:\n"
+        "    def push[U](self, item: U) -> None: ...\n"
+        "    def pop(self) -> T: ...\n",
+        False,
+    )
+
+
+@skip_if_pre_3_12
+def test_pep695_integration(xonsh_execer):
+    """Integration: compile and execute PEP 695 code through xonsh execer."""
+    glbs = {}
+    xonsh_execer.exec(
+        "type Vector[T] = list[T]\n"
+        "class Box[T]:\n"
+        "    def __init__(self, val: T) -> None:\n"
+        "        self.val = val\n"
+        "b = Box(42)\n",
+        glbs=glbs,
+    )
+    assert glbs["b"].val == 42
+    assert glbs["Box"].__name__ == "Box"
+    # Vector is a TypeAliasType (PEP 695 runtime object)
+    assert "Vector" in glbs
+
+
+def test_except_star_basic(check_stmts):
+    check_stmts("try:\n    pass\nexcept* ValueError:\n    pass\n", False)
+
+
+def test_except_star_as(check_stmts):
+    check_stmts("try:\n    pass\nexcept* ValueError as eg:\n    pass\n", False)
+
+
+def test_except_star_multiple(check_stmts):
+    check_stmts(
+        "try:\n    pass\nexcept* ValueError:\n    pass\nexcept* TypeError:\n    pass\n",
+        False,
+    )
+
+
+def test_except_star_else_finally(check_stmts):
+    check_stmts(
+        "try:\n    pass\nexcept* ValueError:\n    pass\n"
+        "else:\n    pass\nfinally:\n    pass\n",
+        False,
+    )
+
+
+def test_except_star_integration(xonsh_execer):
+    """Integration: except* catches ExceptionGroup members."""
+    glbs = {}
+    xonsh_execer.exec(
+        "result = []\n"
+        "try:\n"
+        "    raise ExceptionGroup('eg', [ValueError(1), TypeError(2)])\n"
+        "except* ValueError as eg:\n"
+        "    result.append(('val', eg.exceptions))\n"
+        "except* TypeError as eg:\n"
+        "    result.append(('type', eg.exceptions))\n",
+        glbs=glbs,
+    )
+    assert len(glbs["result"]) == 2
+    assert glbs["result"][0][0] == "val"
+    assert glbs["result"][1][0] == "type"
+
+
 @skip_if_pre_3_8
 def test_named_expr_args(check_stmts):
     check_stmts("id(x := 42)")
@@ -2253,6 +2500,133 @@ def test_dollar_py_set(check_xonsh):
     check_xonsh({"WAKKA": 42}, 'x = "WAKKA"; ${x} = 65')
 
 
+def test_bare_builtin_becomes_cmd_call(parser, xsh):
+    """Bare builtin name as statement should become __xonsh__.builtin_cmd() call."""
+    import ast as stdlib_ast
+
+    tree = parser.parse("zip\n", debug_level=0)
+    xsh.env.update({})
+    from xonsh.parsers.ast import CtxAwareTransformer
+
+    ctxtr = CtxAwareTransformer(parser)
+    tree = ctxtr.ctxvisit(tree, "zip\n", set(dir(__builtins__)))
+    expr_node = tree.body[0]
+    assert isinstance(expr_node, stdlib_ast.Expr)
+    call = expr_node.value
+    assert isinstance(call, stdlib_ast.Call)
+    assert call.args[0].value == "zip"
+
+
+def _builtins_ctx():
+    """``dir(__builtins__)`` varies (module vs dict) depending on how the
+    test module is loaded — be explicit so tests are deterministic."""
+    import builtins
+
+    return set(dir(builtins))
+
+
+def test_flag_pattern_becomes_subproc_when_flag_enabled(parser, xsh, monkeypatch):
+    """``zip --help`` / ``id -a`` parse as Python ``BinOp(Sub)`` and would
+    blow up at runtime (``-help`` → ``_Helper.__neg__`` → TypeError). With
+    ``$XONSH_BUILTINS_TO_CMD=True`` and LHS being a known alias/command,
+    the transformer must re-parse the line as subprocess so the user gets
+    the expected behaviour."""
+    import ast as stdlib_ast
+
+    from xonsh.parsers.ast import CtxAwareTransformer
+
+    monkeypatch.setitem(xsh.env, "XONSH_BUILTINS_TO_CMD", True)
+    monkeypatch.setitem(xsh.aliases, "zip", ["zip"])
+    code = "zip --help\n"
+    tree = parser.parse(code, debug_level=0)
+    ctxtr = CtxAwareTransformer(parser)
+    tree = ctxtr.ctxvisit(tree, code, _builtins_ctx())
+    expr_node = tree.body[0]
+    # The original ``BinOp(Sub)`` must be gone — it's now a subprocess call.
+    assert not isinstance(expr_node.value, stdlib_ast.BinOp)
+
+
+def test_flag_pattern_stays_python_when_flag_disabled(parser, xsh, monkeypatch):
+    """With ``$XONSH_BUILTINS_TO_CMD`` off (default), the flag-pattern
+    rewrite must not fire — preserves the legacy behaviour."""
+    import ast as stdlib_ast
+
+    from xonsh.parsers.ast import CtxAwareTransformer
+
+    monkeypatch.setitem(xsh.env, "XONSH_BUILTINS_TO_CMD", False)
+    monkeypatch.setitem(xsh.aliases, "zip", ["zip"])
+    code = "zip --help\n"
+    tree = parser.parse(code, debug_level=0)
+    ctxtr = CtxAwareTransformer(parser)
+    tree = ctxtr.ctxvisit(tree, code, _builtins_ctx())
+    expr_node = tree.body[0]
+    # ``zip`` is a Python builtin so ``is_in_scope`` is True and the node
+    # remains a ``BinOp`` — the old (buggy at runtime) behaviour is kept.
+    assert isinstance(expr_node.value, stdlib_ast.BinOp)
+
+
+def test_flag_pattern_leaves_user_arithmetic_alone(parser, xsh, monkeypatch):
+    """``x - -y`` with user-defined ``x``/``y`` must stay as plain arithmetic,
+    even with ``$XONSH_BUILTINS_TO_CMD`` on and a command of the same name
+    on $PATH."""
+    import ast as stdlib_ast
+
+    from xonsh.parsers.ast import CtxAwareTransformer
+
+    monkeypatch.setitem(xsh.env, "XONSH_BUILTINS_TO_CMD", True)
+    monkeypatch.setitem(xsh.aliases, "ls", ["ls"])
+    code = "ls = 10\nls - -5\n"
+    tree = parser.parse(code, debug_level=0)
+    ctxtr = CtxAwareTransformer(parser)
+    tree = ctxtr.ctxvisit(tree, code, _builtins_ctx())
+    # Second statement must remain a BinOp (the arithmetic), not a subproc.
+    second = tree.body[1]
+    assert isinstance(second.value, stdlib_ast.BinOp)
+
+
+@skip_if_pre_3_8
+def test_walrus_in_assign_ctx(parser, xsh):
+    """Walrus operator variable in RHS should be tracked in context."""
+    import ast as stdlib_ast
+
+    from xonsh.parsers.ast import CtxAwareTransformer
+
+    code = "x = (y := 5)\ny\n"
+    tree = parser.parse(code, debug_level=0)
+    ctxtr = CtxAwareTransformer(parser)
+    tree = ctxtr.ctxvisit(tree, code, set())
+    y_stmt = tree.body[1]
+    assert isinstance(y_stmt.value, stdlib_ast.Name)
+    assert y_stmt.value.id == "y"
+
+
+def test_async_for_ctx(parser, xsh):
+    """Variables from async for should be tracked in context."""
+    from xonsh.parsers.ast import CtxAwareTransformer
+
+    code = "async def f():\n    async for x in items:\n        x\n"
+    tree = parser.parse(code, debug_level=0)
+    ctxtr = CtxAwareTransformer(parser)
+    tree = ctxtr.ctxvisit(tree, code, set())
+    # 'x' inside the async for body should be a Name load, not a subprocess call
+    func_body = tree.body[0].body[0]  # AsyncFor
+    x_stmt = func_body.body[0]  # Expr(x)
+    import ast as stdlib_ast
+
+    assert isinstance(x_stmt.value, stdlib_ast.Name)
+    assert x_stmt.value.id == "x"
+
+
+@skip_if_pre_3_8
+def test_dollar_name_walrus(check_xonsh):
+    check_xonsh({}, "x = ($WAKKA := 42)\nassert x == 42\nassert $WAKKA == 42")
+
+
+@skip_if_pre_3_8
+def test_dollar_name_walrus_subprocess(check_xonsh_ast):
+    check_xonsh_ast({}, "$(echo @($WAKKA := 'hello'))", False)
+
+
 def test_dollar_sub(check_xonsh_ast):
     check_xonsh_ast({}, "$(ls)", False)
 
@@ -2295,6 +2669,66 @@ def test_nested_madness(check_xonsh_ast):
     )
 
 
+def test_atbang_macro_simple(check_xonsh_ast):
+    check_xonsh_ast({}, "$(echo @!(2+2))", False)
+
+
+def test_atbang_macro_complex_expr(check_xonsh_ast):
+    check_xonsh_ast({}, "$(echo @!(x if x > 0 else -x))", False)
+
+
+def test_atbang_macro_nested_parens(check_xonsh_ast):
+    check_xonsh_ast({}, "$(echo @!(dict(a=1)))", False)
+
+
+def test_atbang_macro_fstring(check_xonsh_ast):
+    check_xonsh_ast({}, '$(echo @!(f"{x} = {y}"))', False)
+
+
+def test_atbang_macro_quotes(check_xonsh_ast):
+    check_xonsh_ast({}, "$(echo @!('hello world'))", False)
+
+
+def test_atbang_macro_source_text(parser):
+    """@!(expr) should capture the expression source text, not evaluate it."""
+    import ast
+
+    tree = parser.parse("$(echo @!(2+2))\n")
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and node.value == "2+2":
+            break
+    else:
+        pytest.fail("Expected Constant(value='2+2') in AST for @!(2+2)")
+
+
+def test_atbang_macro_multiline_source_text(xsh, parser):
+    """@!(expr) should capture correct source text in multi-line input."""
+    import ast
+
+    code = "$(echo @!(aaa))\n$(echo @!(bbb))\n"
+    tree = parser.parse(code)
+    consts = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and node.value not in ("echo", "")
+    ]
+    assert consts == ["aaa", "bbb"]
+
+
+def test_atbang_macro_source_text_fstring(parser):
+    """@!(f-string) should capture f-string source text."""
+    import ast
+
+    tree = parser.parse('$(echo @!(f"{x}"))\n')
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and node.value == 'f"{x}"':
+            break
+    else:
+        pytest.fail('Expected Constant(value=\'f"{x}"\') in AST for @!(f"{x}")')
+
+
 def test_atparens_intoken(check_xonsh_ast):
     check_xonsh_ast({}, "![echo /x/@(y)/z]", False)
 
@@ -2317,6 +2751,19 @@ def test_ls_nest_ls(check_xonsh_ast):
 
 def test_ls_nest_ls_dashl(check_xonsh_ast):
     check_xonsh_ast({}, "$(ls $(ls) -l)", False)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "![echo a/b$(echo 1)/c]",
+        "![echo $(echo 1)suffix]",
+        "![echo prefix$(echo 1)]",
+        "![echo prefix$(echo 1)suffix]",
+    ],
+)
+def test_dollar_paren_adjacent_text(case, check_xonsh_ast):
+    check_xonsh_ast({}, case, False)
 
 
 def test_ls_envvar_strval(check_xonsh_ast):
@@ -2389,6 +2836,14 @@ def test_dobquestion(check_xonsh_ast):
 
 def test_question_chain(check_xonsh_ast):
     check_xonsh_ast({}, "range?.index?")
+
+
+def test_envvar_question(check_xonsh_ast):
+    check_xonsh_ast({}, "$HOME?")
+
+
+def test_envvar_double_question(check_xonsh_ast):
+    check_xonsh_ast({}, "$HOME??")
 
 
 def test_ls_regex(check_xonsh_ast):
@@ -2627,6 +3082,18 @@ def test_leading_envvar_assignment(check_xonsh_ast):
     check_xonsh_ast({}, "![$FOO='foo' $BAR=2 echo r'$BAR']", False)
 
 
+def test_leading_envvar_assignment_bool(check_xonsh_ast):
+    check_xonsh_ast({}, "![$QWE=False echo 1]", False)
+
+
+def test_leading_envvar_assignment_true(check_xonsh_ast):
+    check_xonsh_ast({}, "![$QWE=True echo 1]", False)
+
+
+def test_leading_envvar_assignment_none(check_xonsh_ast):
+    check_xonsh_ast({}, "![$QWE=None echo 1]", False)
+
+
 def test_echo_comma(check_xonsh_ast):
     check_xonsh_ast({}, "![echo ,]", False)
 
@@ -2639,6 +3106,19 @@ def test_comment_only(check_xonsh_ast):
     check_xonsh_ast({}, "# hello")
 
 
+@pytest.mark.parametrize(
+    "inp",
+    [
+        "echo a#b;c",
+        "echo a#b",
+        "echo x#y;z;w",
+    ],
+)
+def test_parse_hash_in_arg_no_hang(inp, xsh):
+    """Regression test for #5976: parser must not hang on '#' inside arguments."""
+    xsh.execer.compile(inp, mode="single", glbs={}, locs={})
+
+
 def test_echo_slash_question(check_xonsh_ast):
     check_xonsh_ast({}, "![echo /?]", False)
 
@@ -2646,14 +3126,7 @@ def test_echo_slash_question(check_xonsh_ast):
 @pytest.mark.parametrize(
     "case",
     [
-        pytest.param(
-            "[]",
-            marks=pytest.mark.xfail(
-                ON_WINDOWS,
-                reason="non-zero exit code being raised by brackets",
-                strict=True,
-            ),  # TODO: fix this on a windows machine
-        ),
+        "[]",
         "[[]]",
         "[a]",
         "[a][b]",
@@ -2773,6 +3246,17 @@ def test_redirect_output_to_error(r, e, check_xonsh_ast):
     assert check_xonsh_ast({}, f'$[echo "test" {r} {e}> test.txt]', False)
     assert check_xonsh_ast({}, f'$[< input.txt echo "test" {r} {e}> test.txt]', False)
     assert check_xonsh_ast({}, f'$[echo "test" {r} {e}> test.txt < input.txt]', False)
+
+
+@pytest.mark.parametrize("r", ["a>p", "all>p"])
+def test_redirect_all_to_pipe_parse(r, check_xonsh_ast):
+    assert check_xonsh_ast({}, f'$[echo "test" {r} | cat]', False)
+
+
+@pytest.mark.parametrize("r", ["e>p", "err>p", "2>p"])
+def test_redirect_err_to_pipe_parse(r, check_xonsh_ast):
+    assert check_xonsh_ast({}, f'$[echo "test" {r} | cat]', False)
+    assert check_xonsh_ast({}, f'$[echo "test" o> out.txt {r} | cat]', False)
 
 
 def test_macro_call_empty(check_xonsh_ast):
@@ -3315,6 +3799,11 @@ def test_syntax_error_literal_concat_different(first_prefix, second_prefix, pars
         parser.parse(f"{first_prefix}'hello' {second_prefix}'world'")
 
 
+def test_syntax_error_dict_mixed_kv_and_bare(parser):
+    with pytest.raises(SyntaxError):
+        parser.parse("{'A': 5,6}\n", mode="exec")
+
+
 def test_get_repo_url(parser):
     parser.parse(
         "def get_repo_url():\n"
@@ -3365,6 +3854,14 @@ def test_match_literal_pattern(check_stmts):
 """,
         run=False,
     )
+
+
+@skip_if_pre_3_10
+def test_match_fstring_pattern_error(parser):
+    """f-string in match pattern must raise SyntaxError with correct location."""
+    with pytest.raises(SyntaxError, match="formatted string literals") as exc_info:
+        parser.parse('match x:\n    case f"hello":\n        pass\n')
+    assert exc_info.value.lineno == 2
 
 
 @skip_if_pre_3_10
@@ -3458,6 +3955,19 @@ def test_match_mapping_pattern(check_stmts):
         pass
 """,
         run=False,
+    )
+
+
+@skip_if_pre_3_10
+def test_match_mapping_pattern_none_true_false_keys(check_stmts):
+    """None/True/False as mapping pattern keys must be AST nodes, not raw values."""
+    check_stmts(
+        """
+x = {None: 1, True: 2, False: 3}
+match x:
+    case {None: a, True: b, False: c}:
+        assert (a, b, c) == (1, 2, 3)
+""",
     )
 
 
@@ -3615,3 +4125,22 @@ def test_decorator_atat_call(parser):
     assert dec.func.value.attr == "interface"
     assert dec.args == []
     assert dec.keywords == []
+
+
+def test_yacc_loader_failure_does_not_hang():
+    """If yacc.yacc() fails, parse() should raise instead of hanging."""
+    from unittest.mock import patch
+
+    from xonsh.parsers.base import YaccLoader
+
+    class FakeParser:
+        parser = None
+
+    fp = FakeParser()
+    with patch("xonsh.parsers.base.yacc") as mock_yacc:
+        mock_yacc.yacc.side_effect = RuntimeError("grammar broken")
+        loader = YaccLoader(fp, {})
+        loader.ready.wait(timeout=2)
+
+    assert loader.error is not None
+    assert fp.parser is None

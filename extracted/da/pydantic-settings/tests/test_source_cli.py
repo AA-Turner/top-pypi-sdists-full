@@ -4,7 +4,7 @@ import re
 import sys
 import time
 import typing
-from enum import IntEnum
+from enum import Enum, IntEnum
 from pathlib import Path, PureWindowsPath
 from typing import Annotated, Any, Dict, Generic, List, Literal, Tuple, TypeVar, Union  # noqa: UP035
 
@@ -19,6 +19,7 @@ from pydantic import (
     DirectoryPath,
     Discriminator,
     Field,
+    GetCoreSchemaHandler,
     RootModel,
     Tag,
     ValidationError,
@@ -29,6 +30,7 @@ from pydantic import (
     dataclasses as pydantic_dataclasses,
 )
 from pydantic._internal._repr import Representation
+from pydantic_core import CoreSchema, core_schema
 
 from pydantic_settings import (
     BaseSettings,
@@ -53,6 +55,7 @@ from pydantic_settings.sources import (
     CliUnknownArgs,
     get_subcommand,
 )
+from pydantic_settings.sources.providers.cli import _get_model_description
 
 ARGPARSE_OPTIONS_TEXT = 'options' if sys.version_info >= (3, 10) else 'optional arguments'
 
@@ -411,6 +414,58 @@ def test_cli_alias_exceptions(capsys, monkeypatch):
             foo: CliPositionalArg[int] = Field(validation_alias=AliasChoices('bar', 'boo'))
 
         CliApp.run(BadCliPositionalArg)
+
+
+@pytest.mark.parametrize(
+    'config_override',
+    [
+        {'validate_by_name': True},
+        {'populate_by_name': True},
+    ],
+)
+def test_cli_populate_by_name_with_alias_choices(config_override):
+    class Cfg(BaseSettings, cli_exit_on_error=False, cli_kebab_case=True, **config_override):
+        project_id: str = Field(
+            'default',
+            validation_alias=AliasChoices('gcp_project_id', 'uno_metadata_project_id'),
+        )
+
+    # Field name works as CLI arg
+    cfg = CliApp.run(Cfg, cli_args=['--project-id', 'val1'])
+    assert cfg.project_id == 'val1'
+
+    # Aliases still work
+    cfg = CliApp.run(Cfg, cli_args=['--gcp-project-id', 'val2'])
+    assert cfg.project_id == 'val2'
+
+    cfg = CliApp.run(Cfg, cli_args=['--uno-metadata-project-id', 'val3'])
+    assert cfg.project_id == 'val3'
+
+    # Without the config, field name should not be recognized
+    class CfgNoByName(BaseSettings, cli_exit_on_error=False, cli_kebab_case=True):
+        project_id: str = Field(
+            'default',
+            validation_alias=AliasChoices('gcp_project_id', 'uno_metadata_project_id'),
+        )
+
+    with pytest.raises(SettingsError, match='error parsing CLI'):
+        CliApp.run(CfgNoByName, cli_args=['--project-id', 'val1'])
+
+    # Field name also works inside subcommand models
+    class SubModel(BaseModel):
+        project_id: str = Field(
+            'default',
+            validation_alias=AliasChoices('gcp_project_id', 'uno_metadata_project_id'),
+        )
+
+    class CfgWithSubCmd(BaseSettings, cli_kebab_case=True, **config_override):
+        sub: CliSubCommand[SubModel]
+
+    cfg = CliApp.run(CfgWithSubCmd, cli_args=['sub', '--project-id', 'sub_val1'])
+    assert cfg.sub.project_id == 'sub_val1'
+
+    cfg = CliApp.run(CfgWithSubCmd, cli_args=['sub', '--gcp-project-id', 'sub_val2'])
+    assert cfg.sub.project_id == 'sub_val2'
 
 
 def test_cli_case_insensitive_arg():
@@ -810,6 +865,72 @@ def test_cli_list_arg(prefix, arg_spaces):
         'str_list': ['0,0', '1,1', '2,2', '3,3', '4,4', '5,5'],
     }
     check_answer(cfg, prefix, expected)
+
+
+class _MQTTVersion(IntEnum):
+    v31 = 3
+    v311 = 4
+
+
+class _Priority(int, Enum):
+    low = 1
+    high = 3
+
+
+class _Threshold(float, Enum):
+    low = 0.25
+    high = 0.75
+
+
+@pytest.mark.parametrize(
+    'field_type,default,cli_val,expected',
+    [
+        pytest.param(
+            Literal[_MQTTVersion.v31, _MQTTVersion.v311],
+            _MQTTVersion.v311,
+            '3',
+            _MQTTVersion.v31,
+            id='IntEnum',
+        ),
+        pytest.param(
+            Literal[_Priority.low, _Priority.high],
+            _Priority.low,
+            '3',
+            _Priority.high,
+            id='int_Enum_mixin',
+        ),
+        pytest.param(
+            Literal[_Threshold.low, _Threshold.high],
+            _Threshold.low,
+            '0.75',
+            _Threshold.high,
+            id='float_Enum_mixin',
+        ),
+        pytest.param(
+            Literal[_MQTTVersion.v31, _MQTTVersion.v311] | None,
+            None,
+            '4',
+            _MQTTVersion.v311,
+            id='Optional_IntEnum',
+        ),
+        pytest.param(
+            Annotated[Literal[_MQTTVersion.v31, _MQTTVersion.v311], Field(description='MQTT version')],
+            _MQTTVersion.v311,
+            '3',
+            _MQTTVersion.v31,
+            id='Annotated_IntEnum',
+        ),
+    ],
+)
+def test_cli_literal_numeric_enum(field_type, default, cli_val, expected):
+    """Literal[numeric Enum member] should parse from CLI numeric strings."""
+
+    class Cfg(BaseSettings):
+        model_config = SettingsConfigDict(cli_kebab_case=True)
+        val: field_type = default  # type: ignore[valid-type]
+
+    cfg = CliApp.run(Cfg, cli_args=['--val', cli_val])
+    assert cfg.val is expected
 
 
 def test_cli_set_arg():
@@ -1383,6 +1504,31 @@ def test_cli_union_similar_sub_models():
     assert cfg.model_dump() == {'child': {'name': 'new name a', 'diff_a': 'new diff a'}}
 
 
+def test_cli_nested_discriminated_union():
+    """Test that nested unions like Union[Annotated[Union[A, B], Discriminator(...)], None] are handled by CLI."""
+
+    class A(BaseModel):
+        x: Literal['a'] = 'a'
+        a: int = 1
+
+    class B(BaseModel):
+        x: Literal['b'] = 'b'
+        b: str = 'hello'
+
+    AOrB = Annotated[A | B, Discriminator('x')]
+
+    class Cfg(BaseSettings):
+        a_or_b: AOrB | None = None
+
+    cfg = CliApp.run(Cfg, cli_args=['--a_or_b.x', 'b', '--a_or_b.b', 'world'])
+    assert isinstance(cfg.a_or_b, B)
+    assert cfg.a_or_b.b == 'world'
+
+    cfg = CliApp.run(Cfg, cli_args=['--a_or_b.x', 'a', '--a_or_b.a', '42'])
+    assert isinstance(cfg.a_or_b, A)
+    assert cfg.a_or_b.a == 42
+
+
 def test_cli_optional_positional_arg(env):
     class Main(BaseSettings):
         model_config = SettingsConfigDict(
@@ -1420,6 +1566,37 @@ def test_cli_variadic_positional_arg(env):
 
     assert CliApp.run(MainOptional, cli_args=['7', '8', '9']).model_dump() == {'values': [7, 8, 9]}
     assert CliApp.run(MainRequired, cli_args=['7', '8', '9']).model_dump() == {'values': [7, 8, 9]}
+
+
+def test_cli_variadic_positional_arg_custom_type():
+    """Test that CliPositionalArg[list[CustomType]] works with custom types that raise non-ValidationError exceptions.
+
+    Regression test for https://github.com/pydantic/pydantic-settings/issues/823
+    """
+    from string import ascii_letters
+
+    class AsciiLetters(str):
+        def __new__(cls, content: object) -> 'AsciiLetters':
+            if not all(c in ascii_letters for c in str(content)):
+                raise Exception('Non-ascii letter')
+            return super().__new__(cls, content)
+
+        @classmethod
+        def __get_pydantic_core_schema__(
+            cls,
+            source_type: Any,
+            handler: GetCoreSchemaHandler,
+        ) -> CoreSchema:
+            return core_schema.no_info_plain_validator_function(
+                cls,
+                serialization=core_schema.to_string_ser_schema(),
+            )
+
+    class App(BaseSettings):
+        args: CliPositionalArg[list[AsciiLetters]]
+
+    assert CliApp.run(App, cli_args=['a', 'b']).model_dump() == {'args': ['a', 'b']}
+    assert CliApp.run(App, cli_args=['hello']).model_dump() == {'args': ['hello']}
 
 
 def test_cli_enums(capsys, monkeypatch):
@@ -1923,6 +2100,91 @@ def test_cli_ignore_unknown_args():
         'that': 789,
         'ignored_args': ['not_my_positional_arg', '--not-my-optional-arg=456'],
     }
+
+
+def test_cli_ignore_unknown_args_subcommand():
+    class SubA(BaseSettings):
+        a: CliPositionalArg[str]
+
+    class SubB(BaseSettings, cli_ignore_unknown_args=True):
+        b: CliPositionalArg[str]
+        ignored_args: CliUnknownArgs
+
+    class Cmd(BaseSettings):
+        a: CliSubCommand[SubA]
+        b: CliSubCommand[SubB]
+
+    # Subcommand B should accept unknown args
+    cmd = CliApp.run(Cmd, cli_args=['b', 'blah', '--bad'])
+    assert cmd.model_dump() == {'a': None, 'b': {'b': 'blah', 'ignored_args': ['--bad']}}
+
+    # Subcommand B with no unknown args
+    cmd = CliApp.run(Cmd, cli_args=['b', 'blah'])
+    assert cmd.model_dump() == {'a': None, 'b': {'b': 'blah', 'ignored_args': []}}
+
+    # Subcommand B with multiple unknown args
+    cmd = CliApp.run(Cmd, cli_args=['b', 'blah', '--bad', '--worse', 'val'])
+    assert cmd.model_dump() == {'a': None, 'b': {'b': 'blah', 'ignored_args': ['--bad', '--worse', 'val']}}
+
+    # Subcommand A should still reject unknown args
+    with pytest.raises(SystemExit):
+        CliApp.run(Cmd, cli_args=['a', 'blah', '--bad'])
+
+    # Subcommand A works normally without unknown args
+    cmd = CliApp.run(Cmd, cli_args=['a', 'hello'])
+    assert cmd.model_dump() == {'a': {'a': 'hello'}, 'b': None}
+
+
+def test_cli_ignore_unknown_args_nested_subcommand():
+    class SubB(BaseModel):
+        ignored_args: CliUnknownArgs
+        my_feature: bool = False
+
+    class SubA(BaseModel):
+        my_feature: bool = False
+
+    class Mid(BaseModel):
+        a: CliSubCommand[SubA]
+        b: CliSubCommand[SubB]
+
+    class Root(BaseSettings, cli_exit_on_error=False):
+        mid: CliSubCommand[Mid]
+
+    # "root mid" does not have CliUnknownArgs on path — should reject
+    with pytest.raises(SettingsError, match='error parsing CLI: unrecognized arguments: --bad'):
+        CliApp.run(Root, cli_args=['mid', '--bad'])
+
+    # "root mid b" has CliUnknownArgs on path — should accept
+    cmd = CliApp.run(Root, cli_args=['mid', 'b', '--bad'])
+    assert cmd.model_dump() == {'mid': {'a': None, 'b': {'ignored_args': ['--bad'], 'my_feature': False}}}
+
+    # "root mid a" does not have CliUnknownArgs on path — should reject
+    with pytest.raises(SettingsError, match='error parsing CLI: unrecognized arguments: --bad'):
+        CliApp.run(Root, cli_args=['mid', 'a', '--bad'])
+
+
+def test_cli_ignore_unknown_args_nested_subcommand_higher_in_hierarchy():
+    class SubB(BaseModel):
+        my_feature: bool = False
+
+    class SubA(BaseModel):
+        my_feature: bool = False
+
+    class Mid(BaseModel):
+        a: CliSubCommand[SubA]
+        b: CliSubCommand[SubB]
+        ignored_args: CliUnknownArgs
+
+    class Root(BaseSettings):
+        mid: CliSubCommand[Mid]
+
+    # "root mid" has CliUnknownArgs on path — should accept
+    cmd = CliApp.run(Root, cli_args=['mid', '--bad'])
+    assert cmd.model_dump() == {'mid': {'a': None, 'b': None, 'ignored_args': ['--bad']}}
+
+    # "root mid b" — CliUnknownArgs is higher on the path (on Mid) — should accept
+    cmd = CliApp.run(Root, cli_args=['mid', 'b', '--bad'])
+    assert cmd.model_dump() == {'mid': {'a': None, 'b': {'my_feature': False}, 'ignored_args': ['--bad']}}
 
 
 def test_cli_flag_prefix_char():
@@ -2584,6 +2846,46 @@ def test_cli_self_referential_model():
     assert s.foo.foo is None
 
 
+def test_cli_mutually_recursive_models():
+    """https://github.com/pydantic/pydantic-settings/issues/781.
+
+    Mutually recursive models (A -> B -> A) via discriminated unions should not
+    cause infinite recursion in CLI arg parser.
+    """
+    from typing import Annotated, Literal, Union
+
+    class A(BaseModel):
+        type: Literal['a'] = 'a'
+
+    AnyBase = Annotated[Union[A, 'B', 'C'], Discriminator('type')]
+
+    class B(BaseModel):
+        type: Literal['b'] = 'b'
+        inner: 'AnyBase' = Field(default_factory=A)
+
+    class C(BaseModel):
+        type: Literal['c'] = 'c'
+        inner: 'AnyBase' = Field(default_factory=A)
+
+    AnyBase = Annotated[A | B | C, Discriminator('type')]
+
+    B.model_rebuild()
+    C.model_rebuild()
+
+    class Container(BaseSettings):
+        base: AnyBase = Field(default_factory=A)
+
+    # Should not raise RecursionError
+    s = CliApp.run(Container, cli_args=[])
+    assert s.base == A()
+
+    s = CliApp.run(Container, cli_args=['--base', '{"type": "b", "inner": {"type": "a"}}'])
+    assert s.base == B(inner=A())
+
+    s = CliApp.run(Container, cli_args=['--base', '{"type": "c", "inner": {"type": "b", "inner": {"type": "a"}}}'])
+    assert s.base == C(inner=B(inner=A()))
+
+
 def test_cli_kebab_case(capsys, monkeypatch):
     class DeepSubModel(BaseModel):
         deep_pos_arg: CliPositionalArg[str]
@@ -3202,5 +3504,272 @@ contents options:
                         (default: input)
   --contents.value {{str,null}}
                         (default: null)
+"""
+    )
+
+
+def test_cli_app_run_env_file_from_model_config(tmp_path):
+    """Regression test for https://github.com/pydantic/pydantic-settings/issues/795
+
+    CliApp.run() should respect env_file set in model_config even when _env_file
+    is not explicitly passed.
+    """
+    env_file = tmp_path / '.env'
+    env_file.write_text('TEST=from dotenv\n')
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(env_file=str(env_file), env_file_encoding='utf-8')
+
+        test: str = 'default'
+
+        def cli_cmd(self) -> None:
+            pass
+
+    result = CliApp.run(Settings, cli_args=[])
+    assert result.test == 'from dotenv'
+
+
+def test_cli_app_run_subcommand_underscore_field_name():
+    class Leaf(BaseModel):
+        name: str
+
+        def cli_cmd(self) -> None:
+            self.name = f'Hello {self.name}'
+
+    class MiddleCommands(BaseModel):
+        baz: CliSubCommand[Leaf]
+
+        def cli_cmd(self) -> None:
+            CliApp.run_subcommand(self)
+
+    class RootApp(BaseModel):
+        # Underscore in the field name triggers the bug
+        foo_bar: CliSubCommand[MiddleCommands]
+
+        def cli_cmd(self) -> None:
+            CliApp.run_subcommand(self)
+
+    result = CliApp.run(RootApp, cli_args=['foo-bar', 'baz', '--name=world'])
+    assert result.model_dump() == {
+        'foo_bar': {
+            'baz': {'name': 'Hello world'},
+        },
+    }
+
+
+def test_get_model_description_returns_docstring():
+    class MyModel(BaseModel):
+        """My docstring."""
+
+    assert _get_model_description(MyModel) == 'My docstring.'
+
+
+def test_get_model_description_returns_none_when_no_doc_and_no_schema_extra():
+    class MyModel(BaseModel):
+        pass
+
+    assert MyModel.__doc__ is None
+    assert _get_model_description(MyModel) is None
+
+
+def test_get_model_description_json_schema_extra_fallback():
+    class MyModel(BaseModel):
+        model_config = ConfigDict(json_schema_extra={'description': 'Schema description.'})
+
+    MyModel.__doc__ = None  # type: ignore
+    assert _get_model_description(MyModel) == 'Schema description.'
+
+
+def test_get_model_description_schema_takes_precedence():
+    class MyModel(BaseModel):
+        """Docstring description."""
+
+        model_config = ConfigDict(json_schema_extra={'description': 'Schema wins.'})
+
+    assert _get_model_description(MyModel) == 'Schema wins.'
+
+
+def test_get_model_description_callable_json_schema_extra():
+    def add_description(schema: dict) -> None:
+        schema['description'] = 'From callable.'
+
+    class MyModel(BaseModel):
+        model_config = ConfigDict(json_schema_extra=add_description)
+
+    MyModel.__doc__ = None  # type: ignore
+    assert _get_model_description(MyModel) == 'From callable.'
+
+
+def test_get_model_description_dict_without_description_falls_back_to_doc():
+    class MyModel(BaseModel):
+        """Docstring fallback."""
+
+        model_config = ConfigDict(json_schema_extra={'title': 'No description key here'})
+
+    assert _get_model_description(MyModel) == 'Docstring fallback.'
+
+
+def test_get_model_description_callable_json_schema_extra_pydantic_dataclass():
+    def add_description(schema: dict) -> None:
+        schema['description'] = 'DC callable.'
+
+    @pydantic_dataclasses.dataclass(config=ConfigDict(json_schema_extra=add_description))
+    class MyDC:
+        x: int = 1
+
+    MyDC.__doc__ = None  # type: ignore
+    assert _get_model_description(MyDC) == 'DC callable.'
+
+
+def test_get_model_description_pydantic_dataclass():
+    @pydantic_dataclasses.dataclass(config=ConfigDict(json_schema_extra={'description': 'DC description.'}))
+    class MyDC:
+        x: int = 1
+
+    MyDC.__doc__ = None  # type: ignore
+    assert _get_model_description(MyDC) == 'DC description.'
+
+
+def test_get_model_description_base_settings():
+    class MySettings(BaseSettings):
+        model_config = SettingsConfigDict(json_schema_extra={'description': 'Settings description.'})
+
+    MySettings.__doc__ = None  # type: ignore
+    assert _get_model_description(MySettings) == 'Settings description.'
+
+
+def test_cli_json_schema_extra_description_fallback(capsys, monkeypatch):
+    """Root parser uses json_schema_extra description when __doc__ is None (simulating python -OO)."""
+
+    class Settings(BaseSettings, cli_prog_name='example.py'):
+        """This docstring will be removed."""
+
+        model_config = SettingsConfigDict(
+            cli_parse_args=True,
+            json_schema_extra={'description': 'JSON schema description.'},
+        )
+        my_var: str = 'default'
+
+    Settings.__doc__ = None  # type: ignore
+
+    with monkeypatch.context() as m:
+        m.setattr(sys, 'argv', ['example.py', '--help'])
+
+        with pytest.raises(SystemExit):
+            Settings()
+
+        assert (
+            capsys.readouterr().out
+            == f"""usage: example.py [-h] [--my_var str]
+
+JSON schema description.
+
+{ARGPARSE_OPTIONS_TEXT}:
+  -h, --help    show this help message and exit
+  --my_var str  (default: default)
+"""
+        )
+
+
+def test_cli_json_schema_extra_takes_precedence_over_docstring(capsys, monkeypatch):
+    """Even when __doc__ is available, json_schema_extra description should be used, instead."""
+
+    class Settings(BaseSettings, cli_prog_name='example.py'):
+        """Docstring description."""
+
+        model_config = SettingsConfigDict(
+            cli_parse_args=True,
+            json_schema_extra={'description': 'JSON schema description.'},
+        )
+        my_var: str = 'default'
+
+    with monkeypatch.context() as m:
+        m.setattr(sys, 'argv', ['example.py', '--help'])
+
+        with pytest.raises(SystemExit):
+            Settings()
+
+        assert (
+            capsys.readouterr().out
+            == f"""usage: example.py [-h] [--my_var str]
+
+JSON schema description.
+
+{ARGPARSE_OPTIONS_TEXT}:
+  -h, --help    show this help message and exit
+  --my_var str  (default: default)
+"""
+        )
+
+
+def test_cli_use_class_docs_for_groups_json_schema_extra_fallback(capsys, monkeypatch):
+    """cli_use_class_docs_for_groups falls back to json_schema_extra when __doc__ is None."""
+
+    class SubModel(BaseModel):
+        """This docstring will be removed."""
+
+        model_config = ConfigDict(json_schema_extra={'description': 'Sub model schema description.'})
+        v1: int
+
+    SubModel.__doc__ = None  # type: ignore
+
+    class Settings(BaseSettings, cli_prog_name='example.py'):
+        """My application help text."""
+
+        sub_model: SubModel = Field(description='The field description')
+        model_config = SettingsConfigDict(cli_parse_args=True)
+
+    with monkeypatch.context() as m:
+        m.setattr(sys, 'argv', ['example.py', '--help'])
+
+        with pytest.raises(SystemExit):
+            Settings(_cli_use_class_docs_for_groups=True)
+
+        assert (
+            capsys.readouterr().out
+            == f"""usage: example.py [-h] [--sub_model [JSON]] [--sub_model.v1 int]
+
+My application help text.
+
+{ARGPARSE_OPTIONS_TEXT}:
+  -h, --help          show this help message and exit
+
+sub_model options:
+  Sub model schema description.
+
+  --sub_model [JSON]  set sub_model from JSON string (default: {{}})
+  --sub_model.v1 int  (required)
+"""
+        )
+
+
+def test_cli_subcommand_json_schema_extra_description_fallback(capsys):
+    """Subcommand parser uses json_schema_extra description when __doc__ is None."""
+
+    class SubCmd(BaseSettings):
+        """This docstring will be removed."""
+
+        model_config = SettingsConfigDict(json_schema_extra={'description': 'Subcommand schema description.'})
+        x: int = 1
+
+    SubCmd.__doc__ = None  # type: ignore
+
+    class Root(BaseSettings, cli_prog_name='example.py'):
+        """Root help."""
+
+        sub: CliSubCommand[SubCmd]
+
+    with pytest.raises(SystemExit):
+        CliApp.run(Root, cli_args=['sub', '--help'])
+
+    assert (
+        capsys.readouterr().out
+        == f"""usage: example.py sub [-h] [-x int]
+
+Subcommand schema description.
+
+{ARGPARSE_OPTIONS_TEXT}:
+  -h, --help  show this help message and exit
+  -x int      (default: 1)
 """
     )

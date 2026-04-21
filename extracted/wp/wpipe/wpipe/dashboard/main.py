@@ -9,7 +9,6 @@ The dashboard is modularized into:
 - templates/: HTML template views
 """
 
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -29,7 +28,7 @@ jinja_env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)))
 
 
 def start_dashboard(
-    db_path: str = "pipeline.db",
+    db_path: str = "wpipe_dashboard.db",
     config_dir: Optional[str] = None,
     host: str = "127.0.0.1",
     port: int = 8035,
@@ -57,7 +56,7 @@ def start_dashboard(
 
 
 def create_app(
-    db_path: str = "pipeline.db",
+    db_path: str = "wpipe_dashboard.db",
     config_dir: Optional[str] = None,
 ) -> FastAPI:
     """Create and configure the FastAPI application."""

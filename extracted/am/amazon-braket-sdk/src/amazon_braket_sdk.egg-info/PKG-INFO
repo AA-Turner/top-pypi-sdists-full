@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amazon-braket-sdk
-Version: 1.115.0
+Version: 1.116.0
 Summary: An open source library for interacting with quantum computing devices on Amazon Braket
 Home-page: https://github.com/amazon-braket/amazon-braket-sdk-python
 Author: Amazon Web Services
@@ -207,7 +207,7 @@ from braket.aws import AwsDevice
 from braket.circuits import Circuit
 from braket.devices import Devices
 
-device = AwsDevice(Devices.Rigetti.Ankaa3)
+device = AwsDevice(Devices.Rigetti.Cepheus1108Q)
 
 bell = Circuit().h(0).cnot(0, 1)
 task = device.run(bell)

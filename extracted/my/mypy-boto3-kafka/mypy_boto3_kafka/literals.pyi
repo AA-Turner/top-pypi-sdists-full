@@ -27,9 +27,12 @@ __all__ = (
     "ClusterStateType",
     "ClusterTypeType",
     "ConfigurationStateType",
+    "ConsumerGroupOffsetSyncModeType",
     "CustomerActionStatusType",
     "DescribeTopicPartitionsPaginatorName",
     "EnhancedMonitoringType",
+    "KafkaClusterEncryptionInTransitTypeType",
+    "KafkaClusterSaslScramMechanismType",
     "KafkaServiceName",
     "KafkaVersionStatusType",
     "ListClientVpcConnectionsPaginatorName",
@@ -76,11 +79,14 @@ ClusterStateType = Literal[
 ]
 ClusterTypeType = Literal["PROVISIONED", "SERVERLESS"]
 ConfigurationStateType = Literal["ACTIVE", "DELETE_FAILED", "DELETING"]
+ConsumerGroupOffsetSyncModeType = Literal["ENHANCED", "LEGACY"]
 CustomerActionStatusType = Literal["ACTION_RECOMMENDED", "CRITICAL_ACTION_REQUIRED", "NONE"]
 DescribeTopicPartitionsPaginatorName = Literal["describe_topic_partitions"]
 EnhancedMonitoringType = Literal[
     "DEFAULT", "PER_BROKER", "PER_TOPIC_PER_BROKER", "PER_TOPIC_PER_PARTITION"
 ]
+KafkaClusterEncryptionInTransitTypeType = Literal["TLS"]
+KafkaClusterSaslScramMechanismType = Literal["SHA256", "SHA512"]
 KafkaVersionStatusType = Literal["ACTIVE", "DEPRECATED"]
 ListClientVpcConnectionsPaginatorName = Literal["list_client_vpc_connections"]
 ListClusterOperationsPaginatorName = Literal["list_cluster_operations"]
@@ -236,6 +242,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -302,6 +309,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -358,6 +366,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -455,6 +464,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",
@@ -471,6 +481,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -484,6 +495,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -505,6 +517,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -517,6 +530,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

@@ -2,6 +2,7 @@
 
 import io
 import os
+import subprocess
 import sys
 import time
 
@@ -20,7 +21,7 @@ from xonsh.events import events
 from xonsh.lib.lazyimps import pyghooks, pygments
 from xonsh.platform import HAS_PYGMENTS, ON_WINDOWS
 from xonsh.prompt.base import PromptFormatter, multiline_prompt
-from xonsh.shell import transform_command
+from xonsh.shell import deindent, transform_command
 from xonsh.tools import (
     DefaultNotGiven,
     XonshError,
@@ -92,7 +93,9 @@ class _TeeStdBuf(io.RawIOBase):
     def readinto(self, b):
         """Read bytes into buffer from both streams."""
         if self._std_is_binary:
-            self.stdbuf.readinto(b)
+            n = self.stdbuf.readinto(b)
+            self.membuf.write(b[:n])
+            return n
         return self.membuf.readinto(b)
 
     def write(self, b):
@@ -166,10 +169,10 @@ class _TeeStd(io.TextIOBase):
 
     def _replace_std(self):
         std = self.std
-        if std is None:
+        if std is None or self._name is None:
             return
         setattr(sys, self._name, std)
-        self.std = self._name = None
+        self._name = None  # prevent double-restore, but keep self.std alive
 
     def __del__(self):
         self._replace_std()
@@ -180,7 +183,8 @@ class _TeeStd(io.TextIOBase):
 
     def write(self, s):
         """Writes data to the original std stream and the in-memory object."""
-        self.mem.write(s)
+        if not self.mem.closed:
+            self.mem.write(s)
         if self.std is None:
             return
         std_s = s
@@ -188,7 +192,10 @@ class _TeeStd(io.TextIOBase):
             std_s = self.prestd + std_s
         if self.poststd:
             std_s += self.poststd
-        self.std.write(std_s)
+        try:
+            self.std.write(std_s)
+        except OSError:
+            pass
 
     def flush(self):
         """Flushes both the original stdout and the buffer."""
@@ -286,10 +293,15 @@ class Tee:
         self.stdout = self.stderr = None
 
     def close(self):
-        """Closes the buffer as well as the stdout and stderr tees."""
+        """Restores the original stdout/stderr streams.
+
+        The memory buffer is intentionally NOT closed here because
+        background pipeline threads (captured="object") may still
+        hold references to the Tee'd handles and flush after this
+        point.  The buffer is released when the Tee is GC'd.
+        """
         self.stdout.close()
         self.stderr.close()
-        self.memory.close()
 
     def getvalue(self):
         """Gets the current contents of the in-memory buffer."""
@@ -363,16 +375,14 @@ class BaseShell:
             self.precwd = os.getcwd()
         except FileNotFoundError:
             self.precwd = os.path.expanduser("~")
-        return line if self.need_more_lines else line.lstrip()
+        return line
 
     def default(self, line, raw_line=None):
         """Implements code execution."""
         line = line if line.endswith("\n") else line + "\n"
         if not self.need_more_lines:  # this is the first line
-            if not raw_line:
-                self.src_starts_with_space = False
-            else:
-                self.src_starts_with_space = raw_line[0].isspace()
+            check = raw_line or line
+            self.src_starts_with_space = bool(check) and check[0].isspace()
         src, code = self.push(line)
         if code is None:
             return
@@ -386,6 +396,29 @@ class BaseShell:
         err = env.get("XONSH_ENCODING_ERRORS")
         tee = Tee(encoding=enc, errors=err)
         ts0 = time.time()
+        exc_info = (None, None, None)
+        if hist is not None:
+            # Reset so the ``is None`` guard below can distinguish
+            # "no subprocess ran" from "a subprocess already reported
+            # its return code".
+            #
+            # Flow:
+            #   1. Prompt fields may run subprocesses (e.g. ``$(cmd)``
+            #      inside a lambda) whose pipelines call
+            #      ``CommandPipeline._apply_to_history()`` and set
+            #      ``hist.last_cmd_rtn`` to *their* exit code.
+            #   2. ``run_compiled_code()`` executes the user's command.
+            #      - Subprocess commands (``echo 1``, ``!(cmd)``,
+            #        ``$(cmd)``) again go through ``_apply_to_history()``
+            #        and set ``hist.last_cmd_rtn`` to the real exit code.
+            #      - Pure-Python expressions (``2+2``) never touch it.
+            #   3. The ``if hist.last_cmd_rtn is None`` guard then sets 0
+            #      for success — but only fires when no subprocess has
+            #      already reported a code.
+            #
+            # Without this reset, a stale code from step 1 survives into
+            # step 3 and is mistaken for the user command's result.  #4912
+            hist.last_cmd_rtn = None
         try:
             exc_info = run_compiled_code(code, self.ctx, None, "single")
             if exc_info != (None, None, None):
@@ -395,6 +428,27 @@ class BaseShell:
                 hist.last_cmd_rtn = 0  # returncode for success
         except XonshError as e:
             print(e.args[0], file=sys.stderr)
+            if hist is not None and hist.last_cmd_rtn is None:
+                hist.last_cmd_rtn = 1  # return code for failure
+        except subprocess.CalledProcessError:
+            # A subproc command at the prompt failed.  The command's own
+            # ``stderr`` is already on screen; whether we *additionally*
+            # print xonsh's ``CalledProcessError: ...`` line is governed
+            # by ``$XONSH_PROMPT_SHOW_SUBPROC_ERROR``.
+            #
+            # ``@error_raise`` is a per-command opt-in that *always*
+            # shows the exception, regardless of the env var — detected
+            # by checking whether the last completed pipeline's spec
+            # has ``raise_subproc_error is True``.
+            #
+            # Scripts (``./script.xsh`` / ``xonsh -c``) never reach this
+            # handler because they don't go through ``default()``, so
+            # their failures keep propagating as before.
+            lastcmd = XSH.lastcmd
+            spec = getattr(lastcmd, "spec", None) if lastcmd is not None else None
+            is_error_raise = getattr(spec, "raise_subproc_error", None) is True
+            if is_error_raise or env.get("XONSH_PROMPT_SHOW_SUBPROC_ERROR"):
+                print_exception(exc_info=exc_info)
             if hist is not None and hist.last_cmd_rtn is None:
                 hist.last_cmd_rtn = 1  # return code for failure
         except (SystemExit, KeyboardInterrupt) as err:
@@ -407,7 +461,7 @@ class BaseShell:
             ts1 = ts1 or time.time()
             tee_out = tee.getvalue()
             info = self._append_history(
-                inp=src,
+                inp=deindent(src),
                 ts=[ts0, ts1],
                 spc=self.src_starts_with_space,
                 tee_out=tee_out,
@@ -496,7 +550,8 @@ class BaseShell:
             return None, None
         src = "".join(self.buffer)
         src = transform_command(src)
-        return self.compile(src)
+        _, code = self.compile(deindent(src))
+        return src, code
 
     def compile(self, src):
         """Compiles source code and returns the (possibly modified) source and

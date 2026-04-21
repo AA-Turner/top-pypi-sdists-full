@@ -255,6 +255,10 @@ class ArtifactMetadataEntryType(enum.Enum):
     '''Represents tags of a stack.'''
     DO_NOT_REFACTOR = "DO_NOT_REFACTOR"
     '''Whether the resource should be excluded during refactoring.'''
+    CREATION_STACK = "CREATION_STACK"
+    '''Creation stack of a construct.'''
+    PROPERTY_ASSIGNMENT = "PROPERTY_ASSIGNMENT"
+    '''A property mutation trace.'''
 
 
 @jsii.enum(jsii_type="@aws-cdk/cloud-assembly-schema.ArtifactType")
@@ -5781,7 +5785,7 @@ class MetadataEntry:
         self,
         *,
         type: builtins.str,
-        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["FileAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["ContainerImageAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["FileAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["ContainerImageAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["PropertyMutationMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]], typing.Sequence[builtins.str]]] = None,
         trace: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''A metadata entry in a cloud assembly artifact.
@@ -5813,13 +5817,13 @@ class MetadataEntry:
     @builtins.property
     def data(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "FileAssetMetadataEntry", "ContainerImageAssetMetadataEntry", typing.List["Tag"]]]:
+    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "FileAssetMetadataEntry", "ContainerImageAssetMetadataEntry", "PropertyMutationMetadataEntry", typing.List["Tag"], typing.List[builtins.str]]]:
         '''The data.
 
         :default: - no data.
         '''
         result = self._values.get("data")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "FileAssetMetadataEntry", "ContainerImageAssetMetadataEntry", typing.List["Tag"]]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "FileAssetMetadataEntry", "ContainerImageAssetMetadataEntry", "PropertyMutationMetadataEntry", typing.List["Tag"], typing.List[builtins.str]]], result)
 
     @builtins.property
     def trace(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5998,6 +6002,58 @@ class PluginContextQuery:
 
     def __repr__(self) -> str:
         return "PluginContextQuery(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/cloud-assembly-schema.PropertyMutationMetadataEntry",
+    jsii_struct_bases=[],
+    name_mapping={"property_name": "propertyName", "stack_trace": "stackTrace"},
+)
+class PropertyMutationMetadataEntry:
+    def __init__(
+        self,
+        *,
+        property_name: builtins.str,
+        stack_trace: typing.Sequence[builtins.str],
+    ) -> None:
+        '''Metadata type of a PropertyMutation.
+
+        :param property_name: Name of the property.
+        :param stack_trace: Stack trace of the mutation.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__93b5b4d15dff99ef5fbc310a6752cb7f2089d127f27c38d708580d8f6a9e52eb)
+            check_type(argname="argument property_name", value=property_name, expected_type=type_hints["property_name"])
+            check_type(argname="argument stack_trace", value=stack_trace, expected_type=type_hints["stack_trace"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "property_name": property_name,
+            "stack_trace": stack_trace,
+        }
+
+    @builtins.property
+    def property_name(self) -> builtins.str:
+        '''Name of the property.'''
+        result = self._values.get("property_name")
+        assert result is not None, "Required property 'property_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_trace(self) -> typing.List[builtins.str]:
+        '''Stack trace of the mutation.'''
+        result = self._values.get("stack_trace")
+        assert result is not None, "Required property 'stack_trace' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PropertyMutationMetadataEntry(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -7729,6 +7785,7 @@ __all__ = [
     "MissingContext",
     "NestedCloudAssemblyProperties",
     "PluginContextQuery",
+    "PropertyMutationMetadataEntry",
     "RequireApproval",
     "RuntimeInfo",
     "SSMParameterContextQuery",
@@ -8288,7 +8345,7 @@ def _typecheckingstub__e87d7fb94dbe0854043094e6893c4c82194ad1f7deaaf154666c903b0
 def _typecheckingstub__57833f80f1b2df590b5e91b75b52a1e9f98ddd4831080bc83367183e412d6914(
     *,
     type: builtins.str,
-    data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[FileAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[ContainerImageAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[FileAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[ContainerImageAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[PropertyMutationMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]], typing.Sequence[builtins.str]]] = None,
     trace: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8314,6 +8371,14 @@ def _typecheckingstub__a8d8e2a3b3221fe0ebbf9a1e150d3485208466d606d1495e12837594e
 def _typecheckingstub__3a412879879a442f136b5a913c4ab5a5e1b62e2a4a0297b01b929d26013f1ff8(
     *,
     plugin_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93b5b4d15dff99ef5fbc310a6752cb7f2089d127f27c38d708580d8f6a9e52eb(
+    *,
+    property_name: builtins.str,
+    stack_trace: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass

@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.fileio._readers import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Bookmark, DataItem, Page, TableDataIO, TableUploadableStorageIO
+from ._base import Bookmark, DataItem, Page, TableDataIO, TableUploadableDataIO
 from .selectors import DataPointsDataSetSelector, DataPointsFileSelector, DataPointsSelector
 
 
@@ -55,15 +55,12 @@ class DatapointsRequestAdapter(RequestResource):
 
 class DatapointsIO(
     TableDataIO[DataPointsSelector, DataPointListResponse],
-    TableUploadableStorageIO[DataPointsSelector, DataPointListResponse, DatapointsRequestAdapter],
+    TableUploadableDataIO[DataPointsSelector, DataPointListResponse, DatapointsRequestAdapter],
 ):
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".csv"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     CHUNK_SIZE = 10_000
     DOWNLOAD_CHUNK_SIZE = 100
     BASE_SELECTOR = DataPointsSelector
     KIND = "Datapoints"
-    SUPPORTED_READ_FORMATS = frozenset({".csv"})
     UPLOAD_ENDPOINT = "/timeseries/data"
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
     MAX_TOTAL_DATAPOINTS = 10_000_000
@@ -77,7 +74,7 @@ class DatapointsIO(
         self._numeric_converter = _Float64Converter(nullable=True)
         self._string_converter = _TextConverter(nullable=True)
 
-    def get_schema(self, selector: DataPointsSelector) -> list[SchemaColumn]:
+    def get_schema(self, selector: DataPointsSelector) -> list[SchemaColumn] | None:
         return [
             SchemaColumn(name="externalId", type="string"),
             SchemaColumn(name="timestamp", type="epoch"),
@@ -255,6 +252,11 @@ class DatapointsIO(
                             )
                         )
         return data_chunk.create_from(result)
+
+    def json_to_row(
+        self, item_json: dict[str, JsonVal], selector: DataPointsSelector | None = None
+    ) -> dict[str, JsonVal]:
+        raise NotImplementedError(f"json_to_row not implemented for {type(self).__name__}")
 
     def upload_items(
         self,

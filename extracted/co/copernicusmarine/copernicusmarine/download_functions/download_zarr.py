@@ -4,7 +4,6 @@ import pathlib
 import warnings
 from copy import deepcopy
 from multiprocessing import current_process
-from typing import Optional, Tuple, Union
 
 import xarray
 import zarr
@@ -48,6 +47,7 @@ from copernicusmarine.core_functions.request_structure import SubsetRequest
 from copernicusmarine.core_functions.utils import (
     add_copernicusmarine_version_in_dataset_attributes,
     get_unique_filepath,
+    human_readable_size,
 )
 from copernicusmarine.download_functions.subset_parameters import (
     DepthParameters,
@@ -58,6 +58,7 @@ from copernicusmarine.download_functions.subset_xarray import subset
 from copernicusmarine.download_functions.utils import (
     get_approximation_size_data_downloaded,
     get_approximation_size_final_result,
+    get_approximation_size_final_result_csv,
     get_dataset_coordinates_extent,
     get_filename,
     timestamp_or_datestring_to_datetime,
@@ -71,9 +72,9 @@ def get_dataset_and_parameters(
     dataset_url: str,
     axis_coordinate_id_mapping: dict[str, str],
     service: CopernicusMarineService,
-    dataset_chunking: Optional[DatasetChunking],
+    dataset_chunking: DatasetChunking | None,
     is_original_grid: bool,
-    dataset_valid_start_date: Optional[Union[str, int, float]],
+    dataset_valid_start_date: str | int | float | None,
 ) -> tuple[xarray.Dataset, GeographicalParameters, DepthParameters]:
     if dataset_valid_start_date:
         minimum_start_date = timestamp_or_datestring_to_datetime(
@@ -123,10 +124,10 @@ def get_dataset_and_parameters(
 def download_zarr(
     subset_request: SubsetRequest,
     dataset_url: str,
-    dataset_valid_start_date: Optional[Union[str, int, float]],
+    dataset_valid_start_date: str | int | float | None,
     service: CopernicusMarineService,
     axis_coordinate_id_mapping: dict[str, str],
-    dataset_chunking: Optional[DatasetChunking],
+    dataset_chunking: DatasetChunking | None,
     is_original_grid: bool,
     tdqm_configuration: dict,
 ) -> ResponseSubset:
@@ -152,11 +153,27 @@ def download_zarr(
     logger.debug(f"Xarray Dataset: {dataset}")
     logger.debug("Starting download. Please wait...")
 
-    total_size_estimation = get_approximation_size_final_result(
-        dataset, axis_coordinate_id_mapping
-    )
-
-    logger.debug(f"Total size estimation: {total_size_estimation} MB")
+    if subset_request.file_format == "csv":
+        final_result_size_estimation = get_approximation_size_final_result_csv(
+            dataset
+        )
+        if final_result_size_estimation > 1000:
+            non_csv_size_estimation = get_approximation_size_final_result(
+                dataset, axis_coordinate_id_mapping
+            )
+            logger.warning(
+                "The estimated size of the final CSV output is "
+                f"{human_readable_size(final_result_size_estimation)}. "
+                "Generating such a large file may result in high memory "
+                "consumption and significant storage requirements. "
+                f"The same data in NetCDF or Zarr format is estimated at "
+                f"{human_readable_size(non_csv_size_estimation)}. Using "
+                "these formats is recommended for large or complex datasets."
+            )
+    else:
+        final_result_size_estimation = get_approximation_size_final_result(
+            dataset, axis_coordinate_id_mapping
+        )
 
     dataset.close()
 
@@ -167,10 +184,6 @@ def download_zarr(
         subset_request.file_format,
         axis_coordinate_id_mapping,
         geographical_parameters,
-    )
-
-    final_result_size_estimation = get_approximation_size_final_result(
-        dataset, axis_coordinate_id_mapping
     )
     if dataset_chunking:
         data_needed_approximation = get_approximation_size_data_downloaded(
@@ -212,8 +225,16 @@ def download_zarr(
     current = current_process()
     if "position" not in tdqm_configuration and current._identity:
         tdqm_configuration["position"] = current._identity[0]
+    if (
+        "disable" not in tdqm_configuration
+        or not tdqm_configuration["disable"]
+    ) and subset_request.file_format == "csv":
+        tdqm_configuration["disable"] = True
+
+    bar_format = "{l_bar}{bar}| [{elapsed}<{remaining}]"
     with TqdmCallback(
         **tdqm_configuration,
+        bar_format=bar_format,
     ):
         _save_dataset_locally(
             dataset,
@@ -235,12 +256,12 @@ def download_zarr(
 def open_dataset_from_arco_series(
     username: str,
     dataset_url: str,
-    variables: Optional[list[str]],
+    variables: list[str] | None,
     geographical_parameters: GeographicalParameters,
     temporal_parameters: TemporalParameters,
     depth_parameters: DepthParameters,
     coordinates_selection_method: CoordinatesSelectionMethod,
-    optimum_dask_chunking: Optional[dict[str, int]],
+    optimum_dask_chunking: dict[str, int] | None,
 ) -> xarray.Dataset:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=UserWarning)
@@ -272,14 +293,14 @@ def open_dataset_from_arco_series(
 
 def get_coordinates_dask_and_zarr_chunks_info(
     service: CopernicusMarineService,
-    variables: Optional[list[str]],
+    variables: list[str] | None,
     dataset_chunking: DatasetChunking,
-) -> Tuple[dict, dict]:
+) -> tuple[dict, dict]:
     """
     Return
     -------
 
-    Tuple[dict, dict]
+    tuple[dict, dict]
         A tuple containing:
         - a dict with the maximum dask chunk factor for each coordinate id.
           It tells us how many times we can multiply the zarr chunking per coordinate.
@@ -319,11 +340,11 @@ def get_coordinates_dask_and_zarr_chunks_info(
 
 def get_optimum_dask_chunking(
     service: CopernicusMarineService,
-    variables: Optional[list[str]],
+    variables: list[str] | None,
     dataset_chunking: DatasetChunking,
     chunk_size_limit: int,
     axis_coordinate_id_mapping: dict[str, str],
-) -> Optional[dict[str, int]]:
+) -> dict[str, int] | None:
     """
     We have some problems with overly big dask graphs (we think) that introduces huge overheads
     and memory usage. We are trying to find the optimum chunking for dask arrays.
@@ -343,7 +364,7 @@ def get_optimum_dask_chunking(
     Returns
     -------
 
-    Optional[dict[str, int]]
+    dict[str, int] | None
         A dictionary with the optimum dask chunking for each coordinate id. In the form:
         {
             "longitude": 2,
@@ -456,28 +477,31 @@ def _save_dataset_locally(
     output_path: pathlib.Path,
     netcdf_compression_level: int,
     netcdf3_compatible: bool,
-):
+) -> None:
     with TemporaryPathSaver(output_path) as temp_path:
-        if output_path.suffix == ".zarr":
-            if netcdf_compression_level > 0:
-                raise NetCDFCompressionNotAvailable(
-                    "--netcdf-compression-level option cannot be used when "
-                    "writing to ZARR"
-                )
-            _download_dataset_as_zarr(dataset, temp_path)
-        else:
+        if output_path.suffix == ".nc":
             _download_dataset_as_netcdf(
                 dataset,
                 temp_path,
                 netcdf_compression_level,
                 netcdf3_compatible,
             )
+            return
+        if netcdf_compression_level > 0 or netcdf3_compatible:
+            raise NetCDFCompressionNotAvailable(
+                "--netcdf-compression-level option cannot be used when "
+                "writing to ZARR or CSV format."
+            )
+        if output_path.suffix == ".zarr":
+            _download_dataset_as_zarr(dataset, temp_path)
+        elif output_path.suffix == ".csv":
+            _download_dataset_as_csv(dataset, temp_path)
 
 
 def _download_dataset_as_zarr(
     dataset: xarray.Dataset, output_path: pathlib.Path
 ):
-    logger.debug("Writing dataset to Zarr")
+    logger.debug("Writing dataset to Zarr.")
     store = DirectoryStore(output_path)
     if ZARR_FORMAT is None:
         return dataset.to_zarr(store=store, mode="w")
@@ -491,11 +515,11 @@ def _download_dataset_as_netcdf(
     netcdf_compression_level: int,
     netcdf3_compatible: bool,
 ):
-    logger.debug("Writing dataset to NetCDF")
+    logger.debug("Writing dataset to NetCDF.")
     for coord in dataset.coords:
         dataset[coord].encoding["_FillValue"] = None
     if netcdf_compression_level > 0:
-        logger.info(
+        logger.debug(
             f"NetCDF compression enabled with level {netcdf_compression_level}"
         )
         comp = {
@@ -535,3 +559,11 @@ def _download_dataset_as_netcdf(
         format=xarray_download_format,
         engine=engine,
     )
+
+
+def _download_dataset_as_csv(
+    dataset: xarray.Dataset, output_path: pathlib.Path
+):
+    logger.debug("Writing dataset to CSV.")
+    df = dataset.to_dataframe()
+    df.to_csv(output_path)

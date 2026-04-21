@@ -1799,7 +1799,8 @@ class Connection:
             warn("Connection disposed without prior close()", ResourceWarning)
             self._close()
             self._close_internals()
-            self._att.detach()
+            with contextlib.suppress(DatabaseError):
+                self._att.detach()
     def __enter__(self) -> Self:
         return self
     def __exit__(self, exc_type, exc_value, traceback) -> None:
@@ -2397,6 +2398,7 @@ def create_database(database: str | Path, *, user: str | None=None, password: st
     if isinstance(database, Path):
         database = str(database)
     db_config: DatabaseConfig = driver_config.get_database(database)
+    dsn: str | None = None
     if db_config is None:
         db_config = driver_config.db_defaults
         srv_config = driver_config.server_defaults
@@ -3392,7 +3394,7 @@ class Cursor:
                 elif dtype in (a.blr_short, a.blr_long, a.blr_int64):
                     val = (0).from_bytes(buf[bufpos:bufpos + esize], 'little', signed=True)
                     if subtype or scale:
-                        val = decimal.Decimal(val) / _ten_to[abs(scale)]
+                        val = decimal.Decimal(val).scaleb(-abs(scale))
                 elif dtype == a.blr_bool:
                     val = (0).from_bytes(buf[bufpos:bufpos + esize], 'little') == 1
                 elif dtype == a.blr_float:
@@ -3799,7 +3801,7 @@ class Cursor:
                     value = (0).from_bytes(buffer[offset:offset + length], 'little', signed=True)
                     # It's scalled integer?
                     if desc.subtype or desc.scale:
-                        value = decimal.Decimal(value) / _ten_to[abs(desc.scale)]
+                        value = decimal.Decimal(value).scaleb(-abs(desc.scale))
                 elif datatype == SQLDataType.DATE:
                     value = _util.decode_date(buffer[offset:offset+length])
                 elif datatype == SQLDataType.TIME:
@@ -3964,7 +3966,13 @@ class Cursor:
                 in_meta.release()
     def _clear(self) -> None:
         if self._result is not None:
-            self._result.close()
+            if self._stmt is not None and self._stmt._istmt is not None:
+                self._result.close()
+            else:
+                # Statement was already freed; the result set is invalidated
+                # at the Firebird API level, so we must not call close() on it.
+                # Also prevent __del__ from calling release() on the invalid interface.
+                self._result._refcnt = 0
             self._result = None
         self._name = None
         self._last_fetch_status = None
@@ -4278,7 +4286,8 @@ class Cursor:
                 elif meta.datatype == SQLDataType.INT64:
                     vtype = int
                     dispsize = 20
-                elif meta.datatype in (SQLDataType.FLOAT, SQLDataType.D_FLOAT, SQLDataType.DOUBLE):
+                elif meta.datatype in (SQLDataType.FLOAT, SQLDataType.D_FLOAT, SQLDataType.DOUBLE,
+                                       SQLDataType.DEC16, SQLDataType.DEC34):
                     # Special case, dialect 1 DOUBLE/FLOAT
                     # could be Fixed point
                     if (self._stmt._dialect < 3) and meta.scale:
@@ -4291,13 +4300,13 @@ class Cursor:
                     vtype = str if meta.subtype == 1 else bytes
                     scale = meta.subtype
                     dispsize = 0
-                elif meta.datatype == SQLDataType.TIMESTAMP:
+                elif meta.datatype in (SQLDataType.TIMESTAMP, SQLDataType.TIMESTAMP_TZ, SQLDataType.TIMESTAMP_TZ_EX):
                     vtype = datetime.datetime
                     dispsize = 22
                 elif meta.datatype == SQLDataType.DATE:
                     vtype = datetime.date
                     dispsize = 10
-                elif meta.datatype == SQLDataType.TIME:
+                elif meta.datatype in (SQLDataType.TIME, SQLDataType.TIME_TZ, SQLDataType.TIME_TZ_EX):
                     vtype = datetime.time
                     dispsize = 11
                 elif meta.datatype == SQLDataType.ARRAY:
@@ -5721,9 +5730,11 @@ class Server:
         data = self.response.read_sized_string(encoding=self.encoding, errors=self.encoding_errors)
         if self.response.get_tag() == SrvInfoCode.TIMEOUT:
             return TIMEOUT
-        if data:
-            return data + '\n'
-        return None
+        # read_sized_string() returns lines ending with '\r ' (CR + space).
+        # Strip the trailing space to get proper '\r' line endings.
+        if data and data.endswith('\r '):
+            data = data[:-1]  # Remove space, keep '\r'
+        return data if data else None
     def readline(self) -> str | None:
         """Get next line of textual output from last service query.
 
@@ -5850,11 +5861,11 @@ def connect_server(server: str, *, user: str | None=None, password: str | None=N
     srv_config = driver_config.get_server(server)
     if srv_config is None:
         srv_config = driver_config.server_defaults
-        host = server or None
-        port = None
-    else:
-        host = srv_config.host.value
-        port = srv_config.port.value
+        #host = server or None
+        #port = None
+    #else:
+    host = srv_config.host.value
+    port = srv_config.port.value
     if host is None:
         host = 'service_mgr'
     if not host.endswith('service_mgr'):

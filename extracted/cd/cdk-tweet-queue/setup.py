@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-tweet-queue",
-    "version": "2.0.946",
+    "version": "2.0.947",
     "description": "Defines an SQS queue with tweet stream from a search",
     "license": "Apache-2.0",
     "url": "https://github.com/cdklabs/cdk-tweet-queue",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_tweet_queue._jsii": [
-            "cdk-tweet-queue@2.0.946.jsii.tgz"
+            "cdk-tweet-queue@2.0.947.jsii.tgz"
         ],
         "cdk_tweet_queue": [
             "py.typed"
@@ -36,7 +36,7 @@ kwargs = json.loads(
     "install_requires": [
         "aws-cdk-lib>=2.236.0, <3.0.0",
         "constructs>=10.0.5, <11.0.0",
-        "jsii>=1.127.0, <2.0.0",
+        "jsii>=1.128.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard==2.13.3"
     ],

@@ -291,12 +291,15 @@ class Parser:
         max_errors: Maximum number of error messages to include in a raised ParseError.
             This is only relevant if error_level is ErrorLevel.RAISE.
             Default: 3
+        max_nodes: Maximum number of AST nodes to prevent memory exhaustion.
+            Set to -1 (default) to disable the check.
     """
 
     __slots__ = (
         "error_level",
         "error_message_context",
         "max_errors",
+        "max_nodes",
         "dialect",
         "sql",
         "errors",
@@ -310,6 +313,7 @@ class Parser:
         "_chunks",
         "_chunk_index",
         "_tokens_size",
+        "_node_count",
     )
 
     FUNCTIONS: t.ClassVar[dict[str, t.Callable]] = {
@@ -1825,11 +1829,13 @@ class Parser:
         error_level: ErrorLevel | None = None,
         error_message_context: int = 100,
         max_errors: int = 3,
+        max_nodes: int = -1,
         dialect: DialectType = None,
     ):
         self.error_level: ErrorLevel = error_level or ErrorLevel.IMMEDIATE
         self.error_message_context: int = error_message_context
         self.max_errors: int = max_errors
+        self.max_nodes: int = max_nodes
         self.dialect: t.Any = _resolve_dialect(dialect)
         self.sql: str = ""
         self.errors: list[ParseError] = []
@@ -1843,6 +1849,7 @@ class Parser:
         self._pipe_cte_counter: int = 0
         self._chunks: list[list[Token]] = []
         self._chunk_index: i64 = 0
+        self._node_count: int = 0
 
     def reset(self) -> None:
         self.sql = ""
@@ -1857,6 +1864,7 @@ class Parser:
         self._pipe_cte_counter = 0
         self._chunks = []
         self._chunk_index = 0
+        self._node_count = 0
 
     def _advance(self, times: i64 = 1) -> None:
         index = self._index + times
@@ -1971,6 +1979,10 @@ class Parser:
         self.errors.append(error)
 
     def validate_expression(self, expression: E, args: list | None = None) -> E:
+        if self.max_nodes > -1:
+            self._node_count += 1
+            if self._node_count > self.max_nodes:
+                self.raise_error(f"Maximum number of AST nodes ({self.max_nodes}) exceeded")
         if self.error_level != ErrorLevel.IGNORE:
             for error_message in expression.error_messages(args):
                 self.raise_error(error_message)
@@ -2676,7 +2688,7 @@ class Parser:
         if not self._match_set((TokenType.FUNCTION, TokenType.PROCEDURE)):
             self.raise_error("Expected FUNCTION or PROCEDURE after EXECUTE")
 
-        func_call = self._parse_function(anonymous=True, optional_parens=False)
+        func_call = self._parse_column()
         return self.expression(exp.TriggerExecute(this=func_call))
 
     def _parse_property_before(self) -> exp.Expr | list[exp.Expr] | None:
@@ -3558,6 +3570,8 @@ class Parser:
                     local=local,
                     overwrite=overwrite,
                     inpath=inpath,
+                    files=self._match_text_seq("FROM", "FILES")
+                    and exp.Properties(expressions=self._parse_wrapped_properties()),
                     partition=self._parse_partition(),
                     input_format=self._match_text_seq("INPUTFORMAT") and self._parse_string(),
                     serde=self._match_text_seq("SERDE") and self._parse_string(),
@@ -3566,6 +3580,8 @@ class Parser:
         return self._parse_as_command(self._prev)
 
     def _parse_delete(self) -> exp.Delete:
+        hint = self._parse_hint()
+
         # This handles MySQL's "Multiple-Table Syntax"
         # https://dev.mysql.com/doc/refman/8.0/en/delete.html
         tables = None
@@ -3576,6 +3592,7 @@ class Parser:
 
         return self.expression(
             exp.Delete(
+                hint=hint,
                 tables=tables,
                 this=self._match(TokenType.FROM) and self._parse_table(joins=True),
                 using=self._match(TokenType.USING)
@@ -3589,7 +3606,9 @@ class Parser:
         )
 
     def _parse_update(self) -> exp.Update:
+        hint = self._parse_hint()
         kwargs: dict[str, object] = {
+            "hint": hint,
             "this": self._parse_table(joins=True, alias_tokens=self.UPDATE_ALIAS_TOKENS),
         }
         while self._curr:
@@ -7243,7 +7262,11 @@ class Parser:
         return result
 
     def _parse_unique_key(self) -> exp.Expr | None:
-        if self._curr and self._curr.text.upper() in self.CONSTRAINT_PARSERS:
+        if (
+            self._curr
+            and self._curr.token_type != TokenType.IDENTIFIER
+            and self._curr.text.upper() in self.CONSTRAINT_PARSERS
+        ):
             return None
         return self._parse_id_var(any_token=False)
 
@@ -8926,6 +8949,7 @@ class Parser:
                             if self._match_text_seq("ROW")
                             else self._parse_value(values=False),
                             expression=self._match_text_seq("VALUES") and self._parse_value(),
+                            where=self._parse_where(),
                         )
                     )
             elif self._match(TokenType.UPDATE):
@@ -8936,7 +8960,8 @@ class Parser:
                     then = self.expression(
                         exp.Update(
                             expressions=self._match(TokenType.SET)
-                            and self._parse_csv(self._parse_equality)
+                            and self._parse_csv(self._parse_equality),
+                            where=self._parse_where(),
                         )
                     )
             elif self._match(TokenType.DELETE):

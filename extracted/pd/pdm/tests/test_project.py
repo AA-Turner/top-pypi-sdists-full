@@ -373,6 +373,32 @@ def test_invoke_pdm_adding_configured_args(project, pdm, mocker):
     parser.assert_called_with(["--verbose", "add", "--no-isolation", "requests"])
 
 
+def test_invoke_pdm_options_loaded_from_target_project(project, pdm, mocker, tmp_path):
+    """Regression test for https://github.com/pdm-project/pdm/issues/3756.
+
+    When -p/--project is used, [tool.pdm.options] must be read from the
+    target project, not from the current working directory.
+    """
+
+    # Set options on the current (cwd) project — these must NOT be applied.
+    project.pyproject.settings["options"] = {"install": ["--no-editable"]}
+    project.pyproject.write()
+
+    # Build a second project at a tmp location with different options.
+    target_root = tmp_path / "target_project"
+    target_root.mkdir()
+    pyproject = target_root / "pyproject.toml"
+    pyproject.write_text("[tool.pdm.options]\ninstall = ['--no-self']\n")
+
+    handle = mocker.patch("pdm.core.Core.handle")
+    # Invoke WITHOUT obj= so the real project-path resolution path is exercised.
+    pdm(["install", "-p", str(target_root)])
+    # Should use --no-self from target_project, NOT --no-editable from cwd project.
+    args_used = handle.call_args[0][-1]
+    assert args_used.no_self, "Expected --no-self in args"
+    assert not args_used.no_editable, "Did not expect --no-editable in args"
+
+
 @pytest.fixture()
 def prepare_repository(repository, project):
     repository.add_candidate("foo", "3.0", ">=3.8,<3.13")

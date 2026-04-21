@@ -1,15 +1,17 @@
 """Hooks for pygments syntax highlighting."""
 
+import importlib.util
 import os
 import re
 import stat
 import sys
+import threading
 from collections import ChainMap
 from collections.abc import MutableMapping
 from keyword import iskeyword
 
 import pygments.util
-from pygments.lexer import bygroups, include, inherit
+from pygments.lexer import bygroups, combined, default, include, inherit
 from pygments.lexers.agile import Python3Lexer
 from pygments.style import Style
 from pygments.token import (
@@ -41,6 +43,7 @@ from xonsh.color_tools import (
 from xonsh.events import events
 from xonsh.lib.lazyasd import LazyDict, LazyObject, lazyobject
 from xonsh.lib.lazyimps import html, os_listxattr, terminal256
+from xonsh.parsers.tokenize import SubprocCommentHighlight
 from xonsh.platform import (
     os_environ,
     ptk_version_info,
@@ -132,26 +135,26 @@ def color_by_name(name, fg=None, bg=None):
 
 @lazyobject
 def PYGMENTS_MODIFIERS():
-    # pygments doesn't support all modifiers.
-    # use None to represent unsupported
+    # prompt_toolkit supports: bold, italic, underline, reverse, blink, hidden, strike.
+    # use None to represent unsupported modifiers (only FAINT and REVEALOFF)
     return {
         "BOLD": "bold",
         "FAINT": None,
         "ITALIC": "italic",
         "UNDERLINE": "underline",
-        "SLOWBLINK": None,
-        "FASTBLINK": None,
-        "INVERT": None,
-        "CONCEAL": None,
-        "STRIKETHROUGH": None,
-        "BOLDOFF": None,
+        "SLOWBLINK": "blink",
+        "FASTBLINK": "blink",
+        "INVERT": "reverse",
+        "CONCEAL": "hidden",
+        "STRIKETHROUGH": "strike",
+        "BOLDOFF": "nobold",
         "FAINTOFF": None,
-        "ITALICOFF": None,
-        "UNDERLINEOFF": None,
-        "BLINKOFF": None,
-        "INVERTOFF": None,
+        "ITALICOFF": "noitalic",
+        "UNDERLINEOFF": "nounderline",
+        "BLINKOFF": "noblink",
+        "INVERTOFF": "noreverse",
         "REVEALOFF": None,
-        "STRIKETHROUGHOFF": None,
+        "STRIKETHROUGHOFF": "nostrike",
     }
 
 
@@ -544,6 +547,12 @@ def register_custom_pygments_style(
     base_style = get_style_by_name(base)
     custom_styles = base_style.styles.copy()
 
+    # Overlay XONSH_BASE_STYLE so that the custom style inherits
+    # xonsh's ANSI color names instead of pygments' hex codes.
+    if base == "default":
+        for token, value in XONSH_BASE_STYLE.items():
+            custom_styles[token] = value
+
     for token, value in _tokenize_style_dict(styles).items():
         custom_styles[token] = value
 
@@ -590,7 +599,7 @@ def register_custom_pygments_style(
 XONSH_BASE_STYLE = LazyObject(
     lambda: {
         Whitespace: "ansigray",
-        Comment: "underline ansicyan",
+        Comment: "ansicyan",
         Comment.Preproc: "underline ansiyellow",
         Keyword: "bold ansigreen",
         Keyword.Pseudo: "nobold",
@@ -609,8 +618,8 @@ XONSH_BASE_STYLE = LazyObject(
         Name.Attribute: "ansibrightyellow",
         Name.Tag: "bold ansigreen",
         Name.Decorator: "ansibrightmagenta",
-        String: "ansibrightred",
-        String.Doc: "underline",
+        String: "ansiyellow",
+        String.Doc: "ansicyan",
         String.Interpol: "bold ansimagenta",
         String.Escape: "bold ansiyellow",
         String.Regex: "ansimagenta",
@@ -1314,6 +1323,10 @@ def pygments_style_by_name(name):
         return STYLES[name]
     pstyle = get_style_by_name(name)
     palette = make_palette(pstyle.styles.values())
+    # Exclude the theme's background color from the palette so that
+    # Color.* tokens are never mapped to it (which makes text invisible).
+    bg = pstyle.background_color.lstrip("#")
+    palette.pop(bg, None)
     astyle = make_pygments_style(palette)
     STYLES[name] = astyle
     return astyle
@@ -1433,9 +1446,12 @@ def XonshHtmlFormatter():
             return (style[:-2], ttype, len(ttype))
 
         def _set_ndef_for_color_token(self, ttype):
+            if ttype is None:
+                self.style._styles[ttype] = ["", 0, 0, 0, "", "", 0, 0, 0]
+                return
             ndef = self.style._styles.get(ttype.parent, None)
             styledefs = self.style.styles.get(ttype, "").split()
-            if not ndef or ttype is None:
+            if not ndef:
                 ndef = ["", 0, 0, 0, "", "", 0, 0, 0]
             elif "noinherit" in styledefs and ttype is not Token:
                 ndef = self.style._styles[Token][:]
@@ -1488,7 +1504,7 @@ Initialized by XonshStyle."""
 def on_lscolors_change(key, oldvalue, newvalue, **kwargs):
     """if LS_COLORS updated, update file_color_tokens and  corresponding color token in style"""
     if newvalue is None:
-        del file_color_tokens[key]
+        file_color_tokens.pop(key, None)
     else:
         file_color_tokens[key] = color_token_by_name(newvalue)
 
@@ -1595,13 +1611,63 @@ def color_file(file_path: str, path_stat: os.stat_result) -> tuple[_TokenType, s
 
 
 # pygments hooks.
+#
+# Command validation uses async model.  Alias and keyword checks
+# are instant (O(1) dict/set lookups, no I/O).  The expensive part —
+# locate_executable() — runs in a debounced background thread.  Until the
+# bg thread reports back, unknown commands appear as invalid (Error token).
+# Once validated, prompt_toolkit re-renders with the correct colours.
+
+_cmd_valid_cache: dict[str, bool] = {}
+_pending_cmds: set[str] = set()
+_debounce_timer: threading.Timer | None = None
+_ptk_app: object | None = None  # Captured on the main thread for bg invalidation
+_validation_gen: int = 0  # Generation token — incremented on each new input
+
+
+@events.on_pre_prompt
+def _clear_cmd_caches(**kwargs):
+    global _validation_gen
+    _cmd_valid_cache.clear()
+    _pending_cmds.clear()
+    _validation_gen += 1  # Invalidate any in-flight bg thread
 
 
 def _command_is_valid(cmd):
-    return (cmd in XSH.aliases or locate_executable(cmd)) and not iskeyword(cmd)
+    """Check command validity with instant alias/keyword checks.
+
+    Only ``locate_executable`` is deferred to a background thread when a
+    prompt_toolkit app is running (interactive mode).  Without an app
+    (tests, scripts, non-interactive) the lookup is synchronous because
+    there is no way to trigger a re-render later.
+    """
+    if iskeyword(cmd):
+        return False
+    if cmd in _cmd_valid_cache:
+        return _cmd_valid_cache[cmd]
+    if cmd in XSH.aliases:
+        _cmd_valid_cache[cmd] = True
+        return True
+    # Need locate_executable — check if we can defer to bg thread
+    try:
+        from prompt_toolkit.application import get_app_or_none
+
+        has_app = get_app_or_none() is not None
+    except Exception:
+        has_app = False
+    if has_app:
+        # Interactive with ptk — defer to bg, pessimistic default
+        _pending_cmds.add(cmd)
+        _schedule_bg_validation()
+        return False
+    # No ptk app — synchronous fallback (tests, scripts, non-interactive)
+    result = bool(locate_executable(cmd))
+    _cmd_valid_cache[cmd] = result
+    return result
 
 
 def _command_is_autocd(cmd):
+    """Synchronous — single os.path.isdir() call, acceptable cost."""
     if not XSH.env.get("AUTO_CD", False):
         return False
     try:
@@ -1609,6 +1675,150 @@ def _command_is_autocd(cmd):
     except OSError:
         return False
     return os.path.isdir(cmd_abspath)
+
+
+def _schedule_bg_validation():
+    """Restart the 10 ms debounce timer on every cache miss."""
+    global _debounce_timer, _ptk_app, _validation_gen
+    if _debounce_timer is not None:
+        _debounce_timer.cancel()
+    _validation_gen += 1  # Abandon any in-flight bg thread
+    gen = _validation_gen
+    # Capture the running app reference on the main thread so the bg
+    # thread can call invalidate() later.
+    try:
+        from prompt_toolkit.application import get_app_or_none
+
+        _ptk_app = get_app_or_none()
+    except Exception:
+        pass
+    _debounce_timer = threading.Timer(0.01, _run_bg_validation, args=[gen])
+    _debounce_timer.daemon = True
+    _debounce_timer.start()
+
+
+def _run_bg_validation(gen):
+    """Background thread: validate pending commands via locate_executable.
+
+    *gen* is the generation token captured at scheduling time.  Results are
+    always saved to cache (even if gen is stale) so that later renders can
+    reuse them.  Only the re-render / invalidate step is gated by gen —
+    a stale thread must not trigger a repaint for an outdated input.
+    """
+    global _pending_cmds
+    cmds, _pending_cmds = _pending_cmds, set()
+    if not cmds:
+        return
+    changed = False
+    for cmd in cmds:
+        if cmd not in _cmd_valid_cache:
+            found = bool(locate_executable(cmd))
+            _cmd_valid_cache[cmd] = found
+            if gen == _validation_gen:
+                changed = True
+    if gen == _validation_gen and changed and _ptk_app is not None:
+        try:
+            # Clear the BufferControl fragment cache so that
+            # prompt_toolkit re-lexes instead of returning stale tokens.
+            # Without this, pressing Up / Ctrl-R shows wrong highlights
+            # because the cache key (document.text, invalidation_hash)
+            # hasn't changed — only our internal _cmd_valid_cache has.
+            from prompt_toolkit.layout.controls import BufferControl
+
+            for control in _ptk_app.layout.find_all_controls():
+                if isinstance(control, BufferControl) and hasattr(
+                    control, "_fragment_cache"
+                ):
+                    control._fragment_cache.clear()
+            _ptk_app.invalidate()
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# Import module validation — highlight non-importable top-level modules
+# as Error.  Only the first name after ``import`` / ``from`` is checked;
+# submodule parts after a dot are left as Name.Namespace.
+# ---------------------------------------------------------------------------
+
+_import_check_next: bool = False
+
+
+def _import_start_cb(_, match):
+    """Intercept ``import``/``from`` keyword — check the next module name."""
+    global _import_check_next
+    _import_check_next = True
+    yield match.start(), Keyword.Namespace, match.group(1)
+    yield match.start() + len(match.group(1)), Text.Whitespace, match.group(2)
+
+
+def _import_module_cb(_, match):
+    """Check only the first identifier after import/from.  Rest pass through."""
+    global _import_check_next
+    name = match.group()
+    if _import_check_next:
+        _import_check_next = False
+        try:
+            found = importlib.util.find_spec(name) is not None
+        except (ModuleNotFoundError, ValueError, AttributeError):
+            found = False
+        yield match.start(), Name.Namespace if found else Error, name
+    else:
+        yield match.start(), Name.Namespace, name
+
+
+def _import_comma_cb(_, match):
+    """Comma separates independent imports — re-enable check for next name."""
+    global _import_check_next
+    _import_check_next = True
+    yield match.start(), Punctuation, ","
+
+
+# ---------------------------------------------------------------------------
+# @() Python substitution — highlight undefined names as Error.
+# Only bare names are checked (not attributes like os.path.join).
+# ---------------------------------------------------------------------------
+
+_at_bracket_check: bool = False
+
+
+def _at_bracket_start_cb(_, match):
+    """Enter @() substitution — mark that the first name should be checked."""
+    global _at_bracket_check
+    _at_bracket_check = True
+    yield match.start(), Keyword, match.group(1)
+    yield match.start() + len(match.group(1)), Punctuation, match.group(2)
+
+
+def _at_bracket_name_cb(_, match):
+    """Check first bare name inside @() against session context and builtins."""
+    global _at_bracket_check
+    import builtins
+
+    name = match.group()
+    if _at_bracket_check:
+        _at_bracket_check = False
+        ctx = getattr(XSH, "ctx", None) or {}
+        found = name in ctx or hasattr(builtins, name) or iskeyword(name)
+        yield match.start(), Name if found else Error, name
+    else:
+        yield match.start(), Name, name
+
+
+def _at_bracket_walrus_cb(_, match):
+    """Walrus operator target — it's a definition, skip the check."""
+    global _at_bracket_check
+    _at_bracket_check = False
+    yield match.start(), Name, match.group()
+
+
+def _env_var_cb(_, match):
+    """Check $VAR against the environment."""
+    text = match.group()
+    name = text[1:]  # strip leading $
+    env = getattr(XSH, "env", None)
+    found = env is not None and name in env
+    yield match.start(), Name.Variable if found else Error, text
 
 
 def subproc_cmd_callback(_, match):
@@ -1656,7 +1866,8 @@ class XonshLexer(Python3Lexer):
     tokens = {
         "mode_switch_brackets": [
             (r"(\$)(\{)", bygroups(Keyword, Punctuation), "py_curly_bracket"),
-            (r"(@)(\()", bygroups(Keyword, Punctuation), "py_bracket"),
+            (r"(@!)(\()", bygroups(Keyword, Punctuation), "py_bracket"),
+            (r"(@)(\()", _at_bracket_start_cb, "at_py_bracket"),
             (
                 r"([\!\$])(\()",
                 bygroups(Keyword, Punctuation),
@@ -1672,11 +1883,21 @@ class XonshLexer(Python3Lexer):
                 bygroups(Keyword, Punctuation),
                 ("subproc_square_bracket", "subproc_start"),
             ),
-            (r"(g?)(`)", bygroups(String.Affix, String.Backtick), "backtick_re"),
+            (
+                r"([rgpfm]+|@\w*)?(`)",
+                bygroups(String.Affix, String.Backtick),
+                "backtick_re",
+            ),
         ],
         "subproc_bracket": [(r"\)", Punctuation, "#pop"), include("subproc")],
         "subproc_square_bracket": [(r"\]", Punctuation, "#pop"), include("subproc")],
         "py_bracket": [(r"\)", Punctuation, "#pop"), include("root")],
+        "at_py_bracket": [
+            (r"\)", Punctuation, "#pop"),
+            (r"\w+(?=\s*:=)", _at_bracket_walrus_cb),
+            (r"\w+(?!\w*[\"'])", _at_bracket_name_cb),
+            include("root"),
+        ],
         "py_curly_bracket": [(r"\}", Punctuation, "#pop"), include("root")],
         "backtick_re": [
             (r"[\.\^\$\*\+\?\[\]\|]", String.Regex),
@@ -1685,13 +1906,99 @@ class XonshLexer(Python3Lexer):
             (r"`", String.Backtick, "#pop"),
             (r"[^`\.\^\$\*\+\?\[\]\|]+", String.Backtick),
         ],
+        "import": [
+            (r"(\s+)(as)(\s+)", bygroups(Keyword, Keyword, Text)),
+            (r"\.", Name.Namespace),
+            (r"\w+", _import_module_cb),
+            (r",", _import_comma_cb),
+            (r"\s+", Text.Whitespace),
+            default("#pop"),
+        ],
+        "fromimport": [
+            (r"(\s+)(import)\b", bygroups(Text.Whitespace, Keyword.Namespace), "#pop"),
+            (r"\.", Name.Namespace),
+            (r"None\b", Keyword.Constant, "#pop"),
+            (r"\w+", _import_module_cb),
+            default("#pop"),
+        ],
         "root": [
             (r"\?", Keyword),
             (r"(?<=\w)!", Keyword),
-            (r"\$\w+", Name.Variable),
+            (r"\$\w+", _env_var_cb),
             (r"\(", Punctuation, "py_bracket"),
             (r"\{", Punctuation, "py_curly_bracket"),
+            (r"(import)((?:\s|\\\s)+)", _import_start_cb, "import"),
+            (r"(from)((?:\s|\\\s)+)", _import_start_cb, "fromimport"),
             include("mode_switch_brackets"),
+            # xonsh path-string literals (p prefix)
+            # raw formatted path strings
+            (
+                '([fF][rR]p)(""")',
+                bygroups(String.Affix, String.Double),
+                combined("rfstringescape", "tdqf"),
+            ),
+            (
+                "([fF][rR]p)(''')",
+                bygroups(String.Affix, String.Single),
+                combined("rfstringescape", "tsqf"),
+            ),
+            (
+                '([fF][rR]p)(")',
+                bygroups(String.Affix, String.Double),
+                combined("rfstringescape", "dqf"),
+            ),
+            (
+                "([fF][rR]p)(')",
+                bygroups(String.Affix, String.Single),
+                combined("rfstringescape", "sqf"),
+            ),
+            # formatted path strings
+            (
+                '(p[fF]|[fF]p)(""")',
+                bygroups(String.Affix, String.Double),
+                combined("fstringescape", "tdqf"),
+            ),
+            (
+                "(p[fF]|[fF]p)(''')",
+                bygroups(String.Affix, String.Single),
+                combined("fstringescape", "tsqf"),
+            ),
+            (
+                '(p[fF]|[fF]p)(")',
+                bygroups(String.Affix, String.Double),
+                combined("fstringescape", "dqf"),
+            ),
+            (
+                "(p[fF]|[fF]p)(')",
+                bygroups(String.Affix, String.Single),
+                combined("fstringescape", "sqf"),
+            ),
+            # raw path strings
+            ('(p[rR]|[rR]p)(""")', bygroups(String.Affix, String.Double), "tdqs"),
+            ("(p[rR]|[rR]p)(''')", bygroups(String.Affix, String.Single), "tsqs"),
+            ('(p[rR]|[rR]p)(")', bygroups(String.Affix, String.Double), "dqs"),
+            ("(p[rR]|[rR]p)(')", bygroups(String.Affix, String.Single), "sqs"),
+            # plain path strings
+            (
+                '(p)(""")',
+                bygroups(String.Affix, String.Double),
+                combined("stringescape", "tdqs"),
+            ),
+            (
+                "(p)(''')",
+                bygroups(String.Affix, String.Single),
+                combined("stringescape", "tsqs"),
+            ),
+            (
+                '(p)(")',
+                bygroups(String.Affix, String.Double),
+                combined("stringescape", "dqs"),
+            ),
+            (
+                "(p)(')",
+                bygroups(String.Affix, String.Single),
+                combined("stringescape", "sqs"),
+            ),
             inherit,
         ],
         "subproc_start": [
@@ -1710,9 +2017,10 @@ class XonshLexer(Python3Lexer):
             (r"&|=", Punctuation),
             (r"\|", Punctuation, "subproc_start"),
             (r"\s+", Text),
+            (SubprocCommentHighlight, Comment.Single),
             (r'[^=\s\[\]{}()$"\'`<&|;]+', subproc_arg_callback),
             (r"<", Text),
-            (r"\$\w+", Name.Variable),
+            (r"\$\w+", _env_var_cb),
         ],
         "subproc_macro": [
             (r"(\s*)([^\n]+)", bygroups(Whitespace, String)),
@@ -1743,7 +2051,56 @@ class XonshLexer(Python3Lexer):
 
 
 class XonshConsoleLexer(XonshLexer):
-    """Xonsh console lexer for pygments."""
+    """Xonsh console lexer for pygments.
+
+    A xonshcon block is a sequence of lines with the following conventions:
+
+    * ``@ ...`` — an interactive xonsh command. Tokenised with the ``@ ``
+      (and trailing space) as :data:`Generic.Prompt` so that Sphinx themes
+      / ``sphinx_copybutton`` strip the prompt from copy-to-clipboard,
+      leaving just the command text on the clipboard.
+
+    * ``>>> ...`` / ``... ...`` — same behaviour for Python interactive
+      prompts.
+
+    * A line starting with ``# `` at column 0 — a documented output
+      comment. Tokenised as :data:`Generic.Output` so it is rendered in a
+      distinct (grey) colour and excluded from copy (via ``user-select:
+      none`` on ``.go`` in the Sphinx theme / ``custom.css``). This lets
+      authors annotate *what the command would print* inline while the
+      reader still copies only the code:
+
+      .. code-block:: xonshcon
+
+          @ echo 1
+          # 1    (output — grey, not copied)
+          @ def qwe():
+                print(321)
+            qwe()
+          # 321  (output — grey, not copied)
+
+    * A line starting with two leading spaces — a continuation of the
+      previous ``@ `` line (e.g. the body of a ``def``/``for``/...). The
+      first two spaces line up with the character after the ``@ `` prompt
+      and are tokenised as :data:`Generic.Prompt` so they are stripped
+      from copy-paste alongside the real prompts, leaving the body with
+      its true (Python) indentation. Any further whitespace flows into
+      the normal xonsh highlighting.
+
+    Continuation and prompt rules use ``bygroups`` to split the preceding
+    newline off from the prompt token: ``(\\n)(@ |\\. )`` emits ``\\n``
+    as :data:`Text` (preserved in the clipboard — the two lines stay
+    separated) and ``@ ``/``. `` as :data:`Generic.Prompt` (stripped
+    together with its trailing space, so no orphan leading space lands
+    on the next line).
+
+    The trailing catch-all ``\\n...`` rules keep backwards compat with
+    older xonshcon blocks that have bare output lines at column 0 — any
+    line that is not a prompt, a ``#``-comment, or a 2-space continuation
+    is still tokenised as :data:`Generic.Output`. New documentation
+    should prefer the ``# `` convention so the rendered block is more
+    self-explanatory.
+    """
 
     name = "Xonsh console lexer"
     aliases = ["xonshcon"]
@@ -1751,10 +2108,33 @@ class XonshConsoleLexer(XonshLexer):
 
     tokens = {
         "root": [
+            # Python prompts.
             (r"^(>>>|\.\.\.) ", Generic.Prompt),
-            (r"\n(>>>|\.\.\.)", Generic.Prompt),
+            (r"(\n)(>>> |\.\.\. )", bygroups(Text, Generic.Prompt)),
+            # Xonsh prompts.
             (r"^(@|\.) ", Generic.Prompt),
-            (r"\n(@|\.)", Generic.Prompt),
+            (r"(\n)(@ |\. )", bygroups(Text, Generic.Prompt)),
+            # Documented output — lines that start with ``#`` at column 0.
+            # Entire line (including the leading newline) → Generic.Output
+            # so that stripping the output from the clipboard also strips
+            # the surrounding line break. Otherwise a leftover ``\n``
+            # would produce a blank line between the previous and the
+            # next code line in the copied text.
+            (r"^#[^\n]*", Generic.Output),
+            (r"\n#[^\n]*", Generic.Output),
+            # Continuation of the previous ``@`` command: 2 spaces of
+            # prompt-width compensation at column 0. These two spaces go
+            # to Generic.Prompt so they disappear from copy-paste; the
+            # rest of the line flows into normal xonsh highlighting.
+            (r"(\n)(  )", bygroups(Text, Generic.Prompt)),
+            # Blank line: a lone ``\n`` followed by another newline or
+            # end-of-input. Kept as plain :data:`Text` so the separator
+            # survives clipboard-strip (otherwise the catch-all output
+            # rule below would swallow it as ``Generic.Output`` and the
+            # ``user-select: none`` CSS would drop it from copy-paste).
+            (r"\n(?=\n|\Z)", Text),
+            # Backwards-compat catch-all output: bare output lines at
+            # column 0 (no prompt, no ``#``, no 2-space indent).
             (r"\n(?![>.][>.][>.] )([^\n]*)", Generic.Output),
             (r"\n(?![>.][>.][>.] )(.*?)$", Generic.Output),
             inherit,

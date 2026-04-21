@@ -16,7 +16,7 @@ env:
   # Changes per repo
   PRODUCT_NAME: PyMongo
   # Changes per branch
-  EVERGREEN_PROJECT: mongo-python-driver
+  EVERGREEN_PROJECT: mongo-python-driver-release
   # Constant
   # inputs will be empty on a scheduled run.  so, we only set dry_run
   # to 'false' when the input is set to 'false'.
@@ -75,7 +75,7 @@ jobs:
       id-token: write
     steps:
       - name: Download all the dists
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: all-dist-${{ github.run_id }}
           path: dist/

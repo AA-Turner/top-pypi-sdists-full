@@ -32,6 +32,7 @@ from conductor.client.worker.worker_interface import WorkerInterface
 from conductor.client.worker.worker_config import resolve_worker_config, get_worker_config_oneline
 from conductor.client.worker.exception import NonRetryableException
 from conductor.client.automator.json_schema_generator import generate_json_schema_from_function
+from conductor.client.automator.lease_tracker import LeaseManager
 
 logger = logging.getLogger(
     Configuration.get_logging_formatted_name(
@@ -112,6 +113,9 @@ class AsyncTaskRunner:
         self._semaphore = None
         self._shutdown = False  # Flag to indicate graceful shutdown
         self._use_update_v2 = True  # Will be set to False if server doesn't support v2 endpoint
+        self._lease_manager = LeaseManager.get_instance()
+        self._tracked_task_ids = set()  # Local set for cleanup on shutdown
+        self._sync_task_client = None  # Created after fork for LeaseManager heartbeats
 
     async def run(self) -> None:
         """Main async loop - runs continuously in single event loop."""
@@ -129,6 +133,17 @@ class AsyncTaskRunner:
 
         self.async_task_client = AsyncTaskResourceApi(
             api_client=self.async_api_client
+        )
+
+        # Create a sync TaskResourceApi for LeaseManager heartbeats
+        # (LeaseManager sends heartbeats from its own ThreadPoolExecutor)
+        from conductor.client.http.api.task_resource_api import TaskResourceApi
+        from conductor.client.http.api_client import ApiClient
+        self._sync_task_client = TaskResourceApi(
+            ApiClient(
+                configuration=self.configuration,
+                metrics_collector=self.metrics_collector
+            )
         )
 
         # Create semaphore in the event loop (must be created within the loop)
@@ -166,6 +181,11 @@ class AsyncTaskRunner:
         """Clean up async resources."""
         logger.debug("Cleaning up AsyncTaskRunner resources...")
 
+        # Untrack all tasks this runner was tracking from the shared LeaseManager
+        for task_id in list(self._tracked_task_ids):
+            self._lease_manager.untrack(task_id)
+        self._tracked_task_ids.clear()
+
         # Cancel any running tasks (EAFP style)
         try:
             for task in list(self._running_tasks):
@@ -181,6 +201,13 @@ class AsyncTaskRunner:
                 logger.debug("Async API client closed successfully")
             except (IOError, OSError) as e:
                 logger.warning(f"Error closing async client: {e}")
+
+        # Close sync HTTP client used for lease heartbeats
+        if self._sync_task_client:
+            try:
+                self._sync_task_client.api_client.rest_client.connection.close()
+            except Exception:
+                pass
 
         # Clear event listeners
         self.event_dispatcher = None
@@ -227,7 +254,18 @@ class AsyncTaskRunner:
             output_schema_name = None
             schema_registry_available = True
 
-            if hasattr(self.worker, 'execute_function'):
+            # Check if schema registration is enabled for this worker
+            register_schema = getattr(self.worker, 'register_schema', False)
+            # Also check global Configuration default
+            if hasattr(self.configuration, 'register_schema') and self.configuration.register_schema is not None:
+                # Worker-level setting takes precedence if explicitly set (not default)
+                if not hasattr(self.worker, 'register_schema'):
+                    register_schema = self.configuration.register_schema
+
+            if not register_schema:
+                logger.debug(f"Schema registration disabled for {task_name} (register_schema=False)")
+
+            if register_schema and hasattr(self.worker, 'execute_function'):
                 logger.debug(f"Generating JSON schemas from function signature...")
                 # Pass strict_schema flag to control additionalProperties
                 strict_mode = getattr(self.worker, 'strict_schema', False)
@@ -309,6 +347,8 @@ class AsyncTaskRunner:
                             logger.debug(f"Could not register schemas for {task_name}: {e}")
                 else:
                     logger.debug(f"  ⚠ No schemas generated (unable to analyze function signature)")
+            elif not register_schema:
+                pass  # Already logged above
             else:
                 logger.debug(f"  ⚠ Class-based worker (no execute_function) - registering task without schemas")
 
@@ -573,15 +613,13 @@ class AsyncTaskRunner:
         # Acquire semaphore for entire task lifecycle (execution + update)
         # This ensures we never exceed thread_count tasks in any stage of processing
         async with self._semaphore:
+            self._track_lease(task)
             try:
                 while task is not None and not self._shutdown:
                     task_result = await self.__async_execute_task(task)
-                    # If task returned TaskInProgress, don't update yet
-                    if isinstance(task_result, TaskInProgress):
-                        logger.debug("Task %s is in progress, will update when complete", task.task_id)
-                        return
                     if task_result is None:
                         return
+                    self._untrack_lease(task.task_id)
                     # Update task and get next task from v2 response
                     task = await self.__async_update_task(task_result)
                     # v2 returns the next task; if v1 was used (returns None), immediately
@@ -589,12 +627,17 @@ class AsyncTaskRunner:
                     if task is None and not self._use_update_v2 and not self._shutdown:
                         tasks = await self.__async_batch_poll(1)
                         task = tasks[0] if tasks else None
+                    if task is not None:
+                        self._track_lease(task)
             except Exception as e:
                 logger.error(
                     "Error executing/updating task %s: %s",
                     task.task_id if task else "unknown",
                     traceback.format_exc()
                 )
+            finally:
+                if task is not None:
+                    self._untrack_lease(task.task_id)
 
     async def __async_execute_task(self, task: Task) -> TaskResult:
         """Execute async worker function directly (no threads, no BackgroundEventLoop)."""
@@ -907,6 +950,30 @@ class AsyncTaskRunner:
         ))
 
         return None
+
+    # -- Lease extension (heartbeat) delegation to LeaseManager ----------------
+
+    def _track_lease(self, task) -> None:
+        """Start tracking a task for lease extension via the shared LeaseManager."""
+        if not getattr(self.worker, 'lease_extend_enabled', False):
+            return
+        timeout = getattr(task, 'response_timeout_seconds', None) or 0
+        if timeout <= 0:
+            return
+        self._lease_manager.track(
+            task_id=task.task_id,
+            workflow_instance_id=task.workflow_instance_id,
+            response_timeout_seconds=timeout,
+            task_client=self._sync_task_client,
+        )
+        self._tracked_task_ids.add(task.task_id)
+
+    def _untrack_lease(self, task_id: str) -> None:
+        """Stop tracking a task for lease extension."""
+        self._lease_manager.untrack(task_id)
+        self._tracked_task_ids.discard(task_id)
+
+    # --------------------------------------------------------------------------
 
     def __set_worker_properties(self) -> None:
         """

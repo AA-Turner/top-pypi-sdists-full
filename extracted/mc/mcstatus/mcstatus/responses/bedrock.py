@@ -3,12 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING
 
-from mcstatus._utils import deprecated
 from mcstatus.motd import Motd
 from mcstatus.responses.base import BaseStatusPlayers, BaseStatusResponse, BaseStatusVersion
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
+else:
+    override = lambda f: f  # noqa: E731
 
 __all__ = [
     "BedrockStatusPlayers",
@@ -28,6 +29,7 @@ class BedrockStatusResponse(BaseStatusResponse):
     gamemode: str | None
     """The name of the gamemode on the server."""
 
+    @override
     @classmethod
     def build(cls, decoded_data: list[Any], latency: float) -> Self:
         """Build BaseStatusResponse and check is it valid.
@@ -79,12 +81,3 @@ class BedrockStatusVersion(BaseStatusVersion):
     """
     brand: str
     """``MCPE`` or ``MCEE`` for Education Edition."""
-
-    @property
-    @deprecated(replacement="name", removal_version="13.0.0")
-    def version(self) -> str:
-        """
-        .. deprecated:: 12.0.0
-            Will be removed in 13.0.0, use :attr:`.name` instead.
-        """  # noqa: D205, D212 # no summary line
-        return self.name

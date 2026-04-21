@@ -2,20 +2,19 @@
 # this repository contains the full copyright notices and license terms.
 import warnings
 from collections import defaultdict
-from itertools import chain
 
 from sql import Literal, Null
 from sql.conditionals import Coalesce
 
 from trytond.pool import Pool
 from trytond.pyson import PYSONEncoder
-from trytond.tools import cached_property, grouped_slice
+from trytond.tools import cached_property
 from trytond.transaction import Transaction
 
 from .field import (
-    Field, context_validate, domain_method, domain_validate, get_eval_fields,
-    instanciate_values, instantiate_context, search_order_validate,
-    size_validate)
+    SQL_OPERATORS, Field, context_validate, domain_method, domain_validate,
+    get_eval_fields, instanciate_values, instantiate_context,
+    search_order_validate, size_validate)
 
 
 class Many2Many(Field):
@@ -153,19 +152,15 @@ class Many2Many(Field):
         else:
             order += self.order
 
-        relations = []
-        for sub_ids in grouped_slice(ids):
-            if reference_key:
-                references = ['%s,%s' % (model.__name__, x) for x in sub_ids]
-                clause = [(self.origin, 'in', references)]
-            else:
-                clause = [(self.origin, 'in', list(sub_ids))]
-            clause += [(self.target, '!=', None)]
-            if self.filter:
-                clause.append((self.target, 'where', self.filter))
-            relations.append(
-                [r.id for r in Relation.search(clause, order=order)])
-        to_read = list(chain(*relations))
+        if reference_key:
+            references = ['%s,%s' % (model.__name__, x) for x in ids]
+            clause = [(self.origin, 'in', references)]
+        else:
+            clause = [(self.origin, 'in', ids)]
+        clause += [(self.target, '!=', None)]
+        if self.filter:
+            clause.append((self.target, 'where', self.filter))
+        to_read = [r.id for r in Relation.search(clause, order=order)]
         relations = {t['id']: t
             for t in Relation.read(to_read, [self.origin, self.target])}
 
@@ -229,19 +224,17 @@ class Many2Many(Field):
             target_to_delete.extend(Target.browse(target_ids))
 
         def add(ids, target_ids):
-            target_ids = list(map(int, target_ids))
             if not target_ids:
                 return
             existing_ids = set()
-            for sub_ids in grouped_slice(target_ids):
-                relations = Relation.search([
-                        search_clause(ids),
-                        (self.target, 'in', list(sub_ids)),
-                        ])
-                for relation in relations:
-                    existing_ids.add((
-                            getattr(relation, self.origin).id,
-                            getattr(relation, self.target).id))
+            relations = Relation.search([
+                    search_clause(ids),
+                    (self.target, 'in', target_ids),
+                    ])
+            for relation in relations:
+                existing_ids.add((
+                        getattr(relation, self.origin).id,
+                        getattr(relation, self.target).id))
             for new_id in target_ids:
                 for record_id in ids:
                     if (record_id, new_id) in existing_ids:
@@ -252,14 +245,12 @@ class Many2Many(Field):
                             })
 
         def remove(ids, target_ids):
-            target_ids = list(map(int, target_ids))
             if not target_ids:
                 return
-            for sub_ids in grouped_slice(target_ids):
-                relation_to_delete.extend(Relation.search([
-                            search_clause(ids),
-                            (self.target, 'in', list(sub_ids)),
-                            ]))
+            relation_to_delete.extend(Relation.search([
+                        search_clause(ids),
+                        (self.target, 'in', target_ids),
+                        ]))
 
         def copy(ids, copy_ids, default=None):
             copy_ids = list(map(int, copy_ids))
@@ -359,7 +350,7 @@ class Many2Many(Field):
         if not ids:
             expression = Literal(False)
         else:
-            expression = table.id.in_(ids)
+            expression = SQL_OPERATORS['in'](table.id, ids)
         if operator.startswith('not'):
             return ~expression
         return expression
@@ -384,14 +375,19 @@ class Many2Many(Field):
         else:
             relation = Relation.__table__()
             history_where = None
+        relation_tables = {
+            None: (relation, None),
+            }
         origin_field = Relation._fields[self.origin]
-        origin = getattr(Relation, self.origin).sql_column(relation)
+        origin = getattr(Relation, self.origin).sql_column(
+            relation_tables, Relation)
         origin_where = None
         if origin_field._type == 'reference':
             origin_where = origin.like(Model.__name__ + ',%')
             origin = origin_field.sql_id(origin, Relation)
 
-        target = getattr(Relation, self.target).sql_column(relation)
+        target = getattr(Relation, self.target).sql_column(
+            relation_tables, Relation)
         if '.' not in name:
             if operator.endswith('child_of') or operator.endswith('parent_of'):
                 if Target != Model:
@@ -481,9 +477,6 @@ class Many2Many(Field):
                 relation_domain,
                 (self.target, 'where', self.filter),
                 ]
-        relation_tables = {
-            None: (relation, None),
-            }
         tables, expression = Relation.search_domain(
             relation_domain, tables=relation_tables)
         query_table = convert_from(None, relation_tables)

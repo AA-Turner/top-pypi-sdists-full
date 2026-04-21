@@ -15,28 +15,37 @@ from jax._src import xla_bridge as xb
 from jax._src.lib import xla_client as xc
 from jax._src.numpy.scalar_types import _ScalarMeta
 from jax.sharding import Mesh, NamedSharding, PartitionSpec
-from torchax.ops.mappings import j2t_dtype, t2j_dtype
+from torchax.ops.mappings import j2t_dtype
+from torchax.ops.mappings import t2j as torchax_t2j
+from torchax.ops.mappings import t2j_dtype
 from vllm import envs as vllm_envs
 from vllm import utils
 
 from tpu_inference import envs
+from tpu_inference.layers.common.utils import general_device_put
 from tpu_inference.logger import init_logger
+
+logger = init_logger(__name__)
 
 GBYTES = 1024 * 1024 * 1024
 TPU_HEAD_SIZE_ALIGNMENT = 128
 TPU_SECOND_LAST_MINOR = 8
 
-# Map vllm dtype string that doesn't exactly match jax dtype string name.
-_VLLM_DTYPE_STR_TO_JAX_DTYPE = {
+# Map a dtype string (possibly from vLLM) to the corresponding JAX dtype
+_DTYPE_STR_ALIAS_TO_JAX_DTYPE = {
     "fp8": jnp.float8_e4m3fn.dtype,
     "fp8_e4m3": jnp.float8_e4m3fn.dtype,
     "fp8_e5m2": jnp.float8_e5m2.dtype,
+    # NOTE: vLLM doesn't have this str dtype yet
+    "fp4": jnp.float4_e2m1fn.dtype,
 }
 
 
 def to_jax_dtype(dtype: str | jnp.dtype | torch.dtype) -> jnp.dtype:
-    if isinstance(dtype, str):
-        if dict_dtype := _VLLM_DTYPE_STR_TO_JAX_DTYPE.get(dtype, None):
+    if isinstance(dtype, (str, type)):
+        if isinstance(dtype, str) and (dict_dtype :=
+                                       _DTYPE_STR_ALIAS_TO_JAX_DTYPE.get(
+                                           dtype, None)):
             return dict_dtype
         return jnp.dtype(dtype)
     elif isinstance(dtype, torch.dtype):
@@ -56,8 +65,36 @@ def to_torch_dtype(dtype: str | jnp.dtype | torch.dtype) -> torch.dtype:
     return j2t_dtype(dtype)
 
 
+_NUMPY_UNSUPPORTED_DTYPES = {
+    torch.bfloat16: jnp.bfloat16,
+    torch.float8_e4m3fn: jnp.float8_e4m3fn,
+    torch.float8_e4m3fnuz: jnp.float8_e4m3fnuz,
+    torch.float8_e5m2: jnp.float8_e5m2,
+    torch.float8_e5m2fnuz: jnp.float8_e5m2fnuz,
+}
+
+
+def t2j(t: torch.Tensor, use_dlpack=False):
+    # torchax's t2j is not efficient to handle types in
+    # _NUMPY_UNSUPPORTED_DTYPES, it need to convert to
+    # float32. For large tensor, that could be expensive.
+    # https://github.com/google/torchax/blob/main/torchax/ops/mappings.py#L55
+    # Here, we do a bit cast instead.
+    # TODO(gxd3): upstream this improvement to the torchax library.
+    try:
+        if t.dtype in _NUMPY_UNSUPPORTED_DTYPES:
+            # This bit cast require t to be continguous and more than 1 dimension.
+            if t.is_contiguous() and t.dim():
+                bytes = t.cpu().view(torch.uint8).detach().numpy()
+                return jnp.array(bytes).view(
+                    _NUMPY_UNSUPPORTED_DTYPES[t.dtype])
+    except Exception as e:  # pylint: disable=broad-except
+        logger.warning("t2j bit cast failed, falling back to torchax t2j: %s",
+                       e)
+    return torchax_t2j(t, use_dlpack=use_dlpack)
+
+
 _megacore = False
-logger = init_logger(__name__)
 
 
 def align_to(unpadded_dim, pad_multiple):
@@ -158,9 +195,18 @@ def pathways_hbm_usage_gb(devices: Any) -> List[Tuple[float, float]]:
     live_arrays = jax.live_arrays()
     hbm_used = defaultdict(int)
     hbm_limit = get_device_hbm_limit()
+
+    # Track unique buffers to avoid double-counting when multiple Python
+    # variables reference the same underlying JAX array (e.g., a = jnp.ones(10); b = a)
+    seen_buffers = set()
+
     for array in live_arrays:
         for buffer in array.addressable_shards:
-            hbm_used[buffer.data.device] += buffer.data.nbytes
+            buffer_id = id(buffer.data)
+            if buffer_id not in seen_buffers:
+                seen_buffers.add(buffer_id)
+                hbm_used[buffer.data.device] += buffer.data.nbytes
+
     return [(hbm_used[device], hbm_limit) for device in devices]
 
 
@@ -190,8 +236,7 @@ def get_padded_num_heads(num_heads: int, sharding_size: int) -> int:
 
 
 def get_dtype_packing(dtype):
-    bits = (dtypes.bit_width(dtype)
-            if hasattr(dtypes, "bit_width") else dtypes.itemsize_bits(dtype))
+    bits = dtypes.itemsize_bits(dtype)
     return 32 // bits
 
 
@@ -249,11 +294,31 @@ def make_optimized_mesh(axis_shapes: Sequence[int],
             if ordered_devices is not None:
                 ordered_devices = np.array(ordered_devices)
                 ordered_devices = ordered_devices.reshape(axis_shapes)
-                mesh = mesh_lib.Mesh(ordered_devices, axis_names)
+                mesh = mesh_lib.Mesh(ordered_devices,
+                                     axis_names,
+                                     axis_types=(mesh_lib.AxisType.Auto, ) *
+                                     len(axis_shapes))
                 logger.info("Use customized mesh: %s", mesh)
                 return mesh
 
-    return jax.make_mesh(axis_shapes, axis_names, devices=devices)
+    # Try to create a physically optimized mesh. Fall back to a logical layout
+    # for non-power-of-two device counts (e.g., DP=6) to bypass strict
+    # hardware topology constraints that would otherwise cause an AssertionError.
+    try:
+        axis_types = (mesh_lib.AxisType.Auto, ) * len(axis_shapes)
+        return jax.make_mesh(axis_shapes,
+                             axis_names,
+                             axis_types,
+                             devices=devices)
+    except (AssertionError, ValueError, RuntimeError) as e:
+        logger.warning(
+            "jax.make_mesh failed due to topology constraints. Falling back to manual mesh: %s",
+            e)
+        ordered_devices = np.array(devices).reshape(axis_shapes)
+        return mesh_lib.Mesh(ordered_devices,
+                             axis_names,
+                             axis_types=(mesh_lib.AxisType.Auto, ) *
+                             len(axis_shapes))
 
 
 def device_array(mesh: Mesh, *args, sharding=None, **kwargs) -> jax.Array:
@@ -262,16 +327,16 @@ def device_array(mesh: Mesh, *args, sharding=None, **kwargs) -> jax.Array:
 
     Args:
         mesh: The JAX mesh to use for device placement
-        *args: Positional arguments to pass to jax.device_put
+        *args: Positional arguments to pass to general_device_put
         sharding: Optional sharding specification. If None, uses PartitionSpec(None)
-        **kwargs: Keyword arguments to pass to jax.device_put
+        **kwargs: Keyword arguments to pass to general_device_put
 
     Returns:
         A JAX array placed on the specified devices
     """
     if sharding is None:
         sharding = NamedSharding(mesh, PartitionSpec(None))
-    return jax.device_put(*args, device=sharding, **kwargs)
+    return general_device_put(*args, sharding=sharding, **kwargs)
 
 
 def get_hash_fn_by_name(hash_fn_name: str) -> Callable[[Any], bytes]:

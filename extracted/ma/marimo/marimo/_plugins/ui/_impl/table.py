@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import functools
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
@@ -10,6 +11,9 @@ from typing import (
     Literal,
     cast,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 from narwhals.typing import IntoDataFrame
 
@@ -30,9 +34,11 @@ from marimo._plugins.ui._impl.dataframes.transforms.apply import (
     apply_transforms_to_df,
 )
 from marimo._plugins.ui._impl.dataframes.transforms.types import (
-    Condition,
+    FilterCondition,
+    FilterGroup,
     FilterRowsTransform,
     TransformType,
+    validate_operator_for_dtype,
 )
 from marimo._plugins.ui._impl.tables.selection import (
     INDEX_COLUMN_NAME,
@@ -91,8 +97,13 @@ class DownloadAsArgs:
 
 @dataclass
 class DownloadAsResponse:
-    url: str
-    filename: str
+    url: str = ""
+    filename: str = ""
+    # Populated when the requested format's dependencies are missing (e.g.,
+    # Parquet without pyarrow/pandas/polars). Mirrors the shape used by
+    # ColumnPreview so the frontend can reuse its install-prompt flow.
+    error: str | None = None
+    missing_packages: list[str] | None = None
 
 
 @dataclass
@@ -135,7 +146,7 @@ class SearchTableArgs:
     page_number: int
     query: str | None = None
     sort: list[SortArgs] | None = None
-    filters: list[Condition] | None = None
+    filters: FilterGroup | None = None
     limit: int | None = None
     max_columns: int | MaxColumnsNotProvided | None = MAX_COLUMNS_NOT_PROVIDED
 
@@ -202,6 +213,52 @@ def get_default_table_max_columns() -> int:
         return DEFAULT_MAX_COLUMNS
     else:
         return ctx.marimo_config["display"]["default_table_max_columns"]
+
+
+_DATATYPE_TO_CATEGORY: dict[str, str] = {
+    "string": "str",
+    "boolean": "boolean",
+    "integer": "number",
+    "number": "number",
+    "date": "temporal",
+    "datetime": "temporal",
+    "time": "temporal",
+}
+
+
+def _filter_valid_columns(
+    group: FilterGroup,
+    column_dtypes: Mapping[str, str],
+) -> FilterGroup:
+    """Recursively remove conditions on non-existent columns
+    or with invalid operators for the column dtype."""
+    valid_children: list[FilterCondition | FilterGroup] = []
+    for child in group.children:
+        if isinstance(child, FilterCondition):
+            if child.column_id not in column_dtypes:
+                continue
+            category = _DATATYPE_TO_CATEGORY.get(
+                column_dtypes[child.column_id], ""
+            )
+            if not validate_operator_for_dtype(child.operator, category):
+                LOGGER.warning(
+                    "Invalid operator '%s' for dtype '%s' on column '%s'",
+                    child.operator,
+                    column_dtypes[child.column_id],
+                    child.column_id,
+                )
+                continue
+            valid_children.append(child)
+        elif isinstance(child, FilterGroup):
+            filtered = _filter_valid_columns(child, column_dtypes)
+            if filtered.children:
+                valid_children.append(filtered)
+    return FilterGroup(
+        type="group",
+        operator=group.operator,
+        children=tuple(valid_children),
+        negate=group.negate,
+    )
 
 
 @mddoc
@@ -821,16 +878,52 @@ class table(
         current searched/filtered view. Raw data is downloaded without any
         formatting applied.
 
+        When a requested format requires a package that isn't installed
+        (e.g., Parquet without pyarrow/pandas/polars), returns a
+        ``DownloadAsResponse`` with ``error`` and ``missing_packages``
+        populated instead of raising. The frontend uses this to prompt the
+        user to install the dependency and retry.
+
         Args:
-            args (DownloadAsArgs): Arguments specifying the download format.
-                format must be one of 'csv' or 'json'.
+            args (DownloadAsArgs): The requested download format. Must be
+                one of ``'csv'``, ``'json'``, or ``'parquet'``.
 
         Returns:
-            DownloadAsResponse: URL and filename for the downloaded file.
+            DownloadAsResponse: Either a success response with ``url`` and
+                ``filename`` populated, or a missing-packages response with
+                ``error`` and ``missing_packages`` populated when the
+                format's dependencies are not available.
 
         Raises:
-            ValueError: If format is not 'csv' or 'json'.
+            NotImplementedError: If the current selection resolves to
+                something other than a ``TableManager`` (e.g., a raw list
+                of ``TableCell`` from cell-selection modes).
         """
+        # Short-circuit Parquet when no parquet-capable lib is importable.
+        if args.format == "parquet":
+            has_polars = DependencyManager.polars.has()
+            has_pandas = DependencyManager.pandas.has()
+            has_pyarrow = DependencyManager.pyarrow.has()
+
+            if not (has_polars or (has_pandas and has_pyarrow)):
+                # if pandas is installed and pyarrow is not, prompt to install pyarrow
+                if has_pandas:
+                    return DownloadAsResponse(
+                        error=(
+                            "Parquet export requires pyarrow. "
+                            "Please install pyarrow to enable parquet export."
+                        ),
+                        missing_packages=["pyarrow"],
+                    )
+                else:  # else prompt polars
+                    return DownloadAsResponse(
+                        error=(
+                            "Parquet export requires a DataFrame library. "
+                            "We recommend polars."
+                        ),
+                        missing_packages=["polars"],
+                    )
+
         # For cell-selection modes, ignore selection and download from the
         # searched/filtered view. For row-selection modes, preserve existing
         # behavior: download selected rows if any, otherwise the searched view.
@@ -1143,40 +1236,37 @@ class table(
     @functools.lru_cache(maxsize=1)  # noqa: B019
     def _apply_filters_query_sort_cached(
         self,
-        filters: tuple[Condition, ...] | None,
+        filters: FilterGroup | None,
         query: str | None,
         sort: tuple[SortArgs, ...] | None,
     ) -> TableManager[Any]:
         """Cached version that expects hashable arguments."""
         return self._apply_filters_query_sort(
-            list(filters) if filters else None,
+            filters,
             query,
             list(sort) if sort else None,
         )
 
     def _apply_filters_query_sort(
         self,
-        filters: list[Condition] | None,
+        filters: FilterGroup | None,
         query: str | None,
         sort: list[SortArgs] | None,
     ) -> TableManager[Any]:
         result = self._manager
 
-        if filters:
-            # Filter out conditions for columns that don't exist
-            existing_columns = set(result.get_column_names())
-            valid_filters = [
-                condition
-                for condition in filters
-                if condition.column_id in existing_columns
-            ]
+        if filters and filters.children:
+            column_dtypes = {
+                name: dtype for name, (dtype, _) in result.get_field_types()
+            }
+            valid_group = _filter_valid_columns(filters, column_dtypes)
 
-            if valid_filters:
+            if valid_group.children:
                 data = apply_transforms_to_df(
                     result.data,
                     FilterRowsTransform(
                         type=TransformType.FILTER_ROWS,
-                        where=valid_filters,
+                        where=valid_group,
                         operation="keep_rows",
                     ),
                 )
@@ -1470,7 +1560,7 @@ class table(
             else self._apply_filters_query_sort
         )
         result = filter_function(
-            tuple(args.filters) if args.filters else None,  # type: ignore
+            args.filters,
             args.query,
             tuple(args.sort) if args.sort else None,  # type: ignore
         )

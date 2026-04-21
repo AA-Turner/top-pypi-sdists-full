@@ -224,6 +224,7 @@ class WorkspaceClient:
         cluster_id: Optional[str] = None,
         google_credentials: Optional[str] = None,
         google_service_account: Optional[str] = None,
+        workspace_id: Optional[int] = None,
         debug_truncate_bytes: Optional[int] = None,
         debug_headers: Optional[bool] = None,
         product="unknown",
@@ -256,6 +257,7 @@ class WorkspaceClient:
                 cluster_id=cluster_id,
                 google_credentials=google_credentials,
                 google_service_account=google_service_account,
+                workspace_id=workspace_id,
                 credentials_strategy=credentials_strategy,
                 credentials_provider=credentials_provider,
                 debug_truncate_bytes=debug_truncate_bytes,
@@ -1015,7 +1017,7 @@ class WorkspaceClient:
 
     @property
     def workspace(self) -> WorkspaceExt:
-        """The Workspace API allows you to list, import, export, and delete notebooks and folders."""
+        """The Workspace API allows you to list, import, export, and delete workspace objects such as notebooks, files, folders, and dashboards."""
         return self._workspace
 
     @property

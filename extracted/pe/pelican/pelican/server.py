@@ -120,10 +120,15 @@ class ComplexHTTPRequestHandler(server.SimpleHTTPRequestHandler):
         if mimetype == "application/octet-stream" and magic_from_file:
             mimetype = magic_from_file(path, mime=True)
 
+        # On some systems, JavaScript files are incorrectly assigned the "text/plain"
+        # MIME type in Python's mimetypes module. Override this behavior when it occurs.
+        if posixpath.splitext(path)[1] == ".js" and mimetype == "text/plain":
+            mimetype = "text/javascript"
+
         return mimetype
 
-    def log_message(self, format, *args):
-        logger.info(format, *args)
+    def log_message(self, msg_format, *args):
+        logger.info(msg_format, *args)
 
 
 class RootedHTTPServer(server.HTTPServer):

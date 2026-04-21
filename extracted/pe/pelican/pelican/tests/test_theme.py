@@ -133,6 +133,165 @@ class TestTemplateInheritance(LoggedTestCase):
         self.assertNotIn("Proudly powered by", content)
         self.assertIn("New footer", content)
 
+    def test_disabled_categories_no_links(self):
+        """When CATEGORY_SAVE_AS is empty, articles without an explicit
+        category should not get a default category or show category links."""
+
+        # Create an article without a Category metadata line
+        content_dir = mkdtemp(prefix="pelican_test_content.")
+        with open(os.path.join(content_dir, "no_category.md"), "w") as f:
+            f.write(
+                "Title: No Category Article\n"
+                "Date: 2024-01-01\n\n"
+                "Article without a category.\n"
+            )
+
+        try:
+            settings = read_settings(
+                path=None,
+                override={
+                    "THEME": "simple",
+                    "PATH": content_dir,
+                    "OUTPUT_PATH": self.temp_output,
+                    "CACHE_PATH": self.temp_cache,
+                    "SITEURL": "http://example.com",
+                    "CATEGORY_SAVE_AS": None,
+                    "CATEGORY_URL": None,
+                    "CATEGORIES_SAVE_AS": None,
+                },
+            )
+
+            pelican = Pelican(settings=settings)
+            mute(True)(pelican.run)()
+
+            with open(os.path.join(self.temp_output, "no-category-article.html")) as f:
+                content = f.read()
+
+            self.assertNotIn("Category:", content)
+        finally:
+            rmtree(content_dir)
+
+    def test_category_and_tag_feed_titles_use_slug(self):
+        """Feed link titles on category/tag pages should have unique titles."""
+
+        settings = read_settings(
+            path=None,
+            override={
+                "THEME": "simple",
+                "PATH": CONTENT_DIR,
+                "OUTPUT_PATH": self.temp_output,
+                "CACHE_PATH": self.temp_cache,
+                "SITEURL": "http://example.com",
+                "SITENAME": "My Site",
+                "CATEGORY_FEED_ATOM": "feeds/{slug}.atom.xml",
+                "TAG_FEED_ATOM": "feeds/tag-{slug}.atom.xml",
+            },
+        )
+
+        pelican = Pelican(settings=settings)
+        mute(True)(pelican.run)()
+
+        cat_file = os.path.join(self.temp_output, "category", "test.html")
+        with open(cat_file) as f:
+            cat_content = f.read()
+        self.assertIn('title="Test Category Atom Feed"', cat_content)
+
+        tag_file = os.path.join(self.temp_output, "tag", "foo.html")
+        with open(tag_file) as f:
+            tag_content = f.read()
+        self.assertIn('title="Foo Tag Atom Feed"', tag_content)
+
+    def test_simple_theme_no_css_link(self):
+        """The simple theme has no static/css/ directory, so the CSS_FILE
+        link should not be rendered."""
+
+        settings = read_settings(
+            path=None,
+            override={
+                "THEME": "simple",
+                "PATH": CONTENT_DIR,
+                "OUTPUT_PATH": self.temp_output,
+                "CACHE_PATH": self.temp_cache,
+                "SITEURL": "http://example.com",
+            },
+        )
+
+        pelican = Pelican(settings=settings)
+        mute(True)(pelican.run)()
+
+        with open(os.path.join(self.temp_output, "test-md-file.html")) as f:
+            content = f.read()
+
+        self.assertNotIn("/theme/css/main.css", content)
+
+    def test_child_theme_with_css_file(self):
+        """A child theme that provides static/css/main.css should have the
+        CSS_FILE link rendered."""
+
+        # Add a CSS file to the child theme
+        css_dir = os.path.join(self.temp_theme, "static", "css")
+        os.makedirs(css_dir)
+        with open(os.path.join(css_dir, "main.css"), "w") as f:
+            f.write("body { margin: 0; }")
+
+        settings = read_settings(
+            path=None,
+            override={
+                "THEME": self.temp_theme,
+                "PATH": CONTENT_DIR,
+                "OUTPUT_PATH": self.temp_output,
+                "CACHE_PATH": self.temp_cache,
+                "SITEURL": "http://example.com",
+            },
+        )
+
+        pelican = Pelican(settings=settings)
+        mute(True)(pelican.run)()
+
+        with open(os.path.join(self.temp_output, "test-md-file.html")) as f:
+            content = f.read()
+
+        self.assertIn(
+            'href="http://example.com/theme/css/main.css"',
+            content,
+        )
+
+    def test_css_only_theme(self):
+        """A theme with only a static/css/main.css file (no templates)
+        should work by falling back to the simple theme's templates."""
+
+        css_only_theme = mkdtemp(prefix="pelican_test_css_only_theme.")
+        css_dir = os.path.join(css_only_theme, "static", "css")
+        os.makedirs(css_dir)
+        with open(os.path.join(css_dir, "main.css"), "w") as f:
+            f.write("body { margin: 0; }")
+
+        try:
+            settings = read_settings(
+                path=None,
+                override={
+                    "THEME": css_only_theme,
+                    "PATH": CONTENT_DIR,
+                    "OUTPUT_PATH": self.temp_output,
+                    "CACHE_PATH": self.temp_cache,
+                    "SITEURL": "http://example.com",
+                },
+            )
+
+            pelican = Pelican(settings=settings)
+            mute(True)(pelican.run)()
+
+            with open(os.path.join(self.temp_output, "test-md-file.html")) as f:
+                content = f.read()
+
+            self.assertIn(
+                'href="http://example.com/theme/css/main.css"',
+                content,
+            )
+            self.assertIn("Proudly powered by", content)
+        finally:
+            rmtree(css_only_theme)
+
 
 if __name__ == "__main__":
     unittest.main()

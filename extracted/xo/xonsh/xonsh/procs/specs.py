@@ -18,16 +18,33 @@ import xonsh.platform as xp
 import xonsh.procs.jobs as xj
 import xonsh.tools as xt
 from xonsh.built_ins import XSH
-from xonsh.procs.executables import locate_executable
+from xonsh.procs.executables import (
+    get_possible_names,
+    is_file,
+    locate_executable,
+)
 from xonsh.procs.pipelines import (
     STDOUT_CAPTURE_KINDS,
     CommandPipeline,
     HiddenCommandPipeline,
     resume_process,
 )
+from xonsh.procs.pipes import PipeChannel
 from xonsh.procs.posix import PopenThread
 from xonsh.procs.proxies import ProcProxy, ProcProxyThread
 from xonsh.procs.readers import ConsoleParallelReader
+
+
+def _has_path_component(name):
+    """Check if a command name contains any path component (directory separator).
+
+    Commands with path separators (like ``./script``, ``subdir/script``,
+    or absolute paths) are explicit path references and may be resolved
+    relative to CWD.  Bare names (like ``ls`` or ``script.xsh``) must be
+    found in ``$PATH`` only — matching Linux/POSIX behaviour where CWD is
+    never searched implicitly.
+    """
+    return os.sep in name or (os.sep != "/" and "/" in name)
 
 
 @xl.lazyobject
@@ -59,7 +76,7 @@ def _is_binary(fname, limit=80):
                 if char == b"\n":
                     return False
                 if char == b"":
-                    return
+                    return False
     except OSError as e:
         if xp.ON_WINDOWS and is_app_execution_alias(fname):
             return True
@@ -76,7 +93,7 @@ def _un_shebang(x):
     elif x.endswith("python") or x.endswith("python.exe"):
         x = "python"
     if x == "xonsh":
-        return ["python", "-m", "xonsh.main"]
+        return [sys.executable, "-m", "xonsh"]
     return [x]
 
 
@@ -108,7 +125,7 @@ def get_script_subproc_command(fname, args):
         if not xp.ON_CYGWIN:
             raise PermissionError
         # explicitly look at all PATH entries for cmd
-        w_path = os.getenv("PATH").split(":")
+        w_path = os.getenv("PATH", "").split(os.pathsep)
         w_fpath = list(map(lambda p: p + os.sep + fname, w_path))
         if not any(list(map(lambda c: os.access(c, os.X_OK), w_fpath))):
             raise PermissionError
@@ -122,12 +139,28 @@ def get_script_subproc_command(fname, args):
         # if the file is a binary, we should call it directly
         return None
     if xp.ON_WINDOWS:
-        # Windows can execute various filetypes directly
-        # as given in PATHEXT
         _, ext = os.path.splitext(fname)
-        if ext.upper() in XSH.env.get("PATHEXT"):
-            return [fname] + args
-    # find interpreter
+        ext_upper = ext.upper()
+        # 1) .xsh / .py / .pyw — run with the current xonsh interpreter
+        #    (xonsh compiles .py as pure Python and .xsh as xonsh code
+        #    via codecache, matching the Linux behaviour)
+        if ext_upper in {".XSH", ".PY", ".PYW"}:
+            return [sys.executable, "-m", "xonsh", fname] + args
+        # 3) Other PATHEXT extensions — delegate to OS file associations
+        if ext_upper in {e.upper() for e in XSH.env.get("PATHEXT", [])}:
+            return ["cmd", "/c", fname] + args
+        # 4) Try shebang for any other text file
+        shebang = parse_shebang_from_file(fname)
+        m = RE_SHEBANG.match(shebang)
+        if m is not None:
+            interp = shlex.split(m.group(1).strip())
+            o = []
+            for i in interp:
+                o.extend(_un_shebang(i))
+            return o + [fname] + args
+        # 5) Unknown file type — no recognised extension, no shebang
+        return None
+    # --- POSIX path (unchanged) ---
     shebang = parse_shebang_from_file(fname)
     m = RE_SHEBANG.match(shebang)
     # xonsh is the default interpreter
@@ -139,11 +172,6 @@ def get_script_subproc_command(fname, args):
             interp = shlex.split(interp)
         else:
             interp = ["xonsh"]
-    if xp.ON_WINDOWS:
-        o = []
-        for i in interp:
-            o.extend(_un_shebang(i))
-        interp = o
     return interp + [fname] + args
 
 
@@ -188,11 +216,46 @@ def _O2E_MAP():
     return frozenset({f"{o}>{e}" for e in _REDIR_ERR for o in _REDIR_OUT if o != ""})
 
 
+@xl.lazyobject
+def _A2P_MAP():
+    # `a>p` and variants: merge stdout+stderr into the following pipe.
+    # `&` is excluded here: `&>p` would conflict with the background-process
+    # parsing of `&` in subproc redirects.
+    return frozenset({f"{a}>p" for a in _REDIR_ALL if a != "&"})
+
+
+@xl.lazyobject
+def _E2P_MAP():
+    # `e>p` and variants: route stderr into the following pipe
+    return frozenset({f"{e}>p" for e in _REDIR_ERR})
+
+
+class _PipeRedirectSentinel:
+    """Marker put in a spec's stdout/stderr slot by ``_redirect_streams``
+    when the command uses ``a>p`` or ``e>p``. It is replaced by the pipe's
+    write fd later in ``cmds_to_specs``; if it survives to execution, the
+    redirect was used without a subsequent ``|`` pipe.
+    """
+
+    __slots__ = ("name",)
+
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return f"<pipe-redirect {self.name}>"
+
+
+_PIPE_ALL = _PipeRedirectSentinel("a>p")
+_PIPE_ERR = _PipeRedirectSentinel("e>p")
+
+
 def safe_open(fname, mode, buffering=-1):
     """Safely attempts to open a file in for xonsh subprocs."""
     # file descriptors
     try:
-        return open(fname, mode, buffering=buffering)
+        kwargs = {"encoding": "utf-8"} if "b" not in mode else {}
+        return open(fname, mode, buffering=buffering, **kwargs)
     except PermissionError as ex:
         raise xt.XonshError(f"xonsh: {fname}: permission denied") from ex
     except FileNotFoundError as ex:
@@ -243,6 +306,12 @@ def _redirect_streams(r, loc=None):
         raise Exception(f"Unsupported redirect: {r!r} {loc!r}")
 
     stdin = stdout = stderr = None
+    # pipe redirects: a>p merges both streams into the following pipe,
+    # e>p routes stderr into the following pipe (stdout left alone).
+    if r in _A2P_MAP:
+        return stdin, _PIPE_ALL, subprocess.STDOUT
+    elif r in _E2P_MAP:
+        return stdin, stdout, _PIPE_ERR
     no_ampersand = r.replace("&", "")
     # special case of redirecting stderr to stdout
     if no_ampersand in _E2O_MAP:
@@ -325,6 +394,7 @@ class SpecAttrDecoratorAlias(DecoratorAlias):
     def __init__(self, set_attributes: dict, descr=""):
         self.set_attributes = set_attributes
         self.descr = descr
+        self.__doc__ = descr
         super().__init__()
 
     def decorate_spec(self, spec):
@@ -436,8 +506,12 @@ class SubprocSpec:
         self.captured_stderr = None
         self.stack = None
         self.decorators = []  # List of DecoratorAlias objects that applied to spec.
+        self.pipe_channels = []  # PipeChannel objects owned by this spec
         self.output_format = XSH.env.get("XONSH_SUBPROC_OUTPUT_FORMAT", "stream_lines")
-        self.raise_subproc_error = None  # Spec-based $RAISE_SUBPROC_ERROR.
+        self.raise_subproc_error = None  # Spec-based $XONSH_SUBPROC_CMD_RAISE_ERROR.
+        # True when this pipeline is a direct operand of an `&&`/`||` chain
+        # (set by `cmds_to_specs` from the parser-injected `in_boolop` kwarg).
+        self.in_boolop = False
 
     def __str__(self):
         s = self.__class__.__name__ + "(" + str(self.cmd) + ", "
@@ -508,6 +582,24 @@ class SubprocSpec:
     def get_command_str(self):
         return " ".join(arg for arg in self.args)
 
+    def close(self):
+        """Release any pipe wrappers and channels held by this spec.
+
+        Required when a spec is created via ``cmds_to_specs`` but never
+        executed (no ``CommandPipeline._close_proc`` is invoked). The
+        wrappers from ``PipeChannel.open_writer/open_reader`` use
+        ``closefd=False``, so leaving them for GC produces a
+        ``ResourceWarning: unclosed file`` on Python 3.12+. Idempotent.
+        """
+        safe_close(self._stdin)
+        safe_close(self._stdout)
+        safe_close(self._stderr)
+        safe_close(self.captured_stdout)
+        safe_close(self.captured_stderr)
+        for ch in self.pipe_channels:
+            ch.close()
+        self.pipe_channels.clear()
+
     #
     # Execution methods
     #
@@ -543,6 +635,15 @@ class SubprocSpec:
                 cmd = [self.binary_loc] + self.cmd[1:]
             else:
                 cmd = self.cmd
+            # On Windows, CreateProcess searches the current directory for
+            # executables before PATH.  Block that for bare command names
+            # (no directory separator) so the behaviour matches POSIX shells
+            # where CWD is never searched implicitly.
+            if xp.ON_WINDOWS and self.binary_loc is None:
+                cmd0 = cmd[0]
+                if cmd0 and not _has_path_component(cmd0):
+                    if any(is_file(n) for n in get_possible_names(cmd0)):
+                        raise FileNotFoundError(cmd0)
             p = self.cls(cmd, bufsize=bufsize, **kwargs)
         except PermissionError as ex:
             e = "xonsh: subprocess mode: permission denied: {0}"
@@ -550,16 +651,21 @@ class SubprocSpec:
         except FileNotFoundError as ex:
             cmd0 = self.cmd[0]
             if len(self.cmd) == 1 and cmd0.endswith("?"):
-                cmdq = cmd0.rstrip("?")
+                superhelp = cmd0.endswith("??")
+                cmdq = cmd0[:-2] if superhelp else cmd0[:-1]
                 if cmdq in XSH.aliases:
-                    alias = XSH.aliases[cmdq]
-                    descr = (
-                        repr(alias) + (":\n" + doc)
-                        if (doc := getattr(alias, "__doc__", ""))
-                        else ""
-                    )
-                    return self.cls(["echo", descr], bufsize=bufsize, **kwargs)
+                    from xonsh.aliases import print_alias_help
+
+                    print_alias_help(cmdq, superhelp=superhelp)
+                    return self.cls(["true"], bufsize=bufsize, **kwargs)
                 else:
+                    resolved = locate_executable(cmdq)
+                    label = "{YELLOW}Resolved " + cmdq + ":{RESET} " + repr(resolved)
+                    if not superhelp or resolved is None:
+                        xt.print_color(label)
+                        return self.cls(["true"], bufsize=bufsize, **kwargs)
+                    xt.print_color(label)
+                    xt.print_color("{YELLOW}Running man " + cmdq + "{RESET}")
                     with contextlib.suppress(OSError):
                         return self.cls(["man", cmdq], bufsize=bufsize, **kwargs)
             e = f"xonsh: subprocess mode: command not found: {repr(cmd0)}"
@@ -573,11 +679,24 @@ class SubprocSpec:
                 for replacement in replacements:
                     if replacement is None:
                         continue
+                    # Accept dict with "cmd" and optional "env" keys
+                    # (same convention as @Aliases.return_command).
+                    replacement_env = None
+                    if isinstance(replacement, dict):
+                        replacement_env = replacement.get("env")
+                        replacement = replacement.get("cmd")
                     # Validate replacement format (accept list or tuple)
                     if not isinstance(replacement, (list, tuple)) or not replacement:
                         continue
                     try:
-                        return self.cls(list(replacement), bufsize=bufsize, **kwargs)
+                        kw = {**kwargs}
+                        if replacement_env is not None:
+                            base = kw.get("env") or {}
+                            kw["env"] = {
+                                **base,
+                                **{str(k): str(v) for k, v in replacement_env.items()},
+                            }
+                        return self.cls(list(replacement), bufsize=bufsize, **kw)
                     except (FileNotFoundError, PermissionError):
                         # If replacement also fails, continue to next replacement
                         # or fall through to original error with suggestions
@@ -653,7 +772,7 @@ class SubprocSpec:
             event.fire(spec=self, proc=proc)
         if events.exists("on_post_spec_run"):
             event = events.on_post_spec_run
-            event.fire(spec=self)
+            event.fire(spec=self, proc=proc)
 
     #
     # Building methods
@@ -722,16 +841,18 @@ class SubprocSpec:
     def resolve_redirects(self):
         """Manages redirects."""
         new_cmd = []
+        redirects = []
         for c in self.cmd:
             if isinstance(c, tuple):
-                streams = _redirect_streams(*c)
-                self.stdin, self.stdout, self.stderr = streams
+                redirects.append(c)
             else:
                 new_cmd.append(c)
-        self.cmd = new_cmd
-
-        if len(self.cmd) == 0:
+        if not new_cmd:
             raise xt.XonshError("xonsh: subprocess mode: command is empty")
+        self.cmd = new_cmd
+        for r in redirects:
+            streams = _redirect_streams(*r)
+            self.stdin, self.stdout, self.stderr = streams
 
     def resolve_alias(self):
         """Resolving alias and setting up command."""
@@ -746,19 +867,16 @@ class SubprocSpec:
             self.alias = cmd0
         else:
             decorators = []
-            if isinstance(XSH.aliases, dict):
-                # Windows tests
-                alias = XSH.aliases.get(cmd0, None)
-                if alias is not None:
-                    alias = alias + self.cmd[1:]
-            else:
-                alias = XSH.aliases.get(
-                    self.cmd,
-                    None,
-                    decorators=decorators,
-                )
+            alias = XSH.aliases.get(
+                self.cmd,
+                None,
+                decorators=decorators,
+            )
             if alias is not None:
                 self.alias_name = cmd0
+                # Apply local_env from return_command aliases
+                if hasattr(alias, "local_env") and alias.local_env:
+                    self.env = (self.env or {}) | alias.local_env
                 if callable(alias[0]):
                     # E.g. `alias == [FuncAlias({'name': 'cd'}), '/tmp']`
                     self.alias = alias[0]
@@ -795,7 +913,8 @@ class SubprocSpec:
         ):
             return
         self.cmd.insert(0, "cd")
-        self.alias = XSH.aliases.get("cd", None)[0]
+        cd_alias = XSH.aliases.get("cd")
+        self.alias = cd_alias[0] if cd_alias else None
 
     def resolve_executable_commands(self):
         """Resolve command executables, if applicable."""
@@ -808,12 +927,38 @@ class SubprocSpec:
         else:
             self.cmd = alias
             self.resolve_redirects()
-        if self.binary_loc is None:
+        # Determine the file to inspect for script detection.
+        # binary_loc may be None on Windows for files whose extension is not
+        # in PATHEXT (e.g. .xsh), even though the file exists and is a script.
+        # Only allow CWD-relative lookup when the command has an explicit path
+        # component (e.g. ./script.xsh, subdir/script, or an absolute path).
+        # Bare names like "script.xsh" must come from $PATH, not CWD — this
+        # matches POSIX shell behaviour and avoids accidental execution of
+        # files that happen to sit in the current directory.
+        fname = self.binary_loc
+        if fname is None:
+            cmd0 = self.cmd[0] if self.cmd else None
+            if cmd0 and _has_path_component(cmd0) and os.path.isfile(cmd0):
+                fname = os.path.abspath(cmd0)
+        if fname is None:
             return
         try:
-            scriptcmd = get_script_subproc_command(self.binary_loc, self.cmd[1:])
+            scriptcmd = get_script_subproc_command(fname, self.cmd[1:])
             if scriptcmd is not None:
                 self.cmd = scriptcmd
+                # Update binary_loc to the interpreter, not the script.
+                # Otherwise _run_binary() (PR #4077) would launch the script
+                # directly via CreateProcess, causing WinError 193 on Windows.
+                self.binary_loc = locate_executable(scriptcmd[0])
+            elif xp.ON_WINDOWS and not _is_binary(fname):
+                # get_script_subproc_command returned None for a non-binary
+                # file — it has no recognised extension and no shebang.
+                # (None for a binary is normal — it runs via CreateProcess.)
+                _, ext = os.path.splitext(fname)
+                raise xt.XonshError(
+                    f"xonsh: {self.cmd[0]}: unknown file type {ext!r} — "
+                    f"not in $PATHEXT."
+                )
         except PermissionError as ex:
             e = "xonsh: subprocess mode: permission denied: {0}"
             raise xt.XonshError(e.format(self.cmd[0])) from ex
@@ -853,7 +998,11 @@ def _safe_pipe_properties(fd, use_tty=False):
     # protocols, like git and ssh, which expect unix line endings.
     # see https://mail.python.org/pipermail/python-list/2013-June/650460.html
     # for more details and the following solution.
-    props = xli.termios.tcgetattr(fd)
+    try:
+        props = xli.termios.tcgetattr(fd)
+    except xli.termios.error:
+        # fd is not a TTY (e.g. PTY exhaustion caused fallback to os.pipe)
+        return
     props[1] = props[1] & (~xli.termios.ONLCR) | xli.termios.ONLRET
     xli.termios.tcsetattr(fd, xli.termios.TCSANOW, props)
     # newly created PTYs have a stardard size (24x80), set size to the same size
@@ -910,7 +1059,9 @@ def _last_spec_update_threading(last: SubprocSpec):
 def _last_spec_update_captured(last: SubprocSpec):
     captured = (
         (captured := last.captured)
-        and not (captured in ["object", "hiddenobject"] and not last.threadable)
+        # Explicit captures ("object") must always work
+        # even when THREAD_SUBPROCS is disabled (e.g. during rc-file loading).
+        and not (captured == "hiddenobject" and not last.threadable)
         # a ProcProxy run using ![] should not be captured
         and not (
             callable(last.alias)
@@ -942,45 +1093,53 @@ def _make_last_spec_captured(last: SubprocSpec):
         last.universal_newlines = True
     elif captured in STDOUT_CAPTURE_KINDS:
         last.universal_newlines = False
-        r, w = os.pipe()
-        last.stdout = safe_open(w, "wb")
-        last.captured_stdout = safe_open(r, "rb")
+        pipe = PipeChannel.from_pipe()
+        last.stdout = pipe.open_writer("wb")
+        last.captured_stdout = pipe.open_reader("rb")
+        last.pipe_channels.append(pipe)
     elif XSH.stdout_uncaptured is not None:
         last.universal_newlines = True
         last.stdout = XSH.stdout_uncaptured
         last.captured_stdout = last.stdout
-    elif xp.ON_WINDOWS and not callable_alias:
+    elif (
+        xp.ON_WINDOWS and not callable_alias and not XSH.env.get("XONSH_CAPTURE_ALWAYS")
+    ):
         last.universal_newlines = True
         last.stdout = None  # must truly stream on windows
         last.captured_stdout = ConsoleParallelReader(1)
     else:
         last.universal_newlines = True
-        r, w = xli.pty.openpty() if use_tty else os.pipe()
-        _safe_pipe_properties(w, use_tty=use_tty)
-        last.stdout = safe_open(w, "w")
-        _safe_pipe_properties(r, use_tty=use_tty)
-        last.captured_stdout = safe_open(r, "r")
+        pipe = PipeChannel.from_pty() if use_tty else PipeChannel.from_pipe()
+        _safe_pipe_properties(pipe.write_fd, use_tty=use_tty)
+        last.stdout = pipe.open_writer("w")
+        _safe_pipe_properties(pipe.read_fd, use_tty=use_tty)
+        last.captured_stdout = pipe.open_reader("r")
+        last.pipe_channels.append(pipe)
     # set standard error
     if last.stderr is not None:
         pass
     elif captured == "stdout":
         pass
     elif captured == "object":
-        r, w = os.pipe()
-        last.stderr = safe_open(w, "w")
-        last.captured_stderr = safe_open(r, "r")
+        pipe = PipeChannel.from_pipe()
+        last.stderr = pipe.open_writer("w")
+        last.captured_stderr = pipe.open_reader("r")
+        last.pipe_channels.append(pipe)
     elif XSH.stderr_uncaptured is not None:
         last.stderr = XSH.stderr_uncaptured
         last.captured_stderr = last.stderr
-    elif xp.ON_WINDOWS and not callable_alias:
+    elif (
+        xp.ON_WINDOWS and not callable_alias and not XSH.env.get("XONSH_CAPTURE_ALWAYS")
+    ):
         last.universal_newlines = True
         last.stderr = None  # must truly stream on windows
     else:
-        r, w = xli.pty.openpty() if use_tty else os.pipe()
-        _safe_pipe_properties(w, use_tty=use_tty)
-        last.stderr = safe_open(w, "w")
-        _safe_pipe_properties(r, use_tty=use_tty)
-        last.captured_stderr = safe_open(r, "r")
+        pipe = PipeChannel.from_pty() if use_tty else PipeChannel.from_pipe()
+        _safe_pipe_properties(pipe.write_fd, use_tty=use_tty)
+        last.stderr = pipe.open_writer("w")
+        _safe_pipe_properties(pipe.read_fd, use_tty=use_tty)
+        last.captured_stderr = pipe.open_reader("r")
+        last.pipe_channels.append(pipe)
     # redirect stdout to stderr, if we should
     if isinstance(last.stdout, int) and last.stdout == 2:
         # need to use private interface to avoid duplication.
@@ -988,7 +1147,7 @@ def _make_last_spec_captured(last: SubprocSpec):
     # redirect stderr to stdout, if we should
     if callable_alias and last.stderr == subprocess.STDOUT:
         last._stderr = last.stdout
-        last.captured_stderr = last.captured_stdout
+        last.captured_stderr = None
 
 
 def _update_proc_alias_threadable(proc):
@@ -1005,94 +1164,148 @@ def _update_proc_alias_captured(proc):
     proc.captured = getattr(proc.alias, "__xonsh_capturable__", proc.captured)
 
 
-def _trace_specs(trace_mode, specs, cmds, captured):
-    """Show information about specs."""
-    tracer = XSH.env.get("XONSH_TRACE_SUBPROC_FUNC", None)
-    if callable(tracer):
-        tracer(cmds, captured=captured)
-    else:
-        r = {"cmds": cmds, "captured": captured}
-        print(f"Trace run_subproc({repr(r)})", file=sys.stderr)
-        if trace_mode >= 2:
-            for i, s in enumerate(specs):
-                pcls = s.cls.__module__ + "." + s.cls.__name__
-                pcmd = (
-                    [s.args[0].__name__] + s.args[1:] if callable(s.args[0]) else s.args
-                )
-                p = {
-                    "cmd": pcmd,
-                    "cls": pcls,
-                }
+def _trace_specs(trace, specs, cmds, captured):
+    """Show information about specs.
+
+    ``trace`` is the value of ``$XONSH_SUBPROC_TRACE``. If it's a
+    callable, it's used as the formatter — called as
+    ``trace(cmds, captured=<str|bool>, specs=<list[SubprocSpec]>)``.
+    ``specs`` exposes per-command ``args``, ``alias``, ``binary_loc``,
+    ``threadable`` and friends. ``CommandPipeline`` is *not* available
+    at this point — it's built later, during ``_run_specs``.
+
+    Otherwise ``trace`` is a verbosity int (1/2/3) for the default
+    printer.
+    """
+    if callable(trace):
+        trace(cmds, captured=captured, specs=specs)
+        return
+    r = {"cmds": cmds, "captured": captured}
+    print(f"Trace run_subproc({repr(r)})", file=sys.stderr)
+    if trace >= 2:
+        for i, s in enumerate(specs):
+            pcls = s.cls.__module__ + "." + s.cls.__name__
+            pcmd = [s.args[0].__name__] + s.args[1:] if callable(s.args[0]) else s.args
+            p = {
+                "cmd": pcmd,
+                "cls": pcls,
+            }
+            p |= {
+                a: getattr(s, a, None)
+                for a in [
+                    "alias_name",
+                    "alias",
+                    "binary_loc",
+                    "threadable",
+                    "background",
+                ]
+            }
+            if trace == 3:
                 p |= {
                     a: getattr(s, a, None)
                     for a in [
-                        "alias_name",
-                        "alias",
-                        "binary_loc",
-                        "threadable",
-                        "background",
+                        "stdin",
+                        "stdout",
+                        "stderr",
+                        "captured",
+                        "captured_stdout",
+                        "captured_stderr",
                     ]
                 }
-                if trace_mode == 3:
-                    p |= {
-                        a: getattr(s, a, None)
-                        for a in [
-                            "stdin",
-                            "stdout",
-                            "stderr",
-                            "captured",
-                            "captured_stdout",
-                            "captured_stderr",
-                        ]
-                    }
-                p = {k: v for k, v in p.items() if v is not None}
-                print(f"{i}: {repr(p)}", file=sys.stderr)
+            p = {k: v for k, v in p.items() if v is not None}
+            print(f"{i}: {repr(p)}", file=sys.stderr)
 
 
-def cmds_to_specs(cmds, captured=False, envs=None):
+def cmds_to_specs(cmds, captured=False, envs=None, in_boolop=False):
     """Converts a list of cmds to a list of SubprocSpec objects that are
     ready to be executed.
+
+    ``in_boolop`` is propagated from the parser; it is True when the whole
+    pipeline is a direct operand of a ``&&``/``||`` chain.  Each spec gets
+    the flag stored on it so downstream code (e.g. ``CommandPipeline``,
+    ``_raise_subproc_error``) can decide whether to short-circuit on
+    returncode or raise.
     """
     # first build the subprocs independently and separate from the redirects
-    i = 0
     specs = []
     redirects = []
-    for i, cmd in enumerate(cmds):
-        if isinstance(cmd, str):
-            redirects.append(cmd)
-        else:
-            env = envs[i] if envs is not None else None
-            spec = SubprocSpec.build(cmd, captured=captured, env=env)
-            spec.pipeline_index = i
-            specs.append(spec)
-            i += 1
-    # now modify the subprocs based on the redirects.
-    for i, redirect in enumerate(redirects):
-        if redirect == "|":
-            # these should remain integer file descriptors, and not Python
-            # file objects since they connect processes.
-            r, w = os.pipe()
-            specs[i].stdout = w
-            specs[i + 1].stdin = r
-        elif redirect == "&" and i == len(redirects) - 1:
-            specs[i].background = True
-        else:
-            raise xt.XonshError(f"unrecognized redirect {redirect!r}")
+    try:
+        for i, cmd in enumerate(cmds):
+            if isinstance(cmd, str):
+                redirects.append(cmd)
+            else:
+                env = envs[i] if envs is not None else None
+                spec = SubprocSpec.build(cmd, captured=captured, env=env)
+                spec.pipeline_index = len(specs)
+                spec.in_boolop = in_boolop
+                specs.append(spec)
+        # now modify the subprocs based on the redirects.
+        for i, redirect in enumerate(redirects):
+            if redirect == "|":
+                # these should remain integer file descriptors, and not Python
+                # file objects since they connect processes.
+                pipe = PipeChannel.from_pipe()
+                upstream = specs[i]
+                # `e>p` adds stderr to the pipe; stdout still goes through the
+                # pipe by default, unless the user diverted it with `o>`/`>`.
+                if upstream._stderr is _PIPE_ERR:
+                    upstream._stderr = None
+                    upstream.stderr = pipe.write_fd
+                    # Skip wiring stdout if it is already redirected elsewhere
+                    # (e.g. `cmd o> file e>p | grep` — stdout to file, pipe gets
+                    # only stderr).
+                    skip_stdout = upstream._stdout is not None
+                else:
+                    skip_stdout = False
+                # `a>p`: stdout goes to the pipe and stderr is merged into it
+                # (stderr was already set to subprocess.STDOUT by _redirect_streams).
+                if upstream._stdout is _PIPE_ALL:
+                    upstream._stdout = None
+                if not skip_stdout:
+                    upstream.stdout = pipe.write_fd
+                specs[i + 1].stdin = pipe.read_fd
+                upstream.pipe_channels.append(pipe)
+            elif redirect == "&" and i == len(redirects) - 1:
+                specs[i].background = True
+            else:
+                raise xt.XonshError(f"unrecognized redirect {redirect!r}")
+        # Any pipe-redirect sentinel still present means `a>p`/`e>p` was used
+        # without a following `|` pipe.
+        for spec in specs:
+            if spec._stdout is _PIPE_ALL or spec._stderr is _PIPE_ERR:
+                raise xt.XonshError(
+                    "xonsh: redirect 'a>p'/'e>p' requires a following pipe '|'"
+                )
 
-    # Apply boundary conditions
-    if not XSH.env.get("XONSH_CAPTURE_ALWAYS"):
-        # Make sure sub-specs are always captured in case:
-        # `![some_alias | grep x]`, `$(some_alias)`, `some_alias > file`.
-        last = spec
-        is_redirected_stdout = bool(last.stdout)
-        specs_to_capture = (
-            specs
-            if captured in STDOUT_CAPTURE_KINDS or is_redirected_stdout
-            else specs[:-1]
-        )
-        _set_specs_capture_always(specs_to_capture)
+        # Apply boundary conditions
+        if not XSH.env.get("XONSH_CAPTURE_ALWAYS"):
+            # Make sure sub-specs are always captured in case:
+            # `![some_alias | grep x]`, `$(some_alias)`, `some_alias > file`.
+            last = spec
+            is_redirected_stdout = bool(last.stdout)
+            specs_to_capture = (
+                specs
+                if captured in STDOUT_CAPTURE_KINDS or is_redirected_stdout
+                else specs[:-1]
+            )
+            _set_specs_capture_always(specs_to_capture)
 
-    _update_last_spec(specs[-1])
+        # Validate: unthreadable callable aliases cannot be used in pipelines
+        if len(specs) > 1:
+            for spec in specs:
+                if callable(spec.alias) and not spec.threadable:
+                    raise xt.XonshError(
+                        f"Callable alias {spec.alias_name!r} is explicitly marked as unthreadable and is not supported in pipelines.\n"
+                        f"If it's really threadable try to add command decorator `@thread {spec.alias_name}`."
+                    )
+
+        _update_last_spec(specs[-1])
+    except BaseException:
+        # Any pipes/files opened during spec construction would otherwise
+        # leak as `ResourceWarning: unclosed file` once GC reaps them.
+        for s in specs:
+            s.close()
+        raise
     return specs
 
 
@@ -1110,15 +1323,16 @@ def _shell_set_title(cmds):
         # context manager updates the command information that gets
         # accessed by CurrentJobField when setting the terminal's title
         with XSH.env["PROMPT_FIELDS"]["current_job"].update_current_cmds(cmds):
-            # remove current_job from prompt level cache
-            XSH.env["PROMPT_FIELDS"].reset_key("current_job")
+            # clear the prompt cache so that fields depending on
+            # current_job are also re-evaluated (see #4926)
+            XSH.env["PROMPT_FIELDS"].reset()
             # The terminal's title needs to be set before starting the
             # subprocess to avoid accidentally answering interactive questions
             # from commands such as `rm -i` (see #1436)
             XSH.shell.settitle()
 
 
-def run_subproc(cmds, captured=False, envs=None):
+def run_subproc(cmds, captured=False, envs=None, in_boolop=False):
     """Runs a subprocess, in its many forms. This takes a list of 'commands,'
     which may be a list of command line arguments or a string, representing
     a special connecting character.  For example::
@@ -1130,12 +1344,17 @@ def run_subproc(cmds, captured=False, envs=None):
         [['ls'], '|', ['grep', 'wakka']]
 
     Lastly, the captured argument affects only the last real command.
+
+    ``in_boolop`` is forwarded from the parser; True when this whole
+    pipeline is a direct operand of a ``&&``/``||`` chain.  Each spec
+    receives ``spec.in_boolop`` so downstream consumers can act on it
+    (e.g. let a non-zero return short-circuit instead of raising).
     """
 
-    specs = cmds_to_specs(cmds, captured=captured, envs=envs)
+    specs = cmds_to_specs(cmds, captured=captured, envs=envs, in_boolop=in_boolop)
 
-    if trace_mode := XSH.env.get("XONSH_TRACE_SUBPROC", False):
-        _trace_specs(trace_mode, specs, cmds, captured)
+    if trace := XSH.env.get("XONSH_SUBPROC_TRACE", False):
+        _trace_specs(trace, specs, cmds, captured)
 
     cmds = [
         _flatten_cmd_redirects(cmd) if isinstance(cmd, list) else cmd for cmd in cmds
@@ -1152,7 +1371,7 @@ def _run_command_pipeline(specs, cmds):
         cp = CommandPipeline(specs)
     proc = cp.proc
     background = cp.spec.background
-    if not all(x.is_proxy for x in specs):
+    if proc is not None and not all(x.is_proxy for x in specs):
         xj.add_job(
             {
                 "cmds": cmds,

@@ -4608,12 +4608,53 @@ def aten_hinge_embedding_loss(
     raise NotImplementedError()
 
 
+@torch_op("aten::histc", trace_only=True)
 def aten_histc(
     self: TensorType, bins: int = 100, min: float = 0.0, max: float = 0.0
 ) -> TensorType:
     """histc(Tensor self, int bins=100, Scalar min=0, Scalar max=0) -> Tensor"""
+    if min == max:
+        # This ONNXScript implementation precomputes static bin edges and cannot
+        # faithfully reproduce torch.histc's dynamic behavior when min == max
+        # (including the default min=0, max=0, which infers the range from data).
+        raise NotImplementedError(
+            f"aten_histc with min == max ({min}) is not supported in this export path."
+        )
+    delta = (max - min) / (bins * 1.0)
+    values = [min + delta * i for i in range(bins + 1)]
 
-    raise NotImplementedError()
+    flat_self = op.Reshape(self, [-1])
+    computation_type = self.dtype
+
+    cond = op.And(
+        op.GreaterOrEqual(flat_self, op.CastLike([min], self)),
+        op.LessOrEqual(flat_self, op.CastLike([max], self)),
+    )
+
+    assert self.type.dtype not in {ir.DataType.INT32, ir.DataType.INT64}, (
+        f"torch.histc only works on float but {self.type.dtype=}"
+    )
+
+    cond = op.And(cond, op.Not(op.IsNaN(flat_self)))
+    # max is included.
+    dtype = self.type.dtype.numpy()
+    values = np.array(values, dtype=dtype)
+    values[-1] = np.nextafter(values[-1], np.array(np.inf, dtype=dtype), dtype=dtype)
+    typed_values = op.Constant(value=ir.tensor(values, dtype=self.type.dtype))
+
+    clipped = op.Where(cond, flat_self, op.CastLike([min - 1], self))
+    bins = op.Unsqueeze(typed_values, [1])
+
+    less = op.Cast(
+        op.Less(op.Unsqueeze(clipped, [0]), bins),
+        to=computation_type,
+    )
+    sums = op.ReduceSum(less, [1], keepdims=0)
+    res = op.Sub(
+        op.Slice(sums, [1], op.Shape(sums), [0]),
+        op.Slice(sums, [0], [-1], [0]),
+    )
+    return res
 
 
 def aten_histogramdd(
@@ -6190,7 +6231,7 @@ def aten_mean_complex(self: TReal) -> TReal:
 
 
 @torch_op("aten::mean.dim", trace_only=True)
-def aten_mean_dim(self: TReal, dim: INT64, keepdim: bool = False) -> TReal:
+def aten_mean_dim(self: TReal, dim: INT64, keepdim: bool = False, dtype: int = -1) -> TReal:
     """mean.dim(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"""
 
     if len(self.shape) == 0:
@@ -6198,11 +6239,17 @@ def aten_mean_dim(self: TReal, dim: INT64, keepdim: bool = False) -> TReal:
     else:
         dims = op.Reshape(dim, op.Constant(value_ints=[-1]))
         result = op.ReduceMean(self, dims, keepdims=keepdim)
+
+    if dtype != -1 and dtype is not None:
+        result = op.Cast(result, to=dtype)
+
     return result
 
 
 @torch_op("aten::mean.dim", trace_only=True, complex=True)
-def aten_mean_dim_complex(self: TReal, dim: INT64, keepdim: bool = False) -> TReal:
+def aten_mean_dim_complex(
+    self: TReal, dim: INT64, keepdim: bool = False, dtype: int = -1
+) -> TReal:
     """mean.dim(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"""
 
     if len(self.shape) == 1:
@@ -6213,6 +6260,12 @@ def aten_mean_dim_complex(self: TReal, dim: INT64, keepdim: bool = False) -> TRe
         dim = op.Where(op.Less(dim, zero), op.Sub(dim, one), dim)
         dims = op.Reshape(dim, op.Constant(value_ints=[-1]))
         result = op.ReduceMean(self, dims, keepdims=keepdim)
+
+    if dtype != -1 and dtype is not None:
+        raise NotImplementedError(
+            "support for the dtype argument is not implemented for complex tensors"
+        )
+
     return result
 
 
@@ -9027,7 +9080,7 @@ def aten_sparse_mask(self: TensorType, mask: TensorType) -> TensorType:
     raise NotImplementedError()
 
 
-@torch_op(("aten::split", "aten::split.Tensor"))
+@torch_op(("aten::split", "aten::split.Tensor"), trace_only=True)
 def aten_split(self: TTensor, split_size: INT64, dim: int = 0) -> TTensor:
     """split.Tensor(Tensor(a -> *) self, SymInt split_size, int dim=0) -> Tensor(a)[]"""
 
@@ -9040,7 +9093,7 @@ def aten_split_copy(self: TensorType, split_size: INT64, dim: int = 0) -> Tensor
     raise NotImplementedError()
 
 
-@torch_op("aten::split_with_sizes")
+@torch_op(("aten::split_with_sizes",), trace_only=True)
 def aten_split_with_sizes(self: TTensor, split_sizes: INT64, dim: int = 0) -> TTensor:
     """split_with_sizes(Tensor(a -> *) self, SymInt[] split_sizes, int dim=0) -> Tensor(a)[]"""
 
@@ -10060,7 +10113,7 @@ def aten_unsafe_chunk(self: TensorType, chunks: int, dim: int = 0) -> TensorType
     raise NotImplementedError()
 
 
-@torch_op("aten::unsafe_split.Tensor")
+@torch_op("aten::unsafe_split.Tensor", trace_only=True)
 def aten_unsafe_split(self: TTensor, split_size: INT64, dim: int = 0) -> Sequence[TTensor]:
     """unsafe_split.Tensor(Tensor self, SymInt split_size, int dim=0) -> Tensor[]"""
 

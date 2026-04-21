@@ -4,7 +4,6 @@ import contextlib
 import inspect
 import json
 import locale
-import operator
 import os
 import pathlib
 import platform
@@ -12,7 +11,6 @@ import pprint
 import re
 import subprocess
 import sys
-import textwrap
 import threading
 import typing as tp
 import warnings
@@ -36,9 +34,10 @@ from xonsh.lib.lazyasd import LazyBool, lazyobject
 from xonsh.platform import (
     BASH_COMPLETIONS_DEFAULT,
     DEFAULT_ENCODING,
+    IN_FLATPAK,
     ON_CYGWIN,
-    ON_LINUX,
     ON_WINDOWS,
+    ON_WSL,
     PATH_DEFAULT,
     os_environ,
 )
@@ -89,6 +88,7 @@ from xonsh.tools import (
     print_exception,
     print_warning,
     ptk2_color_depth_setter,
+    qualified_name,
     seq_to_upper_pathsep,
     set_to_csv,
     swap_values,
@@ -108,6 +108,26 @@ from xonsh.tools import (
     to_shlvl,
     to_tok_color_dict,
 )
+
+_warned_erasedups = False
+
+
+def histcontrol_csv_to_set(x):
+    """Convert HISTCONTROL value, warning if erasedups is used."""
+    global _warned_erasedups
+    result = csv_to_set(x)
+    if "erasedups" in result and not _warned_erasedups:
+        _warned_erasedups = True
+        import warnings
+
+        warnings.warn(
+            "'erasedups' in $HISTCONTROL is deprecated. "
+            "Remove it and use the 'history erasedups' command.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    return result
+
 
 events.doc(
     "on_envvar_new",
@@ -199,13 +219,31 @@ def str_to_env_path(x):
     return EnvPath(x)
 
 
+def _rst_inline_to_color(s):
+    """Replace RST inline markup with colored output."""
+    import re
+
+    # :class:`mod.Class` → Class in cyan
+    s = re.sub(r":class:`([^`]+)`", r"{CYAN}\1{RESET}", s)
+    # `text <url>`_ → text (url)
+    s = re.sub(r"`([^<`]+?)\s*<([^>]+)>`_", r"\1 (\2)", s)
+    # ``code`` → cyan
+    s = re.sub(r"``(.+?)``", r"{CYAN}\1{RESET}", s)
+    # `code` → cyan
+    s = re.sub(r"`(.+?)`", r"{CYAN}\1{RESET}", s)
+    # **bold** → bold white
+    s = re.sub(r"\*\*(.+?)\*\*", r"{BOLD_WHITE}\1{RESET}", s)
+    # $VAR not already colored → cyan
+    return re.sub(r"(?<!\{CYAN\})\$(\w+)", r"{CYAN}$\1{RESET}", s)
+
+
 @lazyobject
-def HELP_TEMPLATE():
+def HELP_TEMPLATE_SHORT():
     return (
-        "{{INTENSE_RED}}{envvar}{{RESET}}:\n\n"
-        "{{INTENSE_YELLOW}}{docstr}{{RESET}}\n\n"
-        "default: {{CYAN}}{default}{{RESET}}\n"
-        "configurable: {{CYAN}}{configurable}{{RESET}}"
+        "{{INTENSE_YELLOW}}Name:{{RESET}} ${envvar}\n"
+        "{{INTENSE_YELLOW}}Configurable:{{RESET}} {configurable}\n"
+        "{{INTENSE_YELLOW}}Description:{{RESET}} {docstr}\n"
+        "{{INTENSE_YELLOW}}Default:{{RESET}} {default}"
     )
 
 
@@ -254,7 +292,7 @@ def to_debug(x):
 
 
 class LsColors(cabc.MutableMapping):
-    """Helps convert to/from $LS_COLORS format, respecting the xonsh color style.
+    """Helps convert to/from ``$LS_COLORS`` format, respecting the xonsh color style.
     This accepts the same inputs as dict(). The special value ``target`` is
     replaced by no color, but sets a flag for cognizant application (see is_target()).
     """
@@ -396,7 +434,7 @@ class LsColors(cabc.MutableMapping):
     target_value = "target"  # special value to set for ln=target
     target_color = ("RESET",)  # repres in color space
 
-    def __init__(self, ini_dict: dict = None):
+    def __init__(self, ini_dict: dict | None = None):
         self._style = self._style_name = None
         self._detyped = None
         self._d = dict()
@@ -534,7 +572,7 @@ class LsColors(cabc.MutableMapping):
         # run dircolors
         try:
             out = subprocess.check_output(
-                cmd, env=denv, text=True, stderr=subprocess.DEVNULL
+                cmd, env=denv, encoding="utf-8", stderr=subprocess.DEVNULL
             )
         except (subprocess.CalledProcessError, FileNotFoundError, NotADirectoryError):
             return cls(cls.default_settings)
@@ -570,7 +608,7 @@ def is_lscolors(x):
 
 @events.on_pre_spec_run_ls
 def ensure_ls_colors_in_env(spec=None, **kwargs):
-    """This ensures that the $LS_COLORS environment variable is in the
+    """This ensures that the ``$LS_COLORS`` environment variable is in the
     environment. This fires exactly once upon the first time the
     ls command is called.
     """
@@ -597,6 +635,56 @@ ENSURERS = {
 }
 
 
+class VarPattern:
+    """A pattern rule for dynamic env var typing.
+
+    When stored as the value of an env variable, any env var whose name
+    matches ``pattern`` will receive the type handling specified by
+    ``var_type`` (a key in ``ENSURERS``, e.g. ``"env_path"``).
+
+    Example::
+
+        $XONSH_ENV_PATTERN_PATH = VarPattern(r"\\w*PATH$", "env_path")
+    """
+
+    def __init__(self, pattern, var_type, exclude=None):
+        self.pattern = re.compile(pattern) if isinstance(pattern, str) else pattern
+        self.var_type = var_type
+        self.exclude = list(exclude) if exclude else []
+
+    def match(self, key):
+        return key not in self.exclude and self.pattern.match(key) is not None
+
+    def to_var(self):
+        """Return a Var with the type handling from ENSURERS."""
+        validate, convert, detype = ENSURERS[self.var_type]
+        return Var(validate=validate, convert=convert, detype=detype)
+
+    def __repr__(self):
+        return f"VarPattern({self.pattern.pattern!r}, {self.var_type!r})"
+
+    @staticmethod
+    def is_var_pattern(x):
+        return isinstance(x, VarPattern) or x is None
+
+    @staticmethod
+    def to_var_pattern(x):
+        if isinstance(x, VarPattern) or x is None:
+            return x
+        raise ValueError(f"Cannot convert {x!r} to VarPattern")
+
+    @staticmethod
+    def detype_var_pattern(x):
+        return repr(x)
+
+
+ENSURERS["var_pattern"] = (
+    VarPattern.is_var_pattern,
+    VarPattern.to_var_pattern,
+    VarPattern.detype_var_pattern,
+)
+
+
 #
 # Defaults
 #
@@ -616,7 +704,7 @@ DEFAULT_TITLE = "{current_job:{} | }{user}@{hostname}: {cwd} | xonsh"
 
 @default_value
 def xonsh_data_dir(env):
-    """Ensures and returns the $XONSH_DATA_DIR"""
+    """Ensures and returns the ``$XONSH_DATA_DIR``"""
     xdd = os.path.expanduser(
         os.getenv("XONSH_DATA_DIR") or os.path.join(env.get("XDG_DATA_HOME"), "xonsh")
     )
@@ -626,7 +714,7 @@ def xonsh_data_dir(env):
 
 @default_value
 def xonsh_cache_dir(env):
-    """Ensures and returns the $XONSH_CACHE_DIR"""
+    """Ensures and returns the ``$XONSH_CACHE_DIR``"""
     xdd = os.path.expanduser(
         os.getenv("XONSH_CACHE_DIR") or os.path.join(env.get("XDG_CACHE_HOME"), "xonsh")
     )
@@ -654,7 +742,7 @@ def xdg_data_dirs(env):
     On Linux and Unix based systemd it is the same as in open-desktop standard: ``['/usr/share', '/usr/local/share']``
     """
     if ON_WINDOWS:
-        return [os_environ["ProgramData"]]
+        return [os_environ.get("ProgramData", r"C:\ProgramData")]
     return [
         os.path.join("/usr", "share"),
         os.path.join("/usr", "local", "share"),
@@ -664,7 +752,7 @@ def xdg_data_dirs(env):
 @default_value
 def xonsh_sys_config_dir(env):
     """
-    On Linux & Mac OSX: ``'/etc/xonsh'``
+    On Linux & macOS: ``'/etc/xonsh'``
     On Windows: ``'%ALLUSERSPROFILE%\\\\xonsh'``
     """
     if ON_WINDOWS:
@@ -675,7 +763,7 @@ def xonsh_sys_config_dir(env):
 
 
 def xonshconfig(env):
-    """Ensures and returns the $XONSHCONFIG"""
+    """Ensures and returns the ``$XONSHCONFIG``"""
     xcd = env.get("XONSH_CONFIG_DIR")
     xc = os.path.join(xcd, "config.json")
     return xc
@@ -709,11 +797,14 @@ def default_xonshrc(env) -> "tuple[str, ...]":
     return dxrc
 
 
-def get_config_paths(env: "Env", name: str):
-    return (
+def get_config_paths(env: "Env", name: str) -> tuple[str, ...]:
+    paths: tuple[str, ...] = (
         os.path.join(xonsh_sys_config_dir(env), name),
         os.path.join(xonsh_config_dir(env), name),
     )
+    if IN_FLATPAK:
+        paths = (os.path.join("/app/etc/xonsh", name),) + paths
+    return paths
 
 
 @default_value
@@ -764,12 +855,9 @@ def default_lscolors(env):
 
 @default_value
 def default_prompt_fields(env):
-    """``xonsh.prompt.PROMPT_FIELDS``"""
+    """``xonsh.prompt.base.PromptFields``"""
     # todo: generate document for all default fields
     return prompt.PromptFields(XSH)
-
-
-VarKeyType = tp.Union[str, tp.Pattern]  # noqa: UP007
 
 
 class Var(tp.NamedTuple):
@@ -816,7 +904,7 @@ class Var(tp.NamedTuple):
     is_configurable: bool | LazyBool = True
     doc_default: str | DefaultNotGivenType = DefaultNotGiven
     can_store_as_str: bool = False
-    pattern: VarKeyType | None = None
+    pattern: tp.Pattern | None = None
     sync: str = ""
     deprecated: bool = False
 
@@ -859,9 +947,6 @@ class Var(tp.NamedTuple):
             default=locale.setlocale(getattr(locale, lcle)),
         )
 
-    def get_key(self, var_name: str) -> VarKeyType:
-        return self.pattern or var_name
-
     def set_attrs(self, attrs: dict):
         return self._replace(**attrs)
 
@@ -873,10 +958,10 @@ class Xettings:
     """
 
     @classmethod
-    def get_settings(cls) -> tp.Iterator[tuple[VarKeyType, Var]]:
+    def get_settings(cls) -> tp.Iterator[tuple[str, Var]]:
         for var_name, var in vars(cls).items():
             if not var_name.startswith("__") and var_name.isupper():
-                yield var.get_key(var_name), var
+                yield var_name, var
 
     @staticmethod
     def _get_groups(cls, _seen: set["Xettings"] | None = None, *bases: "Xettings"):
@@ -893,7 +978,7 @@ class Xettings:
     @classmethod
     def get_groups(
         cls,
-    ) -> tp.Iterator[tuple[tuple["Xettings", ...], tuple[tuple[VarKeyType, Var], ...]]]:
+    ) -> tp.Iterator[tuple[tuple["Xettings", ...], tuple[tuple[str, Var], ...]]]:
         yield from Xettings._get_groups(cls)
 
     @classmethod
@@ -919,8 +1004,34 @@ class Xettings:
         return ""
 
 
-class GeneralSetting(Xettings):
-    """General"""
+def _commands_cache_read_dir_once_default():
+    """Compute the default for ``$XONSH_COMMANDS_CACHE_READ_DIR_ONCE``.
+
+    - Windows: ``[%WINDIR%]`` (typically ``C:\\Windows``).
+    - WSL: auto-detect ``/mnt/*/Windows`` directories (may include multiple
+      drives, e.g. ``/mnt/c/Windows``, ``/mnt/d/Windows``).
+    - Linux/Mac: empty list.
+    """
+    if ON_WINDOWS:
+        windir = os.environ.get("WINDIR", "")
+        return [windir] if windir else []
+    if ON_WSL:
+        import glob
+
+        # WSL mounts Windows drives under /mnt/<letter>/
+        # Windows can be installed on any drive, not just C:
+        return sorted(glob.glob("/mnt/*/Windows"))
+    return []
+
+
+class SystemSetting(Xettings):
+    """System Environment Variables
+
+    Common, well-known variables inherited from the surrounding OS / shell
+    (POSIX-standard and XDG Base Directory Specification). They are not
+    xonsh-specific — xonsh only provides sensible defaults and lets scripts
+    read/write them the same way any other shell would.
+    """
 
     HOSTNAME = Var.with_default(
         default=default_value(lambda env: platform.node()),
@@ -948,15 +1059,15 @@ class GeneralSetting(Xettings):
         PATH_DEFAULT,
         "List of strings representing where to look for executables.",
         type_str="env_path",
-        doc_default="On Windows: it is ``Path`` value of register's "
-        "``HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment``. "
-        "On Mac OSX: ``('/usr/local/bin', '/usr/bin', '/bin', '/usr/sbin', '/sbin')`` "
-        "On Linux & on Cygwin & on MSYS, when detected that the distro "
-        "is like arch, the default PATH is "
+        doc_default="\n\n"
+        "- **Windows**: ``Path`` value from registry "
+        "``HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment``\n"
+        "- **macOS**: ``('/usr/local/bin', '/usr/bin', '/bin', '/usr/sbin', '/sbin')``\n"
+        "- **Linux/Cygwin/MSYS** (arch-like): "
         "``('/usr/local/sbin', '/usr/local/bin', '/usr/bin', "
-        "'/usr/bin/site_perl', '/usr/bin/vendor_perl', '/usr/bin/core_perl')``"
-        " and otherwise is "
-        "``('~/bin', '/usr/local/sbin', '/usr/local/bin', '/usr/sbin',"
+        "'/usr/bin/site_perl', '/usr/bin/vendor_perl', '/usr/bin/core_perl')``\n"
+        "- **Linux/Cygwin/MSYS** (other): "
+        "``('~/bin', '/usr/local/sbin', '/usr/local/bin', '/usr/sbin', "
         "'/usr/bin', '/sbin', '/bin', '/usr/games', '/usr/local/games')``",
     )
     PATHEXT = Var(
@@ -964,7 +1075,7 @@ class GeneralSetting(Xettings):
         pathsep_to_upper_seq,
         seq_to_upper_pathsep,
         [".COM", ".EXE", ".BAT", ".CMD"] if ON_WINDOWS else [],
-        "Sequence of extension strings (eg, ``.EXE``) for "
+        "Sequence of extension strings (e.g., ``.EXE``) for "
         "filtering valid executables by. Each element must be "
         "uppercase.",
     )
@@ -974,7 +1085,7 @@ class GeneralSetting(Xettings):
         to_shlvl,
         str,
         0,
-        "Shell nesting level typed as integer, mirrors bash's $SHLVL.",
+        "Shell nesting level typed as integer, mirrors bash's ``$SHLVL``.",
         is_configurable=False,
     )
 
@@ -997,12 +1108,6 @@ class GeneralSetting(Xettings):
         is_configurable=False,
     )
 
-    UPDATE_OS_ENVIRON = Var.with_default(
-        False,
-        "If True ``os_environ`` will always be updated "
-        "when the xonsh environment changes. The environment can be reset to "
-        "the default value by calling ``__xonsh__.env.undo_replace_env()``",
-    )
     XDG_CONFIG_HOME = Var.with_default(
         os.path.expanduser(os.path.join("~", ".config")),
         "Open desktop standard configuration home dir. This is the same "
@@ -1029,6 +1134,17 @@ class GeneralSetting(Xettings):
         "A list of directories where system level data files are stored.",
         type_str="env_path",
     )
+
+
+class GeneralSetting(Xettings):
+    """General"""
+
+    UPDATE_OS_ENVIRON = Var.with_default(
+        False,
+        "If True ``os_environ`` will always be updated "
+        "when the xonsh environment changes. The environment can be reset to "
+        "the default value by calling ``__xonsh__.env.undo_replace_env()``",
+    )
     XONSH_CONFIG_DIR = Var.with_default(
         xonsh_config_dir,
         "This is the location where xonsh user-level configuration information is stored.",
@@ -1052,14 +1168,14 @@ class GeneralSetting(Xettings):
         default_xonshrc,
         "A list of the locations of run control files, if they exist.  User "
         "defined run control file will supersede values set in system-wide "
-        "control file if there is a naming collision. $THREAD_SUBPROCS=None "
+        "control file if there is a naming collision. ``$THREAD_SUBPROCS=None`` "
         "when reading in run control files.",
         type_str="env_path",
     )
     XONSHRC_DIR = Var.with_default(
         default_xonshrcdir,
         "A list of directories, from which all .xsh|.py files will be loaded "
-        "at startup, sorted in lexographic order. Files in these directories "
+        "at startup, sorted in lexicographic order. Files in these directories "
         "are loaded after any files in XONSHRC.",
         type_str="env_path",
     )
@@ -1117,9 +1233,9 @@ class GeneralSetting(Xettings):
     XONSH_MODE = Var.with_default(
         default="interactive",  # In sync with ``main.py``.
         doc="A string value representing the current xonsh execution mode: "
-        "``interactive``, ``script_from_file``, ``source``, ``single_command``, ``script_from_stdin``."
-        "Note! This variable reflects the mode at start time  (e.g. ``script_from_file``) "
-        "or code execution (e.g. ``source``).  If you need to gate behavior in an RC file that "
+        "``interactive``, ``script_from_file``, ``source``, ``single_command``, ``script_from_stdin``. "
+        "Note! This variable reflects the mode at start time (e.g. ``script_from_file``) "
+        "or code execution (e.g. ``source``). If you need to gate behavior in an RC file that "
         "you plan to ``source``, use ``$XONSH_INTERACTIVE`` as the flag instead.",
         type_str="str",
     )
@@ -1141,25 +1257,50 @@ class GeneralSetting(Xettings):
         {},
         "A dictionary containing custom prompt_toolkit/pygments style definitions.\n"
         "The following style definitions are supported:\n\n"
-        "    - ``pygments.token.Token`` - ``$XONSH_STYLE_OVERRIDES[Token.Keyword] = '#ff0000'``\n"
-        "    - pygments token name (string) - ``$XONSH_STYLE_OVERRIDES['Token.Keyword'] = '#ff0000'``\n"
-        "    - ptk style name (string) - ``$XONSH_STYLE_OVERRIDES['pygments.keyword'] = '#ff0000'``\n\n"
-        "(The rules above are all have the same effect.)",
+        "- ``pygments.token.Token`` - ``$XONSH_STYLE_OVERRIDES[Token.Keyword] = '#ff0000'``\n"
+        "- pygments token name (string) - ``$XONSH_STYLE_OVERRIDES['Token.Keyword'] = '#ff0000'``\n"
+        "- ptk style name (string) - ``$XONSH_STYLE_OVERRIDES['pygments.keyword'] = '#ff0000'``\n\n"
+        "(The rules above all have the same effect.)",
     )
-    STAR_PATH = Var.no_default("env_path", pattern=re.compile(r"\w*PATH$"))
-    STAR_DIRS = Var.no_default("env_path", pattern=re.compile(r"\w*DIRS$"))
+    XONSH_ENV_PATTERN_PATH = Var.with_default(
+        VarPattern(r"\w*PATH$", "env_path"),
+        "Pattern rule: env vars matching this regex are treated as env_path.",
+        type_str="var_pattern",
+    )
+    XONSH_ENV_PATTERN_DIRS = Var.with_default(
+        VarPattern(r"\w*DIRS$", "env_path", exclude=["JUPYTER_PLATFORM_DIRS"]),
+        "Pattern rule: env vars matching this regex are treated as env_path.",
+        type_str="var_pattern",
+    )
 
 
 class SubprocessSetting(Xettings):
     """Subprocess Settings"""
 
-    RAISE_SUBPROC_ERROR = Var.with_default(
+    XONSH_SUBPROC_CMD_RAISE_ERROR = Var.with_default(
         False,
         "Whether or not to raise an error if a subprocess (captured or "
         "uncaptured) returns a non-zero exit status, which indicates failure. "
         "This is most useful in xonsh scripts or modules where failures "
         "should cause an end to execution. This is less useful at a terminal. "
-        "The error that is raised is a ``subprocess.CalledProcessError``.",
+        "The error that is raised is a ``subprocess.CalledProcessError``. "
+        "(Replaces the deprecated ``$RAISE_SUBPROC_ERROR``.)",
+        sync="RAISE_SUBPROC_ERROR",
+    )
+    XONSH_SUBPROC_RAISE_ERROR = Var.with_default(
+        True,
+        "Whether or not to raise an error when the *final* command of a "
+        "logical chain (``cmd1 && cmd2`` / ``cmd1 || cmd2``) returns a "
+        "non-zero exit status.  Unlike ``$XONSH_SUBPROC_CMD_RAISE_ERROR`` "
+        "(which raises on every individual non-zero subprocess), commands "
+        "inside a logical chain do not raise on their own — only the "
+        "result of the whole short-circuit evaluation is checked. "
+        "Examples (with the default ``True``):\n\n"
+        "* ``echo 1 && echo 2`` — last executed is ``echo 2`` (rc=0): no raise.\n"
+        "* ``ls nono || echo 1`` — last executed is ``echo 1`` (rc=0): no raise.\n"
+        "* ``ls nono && echo 1`` — last executed is ``ls nono`` (rc≠0): raises.\n"
+        "* ``(echo 1 && ls /etc) || echo 1`` — last executed is ``ls /etc`` (rc=0): no raise.\n\n"
+        "The exception raised is a ``subprocess.CalledProcessError``.",
     )
     LAST_RETURN_CODE = Var.with_default(
         0,
@@ -1168,6 +1309,19 @@ class SubprocessSetting(Xettings):
     XONSH_SUBPROC_CAPTURED_PRINT_STDERR = Var.with_default(
         False,
         "If ``True`` the stderr from captured subproc will be printed automatically.",
+    )
+    XONSH_BUILTINS_TO_CMD = Var.with_default(
+        False,
+        "If True, Python builtin names (e.g. ``dir``, ``zip``, ``type``) "
+        "will be executed as a subprocess command when a matching alias or "
+        "executable exists. Covers two cases that otherwise run as Python "
+        "and may fail or return surprising values: "
+        "(1) a bare builtin name typed as a standalone expression "
+        "(``zip`` → run the ``zip`` command); "
+        "(2) a builtin name followed by flag-looking arguments that also "
+        "parses as a valid Python ``BinOp`` expression "
+        "(``zip --help``, ``id -a``). "
+        "Otherwise the Python builtin value is returned as usual.",
     )
     XONSH_SUBPROC_OUTPUT_FORMAT = Var.with_default(
         "stream_lines",
@@ -1199,7 +1353,7 @@ class SubprocessSetting(Xettings):
         not ON_CYGWIN,
         "Note: The ``$XONSH_CAPTURE_ALWAYS`` variable introduces finer control "
         "and you should probably use that instead.\n\n"
-        "Whether or not to try to run subrocess mode in a Python thread, "
+        "Whether or not to try to run subprocess mode in a Python thread, "
         "when trying to capture its output. There are various trade-offs.\n\n"
         "If True, xonsh is able capture & store the stdin, stdout, and stderr"
         " of threadable subprocesses.\n"
@@ -1223,26 +1377,24 @@ class SubprocessSetting(Xettings):
         "xonsh process threads sleep for while running command pipelines. "
         "The value has units of seconds [s].",
     )
-    XONSH_TRACE_SUBPROC = Var(
+    XONSH_SUBPROC_TRACE = Var(
         default=False,
-        validate=is_bool_or_int,
-        convert=to_bool_or_int,
+        validate=lambda x: callable(x) or is_bool_or_int(x),
+        convert=lambda x: x if callable(x) else to_bool_or_int(x),
         doc="Set to ``True`` or ``1`` to show arguments list of every executed subprocess command. "
-        "Use ``2`` to have a specification. Use ``3`` to have full specification.",
-    )
-    XONSH_TRACE_SUBPROC_FUNC = Var.with_default(
-        None,
-        doc=(
-            "A callback function used to format the trace output shown when $XONSH_TRACE_SUBPROC=True."
-        ),
-        doc_default="""\
-    By default it just prints ``cmds`` like below.
-
-    .. code-block:: python
-
-        def tracer(cmds: list, captured: Union[bool, str]):
-            print(f"TRACE SUBPROC: {cmds}, captured={captured}", file=sys.stderr)
-    """,
+        "Use ``2`` to have a specification. Use ``3`` to have full specification. "
+        "Alternatively assign a callable ``f(cmds, captured=..., specs=...)`` to format "
+        "the trace output yourself — it is invoked instead of the default printer. "
+        "``specs`` is the list of :class:`SubprocSpec` objects about to be executed; "
+        "``CommandPipeline`` is not yet built at this point.",
+        doc_default="By default it just prints ``cmds`` like below.\n\n"
+        ".. code-block:: python\n\n"
+        "    def _tracer(cmds, captured, specs):\n"
+        "        # ``specs`` is a list of SubprocSpec — use e.g. ``s.args``,\n"
+        "        # ``s.alias``, ``s.binary_loc``, ``s.threadable`` for details.\n"
+        '        print(f"TRACE SUBPROC: {cmds}, captured={captured}", file=sys.stderr)\n'
+        "\n"
+        "    $XONSH_SUBPROC_TRACE = _tracer",
     )
 
 
@@ -1284,7 +1436,7 @@ class LangSetting(Xettings):
 
     LANG = Var.with_default(
         default="C.UTF-8",
-        doc="Fallback locale setting for systems where it matters",
+        doc="Fallback locale setting for systems where it matters.",
         type_str="str",
     )
     LC_COLLATE = Var.for_locale("LC_COLLATE")
@@ -1327,17 +1479,37 @@ class CacheSetting(Xettings):
 
     ENABLE_COMMANDS_CACHE = Var(
         default=True,
-        doc="command names in a directory are cached when enabled. "
-        "On some platforms it may not be accurate enough"
+        doc="Command names in a directory are cached when enabled. "
+        "On some platforms it may not be accurate enough "
         "(e.g. Windows, Linux save mtime in seconds). "
         "Setting it to False would disable the caching mechanism "
-        "and may slow down the shell",
+        "and may slow down the shell.",
         doc_default="True",
     )
 
     COMMANDS_CACHE_SAVE_INTERMEDIATE = Var.with_default(
         False,
         "If enabled, the CommandsCache is saved between runs and can reduce the startup time.",
+    )
+
+    XONSH_COMMANDS_CACHE_READ_DIR_ONCE = Var.with_default(
+        _commands_cache_read_dir_once_default(),
+        "List of directory prefixes whose contents are cached on first access and "
+        "never re-read within the session.  Any ``$PATH`` entry that starts with "
+        "one of these prefixes (or is a subdirectory) will have its file listing "
+        "cached. This helps on systems with I/O lag, network drives, and similar issues. "
+        "On Windows this defaults to ``['C:\\\\Windows']`` (via ``%WINDIR%``).  "
+        "On WSL it auto-detects ``/mnt/*/Windows`` directories. "
+        "On Linux/Mac it is empty by default but can be extended "
+        "(e.g. ``$XONSH_COMMANDS_CACHE_READ_DIR_ONCE += ['/bin', '/sbin']``).",
+        type_str="env_path",
+    )
+
+    XONSH_COMMANDS_CACHE_TRACE = Var.with_default(
+        False,
+        "If True, print trace messages showing where each command was resolved "
+        "from (cached directory listing XONSH_COMMANDS_CACHE_READ_DIR_ONCE vs. disk stat) "
+        "and how long it took.",
     )
 
 
@@ -1374,10 +1546,10 @@ class ChangeDirSetting(Xettings):
     COMPLETE_DOTS = Var.with_default(
         "matching",
         doc="Flag to specify how current and previous directories should be "
-        "tab completed  ('./', '../'):\n"
-        "    - ``always`` Always complete paths with ./ and ../\n"
-        "    - ``never`` Never complete paths with ./ and ../\n"
-        "    - ``matching`` Complete if path starts with . or ..",
+        "tab completed (``./``, ``../``):\n\n"
+        "- ``always`` - Always complete paths with ``./`` and ``../``\n"
+        "- ``never`` - Never complete paths with ``./`` and ``../``\n"
+        "- ``matching`` - Complete if path starts with ``.`` or ``..``",
     )
 
 
@@ -1386,15 +1558,22 @@ class InterpreterSetting(Xettings):
 
     DOTGLOB = Var.with_default(
         False,
-        'Globbing files with "*" or "**" will also match '
-        "dotfiles, or those 'hidden' files whose names "
-        "begin with a literal '.'. Such files are filtered "
+        "Globbing files with ``*`` or ``**`` will also match "
+        "dotfiles, or those hidden files whose names "
+        "begin with a literal ``.``. Such files are filtered "
         "out by default.",
     )
     EXPAND_ENV_VARS = Var.with_default(
         True,
         "Toggles whether environment variables are expanded inside of strings "
         "in subprocess mode.",
+    )
+    XONSH_SUBPROC_ARG_EXPANDUSER = Var.with_default(
+        True,
+        "If True, ``~`` and ``~user`` in subprocess arguments are expanded to "
+        "home directories (e.g. ``~/docs`` → ``/home/user/docs``, "
+        "``~bob/docs`` → ``/home/bob/docs``). "
+        "Set to False to pass ``~`` through as a literal character.",
     )
     FOREIGN_ALIASES_SUPPRESS_SKIP_MESSAGE = Var.with_default(
         False,
@@ -1408,8 +1587,8 @@ class InterpreterSetting(Xettings):
         "Whether or not foreign aliases should override xonsh aliases "
         "with the same name. Note that setting of this must happen in the "
         "environment that xonsh was started from. "
-        "It cannot be set in the ``.xonshrc`` as loading of foreign aliases happens before"
-        "``.xonshrc`` is parsed",
+        "It cannot be set in the ``.xonshrc`` as loading of foreign aliases happens before "
+        "``.xonshrc`` is parsed.",
         is_configurable=True,
     )
     GLOB_SORTED = Var.with_default(
@@ -1425,14 +1604,10 @@ class XontribSetting(Xettings):
     XONTRIBS_AUTOLOAD_DISABLED = Var.with_default(
         default=False,
         type_str="bool",
-        doc="""\
-    Controls auto-loading behaviour of xontrib packages at the startup.
-    * Set this to ``True`` to disable autoloading completely.
-    * Setting this to a list of xontrib names will block loading those specifically.
-    """,
-        doc_default="""\
-    Xontribs with ``xonsh.xontrib`` entrypoint will be loaded automatically by default.
-    """,
+        doc="Controls auto-loading behaviour of xontrib packages at the startup.\n\n"
+        "* Set this to ``True`` to disable autoloading completely.\n"
+        "* Setting this to a list of xontrib names will block loading those specifically.",
+        doc_default="Xontribs with ``xonsh.xontrib`` entrypoint will be loaded automatically by default.",
     )
 
 
@@ -1469,6 +1644,26 @@ class PromptSetting(Xettings):
     INDENT = Var.with_default(
         "    ",
         "Indentation string for multiline input",
+    )
+    XONSH_PROMPT_SHOW_SUBPROC_ERROR = Var.with_default(
+        False,
+        "Whether the interactive prompt should display the "
+        "``subprocess.CalledProcessError`` message when a command at the "
+        "prompt fails.  The failing command's own ``stderr`` is always "
+        "shown — this flag only controls xonsh's own exception printout "
+        "that follows it.\n\n"
+        "* ``False`` *(default)*: after a failing command the prompt "
+        "returns silently; the command's ``stderr`` is still visible and "
+        "``$LAST_RETURN_CODE`` is set.\n"
+        "* ``True``: xonsh additionally prints "
+        "``subprocess.CalledProcessError: Command '...' returned non-zero "
+        "exit status N.``.\n\n"
+        "Notes:\n\n"
+        "* Per-command ``@error_raise`` decorator always shows the "
+        "exception, regardless of this flag.\n"
+        "* Non-interactive scripts (run via ``./script.xsh`` or "
+        "``xonsh -c``) are unaffected — there the exception propagates "
+        "normally so the failure is visible.",
     )
     LS_COLORS = Var(
         is_lscolors,
@@ -1556,9 +1751,9 @@ class PromptSetting(Xettings):
         validate=always_true,
         convert=None,
         detype=None,
-        doc="Dictionary containing variables to be used when formatting $PROMPT "
-        "and $TITLE. See 'Customizing the Prompt' "
-        "http://xon.sh/tutorial.html#customizing-the-prompt",
+        doc="Dictionary containing variables to be used when formatting ``$PROMPT`` "
+        "and ``$TITLE``. See 'Customizing the Prompt' "
+        "http://xon.sh/tutorial.html#customizing-the-prompt.",
         is_configurable=False,
     )
     PROMPT_REFRESH_INTERVAL = Var.with_default(
@@ -1601,16 +1796,15 @@ class PromptSetting(Xettings):
     SHELL_TYPE = Var.with_default(
         "best",
         "Which shell is used. Currently two base shell types are supported:\n\n"
-        "    - ``readline`` that is backed by Python's readline module\n"
-        "    - ``prompt_toolkit`` that uses external library of the same name\n"
-        "    - ``random`` selects a random shell from the above on startup\n"
-        "    - ``best`` selects the most feature-rich shell available on the\n"
-        "       user's system\n\n"
+        "- ``readline`` - backed by Python's readline module\n"
+        "- ``prompt_toolkit`` - uses external library of the same name\n"
+        "- ``random`` - selects a random shell from the above on startup\n"
+        "- ``best`` - selects the most feature-rich shell available on the user's system\n\n"
         "To use the ``prompt_toolkit`` shell you need to have the "
         "`prompt_toolkit <https://github.com/jonathanslenders/python-prompt-toolkit>`_"
         " library installed. To specify which shell should be used, do so in "
         "the run control file. "
-        "It also accepts a class type that inherits from ``xonsh.shells.base_shell.BaseShell``",
+        "It also accepts a class type that inherits from ``xonsh.shells.base_shell.BaseShell``.",
         doc_default="``best``",
     )
     SUGGEST_COMMANDS = Var.with_default(
@@ -1673,24 +1867,26 @@ class PromptSetting(Xettings):
     XONSH_HISTORY_MATCH_ANYWHERE = Var.with_default(
         False,
         "When searching history from a partial string (by pressing up arrow), "
-        "match command history anywhere in a given line (not just the start)",
+        "match command history anywhere in a given line (not just the start).",
         doc_default="False",
     )
     XONSH_STDERR_PREFIX = Var.with_default(
         "",
         "A format string, using the same keys and colors as ``$PROMPT``, that "
         "is prepended whenever stderr is displayed. This may be used in "
-        "conjunction with ``$XONSH_STDERR_POSTFIX`` to close out the block."
+        "conjunction with ``$XONSH_STDERR_POSTFIX`` to close out the block. "
         "For example, to have stderr appear on a red background, the "
-        'prefix & postfix pair would be "{BACKGROUND_RED}" & "{RESET}".',
+        'prefix & postfix pair would be "{BACKGROUND_RED}" & "{RESET}". '
+        "It works with ``!()`` (colors will be reduced) or ``$XONSH_CAPTURE_ALWAYS=True``.",
     )
     XONSH_STDERR_POSTFIX = Var.with_default(
         "",
         "A format string, using the same keys and colors as ``$PROMPT``, that "
         "is appended whenever stderr is displayed. This may be used in "
-        "conjunction with ``$XONSH_STDERR_PREFIX`` to start the block."
+        "conjunction with ``$XONSH_STDERR_PREFIX`` to start the block. "
         "For example, to have stderr appear on a red background, the "
-        'prefix & postfix pair would be "{BACKGROUND_RED}" & "{RESET}".',
+        'prefix & postfix pair would be "{BACKGROUND_RED}" & "{RESET}". '
+        "It works with ``!()`` (colors will be reduced) or ``$XONSH_CAPTURE_ALWAYS=True``.",
     )
     XONSH_SUPPRESS_WELCOME = Var.with_default(
         False,
@@ -1720,7 +1916,7 @@ class PromptHistorySetting(Xettings):
     )
     HISTCONTROL = Var(
         is_string_set,
-        csv_to_set,
+        histcontrol_csv_to_set,
         set_to_csv,
         set(),
         "A set of strings (comma-separated list in string form) of options "
@@ -1729,9 +1925,7 @@ class PromptHistorySetting(Xettings):
         "- ``ignoredups`` will not save the command if it matches the previous command\n"
         "- ``ignoreerr`` will cause any commands that fail (i.e. return non-zero "
         "exit status) to not be added to the history list\n"
-        "- ``ignorespace`` will not save the command if it begins with a space\n"
-        "- ``erasedups`` will remove all previous commands that matches and updates the frequency "
-        "(Note: only supported in sqlite backend)",
+        "- ``ignorespace`` will not save the command if it begins with a space\n",
         can_store_as_str=True,
     )
     XONSH_HISTORY_SIZE = Var(
@@ -1790,7 +1984,9 @@ class PTKSetting(PromptSetting):  # sub-classing -> sub-group
 
     XONSH_PROMPT_NEXT_CMD = Var.with_default(
         "",
-        "The text of the next command that will be inserted in the next prompt.",
+        "The text of the next command that will be inserted in the next prompt. "
+        "Use ``<cursor>`` marker to set the cursor position, "
+        "e.g. ``$XONSH_PROMPT_NEXT_CMD = 'echo <cursor> world'``.",
     )
     XONSH_PROMPT_NEXT_CMD_SUGGESTION = Var.with_default(
         "",
@@ -1823,7 +2019,7 @@ class PTKSetting(PromptSetting):  # sub-classing -> sub-group
         always_false,
         to_ptk_cursor_shape,
         to_ptk_cursor_shape_display_value,
-        to_ptk_cursor_shape("modal-vi-mode-only"),
+        default_value(lambda env: to_ptk_cursor_shape("modal-vi-mode-only")),
         "The cursor shape. Possible values for prompt toolkit are: "
         "``block``, ``beam``, ``underline``, "
         "``blinking-block``, ``blinking-beam``, ``blinking-underline``, "
@@ -1850,14 +2046,14 @@ class PTKSetting(PromptSetting):  # sub-classing -> sub-group
     )
     XONSH_COPY_ON_DELETE = Var.with_default(
         False,
-        "Whether to copy words/lines to clipboard on deletion (must be set in the run control file)."
-        "Does not have any effect in ``vi_mode``."
+        "Whether to copy words/lines to clipboard on deletion (must be set in the run control file). "
+        "Does not have any effect in ``vi_mode``. "
         "Only available under the prompt-toolkit shell.",
     )
     XONSH_USE_SYSTEM_CLIPBOARD = Var.with_default(
         True,
-        "Whether to let the shell use the system clipboard (must be set in the run control file)."
-        "The main use-case is to fully disable clipboard integration in ``vi_mode``."
+        "Whether to let the shell use the system clipboard (must be set in the run control file). "
+        "The main use-case is to fully disable clipboard integration in ``vi_mode``. "
         "Only available under the prompt-toolkit shell.",
     )
     XONSH_CTRL_BKSP_DELETION = Var.with_default(
@@ -1871,7 +2067,7 @@ class PTKSetting(PromptSetting):  # sub-classing -> sub-group
 
 class AsyncPromptSetting(PTKSetting):
     """Asynchronous Prompt
-    Load $PROMPT in background without blocking read-eval loop.
+    Load ``$PROMPT`` in background without blocking read-eval loop.
     """
 
     ASYNC_INVALIDATE_INTERVAL = Var.with_default(
@@ -1891,7 +2087,7 @@ class AsyncPromptSetting(PTKSetting):
     ENABLE_ASYNC_PROMPT = Var.with_default(
         False,
         "When enabled the prompt is rendered using threads. "
-        "$PROMPT_FIELD that take long will be updated in the background and will not affect prompt speed. ",
+        "``$PROMPT_FIELDS`` that take long will be updated in the background and will not affect prompt speed.",
     )
 
 
@@ -1899,19 +2095,34 @@ class AutoCompletionSetting(Xettings):
     """Tab-completion behavior."""
 
     ALIAS_COMPLETIONS_OPTIONS_BY_DEFAULT = Var.with_default(
-        doc="""\
-If True, :py:class:`xonsh.completers.argparser.ArgparseCompleter` based completions
-will show options (e.g. -h, ...) without requesting explicitly with option prefix (e.g. '-').""",
+        doc="If True, :py:class:`xonsh.completers.argparser.ArgparseCompleter` based completions "
+        "will show options (e.g. ``--help``) without requesting explicitly with option prefix ``-``.",
         default=False,
     )
     ALIAS_COMPLETIONS_OPTIONS_LONGEST = Var.with_default(
-        doc="""\
-Whether to show all options or just the longest for
-the :py:class:`xonsh.completers.argparser.ArgparseCompleter` based completions.
-For example, with ``-h``, ``--help`` both denoting ``help`` action.
-If True, then only ``--help`` is shown.
-This is to reduce the noise in generated completions.""",
+        doc="Whether to show all options or just the longest for "
+        "the :py:class:`xonsh.completers.argparser.ArgparseCompleter` based completions. "
+        "For example, with ``-h``, ``--help`` both denoting ``help`` action. "
+        "If True, then only ``--help`` is shown. "
+        "This is to reduce the noise in generated completions.",
         default=False,
+    )
+    XONSH_COMPLETER_MODE = Var.with_default(
+        "substring_tier",
+        "Controls how completions are filtered.\n\n"
+        "``'substring_tier'`` (default) — shows all completions that "
+        "contain the typed text as a substring, ranked in tiers "
+        "from best to worst match:\n\n"
+        "  1. Exact prefix (``test`` matches ``test_foo``)\n"
+        "  2. Case-insensitive prefix (``test`` matches ``TEST_FOO``)\n"
+        "  3. Substring (``test`` matches ``my_test_bar``)\n"
+        "  4. Case-insensitive substring (``test`` matches ``MY_TEST_BAR``)\n\n"
+        "Within each tier, results are sorted by the position of the "
+        "match, then alphabetically.  This gives a natural ranking where "
+        "the best matches appear first while still showing all "
+        "possibilities.\n\n"
+        "``'prefix'`` — shows only completions that start with the "
+        "typed text (case-insensitive).  Substring matches are hidden.",
     )
     CMD_COMPLETIONS_SHOW_DESC = Var.with_default(
         doc="If True, command completions will show description part with path to the binary and alias in case of "
@@ -1932,20 +2143,25 @@ This is to reduce the noise in generated completions.""",
         "control file.",
         default=BASH_COMPLETIONS_DEFAULT,
         doc_default=(
-            "Normally this is:\n\n"
-            "    ``('/usr/share/bash-completion/bash_completion', )``\n\n"
-            "But, on Mac it is:\n\n"
-            "    ``('/usr/local/share/bash-completion/bash_completion', "
-            "'/usr/local/etc/bash_completion', "
-            "'/opt/homebrew/share/bash-completion/bash_completion'),``\n\n"
-            "Other OS-specific defaults may be added in the future."
+            "Platform-dependent. The list probes every known install "
+            "prefix for the bash-completion framework script and the "
+            "first existing file is sourced:\n\n"
+            "* **Linux / Cygwin / MSYS** — the standard FHS path "
+            "``/usr/share/bash-completion/bash_completion``, plus "
+            "Linuxbrew (``/home/linuxbrew/.linuxbrew/...``) and Nix "
+            "(``/run/current-system/sw/...``, ``~/.nix-profile/...``).\n"
+            "* **macOS** — Homebrew on Intel "
+            "(``/usr/local/...``) and Apple Silicon "
+            "(``/opt/homebrew/...``), MacPorts (``/opt/local/...``), "
+            "and Nix.\n"
+            "* **Windows** — Git for Windows installation prefix "
+            "(both bash-completion and the bundled "
+            "``git-completion.bash``).\n\n"
+            "Each entry covers both v1.x and v2.x of bash-completion "
+            "where applicable; v2.x is preferred for performance "
+            "(lazy per-command loading)."
         ),
         type_str="env_path",
-    )
-    CASE_SENSITIVE_COMPLETIONS = Var.with_default(
-        ON_LINUX,
-        "Sets whether completions should be case sensitive or case insensitive.",
-        doc_default="True on Linux, False otherwise.",
     )
     COMPLETIONS_BRACKETS = Var.with_default(
         True,
@@ -1954,9 +2170,11 @@ This is to reduce the noise in generated completions.""",
         doc_default="True",
     )
     COMPLETION_QUERY_LIMIT = Var.with_default(
-        100,
-        "The number of completions to display before the user is asked "
-        "for confirmation.",
+        1000,
+        "Maximum number of completions to collect. In prompt_toolkit the "
+        "list is truncated at this value and a notice is shown above the "
+        "prompt; in readline the user is asked 'Display all N "
+        "possibilities?'.",
     )
     FUZZY_PATH_COMPLETION = Var.with_default(
         True,
@@ -1990,9 +2208,23 @@ The file should contain a function with the signature
 """,
         type_str="env_path",
     )
-    XONSH_TRACE_COMPLETIONS = Var.with_default(
+    XONSH_COMPLETER_EMOJI_PREFIX = Var.with_default(
+        None,
+        "Trigger prefix for colorful emoji completion. "
+        "Set to ``'::'`` to enable, then type ``::<TAB>`` or ``::cat<TAB>`` to search. "
+        "Default is ``None`` (disabled).",
+    )
+    XONSH_COMPLETER_SYMBOLS_PREFIX = Var.with_default(
+        None,
+        "Trigger prefix for unicode symbol completion. "
+        "Set to ``':::'`` to enable, then type ``:::<TAB>`` or ``:::arrow<TAB>`` to search. "
+        "Default is ``None`` (disabled).",
+    )
+    XONSH_COMPLETER_TRACE = Var.with_default(
         False,
-        "Set to ``True`` to show completers invoked and their return values.",
+        "Set to ``True`` to show completers invoked and their return values. "
+        "Each completion is printed on its own line with its ``source`` "
+        "completer and any non-default ``RichCompletion`` attributes.",
     )
 
 
@@ -2060,10 +2292,8 @@ class PTKCompletionSetting(AutoCompletionSetting):
     )
 
 
-class WindowsSetting(GeneralSetting):
-    """Windows OS
-    Windows OS specific settings
-    """
+class WindowsSetting(Xettings):
+    """Windows OS"""
 
     ANSICON = Var.no_default(
         "str",
@@ -2089,11 +2319,22 @@ class WindowsSetting(GeneralSetting):
     )
 
 
-class DeprecatedSetting(PromptSetting):  # sub-classing -> sub-group
+class DeprecatedSetting(Xettings):  # sub-classing -> sub-group
     """Deprecated settings."""
 
     AUTO_SUGGEST = PTKSetting.XONSH_PROMPT_AUTO_SUGGEST.set_attrs(
-        {"sync": "XONSH_PROMPT_AUTO_SUGGEST", "deprecated": True}
+        {
+            "sync": "XONSH_PROMPT_AUTO_SUGGEST",
+            "deprecated": True,
+            "doc": "Deprecated. Use XONSH_PROMPT_AUTO_SUGGEST.",
+        }
+    )
+    RAISE_SUBPROC_ERROR = SubprocessSetting.XONSH_SUBPROC_CMD_RAISE_ERROR.set_attrs(
+        {
+            "sync": "XONSH_SUBPROC_CMD_RAISE_ERROR",
+            "deprecated": True,
+            "doc": "Deprecated. Use XONSH_SUBPROC_CMD_RAISE_ERROR.",
+        }
     )
 
 
@@ -2113,8 +2354,8 @@ def DEFAULT_VARS():
 
 
 class Env(cabc.MutableMapping):
-    """A xonsh environment, whose variables have limited typing
-    (unlike BASH). Most variables are, by default, strings (like BASH).
+    """A xonsh environment, whose variables have limited typing.
+    Most variables are, by default, strings.
     However, the following rules also apply based on variable-name:
 
     * PATH: any variable whose name ends in PATH is a list of strings.
@@ -2132,11 +2373,27 @@ class Env(cabc.MutableMapping):
         # sentinel value for non existing envvars
         self._no_value = object()
         self._orig_env = None
+        # Thread-local storage for overlay stacks. Used by callable aliases
+        # to provide scoped env variables that shadow the global env
+        # during alias execution. See push_overlay()/pop_overlay().
+        self._overlay_local = threading.local()
         self._vars = {k: v for k, v in DEFAULT_VARS.items()}
 
         if len(args) == 0 and len(kwargs) == 0:
             args = (os_environ,)
-        for key, val in dict(*args, **kwargs).items():
+        initial = dict(*args, **kwargs)
+        # Avoid a spurious DeprecationWarning when both a deprecated
+        # alias (e.g. ``RAISE_SUBPROC_ERROR``) and its canonical name
+        # (``XONSH_SUBPROC_CMD_RAISE_ERROR``) are present in the source
+        # dict — which happens whenever a parent xonsh process set the
+        # canonical name and the sync mechanism mirrored the value into
+        # os.environ.  The canonical name alone will re-populate the
+        # alias via its forward ``sync=`` declaration, so we can skip
+        # the deprecated key silently here.
+        for key, val in initial.items():
+            var = self._vars.get(key)
+            if var is not None and var.deprecated and var.sync and var.sync in initial:
+                continue
             self[key] = val
         if ON_WINDOWS:
             path_key = next((k for k in self._d if k.upper() == "PATH"), None)
@@ -2158,30 +2415,42 @@ class Env(cabc.MutableMapping):
         Note! If env variable wasn't explicitly set (e.g. the value has default value in ``Xettings``)
         it will be not in this list.
         """
-        if self._detyped is not None:
+        if self._detyped is not None and not self._overlay_stack:
             return self._detyped
         ctx = {}
-        for key, val in self._d.items():
+        items = dict(self._d)
+        # Apply overlay values on top (most recent overlay wins)
+        for overlay in self._overlay_stack:
+            items.update(overlay)
+        for key, val in items.items():
             if not isinstance(key, str):
                 key = str(key)
             detyper = self.get_detyper(key)
             if detyper is None:
                 # cannot be detyped
                 continue
-            deval = detyper(val)
+            try:
+                deval = detyper(val)
+            except Exception as exc:
+                raise RuntimeError(f"Error during detyping ${key}: {exc}") from exc
             if deval is None:
                 # cannot be detyped
                 continue
             ctx[key] = deval
-        self._detyped = ctx
+        if not self._overlay_stack:
+            self._detyped = ctx
         return ctx
 
-    def detype_all(self):  # __getitem__
-        """Returns a dict of all available detyped env variables."""
-        if self._detyped is not None:
-            return self._detyped
-        ctx = {}
+    def detype_all(self):
+        """Returns a dict of all available detyped env variables.
+
+        Builds on top of detype() by adding default values for keys
+        that weren't explicitly set.
+        """
+        ctx = dict(self.detype())
         for key in self.rawkeys():
+            if key in ctx:
+                continue
             if not isinstance(key, str):
                 key = str(key)
             val = self.__getitem__(key)
@@ -2191,17 +2460,17 @@ class Env(cabc.MutableMapping):
             if not isinstance(val, str):
                 continue
             ctx[key] = val
-        self._detyped = ctx
         return ctx
 
     def replace_env(self):
         """Replaces the contents of os_environ with a detyped version
         of the xonsh environment.
         """
+        new_env = self.detype()
         if self._orig_env is None:
             self._orig_env = dict(os_environ)
         os_environ.clear()
-        os_environ.update(self.detype())
+        os_environ.update(new_env)
 
     def undo_replace_env(self):
         """Replaces the contents of os_environ with a detyped version
@@ -2233,59 +2502,65 @@ class Env(cabc.MutableMapping):
             default = ensure_string
         return default
 
+    def _find_var_pattern(self, key):
+        """Check VarPattern values in env data (and defaults) for a match.
+
+        Setting a VarPattern variable to None disables that pattern.
+        """
+        # User-set values first (in _d)
+        for val in self._d.values():
+            if isinstance(val, VarPattern) and val.match(key):
+                return val.to_var()
+        # Fall back to defaults, but skip vars the user has overridden
+        for var_name, var in self._vars.items():
+            if (
+                isinstance(var.default, VarPattern)
+                and var_name not in self._d
+                and var.default.match(key)
+            ):
+                return var.default.to_var()
+        return None
+
+    def _find_var_pattern_name(self, key):
+        """Return the name of the VarPattern variable that matches key."""
+        for pat_name, val in self._d.items():
+            if isinstance(val, VarPattern) and val.match(key):
+                return pat_name
+        for var_name, var in self._vars.items():
+            if (
+                isinstance(var.default, VarPattern)
+                and var_name not in self._d
+                and var.default.match(key)
+            ):
+                return var_name
+        return None
+
     def get_validator(self, key, default=None):
         """Gets a validator for the given key."""
         if key in self._vars:
             return self._vars[key].validate
-
-        # necessary for keys that match regexes, such as `*PATH`s
-        for k, var in self._vars.items():
-            if isinstance(k, str):
-                continue
-            if k.match(key) is not None:
-                validator = var.validate
-                self._vars[key] = var
-                break
-        else:
-            validator = self._get_default_validator(default=default)
-
-        return validator
+        var = self._find_var_pattern(key)
+        if var is not None:
+            return var.validate
+        return self._get_default_validator(default=default)
 
     def get_converter(self, key, default=None):
         """Gets a converter for the given key."""
         if key in self._vars:
             return self._vars[key].convert
-
-        # necessary for keys that match regexes, such as `*PATH`s
-        for k, var in self._vars.items():
-            if isinstance(k, str):
-                continue
-            if k.match(key) is not None:
-                converter = var.convert
-                self._vars[key] = var
-                break
-        else:
-            converter = self._get_default_converter(default=default)
-
-        return converter
+        var = self._find_var_pattern(key)
+        if var is not None:
+            return var.convert
+        return self._get_default_converter(default=default)
 
     def get_detyper(self, key, default=None):
         """Gets a detyper for the given key."""
         if key in self._vars:
             return self._vars[key].detype
-
-        # necessary for keys that match regexes, such as `*PATH`s
-        for k, var in self._vars.items():
-            if isinstance(k, str):
-                continue
-            if k.match(key) is not None:
-                detyper = var.detype
-                self._vars[key] = var
-                break
-        else:
-            detyper = self._get_default_detyper(default=default)
-
-        return detyper
+        var = self._find_var_pattern(key)
+        if var is not None:
+            return var.detype
+        return self._get_default_detyper(default=default)
 
     def get_default(self, key, default=None):
         """Gets default for the given key."""
@@ -2301,25 +2576,40 @@ class Env(cabc.MutableMapping):
             vd = Var(default="", doc_default="")
         if vd.doc_default is DefaultNotGiven:
             var_default = self._vars.get(key, "<default not set>").default
-            dval = (
-                "not defined"
-                if var_default is DefaultNotGiven
-                else pprint.pformat(var_default)
-            )
+            if var_default is DefaultNotGiven:
+                dval = "not defined"
+            else:
+                dval = pprint.pformat(var_default)
+                cls_name = type(var_default).__name__
+                qname = qualified_name(var_default)
+                if qname != cls_name:
+                    dval = dval.replace(cls_name, qname, 1)
             vd = vd._replace(doc_default=dval)
         return vd
 
-    def help(self, key):
+    def help(self, key, short=False):
         """Get information about a specific environment variable."""
+        if short:
+            # Keep for future.
+            pass
+
         vardocs = self.get_docs(key)
-        width = min(79, os.get_terminal_size()[0])
-        docstr = "\n".join(textwrap.wrap(vardocs.doc, width=width))
-        template = HELP_TEMPLATE.format(
+        docstr = vardocs.doc.strip()
+        doc_default = vardocs.doc_default
+        if isinstance(doc_default, str):
+            doc_default = doc_default.strip()
+        if docstr.startswith(("- ", "* ")):
+            docstr = "\n" + docstr
+        doc_default_str = str(doc_default) if doc_default is not None else ""
+        if doc_default_str.startswith(("- ", "* ")):
+            doc_default = "\n" + doc_default_str
+        template = HELP_TEMPLATE_SHORT.format(
             envvar=key,
             docstr=docstr,
-            default=vardocs.doc_default,
+            default=doc_default,
             configurable=vardocs.is_configurable,
         )
+        template = _rst_inline_to_color(template)
         print_color(template)
 
     def is_manually_set(self, varname):
@@ -2329,12 +2619,16 @@ class Env(cabc.MutableMapping):
         return varname in self._d
 
     @contextlib.contextmanager
-    def swap(self, other=None, **kwargs):
+    def swap(self, other=None, overlay=None, **kwargs):
         """Provides a context manager for temporarily swapping out certain
         environment variables with other values. On exit from the context
         manager, the original values are restored.
         The changes are only applied to the current thread, so that they don't leak between threads.
         To get the thread-local overrides use `get_swapped_values` and `set_swapped_values`.
+
+        If ``overlay`` is provided (a dict), it is pushed as a thread-local
+        overlay that shadows both swapped and global values on reads.
+        Callable aliases use this to provide scoped ``env`` variables.
         """
         old = {}
         # single positional argument should be a dict-like object
@@ -2347,12 +2641,16 @@ class Env(cabc.MutableMapping):
             old[k] = self.get(k, NotImplemented)
             self._set_item(k, v, thread_local=True)
 
+        if overlay is not None:
+            self._overlay_stack.append(overlay)
         exception = None
         try:
             yield self
         except Exception as e:
             exception = e
         finally:
+            if overlay is not None:
+                self._overlay_stack.pop()
             # restore the values
             for k, v in old.items():
                 if v is NotImplemented:
@@ -2360,7 +2658,8 @@ class Env(cabc.MutableMapping):
                 else:
                     self._set_item(k, v, thread_local=True)
             if exception is not None:
-                raise exception from None
+                # plain re-raise to preserve __cause__/__context__ chains
+                raise exception
 
     def get_swapped_values(self):
         return self._d.get_local_overrides()
@@ -2372,10 +2671,21 @@ class Env(cabc.MutableMapping):
     # Mutable mapping interface
     #
 
+    @property
+    def _overlay_stack(self):
+        stacks = self._overlay_local.__dict__
+        if "stack" not in stacks:
+            stacks["stack"] = []
+        return stacks["stack"]
+
     def __getitem__(self, key):
         if key is Ellipsis:
             return self
-        elif key in self._d:
+        # Check overlay stack top-down (most recent first)
+        for overlay in reversed(self._overlay_stack):
+            if key in overlay:
+                return overlay[key]
+        if key in self._d:
             val = self._d[key]
         elif key in self._vars and self._vars[key].default is not DefaultNotGiven:
             val = self.get_default(key)
@@ -2394,6 +2704,11 @@ class Env(cabc.MutableMapping):
 
     def __setitem__(self, key, val):
         self._set_item(key, val)
+
+    def set(self, key, val):
+        """Set an environment variable and return the stored value. Used by ``$VAR := val``."""
+        self._set_item(key, val)
+        return self._d[key]
 
     def _set_item(self, key, val, thread_local=False, check_sync=True):
         if check_sync and key in self._vars:
@@ -2420,7 +2735,23 @@ class Env(cabc.MutableMapping):
         converter = self.get_converter(key)
         detyper = self.get_detyper(key)
         if not validator(val):
-            val = converter(val)
+            try:
+                val = converter(val)
+            except (TypeError, ValueError) as exc:
+                pat_name = self._find_var_pattern_name(key)
+                if pat_name is not None:
+                    pat_val = self._d.get(pat_name)
+                    if pat_val is None and pat_name in self._vars:
+                        pat_val = self._vars[pat_name].default
+                    var_type = (
+                        pat_val.var_type if isinstance(pat_val, VarPattern) else "?"
+                    )
+                    raise type(exc)(
+                        f"${key} matches pattern ${pat_name} which sets type "
+                        f"{var_type!r}. Cannot convert {val!r}. "
+                        f"To exclude run: `${pat_name}.exclude.append('{key}')`"
+                    ) from None
+                raise
         # existing envvars can have any value including None
         old_value = self._d[key] if key in self._d else self._no_value
         if thread_local:
@@ -2430,7 +2761,16 @@ class Env(cabc.MutableMapping):
         self._detyped = None
         if self.get("UPDATE_OS_ENVIRON"):
             if self._orig_env is None:
-                self.replace_env()
+                try:
+                    self.replace_env()
+                except Exception:
+                    # Rollback to keep xonsh env and os.environ in sync.
+                    if old_value is self._no_value:
+                        del self._d[key]
+                    else:
+                        self._d[key] = old_value
+                    self._detyped = None
+                    raise
             elif detyper is None:
                 pass
             else:
@@ -2493,11 +2833,17 @@ class Env(cabc.MutableMapping):
                 yield key
 
     def __contains__(self, item):
+        for overlay in reversed(self._overlay_stack):
+            if item in overlay:
+                return True
         return item in self._d or (
             item in self._vars and self._vars[item].default is not DefaultNotGiven
         )
 
     def __len__(self):
+        # Counts only explicitly-set vars (not defaults from self._vars).
+        # Note: __iter__ yields defaults too, so len(env) != len(list(env)).
+        # Use sum(1 for _ in self) if Mapping-protocol consistency is needed.
         return len(self._d)
 
     def __str__(self):
@@ -2823,7 +3169,7 @@ def default_env(env=None):
 
 
 def make_args_env(args=None):
-    """Makes a dictionary containing the $ARGS and $ARG<N> environment
+    """Makes a dictionary containing the ``$ARGS`` and ``$ARG<N>`` environment
     variables. If the supplied ARGS is None, then sys.argv is used.
     """
     if args is None:
@@ -2846,18 +3192,18 @@ class EnvPath(cabc.MutableSequence):
             self._l = []
         else:
             if isinstance(args, str):
-                self._l = args.split(os.pathsep)
+                self._l = [i for i in args.split(os.pathsep) if i.strip()]
             elif isinstance(args, pathlib.Path):
                 self._l = [args]
             elif isinstance(args, bytes):
                 # decode bytes to a string and then split based on
                 # the default path separator
-                self._l = decode_bytes(args).split(os.pathsep)
+                self._l = [i for i in decode_bytes(args).split(os.pathsep) if i.strip()]
             elif isinstance(args, cabc.Iterable):
                 # put everything in a list -before- performing the type check
                 # in order to be able to retrieve it later, for cases such as
                 # when a generator expression was passed as an argument
-                args = list(args)
+                args = [i for i in list(args) if str(i).strip()]
                 if not all(isinstance(i, str | bytes | pathlib.Path) for i in args):
                     # make TypeError's message as informative as possible
                     # when given an invalid initialization sequence
@@ -2923,9 +3269,15 @@ class EnvPath(cabc.MutableSequence):
         return repr(self._l)
 
     def __eq__(self, other):
+        if not isinstance(other, cabc.Sized):
+            return NotImplemented
         if len(self) != len(other):
             return False
-        return all(map(operator.eq, self, other))
+        # Expand both sides so that "~/bin" and "/Users/x/bin" compare equal.
+        return all(
+            _expandpath(a) == _expandpath(b)
+            for a, b in zip(self._l, other, strict=True)
+        )
 
     def _repr_pretty_(self, p, cycle):
         """Pretty print path list"""
@@ -2998,10 +3350,18 @@ class EnvPath(cabc.MutableSequence):
                     oldvalue=self.before,
                     newvalue=self.obj._l,
                 )
+                if XSH.env.get("UPDATE_OS_ENVIRON", False):
+                    XSH.env[self.obj.target_env_var] = self.obj._l
 
 
 def save_origin_env_to_file(env, session_id):
     data_dir = env.get("XONSH_DATA_DIR", None)
+    if data_dir is None:
+        print(
+            "xonsh: $XONSH_DATA_DIR is not set, skipping origin env save",
+            file=sys.stderr,
+        )
+        return
     env_file_name = Path(data_dir) / f"origin-env-{session_id}.json"
 
     if os.access(env_file_name.parent, os.W_OK):

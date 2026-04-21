@@ -8780,6 +8780,10 @@ class MemoryExtensions(System.Object):
         ...
 
     @staticmethod
+    def contains_any_white_space(span: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @staticmethod
     def ends_with(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
         ...
 
@@ -8822,11 +8826,27 @@ class MemoryExtensions(System.Object):
         ...
 
     @staticmethod
+    def index_of_any_except_white_space(span: System.ReadOnlySpan[str]) -> int:
+        ...
+
+    @staticmethod
+    def index_of_any_white_space(span: System.ReadOnlySpan[str]) -> int:
+        ...
+
+    @staticmethod
     def is_white_space(span: System.ReadOnlySpan[str]) -> bool:
         ...
 
     @staticmethod
     def last_index_of(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
+        ...
+
+    @staticmethod
+    def last_index_of_any_except_white_space(span: System.ReadOnlySpan[str]) -> int:
+        ...
+
+    @staticmethod
+    def last_index_of_any_white_space(span: System.ReadOnlySpan[str]) -> int:
         ...
 
     @staticmethod

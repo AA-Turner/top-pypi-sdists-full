@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: grafeo
-Version: 0.5.39
+Version: 0.5.40
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -16,7 +16,7 @@ Classifier: Topic :: Database :: Database Engines/Servers
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Typing :: Typed
 Requires-Dist: solvor>=0.6.1
-Requires-Dist: grafeo-cli>=0.5.39,<0.6 ; extra == 'cli'
+Requires-Dist: grafeo-cli>=0.5.40,<0.6 ; extra == 'cli'
 Requires-Dist: pytest>=9 ; extra == 'dev'
 Requires-Dist: pytest-asyncio>=1.3 ; extra == 'dev'
 Requires-Dist: ty>=0.0.24 ; extra == 'dev'

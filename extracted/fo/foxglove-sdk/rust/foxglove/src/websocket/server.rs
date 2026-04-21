@@ -28,7 +28,7 @@ use super::ws_protocol::server::{
     AdvertiseServices, RemoveStatus, ServerInfo, UnadvertiseServices,
 };
 use super::{
-    AssetHandler, Capability, ClientId, ConnectionGraph, Parameter, ServerListener, Status,
+    AssetHandler, Capability, Client, ClientId, ConnectionGraph, Parameter, ServerListener, Status,
     advertise, handshake,
 };
 
@@ -46,7 +46,7 @@ pub(crate) struct ServerOptions {
     pub services: HashMap<String, Service>,
     pub supported_encodings: Option<IndexSet<String>>,
     pub runtime: Option<Handle>,
-    pub fetch_asset_handler: Option<Box<dyn AssetHandler>>,
+    pub fetch_asset_handler: Option<Box<dyn AssetHandler<Client>>>,
     pub tls_identity: Option<TlsIdentity>,
     pub channel_filter: Option<Arc<dyn SinkChannelFilter>>,
     pub server_info: Option<HashMap<String, String>>,
@@ -120,6 +120,30 @@ pub(crate) fn create_server(
     ctx: &Arc<Context>,
     opts: ServerOptions,
 ) -> Result<Arc<Server>, FoxgloveError> {
+    // Validate that services without a request encoding have at least one supported
+    // encoding available (either configured globally or from another service).
+    if !opts.services.is_empty() {
+        let has_encodings = opts
+            .supported_encodings
+            .as_ref()
+            .is_some_and(|e| !e.is_empty())
+            || opts
+                .services
+                .values()
+                .any(|s| s.request_encoding().is_some());
+        if !has_encodings {
+            if let Some(svc) = opts
+                .services
+                .values()
+                .find(|s| s.request_encoding().is_none())
+            {
+                return Err(FoxgloveError::MissingRequestEncoding(
+                    svc.name().to_string(),
+                ));
+            }
+        }
+    }
+
     // TLS configuration is fallible, so build it prior to allocating the Arc with the weak ref
     let stream_config = StreamConfiguration::new(opts.tls_identity.as_ref())?;
 
@@ -128,7 +152,7 @@ pub(crate) fn create_server(
     }))
 }
 
-/// A websocket server that implements the Foxglove WebSocket Protocol
+/// A WebSocket server that implements the Foxglove WebSocket Protocol
 pub(crate) struct Server {
     /// A weak reference to the Arc holding the server.
     /// This is used to get a reference to the outer `Arc<Server>` from Server methods.
@@ -160,7 +184,7 @@ pub(crate) struct Server {
     /// Registered services.
     services: parking_lot::RwLock<ServiceMap>,
     /// Handler for fetch asset requests
-    fetch_asset_handler: Option<Box<dyn AssetHandler>>,
+    fetch_asset_handler: Option<Box<dyn AssetHandler<Client>>>,
     /// Client tasks.
     tasks: parking_lot::Mutex<Option<JoinSet<()>>>,
     /// Configuration to support TLS streams when enabled.
@@ -224,7 +248,9 @@ impl Server {
             message_backlog_size: opts
                 .message_backlog_size
                 .unwrap_or(DEFAULT_MESSAGE_BACKLOG_SIZE) as u32,
-            runtime: opts.runtime.unwrap_or_else(crate::get_runtime_handle),
+            runtime: opts
+                .runtime
+                .unwrap_or_else(crate::runtime::get_runtime_handle),
             channel_filter: opts.channel_filter.clone(),
             listener: opts.listener,
             session_id: parking_lot::RwLock::new(
@@ -263,7 +289,7 @@ impl Server {
     }
 
     /// Returns a reference to the fetch asset handler.
-    pub(super) fn fetch_asset_handler(&self) -> Option<&dyn AssetHandler> {
+    pub(super) fn fetch_asset_handler(&self) -> Option<&dyn AssetHandler<Client>> {
         self.fetch_asset_handler.as_deref()
     }
 
@@ -537,7 +563,7 @@ impl Server {
         }
     }
 
-    /// Remove status messages by id from all clients.
+    /// Remove status messages by ID from all clients.
     pub fn remove_status(&self, status_ids: Vec<String>) {
         let message = RemoveStatus { status_ids };
         let clients = self.clients.get();
@@ -688,8 +714,9 @@ impl Server {
 
     /// Adds new services, and advertises them to all clients.
     ///
-    /// This method will fail if the services capability was not declared, or if a service name is
-    /// not unique.
+    /// This method will fail if the services capability was not declared, if a service name is
+    /// not unique, or if a service has no request encoding and the server has no supported
+    /// encodings.
     pub fn add_services(&self, new_services: Vec<Service>) -> Result<(), FoxgloveError> {
         // Make sure that the server supports services.
         if !self.has_capability(Capability::Services) {

@@ -9,7 +9,7 @@ use anyhow::{Context as _, Result};
 use clap::{Arg, ArgMatches, Command};
 use console::style;
 use itertools::Itertools as _;
-use log::{debug, info, warn};
+use log::{debug, warn};
 use objectstore_client::{ClientBuilder, ExpirationPolicy, Usecase};
 use rayon::prelude::*;
 use secrecy::ExposeSecret as _;
@@ -50,6 +50,32 @@ pub fn make_command(command: Command) -> Command {
                 .value_name("APP_ID")
                 .help("The application identifier.")
                 .required(true),
+        )
+        .arg(
+            Arg::new("diff_threshold")
+                .long("diff-threshold")
+                .value_name("THRESHOLD")
+                .value_parser(|s: &str| {
+                    let v: f64 = s.parse().map_err(|e| format!("invalid float: {e}"))?;
+                    if !(0.0..=1.0).contains(&v) {
+                        return Err("value must be between 0.0 and 1.0".to_owned());
+                    }
+                    Ok(v)
+                })
+                .help(
+                    "If set, Sentry will only report images as changed if their \
+                     difference % is greater than this value. \
+                     Example: 0.01 = only report image changes >= 1%.",
+                ),
+        )
+        .arg(
+            Arg::new("selective")
+                .long("selective")
+                .action(clap::ArgAction::SetTrue)
+                .help(
+                    "Indicates this upload contains only a subset of images. \
+                     Removals and renames cannot be detected on PRs.",
+                ),
         )
         .git_metadata_args()
 }
@@ -123,9 +149,15 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
     let manifest_entries = upload_images(images, &org, &project)?;
 
     // Build manifest from discovered images
+    let diff_threshold = matches.get_one::<f64>("diff_threshold").copied();
+
+    let selective = matches.get_flag("selective");
+
     let manifest = SnapshotsManifest {
         app_id: app_id.clone(),
         images: manifest_entries,
+        diff_threshold,
+        selective,
         vcs_info,
     };
 
@@ -283,6 +315,11 @@ fn read_sidecar_metadata(image_path: &Path) -> Result<HashMap<String, Value>> {
     })
 }
 
+struct PreparedImage {
+    path: PathBuf,
+    key: String,
+}
+
 fn upload_images(
     images: Vec<ImageInfo>,
     org: &str,
@@ -295,33 +332,43 @@ fn upload_images(
     let expiration = ExpirationPolicy::from_str(&options.objectstore.expiration_policy)
         .context("Failed to parse expiration policy from upload options")?;
 
-    let client = ClientBuilder::new(options.objectstore.url)
-        .token({
-            // TODO: replace with auth from `ObjectstoreUploadOptions` when appropriate
-            let auth = match authenticated_api.auth() {
-                Auth::Token(token) => token.raw().expose_secret().to_owned(),
-            };
-            auth
+    let mut builder = ClientBuilder::new(options.objectstore.url);
+    if let Some(token) = options.objectstore.auth_token {
+        builder = builder.token(token.expose_secret().to_owned());
+    }
+    let builder = builder;
+
+    let sentry_token = match authenticated_api.auth() {
+        Auth::Token(token) => token.raw().expose_secret().to_owned(),
+    };
+    let sentry_token = format!("Bearer {sentry_token}")
+        .parse()
+        // Ignore original error to avoid leaking the token (even though it's invalid)
+        .map_err(|_| anyhow::anyhow!("Invalid auth token"))?;
+    let client = builder
+        .configure_reqwest(|r| {
+            let mut headers = http::HeaderMap::new();
+            headers.insert(http::header::AUTHORIZATION, sentry_token);
+            r.connect_timeout(Duration::from_secs(10))
+                .default_headers(headers)
         })
-        .configure_reqwest(|r| r.connect_timeout(Duration::from_secs(10)))
         .build()?;
 
+    let scopes = options.objectstore.scopes;
+
+    let find_scope = |name: &str| {
+        scopes
+            .iter()
+            .find(|(k, _)| k == name)
+            .map(|(_, v)| v.clone())
+    };
+    let org_id = find_scope("org").context("Missing org in UploadOptions scope")?;
+    let project_id = find_scope("project").context("Missing project in UploadOptions scope")?;
+
     let mut scope = Usecase::new("preprod").scope();
-    let (mut org_id, mut project_id): (Option<String>, Option<String>) = (None, None);
-    for (key, value) in options.objectstore.scopes.into_iter() {
-        scope = scope.push(&key, value.clone());
-        if key == "org" {
-            org_id = Some(value);
-        } else if key == "project" {
-            project_id = Some(value);
-        }
+    for (key, value) in scopes {
+        scope = scope.push(&key, value);
     }
-    let Some(org_id) = org_id else {
-        anyhow::bail!("Missing org in UploadOptions scope");
-    };
-    let Some(project_id) = project_id else {
-        anyhow::bail!("Missing project in UploadOptions scope");
-    };
 
     let session = scope.session(&client)?;
 
@@ -330,10 +377,9 @@ fn upload_images(
         .build()
         .context("Failed to create tokio runtime")?;
 
-    let mut many_builder = session.many();
     let mut manifest_entries = HashMap::new();
-    let mut collisions: HashMap<String, Vec<String>> = HashMap::new();
-    let mut kept_paths = HashMap::new();
+    let mut duplicates: Vec<String> = Vec::new();
+    let mut uploads = Vec::with_capacity(images.len());
 
     let hashed_images: Vec<_> = images
         .into_par_iter()
@@ -344,38 +390,14 @@ fn upload_images(
         .collect::<Result<Vec<_>>>()?;
 
     for (image, hash) in hashed_images {
-        let image_file_name = image
-            .relative_path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .into_owned();
+        let image_key = crate::utils::fs::path_as_url(&image.relative_path);
 
-        let relative_path = crate::utils::fs::path_as_url(&image.relative_path);
-
-        if manifest_entries.contains_key(&image_file_name) {
-            collisions
-                .entry(image_file_name)
-                .or_default()
-                .push(relative_path);
+        if manifest_entries.contains_key(&image_key) {
+            duplicates.push(image_key);
             continue;
         }
 
-        let file = runtime
-            .block_on(tokio::fs::File::open(&image.path))
-            .with_context(|| {
-                format!("Failed to open image for upload: {}", image.path.display())
-            })?;
-
         let key = format!("{org_id}/{project_id}/{hash}");
-        info!("Queueing {} as {key}", image.relative_path.display());
-
-        many_builder = many_builder.push(
-            session
-                .put_file(file)
-                .key(&key)
-                .expiration_policy(expiration),
-        );
 
         let mut extra = read_sidecar_metadata(&image.path).unwrap_or_else(|err| {
             warn!("Error reading sidecar metadata, ignoring it instead: {err:#}");
@@ -383,48 +405,52 @@ fn upload_images(
         });
         extra.insert("content_hash".to_owned(), serde_json::Value::String(hash));
 
-        kept_paths.insert(image_file_name.clone(), relative_path);
+        uploads.push(PreparedImage {
+            path: image.path,
+            key,
+        });
         manifest_entries.insert(
-            image_file_name,
+            image_key,
             ImageMetadata::new(image.width, image.height, extra),
         );
     }
 
-    if !collisions.is_empty() {
-        let mut details = String::new();
-        for (name, excluded_paths) in &collisions {
-            let mut all_paths = vec![kept_paths[name].as_str()];
-            all_paths.extend(excluded_paths.iter().map(|s| s.as_str()));
-            details.push_str(&format!("\n  {name}: {}", all_paths.join(", ")));
-        }
-        warn!("Some images share identical file names. Only the first occurrence of each is included:{details}");
+    if !duplicates.is_empty() {
+        let paths = duplicates.join(", ");
+        warn!("Duplicate paths encountered, skipping: {paths}");
     }
 
-    let result = runtime.block_on(async { many_builder.send().error_for_failures().await });
+    let total_count = uploads.len();
 
-    let uploaded_count = manifest_entries.len();
-
-    match result {
-        Ok(()) => {
-            println!(
-                "{} Uploaded {} image {}",
-                style(">").dim(),
-                style(uploaded_count).yellow(),
-                if uploaded_count == 1 { "file" } else { "files" }
-            );
-            Ok(manifest_entries)
-        }
-        Err(errors) => {
-            eprintln!("There were errors uploading images:");
-            let mut error_count = 0;
-            for error in errors {
-                let error = anyhow::Error::new(error);
-                eprintln!("  {}", style(format!("{error:#}")).red());
-                error_count += 1;
-            }
-            anyhow::bail!("Failed to upload {error_count} out of {uploaded_count} images")
-        }
+    let mut many_builder = session.many();
+    for prepared in uploads {
+        many_builder = many_builder.push(
+            session
+                .put_path(prepared.path.clone())
+                .key(&prepared.key)
+                .expiration_policy(expiration),
+        );
     }
+
+    let result = runtime.block_on(async { many_builder.send().await.error_for_failures().await });
+    if let Err(errors) = result {
+        let errors: Vec<_> = errors.collect();
+        let error_count = errors.len();
+        eprintln!("There were errors uploading images:");
+        for error in errors {
+            let error = anyhow::Error::new(error);
+            eprintln!("  {}", style(format!("{error:#}")).red());
+        }
+        anyhow::bail!("Failed to upload {error_count} images");
+    }
+
+    println!(
+        "{} Uploaded {} image {}",
+        style(">").dim(),
+        style(total_count).yellow(),
+        if total_count == 1 { "file" } else { "files" }
+    );
+    Ok(manifest_entries)
 }
 
 #[cfg(test)]

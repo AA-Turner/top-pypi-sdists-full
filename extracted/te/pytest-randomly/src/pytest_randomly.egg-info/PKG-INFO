@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-randomly
-Version: 4.0.1
+Version: 4.1.0
 Summary: Pytest plugin to randomly order tests and control random.seed.
 Author-email: Adam Johnson <me@adamj.eu>
 License-Expression: MIT
@@ -13,17 +13,15 @@ Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: importlib-metadata>=3.6; python_version < "3.10"
 Requires-Dist: pytest
 Dynamic: license-file
 
@@ -140,7 +138,7 @@ Install with:
 
     python -m pip install pytest-randomly
 
-Python 3.9 to 3.14 supported.
+Python 3.10 to 3.14 supported.
 
 Usage
 =====

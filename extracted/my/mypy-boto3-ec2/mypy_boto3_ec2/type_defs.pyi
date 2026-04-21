@@ -375,6 +375,7 @@ from .literals import (
     TransitGatewayAssociationStateType,
     TransitGatewayAttachmentResourceTypeType,
     TransitGatewayAttachmentStateType,
+    TransitGatewayAttachmentStatusTypeType,
     TransitGatewayConnectPeerStateType,
     TransitGatewayMeteringPayerTypeType,
     TransitGatewayMeteringPolicyEntryStateType,
@@ -445,6 +446,8 @@ __all__ = (
     "AcceptCapacityReservationBillingOwnershipResultTypeDef",
     "AcceptReservedInstancesExchangeQuoteRequestTypeDef",
     "AcceptReservedInstancesExchangeQuoteResultTypeDef",
+    "AcceptTransitGatewayClientVpnAttachmentRequestTypeDef",
+    "AcceptTransitGatewayClientVpnAttachmentResultTypeDef",
     "AcceptTransitGatewayMulticastDomainAssociationsRequestTypeDef",
     "AcceptTransitGatewayMulticastDomainAssociationsResultTypeDef",
     "AcceptTransitGatewayPeeringAttachmentRequestTypeDef",
@@ -1095,6 +1098,8 @@ __all__ = (
     "DeleteTrafficMirrorSessionResultTypeDef",
     "DeleteTrafficMirrorTargetRequestTypeDef",
     "DeleteTrafficMirrorTargetResultTypeDef",
+    "DeleteTransitGatewayClientVpnAttachmentRequestTypeDef",
+    "DeleteTransitGatewayClientVpnAttachmentResultTypeDef",
     "DeleteTransitGatewayConnectPeerRequestTypeDef",
     "DeleteTransitGatewayConnectPeerResultTypeDef",
     "DeleteTransitGatewayConnectRequestTypeDef",
@@ -2739,6 +2744,8 @@ __all__ = (
     "RegisteredInstanceTypeDef",
     "RejectCapacityReservationBillingOwnershipRequestTypeDef",
     "RejectCapacityReservationBillingOwnershipResultTypeDef",
+    "RejectTransitGatewayClientVpnAttachmentRequestTypeDef",
+    "RejectTransitGatewayClientVpnAttachmentResultTypeDef",
     "RejectTransitGatewayMulticastDomainAssociationsRequestTypeDef",
     "RejectTransitGatewayMulticastDomainAssociationsResultTypeDef",
     "RejectTransitGatewayPeeringAttachmentRequestTypeDef",
@@ -3025,6 +3032,9 @@ __all__ = (
     "TransitGatewayAttachmentBgpConfigurationTypeDef",
     "TransitGatewayAttachmentPropagationTypeDef",
     "TransitGatewayAttachmentTypeDef",
+    "TransitGatewayClientVpnAttachmentTypeDef",
+    "TransitGatewayConfigurationDescribeEndpointStructureTypeDef",
+    "TransitGatewayConfigurationInputStructureTypeDef",
     "TransitGatewayConnectOptionsTypeDef",
     "TransitGatewayConnectPeerConfigurationTypeDef",
     "TransitGatewayConnectPeerTypeDef",
@@ -3217,6 +3227,18 @@ class AcceptCapacityReservationBillingOwnershipRequestTypeDef(TypedDict):
 class TargetConfigurationRequestTypeDef(TypedDict):
     OfferingId: str
     InstanceCount: NotRequired[int]
+
+class AcceptTransitGatewayClientVpnAttachmentRequestTypeDef(TypedDict):
+    TransitGatewayAttachmentId: str
+    DryRun: NotRequired[bool]
+
+class TransitGatewayClientVpnAttachmentTypeDef(TypedDict):
+    TransitGatewayAttachmentId: NotRequired[str]
+    TransitGatewayId: NotRequired[str]
+    ClientVpnEndpointId: NotRequired[str]
+    ClientVpnOwnerId: NotRequired[str]
+    State: NotRequired[TransitGatewayAttachmentStatusTypeType]
+    CreationTime: NotRequired[str]
 
 class AcceptTransitGatewayMulticastDomainAssociationsRequestTypeDef(TypedDict):
     TransitGatewayMulticastDomainId: NotRequired[str]
@@ -3454,9 +3476,11 @@ class AssociateCapacityReservationBillingOwnerRequestTypeDef(TypedDict):
 
 class AssociateClientVpnTargetNetworkRequestTypeDef(TypedDict):
     ClientVpnEndpointId: str
-    SubnetId: str
+    SubnetId: NotRequired[str]
     ClientToken: NotRequired[str]
     DryRun: NotRequired[bool]
+    AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
 
 class AssociationStatusTypeDef(TypedDict):
     Code: NotRequired[AssociationStatusCodeType]
@@ -4037,6 +4061,12 @@ class ConnectionLogResponseOptionsTypeDef(TypedDict):
     CloudwatchLogGroup: NotRequired[str]
     CloudwatchLogStream: NotRequired[str]
 
+class TransitGatewayConfigurationDescribeEndpointStructureTypeDef(TypedDict):
+    TransitGatewayId: NotRequired[str]
+    TransitGatewayAttachmentId: NotRequired[str]
+    AvailabilityZones: NotRequired[list[str]]
+    AvailabilityZoneIds: NotRequired[list[str]]
+
 class ClientVpnRouteStatusTypeDef(TypedDict):
     Code: NotRequired[ClientVpnRouteStatusCodeType]
     Message: NotRequired[str]
@@ -4143,10 +4173,15 @@ class ReservationFleetInstanceSpecificationTypeDef(TypedDict):
     EbsOptimized: NotRequired[bool]
     Priority: NotRequired[int]
 
+class TransitGatewayConfigurationInputStructureTypeDef(TypedDict):
+    TransitGatewayId: NotRequired[str]
+    AvailabilityZones: NotRequired[Sequence[str]]
+    AvailabilityZoneIds: NotRequired[Sequence[str]]
+
 class CreateClientVpnRouteRequestTypeDef(TypedDict):
     ClientVpnEndpointId: str
     DestinationCidrBlock: str
-    TargetVpcSubnetId: str
+    TargetVpcSubnetId: NotRequired[str]
     Description: NotRequired[str]
     ClientToken: NotRequired[str]
     DryRun: NotRequired[bool]
@@ -4880,6 +4915,10 @@ class DeleteTrafficMirrorSessionRequestTypeDef(TypedDict):
 
 class DeleteTrafficMirrorTargetRequestTypeDef(TypedDict):
     TrafficMirrorTargetId: str
+    DryRun: NotRequired[bool]
+
+class DeleteTransitGatewayClientVpnAttachmentRequestTypeDef(TypedDict):
+    TransitGatewayAttachmentId: str
     DryRun: NotRequired[bool]
 
 class DeleteTransitGatewayConnectPeerRequestTypeDef(TypedDict):
@@ -7668,6 +7707,10 @@ class RejectCapacityReservationBillingOwnershipRequestTypeDef(TypedDict):
     CapacityReservationId: str
     DryRun: NotRequired[bool]
 
+class RejectTransitGatewayClientVpnAttachmentRequestTypeDef(TypedDict):
+    TransitGatewayAttachmentId: str
+    DryRun: NotRequired[bool]
+
 class RejectTransitGatewayMulticastDomainAssociationsRequestTypeDef(TypedDict):
     TransitGatewayMulticastDomainId: NotRequired[str]
     TransitGatewayAttachmentId: NotRequired[str]
@@ -9110,6 +9153,18 @@ class GetReservedInstancesExchangeQuoteRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     TargetConfigurations: NotRequired[Sequence[TargetConfigurationRequestTypeDef]]
 
+class AcceptTransitGatewayClientVpnAttachmentResultTypeDef(TypedDict):
+    TransitGatewayClientVpnAttachment: TransitGatewayClientVpnAttachmentTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteTransitGatewayClientVpnAttachmentResultTypeDef(TypedDict):
+    TransitGatewayClientVpnAttachment: TransitGatewayClientVpnAttachmentTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RejectTransitGatewayClientVpnAttachmentResultTypeDef(TypedDict):
+    TransitGatewayClientVpnAttachment: TransitGatewayClientVpnAttachmentTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class AccountAttributeTypeDef(TypedDict):
     AttributeName: NotRequired[str]
     AttributeValues: NotRequired[list[AccountAttributeValueTypeDef]]
@@ -9941,6 +9996,8 @@ class TargetNetworkTypeDef(TypedDict):
     ClientVpnEndpointId: NotRequired[str]
     Status: NotRequired[AssociationStatusTypeDef]
     SecurityGroups: NotRequired[list[str]]
+    AvailabilityZones: NotRequired[list[str]]
+    AvailabilityZoneIds: NotRequired[list[str]]
 
 class AssociateIamInstanceProfileRequestTypeDef(TypedDict):
     IamInstanceProfile: IamInstanceProfileSpecificationTypeDef
@@ -10523,6 +10580,7 @@ ClientVpnRouteTypeDef = TypedDict(
         "Origin": NotRequired[str],
         "Status": NotRequired[ClientVpnRouteStatusTypeDef],
         "Description": NotRequired[str],
+        "TransitGatewayAttachmentId": NotRequired[str],
     },
 )
 
@@ -13788,6 +13846,7 @@ class ModifyClientVpnEndpointRequestTypeDef(TypedDict):
     ClientLoginBannerOptions: NotRequired[ClientLoginBannerOptionsTypeDef]
     ClientRouteEnforcementOptions: NotRequired[ClientRouteEnforcementOptionsTypeDef]
     DisconnectOnSessionTimeout: NotRequired[bool]
+    TransitGatewayConfiguration: NotRequired[TransitGatewayConfigurationInputStructureTypeDef]
 
 class EbsInfoTypeDef(TypedDict):
     EbsOptimizedSupport: NotRequired[EbsOptimizedSupportType]
@@ -16368,6 +16427,9 @@ class ClientVpnEndpointTypeDef(TypedDict):
     DisconnectOnSessionTimeout: NotRequired[bool]
     EndpointIpAddressType: NotRequired[EndpointIpAddressTypeType]
     TrafficIpAddressType: NotRequired[TrafficIpAddressTypeType]
+    TransitGatewayConfiguration: NotRequired[
+        TransitGatewayConfigurationDescribeEndpointStructureTypeDef
+    ]
 
 class DescribeClientVpnConnectionsResultTypeDef(TypedDict):
     Connections: list[ClientVpnConnectionTypeDef]
@@ -18212,6 +18274,7 @@ class CreateClientVpnEndpointRequestTypeDef(TypedDict):
     DisconnectOnSessionTimeout: NotRequired[bool]
     EndpointIpAddressType: NotRequired[EndpointIpAddressTypeType]
     TrafficIpAddressType: NotRequired[TrafficIpAddressTypeType]
+    TransitGatewayConfiguration: NotRequired[TransitGatewayConfigurationInputStructureTypeDef]
 
 class CreateCoipPoolRequestTypeDef(TypedDict):
     LocalGatewayRouteTableId: str

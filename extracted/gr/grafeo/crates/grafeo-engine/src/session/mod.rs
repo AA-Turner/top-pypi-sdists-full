@@ -28,7 +28,7 @@ use grafeo_core::graph::lpg::LpgStore;
 use grafeo_core::graph::lpg::{Edge, Node};
 #[cfg(feature = "triple-store")]
 use grafeo_core::graph::rdf::RdfStore;
-use grafeo_core::graph::{GraphStore, GraphStoreMut};
+use grafeo_core::graph::{GraphStore, GraphStoreMut, GraphStoreSearch};
 
 use crate::catalog::{Catalog, CatalogConstraintValidator};
 use crate::config::{AdaptiveConfig, GraphModel};
@@ -112,7 +112,7 @@ pub struct Session {
     #[cfg(feature = "lpg")]
     store: Arc<LpgStore>,
     /// Graph store trait object for pluggable storage backends (read path).
-    graph_store: Arc<dyn GraphStore>,
+    graph_store: Arc<dyn GraphStoreSearch>,
     /// Writable graph store (None for read-only databases).
     graph_store_mut: Option<Arc<dyn GraphStoreMut>>,
     /// Schema and metadata catalog shared across sessions.
@@ -193,6 +193,10 @@ pub struct Session {
     /// `None` represents the default graph. Populated at `BEGIN` time and on each
     /// `USE GRAPH` / `SESSION SET GRAPH` switch within a transaction.
     touched_graphs: parking_lot::Mutex<Vec<Option<String>>>,
+    /// Count of active `ResultStream`s pinned to this session. Commit and
+    /// rollback block while any streams are outstanding so mid-iteration
+    /// snapshots are not invalidated.
+    active_streams: AtomicUsize,
     /// Shared metrics registry (populated when the `metrics` feature is enabled).
     #[cfg(feature = "metrics")]
     pub(crate) metrics: Option<Arc<crate::metrics::MetricsRegistry>>,
@@ -237,7 +241,7 @@ impl Session {
     #[cfg(feature = "lpg")]
     #[allow(dead_code)] // Used when lpg enabled without triple-store
     pub(crate) fn with_adaptive(store: Arc<LpgStore>, cfg: SessionConfig) -> Self {
-        let graph_store = Arc::clone(&store) as Arc<dyn GraphStore>;
+        let graph_store = Arc::clone(&store) as Arc<dyn GraphStoreSearch>;
         let graph_store_mut = Some(Arc::clone(&store) as Arc<dyn GraphStoreMut>);
         Self {
             store,
@@ -279,6 +283,7 @@ impl Session {
             savepoints: parking_lot::Mutex::new(Vec::new()),
             transaction_nesting_depth: parking_lot::Mutex::new(0),
             touched_graphs: parking_lot::Mutex::new(Vec::new()),
+            active_streams: AtomicUsize::new(0),
             #[cfg(feature = "metrics")]
             metrics: None,
             #[cfg(feature = "metrics")]
@@ -292,9 +297,10 @@ impl Session {
     /// Used by the layered store integration: the session's `store` field is
     /// the overlay `LpgStore` (for MVCC), but reads and writes should route
     /// through the `LayeredStore` (which merges base + overlay).
+    #[cfg(all(feature = "compact-store", feature = "lpg"))]
     pub(crate) fn override_stores(
         &mut self,
-        read_store: Arc<dyn GraphStore>,
+        read_store: Arc<dyn GraphStoreSearch>,
         write_store: Option<Arc<dyn GraphStoreMut>>,
     ) {
         self.graph_store = read_store;
@@ -317,7 +323,7 @@ impl Session {
             Arc::clone(&wal),
             Arc::clone(&wal_graph_context),
         ));
-        self.graph_store = Arc::clone(&wal_store) as Arc<dyn GraphStore>;
+        self.graph_store = Arc::clone(&wal_store) as Arc<dyn GraphStoreSearch>;
         self.graph_store_mut = Some(wal_store as Arc<dyn GraphStoreMut>);
         self.wal = Some(wal);
         self.wal_graph_context = Some(wal_graph_context);
@@ -359,7 +365,7 @@ impl Session {
     ///
     /// Returns an error if the internal arena allocation fails (out of memory).
     pub(crate) fn with_external_store(
-        read_store: Arc<dyn GraphStore>,
+        read_store: Arc<dyn GraphStoreSearch>,
         write_store: Option<Arc<dyn GraphStoreMut>>,
         cfg: SessionConfig,
     ) -> Result<Self> {
@@ -404,6 +410,7 @@ impl Session {
             savepoints: parking_lot::Mutex::new(Vec::new()),
             transaction_nesting_depth: parking_lot::Mutex::new(0),
             touched_graphs: parking_lot::Mutex::new(Vec::new()),
+            active_streams: AtomicUsize::new(0),
             #[cfg(feature = "metrics")]
             metrics: None,
             #[cfg(feature = "metrics")]
@@ -430,6 +437,7 @@ impl Session {
     /// Sets the current graph for this session (USE GRAPH).
     pub fn use_graph(&self, name: &str) {
         *self.current_graph.lock() = Some(name.to_string());
+        self.track_graph_touch();
     }
 
     /// Returns the current graph name, if any.
@@ -443,6 +451,7 @@ impl Session {
     /// Per ISO/IEC 39075 Section 7.1 GR1, this is independent of the session graph.
     pub fn set_schema(&self, name: &str) {
         *self.current_schema.lock() = Some(name.to_string());
+        self.track_graph_touch();
     }
 
     /// Returns the current schema name, if any.
@@ -501,7 +510,7 @@ impl Session {
     /// Otherwise looks up the named graph in the root store and wraps it
     /// in a [`WalGraphStore`] so mutations are WAL-logged with the correct
     /// graph context.
-    fn active_store(&self) -> Arc<dyn GraphStore> {
+    fn active_store(&self) -> Arc<dyn GraphStoreSearch> {
         let key = self.active_graph_storage_key();
         match key {
             None => Arc::clone(&self.graph_store),
@@ -515,9 +524,9 @@ impl Session {
                             Arc::clone(wal),
                             name.clone(),
                             Arc::clone(ctx),
-                        )) as Arc<dyn GraphStore>;
+                        )) as Arc<dyn GraphStoreSearch>;
                     }
-                    named_store as Arc<dyn GraphStore>
+                    named_store as Arc<dyn GraphStoreSearch>
                 }
                 None => Arc::clone(&self.graph_store),
             },
@@ -603,7 +612,11 @@ impl Session {
     /// Records the current graph as "touched" if a transaction is active.
     ///
     /// Uses the full storage key (schema/graph) so that commit/rollback
-    /// can resolve the correct store via `resolve_store`.
+    /// can resolve the correct store via `resolve_store`. Called from
+    /// every setter that can change the active key (`use_graph`,
+    /// `set_schema`, `reset_*`) so mid-transaction context switches are
+    /// always captured; callers that mutate the active key via those
+    /// setters do not need to invoke this directly.
     fn track_graph_touch(&self) {
         if self.current_transaction.lock().is_some() {
             let key = self.active_graph_storage_key();
@@ -643,16 +656,19 @@ impl Session {
         *self.time_zone.lock() = None;
         self.session_params.lock().clear();
         *self.viewing_epoch_override.lock() = None;
+        self.track_graph_touch();
     }
 
     /// Resets only the session schema (Section 7.2 GR1).
     pub fn reset_schema(&self) {
         *self.current_schema.lock() = None;
+        self.track_graph_touch();
     }
 
     /// Resets only the session graph (Section 7.2 GR2).
     pub fn reset_graph(&self) {
         *self.current_graph.lock() = None;
+        self.track_graph_touch();
     }
 
     /// Resets only the session time zone (Section 7.2 GR3).
@@ -760,19 +776,18 @@ impl Session {
         if self.identity.has_grants() {
             match &cmd {
                 SessionCommand::CreateGraph { name, .. }
-                | SessionCommand::DropGraph { name, .. } => {
+                | SessionCommand::DropGraph { name, .. }
                     if !self
                         .identity
-                        .can_access_graph(name, crate::auth::Role::ReadWrite)
-                    {
-                        return Err(Error::Query(QueryError::new(
-                            QueryErrorKind::Semantic,
-                            format!(
-                                "permission denied: no grant for graph '{name}' (user: {})",
-                                self.identity.user_id()
-                            ),
-                        )));
-                    }
+                        .can_access_graph(name, crate::auth::Role::ReadWrite) =>
+                {
+                    return Err(Error::Query(QueryError::new(
+                        QueryErrorKind::Semantic,
+                        format!(
+                            "permission denied: no grant for graph '{name}' (user: {})",
+                            self.identity.user_id()
+                        ),
+                    )));
                 }
                 _ => {}
             }
@@ -804,6 +819,14 @@ impl Session {
                 open: _,
             } => {
                 // ISO/IEC 39075 Section 12.4: graphs are created within the current schema
+                if name.contains('/') {
+                    return Err(Error::Query(QueryError::new(
+                        QueryErrorKind::Semantic,
+                        format!(
+                            "Graph name '{name}' must not contain '/' (reserved as schema/graph separator)"
+                        ),
+                    )));
+                }
                 let storage_key = self.effective_graph_key(&name);
 
                 // Validate source graph exists for LIKE / AS COPY OF
@@ -934,8 +957,6 @@ impl Session {
                     )));
                 }
                 self.use_graph(&name);
-                // Track the new graph if in a transaction
-                self.track_graph_touch();
                 Ok(QueryResult::empty())
             }
             #[cfg(feature = "lpg")]
@@ -966,8 +987,6 @@ impl Session {
                     )));
                 }
                 self.use_graph(&name);
-                // Track the new graph if in a transaction
-                self.track_graph_touch();
                 Ok(QueryResult::empty())
             }
             SessionCommand::SessionSetSchema(name) => {
@@ -1696,26 +1715,36 @@ impl Session {
             SchemaStatement::CreateSchema {
                 name,
                 if_not_exists,
-            } => match self.catalog.register_schema_namespace(name.clone()) {
-                Ok(()) => {
-                    wal_log!(self, WalRecord::CreateSchema { name: name.clone() });
-                    // Auto-create the schema's default graph partition so that
-                    // SESSION SET SCHEMA + queries work without an explicit graph.
-                    let default_key = format!("{name}/{SCHEMA_DEFAULT_GRAPH}");
-                    if self.store.create_graph(&default_key).unwrap_or(false) {
-                        wal_log!(self, WalRecord::CreateNamedGraph { name: default_key });
+            } => {
+                if name.contains('/') {
+                    return Err(Error::Query(QueryError::new(
+                        QueryErrorKind::Semantic,
+                        format!(
+                            "Schema name '{name}' must not contain '/' (reserved as schema/graph separator)"
+                        ),
+                    )));
+                }
+                match self.catalog.register_schema_namespace(name.clone()) {
+                    Ok(()) => {
+                        wal_log!(self, WalRecord::CreateSchema { name: name.clone() });
+                        // Auto-create the schema's default graph partition so that
+                        // SESSION SET SCHEMA + queries work without an explicit graph.
+                        let default_key = format!("{name}/{SCHEMA_DEFAULT_GRAPH}");
+                        if self.store.create_graph(&default_key).unwrap_or(false) {
+                            wal_log!(self, WalRecord::CreateNamedGraph { name: default_key });
+                        }
+                        Ok(QueryResult::status(format!("Created schema '{name}'")))
                     }
-                    Ok(QueryResult::status(format!("Created schema '{name}'")))
+                    Err(e) if if_not_exists => {
+                        let _ = e;
+                        Ok(QueryResult::status("No change"))
+                    }
+                    Err(e) => Err(Error::Query(QueryError::new(
+                        QueryErrorKind::Semantic,
+                        e.to_string(),
+                    ))),
                 }
-                Err(e) if if_not_exists => {
-                    let _ = e;
-                    Ok(QueryResult::status("No change"))
-                }
-                Err(e) => Err(Error::Query(QueryError::new(
-                    QueryErrorKind::Semantic,
-                    e.to_string(),
-                ))),
-            },
+            }
             SchemaStatement::DropSchema { name, if_exists } => {
                 // ISO/IEC 39075 Section 12.3: schema must be empty before dropping.
                 // The auto-created __default__ graph is exempt from the check.
@@ -2537,6 +2566,11 @@ impl Session {
     pub fn execute(&self, query: &str) -> Result<QueryResult> {
         self.require_lpg("GQL")?;
 
+        #[cfg(feature = "testing-statement-injection")]
+        grafeo_common::testing::statement_failure::maybe_fail_statement().map_err(|e| {
+            grafeo_common::utils::error::Error::Internal(format!("injected failure: {e}"))
+        })?;
+
         use crate::query::{
             binder::Binder, cache::CacheKey, optimizer::Optimizer, processor::QueryLanguage,
             translators::gql,
@@ -2732,6 +2766,170 @@ impl Session {
         }
 
         result
+    }
+
+    /// Executes a GQL query and returns a lazy result stream.
+    ///
+    /// The stream pulls chunks from the operator pipeline on demand. Use it
+    /// when the result set is too large to fit in memory or when you want
+    /// first-row latency (process rows as they arrive rather than waiting
+    /// for the whole query to complete).
+    ///
+    /// This is the read-only, pull-only path: `execute_streaming` rejects
+    /// mutations (INSERT/DELETE/SET), schema/session commands, EXPLAIN,
+    /// PROFILE, and queries whose planner emits a push-based pipeline. Run
+    /// those via [`execute`](Self::execute) instead.
+    ///
+    /// # Stability: Experimental
+    ///
+    /// New in 0.5.40. Signature may change before being promoted to Beta.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parsing or planning fails, if the query is a
+    /// kind that cannot be streamed, or if permission checks fail.
+    #[cfg(all(feature = "gql", feature = "lpg"))]
+    pub fn execute_streaming(
+        &self,
+        query: &str,
+    ) -> Result<crate::query::executor::stream::ResultStream<'_>> {
+        use crate::query::executor::stream::{ResultStream, StreamGuard};
+
+        let (source, columns, deadline) = self.build_streaming_plan(query)?;
+        let guard = StreamGuard::new(&self.active_streams);
+        Ok(ResultStream::new(source, columns, deadline, guard))
+    }
+
+    /// Builds a pull-based physical pipeline for streaming, returning the
+    /// root operator and metadata needed to wrap it in a `ResultStream` or
+    /// `OwnedResultStream`.
+    ///
+    /// Rejects session/schema commands, mutations, EXPLAIN/PROFILE, and plans
+    /// that require a push-based pipeline. Used by both
+    /// [`Session::execute_streaming`] and [`GrafeoDB::execute_streaming`].
+    #[cfg(all(feature = "gql", feature = "lpg"))]
+    pub(crate) fn build_streaming_plan(
+        &self,
+        query: &str,
+    ) -> Result<(
+        Box<dyn grafeo_core::execution::operators::Operator>,
+        Vec<String>,
+        Option<Instant>,
+    )> {
+        use crate::query::{
+            binder::Binder, cache::CacheKey, optimizer::Optimizer, processor::QueryLanguage,
+            translators::gql,
+        };
+
+        self.require_lpg("GQL")?;
+
+        let _span = grafeo_info_span!(
+            "grafeo::session::execute_streaming",
+            language = "gql",
+            query_len = query.len(),
+        );
+
+        // Parse and translate, rejecting anything that isn't a streamable query.
+        let translation = gql::translate_full(query)?;
+        let logical_plan = match translation {
+            gql::GqlTranslationResult::SessionCommand(_) => {
+                return Err(grafeo_common::utils::error::Error::Query(
+                    grafeo_common::utils::error::QueryError::new(
+                        grafeo_common::utils::error::QueryErrorKind::Semantic,
+                        "session commands cannot be streamed; use execute() instead",
+                    ),
+                ));
+            }
+            gql::GqlTranslationResult::SchemaCommand(_) => {
+                return Err(grafeo_common::utils::error::Error::Query(
+                    grafeo_common::utils::error::QueryError::new(
+                        grafeo_common::utils::error::QueryErrorKind::Semantic,
+                        "schema DDL cannot be streamed; use execute() instead",
+                    ),
+                ));
+            }
+            gql::GqlTranslationResult::Plan(plan) => {
+                if plan.root.has_mutations() {
+                    return Err(grafeo_common::utils::error::Error::Query(
+                        grafeo_common::utils::error::QueryError::new(
+                            grafeo_common::utils::error::QueryErrorKind::Semantic,
+                            "mutating queries cannot be streamed; use execute() instead",
+                        ),
+                    ));
+                }
+                if !self.identity.can_admin() {
+                    self.require_permission(crate::auth::StatementKind::Read)?;
+                }
+                plan
+            }
+        };
+
+        // Cache + bind + optimize (same path as execute).
+        let cache_key = CacheKey::with_graph(query, QueryLanguage::Gql, self.current_graph());
+        let optimized_plan = if let Some(cached) = self.query_cache.get_optimized(&cache_key) {
+            cached
+        } else {
+            let mut binder = Binder::new();
+            let _binding_context = binder.bind(&logical_plan)?;
+            let active = self.active_store();
+            let optimizer = Optimizer::from_graph_store(&*active);
+            let plan = optimizer.optimize(logical_plan)?;
+            self.query_cache.put_optimized(cache_key, plan.clone());
+            plan
+        };
+
+        if optimized_plan.explain || optimized_plan.profile {
+            return Err(grafeo_common::utils::error::Error::Query(
+                grafeo_common::utils::error::QueryError::new(
+                    grafeo_common::utils::error::QueryErrorKind::Semantic,
+                    "EXPLAIN and PROFILE cannot be streamed; use execute() instead",
+                ),
+            ));
+        }
+
+        // Plan to physical operators.
+        let active = self.active_store();
+        let has_active_tx = self.current_transaction.lock().is_some();
+        let (viewing_epoch, transaction_id) = self.get_transaction_context();
+        let planner = self.create_planner_for_store_with_read_only(
+            Arc::clone(&active),
+            viewing_epoch,
+            transaction_id,
+            !has_active_tx,
+        );
+        let physical_plan = planner.plan(&optimized_plan)?;
+        let columns = physical_plan.columns.clone();
+
+        // Streaming only supports the pure pull path. Reject plans that would
+        // require push operators (Sort, Aggregate, Distinct, etc.) so we never
+        // silently materialize under the hood.
+        let (source, push_ops) = {
+            #[cfg(feature = "spill")]
+            {
+                let memory_ctx = self.make_operator_memory_context();
+                grafeo_core::execution::pipeline_convert::convert_to_pipeline_with_memory(
+                    physical_plan.into_operator(),
+                    memory_ctx,
+                )
+            }
+            #[cfg(not(feature = "spill"))]
+            {
+                grafeo_core::execution::pipeline_convert::convert_to_pipeline(
+                    physical_plan.into_operator(),
+                )
+            }
+        };
+        if !push_ops.is_empty() {
+            return Err(grafeo_common::utils::error::Error::Query(
+                grafeo_common::utils::error::QueryError::new(
+                    grafeo_common::utils::error::QueryErrorKind::Semantic,
+                    "query requires a push-based pipeline (ORDER BY / aggregate / DISTINCT) \
+                     which cannot be streamed; use execute() instead",
+                ),
+            ));
+        }
+
+        Ok((source, columns, self.query_deadline()))
     }
 
     /// Executes a GQL query with visibility at the specified epoch.
@@ -3698,6 +3896,21 @@ impl Session {
     #[cfg(feature = "lpg")]
     fn commit_inner(&self) -> Result<()> {
         let _span = grafeo_debug_span!("grafeo::tx::commit");
+
+        #[cfg(feature = "testing-statement-injection")]
+        if let Err(e) = grafeo_common::testing::statement_failure::maybe_fail_commit() {
+            // Commit fails before any state is finalized. Treat it like any
+            // other pre-prepare commit failure and auto-rollback so the
+            // session returns to a clean, consistent state (matches real
+            // DB semantics: commit failure implies the transaction is
+            // aborted, not left in-flight).
+            let _ = self.rollback_inner();
+            return Err(grafeo_common::utils::error::Error::Internal(format!(
+                "injected commit failure: {e}"
+            )));
+        }
+
+        self.check_no_active_streams("commit")?;
         // Nested transaction: release the auto-savepoint (changes are preserved).
         {
             let mut depth = self.transaction_nesting_depth.lock();
@@ -3894,6 +4107,7 @@ impl Session {
     #[cfg(feature = "lpg")]
     fn rollback_inner(&self) -> Result<()> {
         let _span = grafeo_debug_span!("grafeo::tx::rollback");
+        self.check_no_active_streams("rollback")?;
         // Nested transaction: rollback to the auto-savepoint.
         {
             let mut depth = self.transaction_nesting_depth.lock();
@@ -4269,6 +4483,20 @@ impl Session {
             || upper.contains("ALTER")
     }
 
+    /// Returns `Err(Transaction(InvalidState))` if any `ResultStream` is
+    /// still outstanding for this session.
+    #[cfg(feature = "lpg")]
+    fn check_no_active_streams(&self, op: &str) -> Result<()> {
+        if self.active_streams.load(Ordering::Acquire) > 0 {
+            return Err(grafeo_common::utils::error::Error::Transaction(
+                grafeo_common::utils::error::TransactionError::InvalidState(format!(
+                    "Cannot {op} while streaming results are active; drop the stream first"
+                )),
+            ));
+        }
+        Ok(())
+    }
+
     /// Computes the wall-clock deadline for query execution.
     #[must_use]
     fn query_deadline(&self) -> Option<Instant> {
@@ -4421,7 +4649,7 @@ impl Session {
     /// `self.active_store()` for graph-aware execution).
     fn create_planner_for_store(
         &self,
-        store: Arc<dyn GraphStore>,
+        store: Arc<dyn GraphStoreSearch>,
         viewing_epoch: EpochId,
         transaction_id: Option<TransactionId>,
     ) -> crate::query::Planner {
@@ -4430,7 +4658,7 @@ impl Session {
 
     fn create_planner_for_store_with_read_only(
         &self,
-        store: Arc<dyn GraphStore>,
+        store: Arc<dyn GraphStoreSearch>,
         viewing_epoch: EpochId,
         transaction_id: Option<TransactionId>,
         read_only: bool,

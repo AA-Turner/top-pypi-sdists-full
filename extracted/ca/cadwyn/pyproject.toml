@@ -1,6 +1,6 @@
 [project]
 name = "cadwyn"
-version = "6.2.0"
+version = "6.2.2"
 description = "Production-ready community-driven modern Stripe-like API versioning in FastAPI"
 authors = [{ name = "Stanislav Zmiev", email = "zmievsa@gmail.com" }]
 license = "MIT"
@@ -76,7 +76,7 @@ dev = [
     "httpx >=0.26.0",
     "pytest-fixture-classes >=1.0.3",
     # pytest==8.3.5 has a bug that fails our windows python 3.10 tests
-    "pytest==8.4.2",
+    "pytest==9.0.3",
     "pytest-cov >=4.0.0",
     "dirty-equals >=0.6.0",
     "uvicorn ~=0.23.0",

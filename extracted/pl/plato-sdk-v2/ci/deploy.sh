@@ -28,3 +28,7 @@ if echo "$CHANGED" | grep -q "datagen-launch.json"; then
   echo "Publishing datagen-launch template..."
   uv run plato pm experiment data base push
 fi
+if echo "$CHANGED" | grep -q "sim-checker-launch.json"; then
+  echo "Publishing sim-checker-launch template..."
+  uv run plato pm experiment check base push
+fi

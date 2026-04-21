@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import responses  # type: ignore
@@ -64,3 +65,30 @@ class PlaywrightTest(CliTestCase):
                  'playwright', '--json', str(self.test_files_dir.joinpath("report.json")))
         json_payload = json.loads(gzip.decompress(self.find_request('/events', 1).request.body).decode())
         self.assertEqual(_test_test_path_status(json_payload, target_test_path, CaseEvent.TEST_FAILED), True)
+
+    @responses.activate
+    @mock.patch.dict(os.environ,
+                     {"LAUNCHABLE_TOKEN": CliTestCase.launchable_token})
+    def test_record_test_with_json_option_adds_prefix_from_config(self):
+        report_file = str(self.test_files_dir.joinpath("report_with_prefix.json"))
+
+        result = self.cli('record', 'tests', '--session', self.session,
+                          'playwright', '--json', report_file)
+
+        self.assert_success(result)
+        self.assert_record_tests_payload('record_test_result_with_prefix.json')
+
+    @responses.activate
+    @mock.patch.dict(os.environ,
+                     {"LAUNCHABLE_TOKEN": CliTestCase.launchable_token})
+    @unittest.skipIf(
+        sys.platform.startswith("win"),
+        "The base path fixture uses POSIX-style paths"
+    )
+    def test_record_test_with_json_option_respects_base_path(self):
+        result = self.cli('record', 'tests', '--session', self.session,
+                          '--base', str(self.test_files_dir.joinpath("packages", "e2e")),
+                          'playwright', '--json', str(self.test_files_dir.joinpath("report_with_json_base.json")))
+
+        self.assert_success(result)
+        self.assert_record_tests_payload('record_test_result_with_json_base.json')

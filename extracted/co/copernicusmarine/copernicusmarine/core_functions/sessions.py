@@ -1,6 +1,6 @@
 import logging
 import ssl
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import boto3
 import botocore
@@ -8,6 +8,7 @@ import botocore.config
 import certifi
 import requests
 import requests.auth
+from boto3.s3.transfer import TransferConfig
 from requests.adapters import HTTPAdapter, Retry
 
 from copernicusmarine.core_functions.environment_variables import (
@@ -16,6 +17,7 @@ from copernicusmarine.core_functions.environment_variables import (
     COPERNICUSMARINE_HTTPS_TIMEOUT,
     COPERNICUSMARINE_SET_SSL_CERTIFICATE_PATH,
     COPERNICUSMARINE_TRUST_ENV,
+    COPERNICUSMARINE_USE_THREADS,
     PROXY_HTTP,
     PROXY_HTTPS,
 )
@@ -42,7 +44,7 @@ except ValueError:
     HTTPS_RETRIES = 5
 
 
-def get_ssl_context() -> Optional[ssl.SSLContext]:
+def get_ssl_context() -> ssl.SSLContext | None:
     if COPERNICUSMARINE_DISABLE_SSL_CONTEXT == "True":
         return None
     if COPERNICUSMARINE_SET_SSL_CERTIFICATE_PATH:
@@ -55,7 +57,7 @@ def get_ssl_context() -> Optional[ssl.SSLContext]:
 def get_configured_boto3_session(
     endpoint_url: str,
     operation_type: list[Literal["ListObjectsV2", "HeadObject", "GetObject"]],
-    username: Optional[str] = None,
+    username: str | None = None,
     return_ressources: bool = False,
 ) -> tuple[Any, Any]:
     config_boto3 = botocore.config.Config(
@@ -83,6 +85,52 @@ def get_configured_boto3_session(
         endpoint_url=endpoint_url,
     )
     return s3_client, s3_resource
+
+
+class ConfiguredBoto3Session:
+    def __init__(
+        self,
+        endpoint_url: str,
+        operation_type: list[
+            Literal["ListObjectsV2", "HeadObject", "GetObject"]
+        ],
+        username: str | None = None,
+        need_resources: bool = False,
+    ):
+        self.s3_client, self.s3_resource = get_configured_boto3_session(
+            endpoint_url,
+            operation_type,
+            username,
+            return_ressources=need_resources,
+        )
+        self.use_threads = COPERNICUSMARINE_USE_THREADS
+
+    def close(self):
+        self.s3_client.close()
+        if self.s3_resource:
+            self.s3_resource.meta.client.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def download_file(
+        self, bucket_name: str, object_key: str, file_path: str
+    ) -> None:
+        self.s3_client.download_file(
+            bucket_name,
+            object_key,
+            file_path,
+            Config=TransferConfig(use_threads=self.use_threads),
+        )
+
+    def get_object(self, bucket_name: str, object_key: str) -> Any:
+        response = self.s3_client.get_object(
+            Bucket=bucket_name, Key=object_key
+        )
+        return response
 
 
 # TODO: add tests
@@ -120,7 +168,7 @@ class ConfiguredRequestsSession(requests.Session):
                             503,
                             504,
                         ],
-                        allowed_methods=False,
+                        allowed_methods=None,
                     )
                 ),
             )

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "narwhals"
-version = "2.19.0"
+version = "2.20.0"
 dependencies = []
 requires-python = ">=3.9"
 authors = [
@@ -93,15 +93,13 @@ docs = [
   "duckdb",
   "narwhals[sql]",
   "markdown-exec[ansi]",
-  "mkdocs==1.6.1",
   "mkdocs-autorefs",
-  "mkdocs-material",
-  "mkdocstrings[python]",
-  "mkdocstrings-python>=1.16",
+  "mkdocstrings-python>=2.0.3",
   "sqlframe",
   "pandas",
   "polars>=1.0.0",
   "pyarrow",
+  "zensical>=0.0.28"
 ]
 dev = [
   "pre-commit",
@@ -290,7 +288,10 @@ filterwarnings = [
   "ignore:.*The behavior of DataFrame concatenation with empty or all-NA entries is deprecated:FutureWarning",
 
   # raised internally by Dask
-  "ignore:.*Using 'generic' unit for NumPy timedelta is deprecated.*:DeprecationWarning:dask"
+  "ignore:.*'generic' unit for NumPy timedelta is deprecated.*:DeprecationWarning:dask",
+
+  # raise internally by polars
+  "ignore:.*interchange protocol is deprecated.*:DeprecationWarning"
 ]
 xfail_strict = true
 markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]

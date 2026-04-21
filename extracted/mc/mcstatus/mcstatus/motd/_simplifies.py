@@ -59,11 +59,11 @@ def squash_nearby_strings(parsed: _PARSED_MOTD_COMPONENTS_TYPEVAR) -> _PARSED_MO
             break
 
         if isinstance(next_item, str):
-            parsed[index + 1] = item + next_item
+            parsed[index + 1] = item + next_item  # intentional mutation during iteration  # noqa: B909
             fillers.add(index)
 
     for already_removed, index_to_remove in enumerate(fillers):
-        parsed.pop(index_to_remove - already_removed)
+        _ = parsed.pop(index_to_remove - already_removed)
 
     return parsed
 
@@ -121,7 +121,7 @@ def get_formatting_before_color(parsed: Sequence[ParsedMotdComponent]) -> set[in
     """
     to_remove: set[int] = set()
 
-    collected_formattings = []
+    collected_formattings: list[int] = []
     for index, item in enumerate(parsed):
         # Collect the indices of formatting items
         if isinstance(item, Formatting):

@@ -4,8 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-    replaces = [("social_auth", "0005_auto_20160727_2333")]
-
     dependencies = [
         ("social_django", "0004_auto_20160423_0400"),
     ]
@@ -13,6 +11,6 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterUniqueTogether(
             name="association",
-            unique_together={("server_url", "handle")},
+            unique_together=(("server_url", "handle"),),
         ),
     ]

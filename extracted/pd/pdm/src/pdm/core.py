@@ -213,10 +213,9 @@ class Core:
                 return i, arg
         return -1, ""
 
-    def _get_cli_args(self, args: list[str], obj: Project | None) -> list[str]:
-        project = self.create_project(is_global=False) if obj is None else obj
+    def _inject_cli_args(self, project: Project, args: list[str]) -> bool:
         if project.is_global:
-            return args
+            return False
         try:
             config = project.pyproject.settings.get("options", {})
         except tomlkit.exceptions.TOMLKitError as e:  # pragma: no cover
@@ -226,7 +225,8 @@ class Core:
         if command and command in config:
             # add args after the command
             args[pos + 1 : pos + 1] = list(config[command])
-        return args
+            return True
+        return False
 
     def main(
         self,
@@ -238,7 +238,6 @@ class Core:
         """The main entry function"""
         if args is None:
             args = []
-        args = self._get_cli_args(args, obj)
         # Keep it for after project parsing to check if its a defined script
         root_script = None
         try:
@@ -250,8 +249,9 @@ class Core:
             _, root_script = self.get_command(args)
             if not root_script:
                 self.parser.error(str(e.__cause__))
+            args = ["run", *args]
             try:
-                options = self.parser.parse_args(["run", *args])
+                options = self.parser.parse_args(args)
             except PdmArgumentError as e:
                 self.parser.error(str(e.__cause__))
 
@@ -260,6 +260,11 @@ class Core:
             message = format_similar_command(root_script, self.commands, list(project.scripts.keys()))
             message = termui.style(message)
             self.parser.error(message)
+
+        # Inject CLI args from pyproject.toml if exists
+        if self._inject_cli_args(project, args):
+            # Re-parse the arguments after injection
+            options = self.parser.parse_args(args)
 
         try:
             self.handle(project, options)

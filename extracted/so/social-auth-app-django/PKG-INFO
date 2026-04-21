@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: social-auth-app-django
-Version: 5.7.0
+Version: 5.8.0
 Summary: Python Social Authentication, Django integration.
 Author-email: Matias Aguirre <matiasaguirre@gmail.com>, Michal Čihař <michal@weblate.org>
 License-Expression: BSD-3-Clause
@@ -10,6 +10,10 @@ Project-URL: Homepage, https://github.com/python-social-auth/social-app-django
 Keywords: django,oauth,openid,saml,social auth
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
@@ -26,11 +30,11 @@ Requires-Dist: Django>=5.1
 Requires-Dist: social-auth-core~=4.8.3
 Provides-Extra: dev
 Requires-Dist: coverage>=3.6; extra == "dev"
-Requires-Dist: django-stubs-ext==5.2.8; extra == "dev"
-Requires-Dist: django-stubs==5.2.8; extra == "dev"
-Requires-Dist: mypy==1.19.1; extra == "dev"
+Requires-Dist: django-stubs-ext==6.0.3; extra == "dev"
+Requires-Dist: django-stubs==6.0.3; extra == "dev"
+Requires-Dist: mypy==1.20.1; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pyright==1.1.407; extra == "dev"
+Requires-Dist: pyright==1.1.408; extra == "dev"
 Requires-Dist: tox; extra == "dev"
 Dynamic: license-file
 

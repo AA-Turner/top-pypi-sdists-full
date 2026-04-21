@@ -386,6 +386,64 @@ class LazyFramePlaceholder:
             partition_column=partition_column,
         )
 
+    def write_glue_iceberg(
+        self,
+        glue_table_name: str,
+        uri: str,
+        *,
+        shard_id: int = 0,
+        num_retries: int = 3,
+        num_internal_retries: int = 3,
+        aws_catalog_account_id: typing.Optional[str] = None,
+        aws_catalog_region: typing.Optional[str] = None,
+        aws_role_arn: typing.Optional[str] = None,
+        partition_spec: typing.Optional[typing.List[typing.Tuple[str, str]]] = None,
+    ) -> "LazyFramePlaceholder":
+        """Write this DataFrame to an AWS Glue Iceberg table.
+
+        Parameters
+        ----------
+        glue_table_name
+            Fully qualified ``database.table`` name.
+        uri
+            S3 URI where Iceberg data files are stored (e.g. ``s3://bucket/prefix``).
+        shard_id
+            Shard identifier for the write (used for partitioned writes).
+        num_retries
+            Number of end-to-end retries for the write operation.
+        num_internal_retries
+            Number of retries for the catalog commit step.
+        aws_catalog_account_id
+            AWS account hosting the Glue catalog.
+        aws_catalog_region
+            Region of the Glue catalog.
+        aws_role_arn
+            IAM role to assume for access.
+        partition_spec
+            List of ``(column_name, transform)`` pairs defining how the table is partitioned.
+            Supported transforms: ``"identity"``, ``"year"``, ``"month"``, ``"day"``, ``"hour"``,
+            ``"bucket[N]"``, ``"truncate[N]"``. If omitted, new tables are created unpartitioned
+            and existing tables reuse their current partition spec.
+
+        Returns
+        -------
+        DataFrame
+            A passthrough DataFrame (same data as input); run it to execute the write.
+        """
+        return LazyFramePlaceholder._construct(
+            self_dataframe=self,
+            function_name="write_glue_iceberg",
+            glue_table_name=glue_table_name,
+            uri=uri,
+            shard_id=shard_id,
+            num_retries=num_retries,
+            num_internal_retries=num_internal_retries,
+            aws_catalog_account_id=aws_catalog_account_id,
+            aws_catalog_region=aws_catalog_region,
+            aws_role_arn=aws_role_arn,
+            partition_spec=partition_spec,
+        )
+
     @classmethod
     def from_sql(
         cls,

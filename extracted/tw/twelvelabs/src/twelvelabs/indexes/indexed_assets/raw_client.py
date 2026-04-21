@@ -16,8 +16,15 @@ from ...errors.internal_server_error import InternalServerError
 from ...errors.not_found_error import NotFoundError
 from ...types.indexed_asset import IndexedAsset
 from ...types.indexed_asset_detailed import IndexedAssetDetailed
+from ...types.indexed_asset_summary import IndexedAssetSummary
+from ...types.indexed_assets_list_request_duration import IndexedAssetsListRequestDuration
+from ...types.indexed_assets_list_request_fps import IndexedAssetsListRequestFps
+from ...types.indexed_assets_list_request_height import IndexedAssetsListRequestHeight
+from ...types.indexed_assets_list_request_size import IndexedAssetsListRequestSize
+from ...types.indexed_assets_list_request_width import IndexedAssetsListRequestWidth
 from ...types.user_metadata import UserMetadata
 from .types.indexed_assets_create_response import IndexedAssetsCreateResponse
+from .types.indexed_assets_list_by_asset_response import IndexedAssetsListByAssetResponse
 from .types.indexed_assets_list_request_status_item import IndexedAssetsListRequestStatusItem
 from .types.indexed_assets_list_request_user_metadata_value import IndexedAssetsListRequestUserMetadataValue
 from .types.indexed_assets_list_response import IndexedAssetsListResponse
@@ -43,11 +50,11 @@ class RawIndexedAssetsClient:
             typing.Union[IndexedAssetsListRequestStatusItem, typing.Sequence[IndexedAssetsListRequestStatusItem]]
         ] = None,
         filename: typing.Optional[str] = None,
-        duration: typing.Optional[float] = None,
-        fps: typing.Optional[float] = None,
-        width: typing.Optional[float] = None,
-        height: typing.Optional[int] = None,
-        size: typing.Optional[float] = None,
+        duration: typing.Optional[IndexedAssetsListRequestDuration] = None,
+        fps: typing.Optional[IndexedAssetsListRequestFps] = None,
+        width: typing.Optional[IndexedAssetsListRequestWidth] = None,
+        height: typing.Optional[IndexedAssetsListRequestHeight] = None,
+        size: typing.Optional[IndexedAssetsListRequestSize] = None,
         created_at: typing.Optional[str] = None,
         updated_at: typing.Optional[str] = None,
         user_metadata: typing.Optional[
@@ -104,20 +111,25 @@ class RawIndexedAssetsClient:
         filename : typing.Optional[str]
             Filter by filename.
 
-        duration : typing.Optional[float]
-            Filter by duration. Expressed in seconds.
+        duration : typing.Optional[IndexedAssetsListRequestDuration]
+            Filter by duration in seconds. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        fps : typing.Optional[float]
-            Filter by frames per second.
+        fps : typing.Optional[IndexedAssetsListRequestFps]
+            Filter by frames per second. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        width : typing.Optional[float]
-            Filter by width.
+        width : typing.Optional[IndexedAssetsListRequestWidth]
+            Filter by width in pixels. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        height : typing.Optional[int]
-            Filter by height.
+        height : typing.Optional[IndexedAssetsListRequestHeight]
+            Filter by height in pixels. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        size : typing.Optional[float]
-            Filter by size. Expressed in bytes.
+        size : typing.Optional[IndexedAssetsListRequestSize]
+            Filter by size in bytes. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
         created_at : typing.Optional[str]
             Filter indexed assets by the creation date and time of their associated indexing tasks, in the RFC 3339 format ("YYYY-MM-DDTHH:mm:ssZ"). The platform returns indexed assets created on or after the specified date and time.
@@ -154,11 +166,21 @@ class RawIndexedAssetsClient:
                 "sort_option": sort_option,
                 "status": status,
                 "filename": filename,
-                "duration": duration,
-                "fps": fps,
-                "width": width,
-                "height": height,
-                "size": size,
+                "duration": convert_and_respect_annotation_metadata(
+                    object_=duration, annotation=IndexedAssetsListRequestDuration, direction="write"
+                ),
+                "fps": convert_and_respect_annotation_metadata(
+                    object_=fps, annotation=IndexedAssetsListRequestFps, direction="write"
+                ),
+                "width": convert_and_respect_annotation_metadata(
+                    object_=width, annotation=IndexedAssetsListRequestWidth, direction="write"
+                ),
+                "height": convert_and_respect_annotation_metadata(
+                    object_=height, annotation=IndexedAssetsListRequestHeight, direction="write"
+                ),
+                "size": convert_and_respect_annotation_metadata(
+                    object_=size, annotation=IndexedAssetsListRequestSize, direction="write"
+                ),
                 "created_at": created_at,
                 "updated_at": updated_at,
                 "user_metadata": convert_and_respect_annotation_metadata(
@@ -246,7 +268,7 @@ class RawIndexedAssetsClient:
             The unique identifier of the index to which the asset will be indexed.
 
         asset_id : str
-            The unique identifier of the asset to index.
+            The unique identifier of the asset to index. The asset status must be `ready`. Use the [Retrieve an asset](/v1.3/api-reference/upload-content/direct-uploads/retrieve) method to check the status.
 
         enable_video_stream : typing.Optional[bool]
             This parameter indicates if the platform stores the video for streaming. When set to `true`, the platform stores the video, and you can retrieve its URL by calling the [`GET`](/v1.3/api-reference/videos/retrieve) method of the `/indexes/{index-id}/indexed-assets/{indexed-asset-id}` endpoint. You can then use this URL to access the stream over the <a href="https://en.wikipedia.org/wiki/HTTP_Live_Streaming" target="_blank">HLS</a> protocol.
@@ -531,6 +553,88 @@ class RawIndexedAssetsClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def list_by_asset(
+        self,
+        asset_id: str,
+        *,
+        page: typing.Optional[int] = None,
+        page_limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[IndexedAssetSummary]:
+        """
+        This method returns a list of indexed assets that reference the specified asset. Each entry includes the indexed asset ID and the index it belongs to.
+
+        Parameters
+        ----------
+        asset_id : str
+            The unique identifier of the asset.
+
+        page : typing.Optional[int]
+            A number that identifies the page to retrieve.
+
+            **Default**: `1`.
+
+        page_limit : typing.Optional[int]
+            The number of items to return on each page.
+
+            **Default**: `10`.
+            **Max**: `50`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[IndexedAssetSummary]
+            The indexed assets have been successfully retrieved.
+        """
+        page = page if page is not None else 1
+
+        _response = self._client_wrapper.httpx_client.request(
+            f"assets/{jsonable_encoder(asset_id)}/indexed-assets",
+            method="GET",
+            params={
+                "page": page,
+                "page_limit": page_limit,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _parsed_response = typing.cast(
+                    IndexedAssetsListByAssetResponse,
+                    parse_obj_as(
+                        type_=IndexedAssetsListByAssetResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                _items = _parsed_response.data
+                _has_next = True
+                _get_next = lambda: self.list_by_asset(
+                    asset_id,
+                    page=page + 1,
+                    page_limit=page_limit,
+                    request_options=request_options,
+                )
+                return SyncPager(
+                    has_next=_has_next, items=_items, get_next=_get_next, response=BaseHttpResponse(response=_response)
+                )
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
 
 class AsyncRawIndexedAssetsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -548,11 +652,11 @@ class AsyncRawIndexedAssetsClient:
             typing.Union[IndexedAssetsListRequestStatusItem, typing.Sequence[IndexedAssetsListRequestStatusItem]]
         ] = None,
         filename: typing.Optional[str] = None,
-        duration: typing.Optional[float] = None,
-        fps: typing.Optional[float] = None,
-        width: typing.Optional[float] = None,
-        height: typing.Optional[int] = None,
-        size: typing.Optional[float] = None,
+        duration: typing.Optional[IndexedAssetsListRequestDuration] = None,
+        fps: typing.Optional[IndexedAssetsListRequestFps] = None,
+        width: typing.Optional[IndexedAssetsListRequestWidth] = None,
+        height: typing.Optional[IndexedAssetsListRequestHeight] = None,
+        size: typing.Optional[IndexedAssetsListRequestSize] = None,
         created_at: typing.Optional[str] = None,
         updated_at: typing.Optional[str] = None,
         user_metadata: typing.Optional[
@@ -609,20 +713,25 @@ class AsyncRawIndexedAssetsClient:
         filename : typing.Optional[str]
             Filter by filename.
 
-        duration : typing.Optional[float]
-            Filter by duration. Expressed in seconds.
+        duration : typing.Optional[IndexedAssetsListRequestDuration]
+            Filter by duration in seconds. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        fps : typing.Optional[float]
-            Filter by frames per second.
+        fps : typing.Optional[IndexedAssetsListRequestFps]
+            Filter by frames per second. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        width : typing.Optional[float]
-            Filter by width.
+        width : typing.Optional[IndexedAssetsListRequestWidth]
+            Filter by width in pixels. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        height : typing.Optional[int]
-            Filter by height.
+        height : typing.Optional[IndexedAssetsListRequestHeight]
+            Filter by height in pixels. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        size : typing.Optional[float]
-            Filter by size. Expressed in bytes.
+        size : typing.Optional[IndexedAssetsListRequestSize]
+            Filter by size in bytes. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
         created_at : typing.Optional[str]
             Filter indexed assets by the creation date and time of their associated indexing tasks, in the RFC 3339 format ("YYYY-MM-DDTHH:mm:ssZ"). The platform returns indexed assets created on or after the specified date and time.
@@ -659,11 +768,21 @@ class AsyncRawIndexedAssetsClient:
                 "sort_option": sort_option,
                 "status": status,
                 "filename": filename,
-                "duration": duration,
-                "fps": fps,
-                "width": width,
-                "height": height,
-                "size": size,
+                "duration": convert_and_respect_annotation_metadata(
+                    object_=duration, annotation=IndexedAssetsListRequestDuration, direction="write"
+                ),
+                "fps": convert_and_respect_annotation_metadata(
+                    object_=fps, annotation=IndexedAssetsListRequestFps, direction="write"
+                ),
+                "width": convert_and_respect_annotation_metadata(
+                    object_=width, annotation=IndexedAssetsListRequestWidth, direction="write"
+                ),
+                "height": convert_and_respect_annotation_metadata(
+                    object_=height, annotation=IndexedAssetsListRequestHeight, direction="write"
+                ),
+                "size": convert_and_respect_annotation_metadata(
+                    object_=size, annotation=IndexedAssetsListRequestSize, direction="write"
+                ),
                 "created_at": created_at,
                 "updated_at": updated_at,
                 "user_metadata": convert_and_respect_annotation_metadata(
@@ -754,7 +873,7 @@ class AsyncRawIndexedAssetsClient:
             The unique identifier of the index to which the asset will be indexed.
 
         asset_id : str
-            The unique identifier of the asset to index.
+            The unique identifier of the asset to index. The asset status must be `ready`. Use the [Retrieve an asset](/v1.3/api-reference/upload-content/direct-uploads/retrieve) method to check the status.
 
         enable_video_stream : typing.Optional[bool]
             This parameter indicates if the platform stores the video for streaming. When set to `true`, the platform stores the video, and you can retrieve its URL by calling the [`GET`](/v1.3/api-reference/videos/retrieve) method of the `/indexes/{index-id}/indexed-assets/{indexed-asset-id}` endpoint. You can then use this URL to access the stream over the <a href="https://en.wikipedia.org/wiki/HTTP_Live_Streaming" target="_blank">HLS</a> protocol.
@@ -1023,6 +1142,91 @@ class AsyncRawIndexedAssetsClient:
         try:
             if 200 <= _response.status_code < 300:
                 return AsyncHttpResponse(response=_response, data=None)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def list_by_asset(
+        self,
+        asset_id: str,
+        *,
+        page: typing.Optional[int] = None,
+        page_limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[IndexedAssetSummary]:
+        """
+        This method returns a list of indexed assets that reference the specified asset. Each entry includes the indexed asset ID and the index it belongs to.
+
+        Parameters
+        ----------
+        asset_id : str
+            The unique identifier of the asset.
+
+        page : typing.Optional[int]
+            A number that identifies the page to retrieve.
+
+            **Default**: `1`.
+
+        page_limit : typing.Optional[int]
+            The number of items to return on each page.
+
+            **Default**: `10`.
+            **Max**: `50`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[IndexedAssetSummary]
+            The indexed assets have been successfully retrieved.
+        """
+        page = page if page is not None else 1
+
+        _response = await self._client_wrapper.httpx_client.request(
+            f"assets/{jsonable_encoder(asset_id)}/indexed-assets",
+            method="GET",
+            params={
+                "page": page,
+                "page_limit": page_limit,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _parsed_response = typing.cast(
+                    IndexedAssetsListByAssetResponse,
+                    parse_obj_as(
+                        type_=IndexedAssetsListByAssetResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                _items = _parsed_response.data
+                _has_next = True
+
+                async def _get_next():
+                    return await self.list_by_asset(
+                        asset_id,
+                        page=page + 1,
+                        page_limit=page_limit,
+                        request_options=request_options,
+                    )
+
+                return AsyncPager(
+                    has_next=_has_next, items=_items, get_next=_get_next, response=BaseHttpResponse(response=_response)
+                )
             if _response.status_code == 400:
                 raise BadRequestError(
                     headers=dict(_response.headers),

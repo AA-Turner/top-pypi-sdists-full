@@ -167,10 +167,7 @@ pub async fn update_bedrock_signature(
     Ok(())
 }
 
-/// Parse an AWS event stream binary response (from `/invoke-with-response-stream`) into
-/// Anthropic `StreamEvent`s.
-///
-/// Wire format per message:
+/// Wire format for AWS event stream frames:
 ///   [4] total_byte_length  (big-endian u32, includes itself)
 ///   [4] headers_byte_length (big-endian u32)
 ///   [4] prelude_crc         (big-endian u32, ignored)
@@ -180,7 +177,7 @@ pub async fn update_bedrock_signature(
 ///
 /// Each payload is JSON `{"bytes":"<base64>","p":"<padding>"}` where the base64
 /// decodes to a regular Anthropic streaming event JSON object.
-pub fn parse_bedrock_event_stream(data: &[u8]) -> Vec<StreamEvent> {
+fn decode_bedrock_frame_events(data: &[u8], stop_on_incomplete: bool) -> (Vec<StreamEvent>, usize) {
     let mut events = Vec::new();
     let mut pos = 0;
 
@@ -188,31 +185,34 @@ pub fn parse_bedrock_event_stream(data: &[u8]) -> Vec<StreamEvent> {
         let total_len =
             u32::from_be_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as usize;
 
-        // Sanity check: minimum valid frame is 16 bytes (no headers, no payload)
-        if total_len < 16 || pos + total_len > data.len() {
-            break;
+        if total_len < 16 {
+            pos += total_len.max(1);
+            continue;
+        }
+
+        if pos + total_len > data.len() {
+            if stop_on_incomplete {
+                break; // wait for more bytes
+            }
+            pos += total_len;
+            continue;
         }
 
         let headers_len =
             u32::from_be_bytes([data[pos + 4], data[pos + 5], data[pos + 6], data[pos + 7]])
                 as usize;
 
-        // prelude CRC is at pos+8..pos+12 (skipped)
         let payload_start = pos + 12 + headers_len;
-        let payload_end = pos + total_len - 4; // strip trailing message CRC
+        let payload_end = pos + total_len - 4;
 
-        if payload_start > payload_end || payload_end > data.len() {
-            pos += total_len;
-            continue;
-        }
-
-        let payload = &data[payload_start..payload_end];
-
-        if let Ok(json) = serde_json::from_slice::<serde_json::Value>(payload) {
-            if let Some(b64) = json.get("bytes").and_then(|v| v.as_str()) {
-                if let Ok(decoded) = base64::engine::general_purpose::STANDARD.decode(b64) {
-                    if let Ok(event) = serde_json::from_slice::<StreamEvent>(&decoded) {
-                        events.push(event);
+        if payload_start <= payload_end && payload_end <= data.len() {
+            let payload = &data[payload_start..payload_end];
+            if let Ok(json) = serde_json::from_slice::<serde_json::Value>(payload) {
+                if let Some(b64) = json.get("bytes").and_then(|v| v.as_str()) {
+                    if let Ok(decoded) = base64::engine::general_purpose::STANDARD.decode(b64) {
+                        if let Ok(event) = serde_json::from_slice::<StreamEvent>(&decoded) {
+                            events.push(event);
+                        }
                     }
                 }
             }
@@ -221,5 +221,22 @@ pub fn parse_bedrock_event_stream(data: &[u8]) -> Vec<StreamEvent> {
         pos += total_len;
     }
 
+    (events, pos)
+}
+
+/// Parse a complete AWS event stream binary response into Anthropic `StreamEvent`s.
+pub fn parse_bedrock_event_stream(data: &[u8]) -> Vec<StreamEvent> {
+    decode_bedrock_frame_events(data, false).0
+}
+
+/// Parse and drain complete frames from a mutable binary buffer.
+///
+/// Extracts all complete frames, removes the consumed prefix in place, and returns
+/// the parsed events. An incomplete trailing frame is kept in the buffer.
+pub fn drain_bedrock_events(buf: &mut Vec<u8>) -> Vec<StreamEvent> {
+    let (events, consumed) = decode_bedrock_frame_events(buf, true);
+    if consumed > 0 {
+        buf.drain(..consumed);
+    }
     events
 }

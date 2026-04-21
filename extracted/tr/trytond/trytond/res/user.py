@@ -42,7 +42,6 @@ from trytond.pyson import Bool, Eval, PYSONEncoder
 from trytond.report import Report, get_email
 from trytond.rpc import RPC
 from trytond.sendmail import send_message_transactional
-from trytond.tools import grouped_slice
 from trytond.tools.email_ import (
     EmailNotValidError, normalize_email, set_from_header, validate_email)
 from trytond.transaction import Transaction, without_check_access
@@ -319,17 +318,16 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
             seconds=config.getint('session', 'max_age'))
         result = dict((u.id, 0) for u in users)
         with without_check_access():
-            for sub_ids in grouped_slice(users):
-                sessions = Session.search([
-                        ('create_uid', 'in', sub_ids),
-                        ], order=[('create_uid', 'ASC')])
+            sessions = Session.search([
+                    ('create_uid', 'in', users),
+                    ],
+                order=[('create_uid', 'ASC')])
 
-                def filter_(session):
-                    timestamp = session.write_date or session.create_date
-                    return abs(timestamp - now) < timeout
-                result.update(dict((i, len(list(g)))
-                        for i, g in groupby(filter(filter_, sessions),
-                            attrgetter('create_uid.id'))))
+            def filter_(session):
+                return abs(session.last_modified_at - now) < timeout
+            result.update(dict((i, len(list(g)))
+                    for i, g in groupby(filter(filter_, sessions),
+                        attrgetter('create_uid.id'))))
         return result
 
     @classmethod
@@ -634,8 +632,7 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
                     & (group.active == Literal(True))),
                 order_by=[user_group.group.asc]))
         groups = tuple(g for g, in cursor)
-        cls._get_groups_cache.set(user, groups)
-        return groups
+        return cls._get_groups_cache.set(user, groups)
 
     @classmethod
     def _get_login(cls, login):
@@ -814,7 +811,7 @@ class LoginAttempt(ModelSQL):
     def count(cls, login, device_cookie=None):
         cursor = Transaction().connection.cursor()
         table = cls.__table__()
-        cursor.execute(*table.select(Count(Literal('*')),
+        cursor.execute(*table.select(Count(),
                 where=(table.login == login)
                 & (table.device_cookie == device_cookie)
                 & (table.create_date >= cls.delay())))
@@ -827,7 +824,7 @@ class LoginAttempt(ModelSQL):
         table = cls.__table__()
         _, ip_network = transaction.remote_address()
         ip_network = str(ip_network) if ip_network else None
-        cursor.execute(*table.select(Count(Literal('*')),
+        cursor.execute(*table.select(Count(),
                 where=(table.ip_network == ip_network)
                 & (table.create_date >= cls.delay())))
         return cursor.fetchone()[0]
@@ -884,10 +881,9 @@ class UserDevice(ModelSQL):
 
     @classmethod
     def clear(cls, logins):
-        for sub_logins in grouped_slice(logins):
-            cls.delete(cls.search([
-                        ('login', 'in', list(sub_logins)),
-                        ]))
+        cls.delete(cls.search([
+                    ('login', 'in', logins),
+                    ]))
 
 
 class UserAction(ModelSQL):
@@ -1003,7 +999,9 @@ class UserApplication(Workflow, ModelSQL, ModelView):
 
     key = fields.Char("Key", required=True, strip=False)
     user = fields.Many2One('res.user', "User")
-    application = fields.Selection([], "Application", required=True)
+    application = fields.Selection([
+            ('rest', "REST API"),
+            ], "Application", required=True)
     state = fields.Selection([
             ('requested', "Requested"),
             ('validated', "Validated"),

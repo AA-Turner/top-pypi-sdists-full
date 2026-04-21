@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import base64
-from typing import TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from typing_extensions import Self
 
@@ -13,15 +13,22 @@ from social_core.storage import (
     NonceMixin,
     PartialMixin,
     UserMixin,
-    UserProtocol,
 )
+
+if TYPE_CHECKING:
+    from social_core.storage import (
+        UserProtocol,
+    )
 
 ModelT = TypeVar("ModelT", bound="BaseModel")
 
 
 class BaseModel:
+    NEXT_ID: int = 1
+    cache: dict[Any, Any] = {}
+
     @classmethod
-    def next_id(cls):
+    def next_id(cls) -> int:
         cls.NEXT_ID += 1
         return cls.NEXT_ID - 1
 
@@ -30,9 +37,9 @@ class BaseModel:
         cls.cache = {}
 
 
-class User(BaseModel, UserProtocol):
+class User(BaseModel):
     NEXT_ID = 1
-    cache = {}
+    cache: dict[str, User] = {}
     _is_active = True
     is_authenticated = True
     username: str
@@ -58,7 +65,8 @@ class User(BaseModel, UserProtocol):
         self.extra_user_fields = extra_user_fields
         self.save()
 
-    def is_active(self):  # pyright: ignore[reportIncompatibleVariableOverride]
+    @property
+    def is_active(self):
         return self._is_active
 
     @classmethod
@@ -73,15 +81,15 @@ class User(BaseModel, UserProtocol):
 
     @classmethod
     def get(cls, key) -> Self | None:
-        return cls.cache.get(key)
+        return cast("Self | None", cls.cache.get(key))
 
 
 class TestUserSocialAuth(UserMixin, BaseModel):
     __test__ = False
 
     NEXT_ID = 1
-    cache = {}
-    cache_by_uid = {}
+    cache: dict[int, TestUserSocialAuth] = {}
+    cache_by_uid: dict[int, TestUserSocialAuth] = {}
 
     def __init__(self, user: User, provider, uid, extra_data=None) -> None:
         self.id = TestUserSocialAuth.next_id()
@@ -148,22 +156,22 @@ class TestUserSocialAuth(UserMixin, BaseModel):
         return None
 
     @classmethod
-    def get_social_auth_for_user(  # type: ignore[override]
+    def get_social_auth_for_user(
         cls,
-        user: User,
+        user: UserProtocol,
         provider: str | None = None,
         # pylint: disable-next=redefined-builtin
         id: int | None = None,  # noqa: A002
     ):
         return [
             usa
-            for usa in user.social
+            for usa in getattr(user, "social", [])
             if provider in (None, usa.provider) and id in (None, usa.id)
         ]
 
     @classmethod
-    def create_social_auth(cls, user: User, uid: int, provider: str):  # type: ignore[override]
-        return cls(user=user, provider=provider, uid=uid)
+    def create_social_auth(cls, user: UserProtocol, uid: int, provider: str):
+        return cls(user=cast("User", user), provider=provider, uid=uid)
 
     @classmethod
     def get_users_by_email(cls, email: str):
@@ -171,14 +179,14 @@ class TestUserSocialAuth(UserMixin, BaseModel):
 
     @classmethod
     def get(cls, key) -> Self | None:
-        return cls.cache.get(key)
+        return cast("Self | None", cls.cache.get(key))
 
 
 class TestNonce(NonceMixin, BaseModel):
     __test__ = False
 
     NEXT_ID = 1
-    cache = {}
+    cache: dict[str, TestNonce] = {}
 
     def __init__(self, server_url, timestamp, salt) -> None:
         self.id = TestNonce.next_id()
@@ -206,7 +214,8 @@ class TestAssociation(AssociationMixin, BaseModel):
     __test__ = False
 
     NEXT_ID = 1
-    cache = {}
+    cache: dict[tuple[str, str], TestAssociation] = {}
+    secret: str | bytes = b""
 
     def __init__(self, server_url, handle) -> None:
         self.id = TestAssociation.next_id()
@@ -233,7 +242,7 @@ class TestAssociation(AssociationMixin, BaseModel):
         server_url: str | None = None,
         handle: str | None = None,
     ) -> list[AssociationMixin]:
-        result = []
+        result: list[AssociationMixin] = []
         for assoc in TestAssociation.cache.values():
             if server_url and assoc.server_url != server_url:
                 continue
@@ -253,7 +262,10 @@ class TestCode(CodeMixin, BaseModel):
     __test__ = False
 
     NEXT_ID = 1
-    cache = {}
+    cache: dict[str, TestCode] = {}
+
+    def save(self) -> None:
+        TestCode.cache[self.code] = self
 
     @classmethod
     def get_code(cls, code):
@@ -264,7 +276,7 @@ class TestCode(CodeMixin, BaseModel):
 
     @classmethod
     def get(cls, key) -> Self | None:
-        return cls.cache.get(key)
+        return cast("Self | None", cls.cache.get(key))
 
 
 class TestPartial(PartialMixin, BaseModel):
@@ -292,11 +304,11 @@ class TestPartial(PartialMixin, BaseModel):
 class TestStorage(BaseStorage):
     __test__ = False
 
-    user = TestUserSocialAuth
-    nonce = TestNonce
-    association = TestAssociation
-    code = TestCode
-    partial = TestPartial
+    user: type[UserMixin] = TestUserSocialAuth
+    nonce: type[NonceMixin] = TestNonce
+    association: type[AssociationMixin] = TestAssociation
+    code: type[CodeMixin] = TestCode
+    partial: type[PartialMixin] = TestPartial
 
     @classmethod
     def is_integrity_error(cls, exception) -> bool:

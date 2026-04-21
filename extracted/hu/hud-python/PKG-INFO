@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hud-python
-Version: 0.5.38
+Version: 0.5.39
 Summary: SDK for the HUD platform.
 Project-URL: Homepage, https://github.com/hud-evals/hud-python
 Project-URL: Bug Tracker, https://github.com/hud-evals/hud-python/issues
@@ -34,7 +34,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: <3.13,>=3.11
-Requires-Dist: a2a-sdk>=0.3.24
+Requires-Dist: a2a-sdk==0.3.26
 Requires-Dist: blessed>=1.20.0
 Requires-Dist: fastmcp==3.0.2
 Requires-Dist: httpx<1,>=0.23.0

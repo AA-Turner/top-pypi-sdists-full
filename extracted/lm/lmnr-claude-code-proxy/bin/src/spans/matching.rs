@@ -1,6 +1,8 @@
 //! Prompt and command matching utilities for detecting nested LLM calls
 
-use crate::anthropic::request::{ContentBlock, Message, MessageContent, PostMessagesRequest};
+use crate::anthropic::request::{
+    ContentBlock, Message, MessageContent, PostMessagesRequest, TextBlock,
+};
 
 /// Check if request messages contain a specific prompt (for nested call detection)
 pub fn messages_contain_prompt(messages: &[Message], prompt: &str) -> bool {
@@ -13,7 +15,7 @@ pub fn messages_contain_prompt(messages: &[Message], prompt: &str) -> bool {
             }
             MessageContent::Blocks(blocks) => {
                 for block in blocks {
-                    if let ContentBlock::Text { text, .. } = block {
+                    if let ContentBlock::Text(TextBlock { text, .. }) = block {
                         if text.contains(prompt) {
                             return true;
                         }
@@ -46,7 +48,7 @@ pub fn messages_match_bash_command(messages: &[Message], full_command: &str) -> 
             MessageContent::Blocks(blocks) => blocks
                 .iter()
                 .filter_map(|b| {
-                    if let ContentBlock::Text { text, .. } = b {
+                    if let ContentBlock::Text(TextBlock { text, .. }) = b {
                         Some(text.as_str())
                     } else {
                         None

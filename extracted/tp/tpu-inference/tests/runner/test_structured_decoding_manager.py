@@ -50,7 +50,6 @@ class TestStructuredDecodingManager:
             cache_config = CacheConfig(
                 block_size=16,
                 gpu_memory_utilization=0.9,
-                swap_space=4,
                 cache_dtype="auto",
             )
             scheduler_config = SchedulerConfig(max_num_seqs=16,
@@ -59,7 +58,6 @@ class TestStructuredDecodingManager:
             parallel_config = ParallelConfig(
                 pipeline_parallel_size=1,
                 tensor_parallel_size=1,
-                worker_use_ray=False,
             )
             speculative_config = SpeculativeConfig(
                 model='ngram',

@@ -17,7 +17,7 @@ from opensearchpy.exceptions import ConflictError, NotFoundError, RequestError
 from openmock.behaviour.server_failure import server_failure
 from openmock.fake_asyncindices import FakeAsyncIndicesClient
 from openmock.fake_cluster import FakeClusterClient
-from openmock.fake_opensearch import FakeQueryCondition, QueryType, MetricType
+from openmock.fake_opensearch import FakeQueryCondition, MetricType, QueryType
 from openmock.normalize_hosts import _normalize_hosts
 from openmock.utilities import (
     extract_ignore_as_iterable,
@@ -35,7 +35,9 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
     def __init__(self, hosts=None, transport_class=None, **kwargs):
         # self.__documents_dict = {}
         self._FakeAsyncIndicesClient__documents_dict = {}
+        self._FakeAsyncIndicesClient__aliases_dict = {}
         self.__scrolls = {}
+        self._seq_no_counter = {}
         self.transport = AsyncTransport(_normalize_hosts(hosts), **kwargs)
 
         # This blows up if I call the real base.
@@ -46,12 +48,22 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
         return self._FakeAsyncIndicesClient__documents_dict
 
     @property
+    # pylint: disable=unused-private-member
+    def __aliases_dict(self):
+        return self._FakeAsyncIndicesClient__aliases_dict
+
+    @property
     def indices(self):
         return FakeAsyncIndicesClient(self)
 
     @property
     def cluster(self):
         return FakeClusterClient(self)
+
+    def _next_seq_no(self, index):
+        current = self._seq_no_counter.get(index, -1) + 1
+        self._seq_no_counter[index] = current
+        return current
 
     @query_params()
     async def ping(self, params=None, headers=None):
@@ -60,17 +72,21 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
     @query_params()
     async def info(self, params=None, headers=None):
         return {
-            "status": 200,
             "cluster_name": "openmock",
+            "cluster_uuid": "openmock-cluster-uuid",
             "version": {
-                "lucene_version": "4.10.4",
+                "distribution": "opensearch",
+                "number": "3.1.0",
+                "build_type": "tar",
                 "build_hash": "00f95f4ffca6de89d68b7ccaf80d148f1f70e4d4",
-                "number": "1.7.5",
-                "build_timestamp": "2016-02-02T09:55:30Z",
+                "build_date": "2016-02-02T09:55:30Z",
                 "build_snapshot": False,
+                "lucene_version": "4.10.4",
+                "minimum_wire_compatibility_version": "1.0.0",
+                "minimum_index_compatibility_version": "1.0.0",
             },
             "name": "Nightwatch",
-            "tagline": "You Know, for Search",
+            "tagline": "The OpenSearch Project: https://opensearch.org/",
         }
 
     @query_params(
@@ -109,6 +125,7 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
         if id is None:
             id = get_random_id()
 
+        seq_no = self._next_seq_no(index)
         self.__documents_dict[index].append(
             {
                 "_type": doc_type,
@@ -116,16 +133,19 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
                 "_source": body,
                 "_index": index,
                 "_version": 1,
+                "_seq_no": seq_no,
+                "_primary_term": 1,
             }
         )
 
         return {
-            "_type": doc_type,
-            "_id": id,
-            "created": True,
-            "_version": 1,
             "_index": index,
+            "_id": id,
+            "_version": 1,
             "result": "created",
+            "_shards": {"total": 2, "successful": 1, "failed": 0},
+            "_seq_no": seq_no,
+            "_primary_term": 1,
         }
 
     @query_params(
@@ -167,6 +187,7 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
             await self.delete(index, id, doc_type=doc_type)
             result = "updated"
 
+        seq_no = self._next_seq_no(index)
         self.__documents_dict[index].append(
             {
                 "_type": doc_type,
@@ -174,16 +195,19 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
                 "_source": body,
                 "_index": index,
                 "_version": version,
+                "_seq_no": seq_no,
+                "_primary_term": 1,
             }
         )
 
         return {
-            "_type": doc_type,
-            "_id": id,
-            "created": True,
-            "_version": version,
             "_index": index,
+            "_id": id,
+            "_version": version,
             "result": result,
+            "_shards": {"total": 2, "successful": 1, "failed": 0},
+            "_seq_no": seq_no,
+            "_primary_term": 1,
         }
 
     @query_params(
@@ -199,70 +223,53 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
         "version",
         "version_type",
     )
-    # def bulk(self, body, index=None, doc_type=None, params=None, headers=None):
+    # pylint: disable=too-many-statements
     async def bulk(
         self,
         body: Any,
         index: Any = None,
         params: Any = None,
         headers: Any = None,
+        **kwargs,
     ) -> Any:
         doc_type = None
         items = []
         errors = False
 
-        for raw_line in body.splitlines():
-            if len(raw_line.strip()) > 0:
-                line = json.loads(raw_line)
+        if isinstance(body, (bytes, bytearray)):
+            body = body.decode("utf-8")
 
-                if any(
-                    action in line for action in ["index", "create", "update", "delete"]
-                ):
-                    action = next(iter(line.keys()))
+        if isinstance(body, str):
+            lines = body.splitlines()
+        elif isinstance(body, list):
+            lines = body
+        else:
+            raise TypeError("bulk body must be str, bytes or list")
 
-                    version = 1
-                    index = line[action].get("_index") or index
-                    doc_type = line[action].get(
-                        "_type", "_doc"
-                    )  # _type is deprecated in 7.x
+        it = iter(lines)
+        for line in it:
+            if isinstance(line, str):
+                if len(line.strip()) == 0:
+                    continue
+                line = json.loads(line)
 
-                    if action in ["delete", "update"] and not line[action].get("_id"):
-                        raise RequestError(
-                            400, "action_request_validation_exception", "missing id"
-                        )
+            if any(
+                action in line for action in ["index", "create", "update", "delete"]
+            ):
+                action = next(iter(line.keys()))
 
-                    document_id = line[action].get("_id", get_random_id())
+                version = 1
+                index = line[action].get("_index") or index
+                doc_type = line[action].get("_type", "_doc")
 
-                    if action == "delete":
-                        status, result, error = await self._validate_action(
-                            action, index, document_id, doc_type, params=params
-                        )
-                        item = {
-                            action: {
-                                "_type": doc_type,
-                                "_id": document_id,
-                                "_index": index,
-                                "_version": version,
-                                "status": status,
-                            }
-                        }
-                        if error:
-                            errors = True
-                            item[action]["error"] = result
-                        else:
-                            await self.delete(
-                                index, document_id, doc_type=doc_type, params=params
-                            )
-                            item[action]["result"] = result
-                        items.append(item)
+                if action in ["delete", "update"] and not line[action].get("_id"):
+                    raise RequestError(
+                        400, "action_request_validation_exception", "missing id"
+                    )
 
-                    if index not in self.__documents_dict:
-                        self.__documents_dict[index] = []
-                else:
-                    if "doc" in line and action == "update":
-                        source = line["doc"]
-                    else:
-                        source = line
+                document_id = line[action].get("_id", get_random_id())
+
+                if action == "delete":
                     status, result, error = await self._validate_action(
                         action, index, document_id, doc_type, params=params
                     )
@@ -275,32 +282,96 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
                             "status": status,
                         }
                     }
-                    if not error:
-                        item[action]["result"] = result
-                        if await self.exists(
-                            index, document_id, doc_type=doc_type, params=params
-                        ):
-                            doc = await self.get(
-                                index, document_id, doc_type=doc_type, params=params
-                            )
-                            version = doc["_version"] + 1
-                            await self.delete(
-                                index, document_id, doc_type=doc_type, params=params
-                            )
-
-                        self.__documents_dict[index].append(
-                            {
-                                "_type": doc_type,
-                                "_id": document_id,
-                                "_source": source,
-                                "_index": index,
-                                "_version": version,
-                            }
-                        )
-                    else:
+                    if error:
                         errors = True
                         item[action]["error"] = result
+                    else:
+                        await self.delete(
+                            index, document_id, doc_type=doc_type, params=params
+                        )
+                        item[action]["result"] = result
                     items.append(item)
+                    continue
+
+                if index not in self.__documents_dict:
+                    self.__documents_dict[index] = []
+
+                # If it's not delete, we need the source from the next line
+                try:
+                    source_line = next(it)
+                except StopIteration as exc:
+                    raise RequestError(
+                        400, "action_request_validation_exception", "missing source"
+                    ) from exc
+
+                if isinstance(source_line, str):
+                    source = json.loads(source_line)
+                else:
+                    source = source_line
+
+                if "doc" in source and action == "update":
+                    source = source["doc"]
+
+                status, result, error = await self._validate_action(
+                    action, index, document_id, doc_type, params=params
+                )
+                item = {
+                    action: {
+                        "_type": doc_type,
+                        "_id": document_id,
+                        "_index": index,
+                        "_version": version,
+                        "status": status,
+                    }
+                }
+                if not error:
+                    if action == "update" and await self.exists(
+                        index, document_id, doc_type=doc_type, params=params
+                    ):
+                        existing = await self.get(
+                            index, document_id, doc_type=doc_type, params=params
+                        )
+                        existing_source = existing.get("_source", {})
+                        merged = {**existing_source, **source}
+                        if merged == existing_source:
+                            item[action]["result"] = "noop"
+                            item[action]["_version"] = existing.get("_version", 1)
+                            items.append(item)
+                            continue
+                        source = merged
+                        version = existing.get("_version", 1) + 1
+                        await self.delete(
+                            index, document_id, doc_type=doc_type, params=params
+                        )
+                    elif await self.exists(
+                        index, document_id, doc_type=doc_type, params=params
+                    ):
+                        doc = await self.get(
+                            index, document_id, doc_type=doc_type, params=params
+                        )
+                        version = doc["_version"] + 1
+                        await self.delete(
+                            index, document_id, doc_type=doc_type, params=params
+                        )
+
+                    item[action]["result"] = result
+                    item[action]["_version"] = version
+                    seq_no = self._next_seq_no(index)
+                    self.__documents_dict[index].append(
+                        {
+                            "_type": doc_type,
+                            "_id": document_id,
+                            "_source": source,
+                            "_index": index,
+                            "_version": version,
+                            "_seq_no": seq_no,
+                            "_primary_term": 1,
+                        }
+                    )
+                else:
+                    errors = True
+                    item[action]["error"] = result
+                items.append(item)
         return {"errors": errors, "items": items}
 
     async def _validate_action(self, action, index, document_id, doc_type, params=None):
@@ -431,17 +502,25 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
             for document in self.__documents_dict[index]:
                 if document.get("_id") == id:
                     if "doc" in body:
-                        document["_source"] = {**document["_source"], **body["doc"]}
-                        document["_version"] += 1
+                        merged = {**document["_source"], **body["doc"]}
+                        changed = merged != document["_source"]
+                        if changed:
+                            document["_source"] = merged
+                            document["_version"] += 1
+                            document["_seq_no"] = self._next_seq_no(index)
+                            document["_primary_term"] = 1
+                            op_result = "updated"
+                        else:
+                            op_result = "noop"
 
-                        # TODO: Might be removed since it seems that latest open search doesn't respond the _type anymore.
                         result = {
                             "_index": index,
                             "_id": id,
-                            "_type": document.get("_type", "_doc"),
                             "_version": document["_version"],
-                            "result": "updated",
-                            "_shards": {"total": 1, "successful": 1, "failed": 0},
+                            "result": op_result,
+                            "_shards": {"total": 2, "successful": 1, "failed": 0},
+                            "_seq_no": document.get("_seq_no", 0),
+                            "_primary_term": document.get("_primary_term", 1),
                         }
                     elif "script" in body:
                         # TODO: Add pain(ful)less language support
@@ -547,6 +626,69 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
 
     @query_params(
         "_source",
+        "_source_excludes",
+        "_source_includes",
+        "allow_no_indices",
+        "analyze_wildcard",
+        "analyzer",
+        "conflicts",
+        "default_operator",
+        "df",
+        "expand_wildcards",
+        "from_",
+        "ignore_unavailable",
+        "lenient",
+        "max_docs",
+        "preference",
+        "q",
+        "refresh",
+        "request_cache",
+        "requests_per_second",
+        "routing",
+        "scroll",
+        "scroll_size",
+        "search_timeout",
+        "search_type",
+        "slices",
+        "sort",
+        "stats",
+        "terminate_after",
+        "timeout",
+        "version",
+        "wait_for_active_shards",
+        "wait_for_completion",
+    )
+    async def delete_by_query(
+        self,
+        index: Any,
+        body: Any = None,
+        params: Any = None,
+        headers: Any = None,
+    ) -> Any:
+        matches = await self.search(
+            index=index, body=body, params=params, headers=headers
+        )
+        total_deleted = 0
+        for hit in matches["hits"]["hits"]:
+            await self.delete(hit["_index"], hit["_id"])
+            total_deleted += 1
+        return {
+            "took": 1,
+            "timed_out": False,
+            "total": total_deleted,
+            "deleted": total_deleted,
+            "batches": 1,
+            "version_conflicts": 0,
+            "noops": 0,
+            "retries": {"bulk": 0, "search": 0},
+            "throttled_millis": 0,
+            "requests_per_second": -1,
+            "throttled_until_millis": 0,
+            "failures": [],
+        }
+
+    @query_params(
+        "_source",
         "_source_exclude",
         "_source_include",
         "preference",
@@ -562,21 +704,39 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
         params: Any = None,
         headers: Any = None,
     ) -> Any:
-        # def mget(self, body, index, doc_type="_all", params=None, headers=None):
         doc_type = "_all"
         docs = body.get("docs")
-        ids = [doc["_id"] for doc in docs]
+        if docs:
+            items = [(doc.get("_index") or index, doc["_id"]) for doc in docs]
+        else:
+            ids = body.get("ids")
+            if ids:
+                items = [(index, doc_id) for doc_id in ids]
+            else:
+                items = []
+
         results = []
-        for id in ids:
+        for doc_index, doc_id in items:
             # pylint: disable=bare-except
             try:
                 results.append(
                     await self.get(
-                        index, id, doc_type=doc_type, params=params, headers=headers
+                        doc_index,
+                        doc_id,
+                        doc_type=doc_type,
+                        params=params,
+                        headers=headers,
                     )
                 )
             except:  # noqa
-                pass  # nosec
+                results.append(
+                    {
+                        "_index": doc_index,
+                        "_type": doc_type,
+                        "_id": doc_id,
+                        "found": False,
+                    }
+                )
         if not results:
             raise RequestError(
                 400,
@@ -731,6 +891,7 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
         "terminate_after",
         "timeout",
         "track_scores",
+        "track_total_hits",
         "version",
     )
     async def search(
@@ -815,18 +976,27 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
             for key in body["sort"][0]:
                 if body["sort"][0][key]["order"] == "desc":
                     hits = sorted(
-                        hits, key=lambda k, key=key: k["_source"][key], reverse=True
+                        hits,
+                        key=lambda k, key=key: (
+                            k["_source"].get(key) is None,
+                            k["_source"].get(key),
+                        ),
+                        reverse=True,
                     )
                 else:
-                    hits = sorted(hits, key=lambda k, key=key: k["_source"][key])
+                    hits = sorted(
+                        hits,
+                        key=lambda k, key=key: (
+                            k["_source"].get(key) is None,
+                            k["_source"].get(key),
+                        ),
+                    )
 
-        if (
-            body is not None
-            and "from" in body
-            and "size" in body
-            and body["from"] + body["size"] > 0
-        ):
-            hits = hits[body["from"] : body["from"] + body["size"]]
+        if body is not None and "size" in body:
+            start = body.get("from", 0)
+            hits = hits[start : start + body["size"]]
+        elif body is not None and "from" in body:
+            hits = hits[body["from"] :]
 
         if "scroll" in params:
             result["_scroll_id"] = str(get_random_scroll_id())
@@ -884,6 +1054,7 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
     ) -> Any:
         doc_type = None
         found = False
+        existing_version = 1
         ignore = extract_ignore_as_iterable(params)
 
         if index in self.__documents_dict:
@@ -893,22 +1064,39 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
                     if doc_type and document.get("_type") != doc_type:
                         found = False
                     if found:
+                        existing_version = document.get("_version", 1)
                         self.__documents_dict[index].remove(document)
                         break
 
-        result_dict = {
-            "found": found,
-            "_index": index,
-            "_type": doc_type,
-            "_id": id,
-            "_version": 1,
-        }
-
         if found:
-            return result_dict
+            seq_no = self._next_seq_no(index)
+            return {
+                "_index": index,
+                "_id": id,
+                "_version": existing_version + 1,
+                "result": "deleted",
+                "_shards": {"total": 2, "successful": 1, "failed": 0},
+                "_seq_no": seq_no,
+                "_primary_term": 1,
+                "found": True,
+            }
         if params and 404 in ignore:
-            return {"found": False}
-        raise NotFoundError(404, json.dumps(result_dict))
+            return {
+                "_index": index,
+                "_id": id,
+                "_version": 1,
+                "result": "not_found",
+                "_shards": {"total": 2, "successful": 1, "failed": 0},
+                "_seq_no": 0,
+                "_primary_term": 1,
+                "found": False,
+            }
+        raise NotFoundError(
+            404,
+            json.dumps(
+                {"_index": index, "_id": id, "found": False, "result": "not_found"}
+            ),
+        )
 
     @query_params(
         "allow_no_indices",
@@ -939,8 +1127,8 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
 
     def _normalize_index_to_list(self, index):
         # Ensure to have a list of index
-        if index is None:
-            searchable_indexes = self.__documents_dict.keys()
+        if index is None or index == "*" or index == "_all":
+            searchable_indexes = list(self.__documents_dict.keys())
         elif isinstance(index, str):
             searchable_indexes = [index]
         elif isinstance(index, list):
@@ -949,12 +1137,23 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
             # Is it the correct exception to use ?
             raise ValueError("Invalid param 'index'")
 
+        # Resolve aliases to backing indices
+        resolved = []
+        for name in searchable_indexes:
+            backing = [
+                idx
+                for idx, entry in self.__aliases_dict.items()
+                if name in entry.get("aliases", {})
+            ]
+            if backing:
+                resolved.extend(backing)
+            else:
+                resolved.append(name)
+        searchable_indexes = resolved
+
         # Check index(es) exists
         for searchable_index in searchable_indexes:
-            if (
-                searchable_index not in self.__documents_dict
-                and searchable_index not in self._FakeAsyncIndicesClient__documents_dict
-            ):
+            if searchable_index not in self.__documents_dict:
                 raise NotFoundError(
                     404, f"IndexMissingException[[{searchable_index}] missing]"
                 )
@@ -972,6 +1171,18 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
     def make_aggregation_buckets(self, aggregation, documents):
         if "composite" in aggregation:
             return self.make_composite_aggregation_buckets(aggregation, documents)
+        if "terms" in aggregation:
+            field = aggregation["terms"]["field"]
+            counts = defaultdict(int)
+            for doc in documents:
+                val = doc["_source"].get(field)
+                if val is not None:
+                    counts[val] += 1
+            buckets = [
+                {"key": k, "doc_count": v}
+                for k, v in sorted(counts.items(), key=lambda x: x[1], reverse=True)
+            ]
+            return buckets
         return []
 
     def make_composite_aggregation_buckets(self, aggregation, documents):
@@ -989,6 +1200,10 @@ class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
                     metric_type_str = list(metric_definition)[0]
                     metric_type = MetricType.get_metric_type(metric_type_str)
                     attr = metric_definition[metric_type_str]["field"]
+                    # Strip .keyword multifield suffix; the fake is schema-light
+                    # and stores only the base field value.
+                    if attr.endswith(".keyword"):
+                        attr = attr[: -len(".keyword")]
                     data = [doc[attr] for doc in bucket]
 
                     if metric_type == MetricType.CARDINALITY:

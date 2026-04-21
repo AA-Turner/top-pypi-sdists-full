@@ -19,20 +19,17 @@ from ._base import (
     DataItem,
     Page,
     StorageIOConfig,
-    TableUploadableStorageIO,
+    TableUploadableDataIO,
 )
 from .selectors import RawTableSelector
 
 
 class RawIO(
     ConfigurableDataIO[RawTableSelector, Row],
-    TableUploadableStorageIO[RawTableSelector, Row, RowWrite],
+    TableUploadableDataIO[RawTableSelector, Row, RowWrite],
 ):
     KIND = "RawRows"
     DISPLAY_NAME = "Raw Rows"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".yaml", ".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml"})
     CHUNK_SIZE = 10_000
     UPLOAD_ENDPOINT = "/raw/dbs/{dbName}/tables/{tableName}/rows"
     BASE_SELECTOR = RawTableSelector

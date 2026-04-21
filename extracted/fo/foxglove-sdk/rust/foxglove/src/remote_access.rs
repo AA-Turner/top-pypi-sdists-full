@@ -1,20 +1,39 @@
 //! Remote access implementation.
 
 mod capability;
-mod channel_subscription;
 mod client;
 mod connection;
 mod credentials_provider;
 mod gateway;
 mod listener;
 mod participant;
+mod participants;
+pub(super) mod protocol_version;
+mod qos;
+mod rtt_tracker;
+pub mod service;
 mod session;
 mod session_state;
 
+pub use crate::remote_common::ClientId;
+pub use crate::remote_common::connection_graph::ConnectionGraph;
 pub use capability::Capability;
 pub use client::Client;
+pub use connection::ConnectionStatus;
 pub use gateway::{Gateway, GatewayHandle};
 pub use listener::Listener;
+pub use qos::{QosClassifier, QosProfile, QosProfileBuilder, Reliability};
+
+// Re-export parameter types so callers can construct parameter values.
+pub use crate::protocol::v2::parameter::{Parameter, ParameterType, ParameterValue};
+
+// Re-export status types so callers can publish and remove status messages.
+pub use crate::protocol::v2::server::status::{Level as StatusLevel, Status};
+
+// Re-export fetch-asset types.
+pub use crate::remote_common::fetch_asset::AssetHandler;
+/// Type alias for the remote-access-specific asset responder.
+pub type AssetResponder = crate::remote_common::fetch_asset::AssetResponder<Client>;
 
 use thiserror::Error;
 

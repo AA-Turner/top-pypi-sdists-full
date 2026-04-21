@@ -21,17 +21,6 @@ from io import BytesIO
 from itertools import groupby
 
 import dateutil.tz
-
-try:
-    import html2text
-except ImportError:
-    html2text = None
-
-try:
-    import weasyprint
-except ImportError:
-    weasyprint = None
-
 from genshi.filters import Translator
 from genshi.template.text import TextTemplate
 
@@ -128,6 +117,19 @@ class TranslateFactory:
     def ngettext(self, text, text_plural, n):
         return self.translation.get_report(
             self.report_name, text, text_plural, n)
+
+
+def _lazy_import(name):
+    attr_name = f'_mod_{name}'
+    if not hasattr(_lazy_import, attr_name):
+        try:
+            mod = __import__(name)
+        except ImportError:
+            mod = None
+        setattr(_lazy_import, attr_name, mod)
+    else:
+        mod = getattr(_lazy_import, attr_name)
+    return mod
 
 
 class Report(URLMixin, PoolBase):
@@ -409,10 +411,17 @@ class Report(URLMixin, PoolBase):
         input_format = report.template_extension
         output_format = report.extension or report.template_extension
 
-        if (weasyprint
-                and input_format in {'html', 'xhtml'}
+        if (input_format in {'html', 'xhtml'}
                 and output_format == 'pdf'):
-            return output_format, weasyprint.HTML(string=data).write_pdf()
+            if weasyprint := _lazy_import('weasyprint'):
+                return output_format, weasyprint.HTML(string=data).write_pdf()
+
+        if (input_format == 'xml'
+                and output_format == 'html'
+                and isinstance(data, str)
+                and data.startswith('<mjml')):
+            if mrml := _lazy_import('mrml'):
+                return output_format, mrml.to_html(data).content
 
         if input_format == output_format and output_format in MIMETYPES:
             return output_format, data
@@ -593,7 +602,6 @@ def get_email(report, record, languages):
         else:
             report_name = report
         Report_ = pool.get(report_name, type='report')
-    converter = None
     title = None
     msg = EmailMessage()
     header_factory = msg.policy.header_factory
@@ -612,13 +620,11 @@ def get_email(report, record, languages):
                 break
         else:
             maintype, subtype = 'application', ext
-        if maintype == 'text' and subtype == 'html' and html2text:
-            if not converter:
-                converter = html2text.HTML2Text()
-            content_text = converter.handle(content)
-            msg.add_alternative(content_text, subtype='plain', headers=[
-                    header_factory('Content-Language', language.code),
-                    ])
+        if maintype == 'text' and subtype == 'html':
+            if content_text := html_to_text(content):
+                msg.add_alternative(content_text, subtype='plain', headers=[
+                        header_factory('Content-Language', language.code),
+                        ])
         types = {
             'subtype': subtype,
             }
@@ -638,3 +644,14 @@ def get_email(report, record, languages):
         msg.add_header(
             'Content-Language', ', '.join(l.code for l in languages))
     return msg, title
+
+
+def mjml_to_html(content):
+    if mrml := _lazy_import('mrml'):
+        content = mrml.to_html(content).content
+    return content
+
+
+def html_to_text(content):
+    if html2text := _lazy_import('html2text'):
+        return html2text.HTML2Text().handle(content)

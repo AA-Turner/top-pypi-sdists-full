@@ -122,7 +122,7 @@ def ansi_color_name_to_escape_code(name, style="default", cmap=None):
         if "#" in color:
             mods.append("38;5;" + rgb_to_256(color[1:])[0])
         elif color == "DEFAULT":
-            res = "39"
+            mods.append("39")
         else:
             mods.append(cmap[color])
         res = ";".join(mods)
@@ -1134,7 +1134,7 @@ def register_custom_ansi_style(name, styles, base="default"):
     base : str, optional
         Base style to use as default.
     """
-    base_style = ANSI_STYLES[base].copy()
+    base_style = ansi_style_by_name(base).copy()
 
     base_style.update(_style_dict_to_ansi(styles))
 

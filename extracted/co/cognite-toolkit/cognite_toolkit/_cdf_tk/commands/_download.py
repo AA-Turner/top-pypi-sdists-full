@@ -1,29 +1,32 @@
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import date
 from functools import partial
 from pathlib import Path
+from typing import Generic, Literal, TypeAlias
 
+from rich.console import Console
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.dataio import (
     ConfigurableDataIO,
     DataIO,
+    DataItem,
     Page,
     T_Selector,
     TableDataIO,
+    UploadableDataIO,
 )
 from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, display_item_results
-from cognite_toolkit._cdf_tk.dataio.progress import Bookmark, CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import (
     TABLE_WRITE_CLS_BY_FORMAT,
     Compression,
     FileWriter,
+    MultiFileReader,
     NDJsonWriter,
     SchemaColumn,
     Uncompressed,
@@ -32,6 +35,53 @@ from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import ToolkitCommand
+
+FormatType: TypeAlias = Literal["json", "table", "delayed-table"]
+
+
+@dataclass
+class DownloadStep(Generic[T_Selector]):
+    selector: T_Selector
+    count: int | None
+    filestem: str
+    target_dir: Path
+    schema: list[SchemaColumn] | None
+    format_type: FormatType
+    limit: int | None
+
+    @property
+    def is_table(self) -> bool:
+        return self.format_type == "table"
+
+    @property
+    def download_count(self) -> int | None:
+        if self.limit is not None and self.count is not None:
+            return min(self.limit, self.count)
+        return self.count
+
+    @property
+    def skip_message(self) -> str | None:
+        if self.count == 0:
+            return f"No items to download for {self.selector!s}. Skipping."
+        elif self._already_downloaded():
+            return f"Data for {self.selector!s} already exists in {self.target_dir.as_posix()!r}. Skipping download."
+        return None
+
+    def _already_downloaded(self) -> bool:
+        if not self.target_dir.exists():
+            return False
+
+        # Check for multi-part files (e.g. ndjson, csv, parquet)
+        if any(self.target_dir.glob(f"{self.filestem}-part-*")):
+            return True
+
+        # Check for single files (e.g. yaml) and exclude the metadata file.
+        manifest_file_name = f"{self.filestem}.{DATA_MANIFEST_STEM}.yaml"
+        for f in self.target_dir.glob(f"{self.filestem}.*"):
+            if f.name != manifest_file_name:
+                return True
+
+        return False
 
 
 class DownloadCommand(ToolkitCommand):
@@ -56,140 +106,145 @@ class DownloadCommand(ToolkitCommand):
             compression: The compression method to use for the downloaded files (e.g., "none", "gzip").
             limit: The maximum number of items to download for each selected set. If None, all items will be downloaded.
         """
-        compression_cls = Compression.from_name(compression)
         console = io.client.console
+        plan = self._create_plan(io, selectors, output_dir, file_format, limit)
+        self._display_plan(plan, console)
 
-        counts_by_selector: dict[T_Selector, int | None] = {}
+        for step in plan:
+            if skip_message := step.skip_message:
+                console.print(skip_message)
+                continue
+            elif verbose:
+                console.print(
+                    f"Downloading {step.selector.display_name} '{step.selector!s}' to {step.target_dir.as_posix()!r}"
+                )
+
+            step.selector.dump_to_file(step.target_dir)
+
+            with (
+                self._create_data_file_writer(step, file_format, compression) as writer,
+                self._create_log_file_writer(step.target_dir) as log_file,
+                FileWithAggregationLogger(log_file) as logger,
+            ):
+                file_count = self._download_data(io, step, writer, logger, console)
+                if isinstance(io, ConfigurableDataIO):
+                    self._dump_configuration(io, step)
+
+            if step.format_type == "delayed-table" and isinstance(io, TableDataIO):
+                self._convert_json_to_table(io, step, file_format, compression, console)
+
+            console.print(f"Downloaded {step.selector!s} to {file_count} file(s) in {step.target_dir.as_posix()!r}.")
+
+    @classmethod
+    def _create_plan(
+        cls,
+        io: DataIO[T_Selector, T_ResourceResponse],
+        selectors: Sequence[T_Selector],
+        output_dir: Path,
+        file_format: str,
+        limit: int | None,
+    ) -> list[DownloadStep[T_Selector]]:
+        plan: list[DownloadStep[T_Selector]] = []
+        for selector in selectors:
+            count = io.count(selector)
+            target_dir = cls._get_target_dir(selector, output_dir)
+
+            filestem = sanitize_filename(str(selector))
+            columns, format_type = cls._get_columns(io, selector, file_format)
+            plan.append(DownloadStep(selector, count, filestem, target_dir, columns, format_type, limit))
+        return plan
+
+    @classmethod
+    def _display_plan(cls, plan: list[DownloadStep[T_Selector]], console: Console) -> None:
         table = Table(title="Planned Downloads")
         table.add_column("Data Type", style="cyan")
         table.add_column("Item Count", justify="right", style="green")
-        for selector in selectors:
-            total = io.count(selector)
-            counts_by_selector[selector] = total
-            item_count = str(total) if total is not None else "Unknown"
-            table.add_row(str(selector), item_count)
+        for step in plan:
+            download_count = step.download_count
+            if (
+                step.limit is not None
+                and step.count is not None
+                and download_count is not None
+                and step.count > step.limit
+            ):
+                display_value = f"{download_count:,} (of {step.count:,} available)"
+            else:
+                display_value = f"{download_count:,}" if download_count is not None else "Unknown"
+
+            table.add_row(str(step.selector), display_value)
         console.print(table)
 
-        for selector in selectors:
-            if selector.download_dir_name is None:
-                raise NotImplementedError(f"Bug in Toolkit. The download_dir_name field is missing for {selector!r}.")
-            target_dir = output_dir / sanitize_filename(selector.download_dir_name)
-            if verbose:
-                console.print(f"Downloading {selector.display_name} '{selector!s}' to {target_dir.as_posix()!r}")
+    @classmethod
+    def _get_target_dir(cls, selector: T_Selector, output_dir: Path) -> Path:
+        if selector.download_dir_name is None:
+            raise NotImplementedError(f"Bug in Toolkit. The download_dir_name field is missing for {selector!r}.")
+        return output_dir / sanitize_filename(selector.download_dir_name)
 
-            total = counts_by_selector[selector]
-            if total == 0:
-                console.print(f"No items to download for {selector!s}. Skipping.")
-                continue
-            total_item_count = total if (limit is None or total is None) else min(limit, total)
+    @classmethod
+    def _get_columns(
+        cls, io: DataIO[T_Selector, T_ResourceResponse], selector: T_Selector, file_format: str
+    ) -> tuple[list[SchemaColumn] | None, FormatType]:
+        columns: list[SchemaColumn] | None = None
+        is_table = file_format in TABLE_WRITE_CLS_BY_FORMAT
+        format_type: FormatType = "table" if is_table else "json"
+        if is_table and isinstance(io, TableDataIO):
+            available_schema = io.get_schema(selector)
+            if available_schema is None:
+                format_type = "delayed-table"
+            columns = available_schema
+        elif is_table:
+            raise ToolkitValueError(
+                f"Cannot download {selector.kind} in {file_format!r} format. The {selector.kind!r} data type does not support table schemas."
+            )
+        return columns, format_type
 
-            filestem = sanitize_filename(str(selector))
-            start_item = 0
-            init_bookmark: Bookmark | None = None
-            # Remove false when ready.
-            if False and Flags.EXTEND_DOWNLOAD.is_enabled():
-                if progress := ProgressYAML.try_load(target_dir, self._download_filestem(filestem)):
-                    first = progress.get_first_bookmark()
-                    is_sync = isinstance(first, CursorBookmark) and first.source == "sync"
-                    # Sync cursor supports continuing even if the data has been modified.
-                    if progress.total != total_item_count and not is_sync:
-                        console.print(
-                            f"Found progress file for {selector.display_name}. But total items "
-                            f"does not match the expected total. Starting from beginning..."
-                        )
-                    elif progress.status == "completed" and is_sync:
-                        console.print(f"Found completed progress file for {selector.display_name}. Skipping download.")
-                    elif first is not None:
-                        init_bookmark = first
-                        start_item = progress.completed_count
-                        console.print(f"Resuming download for {selector.display_name} from {first!s}.")
-                    else:
-                        console.print(
-                            f"Found progress file but failed to load for {selector.display_name}. "
-                            f"Starting from beginning"
-                        )
-            else:
-                if self._already_downloaded(target_dir, filestem):
-                    warning = LowSeverityWarning(
-                        f"Data for {selector!s} already exists in {target_dir.as_posix()!r}. Skipping download."
-                    )
-                    self.warn(warning, console=console)
-                    continue
+    @classmethod
+    def _create_data_file_writer(
+        cls, step: DownloadStep[T_Selector], file_format: str, compression: str, is_conversion: bool = False
+    ) -> FileWriter:
+        use_file_format = file_format if step.format_type != "delayed-table" or is_conversion else ".ndjson"
+        return FileWriter.create_from_format(
+            use_file_format,
+            step.target_dir,
+            step.selector.kind,
+            Compression.from_name(compression),
+            columns=step.schema,
+        )
 
-            selector.dump_to_file(target_dir)
-            columns: list[SchemaColumn] | None = None
-            is_table = file_format in TABLE_WRITE_CLS_BY_FORMAT
-            if is_table and isinstance(io, TableDataIO):
-                columns = io.get_schema(selector)
-            elif is_table:
-                raise ToolkitValueError(
-                    f"Cannot download {selector.kind} in {file_format!r} format. The {selector.kind!r} storage type does not support table schemas."
-                )
+    @classmethod
+    def _create_log_file_writer(cls, target_dir: Path) -> NDJsonWriter:
+        log_filestem = f"download_{date.today().strftime('%Y%m%d')}"
+        return NDJsonWriter(target_dir, kind="DownloadLogs", default_filestem=log_filestem, compression=Uncompressed)
 
-            log_filestem = f"download_{date.today().strftime('%Y%m%d')}"
-            with (
-                FileWriter.create_from_format(
-                    file_format, target_dir, selector.kind, compression_cls, columns=columns
-                ) as writer,
-                NDJsonWriter(
-                    target_dir, kind="DownloadLogs", default_filestem=log_filestem, compression=Uncompressed
-                ) as log_file,
-                FileWithAggregationLogger(log_file) as logger,
-            ):
-                io.logger = logger
+    @classmethod
+    def _download_data(
+        cls,
+        io: DataIO[T_Selector, T_ResourceResponse],
+        step: DownloadStep[T_Selector],
+        writer: FileWriter,
+        logger: FileWithAggregationLogger,
+        console: Console,
+    ) -> int:
+        io.logger = logger
+        logger.reset()
+        executor = ProducerWorkerExecutor[Page[T_ResourceResponse], Page[dict[str, JsonVal]]](
+            download_iterable=io.stream_data(step.selector, step.limit),
+            process=cls.create_data_process(io=io, selector=step.selector, is_table=step.is_table),
+            write=cls.create_writer(writer, step.filestem),
+            total_item_count=step.count,
+            # Limit queue size to avoid filling up memory before the workers can write to disk.
+            max_queue_size=8 * 10,  # 8 workers, 10 items per worker
+            download_description=f"Downloading {step.selector!s}",
+            process_description="Processing",
+            write_description=f"Writing to {step.target_dir.as_posix()!r} in files with stem {step.filestem!r}",
+            console=console,
+        )
+        executor.run()
 
-                executor = ProducerWorkerExecutor[Page[T_ResourceResponse], Page[dict[str, JsonVal]]](
-                    download_iterable=io.stream_data(selector, limit, bookmark=init_bookmark),
-                    process=self.create_data_process(io=io, selector=selector, is_table=is_table),
-                    write=self.create_writer(writer, filestem, target_dir, start_item, total_item_count),
-                    total_item_count=total_item_count,
-                    # Limit queue size to avoid filling up memory before the workers can write to disk.
-                    max_queue_size=8 * 10,  # 8 workers, 10 items per worker
-                    download_description=f"Downloading {selector!s}",
-                    process_description="Processing",
-                    write_description=f"Writing to {target_dir.as_posix()!r} in files with stem {filestem!r}",
-                    console=console,
-                )
-                executor.run(start_item=start_item)
-                progress = ProgressYAML.try_load(target_dir, filestem=self._download_filestem(filestem))
-                if progress is not None:
-                    progress.status = executor.result
-                    progress.dump_to_file(target_dir, filestem=self._download_filestem(filestem))
-
-                items_results = logger.finalize(is_dry_run=False)
-                display_item_results(items_results, title=f"Finished {selector.display_name}", console=console)
-                executor.raise_on_error()
-                file_count = writer.file_count
-
-            if isinstance(io, ConfigurableDataIO):
-                for config in io.configurations(selector):
-                    filename = config.filename or filestem
-                    config_file = target_dir / DATA_RESOURCE_DIR / config.folder_name / f"{filename}.{config.kind}.yaml"
-                    config_file.parent.mkdir(parents=True, exist_ok=True)
-                    safe_write(config_file, yaml_safe_dump(config.value))
-
-            console.print(f"Downloaded {selector!s} to {file_count} file(s) in {target_dir.as_posix()!r}.")
-
-    @staticmethod
-    def _already_downloaded(output_dir: Path, filestem: str) -> bool:
-        if not output_dir.exists():
-            return False
-
-        # Check for multi-part files (e.g. ndjson, csv, parquet)
-        if any(output_dir.glob(f"{filestem}-part-*")):
-            return True
-
-        # Check for single files (e.g. yaml) and exclude the metadata file.
-        manifest_file_name = f"{filestem}.{DATA_MANIFEST_STEM}.yaml"
-        for f in output_dir.glob(f"{filestem}.*"):
-            if f.name != manifest_file_name:
-                return True
-
-        return False
-
-    @staticmethod
-    def _download_filestem(filestem: str) -> str:
-        return f"downloaded_{filestem!s}"
+        items_results = logger.finalize(is_dry_run=False)
+        display_item_results(items_results, title=f"Finished {step.selector.display_name}", console=console)
+        executor.raise_on_error()
+        return writer.file_count
 
     @staticmethod
     def create_data_process(
@@ -203,33 +258,66 @@ class DownloadCommand(ToolkitCommand):
         return partial(io.data_to_json_chunk, selector=selector)
 
     @classmethod
-    def create_writer(
-        cls,
-        writer: FileWriter,
-        filestem: str,
-        directory: Path,
-        start_item: int,
-        total_item_count: int | None,
-    ) -> Callable[[Page[dict[str, JsonVal]]], None]:
+    def create_writer(cls, writer: FileWriter, filestem: str) -> Callable[[Page[dict[str, JsonVal]]], None]:
         """Creates a writer function that writes processed data to files using the provided FileWriter."""
-        write_item_count = start_item
 
         def write(page: Page[dict[str, JsonVal]]) -> None:
-            # MyPy Fails to understand that JsonVal is a subset of chunk.
-            nonlocal write_item_count
             writer.write_chunks(page.as_raw_items(), filestem=filestem)  # type: ignore[arg-type]
 
-            # Remove false when functionality is ready.
-            if False and Flags.EXTEND_DOWNLOAD.is_enabled():
-                write_item_count += len(page.as_raw_items())
-                ProgressYAML(
-                    status="in-progress",
-                    bookmarks={page.worker_id: page.bookmark},
-                    total=total_item_count,
-                    completed_count=write_item_count,
-                ).dump_to_file(
-                    directory=directory,
-                    filestem=cls._download_filestem(filestem),
-                )
-
         return write
+
+    @staticmethod
+    def _dump_configuration(
+        io: ConfigurableDataIO[T_Selector, T_ResourceResponse], step: DownloadStep[T_Selector]
+    ) -> None:
+        for config in io.configurations(step.selector):
+            filename = config.filename or step.filestem
+            config_file = step.target_dir / DATA_RESOURCE_DIR / config.folder_name / f"{filename}.{config.kind}.yaml"
+            config_file.parent.mkdir(parents=True, exist_ok=True)
+            safe_write(config_file, yaml_safe_dump(config.value))
+
+    @classmethod
+    def _convert_json_to_table(
+        cls,
+        io: TableDataIO[T_Selector, T_ResourceResponse],
+        step: DownloadStep[T_Selector],
+        file_format: str,
+        compression: str,
+        console: Console,
+    ) -> None:
+        manifest_path = step.target_dir / step.selector.as_filename()
+        json_files = step.selector.find_data_files(step.target_dir, manifest_path)
+        schema = io.get_schema(selector=step.selector)
+        if schema is None:
+            raise RuntimeError("Bug in Toolkit. Schema should not be None after data is downloaded.")
+        step.schema = schema
+        reader = MultiFileReader(json_files, schema=schema)
+        with cls._create_data_file_writer(step, file_format, compression, is_conversion=True) as writer:
+            executor = ProducerWorkerExecutor[Page[dict[str, JsonVal]], Page[dict[str, JsonVal]]](
+                download_iterable=UploadableDataIO.read_chunks(reader, step.selector),
+                process=cls._create_json_to_row(io),
+                write=cls.create_writer(writer, step.filestem),
+                total_item_count=step.download_count if step.download_count else reader.count(),
+                # Limit queue size to avoid filling up memory before the workers can write to disk.
+                max_queue_size=8 * 10,  # 8 workers, 10 items per worker
+                download_description=f"Reading {step.selector!s} json format.",
+                process_description="Converting to rows",
+                write_description=f"Writing to {file_format}",
+                console=console,
+            )
+            executor.run()
+            executor.raise_on_error()
+            console.print(f"Converted {step.selector!s} from .ndjson to {file_format} format")
+
+        for file in json_files:
+            file.unlink()
+
+    @classmethod
+    def _create_json_to_row(
+        cls, io: TableDataIO[T_Selector, T_ResourceResponse]
+    ) -> Callable[[Page[dict[str, JsonVal]]], Page[dict[str, JsonVal]]]:
+        def process(page: Page[dict[str, JsonVal]]) -> Page[dict[str, JsonVal]]:
+            rows = [DataItem(item=io.json_to_row(item.item), tracking_id=item.tracking_id) for item in page.items]
+            return page.create_from(rows)
+
+        return process

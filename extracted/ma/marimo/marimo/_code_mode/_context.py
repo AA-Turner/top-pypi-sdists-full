@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal, Protocol, overload
 
 from marimo import _loggers
@@ -37,6 +38,12 @@ from marimo._ast.cell import (
 from marimo._ast.cell_id import CellIdGenerator
 from marimo._ast.compiler import compile_cell
 from marimo._ast.names import SETUP_CELL_NAME
+from marimo._code_mode._better_inspect import _HelpableEnumMeta, helpable
+from marimo._code_mode._packages import (
+    Packages,
+    _AddPackage,
+    _RemovePackage,
+)
 from marimo._code_mode._plan import (
     _AddOp,
     _build_plan,
@@ -71,7 +78,6 @@ from marimo._runtime.commands import (
     CommandMessage,
     DeleteCellCommand,
     ExecuteCellCommand,
-    InstallPackagesCommand,
     UpdateUIElementCommand,
 )
 from marimo._runtime.context import get_context as _get_runtime_context
@@ -82,29 +88,55 @@ from marimo._utils.formatter import DefaultFormatter
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
+    from os import PathLike
     from types import TracebackType
 
     from typing_extensions import Self
 
     from marimo._ast.cell_manager import CellManager
+    from marimo._code_mode.screenshot import _ScreenshotSession
     from marimo._runtime.dataflow import DirectedGraph
     from marimo._runtime.runtime import Kernel
 
-CellStatusType = Literal[
-    "idle",
-    "exception",
-    "stale",
-    "cancelled",
-    "interrupted",
-    "marimo-error",
-    "disabled",
-    "queued",
-    "running",
-]
+
+@helpable
+class CellStatusType(str, Enum, metaclass=_HelpableEnumMeta):
+    """Synthesized cell execution status.
+
+    Returned by ``NotebookCell.status``.  Compares equal to plain
+    strings, so ``cell.status == "idle"`` works as expected.
+    """
+
+    idle = "idle"
+    """Ran successfully, up to date."""
+    exception = "exception"
+    """Cell raised an exception."""
+    stale = "stale"
+    """Needs re-run (code edited, inputs changed, or never run)."""
+    cancelled = "cancelled"
+    """Ancestor raised an exception."""
+    interrupted = "interrupted"
+    """Execution was interrupted."""
+    marimo_error = "marimo-error"
+    """Prevented from executing (e.g. multiply-defined name)."""
+    disabled = "disabled"
+    """Cell is disabled."""
+    queued = "queued"
+    """Waiting to run."""
+    running = "running"
+    """Currently executing."""
+
+    def __str__(self) -> str:
+        return self.value
+
+    def __repr__(self) -> str:
+        return repr(self.value)
+
 
 CellErrorKind = Literal["graph", "runtime"]
 
 
+@helpable
 @dataclass(frozen=True, slots=True)
 class CellError:
     """An error affecting a notebook cell.
@@ -147,6 +179,10 @@ class CellRuntimeState(Protocol):
 
 LOGGER = _loggers.marimo_logger()
 
+# Set the first time `ctx.install_packages` (legacy alias) is used in a
+# session, so the nudge is printed once per process instead of every call.
+_LEGACY_INSTALL_WARNED = False
+
 
 # ------------------------------------------------------------------
 # Entry point
@@ -182,6 +218,7 @@ def get_context(*, skip_validation: bool = False) -> AsyncCodeModeContext:
     )
 
 
+@helpable
 class NotebookCell:
     """Read-only view of a single cell with runtime status.
 
@@ -275,26 +312,26 @@ class NotebookCell:
         stale > last run result.
         """
         if self._impl is None:
-            return "stale" if self._cell.code else None
+            return CellStatusType.stale if self._cell.code else None
         # Transient runtime state takes priority.
         rs = self._impl.runtime_state
         if rs == "queued":
-            return "queued"
+            return CellStatusType.queued
         if rs == "running":
-            return "running"
+            return CellStatusType.running
         if rs == "disabled-transitively":
-            return "disabled"
+            return CellStatusType.disabled
         # Stale overrides last run result.
         if self._is_stale():
-            return "stale"
+            return CellStatusType.stale
         # Fall back to last execution result.
         rr = self._impl.run_result_status
         if rr is None:
             # Registered in the graph but never executed.
-            return "stale" if self._cell.code else None
+            return CellStatusType.stale if self._cell.code else None
         if rr == "success":
-            return "idle"
-        return rr
+            return CellStatusType.idle
+        return CellStatusType(rr)
 
     @property
     def errors(self) -> list[CellError]:
@@ -341,6 +378,7 @@ class NotebookCell:
         )
 
 
+@helpable
 class _CellsView:
     """Read-only, ordered view over notebook cells.
 
@@ -529,6 +567,7 @@ class _CellsView:
 # ------------------------------------------------------------------
 
 
+@helpable
 class AsyncCodeModeContext:
     """Async programmatic control of a running marimo notebook.
 
@@ -573,10 +612,11 @@ class AsyncCodeModeContext:
         # document prevents collisions with cells already on disk.
         self._id_generator = CellIdGenerator(seed=None)
         self._id_generator.seen_ids = set(document.cell_ids)
-        self._packages_to_install: list[str] = []
+        self._packages = Packages(self)
         self._ui_updates: list[tuple[UIElementId, Any]] = []
         self._cells_to_run: set[CellId_t] = set()
         self._entered = False
+        self._screenshot_session: _ScreenshotSession | None = None
 
     def _require_entered(self) -> None:
         if not self._entered:
@@ -589,6 +629,24 @@ class AsyncCodeModeContext:
                 "Without 'async with', operations are silently lost."
             )
 
+    def __getattr__(self, name: str) -> Any:
+        # Legacy alias: `ctx.install_packages(...)` was the pre-namespace
+        # API. Kept as a hidden shim for in-flight skills / examples;
+        # does not appear in dir() or IDE completion. Prefer
+        # `ctx.packages.add(...)` in new code.
+        if name == "install_packages":
+            global _LEGACY_INSTALL_WARNED
+            if not _LEGACY_INSTALL_WARNED:
+                _LEGACY_INSTALL_WARNED = True
+                sys.stderr.write(
+                    "note: ctx.install_packages() is a legacy alias — "
+                    "please update to ctx.packages.add()\n"
+                )
+            return self.packages.add
+        raise AttributeError(
+            f"{type(self).__name__!r} object has no attribute {name!r}"
+        )
+
     # ------------------------------------------------------------------
     # Async context manager
     # ------------------------------------------------------------------
@@ -596,7 +654,7 @@ class AsyncCodeModeContext:
     async def __aenter__(self) -> Self:
         self._ops = []
         self._pending_adds = {}
-        self._packages_to_install = []
+        self._packages._reset()
         self._ui_updates = []
         self._cells_to_run = set()
         self._entered = True
@@ -609,26 +667,22 @@ class AsyncCodeModeContext:
         exc_tb: TracebackType | None,
     ) -> None:
         ops = self._ops
-        packages = self._packages_to_install
         ui_updates = self._ui_updates
         cells_to_run = self._cells_to_run
         self._ops = []
         self._pending_adds = {}
-        self._packages_to_install = []
         self._ui_updates = []
         self._cells_to_run = set()
 
+        await self.close_screenshot_session()
+
         if exc_type is not None:
+            self._packages._reset()
             return  # let exception propagate, discard queued ops
 
-        # Install queued packages before applying cell ops so that
-        # newly added cells can import them.
-        if packages:
-            manager = self._kernel.user_config["package_management"]["manager"]
-            for pkg in packages:
-                await self.execute_command(
-                    InstallPackagesCommand(manager=manager, versions={pkg: ""})
-                )
+        # Flush queued package ops before cell ops so newly added
+        # cells can import newly installed packages.
+        package_ops = await self._packages._flush()
 
         if ops:
             _validate_ops(ops)
@@ -654,11 +708,12 @@ class AsyncCodeModeContext:
                 UpdateUIElementCommand(
                     object_ids=list(object_ids),
                     values=list(values),
-                )
+                ),
+                notify_frontend=True,
             )
 
         # Print a summary of what was applied.
-        self._print_summary(ops, packages, ui_updates, cells_to_run)
+        self._print_summary(ops, package_ops, ui_updates, cells_to_run)
 
     # ------------------------------------------------------------------
     # Summary
@@ -667,15 +722,18 @@ class AsyncCodeModeContext:
     def _print_summary(
         self,
         ops: list[_Op],
-        packages: list[str],
+        package_ops: list[_AddPackage | _RemovePackage],
         ui_updates: list[tuple[UIElementId, Any]],
         cells_to_run: set[CellId_t] | None = None,
     ) -> None:
         """Print a human-readable summary of applied operations."""
         lines: list[str] = []
 
-        for pkg in packages:
-            lines.append(f"installed {pkg}")
+        for pkg_op in package_ops:
+            if isinstance(pkg_op, _AddPackage):
+                lines.append(f"installed {pkg_op.package}")
+            else:
+                lines.append(f"uninstalled {pkg_op.package}")
 
         _run = cells_to_run or set()
         op_cell_ids: set[CellId_t] = set()
@@ -684,9 +742,18 @@ class AsyncCodeModeContext:
             op_cell_ids.add(cell_id)
             label = self._cell_label(cell_id)
             ran = cell_id in _run
+            errored = ran and self._cell_errored(cell_id)
             if isinstance(op, _AddOp):
-                verb = "created and ran" if ran else "created"
-                lines.append(f"{verb} cell {label}")
+                if errored:
+                    verb = "created and ran"
+                    suffix = " (error)"
+                elif ran:
+                    verb = "created and ran"
+                    suffix = ""
+                else:
+                    verb = "created"
+                    suffix = ""
+                lines.append(f"{verb} cell {label}{suffix}")
             elif isinstance(op, _UpdateOp):
                 parts = []
                 if op.code is not None:
@@ -694,7 +761,12 @@ class AsyncCodeModeContext:
                 if op.config is not None:
                     parts.append("config")
                 detail = " and ".join(parts) if parts else "config"
-                suffix = " and ran" if ran else ""
+                if errored:
+                    suffix = " and ran (error)"
+                elif ran:
+                    suffix = " and ran"
+                else:
+                    suffix = ""
                 lines.append(f"edited {detail} of cell {label}{suffix}")
             elif isinstance(op, _DeleteOp):
                 lines.append(f"deleted cell {label}")
@@ -706,7 +778,9 @@ class AsyncCodeModeContext:
             for cell_id in _run:
                 if cell_id not in op_cell_ids:
                     label = self._cell_label(cell_id)
-                    lines.append(f"re-ran cell {label}")
+                    errored = self._cell_errored(cell_id)
+                    suffix = " (error)" if errored else ""
+                    lines.append(f"re-ran cell {label}{suffix}")
 
         if ui_updates:
             lines.append(f"updated {len(ui_updates)} UI element(s)")
@@ -714,20 +788,18 @@ class AsyncCodeModeContext:
         if not lines:
             return
 
+        # Add a blank line before the summary when cells errored,
+        # so the summary is visually separated from streamed tracebacks.
+        has_errors = _run and any(self._cell_errored(cid) for cid in _run)
+        if has_errors:
+            sys.stdout.write("\n")
         for line in lines:
             sys.stdout.write(line + "\n")
 
-        # Report runtime errors for cells that were executed.
-        # This runs after _run_cells returns and the nested
-        # redirect_streams context has exited, so stderr is routed
-        # back to the scratch cell and captured by the SSE listener.
-        if _run:
-            for cell_id in _run:
-                cell = self.graph.cells.get(cell_id)
-                if cell is None or cell.exception is None:
-                    continue
-                label = self._cell_label(cell_id)
-                sys.stderr.write(f"error in cell {label}:\n{cell.exception}\n")
+    def _cell_errored(self, cell_id: CellId_t) -> bool:
+        """Return True if the cell raised an exception."""
+        cell = self.graph.cells.get(cell_id)
+        return cell is not None and cell.exception is not None
 
     def _cell_label(self, cell_id: CellId_t) -> str:
         """Return a display label: ``'id' (name)`` or ``'id'``."""
@@ -767,6 +839,22 @@ class AsyncCodeModeContext:
             ctx.cells["my_cell"]  # by cell name
         """
         return _CellsView(self)
+
+    @property
+    def packages(self) -> Packages:
+        """Package management for the notebook's Python environment.
+
+        List currently installed packages::
+
+            ctx.packages.list()  # -> list[PackageDescription]
+
+        Queue packages to install or remove; mutations flush on exit
+        before cell ops so newly added cells can import them::
+
+            ctx.packages.add("pandas", "numpy>=1.26")
+            ctx.packages.remove("old-pkg")
+        """
+        return self._packages
 
     # ------------------------------------------------------------------
     # Mutation methods (queue ops, applied on __aexit__)
@@ -1117,6 +1205,197 @@ class AsyncCodeModeContext:
         self._cells_to_run.add(cell_id)
 
     # ------------------------------------------------------------------
+    # Screenshot
+    # ------------------------------------------------------------------
+
+    async def screenshot(
+        self,
+        target: int | str | NotebookCell | None = None,
+        *,
+        timeout_ms: int = 30_000,
+        as_data_url: bool = False,
+        save_to: str | PathLike[str] | None = None,
+    ) -> bytes | str:
+        """Capture a cell's rendered output as a PNG screenshot.
+
+        Launches a headless Chromium browser (reused across calls)
+        connected to this server in kiosk mode.
+
+        Requires ``playwright`` + its Chromium binary::
+
+            ctx.install_packages("playwright")
+            # then once: python -m playwright install chromium
+
+        Does **not** require ``async with``.
+
+        Args:
+            target: Cell to screenshot.
+
+                - ``None`` — last cell.
+                - ``int`` — cell index (negative OK).
+                - ``str`` — cell ID or name.
+                - ``NotebookCell`` — e.g. ``ctx.cells[0]``.
+
+                For an object defined by a cell, resolve first::
+
+                    cid = ctx.find_cell_defining_object(chart)
+                    img = await ctx.screenshot(cid)
+
+            timeout_ms: Max wait (ms) for the output to be visible.
+            as_data_url: Return ``data:image/png;base64,...`` str
+                instead of raw bytes.
+            save_to: Also write the PNG to this path.
+
+        Returns:
+            ``bytes`` (PNG), or ``str`` (data URL) if *as_data_url*.
+
+        Raises:
+            ScreenshotError: Missing playwright, missing browser,
+                unknown cell, empty output, or invisible element.
+        """
+        from pathlib import Path
+
+        from marimo._code_mode.screenshot import (
+            ScreenshotError,
+            _ScreenshotSession,
+            _to_data_url,
+        )
+        from marimo._messaging.context import HTTP_REQUEST_CTX
+
+        cell_id = self._resolve_screenshot_target(target)
+
+        # Resolve server URL from the current HTTP request context.
+        request = HTTP_REQUEST_CTX.get(None)
+        if request is None:
+            raise ScreenshotError(
+                "Cannot take screenshots: no HTTP request context "
+                "available.  screenshot() must be called during cell "
+                "execution (e.g. from code-mode)."
+            )
+        # Read trusted server URL and auth token injected by the
+        # /execute endpoint (from server config, not request headers).
+        server_url: str | None = request.meta.get("screenshot_server_url")
+        if server_url is None:
+            raise ScreenshotError(
+                "Cannot take screenshots: screenshot_server_url not "
+                "found in request.meta.  This endpoint may not "
+                "support screenshots."
+            )
+        screenshot_auth_token: str | None = request.meta.get(
+            "screenshot_auth_token"
+        )
+
+        # Lazy-init the screenshot session (browser reuse).
+        if self._screenshot_session is None:
+            self._screenshot_session = _ScreenshotSession(
+                server_url,
+                screenshot_auth_token=screenshot_auth_token,
+            )
+
+        image = await self._screenshot_session.capture(
+            cell_id, timeout_ms=timeout_ms
+        )
+
+        if save_to is not None:
+            # Screenshot writes are infrequent and small; a sync write
+            # keeps the API simple without meaningful blocking cost.
+            Path(save_to).write_bytes(image)  # noqa: ASYNC240
+
+        if as_data_url:
+            return _to_data_url(image)
+        return image
+
+    async def close_screenshot_session(self) -> None:
+        """Close the Playwright browser opened by :meth:`screenshot`.
+
+        Called automatically in ``__aexit__``.  Call this explicitly
+        when using ``screenshot()`` outside ``async with`` to avoid
+        leaking a headless browser process.
+        """
+        if self._screenshot_session is not None:
+            try:
+                await self._screenshot_session.close()
+            except Exception:
+                LOGGER.debug(
+                    "Failed to close screenshot session", exc_info=True
+                )
+            self._screenshot_session = None
+
+    def _resolve_screenshot_target(
+        self,
+        target: int | str | NotebookCell | None,
+    ) -> CellId_t:
+        """Resolve a screenshot *target* to a cell ID."""
+        from marimo._code_mode.screenshot import ScreenshotError
+
+        if target is None:
+            if len(self.cells) == 0:
+                raise ScreenshotError(
+                    "Notebook has no cells. Create and run a cell first."
+                )
+            return self.cells[-1].id
+
+        if isinstance(target, bool):
+            # Guard before the ``int`` branch — ``bool`` subclasses
+            # ``int`` in Python, and ``ctx.screenshot(True)`` almost
+            # certainly reflects a caller mistake.
+            raise TypeError(
+                "screenshot target cannot be a bool; pass a cell ID, "
+                "cell name, integer index, or NotebookCell."
+            )
+
+        if isinstance(target, int):
+            try:
+                return self.cells[target].id
+            except IndexError as exc:
+                raise ScreenshotError(
+                    f"Cell index {target} out of range "
+                    f"(notebook has {len(self.cells)} cells)."
+                ) from exc
+
+        if isinstance(target, str):
+            try:
+                return self.cells._resolve(target)
+            except KeyError as exc:
+                raise ScreenshotError(
+                    f"Unknown cell ID or name: {target!r}."
+                ) from exc
+
+        if isinstance(target, NotebookCell):
+            return target.id
+
+        raise TypeError(
+            f"Unsupported screenshot target type: {type(target).__name__}. "
+            "Pass a cell ID (str), cell name (str), integer index, "
+            "or NotebookCell."
+        )
+
+    def find_cell_defining_object(self, obj: Any) -> CellId_t | None:
+        """Return the cell ID whose ``defs`` include a variable bound to *obj*.
+
+        Uses identity (``is``) matching against kernel globals.
+        Returns ``None`` if no cell defines *obj*.
+
+        Example::
+
+            cell_id = ctx.find_cell_defining_object(chart)
+            if cell_id is not None:
+                image = await ctx.screenshot(cell_id)
+        """
+        globals_map = self.globals
+        names = [name for name, value in globals_map.items() if value is obj]
+        if not names:
+            return None
+
+        graph_cells = self.graph.cells
+
+        name_set = set(names)
+        for cell_id, cell_impl in graph_cells.items():
+            if name_set & getattr(cell_impl, "defs", set()):
+                return cell_id
+        return None
+
+    # ------------------------------------------------------------------
     # Apply queued operations
     # ------------------------------------------------------------------
 
@@ -1382,35 +1661,6 @@ class AsyncCodeModeContext:
         """
         self._require_entered()
         self._ui_updates.append((UIElementId(element._id), value))
-
-    # ------------------------------------------------------------------
-    # Package management
-    # ------------------------------------------------------------------
-
-    def install_packages(
-        self, *packages: str | list[str] | tuple[str, ...]
-    ) -> None:
-        """Queue packages for installation on context exit.
-
-        Installed before cell ops, so newly added cells can import them.
-
-        Examples:
-            ```python
-            ctx.install_packages("pandas")
-            ctx.install_packages("polars>=0.20", "numpy==1.26")
-            ctx.install_packages(["altair", "vega_datasets"])
-            ```
-
-        Args:
-            *packages: Pip-style package specifiers. Accepts individual
-                strings, or a list/tuple of strings.
-        """
-        self._require_entered()
-        for pkg in packages:
-            if isinstance(pkg, (list, tuple)):
-                self._packages_to_install.extend(pkg)
-            else:
-                self._packages_to_install.append(pkg)
 
     # ------------------------------------------------------------------
     # Low-level primitives

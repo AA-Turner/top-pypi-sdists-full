@@ -53,6 +53,7 @@ from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import (
     GetJobQueueOperationSummaryResponse,
 )
 from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2_grpc import DataPlaneJobQueueServiceStub
+from chalk._gen.chalk.server.v1.dataplaneworkflows_pb2_grpc import DataPlaneWorkflowsServiceStub
 from chalk._gen.chalk.server.v1.deploy_pb2 import (
     CreateBranchFromSourceDeploymentRequest,
     CreateBranchFromSourceDeploymentResponse,
@@ -91,7 +92,7 @@ from chalk._gen.chalk.server.v1.model_registry_pb2 import (
 from chalk._gen.chalk.server.v1.model_registry_pb2_grpc import ModelRegistryServiceStub
 from chalk._gen.chalk.server.v1.named_query_pb2 import GetNamedQueryByNameRequest
 from chalk._gen.chalk.server.v1.named_query_pb2_grpc import NamedQueryServiceStub
-from chalk._gen.chalk.server.v1.offline_queries_pb2 import CancelAsyncOfflineQueryRequest
+from chalk._gen.chalk.server.v1.offline_queries_pb2 import CancelAsyncOfflineQueryRequest, GetOfflineQueryRequest
 from chalk._gen.chalk.server.v1.offline_queries_pb2_grpc import OfflineQueryMetadataServiceStub
 from chalk._gen.chalk.server.v1.scheduled_query_pb2_grpc import ScheduledQueryServiceStub
 from chalk._gen.chalk.server.v1.scheduled_query_run_pb2 import GetScheduledQueryRunsRequest
@@ -130,6 +131,7 @@ from chalk.client.models import (
     ModelArtifactSpec,
     ModelUploadUrlResponse,
     NamedQueryMetadata,
+    OfflineQueryInfo,
     OnlineQuery,
     OnlineQueryResponse,
     RegisterModelArtifactResponse,
@@ -140,6 +142,7 @@ from chalk.client.models import (
     StreamResolverTestResponse,
     StreamResolverTestStatus,
     UploadFeaturesResponse,
+    WorkflowExecutionInfo,
 )
 from chalk.client.serialization.model_serialization import ModelSerializer
 from chalk.client.serialization.protos import ChalkErrorConverter, OnlineQueryConverter, UploadFeaturesBulkConverter
@@ -350,6 +353,14 @@ class StubProvider:
                 "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
             )
         return ScheduledQueryServiceStub(self._server_channel)
+
+    @cached_property
+    def dataplane_workflows_stub(self) -> DataPlaneWorkflowsServiceStub:
+        if self._server_channel is None:
+            raise ValueError(
+                "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
+            )
+        return DataPlaneWorkflowsServiceStub(self._server_channel)
 
     @cached_property
     def named_query_stub(self) -> NamedQueryServiceStub:
@@ -648,6 +659,9 @@ class StubRefresher:
 
     def call_scheduled_query_run_stub(self, fn: Callable[[ScheduledQueryServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.scheduled_query_run_stub)
+
+    def call_dataplane_workflows_stub(self, fn: Callable[[DataPlaneWorkflowsServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.dataplane_workflows_stub)
 
     def call_get_named_query_metadata(self, fn: Callable[[NamedQueryServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.named_query_stub)
@@ -1475,9 +1489,7 @@ class ChalkGRPCClient:
         return ManualTriggerScheduledQueryResponseDataclass.from_proto(proto_resp)
 
     def get_scheduled_query_run_history(
-        self,
-        name: str,
-        limit: int = 10,
+        self, name: str, limit: int = 10, include_run_details: bool = False
     ) -> List[ScheduledQueryRun]:
         """
         Get the run history for a scheduled query.
@@ -1488,6 +1500,8 @@ class ChalkGRPCClient:
             The name of the scheduled query.
         limit
             The maximum number of runs to return. Defaults to 10.
+        include_run_details
+            Whether or not to populate the metadata fields of each run.
 
         Returns
         -------
@@ -1510,7 +1524,46 @@ class ChalkGRPCClient:
                 )
             )
         )
-        return [ScheduledQueryRun.from_proto(run) for run in proto_resp.runs]
+
+        processed_runs = [ScheduledQueryRun.from_proto(run) for run in proto_resp.runs]
+
+        if include_run_details:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            def _enrich(run: ScheduledQueryRun) -> None:
+                meta = self.get_scheduled_query_run_details(run)
+                if isinstance(meta, OfflineQueryInfo):
+                    run.offline_query_meta = meta
+                elif isinstance(meta, WorkflowExecutionInfo):
+                    run.workflow_execution = meta
+
+            with ThreadPoolExecutor(max_workers=min(len(processed_runs), 10)) as pool:
+                futures = [pool.submit(_enrich, run) for run in processed_runs]
+                for future in as_completed(futures):
+                    future.result()  # raise if any enrichment failed
+
+        return processed_runs
+
+    def get_scheduled_query_run_details(
+        self, scheduled_run: ScheduledQueryRun
+    ) -> Union[WorkflowExecutionInfo, OfflineQueryInfo, None]:
+        from chalk._gen.chalk.server.v1.dataplaneworkflows_pb2 import GetDataPlaneWorkflowRequest
+
+        if scheduled_run.workflow_execution_id:
+            wfe_resp = self._stub_refresher.call_dataplane_workflows_stub(
+                lambda x: x.GetDataPlaneWorkflow(GetDataPlaneWorkflowRequest(id=scheduled_run.workflow_execution_id))
+            )
+            if wfe_resp.HasField("workflow"):
+                return WorkflowExecutionInfo.from_proto(wfe_resp.workflow)
+
+        elif scheduled_run.offline_query_id:
+            oq_resp = self._stub_refresher.call_offline_query_stub(
+                lambda x: x.GetOfflineQuery(GetOfflineQueryRequest(offline_query_id=scheduled_run.offline_query_id))
+            )
+            if oq_resp.HasField("offline_query"):
+                return OfflineQueryInfo.from_proto(oq_resp.offline_query)
+
+        return None
 
     def get_named_query_metadata(
         self,

@@ -21,7 +21,15 @@ use slab::Slab;
 use tokio::sync::{mpsc, oneshot};
 
 use xbbg_core::session::Session;
-use xbbg_core::{BlpError, EventType, Service};
+use xbbg_core::{BlpError, CorrelationId, EventType, Service};
+
+/// High-bit tag for CorrelationIds we generate for async `open_service` calls.
+/// Must not collide with slab-key-derived request CIDs (small positive ints),
+/// so we tag with bit 62.
+const SERVICE_OPEN_CID_TAG: i64 = 1_i64 << 62;
+
+/// Max wall time we'll wait for an async open_service reply.
+const SERVICE_OPEN_TIMEOUT_MS: u64 = 10_000;
 
 use super::dispatch::DispatchKey;
 use super::state::{
@@ -212,6 +220,12 @@ struct RequestWorker {
     /// Per-request cancellation flags flipped when Python drops the awaitable.
     cancellations: HashMap<SlabKey, Arc<AtomicBool>>,
     health: Arc<AtomicU8>,
+    /// Pending async `open_service` calls keyed by CID we generated. Value is
+    /// (service name, outcome). `None` outcome = still waiting; `Some(result)`
+    /// populated when `handle_service_status` sees the matching reply.
+    pending_service_opens: HashMap<i64, (String, Option<Result<(), BlpError>>)>,
+    /// Counter for generating unique service-open CIDs.
+    next_service_open_id: i64,
 }
 
 impl RequestWorker {
@@ -236,6 +250,8 @@ impl RequestWorker {
             poll_counter: 0,
             cancellations: HashMap::new(),
             health,
+            pending_service_opens: HashMap::new(),
+            next_service_open_id: 0,
         };
 
         // Pre-warm commonly used services
@@ -322,9 +338,16 @@ impl RequestWorker {
         }
     }
 
-    /// Check for requests that have been waiting too long and emit warnings.
+    /// Check for requests that have been waiting too long:
+    /// 1. Emit a one-shot warning at `SLOW_REQUEST_WARN_THRESHOLD` (30s) for diagnostics.
+    /// 2. Enforce `config.request_timeout_ms` as a hard upper bound. When exceeded,
+    ///    cancel the Bloomberg request and fail the oneshot with `BlpError::Timeout`
+    ///    so callers cannot hang forever on a stuck response.
     fn check_slow_requests(&mut self) {
         let now = std::time::Instant::now();
+        let hard_timeout_ms = self.config.request_timeout_ms;
+
+        let mut to_timeout: Vec<SlabKey> = Vec::new();
         for (&key, &send_time) in &self.send_times {
             let elapsed = now.duration_since(send_time);
             if elapsed > SLOW_REQUEST_WARN_THRESHOLD && !self.warned_requests.contains(&key) {
@@ -336,7 +359,44 @@ impl RequestWorker {
                 );
                 self.warned_requests.insert(key);
             }
+            if hard_timeout_ms > 0 && elapsed >= std::time::Duration::from_millis(hard_timeout_ms) {
+                to_timeout.push(key);
+            }
         }
+
+        for key in to_timeout {
+            self.timeout_request(key, hard_timeout_ms);
+        }
+    }
+
+    /// Cancel a request that has exceeded `request_timeout_ms` and fail the
+    /// oneshot with `BlpError::Timeout`. Guards against an SDK or Bloomberg
+    /// misbehavior leaving a caller hanging past the configured bound.
+    fn timeout_request(&mut self, key: SlabKey, timeout_ms: u64) {
+        let cid = DispatchKey::from_slab_key(key).to_correlation_id();
+        if let Err(error) = self.session.cancel(&cid) {
+            // Cancel failed — session is probably terminal. We still must fail
+            // the caller's oneshot; the request is not coming back.
+            xbbg_log::warn!(
+                worker_id = self.id,
+                key = key,
+                error = %error,
+                "timeout_request: Bloomberg cancel failed"
+            );
+        }
+        self.send_times.remove(&key);
+        self.warned_requests.remove(&key);
+        self.cancellations.remove(&key);
+        if self.requests.contains(key) {
+            let state = self.requests.remove(key);
+            state.fail(BlpError::Timeout);
+        }
+        xbbg_log::warn!(
+            worker_id = self.id,
+            key = key,
+            timeout_ms = timeout_ms,
+            "request exceeded request_timeout_ms; failed with BlpError::Timeout"
+        );
     }
 
     fn process_cancellations(&mut self) {
@@ -382,13 +442,56 @@ impl RequestWorker {
         }
     }
 
+    /// Ensure a service is open and cached.
+    ///
+    /// Uses `open_service_async` + a nested dispatch loop so in-flight
+    /// request responses and session events keep flowing while we wait for
+    /// `ServiceOpened` / `ServiceOpenFailure`. Synchronous `open_service`
+    /// stalls delivery of every other event on the session for the full open
+    /// duration (measured 200-300ms in practice).
     fn ensure_service(&mut self, name: &str) -> Result<(), BlpError> {
-        if !self.services.contains_key(name) {
-            self.session.open_service(name)?;
-            let svc = self.session.get_service(name)?;
-            self.services.insert(name.to_string(), svc);
+        if self.services.contains_key(name) {
+            return Ok(());
         }
-        Ok(())
+
+        self.next_service_open_id = self.next_service_open_id.wrapping_add(1);
+        let cid_int = SERVICE_OPEN_CID_TAG | self.next_service_open_id;
+        let cid = CorrelationId::Int(cid_int);
+        self.pending_service_opens
+            .insert(cid_int, (name.to_string(), None));
+
+        if let Err(e) = self.session.open_service_async(name, &cid) {
+            self.pending_service_opens.remove(&cid_int);
+            return Err(e);
+        }
+
+        let deadline =
+            std::time::Instant::now() + std::time::Duration::from_millis(SERVICE_OPEN_TIMEOUT_MS);
+        loop {
+            let resolved = matches!(self.pending_service_opens.get(&cid_int), Some((_, Some(_))));
+            if resolved {
+                let (_, outcome) = self.pending_service_opens.remove(&cid_int).unwrap();
+                outcome.unwrap()?;
+                // Grab the Service handle once the service is confirmed open.
+                let svc = self.session.get_service(name)?;
+                self.services.insert(name.to_string(), svc);
+                return Ok(());
+            }
+            if !self.pending_service_opens.contains_key(&cid_int) {
+                return Err(BlpError::Internal {
+                    detail: format!("pending service open for {} vanished", name),
+                });
+            }
+            let now = std::time::Instant::now();
+            if now >= deadline {
+                self.pending_service_opens.remove(&cid_int);
+                return Err(BlpError::Timeout);
+            }
+            let poll_ms = deadline.saturating_duration_since(now).as_millis().min(200) as u32;
+            if let Ok(ev) = self.session.next_event(Some(poll_ms.max(1))) {
+                self.dispatch_event(ev);
+            }
+        }
     }
 
     /// Introspect a service's schema.
@@ -530,18 +633,21 @@ impl RequestWorker {
 
         let state = match params.extractor {
             ExtractorType::RefData => {
-                let long_mode = params
+                let (output_format, long_mode) = params
                     .format
                     .as_deref()
                     .map(|s| match s {
-                        "long_typed" | "typed" => LongMode::Typed,
-                        "long_metadata" | "metadata" | "with_metadata" => LongMode::WithMetadata,
-                        _ => LongMode::String,
+                        "semi_long" | "wide" => (OutputFormat::Wide, LongMode::String),
+                        "long_typed" | "typed" => (OutputFormat::Long, LongMode::Typed),
+                        "long_metadata" | "metadata" | "with_metadata" => {
+                            (OutputFormat::Long, LongMode::WithMetadata)
+                        }
+                        _ => (OutputFormat::Long, LongMode::String),
                     })
-                    .unwrap_or(LongMode::String);
+                    .unwrap_or((OutputFormat::Long, LongMode::String));
                 UnifiedRequestState::RefData(RefDataState::with_format(
                     fields,
-                    OutputFormat::Long,
+                    output_format,
                     long_mode,
                     field_types,
                     params.include_security_errors,
@@ -554,7 +660,7 @@ impl RequestWorker {
                     .format
                     .as_deref()
                     .map(|s| match s {
-                        "wide" => (OutputFormat::Wide, LongMode::String),
+                        "semi_long" | "wide" => (OutputFormat::Wide, LongMode::String),
                         "long_typed" | "typed" => (OutputFormat::Long, LongMode::Typed),
                         "long_metadata" | "metadata" | "with_metadata" => {
                             (OutputFormat::Long, LongMode::WithMetadata)
@@ -579,25 +685,29 @@ impl RequestWorker {
             ExtractorType::Bsrch => UnifiedRequestState::Bsrch(BsrchState::new(reply)),
             ExtractorType::FieldInfo => UnifiedRequestState::FieldInfo(FieldInfoState::new(reply)),
             ExtractorType::IntradayBar => {
-                // If user specified extra elements, use GENERIC extractor
-                if params.elements.as_ref().is_some_and(|e| !e.is_empty()) {
-                    UnifiedRequestState::Generic(GenericState::new(reply))
-                } else {
-                    let ticker = params.security.clone().unwrap_or_default();
-                    let event_type = params
-                        .event_type
-                        .clone()
-                        .unwrap_or_else(|| "TRADE".to_string());
-                    let interval = params.interval.unwrap_or(1);
-                    UnifiedRequestState::IntradayBar(IntradayBarState::new(
-                        ticker, event_type, interval, reply,
-                    ))
-                }
+                // IntradayBarRequest has no column-adding elements (maxDataPoints,
+                // gapFillInitialBar, adjustment*, etc. are behavior-only). The response
+                // shape is always `barData.barTickData[]` with the same fields.
+                let ticker = params.security.clone().unwrap_or_default();
+                let event_type = params
+                    .event_type
+                    .clone()
+                    .unwrap_or_else(|| "TRADE".to_string());
+                let interval = params.interval.unwrap_or(1);
+                UnifiedRequestState::IntradayBar(IntradayBarState::new(
+                    ticker, event_type, interval, reply,
+                ))
             }
             ExtractorType::IntradayTick => {
-                // If user specified extra elements (e.g., includeConditionCodes=true),
-                // use GENERIC extractor for dynamic column discovery
-                if params.elements.as_ref().is_some_and(|e| !e.is_empty()) {
+                // Only fall back to GENERIC when the response shape actually changes.
+                // `include*` flags add columns to each tick (conditionCodes, exchangeCode,
+                // brokerCode, ...); behavior-only elements like maxDataPoints / filter
+                // don't, and the typed extractor handles them fine.
+                let adds_columns = params
+                    .elements
+                    .as_ref()
+                    .is_some_and(|els| els.iter().any(|(k, _)| k.starts_with("include")));
+                if adds_columns {
                     UnifiedRequestState::Generic(GenericState::new(reply))
                 } else {
                     let ticker = params.security.clone().unwrap_or_default();
@@ -897,7 +1007,13 @@ impl RequestWorker {
                 };
                 let key = dispatch_key.to_slab_key();
                 if msg_type == "RequestFailure" {
-                    xbbg_log::error!(worker_id = self.id, key = key, "request failed");
+                    let reason = extract_reason_description(msg);
+                    xbbg_log::error!(
+                        worker_id = self.id,
+                        key = key,
+                        reason = %reason.as_deref().unwrap_or(""),
+                        "request failed"
+                    );
                     if self.requests.contains(key) {
                         // Clean up tracking
                         self.send_times.remove(&key);
@@ -905,7 +1021,7 @@ impl RequestWorker {
                         self.cancellations.remove(&key);
                         let state = self.requests.remove(key);
                         state.fail(BlpError::Internal {
-                            detail: "RequestFailure".into(),
+                            detail: reason.unwrap_or_else(|| "RequestFailure".to_string()),
                         });
                     }
                 }
@@ -946,16 +1062,67 @@ impl RequestWorker {
                 xbbg_log::info!(worker_id = self.id, "session started");
             }
             "SessionTerminated" => {
-                self.drain_in_flight_requests("Bloomberg session terminated");
+                // SDK has given up reconnecting. The session ptr is dead and
+                // cannot be restarted. Drain everything and mark the worker so
+                // the pool evicts it.
+                let reason = extract_reason_description(msg);
+                self.drain_in_flight_requests(
+                    reason.as_deref().unwrap_or("Bloomberg session terminated"),
+                );
                 self.health.store(2, Ordering::Release);
+                xbbg_log::error!(
+                    worker_id = self.id,
+                    reason = %reason.as_deref().unwrap_or(""),
+                    "SessionTerminated — worker is dead"
+                );
+            }
+            "AuthorizationRevoked" => {
+                // Session identity was revoked mid-session. Authorized requests
+                // will now fail. Drain + mark Dead so the pool spawns a fresh
+                // worker which re-auths during startup.
+                let reason = extract_reason_description(msg);
+                self.drain_in_flight_requests(
+                    reason
+                        .as_deref()
+                        .unwrap_or("Bloomberg session identity revoked"),
+                );
+                self.health.store(2, Ordering::Release);
+                xbbg_log::error!(
+                    worker_id = self.id,
+                    reason = %reason.as_deref().unwrap_or(""),
+                    "AuthorizationRevoked — identity gone; worker is dead"
+                );
             }
             "SessionConnectionDown" => {
-                self.drain_in_flight_requests("Bloomberg session connection lost");
-                self.health.store(2, Ordering::Release);
+                // Transient network drop. Unlike subscriptions (which the SDK
+                // auto-recovers via SubscriptionStreamsActivated/Deactivated),
+                // requests are transactional: any response mid-transit when TCP
+                // dropped is lost. Fail in-flight requests immediately so the
+                // caller can retry on a healthy worker or back off. The session
+                // is still alive and the SDK will auto-reconnect, so we go
+                // Degraded (not Dead) — the worker resumes full service on the
+                // subsequent SessionConnectionUp.
+                let reason = extract_reason_description(msg);
+                self.drain_in_flight_requests(
+                    reason
+                        .as_deref()
+                        .unwrap_or("Bloomberg session connection lost (transient)"),
+                );
+                self.health.store(1, Ordering::Release);
+                xbbg_log::warn!(
+                    worker_id = self.id,
+                    reason = %reason.as_deref().unwrap_or(""),
+                    "SessionConnectionDown — failing in-flight requests; SDK will auto-reconnect"
+                );
             }
             "SessionConnectionUp" => {
                 self.health.store(0, Ordering::Release);
-                xbbg_log::info!(worker_id = self.id, "session connection restored");
+                let reason = extract_reason_description(msg);
+                xbbg_log::info!(
+                    worker_id = self.id,
+                    reason = %reason.as_deref().unwrap_or(""),
+                    "SessionConnectionUp — worker healthy"
+                );
             }
             _ => {
                 xbbg_log::debug!(worker_id = self.id, msg_type = msg_type, "session status");
@@ -966,8 +1133,45 @@ impl RequestWorker {
     fn handle_service_status(&mut self, msg: &xbbg_core::Message<'_>) {
         let msg_type_name = msg.message_type();
         let msg_type = msg_type_name.as_str();
+
+        // If this ServiceOpened/ServiceOpenFailure is a reply to one of our
+        // async `open_service_async` calls, resolve the matching outcome so
+        // the waiting `ensure_service` unblocks on its next loop iteration.
+        if matches!(msg_type, "ServiceOpened" | "ServiceOpenFailure") {
+            if let Some(CorrelationId::Int(cid_int)) = msg.correlation_id(0) {
+                if let Some(entry) = self.pending_service_opens.get_mut(&cid_int) {
+                    match msg_type {
+                        "ServiceOpened" => {
+                            entry.1 = Some(Ok(()));
+                        }
+                        "ServiceOpenFailure" => {
+                            let reason = extract_reason_description(msg);
+                            let service_name = entry.0.clone();
+                            entry.1 = Some(Err(BlpError::OpenService {
+                                service: service_name,
+                                source: None,
+                                label: reason,
+                            }));
+                        }
+                        _ => {}
+                    }
+                    return;
+                }
+            }
+        }
+
         xbbg_log::debug!(worker_id = self.id, msg_type = msg_type, "service status");
     }
+}
+
+fn extract_reason_description(msg: &xbbg_core::Message<'_>) -> Option<String> {
+    let reason = msg.elements().get_by_str("reason")?;
+    for key in ["description", "category", "message"] {
+        if let Some(s) = reason.get_by_str(key).and_then(|e| e.get_str(0)) {
+            return Some(s.to_string());
+        }
+    }
+    None
 }
 
 /// Handle to communicate with a running worker.

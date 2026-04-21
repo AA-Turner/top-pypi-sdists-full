@@ -154,9 +154,9 @@ class LongPollingBus:
             selector.register(conn, selectors.EVENT_READ)
             while cls._queues[pid, database]['timeout'] > now:
                 selector.select(timeout=config.getint('bus', 'select_timeout'))
-                conn.poll()
-                while conn.notifies:
-                    notification = conn.notifies.pop()
+                notifications = db.get_notifications(conn)
+                while notifications:
+                    notification = notifications.pop()
                     payload = json.loads(
                         notification.payload,
                         object_hook=JSONDecoder())
@@ -200,13 +200,13 @@ class LongPollingBus:
             logger.info("database backend does not support channels")
             return
 
-        cursor = transaction.connection.cursor()
         message['message_id'] = str(uuid.uuid4())
         payload = json.dumps({
                 'channel': channel,
                 'message': message,
                 }, cls=JSONEncoder, separators=(',', ':'))
-        cursor.execute('NOTIFY "%s", %%s' % cls._channel, (payload,))
+        transaction.database.notify(
+            transaction.connection, cls._channel, payload)
         logger.debug(
             "publish %r to '%s' on '%s'",
             message, channel, transaction.database.name)
@@ -226,19 +226,22 @@ def subscribe(request, database_name):
     url_host = config.get('bus', 'url_host')
     if url_host and url_host != request.host_url:
         abort(HTTPStatus.UNAUTHORIZED)
-    user = request.authorization.get('userid')
+    if session := request.session:
+        userid = session.userid
+    else:
+        abort(HTTPStatus.UNAUTHORIZED)
     channels = request.parsed_data.get('channels', [])
-    if user is None:
+    if userid is None:
         raise exceptions.BadRequest
 
     channels = set(filter(lambda c: not c.startswith('user:'), channels))
-    channels.add('user:%s' % user)
+    channels.add('user:%s' % userid)
 
     last_message = request.parsed_data.get('last_message')
 
     logger.info(
         "get bus messages for %s since %s from %s@%s%s",
-        channels, last_message, request.authorization.username,
+        channels, last_message, session.username,
         request.remote_addr, request.path)
     bus_response = Bus.subscribe(database_name, channels, last_message)
     return Response(

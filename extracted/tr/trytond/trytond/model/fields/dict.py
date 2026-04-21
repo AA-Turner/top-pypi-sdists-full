@@ -8,7 +8,6 @@ from sql import Cast, CombiningQuery, Literal, Null, Select, operators
 from trytond import backend
 from trytond.pool import Pool
 from trytond.protocols.jsonrpc import JSONDecoder, JSONEncoder
-from trytond.tools import grouped_slice
 from trytond.tools.immutabledict import ImmutableDict
 from trytond.transaction import Transaction
 
@@ -119,10 +118,9 @@ class Dict(Field):
         if '.' not in name:
             return super().convert_domain(domain, tables, Model)
         database = Transaction().database
-        table, _ = tables[None]
         name, key = name.split('.', 1)
         Operator = SQL_OPERATORS[operator]
-        raw_column = self.sql_column(table)
+        raw_column = self.sql_column(tables, Model)
         column = self._domain_column(operator, raw_column, key)
         expression = Operator(column, self._domain_value(operator, value))
         if operator in {'=', '!='}:
@@ -171,8 +169,7 @@ class Dict(Field):
         if not key:
             return super().convert_order(fname, tables, Model)
         database = Transaction().database
-        table, _ = tables[None]
-        column = self.sql_column(table)
+        column = self.sql_column(tables, Model)
         return [database.json_get(column, key)]
 
     def definition(self, model, language):
@@ -204,11 +201,9 @@ class TranslatedDict(object):
         if self.type_ == 'values':
             domain = [('type_', '=', 'selection')]
 
-        records = []
-        for key_names in grouped_slice(value.keys()):
-            records += SchemaModel.search([
-                    ('name', 'in', key_names),
-                    ] + domain)
+        records = SchemaModel.search([
+                ('name', 'in', value.keys()),
+                ] + domain)
         keys = SchemaModel.get_keys(records)
 
         if self.type_ == 'keys':

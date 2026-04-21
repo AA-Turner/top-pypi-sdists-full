@@ -33,7 +33,7 @@ from rich.tree import Tree
 from tabulate import tabulate
 
 from rucio import version
-from rucio.cli.utils import exception_handler, get_client, setup_gfal2_logger, signal_handler
+from rucio.cli.utils import exception_handler, get_client, get_scope, setup_gfal2_logger, signal_handler
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, generate_table, get_cli_config, get_pager, print_output, setup_rich_logger
 from rucio.common.constants import RseAttr
 from rucio.common.exception import (
@@ -44,7 +44,7 @@ from rucio.common.exception import (
     RucioException,
 )
 from rucio.common.extra import import_extras
-from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_pfns, construct_non_deterministic_pfn, extract_scope, get_bytes_value_from_string, parse_response, render_json, setup_logger, sizefmt
+from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_pfns, construct_non_deterministic_pfn, get_bytes_value_from_string, parse_response, render_json, setup_logger, sizefmt
 from rucio.rse import rsemanager as rsemgr
 
 EXTRA_MODULES = import_extras(['argcomplete'])
@@ -64,16 +64,6 @@ DEFAULT_PORT = 443
 
 tablefmt = 'psql'
 cli_config = get_cli_config()
-
-
-def get_scope(did, client):
-    try:
-        scope, name = extract_scope(did)
-        return scope, name
-    except TypeError:
-        scopes = client.list_scopes()
-        scope, name = extract_scope(did, scopes)
-        return scope, name
 
 
 @exception_handler
@@ -772,16 +762,39 @@ def list_scopes(args, client, logger, console, spinner):
 
     if args.account:
         scopes = client.list_scopes_for_account(args.account)
+        with_owner = False
     else:
-        scopes = client.list_scopes()
+        scopes = client.list_scope_owners()
+        with_owner = True
+
     if (cli_config == 'rich') and (not args.csv):
-        scopes = [[scope] for scope in sorted(scopes)]
-        table = generate_table(scopes, headers=['SCOPE'], col_alignments=['left'])
-        spinner.stop()
-        print_output(table, console=console, no_pager=args.no_pager)
+        if len(scopes) == 0:
+            spinner.stop()
+        elif not with_owner:
+            scopes = [[scope] for scope in sorted(scopes)]
+            table = generate_table(scopes, headers=['SCOPE'], col_alignments=['left'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
+        else:
+            scopes = [[s['scope'], s['account']] for s in scopes]
+            table = generate_table(scopes, headers=['SCOPE', "ACCOUNT"], col_alignments=['left'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
     else:
-        for scope in scopes:
-            print(scope)
+        if len(scopes) == 0:
+            pass
+        elif args.csv:
+            for scope in scopes:
+                if not with_owner:
+                    print(scope)
+                else:
+                    print(f"{scope['scope']},{scope['account']}")
+        elif not with_owner:
+            for scope in scopes:
+                print(scope)
+        else:
+            scopes = [[s['scope'], s['account']] for s in scopes]
+            print(tabulate(scopes, tablefmt=tablefmt, headers=['SCOPE', 'ACCOUNT'], disable_numparse=True))
     return SUCCESS
 
 

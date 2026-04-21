@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-core
-Version: 1.0.1
+Version: 1.1.0
 Summary: Microsoft Agent Framework for building AI Agents with Python. This is the core package that has all the core abstractions and implementations.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -23,14 +23,13 @@ Requires-Dist: opentelemetry-api>=1.39.0,<2
 Requires-Dist: mcp>=1.24.0,<2 ; extra == "all"
 Requires-Dist: agent-framework-a2a ; extra == "all"
 Requires-Dist: agent-framework-ag-ui ; extra == "all"
+Requires-Dist: agent-framework-anthropic ; extra == "all"
 Requires-Dist: agent-framework-azure-ai-search ; extra == "all"
 Requires-Dist: agent-framework-azure-cosmos ; extra == "all"
-Requires-Dist: agent-framework-anthropic ; extra == "all"
-Requires-Dist: agent-framework-openai ; extra == "all"
-Requires-Dist: agent-framework-claude ; extra == "all"
 Requires-Dist: agent-framework-azurefunctions ; extra == "all"
 Requires-Dist: agent-framework-bedrock ; extra == "all"
 Requires-Dist: agent-framework-chatkit ; extra == "all"
+Requires-Dist: agent-framework-claude ; extra == "all"
 Requires-Dist: agent-framework-copilotstudio ; extra == "all"
 Requires-Dist: agent-framework-declarative ; extra == "all"
 Requires-Dist: agent-framework-devui ; extra == "all"
@@ -41,6 +40,7 @@ Requires-Dist: agent-framework-github-copilot ; extra == "all" and ( python_vers
 Requires-Dist: agent-framework-lab ; extra == "all"
 Requires-Dist: agent-framework-mem0 ; extra == "all"
 Requires-Dist: agent-framework-ollama ; extra == "all"
+Requires-Dist: agent-framework-openai ; extra == "all"
 Requires-Dist: agent-framework-orchestrations ; extra == "all"
 Requires-Dist: agent-framework-purview ; extra == "all"
 Requires-Dist: agent-framework-redis ; extra == "all"

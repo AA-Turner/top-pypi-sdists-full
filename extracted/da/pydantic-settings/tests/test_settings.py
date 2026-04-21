@@ -6,7 +6,7 @@ import sys
 import uuid
 from collections.abc import Callable, Hashable
 from datetime import date, datetime, timezone
-from enum import IntEnum
+from enum import Enum, IntEnum
 from pathlib import Path
 from typing import Annotated, Any, Generic, Literal, TypeVar
 from unittest import mock
@@ -1596,6 +1596,34 @@ def test_read_dotenv_vars(tmp_path):
     }
 
 
+@pytest.mark.skipif(not hasattr(os, 'mkfifo'), reason='requires os.mkfifo (Unix)')
+def test_read_dotenv_vars_from_fifo(tmp_path):
+    """Named pipes / FIFOs (e.g. 1Password Environments) should be read as env files."""
+    import threading
+
+    env_content = 'KEY=value\nOTHER=123'
+    fifo_path = tmp_path / '.env'
+    os.mkfifo(fifo_path)
+
+    def write_to_fifo():
+        with fifo_path.open('w') as f:
+            f.write(env_content)
+
+    thread = threading.Thread(target=write_to_fifo)
+    thread.start()
+
+    try:
+        source = DotEnvSettingsSource(
+            BaseSettings(), env_file=fifo_path, env_file_encoding='utf8', case_sensitive=False
+        )
+        assert dict(source.env_vars) == {'key': 'value', 'other': '123'}
+    finally:
+        thread.join(timeout=1)
+        if thread.is_alive():
+            fifo_path.read_text()  # writer may be blocked without a read
+            thread.join(timeout=1)
+
+
 def test_read_dotenv_vars_when_env_file_is_none():
     assert (
         DotEnvSettingsSource(
@@ -2332,6 +2360,31 @@ def test_json_field_with_discriminated_union(env):
     s = Settings()
 
     assert s.a_or_b.x == 'a'
+
+
+def test_nested_discriminated_union(env):
+    """Test that nested unions like Union[Annotated[Union[A, B], Discriminator(...)], None] are handled correctly."""
+
+    class A(BaseModel):
+        x: Literal['a'] = 'a'
+        a: int = 1
+
+    class B(BaseModel):
+        x: Literal['b'] = 'b'
+        b: str = 'hello'
+
+    AOrB = Annotated[A | B, Discriminator('x')]
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(env_nested_delimiter='__')
+        a_or_b: AOrB | None = None
+
+    # Test env var for nested model field
+    env.set('a_or_b__x', 'b')
+    env.set('a_or_b__b', 'world')
+    s = Settings()
+    assert isinstance(s.a_or_b, B)
+    assert s.a_or_b.b == 'world'
 
 
 def test_nested_model_case_insensitive(env):
@@ -3272,6 +3325,107 @@ def test_dotenv_env_prefix_env_with_alias_with_prefix(tmp_path, env_prefix_targe
     assert s.model_dump() == {'foo': 'foo'}
 
 
+@pytest.mark.parametrize('prefix', ['TEST_', ''])
+def test_dotenv_only_existing(tmp_path, prefix):
+    p = tmp_path / '.env'
+    p.write_text('a=foo\nb=x\nTEST_a=bar\nTEST_b=y')
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            env_file=p,
+            env_prefix=prefix,
+            dotenv_filtering='only_existing',
+            extra='forbid',
+        )
+
+        a: str = 'default'
+
+    s = Settings()
+    assert s.model_dump() == {'a': 'foo' if prefix == '' else 'bar'}
+
+
+@pytest.mark.parametrize('prefix', ['TEST_', ''])
+@pytest.mark.parametrize('case_sensitive', [True, False])
+def test_dotenv_match_prefix(tmp_path, prefix, case_sensitive):
+    p = tmp_path / '.env'
+    if case_sensitive:
+        p.write_text('A=foo\nb=x\nTEST_a=bar\ntest_b=y')
+    else:
+        p.write_text('a=foo\nb=x\nTEST_a=bar\nTEST_b=y')
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            env_file=p,
+            env_prefix=prefix,
+            dotenv_filtering='match_prefix',
+            case_sensitive=case_sensitive,
+            extra='allow',
+        )
+
+        a: str = 'default'
+
+    s = Settings()
+    if prefix:
+        assert s.model_dump() == {'a': 'bar'} if case_sensitive else {'a': 'bar', 'b': 'y'}
+    else:
+        if case_sensitive:
+            v = {'a': 'default', 'A': 'foo', 'b': 'x', 'TEST_a': 'bar', 'test_b': 'y'}
+        else:
+            v = {'a': 'foo', 'b': 'x', 'test_a': 'bar', 'test_b': 'y'}
+        assert s.model_dump() == v
+
+
+@pytest.mark.parametrize('filtering', ['match_prefix', None])
+def test_dotenv_match_prefix_nested_delimiter(tmp_path, filtering):
+    p = tmp_path / '.env'
+    p.write_text('x=foo\nprefix_a@x=bar\nprefix_a@b=y\nprefix_b=b\nprefix_c@a=1\nprefix_c@b=2')
+
+    class A(BaseModel):
+        x: str = 'x_default'
+        b: str = 'b_default'
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            env_file=p,
+            env_prefix='prefix_',
+            dotenv_filtering=filtering,
+            env_nested_delimiter='@',
+            extra='allow',
+        )
+
+        a: A
+
+    s = Settings()
+    exp = {'a': {'x': 'bar', 'b': 'y'}, 'b': 'b', 'c@a': '1', 'c@b': '2'}
+    if not filtering:
+        exp['x'] = 'foo'
+    assert s.model_dump() == exp
+
+
+def test_dotenv_match_prefix_nested_delimiter_no_extra(tmp_path):
+    p = tmp_path / '.env'
+    p.write_text('x=foo\nprefix_a__x=bar\nprefix_a__b=y\nprefix_c__a=1')
+
+    class A(BaseModel):
+        x: str = 'x_default'
+        b: str = 'b_default'
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            env_file=p,
+            env_prefix='prefix_',
+            dotenv_filtering='match_prefix',
+            env_nested_delimiter='__',
+            extra='forbid',
+        )
+
+        a: A
+        c__a: int
+
+    s = Settings()
+    assert s.model_dump() == {'a': {'x': 'bar', 'b': 'y'}, 'c__a': 1}
+
+
 def test_parsing_secret_field(env):
     class Settings(BaseSettings):
         foo: Secret[int]
@@ -3422,6 +3576,40 @@ def test_env_strict_coercion(env):
     }
 
 
+def test_env_strict_coercion_optional_strict_types(env):
+    from pydantic import StrictBool, StrictInt
+
+    class StrictSettings(BaseSettings, strict=True):
+        my_bool: StrictBool | None = None
+
+    env.set('MY_BOOL', 'true')
+    s = StrictSettings()
+    assert s.my_bool is True
+
+    class NonStrictSettings(BaseSettings):
+        my_bool: StrictBool | None = None
+
+    s = NonStrictSettings()
+    assert s.my_bool is True
+
+    class NestedModel(BaseModel):
+        flag: StrictBool | None = None
+
+    class NestedSettings(BaseSettings, env_nested_delimiter='__'):
+        sub: NestedModel = NestedModel()
+
+    env.set('SUB__FLAG', 'true')
+    s = NestedSettings()
+    assert s.sub.flag is True
+
+    class IntSettings(BaseSettings):
+        my_int: StrictInt | None = None
+
+    env.set('MY_INT', '42')
+    s = IntSettings()
+    assert s.my_int == 42
+
+
 def test_env_source_when_load_multi_nested_config(env):
     class EmbeddingModel(BaseModel):
         model: str = 'text-embedding-3-small'
@@ -3440,3 +3628,64 @@ def test_env_source_when_load_multi_nested_config(env):
     llm_setting = LLMSettings()
     assert llm_setting.llm.embeddings['openai'].keys == ['sk-...']
     assert llm_setting.llm.embeddings['qwen'].keys == ['sk-...']
+
+
+class _MQTTVersion(IntEnum):
+    v31 = 3
+    v311 = 4
+
+
+class _Priority(int, Enum):
+    low = 1
+    high = 3
+
+
+class _Threshold(float, Enum):
+    low = 0.25
+    high = 0.75
+
+
+@pytest.mark.parametrize(
+    'field_type,env_val,expected',
+    [
+        pytest.param(
+            Literal[_MQTTVersion.v31, _MQTTVersion.v311],
+            '3',
+            _MQTTVersion.v31,
+            id='IntEnum',
+        ),
+        pytest.param(
+            Literal[_Priority.low, _Priority.high],
+            '3',
+            _Priority.high,
+            id='int_Enum_mixin',
+        ),
+        pytest.param(
+            Literal[_Threshold.low, _Threshold.high],
+            '0.75',
+            _Threshold.high,
+            id='float_Enum_mixin',
+        ),
+        pytest.param(
+            Literal[_MQTTVersion.v31, _MQTTVersion.v311] | None,
+            '4',
+            _MQTTVersion.v311,
+            id='Optional_IntEnum',
+        ),
+        pytest.param(
+            Annotated[Literal[_MQTTVersion.v31, _MQTTVersion.v311], Field(description='MQTT version')],
+            '3',
+            _MQTTVersion.v31,
+            id='Annotated_IntEnum',
+        ),
+    ],
+)
+def test_env_literal_numeric_enum(field_type, env_val, expected, env):
+    """Literal[numeric Enum member] should parse from env var numeric strings."""
+
+    class Cfg(BaseSettings):
+        val: field_type = ...  # type: ignore[valid-type]
+
+    env.set('VAL', env_val)
+    cfg = Cfg()
+    assert cfg.val is expected

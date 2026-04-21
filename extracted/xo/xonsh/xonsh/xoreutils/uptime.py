@@ -46,7 +46,7 @@ def _boot_time_linux() -> "float|None":
     # https://stackoverflow.com/questions/42471475/fastest-way-to-get-system-uptime-in-python-in-linux
     bt_flag = getattr(time, "CLOCK_BOOTTIME", None)
     if bt_flag is not None:
-        return time.clock_gettime(bt_flag)
+        return time.time() - time.clock_gettime(bt_flag)
     try:
         with open("/proc/stat") as f:
             for line in f:
@@ -73,7 +73,7 @@ def _boot_time_beos() -> "float|None":
 
 
 def _boot_time_bsd() -> "float|None":
-    """Returns uptime in seconds or None, on BSD (including OS X)."""
+    """Returns uptime in seconds or None, on BSD (including macOS)."""
     # https://docs.python.org/3/library/time.html#time.CLOCK_UPTIME
     with contextlib.suppress(Exception):
         ut_flag = getattr(time, "CLOCK_UPTIME", None)
@@ -94,7 +94,7 @@ def _boot_time_bsd() -> "float|None":
     buf = ctypes.create_string_buffer(sz.value)
     xp.LIBC.sysctlbyname(b"kern.boottime", buf, ctypes.byref(sz), None, 0)
     sec, usec = struct.unpack_from("@LL", buf.raw)
-    # OS X disagrees what that second value is.
+    # macOS disagrees what that second value is.
     if usec > 1000000:
         usec = 0.0
     return sec + usec / 1000000.0
@@ -205,7 +205,7 @@ def _boot_time_windows():
         # Vista/Server 2008 or later.
         xp.LIBC.GetTickCount64.restype = ctypes.c_uint64
         uptime = xp.LIBC.GetTickCount64() / 1000.0
-    if hasattr(xp.LIBC, "GetTickCount"):
+    elif hasattr(xp.LIBC, "GetTickCount"):
         # WinCE and Win2k or later; gives wrong answers after 49.7 days.
         xp.LIBC.GetTickCount.restype = ctypes.c_uint32
         uptime = xp.LIBC.GetTickCount() / 1000.0

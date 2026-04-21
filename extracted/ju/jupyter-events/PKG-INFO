@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter-events
-Version: 0.12.0
+Version: 0.12.1
 Summary: Jupyter Event System library
 Project-URL: Homepage, http://jupyter.org
 Project-URL: documentation, https://jupyter-events.readthedocs.io/

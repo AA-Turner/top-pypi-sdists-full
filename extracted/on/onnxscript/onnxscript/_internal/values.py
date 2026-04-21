@@ -170,7 +170,7 @@ class OpLike(Protocol):
     def opset(self) -> Opset: ...
 
     @property
-    def op_signature(self) -> Optional[_schemas.OpSignature]: ...
+    def op_signature(self) -> Optional[ir.schemas.OpSignature]: ...
 
 
 class Op(OpLike):
@@ -196,7 +196,7 @@ class Op(OpLike):
             self._op_schema = op.op_schema
         else:
             self._op_schema = None
-        self._signature: Optional[_schemas.OpSignature] = None
+        self._signature: Optional[ir.schemas.OpSignature] = None
 
         if self._op_schema is None:
             logger.debug(
@@ -223,6 +223,10 @@ class Op(OpLike):
         return self._name
 
     @property
+    def domain(self) -> str:
+        return self._opset.domain
+
+    @property
     def opset(self) -> Opset:
         return self._opset
 
@@ -231,7 +235,7 @@ class Op(OpLike):
         return self._op_schema
 
     @property
-    def op_signature(self) -> Optional[_schemas.OpSignature]:
+    def op_signature(self) -> Optional[ir.schemas.OpSignature]:
         """Returns the signature of this op."""
         if self._signature is not None:
             return self._signature
@@ -239,11 +243,11 @@ class Op(OpLike):
         if self.op_schema is None:
             return None
 
-        self._signature = _schemas.OpSignature.from_op_schema(self.op_schema)
+        self._signature = ir.schemas.OpSignature.from_op_schema(self.op_schema)
         return self._signature
 
     @op_signature.setter
-    def op_signature(self, value: _schemas.OpSignature):
+    def op_signature(self, value: ir.schemas.OpSignature):
         self._signature = value
 
 
@@ -301,7 +305,7 @@ class OnnxFunction(Op, Generic[_P, _R]):
         self.function_ir.meta["opset_version"] = opset.version
         self.source = source
         self.kwargs = kwargs
-        self._signature = _schemas.OpSignature.from_function(
+        self._signature = _schemas.op_signature_from_function(
             self.function, domain=self.function_ir.domain, name=self.name
         )
 
@@ -312,12 +316,12 @@ class OnnxFunction(Op, Generic[_P, _R]):
         self.traceable = False
 
     @property
-    def op_signature(self) -> Optional[_schemas.OpSignature]:
+    def op_signature(self) -> Optional[ir.schemas.OpSignature]:
         """Returns the signature of this op."""
         return self._signature
 
     @op_signature.setter
-    def op_signature(self, value: _schemas.OpSignature):
+    def op_signature(self, value: ir.schemas.OpSignature):
         self._signature = value
 
     def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _R:
@@ -332,6 +336,15 @@ class OnnxFunction(Op, Generic[_P, _R]):
     def to_function_proto(self) -> onnx.FunctionProto:
         """Converts the function into :class:`onnx.FunctionProto`."""
         return self.function_ir.to_function_proto()
+
+    def graph(self) -> ir.Graph:
+        """Returns the IR graph representation of this function.
+
+        Returns:
+            The :class:`ir.Graph` representing the computation graph of this function.
+            NOTE: This is not a copy, and should not be modified by the caller.
+        """
+        return self.function_ir.graph
 
     def to_model_proto(self, **kwargs):
         """Converts the function into :class:`onnx.ModelProto`."""
@@ -465,7 +478,7 @@ class TracedOnnxFunction(Op):
     def __init__(self, opset: Opset, func: Callable):
         super().__init__(opset, func.__name__)
         self.func = func
-        self._signature = _schemas.OpSignature.from_function(
+        self._signature = _schemas.op_signature_from_function(
             self.func, domain="_traced", name=self.name
         )
 
@@ -498,12 +511,12 @@ class TracedOnnxFunction(Op):
         return converter.translate_function_signature(func_ast)
 
     @property
-    def op_signature(self) -> Optional[_schemas.OpSignature]:
+    def op_signature(self) -> Optional[ir.schemas.OpSignature]:
         """Returns the signature of this op."""
         return self._signature
 
     @op_signature.setter
-    def op_signature(self, value: _schemas.OpSignature):
+    def op_signature(self, value: ir.schemas.OpSignature):
         self._signature = value
 
 

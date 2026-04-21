@@ -47,15 +47,17 @@ pub enum SpawningToolType {
     WebSearch,
     /// Bash tool - calls LLM to analyze command prefix for safety
     Bash,
+    /// WebFetch tool - calls LLM to extract pieces of information from a page
+    WebFetch,
 }
 
 impl SpawningToolType {
     /// Get the field name that contains the prompt/query for matching
     pub fn prompt_field(&self) -> &'static str {
         match self {
-            SpawningToolType::Task => "prompt",
-            SpawningToolType::WebSearch => "query",
-            SpawningToolType::Bash => "command",
+            Self::Task | Self::WebFetch => "prompt",
+            Self::WebSearch => "query",
+            Self::Bash => "command",
         }
     }
 
@@ -65,6 +67,7 @@ impl SpawningToolType {
             "Task" | "Agent" => Some(SpawningToolType::Task),
             "WebSearch" => Some(SpawningToolType::WebSearch),
             "Bash" => Some(SpawningToolType::Bash),
+            "WebFetch" => Some(SpawningToolType::WebFetch),
             _ => None,
         }
     }

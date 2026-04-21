@@ -619,6 +619,7 @@ __all__ = (
     "TransitGatewayAssociationStateType",
     "TransitGatewayAttachmentResourceTypeType",
     "TransitGatewayAttachmentStateType",
+    "TransitGatewayAttachmentStatusTypeType",
     "TransitGatewayConnectPeerStateType",
     "TransitGatewayMeteringPayerTypeType",
     "TransitGatewayMeteringPolicyEntryStateType",
@@ -893,7 +894,9 @@ ClientVpnConnectionStatusCodeType = Literal[
     "active", "failed-to-terminate", "terminated", "terminating"
 ]
 ClientVpnEndpointAttributeStatusCodeType = Literal["applied", "applying"]
-ClientVpnEndpointStatusCodeType = Literal["available", "deleted", "deleting", "pending-associate"]
+ClientVpnEndpointStatusCodeType = Literal[
+    "available", "deleted", "deleting", "pending", "pending-associate"
+]
 ClientVpnRouteStatusCodeType = Literal["active", "creating", "deleting", "failed"]
 ComparisonType = Literal["equals", "in"]
 ConnectionNotificationStateType = Literal["Disabled", "Enabled"]
@@ -3310,6 +3313,7 @@ TransitGatewayAssociationStateType = Literal[
     "associated", "associating", "disassociated", "disassociating"
 ]
 TransitGatewayAttachmentResourceTypeType = Literal[
+    "client-vpn",
     "connect",
     "direct-connect-gateway",
     "network-function",
@@ -3333,6 +3337,9 @@ TransitGatewayAttachmentStateType = Literal[
     "rejected",
     "rejecting",
     "rollingBack",
+]
+TransitGatewayAttachmentStatusTypeType = Literal[
+    "available", "deleted", "deleting", "pending", "pending-acceptance", "rejected"
 ]
 TransitGatewayConnectPeerStateType = Literal["available", "deleted", "deleting", "pending"]
 TransitGatewayMeteringPayerTypeType = Literal[

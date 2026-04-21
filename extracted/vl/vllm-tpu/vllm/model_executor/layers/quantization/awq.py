@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Union
 
 import torch
 from safetensors.torch import _TYPES as _SAFETENSORS_TO_TORCH_DTYPE
+from transformers import PretrainedConfig
 
 from vllm import _custom_ops as ops
 from vllm.logger import init_logger
@@ -106,7 +107,7 @@ class AWQConfig(QuantizationConfig):
             return AWQLinearMethod(self)
         elif isinstance(layer, FusedMoE):
             # Lazy import to avoid circular import.
-            from .awq_marlin import AWQMarlinConfig, AWQMarlinMoEMethod
+            from .awq_marlin import AWQMarlinConfig
             from .moe_wna16 import MoeWNA16Config
             from .utils.marlin_utils import check_moe_marlin_supports_layer
 
@@ -121,6 +122,7 @@ class AWQConfig(QuantizationConfig):
                     "group_size": self.group_size,
                     "zero_point": self.zero_point,
                     "lm_head": False,
+                    "modules_to_not_convert": self.modules_to_not_convert,
                 }
                 return MoeWNA16Config.from_config(config).get_quant_method(
                     layer, prefix
@@ -136,7 +138,7 @@ class AWQConfig(QuantizationConfig):
             awq_marlin_config = AWQMarlinConfig.from_config(
                 marlin_compatible_config_dict
             )
-            return AWQMarlinMoEMethod(awq_marlin_config, layer.moe_config)
+            return awq_marlin_config.get_quant_method(layer, prefix)
         return None
 
     def apply_vllm_mapper(self, hf_to_vllm_mapper: "WeightsMapper"):
@@ -145,7 +147,12 @@ class AWQConfig(QuantizationConfig):
                 self.modules_to_not_convert
             )
 
-    def maybe_update_config(self, model_name: str, revision: str | None = None):
+    def maybe_update_config(
+        self,
+        model_name: str,
+        hf_config: PretrainedConfig | None = None,
+        revision: str | None = None,
+    ):
         if self.modules_to_not_convert:
             return
 

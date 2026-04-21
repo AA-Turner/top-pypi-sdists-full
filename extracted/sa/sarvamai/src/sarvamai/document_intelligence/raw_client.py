@@ -298,7 +298,7 @@ class RawDocumentIntelligenceClient:
         - ZIP must contain only JPEG/PNG images
         - ZIP must be flat (no nested folders beyond one level)
         - ZIP must contain at least one valid image
-        - Page/image count must not exceed 500
+        - Page/image count must not exceed 10 (returns `422` with `max_page_limit_exceeded` if exceeded)
         - User must have sufficient credits
 
         **Processing:**
@@ -871,7 +871,7 @@ class AsyncRawDocumentIntelligenceClient:
         - ZIP must contain only JPEG/PNG images
         - ZIP must be flat (no nested folders beyond one level)
         - ZIP must contain at least one valid image
-        - Page/image count must not exceed 500
+        - Page/image count must not exceed 10 (returns `422` with `max_page_limit_exceeded` if exceeded)
         - User must have sufficient credits
 
         **Processing:**

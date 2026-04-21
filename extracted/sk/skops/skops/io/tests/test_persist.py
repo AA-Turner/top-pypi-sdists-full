@@ -14,11 +14,19 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import joblib
 import numpy as np
 import pytest
+import sklearn
 from scipy import sparse, special
 from sklearn.base import BaseEstimator, is_regressor
 from sklearn.compose import ColumnTransformer
 from sklearn.datasets import load_sample_images, make_classification, make_regression
 from sklearn.decomposition import SparseCoder
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.ensemble import (
+    GradientBoostingClassifier,
+    GradientBoostingRegressor,
+    HistGradientBoostingClassifier,
+    HistGradientBoostingRegressor,
+)
 from sklearn.exceptions import SkipTestWarning
 from sklearn.experimental import enable_halving_search_cv  # noqa
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -148,6 +156,18 @@ def _tested_estimators(type_filter=None):
                     # default solver will be "highs" from scikit-learn >= 1.4.0.
                     # https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.QuantileRegressor.html
                     estimators = construct_instances(partial(Estimator, solver="highs"))
+                elif name == "SparseCoder":
+                    dictionary = np.random.randint(-2, 3, size=(5, N_FEATURES)).astype(
+                        float
+                    )
+                    estimators = [
+                        SparseCoder(
+                            dictionary=dictionary,
+                            transform_algorithm="lasso_lars",
+                        )
+                    ]
+                elif name == "QuadraticDiscriminantAnalysis":
+                    estimators = [QuadraticDiscriminantAnalysis(reg_param=1.0)]
                 else:
                     estimators = construct_instances(Estimator)
 
@@ -245,12 +265,6 @@ def _tested_estimators(type_filter=None):
         LogisticRegression(random_state=0, solver="liblinear"),
         {"C": [1, 2, 3, 4, 5]},
         n_iter=3,
-    )
-
-    dictionary = np.random.randint(-2, 3, size=(5, N_FEATURES)).astype(float)
-    yield SparseCoder(
-        dictionary=dictionary,
-        transform_algorithm="lasso_lars",
     )
 
 
@@ -429,6 +443,112 @@ def test_can_trust_types(type_):
     dumped = dumps(type_)
     untrusted_types = get_untrusted_types(data=dumped)
     assert len(untrusted_types) == 0
+
+
+@pytest.mark.skipif(
+    parse_version(sklearn.__version__) < parse_version("1.4"),
+    reason=(
+        "Before scikit-learn 1.4, GradientBoosting uses different internal loss "
+        "objects (sklearn.ensemble._gb_losses) that are not supported as trusted types."
+    ),
+)
+@pytest.mark.parametrize(
+    ("estimator", "problem_type"),
+    [
+        pytest.param(
+            GradientBoostingClassifier(loss="log_loss", n_estimators=5),
+            "multiclass",
+            id="GradientBoostingClassifier-log_loss-multiclass",
+        ),
+        pytest.param(
+            GradientBoostingClassifier(loss="exponential", n_estimators=5),
+            "binary",
+            id="GradientBoostingClassifier-exponential",
+        ),
+        pytest.param(
+            GradientBoostingRegressor(loss="squared_error", n_estimators=5),
+            "regression",
+            id="GradientBoostingRegressor-squared_error",
+        ),
+        pytest.param(
+            GradientBoostingRegressor(loss="absolute_error", n_estimators=5),
+            "regression",
+            id="GradientBoostingRegressor-absolute_error",
+        ),
+        pytest.param(
+            GradientBoostingRegressor(loss="huber", n_estimators=5),
+            "regression",
+            id="GradientBoostingRegressor-huber",
+        ),
+        pytest.param(
+            GradientBoostingRegressor(loss="quantile", n_estimators=5, alpha=0.8),
+            "regression",
+            id="GradientBoostingRegressor-quantile",
+        ),
+        pytest.param(
+            HistGradientBoostingClassifier(loss="log_loss", max_iter=5),
+            "binary",
+            id="HistGradientBoostingClassifier-log_loss",
+        ),
+        pytest.param(
+            HistGradientBoostingRegressor(loss="gamma", max_iter=5),
+            "positive_regression",
+            id="HistGradientBoostingRegressor-gamma",
+        ),
+        pytest.param(
+            HistGradientBoostingRegressor(loss="poisson", max_iter=5),
+            "positive_regression",
+            id="HistGradientBoostingRegressor-poisson",
+        ),
+    ],
+)
+def test_gradient_boosting_estimators_have_no_untrusted_types(estimator, problem_type):
+    """Fitted GB/HGB models should save and load without any untrusted types,
+    even though they contain non-public sklearn internals (loss functions, link
+    functions, Cython loss classes, _BinMapper, TreePredictor)."""
+    set_random_state(estimator, random_state=0)
+
+    if problem_type == "binary":
+        X, y = make_classification(
+            n_samples=N_SAMPLES,
+            n_features=N_FEATURES,
+            n_classes=2,
+            n_informative=5,
+            random_state=0,
+        )
+    elif problem_type == "multiclass":
+        # n_samples must be > n_classes * n_clusters_per_class to avoid errors
+        X, y = make_classification(
+            n_samples=140,
+            n_features=N_FEATURES,
+            n_classes=3,
+            n_informative=8,
+            n_clusters_per_class=1,
+            random_state=0,
+        )
+    elif problem_type == "positive_regression":
+        X, y = make_regression(
+            n_samples=N_SAMPLES,
+            n_features=N_FEATURES,
+            random_state=0,
+        )
+        y = np.abs(y) + 1
+    else:
+        X, y = make_regression(
+            n_samples=N_SAMPLES,
+            n_features=N_FEATURES,
+            random_state=0,
+        )
+
+    estimator.fit(X, y)
+
+    dumped = dumps(estimator)
+    untrusted_types = get_untrusted_types(data=dumped)
+    assert untrusted_types == []
+
+    loaded = loads(dumped)
+    assert_params_equal(estimator.__dict__, loaded.__dict__)
+    assert_method_outputs_equal(estimator, loaded, X)
 
 
 @pytest.mark.parametrize(
@@ -1162,3 +1282,35 @@ def test_custom_reduce():
 
     loaded_obj = loads(dumps(obj), trusted=[CustomReduce])
     assert obj.value == loaded_obj.value
+
+
+def test_loss_node_does_not_import_before_audit(monkeypatch):
+    """Regression test for https://github.com/skops-dev/skops/pull/506"""
+    try:
+        from sklearn._loss._loss import CyAbsoluteError
+    except ImportError:
+        pytest.skip("sklearn version does not have CyAbsoluteError")
+
+    dumped = dumps(CyAbsoluteError())
+    buffer = io.BytesIO()
+
+    with ZipFile(io.BytesIO(dumped), "r") as src, ZipFile(buffer, "w") as dst:
+        schema = json.loads(src.read("schema.json"))
+        schema["__module__"] = "malicious_mod"
+        schema["__class__"] = "Payload"
+
+        for info in src.infolist():
+            if info.filename == "schema.json":
+                dst.writestr("schema.json", json.dumps(schema))
+            else:
+                dst.writestr(info, src.read(info.filename))
+
+    dumped = buffer.getvalue()
+
+    def fail_gettype(*args, **kwargs):
+        raise AssertionError("gettype() should not be called before audit")
+
+    monkeypatch.setattr("skops.io._sklearn.gettype", fail_gettype)
+
+    with pytest.raises(UntrustedTypesFoundException, match="malicious_mod.Payload"):
+        loads(dumped)

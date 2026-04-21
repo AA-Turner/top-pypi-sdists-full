@@ -18,12 +18,14 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import datetime
+import json
 import os
 import re
 import sys
 import typing
 
 from mergify_cli import console
+from mergify_cli import console_error
 from mergify_cli import utils
 from mergify_cli.exit_codes import ExitCode
 from mergify_cli.stack import changes
@@ -252,8 +254,8 @@ async def stack_push(
     try:
         check_local_branch(branch_name=dest_branch, branch_prefix=branch_prefix)
     except LocalBranchInvalidError as e:
-        console.log(f"[red] {e.message} [/]")
-        console.log(
+        console_error(e.message)
+        console.print(
             "You should run `mergify stack` on the branch you created in the first place",
         )
         sys.exit(ExitCode.INVALID_STATE)
@@ -266,12 +268,14 @@ async def stack_push(
 
     if base_branch == dest_branch:
         remote_url = await utils.git("remote", "get-url", remote)
+        console_error(
+            f"your local branch `{dest_branch}` targets itself: "
+            f"`{remote}/{base_branch}` (at {remote_url}@{base_branch})",
+        )
         console.print(
-            f"Your local branch `{dest_branch}` targets itself: `{remote}/{base_branch}` (at {remote_url}@{base_branch}).\n"
             f"You should either fix the target branch or rename your local branch.\n\n"
-            f"* To fix the target branch: `git branch {dest_branch} --set-upstream-to={remote}/{base_branch}`\n",
+            f"* To fix the target branch: `git branch {dest_branch} --set-upstream-to={remote}/{base_branch}`\n"
             f"* To rename your local branch: `git branch -M {dest_branch} new-branch-name`",
-            style="red",
         )
         sys.exit(ExitCode.INVALID_STATE)
 
@@ -324,9 +328,8 @@ async def stack_push(
         f"{remote}/{base_branch}",
     )
     if not base_commit_sha:
-        console.log(
-            f"Common commit between `{remote}/{base_branch}` and `{dest_branch}` branches not found",
-            style="red",
+        console_error(
+            f"common commit between `{remote}/{base_branch}` and `{dest_branch}` branches not found",
         )
         sys.exit(ExitCode.STACK_NOT_FOUND)
 
@@ -364,8 +367,8 @@ async def stack_push(
         )
 
         if dry_run:
-            console.log("[orange]Finished (dry-run mode) :tada:[/]")
-            sys.exit(0)
+            console.log("[orange]Finished (dry-run mode).[/]")
+            sys.exit(ExitCode.SUCCESS)
 
         if revision_history:
             # Fetch old PR heads for patch-id comparison before force-pushing
@@ -429,7 +432,7 @@ async def stack_push(
         with console.status("Updating comments..."):
             await create_or_update_comments(client, user, repo, pulls_to_comment)
 
-        console.log("[green]Comments updated[/]")
+        console.log("[green]Comments updated.[/]")
 
         if revision_history:
             updated_changes = [
@@ -445,7 +448,7 @@ async def stack_push(
                     github_server,
                     updated_changes,
                 )
-            console.log("[green]Revision history updated[/]")
+            console.log("[green]Revision history updated.[/]")
 
         with console.status("Deleting unused branches..."):
             if planned_changes.orphans:
@@ -456,7 +459,7 @@ async def stack_push(
                     ),
                 )
 
-        console.log("[green]Finished :tada:[/]")
+        console.log("[green]Finished.[/]")
 
 
 @dataclasses.dataclass
@@ -498,7 +501,19 @@ class _RevisionEntry:
     change_type: str
     old_sha: str | None  # None for "initial"
     new_sha: str
-    timestamp: str  # "YYYY-MM-DD HH:MM UTC"
+    timestamp: datetime.datetime | None
+
+    @property
+    def timestamp_human(self) -> str:
+        if self.timestamp is None:
+            return ""
+        return self.timestamp.strftime("%Y-%m-%d %H:%M UTC")
+
+    @property
+    def timestamp_iso(self) -> str | None:
+        if self.timestamp is None:
+            return None
+        return self.timestamp.astimezone(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 @dataclasses.dataclass
@@ -525,10 +540,6 @@ class RevisionHistoryComment:
             html_url = api_url.replace("api.github.com", "github.com")
         return f"{html_url}/{self.user}/{self.repo}/compare/{old_sha}...{new_sha}"
 
-    @staticmethod
-    def _format_timestamp(dt: datetime.datetime) -> str:
-        return dt.strftime("%Y-%m-%d %H:%M UTC")
-
     @classmethod
     def create_initial(
         cls,
@@ -541,10 +552,9 @@ class RevisionHistoryComment:
         change_type: str,
         timestamp: datetime.datetime,
     ) -> RevisionHistoryComment:
-        ts = cls._format_timestamp(timestamp)
         entries = [
-            _RevisionEntry(1, "initial", None, old_sha, ts),
-            _RevisionEntry(2, change_type, old_sha, new_sha, ts),
+            _RevisionEntry(1, "initial", None, old_sha, timestamp),
+            _RevisionEntry(2, change_type, old_sha, new_sha, timestamp),
         ]
         return cls(
             github_server=github_server,
@@ -561,10 +571,9 @@ class RevisionHistoryComment:
         change_type: str,
         timestamp: datetime.datetime,
     ) -> None:
-        ts = self._format_timestamp(timestamp)
         next_number = len(self.entries) + 1
         self.entries.append(
-            _RevisionEntry(next_number, change_type, old_sha, new_sha, ts),
+            _RevisionEntry(next_number, change_type, old_sha, new_sha, timestamp),
         )
 
     def _render_entry(self, entry: _RevisionEntry) -> str:
@@ -573,9 +582,38 @@ class RevisionHistoryComment:
         else:
             url = self._compare_url(entry.old_sha, entry.new_sha)
             changes_cell = f"[`{entry.old_sha[:7]} \u2192 {entry.new_sha[:7]}`]({url})"
-        return f"| {entry.number} | {entry.change_type} | {changes_cell} | {entry.timestamp} |"
+        return (
+            f"| {entry.number} | {entry.change_type} | {changes_cell} "
+            f"| {entry.timestamp_human} |"
+        )
 
-    def body(self) -> str:
+    def _json_marker(self, pull_number: int) -> str:
+        payload = {
+            "schema_version": 1,
+            "pull_number": pull_number,
+            "entries": [
+                {
+                    "number": e.number,
+                    "change_type": e.change_type,
+                    "old_sha": e.old_sha,
+                    "new_sha": e.new_sha,
+                    "timestamp_iso": e.timestamp_iso,
+                    "compare_url": (
+                        None
+                        if e.old_sha is None
+                        else self._compare_url(e.old_sha, e.new_sha)
+                    ),
+                }
+                for e in self.entries
+            ],
+        }
+        return (
+            "<!-- mergify-revision-data: "
+            + json.dumps(payload, separators=(",", ":"))
+            + " -->"
+        )
+
+    def body(self, pull_number: int) -> str:
         lines = [
             self.REVISION_COMMENT_FIRST_LINE,
             "| # | Type | Changes | Date |",
@@ -587,7 +625,7 @@ class RevisionHistoryComment:
                 lines.append(self._raw_rows[i])
             else:
                 lines.append(self._render_entry(entry))
-        return "\n".join(lines) + "\n"
+        return "\n".join(lines) + "\n" + self._json_marker(pull_number) + "\n"
 
     _ROW_RE: typing.ClassVar[re.Pattern[str]] = re.compile(
         r"^\| (\d+) \| (\w+) \| .+ \| (.+) \|$",
@@ -613,7 +651,14 @@ class RevisionHistoryComment:
                 continue
             number = int(m.group(1))
             change_type = m.group(2)
-            timestamp = m.group(3).strip()
+            timestamp_str = m.group(3).strip()
+            try:
+                timestamp = datetime.datetime.strptime(
+                    timestamp_str,
+                    "%Y-%m-%d %H:%M UTC",
+                ).replace(tzinfo=datetime.UTC)
+            except ValueError:
+                timestamp = None
             entries.append(
                 _RevisionEntry(number, change_type, None, "", timestamp),
             )
@@ -703,7 +748,7 @@ async def _update_revision_for_pull(
     if change.pull is None:
         return
 
-    pull_number = change.pull["number"]
+    pull_number = int(change.pull["number"])
     old_sha = change.pull_head_sha
     new_sha = change.commit_sha
 
@@ -728,7 +773,7 @@ async def _update_revision_for_pull(
                         change_type=change_type,
                         timestamp=timestamp,
                     )
-                    new_body = parsed.body()
+                    new_body = parsed.body(pull_number)
                     if comment["body"] != new_body:
                         await client.patch(
                             comment["url"],
@@ -747,7 +792,7 @@ async def _update_revision_for_pull(
                 )
                 await client.patch(
                     comment["url"],
-                    json={"body": revision.body()},
+                    json={"body": revision.body(pull_number)},
                 )
                 return
 
@@ -763,7 +808,7 @@ async def _update_revision_for_pull(
         )
         await client.post(
             f"/repos/{user}/{repo}/issues/{pull_number}/comments",
-            json={"body": revision.body()},
+            json={"body": revision.body(pull_number)},
         )
 
 

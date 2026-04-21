@@ -6,7 +6,7 @@ requires = [
 
 [project]
 name = "pytest-randomly"
-version = "4.0.1"
+version = "4.1.0"
 description = "Pytest plugin to randomly order tests and control random.seed."
 readme = "README.rst"
 keywords = [
@@ -21,14 +21,13 @@ license-files = [ "LICENSE" ]
 authors = [
   { name = "Adam Johnson", email = "me@adamj.eu" },
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Framework :: Pytest",
   "Intended Audience :: Developers",
   "Natural Language :: English",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -37,7 +36,6 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "importlib-metadata>=3.6; python_version<'3.10'",
   "pytest",
 ]
 urls.Changelog = "https://github.com/pytest-dev/pytest-randomly/blob/main/CHANGELOG.rst"
@@ -50,7 +48,6 @@ test = [
   "coverage[toml]",
   "factory-boy",
   "faker",
-  "importlib-metadata>=3.6; python_version<'3.10'",
   "model-bakery>=1.13",
   "numpy",
   "pytest",
@@ -97,30 +94,6 @@ lint.isort.required-imports = [ "from __future__ import annotations" ]
 [tool.pyproject-fmt]
 max_supported_python = "3.14"
 
-[tool.pytest.ini_options]
-addopts = """\
-    --strict-config
-    --strict-markers
-    """
-xfail_strict = true
-
-[tool.coverage.run]
-branch = true
-parallel = true
-source = [
-  "pytest_randomly",
-  "tests",
-]
-
-[tool.coverage.paths]
-source = [
-  "src",
-  ".tox/**/site-packages",
-]
-
-[tool.coverage.report]
-show_missing = true
-
 [tool.mypy]
 enable_error_code = [
   "ignore-without-code",
@@ -131,10 +104,30 @@ mypy_path = "src/"
 namespace_packages = false
 strict = true
 warn_unreachable = true
+overrides = [ { module = "tests.*", allow_untyped_defs = true } ]
 
-[[tool.mypy.overrides]]
-module = "tests.*"
-allow_untyped_defs = true
+[tool.pytest]
+ini_options.addopts = """\
+    --strict-config
+    --strict-markers
+    """
+ini_options.xfail_strict = true
+
+[tool.coverage]
+run.branch = true
+run.data_file = ".coverage/cov"
+run.parallel = true
+run.source = [
+  "pytest_randomly",
+  "tests",
+]
+paths.source = [
+  "src",
+  ".tox/**/site-packages",
+]
+report.show_missing = true
+report.skip_covered = true
+report.skip_empty = true
 
 [tool.rstcheck]
 report_level = "ERROR"

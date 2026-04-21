@@ -4,7 +4,7 @@ import pathlib
 import re
 from datetime import datetime
 from itertools import chain
-from typing import Literal, Optional
+from typing import Literal
 
 from botocore.client import ClientError
 from dateutil.tz import UTC
@@ -21,13 +21,12 @@ from copernicusmarine.core_functions.models import (
 )
 from copernicusmarine.core_functions.request_structure import (
     GetRequest,
-    overload_regex_with_additionnal_filter,
+    overload_regex_with_additional_filter,
 )
-from copernicusmarine.core_functions.sessions import (
-    get_configured_boto3_session,
-)
+from copernicusmarine.core_functions.sessions import ConfiguredBoto3Session
 from copernicusmarine.core_functions.utils import (
     get_unique_filepath,
+    human_readable_size,
     parse_access_dataset_url,
     run_concurrently,
     timestamp_parser,
@@ -38,11 +37,10 @@ logger = logging.getLogger("copernicusmarine")
 
 def download_original_files(
     username: str,
-    password: str,
     get_request: GetRequest,
     max_concurrent_requests: int,
     disable_progress_bar: bool,
-    create_file_list: Optional[str],
+    create_file_list: str | None,
 ) -> ResponseGet:
     endpoint, bucket, path = parse_access_dataset_url(
         str(get_request.dataset_url)
@@ -54,7 +52,7 @@ def download_original_files(
             bucket=bucket,
             path=path,
             sync=get_request.sync,
-            directory_out=pathlib.Path(get_request.output_directory),
+            directory_out=get_request.output_directory,
             username=username,
             no_directories=get_request.no_directories,
             overwrite=get_request.overwrite,
@@ -74,7 +72,7 @@ def download_original_files(
                     for file_not_found in files_headers.files_not_found
                 ]
             )
-            get_request.regex = overload_regex_with_additionnal_filter(
+            get_request.regex = overload_regex_with_additional_filter(
                 files_not_found_regex, get_request.regex
             )
         if get_request.index_parts:
@@ -89,7 +87,7 @@ def download_original_files(
             username=username,
             sync=get_request.sync,
             create_file_list=create_file_list,
-            directory_out=pathlib.Path(get_request.output_directory),
+            directory_out=get_request.output_directory,
             no_directories=get_request.no_directories,
             skip_existing=get_request.skip_existing,
             overwrite=get_request.overwrite,
@@ -115,16 +113,21 @@ def download_original_files(
                 files_headers_listing.files_not_found
             )
 
+    logger.info(
+        "Total size of the download: %s.",
+        human_readable_size(files_headers.total_size / 1024 / 1024),
+    )
+
     files_headers = _create_filenames_out(
         files_information=files_headers,
-        output_directory=pathlib.Path(get_request.output_directory),
+        output_directory=get_request.output_directory,
         no_directories=get_request.no_directories,
     )
 
     if get_request.sync_delete:
         files_headers = _get_files_to_delete_with_sync(
             files_information=files_headers,
-            output_directory=pathlib.Path(get_request.output_directory),
+            output_directory=get_request.output_directory,
         )
         if files_headers.files_to_delete:
             logger.info("Some files will be deleted due to sync delete:")
@@ -178,7 +181,7 @@ def create_response_get_from_files_headers(
                 file_size=size_to_MB(s3_file.size),
                 last_modified_datetime=s3_file.last_modified,
                 etag=s3_file.etag,
-                output_directory=pathlib.Path(get_request.output_directory),
+                output_directory=get_request.output_directory,
                 filename=s3_file.filename_out.name,
                 file_path=s3_file.filename_out,
                 file_format=s3_file.filename_out.suffix,
@@ -299,10 +302,10 @@ def _download_header(
     endpoint_url: str,
     bucket: str,
     path: str,
-    regex: Optional[str],
+    regex: str | None,
     username: str,
     sync: bool,
-    create_file_list: Optional[str],
+    create_file_list: str | None,
     directory_out: pathlib.Path,
     no_directories: bool,
     overwrite: bool,
@@ -310,7 +313,6 @@ def _download_header(
     disable_progress_bar: bool,
     only_list_root_path: bool = False,
 ) -> S3FilesDescriptor:
-
     files_headers = S3FilesDescriptor(endpoint=endpoint_url, bucket=bucket)
 
     raw_filenames = _list_files_on_marine_data_lake_s3(
@@ -391,7 +393,6 @@ def _download_header_for_direct_download(
     overwrite: bool,
     skip_existing: bool,
 ) -> S3FilesDescriptor:
-
     files_headers = S3FilesDescriptor(endpoint=endpoint_url, bucket=bucket)
 
     split_path = path.split("/")
@@ -557,26 +558,25 @@ def _list_files_on_marine_data_lake_s3(
     recursive: bool,
     disable_progress_bar: bool,
 ) -> list[tuple[str, int, datetime, str]]:
-    s3_client, _ = get_configured_boto3_session(
+    with ConfiguredBoto3Session(
         endpoint_url, ["ListObjectsV2", "HeadObject"], username
-    )
+    ) as session:
+        if not prefix.endswith("/"):
+            try:
+                session.s3_client.head_object(Bucket=bucket, Key=prefix)
+            except ClientError as e:
+                error_code = e.response.get("Error", {}).get("Code")
+                if error_code == "404" or error_code == "NoSuchKey":
+                    prefix += "/"
+                else:
+                    raise
 
-    if not prefix.endswith("/"):
-        try:
-            s3_client.head_object(Bucket=bucket, Key=prefix)
-        except ClientError as e:
-            error_code = e.response.get("Error", {}).get("Code")
-            if error_code == "404" or error_code == "NoSuchKey":
-                prefix += "/"
-            else:
-                raise
-
-    paginator = s3_client.get_paginator("list_objects")
-    page_iterator = paginator.paginate(
-        Bucket=bucket,
-        Prefix=prefix,
-        Delimiter="/" if not recursive else "",
-    )
+        paginator = session.s3_client.get_paginator("list_objects")
+        page_iterator = paginator.paginate(
+            Bucket=bucket,
+            Prefix=prefix,
+            Delimiter="/" if not recursive else "",
+        )
     logger.info("Listing files on remote server...")
     s3_objects = chain(
         *map(
@@ -599,29 +599,28 @@ def _list_files_on_marine_data_lake_s3(
 
 def _get_file_size_last_modified_and_etag(
     endpoint_url: str, bucket: str, file_in: str, username: str
-) -> Optional[tuple[int, datetime, str]]:
-    s3_client, _ = get_configured_boto3_session(
+) -> tuple[int, datetime, str] | None:
+    with ConfiguredBoto3Session(
         endpoint_url, ["HeadObject"], username
-    )
-
-    try:
-        s3_object = s3_client.head_object(
-            Bucket=bucket,
-            Key=file_in.replace(f"s3://{bucket}/", ""),
-        )
-        return (
-            s3_object["ContentLength"],
-            s3_object["LastModified"].astimezone(tz=UTC),
-            s3_object["ETag"],
-        )
-    except ClientError as e:
-        if "404" in str(e):
-            logger.warning(
-                f"File {file_in} not found on the server. Skipping."
+    ) as session:
+        try:
+            s3_object = session.s3_client.head_object(
+                Bucket=bucket,
+                Key=file_in.replace(f"s3://{bucket}/", ""),
             )
-            return None
-        else:
-            raise e
+            return (
+                s3_object["ContentLength"],
+                s3_object["LastModified"].astimezone(tz=UTC),
+                s3_object["ETag"],
+            )
+        except ClientError as e:
+            if "404" in str(e):
+                logger.warning(
+                    f"File {file_in} not found on the server. Skipping."
+                )
+                return None
+            else:
+                raise e
 
 
 def _download_one_file(
@@ -631,21 +630,21 @@ def _download_one_file(
     file_in: str,
     file_out: str,
 ) -> None:
-    s3_client, s3_resource = get_configured_boto3_session(
+    with ConfiguredBoto3Session(
         endpoint_url,
         ["GetObject", "HeadObject"],
         username,
-        return_ressources=True,
-    )
-    last_modified_date_epoch = s3_resource.Object(
-        bucket, file_in.replace(f"s3://{bucket}/", "")
-    ).last_modified.timestamp()
+        need_resources=True,
+    ) as session:
+        last_modified_date_epoch = session.s3_resource.Object(
+            bucket, file_in.replace(f"s3://{bucket}/", "")
+        ).last_modified.timestamp()
 
-    s3_client.download_file(
-        bucket,
-        file_in.replace(f"s3://{bucket}/", ""),
-        file_out,
-    )
+        session.download_file(
+            bucket,
+            file_in.replace(f"s3://{bucket}/", ""),
+            file_out,
+        )
 
     try:
         os.utime(

@@ -29,14 +29,15 @@ from werkzeug.test import Client
 
 from trytond import backend, config
 from trytond.cache import Cache
+from trytond.exceptions import UserError, UserWarning
 from trytond.model import (
     ModelSingleton, ModelSQL, ModelStorage, ModelView, Workflow, fields)
 from trytond.model.fields import Function
 from trytond.modules import parse_module_config
 from trytond.pool import Pool, isregisteredby
 from trytond.protocols.wrappers import Response
-from trytond.pyson import PYSONDecoder, PYSONEncoder
-from trytond.tools import file_open, find_dir, is_instance_method
+from trytond.pyson import PYSON, PYSONDecoder, PYSONEncoder
+from trytond.tools import file_open, find_dir, find_path, is_instance_method
 from trytond.transaction import Transaction, TransactionError
 from trytond.wizard import StateAction, StateView
 from trytond.wsgi import app
@@ -101,7 +102,9 @@ def activate_module(modules, lang='en'):
         records = Module.search([
                 ('name', 'in', modules),
                 ])
-        assert len(records) == len(modules)
+        assert len(records) == len(modules), (
+            f"Not found: {', '.join(set(modules) - {r.name for r in records})}"
+            )
 
         records = Module.search([
                 ('name', 'in', modules),
@@ -168,7 +171,8 @@ def _sqlite_copy(file_, restore=False):
         try:
             database.create(connection, DB_NAME)
         finally:
-            database.put_connection(connection, True)
+            database.put_connection(connection)
+            database.close()
 
     database = backend.Database(DB_NAME).connect()
     conn1 = database.get_connection()
@@ -443,7 +447,8 @@ class ModuleTestCase(_DBTestCase):
         directory = find_dir(
             self.module,
             subdir='modules' if self.module not in {'ir', 'res'} else '')
-        view_files = set(glob.glob(os.path.join(directory, 'view', '*.xml')))
+        view_files = set(glob.glob(
+                os.path.join(directory, 'view', '**/*.xml'), recursive=True))
         for view in views:
             if view.name:
                 view_files.discard(os.path.join(
@@ -470,11 +475,11 @@ class ModuleTestCase(_DBTestCase):
                     view_id = view.id
                 model = view.model
                 Model = pool.get(model)
-                view = Model.fields_view_get(view_id)
-                self.assertEqual(view['model'], model)
-                tree = etree.fromstring(view['arch'])
+                fields_view = Model.fields_view_get(view_id)
+                self.assertEqual(fields_view['model'], model)
+                tree = etree.fromstring(fields_view['arch'])
 
-                validator = etree.RelaxNG(etree=View.get_rng(view['type']))
+                validator = view.validator()
                 validator.assertValid(tree)
 
                 tree_root = tree.getroottree().getroot()
@@ -519,11 +524,11 @@ class ModuleTestCase(_DBTestCase):
                                     button_name, Model.__name__))
 
                         for field in fields_to_check:
-                            self.assertIn(field, view['fields'].keys(),
+                            self.assertIn(field, fields_view['fields'].keys(),
                                 msg="Missing field %r in %r" % (
                                     field, Model.__name__))
                         for field, t_fields in target_fields_to_check.items():
-                            for t_view in view['fields'][field].get(
+                            for t_view in fields_view['fields'][field].get(
                                     'views', {}).values():
                                 for t_field in t_fields:
                                     self.assertIn(
@@ -614,7 +619,8 @@ class ModuleTestCase(_DBTestCase):
                 for tfield in target._fields.values():
                     if (tfield._type == 'one2many'
                             and tfield.model_name == mname
-                            and tfield.field == depend):
+                            and tfield.field == depend
+                            and not tfield.readonly):
                         self.assertIn('_parent_%s' % depend, parent_depends,
                             msg='Missing "_parent_%s" in %s' % (
                                 depend, qualname))
@@ -660,7 +666,7 @@ class ModuleTestCase(_DBTestCase):
         def test_methods(mname, model, attr):
             for prefixes in [['default_'],
                     ['on_change_', 'on_change_with_'],
-                    ['order_'], ['domain_'], ['autocomplete_']]:
+                    ['column_'], ['order_'], ['domain_'], ['autocomplete_']]:
                 if attr in {'on_change_with', 'on_change_notify'}:
                     continue
                 # TODO those method should be renamed
@@ -977,6 +983,12 @@ class ModuleTestCase(_DBTestCase):
                             'field': field_name,
                             'type': field._type,
                             })
+                if not field.getter and isinstance(model, ModelSQL):
+                    func_name = f'column_{field_name}'
+                    self.assertTrue(
+                        getattr(model, func_name, None),
+                        msg=f"Missing method {func_name!r} "
+                        f"on model {mname!r} for field {field_name!r}")
                 for func_name in [field.getter, field.setter, field.searcher]:
                     if not func_name:
                         continue
@@ -1143,6 +1155,14 @@ class ModuleTestCase(_DBTestCase):
                             'model': mname,
                             'keys': set(states) - keys,
                             })
+                    for state in ['readonly', 'invisible']:
+                        if state not in states:
+                            continue
+                        with self.subTest(state=state):
+                            self.assertIsInstance(
+                                states[state], (bool, PYSON))
+                            if hasattr(states[state], 'types'):
+                                self.assertEqual(states[state].types(), {bool})
 
     @with_transaction()
     def test_button_methods(self):
@@ -1153,10 +1173,13 @@ class ModuleTestCase(_DBTestCase):
             if not issubclass(model, ModelView):
                 continue
             for button in model._buttons:
-                if is_instance_method(model, button):
-                    getattr(model(), button)()
-                else:
-                    getattr(model, button)([])
+                try:
+                    if is_instance_method(model, button):
+                        getattr(model(), button)()
+                    else:
+                        getattr(model, button)([])
+                except (UserError, UserWarning):
+                    pass
 
     @with_transaction()
     def test_xml_files(self):
@@ -1167,9 +1190,11 @@ class ModuleTestCase(_DBTestCase):
             config.read_file(fp)
         if not config.has_option('tryton', 'xml'):
             return
-        with file_open('tryton.rng', subdir='', mode='rb') as fp:
-            rng = etree.parse(fp)
-        validator = etree.RelaxNG(etree=rng)
+        try:
+            filepath = find_path('tryton.rng', subdir='')
+        except FileNotFoundError:
+            filepath = find_path('tryton.rnc', subdir='')
+        validator = etree.RelaxNG(file=filepath)
         for xml_file in filter(None, config.get('tryton', 'xml').splitlines()):
             with self.subTest(xml=xml_file):
                 with file_open('%s/%s' % (self.module, xml_file),
@@ -1238,7 +1263,8 @@ def create_db(name=DB_NAME, lang='en'):
         try:
             database.create(connection, name)
         finally:
-            database.put_connection(connection, True)
+            database.put_connection(connection)
+            database.close()
 
         database = backend.Database(name)
         connection = database.get_connection()

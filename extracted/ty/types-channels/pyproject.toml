@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-channels"
-version = "4.3.0.20260408"
+version = "4.3.0.20260421"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for channels"
@@ -29,14 +29,14 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).
+[`a5dd99603639fd3db5d59f59d8e26666ea4faae5`](https://github.com/python/typeshed/commit/a5dd99603639fd3db5d59f59d8e26666ea4faae5).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
 requires-python = ">=3.10"
-dependencies = ['django-stubs>=4.2', 'asgiref']
+dependencies = ['django-stubs>=6.0.3', 'asgiref']
 
 [project.urls]
 "Homepage" = "https://github.com/python/typeshed"

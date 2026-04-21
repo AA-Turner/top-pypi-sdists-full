@@ -41,7 +41,9 @@ SHARED: dict[str, str] = {
     "REQUEST_FILE_HELP": (
         "Option to pass a file containing the arguments. For more information "
         "please refer to the documentation or use option ``--create-template`` "
-        "from the command line interface for an example template."
+        "from the command line interface for an example template. "
+        "If you set an option both in the request file and as a direct argument, "
+        "the value provided as a direct argument will be used."
     ),
     "SKIP_EXISTING_HELP": (
         "If the files already exists where it would be downloaded, then "
@@ -121,8 +123,9 @@ DESCRIBE: dict[str, str] = {
         "parse the whole catalogue, but only the dataset with the given datasetID."
     ),
     "MAX_CONCURRENT_REQUESTS_HELP": (
-        "Maximum number of concurrent requests (>=1). Default 15. The command uses "
-        "a thread pool executor to manage concurrent requests."
+        "Maximum number of concurrent requests. Default 15. The command uses "
+        "a thread pool executor to manage concurrent requests. "
+        "If set to 0, no parallel executions are used."
     ),
     "RAISE_ON_ERROR_HELP": (
         "If set to True, the function will raise at the first error encountered "
@@ -223,9 +226,18 @@ SUBSET: dict[str, str] = {
     ),
     "OUTPUT_FILENAME_HELP": (
         "Save the downloaded data with the given file name (under the output "
-        "directory)."
+        "directory). "
+        "Extension is optional and will be added if not set. "
+        "Extension takes priority over the file format option if both are set."
     ),
-    "FILE_FORMAT_HELP": "Format of the downloaded dataset. If not set or set to ``None``, defaults to NetCDF '.nc' for gridded datasets and to CSV '.csv' for sparse datasets.",  # noqa: E501
+    "FILE_FORMAT_HELP": (
+        "Format of the downloaded dataset. "
+        "If not set or set to ``None``, defaults to NetCDF '.nc' for gridded datasets "
+        "and to CSV '.csv' for sparse datasets. "
+        "Output filename extension takes priority over this option if both are set. "
+        "For gridded datasets, the following formats are available: netcdf, zarr, csv. "
+        "For sparse datasets, the following formats are available: csv, netcdf, parquet."  # noqa
+    ),
     "MOTU_API_REQUEST_HELP": (
         "Option to pass a complete MOTU API request as a string. Caution, user has to "
         """replace double quotes " with single quotes ' in the request."""

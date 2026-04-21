@@ -5,6 +5,7 @@ import sys
 from typing import TYPE_CHECKING
 
 from mergify_cli import console
+from mergify_cli import console_error
 from mergify_cli import utils
 from mergify_cli.exit_codes import ExitCode
 from mergify_cli.stack import changes
@@ -78,16 +79,15 @@ async def stack_checkout(
 
             if not node.pull["base"]["ref"].startswith(stack_branch):
                 if root_node is not None:
-                    console.print(
-                        "Unexpected stack layout, two root commits found",
-                        style="red",
+                    console_error(
+                        "unexpected stack layout, two root commits found",
                     )
                     sys.exit(ExitCode.INVALID_STATE)
                 root_node = node
 
         if root_node is None:
             console.print("No stacked pull requests found")
-            sys.exit(0)
+            sys.exit(ExitCode.SUCCESS)
 
         console.log("Stacked pull requests:")
         node = root_node

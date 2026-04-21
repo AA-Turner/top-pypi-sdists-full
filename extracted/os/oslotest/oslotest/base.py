@@ -15,7 +15,7 @@
 
 """Common utilities used in testing"""
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable
 import logging
 from typing import Any
 from unittest import mock
@@ -88,12 +88,8 @@ class BaseTestCase(testtools.TestCase):
     """
 
     DEFAULT_TIMEOUT = 0
-    TIMEOUT_SCALING_FACTOR = 1
+    TIMEOUT_SCALING_FACTOR: int | float = 1
 
-    # FIXME(stephenfin): This should only accept two kwargs:
-    # - methodName (from stdlib)
-    # - runTest (from testtools)
-    # But we need to type testtools first
     def __init__(
         self,
         methodName: str = 'runTest',
@@ -156,7 +152,7 @@ class BaseTestCase(testtools.TestCase):
 
     def create_tempfiles(
         self,
-        files: Sequence[
+        files: Iterable[
             tuple[str, str | bytes, str] | tuple[str, str | bytes]
         ],
         ext: str = '.conf',

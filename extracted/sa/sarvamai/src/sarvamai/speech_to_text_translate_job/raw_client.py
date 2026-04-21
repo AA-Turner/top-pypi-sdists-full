@@ -40,7 +40,7 @@ class RawSpeechToTextTranslateJobClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[BulkJobInitResponse]:
         """
-        Create a new speech to text translate bulk job and receive a job UUID and storage folder details for processing multiple audio files with translation
+        Create a new speech to text translate bulk job and receive a job UUID and storage folder details for processing multiple audio files with translation. Set `job_parameters.input_audio_codec` when uploads are raw PCM (`pcm_s16le`, `pcm_l16`, or `pcm_raw`); the API auto-detects other formats. PCM must be 16 kHz.
 
         Parameters
         ----------
@@ -649,7 +649,7 @@ class AsyncRawSpeechToTextTranslateJobClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[BulkJobInitResponse]:
         """
-        Create a new speech to text translate bulk job and receive a job UUID and storage folder details for processing multiple audio files with translation
+        Create a new speech to text translate bulk job and receive a job UUID and storage folder details for processing multiple audio files with translation. Set `job_parameters.input_audio_codec` when uploads are raw PCM (`pcm_s16le`, `pcm_l16`, or `pcm_raw`); the API auto-detects other formats. PCM must be 16 kHz.
 
         Parameters
         ----------

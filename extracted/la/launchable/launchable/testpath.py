@@ -95,6 +95,31 @@ def _relative_to(p: pathlib.Path, base: str) -> pathlib.Path:
         return resolved.relative_to(base)
 
 
+def relative_subpath(path: str, base_path: str) -> str:
+    if not path or not base_path:
+        return ""
+
+    try:
+        relpath = pathlib.Path(path).relative_to(pathlib.Path(base_path)).as_posix()
+    except ValueError:
+        return ""
+
+    if relpath == ".":
+        return ""
+
+    return relpath
+
+
+def prepend_path_if_missing(path: str, prefix: str) -> str:
+    if not path or not prefix:
+        return path
+
+    if path.startswith(prefix):
+        return path
+
+    return pathlib.Path(prefix, path).as_posix()
+
+
 class FilePathNormalizer:
     """Normalize file paths based on the Git repository root
 

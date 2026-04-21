@@ -8,9 +8,9 @@ build-backend = "setuptools.build_meta"
 # See https://www.python.org/dev/peps/pep-0621/
 name = "xonsh"
 dynamic = ["version", "readme"]
-description = "Python-powered shell. Full-featured and cross-platform."
-authors = [{ name = "Anthony Scopatz" }, { email = "scopatz@gmail.com" }]
-maintainers = [{ name = "Xonsh Community" }, { email = "xonsh@gil.forsyth.dev" }]
+description = "Python-powered shell. Full-featured, cross-platform and AI-friendly. "
+authors = [{ name = "Xonsh Maintainers", email = "xore.004fdbd5c8e6589bdd80944b5b8d4100.show-sender@streams.zulipchat.com" }]
+maintainers = [{ name = "Xonsh Maintainers", email = "xore.004fdbd5c8e6589bdd80944b5b8d4100.show-sender@streams.zulipchat.com" }, { name = "Gil Forsyth", email = "xonsh@gil.forsyth.dev" }]
 license = { text = "BSD 2-Clause License" }
 requires-python = ">=3.11"
 dependencies = []
@@ -98,6 +98,7 @@ full = [
     "setproctitle; platform_system=='Windows'",
     "gnureadline; platform_system=='Darwin'",
     "ujson",
+    "click",
 ]
 bestshell = [
     "prompt-toolkit>=3.0.29",
@@ -138,6 +139,8 @@ doc = [
     "myst-parser",
     "sphinx-autobuild",
     "sphinx-prompt",
+    "sphinx-reredirects",
+    "sphinx-sitemap",
 ]
 
 

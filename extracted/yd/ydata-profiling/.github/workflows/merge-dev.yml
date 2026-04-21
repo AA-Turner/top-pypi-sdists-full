@@ -9,7 +9,7 @@ on:
 
 permissions:
   id-token: write
-  contents: write
+  contents: read
   packages: read
 
 
@@ -59,3 +59,4 @@ jobs:
       with:
         tag: ${{ needs.prepare.outputs.version }}
         message: ${{  github.event.head_commit.message }}
+        github_token: ${{ secrets.ACCESS_TOKEN }}

@@ -121,6 +121,10 @@ def _parse_catalog(catalog: Any) -> Dict[str, Any]:
         "analysis_population_rule": _as_optional_str(catalog.get("analysis_population_rule")),
         "active_from": _as_optional_timestamp(catalog.get("active_from")),
         "active_to": _as_optional_timestamp(catalog.get("active_to")),
+        # Prose hint for the archetype→playbook matcher: "cases where this
+        # playbook has been found useful". Authored by CS leadership. No
+        # feature column names.
+        "when_applicable": _as_optional_str(catalog.get("when_applicable")),
     }
 
 

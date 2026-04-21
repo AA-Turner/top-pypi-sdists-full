@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import argparse
 import random
-import sys
+from collections.abc import Callable
 from functools import lru_cache
+from importlib.metadata import entry_points
 from itertools import groupby
 from types import ModuleType
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 from zlib import crc32
 
 from _pytest.config import Config
@@ -14,11 +15,6 @@ from _pytest.config.argparsing import Parser
 from _pytest.fixtures import SubRequest
 from _pytest.nodes import Item
 from pytest import Collector, fixture, hookimpl
-
-if sys.version_info < (3, 10):
-    from importlib_metadata import entry_points
-else:
-    from importlib.metadata import entry_points
 
 # factory-boy
 try:
@@ -269,8 +265,15 @@ def _crc32(string: str) -> int:
 if have_faker:  # pragma: no branch
 
     @fixture(autouse=True)
-    def faker_seed(pytestconfig: Config, request: SubRequest) -> int:
-        result: int = pytestconfig.getoption("randomly_seed") + _crc32(
-            request.node.nodeid
-        )
-        return result
+    def faker_seed(pytestconfig: Config, request: SubRequest) -> Any:
+        from faker.contrib.pytest.plugin import DEFAULT_SEED
+
+        seed = pytestconfig.getoption("randomly_seed")
+        if seed in ("default", "last"):
+            # pytest-randomly has been imported but disabled, so
+            # pytest_configure hasn't run to set the seed. Fall back to
+            # Faker's default seed.
+            return DEFAULT_SEED
+        else:
+            result: int = seed + _crc32(request.node.nodeid)
+            return result

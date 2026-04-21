@@ -10,7 +10,7 @@ import sys
 import setuptools
 from setuptools.command.test import test as TestCommand
 
-version='3.0.2'
+version='3.0.3'
 
 
 class PyTest(TestCommand):
@@ -36,7 +36,7 @@ setuptools.setup(
     name='pydeps',
     version=version,
     packages=setuptools.find_packages(exclude=['tests*']),
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     install_requires=[
         'stdlib_list',
     ],

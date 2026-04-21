@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index
-Version: 0.14.20
+Version: 0.14.21
 Summary: Interface between LLMs and your data
 Project-URL: Documentation, https://docs.llamaindex.ai/en/stable/
 Project-URL: Homepage, https://llamaindex.ai
@@ -14,7 +14,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <4.0,>=3.10
-Requires-Dist: llama-index-core<0.15.0,>=0.14.20
+Requires-Dist: llama-index-core<0.15.0,>=0.14.21
 Requires-Dist: llama-index-embeddings-openai<0.7,>=0.6.0
 Requires-Dist: llama-index-llms-openai<0.8,>=0.7.0
 Requires-Dist: nltk>=3.9.3

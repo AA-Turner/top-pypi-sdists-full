@@ -70,6 +70,12 @@ IN_APPIMAGE = LazyBool(
     "IN_APPIMAGE",
 )
 """``True`` if in AppImage, else ``False``."""
+IN_FLATPAK = LazyBool(
+    lambda: "FLATPAK_ID" in os.environ,
+    globals(),
+    "IN_FLATPAK",
+)
+"""``True`` if in Flastpak, else ``False``."""
 
 
 @lazybool
@@ -337,8 +343,6 @@ def linux_distro():
     if ON_LINUX:
         if distro:
             ld = distro.id()
-        elif PYTHON_VERSION_INFO < (3, 6, 6):
-            ld = platform.linux_distribution()[0] or "unknown"
         elif "-ARCH-" in platform.platform():
             ld = "arch"  # that's the only one we need to know for now
         else:
@@ -423,11 +427,11 @@ if ON_WINDOWS:
             """Ensure that the case sensitive map of the keys are
             in sync with os.environ
             """
-            envkeys = set(os.environ.keys())
-            for key in envkeys.difference(self._upperkeys):
-                self._upperkeys[key] = key.upper()
-            for key in set(self._upperkeys).difference(envkeys):
-                del self._upperkeys[key]
+            envkeys = {k.upper(): k for k in os.environ.keys()}
+            for ukey in set(envkeys).difference(self._upperkeys):
+                self._upperkeys[ukey] = envkeys[ukey]
+            for ukey in set(self._upperkeys).difference(envkeys):
+                del self._upperkeys[ukey]
 
         def __contains__(self, k):
             self._sync()
@@ -489,15 +493,37 @@ def bash_command():
 def BASH_COMPLETIONS_DEFAULT():
     """A possibly empty tuple with default paths to Bash completions known for
     the current platform.
+
+    The bridge picks the first existing file from this list, so order
+    doesn't affect coverage — only which framework gets sourced when
+    several are installed side by side. Distro/package-manager prefixes
+    are listed alongside the standard FHS path so users don't have to
+    extend ``$BASH_COMPLETIONS`` manually after installing
+    bash-completion via Homebrew, MacPorts, Linuxbrew, Nix, etc.
     """
     if ON_LINUX or ON_CYGWIN or ON_MSYS:
-        bcd = ("/usr/share/bash-completion/bash_completion",)
+        bcd = (
+            "/usr/share/bash-completion/bash_completion",  # FHS, all major distros
+            "/home/linuxbrew/.linuxbrew/share/bash-completion/bash_completion",  # Linuxbrew
+            "/run/current-system/sw/share/bash-completion/bash_completion",  # NixOS
+            os.path.expanduser(  # nix-env single-user profile
+                "~/.nix-profile/share/bash-completion/bash_completion"
+            ),
+        )
     elif ON_DARWIN:
         bcd = (
+            # Homebrew, Intel
             "/usr/local/share/bash-completion/bash_completion",  # v2.x
             "/usr/local/etc/bash_completion",  # v1.x
-            "/opt/homebrew/share/bash-completion/bash_completion",  # v2.x on M1
-            "/opt/homebrew/etc/bash_completion",  # v1.x on M1
+            # Homebrew, Apple Silicon
+            "/opt/homebrew/share/bash-completion/bash_completion",  # v2.x
+            "/opt/homebrew/etc/bash_completion",  # v1.x
+            # MacPorts
+            "/opt/local/share/bash-completion/bash_completion",  # v2.x
+            "/opt/local/etc/bash_completion",  # v1.x
+            # Nix (nix-darwin shared and per-user profiles)
+            "/run/current-system/sw/share/bash-completion/bash_completion",
+            os.path.expanduser("~/.nix-profile/share/bash-completion/bash_completion"),
         )
     elif ON_WINDOWS and git_for_windows_path():
         bcd = (
@@ -577,10 +603,17 @@ def LIBC():
         import ctypes.util
 
         libc = ctypes.CDLL(ctypes.util.find_library("c"))
-    elif ON_CYGWIN:
-        libc = ctypes.CDLL("cygwin1.dll")
-    elif ON_MSYS:
-        libc = ctypes.CDLL("msys-2.0.dll")
+    elif ON_CYGWIN or ON_MSYS:
+        # In MSYS2, sys.platform may report "cygwin" even though the
+        # runtime library is msys-2.0.dll (not cygwin1.dll).  Try both.
+        for _dll in ("msys-2.0.dll", "cygwin1.dll"):
+            try:
+                libc = ctypes.CDLL(_dll)
+                break
+            except OSError:
+                continue
+        else:
+            libc = None
     elif ON_FREEBSD:
         try:
             libc = ctypes.CDLL("libc.so.7")
@@ -592,7 +625,7 @@ def LIBC():
         except AttributeError:
             libc = None
         except OSError:
-            # OS X; can't use ctypes.util.find_library because that creates
+            # macOS; can't use ctypes.util.find_library because that creates
             # a new process on Linux, which is undesirable.
             try:
                 libc = ctypes.CDLL("libc.dylib")

@@ -28,20 +28,20 @@ class ArtifactDistributionResponse(BaseModel):
     """
     A serializer for ArtifactDistribution.
     """ # noqa: E501
-    pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
-    pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
-    base_url: Optional[StrictStr] = Field(default=None, description="The URL for accessing the publication as defined by this distribution.")
-    pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
-    name: StrictStr = Field(description="A unique name. Ex, `rawhide` and `stable`.")
-    repository_version: Optional[StrictStr] = Field(default=None, description="RepositoryVersion to be served")
-    content_guard_prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN) of the associated optional content guard.")
-    no_content_change_since: Optional[StrictStr] = Field(default=None, description="Timestamp since when the distributed content served by this distribution has not changed. If equals to `null`, no guarantee is provided about content changes.")
     pulp_href: Optional[StrictStr] = None
-    prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN).")
-    content_guard: Optional[StrictStr] = Field(default=None, description="An optional content-guard.")
-    base_path: StrictStr = Field(description="The base (relative) path component of the published url. Avoid paths that                     overlap with other distribution base paths (e.g. \"foo\" and \"foo/bar\")")
     hidden: Optional[StrictBool] = Field(default=False, description="Whether this distribution should be shown in the content app.")
-    __properties: ClassVar[List[str]] = ["pulp_last_updated", "pulp_created", "base_url", "pulp_labels", "name", "repository_version", "content_guard_prn", "no_content_change_since", "pulp_href", "prn", "content_guard", "base_path", "hidden"]
+    content_guard_prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN) of the associated optional content guard.")
+    pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
+    repository_version: Optional[StrictStr] = Field(default=None, description="RepositoryVersion to be served")
+    pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
+    prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN).")
+    pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
+    content_guard: Optional[StrictStr] = Field(default=None, description="An optional content-guard.")
+    no_content_change_since: Optional[StrictStr] = Field(default=None, description="Timestamp since when the distributed content served by this distribution has not changed. If equals to `null`, no guarantee is provided about content changes.")
+    name: StrictStr = Field(description="A unique name. Ex, `rawhide` and `stable`.")
+    base_path: StrictStr = Field(description="The base (relative) path component of the published url. Avoid paths that                     overlap with other distribution base paths (e.g. \"foo\" and \"foo/bar\")")
+    base_url: Optional[StrictStr] = Field(default=None, description="The URL for accessing the publication as defined by this distribution.")
+    __properties: ClassVar[List[str]] = ["pulp_href", "hidden", "content_guard_prn", "pulp_labels", "repository_version", "pulp_last_updated", "prn", "pulp_created", "content_guard", "no_content_change_since", "name", "base_path", "base_url"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -82,13 +82,13 @@ class ArtifactDistributionResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
-            "pulp_last_updated",
-            "pulp_created",
-            "base_url",
-            "content_guard_prn",
-            "no_content_change_since",
             "pulp_href",
+            "content_guard_prn",
+            "pulp_last_updated",
             "prn",
+            "pulp_created",
+            "no_content_change_since",
+            "base_url",
         ])
 
         _dict = self.model_dump(

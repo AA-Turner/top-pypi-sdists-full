@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .input_audio_codec import InputAudioCodec
 from .mode import Mode
 from .speech_to_text_language import SpeechToTextLanguage
 from .speech_to_text_model import SpeechToTextModel
@@ -87,6 +88,11 @@ class SpeechToTextJobParameters(UniversalBaseModel):
     num_speakers: typing.Optional[int] = pydantic.Field(default=None)
     """
     Number of speakers to be detected in the audio. This is used when with_diarization is true.
+    """
+
+    input_audio_codec: typing.Optional[InputAudioCodec] = pydantic.Field(default=None)
+    """
+    Audio codec/format of uploaded files. The API automatically detects most formats; for PCM files (pcm_s16le, pcm_l16, pcm_raw), you must specify this parameter. PCM files are supported only at 16kHz sample rate.
     """
 
     if IS_PYDANTIC_V2:

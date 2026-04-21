@@ -6,7 +6,10 @@ mod types;
 pub mod utils;
 
 // Re-export types
-pub use types::{CompletedSpawningToolSpan, CompletedToolSpan, NestedContext, RegistrationContext};
+pub use types::{
+    CompletedSpawningToolSpan, CompletedToolSpan, NestedContext, RegistrationContext,
+    SpawningToolType,
+};
 
 // Re-export processor
 pub use processor::SpanProcessor;
@@ -28,10 +31,7 @@ use crate::{
             status::StatusCode,
         },
     },
-    spans::{
-        types::SpawningToolType,
-        utils::{convert_attributes_to_proto_key_value, json_value_to_any_value},
-    },
+    spans::utils::{convert_attributes_to_proto_key_value, json_value_to_any_value},
 };
 
 use utils::{
@@ -134,7 +134,12 @@ pub fn create_span_request(
     // Note: Tool spans are now created separately via SpanProcessor.complete_tool_spans()
     // which tracks tool duration properly (from tool_use in response to tool_result in next request)
     let mut attributes = extract_attributes(input, response_info);
-    if let Some(SpawningToolType::Bash) = nested_context.clone().map(|ctx| ctx.parent_tool_type) {
+    if nested_context.clone().is_some_and(|ctx| {
+        matches!(
+            ctx.parent_tool_type,
+            SpawningToolType::Bash | SpawningToolType::WebFetch
+        )
+    }) {
         attributes.insert("lmnr.internal.cc_skip_span".to_string(), Value::Bool(true));
     }
     if let Some(ctx) = nested_context {

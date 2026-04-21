@@ -8,10 +8,17 @@ import os
 import pathlib
 import re
 import shutil
-import sys
 import traceback
+import unicodedata
 import urllib
-from collections.abc import Collection, Generator, Hashable, Iterable, Sequence
+from collections.abc import (
+    Callable,
+    Collection,
+    Generator,
+    Hashable,
+    Iterable,
+    Sequence,
+)
 from contextlib import contextmanager
 from functools import partial
 from html import entities
@@ -21,10 +28,10 @@ from operator import attrgetter
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
 )
 
 import dateutil.parser
+import unidecode
 from watchfiles import Change
 
 try:
@@ -213,7 +220,7 @@ def deprecated_attribute(
         _warn()
         setattr(self, new, value)
 
-    def decorator(dummy):
+    def decorator(_dummy):
         return property(fget=fget, fset=fset, doc=doc)
 
     return decorator
@@ -233,9 +240,7 @@ def get_date(string: str) -> datetime.datetime:
 
 
 @contextmanager
-def pelican_open(
-    filename: str, mode: str = "r", strip_crs: bool = (sys.platform == "win32")
-) -> Generator[str, None, None]:
+def pelican_open(filename: str, mode: str = "r") -> Generator[str]:
     """Open a file and return its content"""
 
     # utf-8-sig will clear any BOM if present
@@ -254,15 +259,11 @@ def slugify(
     Normalizes string, converts to lowercase, removes non-alpha characters,
     and converts spaces to hyphens.
 
-    Took from Django sources.
+    Taken from Django sources.
 
     For a set of sensible default regex substitutions to pass to regex_subs
     look into pelican.settings.DEFAULT_CONFIG['SLUG_REGEX_SUBSTITUTIONS'].
     """
-
-    import unicodedata
-
-    import unidecode
 
     def normalize_unicode(text: str) -> str:
         # normalize text by compatibility composition
@@ -383,8 +384,8 @@ def clean_output_dir(path: str, retention: Iterable[str]) -> None:
     if not os.path.isdir(path):
         try:
             os.remove(path)
-        except Exception as e:
-            logger.error("Unable to delete file %s; %s", path, e)
+        except OSError:
+            logger.exception("Unable to delete file %s", path)
         return
 
     # remove existing content from output folder unless in retention list
@@ -398,14 +399,14 @@ def clean_output_dir(path: str, retention: Iterable[str]) -> None:
             try:
                 shutil.rmtree(file)
                 logger.debug("Deleted directory %s", file)
-            except Exception as e:
-                logger.error("Unable to delete directory %s; %s", file, e)
+            except OSError:
+                logger.exception("Unable to delete directory %s", file)
         elif os.path.isfile(file) or os.path.islink(file):
             try:
                 os.remove(file)
                 logger.debug("Deleted file/link %s", file)
-            except Exception as e:
-                logger.error("Unable to delete file %s; %s", file, e)
+            except OSError:
+                logger.exception("Unable to delete file %s", file)
         else:
             logger.error("Unable to delete %s, file type unknown", file)
 
@@ -495,6 +496,7 @@ class _HTMLWordTruncator(HTMLParser):
             self.add_word(self.last_word_end)
 
     def handle_starttag(self, tag: str, attrs: Any) -> None:
+        del attrs  # Unused argument
         self.add_last_word()
         if tag not in self._singlets:
             self.open_tags.insert(0, tag)
@@ -647,6 +649,37 @@ def truncate_html_paragraphs(s, count):
     return "".join(paragraphs)
 
 
+def strip_toc_elements_from_html(html: str) -> str:
+    """Strip table of contents elements from HTML summaries.
+
+    Removes TOC divs (with broken navigation links) and toc-backref anchor
+    links from headings. Both are necessary since TOC anchor targets don't
+    exist when summaries are displayed outside full article context
+    (e.g., homepage, RSS feeds).
+
+    :param html: HTML content to process
+    :return: Cleaned HTML with TOC elements removed
+    """
+    # Remove the entire <div class="contents"> ... </div> block
+    html = re.sub(
+        r'<div\s+class="contents[^"]*"[^>]*>.*?</div>',
+        "",
+        html,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+
+    # Remove anchor links from headings (e.g., <a class="toc-backref" href="#id1">text</a>)
+    # These links point to anchors that don't exist in summary context
+    html = re.sub(
+        r'<a[^>]*class="[^"]*toc-backref[^"]*"[^>]*>(.*?)</a>',
+        r"\1",
+        html,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+
+    return html
+
+
 def process_translations(
     content_list: list[Content],
     translation_id: str | Collection[str] | None = None,
@@ -768,7 +801,7 @@ def order_content(
             try:
                 content_list.sort(key=order_by)
             except Exception:
-                logger.error("Error sorting with function %s", order_by)
+                logger.exception("Error sorting with function %s", order_by)
         elif isinstance(order_by, str):
             if order_by.startswith("reversed-"):
                 order_reversed = True
@@ -796,8 +829,7 @@ def order_content(
                                 content.get_relative_source_path(),
                                 extra={
                                     "limit_msg": (
-                                        "More files are missing "
-                                        "the needed attribute."
+                                        "More files are missing the needed attribute."
                                     )
                                 },
                             )
@@ -937,7 +969,7 @@ def maybe_pluralize(count: int, singular: str, plural: str) -> str:
 @contextmanager
 def temporary_locale(
     temp_locale: str | None = None, lc_category: int = locale.LC_ALL
-) -> Generator[None, None, None]:
+) -> Generator[None]:
     """
     Enable code to run in a context with a temporary locale
     Resets the locale back when exiting context.

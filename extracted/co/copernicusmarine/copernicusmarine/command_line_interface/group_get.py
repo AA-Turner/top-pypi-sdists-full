@@ -1,6 +1,5 @@
 import logging
 import pathlib
-from typing import Optional, Union
 
 import click
 
@@ -29,6 +28,9 @@ from copernicusmarine.core_functions.get import (
     get_function,
 )
 from copernicusmarine.core_functions.models import ResponseGet
+from copernicusmarine.core_functions.request_structure import (
+    create_get_request,
+)
 
 logger = logging.getLogger("copernicusmarine")
 blank_logger = logging.getLogger("copernicusmarine_blank_logger")
@@ -58,7 +60,7 @@ def cli_get() -> None:
 
     .. code-block:: bash
 
-        copernicusmarine get -i cmems_mod_nws_bgc-pft_myint_7km-3D-diato_P1M-m \n
+        copernicusmarine get -i cmems_mod_glo_phy_anfc_0.083deg_P1M-m --filter "*202501*" \n
     """,  # noqa
 )
 @click.option(
@@ -203,7 +205,7 @@ def cli_get() -> None:
 )
 @click.option(
     "--max-concurrent-requests",
-    type=int,
+    type=click.IntRange(0),
     default=15,
     help=documentation_utils.GET["MAX_CONCURRENT_REQUESTS_HELP"],
 )
@@ -224,27 +226,27 @@ def cli_get() -> None:
 @force_download_option
 @log_exception_and_exit
 def get(
-    dataset_id: Optional[str],
-    dataset_version: Optional[str],
-    dataset_part: Optional[str],
-    username: Optional[str],
-    password: Optional[str],
+    dataset_id: str | None,
+    dataset_version: str | None,
+    dataset_part: str | None,
+    username: str | None,
+    password: str | None,
     no_directories: bool,
-    output_directory: Optional[pathlib.Path],
-    credentials_file: Optional[pathlib.Path],
+    output_directory: pathlib.Path | None,
+    credentials_file: pathlib.Path | None,
     overwrite: bool,
     create_template: bool,
-    request_file: Optional[pathlib.Path],
-    filter: Optional[str],
-    regex: Optional[str],
-    file_list: Optional[pathlib.Path],
-    create_file_list: Optional[str],
+    request_file: pathlib.Path | None,
+    filter: str | None,
+    regex: str | None,
+    file_list: pathlib.Path | None,
+    create_file_list: str | None,
     sync: bool,
     sync_delete: bool,
     skip_existing: bool,
     index_parts: bool,
     dry_run: bool,
-    response_fields: Optional[str],
+    response_fields: str | None,
     max_concurrent_requests: int,
     disable_progress_bar: bool,
     log_level: str,
@@ -267,10 +269,10 @@ def get(
         create_get_template()
         return
 
-    response = get_function(
+    get_request = create_get_request(
         dataset_id=dataset_id,
-        force_dataset_version=dataset_version,
-        force_dataset_part=dataset_part,
+        dataset_version=dataset_version,
+        dataset_part=dataset_part,
         username=username,
         password=password,
         no_directories=no_directories,
@@ -278,9 +280,9 @@ def get(
         credentials_file=credentials_file,
         overwrite=overwrite,
         request_file=request_file,
-        filter_option=filter,
+        filter=filter,
         regex=regex,
-        file_list_path=file_list,
+        file_list=file_list,
         create_file_list=create_file_list,
         sync=sync,
         sync_delete=sync_delete,
@@ -289,8 +291,9 @@ def get(
         dry_run=dry_run,
         max_concurrent_requests=max_concurrent_requests,
         disable_progress_bar=disable_progress_bar,
-        staging=staging,
     )
+
+    response = get_function(get_request, staging)
 
     if response_fields:
         fields_to_include = set(response_fields.replace(" ", "").split(","))
@@ -298,7 +301,7 @@ def get(
         fields_to_include = {"all"}
     else:
         fields_to_include = DEFAULT_FIELDS_TO_INCLUDE
-    included_fields: Optional[Union[set[str], dict]]
+    included_fields: set[str] | dict | None
     if "all" in fields_to_include:
         included_fields = None
     elif "none" in fields_to_include:

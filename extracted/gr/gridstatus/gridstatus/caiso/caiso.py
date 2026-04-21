@@ -21,7 +21,7 @@ from gridstatus.base import (
     NoDataFoundException,
     NotSupported,
 )
-from gridstatus.caiso import caiso_utils
+from gridstatus.caiso import caiso_utils, daily_energy_storage
 from gridstatus.caiso.caiso_constants import (
     CURRENT_BASE,
     HISTORY_BASE,
@@ -364,7 +364,7 @@ class CAISO(ISOBase):
 
         retry_num = 0
         while retry_num < max_retries:
-            r = requests.get(url, verify=False)
+            r = requests.get(url, verify=True)
 
             if r.status_code == 200:
                 break
@@ -538,6 +538,130 @@ class CAISO(ISOBase):
         df = df[["Time", "Interval Start", "Interval End", "Current demand"]]
         df = df.rename(columns={"Current demand": "Load"})
         df = df.dropna(subset=["Load"])
+        return df
+
+    @support_date_range(frequency="DAY_START")
+    def get_seven_day_resource_adequacy_outlook(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Seven-day resource adequacy outlook in 5-minute intervals.
+
+        Source: ``/outlook/history/{{yyyymmdd}}/rtm_forecast_7day.csv`` (historical)
+        or current outlook for today.
+
+        The CSV ``Time`` column marks interval end; ``Interval Start`` is five minutes
+        prior. ``Publish Time`` is midnight Pacific on the publication date encoded in
+        the URL path.
+        """
+        if date == "latest":
+            return self.get_seven_day_resource_adequacy_outlook(
+                "today",
+                end=end,
+                verbose=verbose,
+            )
+
+        publish_day = utils._handle_date(date, self.default_timezone).normalize()
+        raw = self._fetch_rtm_forecast_7day_csv(publish_day, verbose=verbose)
+        df = self._parse_rtm_forecast_7day_csv(raw, publish_day)
+        if df.empty:
+            raise NoDataFoundException(
+                f"No seven-day resource adequacy outlook data found for {publish_day.date()}",
+            )
+        return df
+
+    def _fetch_rtm_forecast_7day_csv(
+        self,
+        date: pd.Timestamp,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        tz = self.default_timezone
+        file_stem = "rtm_forecast_7day"
+        cache_buster = int(pd.Timestamp.now(tz=tz).timestamp())
+        if utils.is_today(date, tz):
+            url = f"{CURRENT_BASE}/{file_stem}.csv?_={cache_buster}"
+        else:
+            date_str = date.strftime("%Y%m%d")
+            url = f"{HISTORY_BASE}/{date_str}/{file_stem}.csv?_={cache_buster}"
+        logger.info(f"Fetching URL: {url}")
+
+        try:
+            r = requests.get(url, timeout=120)
+            r.raise_for_status()
+            return pd.read_csv(io.StringIO(r.text))
+
+        except ValueError as e:
+            raise NoDataFoundException(
+                f"No seven-day resource adequacy outlook data found for {date.date()}: {e}",
+            ) from e
+
+    def _parse_rtm_forecast_7day_csv(
+        self,
+        df: pd.DataFrame,
+        publish_day_pt: pd.Timestamp,
+    ) -> pd.DataFrame:
+        df = df.dropna(subset=["Time"])
+        value_cols = [c for c in df.columns if c != "Time"]
+        df = df.dropna(subset=value_cols, how="all")
+        interval_end = pd.to_datetime(df["Time"], format="%m/%d/%Y %H:%M")
+        interval_end = interval_end.dt.tz_localize(
+            self.default_timezone,
+            ambiguous=True,
+            nonexistent="shift_forward",
+        )
+        df = df.copy()
+        df["Interval End"] = interval_end
+        df = df.dropna(subset=["Interval End"])
+        df["Interval Start"] = df["Interval End"] - pd.Timedelta(minutes=5)
+        publish_ts = publish_day_pt.tz_convert(self.default_timezone).normalize()
+        df["Publish Time"] = publish_ts
+        df = df.rename(
+            columns={
+                "Day-ahead demand forecast": "Day Ahead Demand Forecast",
+                "Day-ahead net demand forecast": "Day Ahead Net Demand Forecast",
+                "Resource adequacy capacity forecast": "Resource Adequacy Capacity Forecast",
+                "Net resource adequacy capacity forecast": "Net Resource Adequacy Capacity Forecast",
+                "Reserve requirement": "Reserve Requirement",
+                "Reserve requirement forecast": "Reserve Requirement Forecast",
+                "Resource adequacy credits": "Resource Adequacy Credits",
+            },
+        )
+        df = df.drop(columns=["Time"])
+        df = df[
+            [
+                "Interval Start",
+                "Interval End",
+                "Publish Time",
+                "Demand",
+                "Net Demand",
+                "Day Ahead Demand Forecast",
+                "Day Ahead Net Demand Forecast",
+                "Resource Adequacy Capacity Forecast",
+                "Net Resource Adequacy Capacity Forecast",
+                "Reserve Requirement",
+                "Reserve Requirement Forecast",
+                "Resource Adequacy Credits",
+            ]
+        ]
+        numeric_cols = [
+            "Demand",
+            "Net Demand",
+            "Day Ahead Demand Forecast",
+            "Day Ahead Net Demand Forecast",
+            "Resource Adequacy Capacity Forecast",
+            "Net Resource Adequacy Capacity Forecast",
+            "Reserve Requirement",
+            "Reserve Requirement Forecast",
+            "Resource Adequacy Credits",
+        ]
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
+        df = df.sort_values(
+            by=["Interval Start", "Publish Time"],
+            kind="mergesort",
+        ).reset_index(drop=True)
         return df
 
     # Deprecated in favor of the vintage-based functions, e.g. get_load_forecast_5_min
@@ -1524,8 +1648,14 @@ class CAISO(ISOBase):
 
         logger.info(f"Fetching {url}")
 
+        response = requests.get(url)
+        response.raise_for_status()
+
         # Only want the "GPI_Fuel_Region" sheet
-        return pd.read_excel(url, sheet_name="GPI_Fuel_Region").rename(
+        return pd.read_excel(
+            io.BytesIO(response.content),
+            sheet_name="GPI_Fuel_Region",
+        ).rename(
             columns={
                 "Fuel Region": "Fuel Region Id",
                 "Cap & Trade Credit": "Cap and Trade Credit",
@@ -2936,6 +3066,141 @@ class CAISO(ISOBase):
             dataframes[df_name] = pd.DataFrame(data)
 
         return dataframes
+
+    @support_date_range(frequency="DAY_START")
+    def get_storage_awards_fmm(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Energy and ancillary services awards for storage in the FMM (15-minute)."""
+        html, rs = daily_energy_storage.load_daily_energy_storage_report(
+            date=date,
+            tz=self.default_timezone,
+            verbose=verbose,
+        )
+        return daily_energy_storage.build_storage_awards_fmm(html, rs)
+
+    @support_date_range(frequency="DAY_START")
+    def get_storage_awards_ifm(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Energy and AS awards for storage in the IFM (energy at 5-minute, AS hourly)."""
+        html, rs = daily_energy_storage.load_daily_energy_storage_report(
+            date=date,
+            tz=self.default_timezone,
+            verbose=verbose,
+        )
+        return daily_energy_storage.build_storage_awards_ifm(html, rs)
+
+    @support_date_range(frequency="DAY_START")
+    def get_storage_awards_rtd(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Energy awards for storage in RTD (5-minute)."""
+        html, rs = daily_energy_storage.load_daily_energy_storage_report(
+            date=date,
+            tz=self.default_timezone,
+            verbose=verbose,
+        )
+        return daily_energy_storage.build_storage_awards_rtd(html, rs)
+
+    @support_date_range(frequency="DAY_START")
+    def get_storage_energy_awards_ruc(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """RUC energy awards to storage (5-minute)."""
+        html, rs = daily_energy_storage.load_daily_energy_storage_report(
+            date=date,
+            tz=self.default_timezone,
+            verbose=verbose,
+        )
+        return daily_energy_storage.build_storage_energy_awards_ruc(html, rs)
+
+    @support_date_range(frequency="DAY_START")
+    def get_storage_energy_bids_fmm(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """FMM energy bid-in capacity by price bin (15-minute)."""
+        html, rs = daily_energy_storage.load_daily_energy_storage_report(
+            date=date,
+            tz=self.default_timezone,
+            verbose=verbose,
+        )
+        return daily_energy_storage.build_storage_energy_bids_fmm(html, rs)
+
+    @support_date_range(frequency="DAY_START")
+    def get_storage_energy_bids_ifm(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """IFM energy bid-in capacity by price bin (hourly)."""
+        html, rs = daily_energy_storage.load_daily_energy_storage_report(
+            date=date,
+            tz=self.default_timezone,
+            verbose=verbose,
+        )
+        return daily_energy_storage.build_storage_energy_bids_ifm(html, rs)
+
+    @support_date_range(frequency="DAY_START")
+    def get_storage_soc_fmm(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """State of charge for storage in the FMM (15-minute, standalone resources)."""
+        html, rs = daily_energy_storage.load_daily_energy_storage_report(
+            date=date,
+            tz=self.default_timezone,
+            verbose=verbose,
+        )
+        return daily_energy_storage.build_storage_soc_fmm(html, rs)
+
+    @support_date_range(frequency="DAY_START")
+    def get_storage_soc_hourly(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Hourly IFM and RUC state of charge (see ``build_storage_soc_hourly``)."""
+        html, rs = daily_energy_storage.load_daily_energy_storage_report(
+            date=date,
+            tz=self.default_timezone,
+            verbose=verbose,
+        )
+        return daily_energy_storage.build_storage_soc_hourly(html, rs)
+
+    @support_date_range(frequency="DAY_START")
+    def get_storage_soc_rtd(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """State of charge for storage in RTD (5-minute, standalone resources)."""
+        html, rs = daily_energy_storage.load_daily_energy_storage_report(
+            date=date,
+            tz=self.default_timezone,
+            verbose=verbose,
+        )
+        return daily_energy_storage.build_storage_soc_rtd(html, rs)
 
     def get_system_load_and_resource_schedules_day_ahead(
         self,

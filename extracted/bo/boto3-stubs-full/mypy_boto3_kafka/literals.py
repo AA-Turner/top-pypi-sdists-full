@@ -28,9 +28,12 @@ __all__ = (
     "ClusterStateType",
     "ClusterTypeType",
     "ConfigurationStateType",
+    "ConsumerGroupOffsetSyncModeType",
     "CustomerActionStatusType",
     "DescribeTopicPartitionsPaginatorName",
     "EnhancedMonitoringType",
+    "KafkaClusterEncryptionInTransitTypeType",
+    "KafkaClusterSaslScramMechanismType",
     "KafkaServiceName",
     "KafkaVersionStatusType",
     "ListClientVpcConnectionsPaginatorName",
@@ -78,11 +81,14 @@ ClusterStateType = Literal[
 ]
 ClusterTypeType = Literal["PROVISIONED", "SERVERLESS"]
 ConfigurationStateType = Literal["ACTIVE", "DELETE_FAILED", "DELETING"]
+ConsumerGroupOffsetSyncModeType = Literal["ENHANCED", "LEGACY"]
 CustomerActionStatusType = Literal["ACTION_RECOMMENDED", "CRITICAL_ACTION_REQUIRED", "NONE"]
 DescribeTopicPartitionsPaginatorName = Literal["describe_topic_partitions"]
 EnhancedMonitoringType = Literal[
     "DEFAULT", "PER_BROKER", "PER_TOPIC_PER_BROKER", "PER_TOPIC_PER_PARTITION"
 ]
+KafkaClusterEncryptionInTransitTypeType = Literal["TLS"]
+KafkaClusterSaslScramMechanismType = Literal["SHA256", "SHA512"]
 KafkaVersionStatusType = Literal["ACTIVE", "DEPRECATED"]
 ListClientVpcConnectionsPaginatorName = Literal["list_client_vpc_connections"]
 ListClusterOperationsPaginatorName = Literal["list_cluster_operations"]

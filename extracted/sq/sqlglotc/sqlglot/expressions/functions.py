@@ -321,6 +321,24 @@ class AIClassify(Expression, Func):
     _sql_names = ["AI_CLASSIFY"]
 
 
+class AIEmbed(Expression, Func):
+    arg_types = {"expressions": True}
+    is_var_len_args = True
+    _sql_names = ["AI_EMBED"]
+
+
+class AISimilarity(Expression, Func):
+    arg_types = {"expressions": True}
+    is_var_len_args = True
+    _sql_names = ["AI_SIMILARITY"]
+
+
+class AIGenerate(Expression, Func):
+    arg_types = {"expressions": True}
+    is_var_len_args = True
+    _sql_names = ["AI_GENERATE"]
+
+
 class FeaturesAtTime(Expression, Func):
     arg_types = {"this": True, "time": False, "num_rows": False, "ignore_feature_nulls": False}
 

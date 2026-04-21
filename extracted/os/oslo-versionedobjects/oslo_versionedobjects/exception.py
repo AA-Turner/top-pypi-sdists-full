@@ -22,50 +22,61 @@ SHOULD include dedicated exception logging.
 
 """
 
+from collections.abc import Callable
 import functools
 import inspect
 import logging
+from typing import Any, Concatenate, ParamSpec, TypeVar
 
 from oslo_config import cfg
 from oslo_utils import excutils
-import webob.exc
 
 from oslo_versionedobjects._i18n import _
 
-LOG = logging.getLogger(__name__)
+LOG: logging.Logger = logging.getLogger(__name__)
 
-exc_log_opts = [
-    cfg.BoolOpt('fatal_exception_format_errors',
-                default=False,
-                help='Make exception message format errors fatal'),
+exc_log_opts: list[cfg.Opt] = [
+    cfg.BoolOpt(
+        'fatal_exception_format_errors',
+        default=False,
+        help='Make exception message format errors fatal',
+    ),
 ]
 
-CONF = cfg.CONF
+CONF: cfg.ConfigOpts = cfg.CONF
 CONF.register_opts(exc_log_opts, group='oslo_versionedobjects')
 
 
-class ConvertedException(webob.exc.WSGIHTTPException):
-    def __init__(self, code=0, title="", explanation=""):
-        self.code = code
-        self.title = title
-        self.explanation = explanation
-        super().__init__()
-
-
-def _cleanse_dict(original):
+def _cleanse_dict(original: dict[str, Any]) -> dict[str, Any]:
     """Strip all admin_password, new_pass, rescue_pass keys from a dict."""
     return {k: v for k, v in original.items() if "_pass" not in k}
 
 
-def wrap_exception(notifier=None, get_notifier=None):
+_F = TypeVar('_F', bound=Callable[..., Any])
+
+P = ParamSpec('P')
+R = TypeVar('R')
+
+
+def wrap_exception(
+    notifier: Any = None, get_notifier: Callable[[], Any] | None = None
+) -> Callable[
+    [Callable[Concatenate[Any, P], R]],
+    Callable[Concatenate[Any, P], R | None],
+]:
     """Catch all exceptions in wrapped method
 
     This decorator wraps a method to catch any exceptions that may
     get thrown. It also optionally sends the exception to the notification
     system.
     """
-    def inner(f):
-        def wrapped(self, context, *args, **kw):
+
+    def inner(
+        f: Callable[Concatenate[Any, P], R],
+    ) -> Callable[Concatenate[Any, P], R | None]:
+        def wrapped(
+            self: Any, /, context: Any, *args: P.args, **kw: P.kwargs
+        ) -> R | None:
             # Don't store self or context in the payload, it now seems to
             # contain confidential information.
             try:
@@ -73,9 +84,10 @@ def wrap_exception(notifier=None, get_notifier=None):
             except Exception as e:
                 with excutils.save_and_reraise_exception():
                     if notifier or get_notifier:
-                        payload = dict(exception=e)
-                        call_dict = inspect.getcallargs(f, self, context,
-                                                        *args, **kw)
+                        payload: dict[str, Any] = dict(exception=e)
+                        call_dict = inspect.getcallargs(
+                            f, self, context, *args, **kw
+                        )
                         cleansed = _cleanse_dict(call_dict)
                         payload.update({'args': cleansed})
 
@@ -84,11 +96,17 @@ def wrap_exception(notifier=None, get_notifier=None):
                         # propagated.
                         event_type = f.__name__
 
-                        (notifier or get_notifier()).error(context,
-                                                           event_type,
-                                                           payload)
+                        if notifier:
+                            actual_notifier = notifier
+                        else:
+                            # get_notifier must be set since we're in
+                            # the 'if notifier or get_notifier' block
+                            actual_notifier = get_notifier()  # type: ignore[misc]
+                        actual_notifier.error(context, event_type, payload)
+                return None
 
-        return functools.wraps(f)(wrapped)
+        return functools.wraps(f)(wrapped)  # type: ignore[return-value]
+
     return inner
 
 
@@ -98,19 +116,16 @@ class VersionedObjectsException(Exception):
     To correctly use this class, inherit from it and define
     a 'msg_fmt' property. That msg_fmt will get printf'd
     with the keyword arguments provided to the constructor.
-
     """
-    msg_fmt = _("An unknown exception occurred.")
-    code = 500
-    headers = {}
-    safe = False
 
-    def __init__(self, message=None, **kwargs):
-        self.kwargs = kwargs
+    msg_fmt = _("An unknown exception occurred.")
+
+    def __init__(self, message: str | None = None, **kwargs: Any) -> None:
+        self.kwargs: dict[str, Any] = kwargs
 
         if 'code' not in self.kwargs:
             try:
-                self.kwargs['code'] = self.code
+                self.kwargs['code'] = 500
             except AttributeError:
                 pass
 
@@ -122,7 +137,7 @@ class VersionedObjectsException(Exception):
                 # log the issue and the kwargs
                 LOG.exception('Exception in string format operation')
                 for name, value in kwargs.items():
-                    LOG.error(f"{name}: {value}")    # noqa
+                    LOG.error(f"{name}: {value}")  # noqa
 
                 if CONF.oslo_versionedobjects.fatal_exception_format_errors:
                     raise
@@ -132,11 +147,11 @@ class VersionedObjectsException(Exception):
 
         super().__init__(message)
 
-    def format_message(self):
+    def format_message(self) -> str:
         # NOTE(mrodden): use the first argument to the python Exception object
         # which should be our full VersionedObjectsException message,
         # (see __init__)
-        return self.args[0]
+        return str(self.args[0])
 
 
 class ObjectActionError(VersionedObjectsException):
@@ -152,8 +167,10 @@ class OrphanedObjectError(VersionedObjectsException):
 
 
 class IncompatibleObjectVersion(VersionedObjectsException):
-    msg_fmt = _('Version %(objver)s of %(objname)s is not supported, '
-                'supported version is %(supported)s')
+    msg_fmt = _(
+        'Version %(objver)s of %(objname)s is not supported, '
+        'supported version is %(supported)s'
+    )
 
 
 class ReadOnlyFieldError(VersionedObjectsException):
@@ -189,5 +206,7 @@ class TargetBeforeSubobjectExistedException(VersionedObjectsException):
 
 
 class UnregisteredSubobject(VersionedObjectsException):
-    msg_fmt = _("%(child_objname)s is referenced by %(parent_objname)s but "
-                "is not registered")
+    msg_fmt = _(
+        "%(child_objname)s is referenced by %(parent_objname)s but "
+        "is not registered"
+    )

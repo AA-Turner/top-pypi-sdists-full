@@ -17,7 +17,9 @@ from plato.agents.audit import (
     prepare_audited_mounts,
     write_audit_context,
 )
+from plato.agents.browser_tooling import build_agent_browser_sessions_block
 from plato.agents.context import AgentContext
+from plato.agents.login_backends import resolve_login_backend
 from plato.agents.mounts import AgentWorkspaceMount
 from plato.runtimes.base import Runtime, RuntimeInfo
 from plato.tools.mcp import scoped_mcp_url
@@ -202,7 +204,82 @@ class AgentTask:
                 client_id=info.runtime_id,
             )
         config["plato_mounts"] = [mount.to_payload().model_dump() for mount in mounts]
+        if self._agent.browser_tooling and resolve_login_backend(self._agent.package) == "agent_browser":
+            config.setdefault("browser_tooling", True)
         return config
+
+    async def _run_pre_login(self, info: RuntimeInfo) -> None:
+        """Run pre-agent login against each env in ``self._session``.
+
+        Gated on ``AgentConfig.browser_tooling``. The backend (CDP vs.
+        agent-browser) is resolved from the agent package — the world
+        doesn't need to know which protocol its agent ships.
+
+        Runs after ``on_prepare`` hooks so world-specific groundwork (display
+        resize, session recording) can complete before login fires.
+        """
+        if self._session is None:
+            logger.debug("pre-login skipped: no session attached to AgentTask")
+            return
+        if not self._session.envs:
+            logger.debug("pre-login skipped: session has no envs")
+            return
+
+        backend = resolve_login_backend(self._agent.package)
+        if backend is None:
+            raise RuntimeError(
+                f"pre-login requested for package {self._agent.package!r} "
+                "but no login backend is registered for it. Add it to "
+                "plato.agents.login_backends._PACKAGE_LOGIN_BACKENDS."
+            )
+
+        flow = self._agent.pre_login_flow
+        env_alias = self._agent.pre_login_env_alias
+
+        if backend == "agent_browser":
+            if info.ssh_key_path is None:
+                raise RuntimeError("agent-browser pre-login needs ssh_key_path on RuntimeInfo")
+            if env_alias is not None:
+                raise RuntimeError(
+                    "AgentConfig.pre_login_env_alias is not supported by the agent-browser "
+                    "login backend — it logs into every env on the session. Either drop the "
+                    "alias or switch to a package that uses the CDP backend."
+                )
+            await self._session.login_via_agent_browser(
+                hostname=info.hostname,
+                ssh_key_path=info.ssh_key_path,
+                flow=flow,
+                retries=3,
+                retry_delay_ms=2000,
+                log=logger,
+            )
+            return
+
+        # CDP — connect once, log in, stabilize (reload + stray-tab cleanup)
+        # so the downstream agent that shares this Chrome lands on the
+        # logged-in page.
+        await self._session.login_via_cdp(
+            cdp_url=f"http://{info.hostname}:9224",
+            flow=flow,
+            env_alias=env_alias,
+            retries=3,
+            retry_delay_ms=2000,
+            log=logger,
+        )
+
+    def _maybe_append_sessions_block(self, instruction: str) -> str:
+        """Append the ``agent-browser`` ``--session`` map when relevant.
+
+        Only fires for packages that use the ``agent_browser`` login backend
+        (claude-code / gemini-cli / codex) — other packages don't ship the CLI
+        that reads those session names.
+        """
+        if self._session is None:
+            return instruction
+        if resolve_login_backend(self._agent.package) != "agent_browser":
+            return instruction
+        aliases = [env.alias for env in self._session.envs if env.artifact_id]
+        return instruction + build_agent_browser_sessions_block(aliases)
 
     def _register_tool_request_context(
         self,
@@ -343,6 +420,17 @@ class AgentTask:
             # Prepare hooks
             for hook in self._prepare_hooks:
                 await hook(info)
+
+            # Declarative pre-agent login — runs after world-specific setup
+            # (display resize, recorder) so hooks can finish any groundwork
+            # the login backend depends on.
+            if self._agent.browser_tooling:
+                await self._run_pre_login(info)
+                # agent-browser login stores each env's cookies under
+                # --session <env.alias>. The model only knows to pass that
+                # name if we list it, so append the session map to the
+                # task instruction.
+                instruction = self._maybe_append_sessions_block(instruction)
 
             await write_audit_context(
                 info,

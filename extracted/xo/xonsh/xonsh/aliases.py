@@ -10,6 +10,7 @@ import re
 import shlex
 import shutil
 import sys
+import textwrap
 import types
 import typing as tp
 from collections import abc as cabc
@@ -42,17 +43,19 @@ from xonsh.procs.jobs import bg, clean_jobs, disown, fg, jobs
 from xonsh.procs.specs import DecoratorAlias, SpecAttrDecoratorAlias
 from xonsh.timings import timeit_alias
 from xonsh.tools import (
-    ALIAS_KWARG_NAMES,
     XonshError,
     adjust_shlvl,
     argvquote,
+    capturable,
     escape_windows_cmd_string,
     print_color,
     print_exception,
     strip_simple_quotes,
     swap_values,
+    threadable,
     to_repr_pretty_,
     to_shlvl,
+    uncapturable,
     unthreadable,
 )
 from xonsh.xontribs import xontribs_main
@@ -61,6 +64,81 @@ from xonsh.xontribs import xontribs_main
 @lazyobject
 def EXEC_ALIAS_RE():
     return re.compile(r"@\(|\$\(|!\(|\$\[|!\[|\&\&|\|\||\s+and\s+|\s+or\s+|[>|<]")
+
+
+def get_alias_name(name_or_func, dash_case=True):
+    """Derive an alias name from a function or a string.
+
+    For functions, uses ``__name__`` with a single leading underscore stripped
+    (so ``_hello`` becomes ``hello``). Strings are used as-is. If ``dash_case``
+    is True, underscores are replaced with dashes.
+    """
+    if callable(name_or_func):
+        name = name_or_func.__name__
+        if name.startswith("_"):
+            name = name[1:]
+    else:
+        name = name_or_func
+    if dash_case:
+        name = name.replace("_", "-")
+    return name
+
+
+class AliasReturnCommandResult(list):
+    """List subclass that can carry local_env from return_command aliases."""
+
+    local_env: dict
+
+    def __init__(self, *args, local_env=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.local_env = local_env or {}
+
+
+def _normalize_return_command_result(val, alias_repr):
+    """Normalize the return value of a ``@return_command`` alias.
+
+    A ``return_command`` alias may return either:
+
+    - a non-empty ``list`` — the resolved command tokens, with **no** env
+      overlay attached to the returned command,
+    - a ``dict`` with a required ``"cmd"`` key (a non-empty list of tokens)
+      and an optional ``"env"`` key (a ``dict``) — the command tokens plus
+      an env overlay that applies **only** to the returned command.
+
+    The ``env=`` kwarg the alias received is a separate concept: it is an
+    overlay active **during the function body** (mutating it affects
+    subprocesses the alias runs inline, just like for an ordinary callable
+    alias). It is independent of the returned command's env — to set env
+    for the returned command, the alias must use dict-return.
+
+    Raises ``ValueError`` on malformed returns, using ``alias_repr`` in the
+    message so the user can tell which alias produced the bad value.
+
+    Returns
+    -------
+    cmd : list
+        The command tokens to execute.
+    returned_env : dict
+        The env overlay for the returned command (empty dict if the alias
+        returned a bare list or a dict without ``"env"``).
+    """
+    returned_env: dict = {}
+    if isinstance(val, dict):
+        env_overlay = val.get("env")
+        if env_overlay is not None:
+            if not isinstance(env_overlay, dict):
+                raise ValueError(
+                    f"return_command alias {alias_repr}: 'env' must be a dict, "
+                    f"got {env_overlay!r}."
+                )
+            returned_env = dict(env_overlay)
+        val = val.get("cmd")
+    if not isinstance(val, list) or not val:
+        raise ValueError(
+            f"return_command alias {alias_repr}: wrong return value {val!r}, "
+            f"expected a non-empty list or dict with command."
+        )
+    return val, returned_env
 
 
 class FuncAlias:
@@ -95,6 +173,9 @@ class FuncAlias:
         spec=None,
         stack=None,
         decorators=None,
+        alias_name=None,
+        called_alias_name=None,
+        env=None,
     ):
         return run_alias_by_params(
             self.func,
@@ -106,8 +187,101 @@ class FuncAlias:
                 "spec": spec,
                 "stack": stack,
                 "decorators": decorators,
+                "alias_name": getattr(self.func, "__alias_name__", alias_name),
+                "called_alias_name": called_alias_name,
+                "env": env,
             },
         )
+
+
+def print_alias_help(name: str, superhelp: bool = False) -> None:
+    """Print info about an alias to the active shell.
+
+    Used by the ``cmd?``/``cmd??`` subprocess-mode help syntax.
+    Output is colorized via xonsh color tokens.
+
+    Parameters
+    ----------
+    name
+        Alias name (must be present in ``XSH.aliases``).
+    superhelp
+        If True (``cmd??``), include docstring, threadable/capturable
+        flags, source location and source code for ``FuncAlias``.
+    """
+    import xonsh.tools as xt
+    from xonsh.procs.executables import locate_executable
+
+    def _label(text):
+        return "{YELLOW}" + text + "{RESET}"
+
+    alias = XSH.aliases[name]
+    lines = [f"{_label('Alias:')} {repr(alias)}"]
+
+    # Expanded form (skip if expansion stops at a callable — then only the
+    # alias name was replaced by the function object itself, no extra info).
+    try:
+        expanded = XSH.aliases.get([name])
+    except Exception:
+        expanded = None
+    if expanded is not None and not callable(expanded[0]):
+        lines.append(f"{_label('Expanded:')} {repr(list(expanded))}")
+
+    # Resolved arg0 of the expanded list (only when arg0 is a string —
+    # callables have no path).
+    if expanded and isinstance(expanded[0], str):
+        arg0 = expanded[0]
+        arg0_path = locate_executable(arg0)
+        if arg0_path is not None and arg0_path != arg0:
+            lines.append(f"{_label('Resolved ' + arg0 + ':')} {repr(arg0_path)}")
+
+    func = getattr(alias, "func", None)
+
+    # Docstring is shown for both ``?`` and ``??``.
+    # Read from the underlying function — FuncAlias instance falls through
+    # to the class docstring when the function has no doc.
+    if func is not None:
+        doc = getattr(func, "__doc__", "") or ""
+    elif isinstance(alias, (list, str)):
+        doc = ""
+    else:
+        doc = getattr(alias, "__doc__", "") or ""
+    if doc:
+        from xonsh.environ import _rst_inline_to_color
+
+        lines.append(f"{_label('Descr:')} {_rst_inline_to_color(doc)}")
+
+    if superhelp:
+        # FuncAlias-only metadata.
+        if func is not None:
+            threadable = getattr(alias, "__xonsh_threadable__", None)
+            capturable = getattr(alias, "__xonsh_capturable__", None)
+            if threadable is not None:
+                lines.append(f"{_label('Threadable:')} {threadable}")
+            if capturable is not None:
+                lines.append(f"{_label('Capturable:')} {capturable}")
+
+            # Unwrap ``functools.wraps``-style chains so the shown source
+            # reflects the user-visible function (e.g. a click command body)
+            # rather than the internal wrapper.
+            try:
+                src_func = inspect.unwrap(func)
+            except ValueError:
+                src_func = func
+            co = getattr(src_func, "__code__", None)
+            if co is not None:
+                lines.append(
+                    f"{_label('Source:')} {co.co_filename}:{co.co_firstlineno}"
+                )
+            try:
+                src = inspect.getsource(src_func)
+            except (OSError, TypeError):
+                src = None
+            if src:
+                lines.append(f"{_label('Code:')}\n{textwrap.dedent(src).rstrip()}")
+            else:
+                lines.append(f"{_label('Code:')} <source unavailable>")
+
+    xt.print_color("\n".join(lines))
 
 
 class Aliases(cabc.MutableMapping):
@@ -117,21 +291,55 @@ class Aliases(cabc.MutableMapping):
         self._raw = {}
         self.update(*args, **kwargs)
 
-    @staticmethod
-    def _get_func_name(func):
-        name = func.__name__
+    def __dir__(self):
+        d = set(super().__dir__())
+        d.update(("click", "register_click_command"))
+        return list(d)
 
-        # Strip leading underscore
-        if name.startswith("_"):
-            name = name[1:]
-        return name
+    def __getattr__(self, name):
+        # Lazy click integration: import is deferred until the first access
+        # to ``aliases.click`` or ``aliases.register_click_command``, so
+        # xonsh sessions that never use click don't pay the import cost.
+        # Once loaded, the attributes are cached on ``self.__dict__`` and
+        # future lookups skip this method entirely.
+        if name in ("click", "register_click_command"):
+            try:
+                self._add_click_command()
+            except ImportError:
+                raise AttributeError(
+                    f"{name!r} requires the 'click' package to be installed"
+                ) from None
+            return self.__dict__[name]
+        raise AttributeError(
+            f"{type(self).__name__!r} object has no attribute {name!r}"
+        )
+
+    def _add_click_command(self):
+        """Expose the click integration helpers on this Aliases instance.
+
+        Lazily invoked from :meth:`__getattr__` on first access to
+        ``self.click`` or ``self.register_click_command``. Imports the
+        ``click`` module and caches:
+
+        * ``self.click`` — the ``click`` module itself, for convenient
+          access from xonshrc / user scripts.
+        * ``self.register_click_command`` — decorator factory bound to this
+          Aliases instance via :func:`functools.partial`. See
+          :func:`_click_command_alias`.
+
+        Raises :class:`ImportError` if ``click`` is not installed; callers
+        (``__getattr__``) translate this to :class:`AttributeError`.
+        """
+        import click
+
+        self.click = click
+        self.register_click_command = functools.partial(
+            _click_command_alias, _aliases=self
+        )
 
     def _register(self, func, name="", dash_case=True):
-        name = name or self._get_func_name(func)
-
-        if dash_case:
-            name = name.replace("_", "-")
-
+        name = get_alias_name(name or func, dash_case=dash_case)
+        func.__alias_name__ = name
         self[name] = func
         return func
 
@@ -155,10 +363,39 @@ class Aliases(cabc.MutableMapping):
 
         return wrapper
 
-    def return_command(self, f):
+    @staticmethod
+    def completer(completer_func):
+        """Decorator that attaches a completer function to an alias.
+
+        Usage::
+
+            def _my_completer(command, alias):
+                return {'opt1', 'opt2'}
+
+            @aliases.register
+            @aliases.completer(_my_completer)
+            def _hello(args):
+                echo @(args)
+
+        Now ``hello <TAB>`` will suggest ``opt1`` and ``opt2``.
+        """
+
+        def decorator(func):
+            func.xonsh_complete = completer_func
+            return func
+
+        return decorator
+
+    @staticmethod
+    def return_command(f):
         """Decorator that switches alias from returning result to return in new command for execution."""
         f.return_what = "command"
         return f
+
+    unthreadable = staticmethod(unthreadable)
+    threadable = staticmethod(threadable)
+    uncapturable = staticmethod(uncapturable)
+    capturable = staticmethod(capturable)
 
     def eval_alias(
         self,
@@ -166,6 +403,7 @@ class Aliases(cabc.MutableMapping):
         seen_tokens=frozenset(),
         acc_args=(),
         decorators=None,
+        env_out=None,
     ):
         """
         "Evaluates" the alias ``value``, by recursively looking up the leftmost
@@ -176,6 +414,11 @@ class Aliases(cabc.MutableMapping):
         where ``cmd=ls -al`` and ``ls`` is an alias with its value being a
         callable.  The resulting callable will be "partially applied" with
         ``["-al", "arg"]``.
+
+        ``env_out``, if given, is a mutable dict that accumulates the env
+        overlay requested by any ``return_command`` alias encountered while
+        resolving the chain (via dict-return ``"env"`` key). The top-level
+        :meth:`get` caller passes its own collector dict here.
         """
         decorators = decorators if decorators is not None else []
         # Beware of mutability: default values for keyword args are evaluated
@@ -195,14 +438,25 @@ class Aliases(cabc.MutableMapping):
             value = value[i:]
 
         if callable(value) and getattr(value, "return_what", "result") == "command":
+            alias_repr = repr(getattr(value, "__name__", value))
+            # ``kwarg_env`` is a live overlay: while the alias body runs,
+            # mutating it affects commands the alias spawns inline (same
+            # semantics as the ``env=`` kwarg for a normal callable alias).
+            # It does NOT flow to the returned command — for that, the
+            # alias must return a dict with an ``"env"`` key.
+            kwarg_env: dict = {}
             try:
-                value = value(acc_args, decorators=decorators)
+                with XSH.env.swap(overlay=kwarg_env):
+                    value = value(acc_args, decorators=decorators, env=kwarg_env)
                 acc_args = []
             except Exception as e:
-                print_exception(f"Exception inside alias {value}: {e}")
+                print_exception(f"Exception inside alias {alias_repr}: {e}")
                 return None
-            if not len(value):
-                raise ValueError("return_command alias: zero arguments.")
+            value, returned_env = _normalize_return_command_result(
+                value, alias_repr=alias_repr
+            )
+            if env_out is not None and returned_env:
+                env_out.update(returned_env)
 
         if callable(value):
             return [value] + list(acc_args)
@@ -225,6 +479,7 @@ class Aliases(cabc.MutableMapping):
                     seen_tokens,
                     acc_args,
                     decorators=decorators,
+                    env_out=env_out,
                 )
 
     def get(
@@ -252,27 +507,37 @@ class Aliases(cabc.MutableMapping):
             args = key[1:]
             key = key[0]
         val = self._raw.get(key)
+        # Env overlay collected for the RETURNED command — from a dict-return
+        # at any level of the alias chain. Kept strictly separate from the
+        # ``env=`` kwarg, which is a live overlay active only during the body
+        # of a return_command alias.
+        returned_env: dict = {}
         if callable(val) and getattr(val, "return_what", "result") == "command":
+            kwarg_env: dict = {}
             try:
-                val = val(args, decorators=decorators)
+                with XSH.env.swap(overlay=kwarg_env):
+                    val = val(args, decorators=decorators, env=kwarg_env)
                 args = []
             except Exception as e:
                 print_exception(f"Exception inside alias {key!r}: {e}")
                 return None
-            if not isinstance(val, list) or not len(val):
-                raise ValueError(
-                    f"return_command alias {key!r}: wrong return value {val!r}, expected a list."
-                )
+            val, returned_env = _normalize_return_command_result(
+                val, alias_repr=repr(key)
+            )
 
         if val is None:
             return default
         elif isinstance(val, cabc.Iterable) or callable(val):
-            return self.eval_alias(
+            result = self.eval_alias(
                 val,
                 seen_tokens={key},
                 decorators=decorators,
                 acc_args=args,
+                env_out=returned_env,
             )
+            if returned_env and result is not None:
+                result = AliasReturnCommandResult(result, local_env=returned_env)
+            return result
         else:
             msg = "alias of {!r} has an inappropriate type: {!r}"
             raise TypeError(msg.format(key, val))
@@ -379,108 +644,161 @@ class ExecAlias:
         for i, a in enumerate(args):
             alias_args[f"arg{i}"] = a
 
-        with XSH.env.swap(alias_args):
+        thread_local = {}
+        with XSH.env.swap(alias_args, __THREAD_LOCAL__=thread_local):
             execer.exec(
                 self.src,
                 glbs=frame.f_globals,
                 locs=frame.f_locals,
                 filename=self.filename,
             )
-        if XSH.history is not None:
-            return XSH.history.last_cmd_rtn
+        return thread_local.get("returncode", 0)
 
     def __repr__(self):
         return f"ExecAlias({self.src!r}, filename={self.filename!r})"
 
 
-class PartialEvalAliasBase:
-    """Partially evaluated alias."""
+ALIAS_PARAMS_DEFAULT = {
+    "args": None,
+    "stdin": None,
+    "stdout": None,
+    "stderr": None,
+    "spec": None,
+    "stack": None,
+    "decorators": None,
+    "alias_name": None,
+    "called_alias_name": None,
+    "env": None,
+}
+ALIAS_KWARG_NAMES = frozenset(ALIAS_PARAMS_DEFAULT)
+
+
+def _click_command_alias(func_or_name=None, *, _aliases):
+    """Decorator factory that registers a xonsh alias as a ``click`` command.
+
+    Mirrors the calling conventions of :meth:`Aliases.register`:
+
+    * ``@aliases.register_click_command`` — bare, derives alias name from
+      the function name (leading underscore stripped, dash-cased).
+    * ``@aliases.register_click_command()`` — empty parentheses, same as bare.
+    * ``@aliases.register_click_command("custom-name")`` — explicit alias name.
+
+    Inside the click callback, ``ctx`` is a :class:`click.Context` subclass
+    carrying the usual xonsh alias params (``alias_args``, ``stdin``, ``stdout``,
+    ``stderr``, etc from ALIAS_PARAMS_DEFAULT). The ``args`` alias param is exposed as
+    ``ctx.alias_args`` to avoid clashing with ``click.Context.args``.
+
+    Only available when the ``click`` package is installed; wired up by
+    :meth:`Aliases._add_click_command` from :meth:`Aliases.__init__`.
+    """
+    import functools
+
+    import click
+
+    def _make_alias(func, alias_name=None):
+        if isinstance(func, click.Command):
+            cmd = func
+            original_func = cmd.callback
+            name_source = original_func if original_func else cmd.name
+        else:
+            original_func = func
+            name_source = func
+            params = list(inspect.signature(func).parameters)
+            if not params or params[0] != "ctx":
+                raise TypeError(
+                    f"Click alias {func.__name__!r} must have 'ctx' as the "
+                    f"first parameter."
+                )
+            cmd = click.command()(click.pass_context(func))
+
+        class XonshContext(click.Context):
+            def __init__(self, *args, xsh=None, **kwargs):
+                super().__init__(*args, **kwargs)
+                xsh = xsh or {}
+                for key in ALIAS_PARAMS_DEFAULT:
+                    # 'args' clashes with click.Context.args — rename.
+                    attr = "alias_args" if key == "args" else key
+                    setattr(self, attr, xsh.get(key))
+
+        # Expose the click module itself so callbacks can use
+        # ``ctx.click.echo(...)`` etc. without a separate import.
+        # (Set after the class body — Python class-scope rules block
+        # ``click = click`` inside the body from resolving the enclosing
+        # function's name.)
+        XonshContext.click = click
+
+        cmd.context_class = XonshContext
+
+        registered_name = get_alias_name(alias_name or name_source)
+
+        def _wrapper(**xsh_data):
+            try:
+                cmd.main(
+                    args=xsh_data.get("args"),
+                    prog_name=xsh_data.get("called_alias_name") or registered_name,
+                    standalone_mode=False,
+                    xsh=xsh_data,
+                )
+            except click.exceptions.ClickException as e:
+                e.show()
+                return e.exit_code
+            except click.exceptions.Abort:
+                return 1
+            return 0
+
+        # Make _wrapper look like the original function to inspect.getsource
+        # (so `cmd??` shows the user's click callback, not _wrapper).
+        if callable(original_func):
+            functools.update_wrapper(_wrapper, original_func)
+
+        # Override the signature AFTER update_wrapper so run_alias_by_params
+        # sees the ALIAS_PARAMS_DEFAULT params, not the original function's.
+        _wrapper.__signature__ = inspect.Signature(
+            parameters=[
+                inspect.Parameter(
+                    pname, inspect.Parameter.KEYWORD_ONLY, default=default
+                )
+                for pname, default in ALIAS_PARAMS_DEFAULT.items()
+            ]
+        )
+
+        # Tab-completion: ``complete_aliases`` picks this up via
+        # ``alias.func.xonsh_complete``. Bound to the live click.Command so
+        # the completer always reflects the current option/argument set —
+        # even if the user mutates ``cmd.params`` after registration.
+        from xonsh.completers.click import complete_click
+
+        _wrapper.xonsh_complete = functools.partial(complete_click, cmd)
+
+        _aliases.register(registered_name, dash_case=False)(_wrapper)
+        return _wrapper
+
+    # Direct use: @aliases.register_click_command (no parens)
+    if callable(func_or_name):
+        return _make_alias(func_or_name)
+
+    # Parameterized use: @aliases.register_click_command() / (...)("name")
+    def _decorator(func):
+        return _make_alias(func, alias_name=func_or_name)
+
+    return _decorator
+
+
+class PartialEvalAlias:
+    """Partially evaluated alias.
+
+    Wraps a callable alias with accumulated arguments. The wrapped function's
+    signature is inspected once at init time. At call time, arguments are
+    matched by name (with positional fallback for unnamed parameters).
+    """
 
     def __init__(self, f, acc_args=()):
-        """
-        Parameters
-        ----------
-        f : callable
-            A function to dispatch to.
-        acc_args : sequence of strings, optional
-            Additional arguments to prepent to the argument list passed in
-            when the alias is called.
-        """
         self.f = f
         self.acc_args = acc_args
         self.__name__ = getattr(f, "__name__", self.__class__.__name__)
+        self._param_names = list(inspect.signature(f).parameters.keys())
+        self._numargs = len(self._param_names)
 
-    def __call__(
-        self, args, stdin=None, stdout=None, stderr=None, spec=None, stack=None
-    ):
-        args = list(self.acc_args) + args
-        return self.f(args, stdin, stdout, stderr, spec, stack)
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.f!r}, acc_args={self.acc_args!r})"
-
-
-class PartialEvalAlias0(PartialEvalAliasBase):
-    def __call__(
-        self, args, stdin=None, stdout=None, stderr=None, spec=None, stack=None
-    ):
-        args = list(self.acc_args) + args
-        if args:
-            msg = "callable alias {f!r} takes no arguments, but {args!f} provided. "
-            msg += "Of these {acc_args!r} were partially applied."
-            raise XonshError(msg.format(f=self.f, args=args, acc_args=self.acc_args))
-        return self.f()
-
-
-class PartialEvalAlias1(PartialEvalAliasBase):
-    def __call__(
-        self, args, stdin=None, stdout=None, stderr=None, spec=None, stack=None
-    ):
-        args = list(self.acc_args) + args
-        return self.f(args)
-
-
-class PartialEvalAlias2(PartialEvalAliasBase):
-    def __call__(
-        self, args, stdin=None, stdout=None, stderr=None, spec=None, stack=None
-    ):
-        args = list(self.acc_args) + args
-        return self.f(args, stdin)
-
-
-class PartialEvalAlias3(PartialEvalAliasBase):
-    def __call__(
-        self, args, stdin=None, stdout=None, stderr=None, spec=None, stack=None
-    ):
-        args = list(self.acc_args) + args
-        return self.f(args, stdin, stdout)
-
-
-class PartialEvalAlias4(PartialEvalAliasBase):
-    def __call__(
-        self, args, stdin=None, stdout=None, stderr=None, spec=None, stack=None
-    ):
-        args = list(self.acc_args) + args
-        return self.f(args, stdin, stdout, stderr)
-
-
-class PartialEvalAlias5(PartialEvalAliasBase):
-    def __call__(
-        self, args, stdin=None, stdout=None, stderr=None, spec=None, stack=None
-    ):
-        args = list(self.acc_args) + args
-        return self.f(args, stdin, stdout, stderr, spec)
-
-
-class PartialEvalAlias6(PartialEvalAliasBase):
-    def __call__(
-        self, args, stdin=None, stdout=None, stderr=None, spec=None, stack=None
-    ):
-        args = list(self.acc_args) + args
-        return self.f(args, stdin, stdout, stderr, spec, stack)
-
-
-class PartialEvalAlias7(PartialEvalAliasBase):
     def __call__(
         self,
         args,
@@ -489,46 +807,44 @@ class PartialEvalAlias7(PartialEvalAliasBase):
         stderr=None,
         spec=None,
         stack=None,
-        decorators=None,
+        alias_name=None,
+        called_alias_name=None,
     ):
         args = list(self.acc_args) + args
-        return self.f(args, stdin, stdout, stderr, spec, stack, decorators)
+        if self._numargs == 0:
+            if args:
+                msg = "callable alias {f!r} takes no arguments, but {args!r} provided. "
+                msg += "Of these {acc_args!r} were partially applied."
+                raise XonshError(
+                    msg.format(f=self.f, args=args, acc_args=self.acc_args)
+                )
+            return self.f()
+        available = ALIAS_PARAMS_DEFAULT.copy()
+        available.update(
+            args=args,
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
+            spec=spec,
+            stack=stack,
+            alias_name=getattr(self.f, "__alias_name__", alias_name),
+            called_alias_name=called_alias_name,
+        )
+        kwargs = {n: available[n] for n in self._param_names if n in available}
+        if len(kwargs) != self._numargs:
+            # Positional fallback for unnamed params
+            kwargs = dict(zip(self._param_names, available.values(), strict=False))
+        return self.f(**kwargs)
 
-
-PARTIAL_EVAL_ALIASES = (
-    PartialEvalAlias0,
-    PartialEvalAlias1,
-    PartialEvalAlias2,
-    PartialEvalAlias3,
-    PartialEvalAlias4,
-    PartialEvalAlias5,
-    PartialEvalAlias6,
-    PartialEvalAlias7,
-)
+    def __repr__(self):
+        return f"PartialEvalAlias({self.f!r}, acc_args={self.acc_args!r})"
 
 
 def partial_eval_alias(f, acc_args=()):
-    """Dispatches the appropriate eval alias based on the number of args to the original callable alias
-    and how many arguments to apply.
-    """
-    # no partial needed if no extra args
+    """Wraps a callable alias with accumulated arguments."""
     if not acc_args:
         return f
-    # need to dispatch
-    numargs = 0
-    for name, param in inspect.signature(f).parameters.items():
-        if (
-            param.kind == param.POSITIONAL_ONLY
-            or param.kind == param.POSITIONAL_OR_KEYWORD
-        ):
-            numargs += 1
-        elif name in ALIAS_KWARG_NAMES and param.kind == param.KEYWORD_ONLY:
-            numargs += 1
-    if numargs < 8:
-        return PARTIAL_EVAL_ALIASES[numargs](f, acc_args=acc_args)
-    else:
-        e = "Expected proxy with 7 or fewer arguments for {}, not {}"
-        raise XonshError(e.format(", ".join(ALIAS_KWARG_NAMES), numargs))
+    return PartialEvalAlias(f, acc_args=acc_args)
 
 
 def run_alias_by_params(func: tp.Callable, params: dict[str, tp.Any]):
@@ -537,15 +853,7 @@ def run_alias_by_params(func: tp.Callable, params: dict[str, tp.Any]):
     If function param names are in alias signature fill them.
     If function params have unknown names fill using alias signature order.
     """
-    alias_params = {
-        "args": None,
-        "stdin": None,
-        "stdout": None,
-        "stderr": None,
-        "spec": None,
-        "stack": None,
-        "decorators": None,
-    }
+    alias_params = ALIAS_PARAMS_DEFAULT.copy()
     alias_params |= params
     sign = inspect.signature(func)
     func_params = sign.parameters.items()
@@ -784,10 +1092,10 @@ def source_alias_fn(
             fpath = locate_file(fname)
             if fpath is None:
                 if env.get("XONSH_DEBUG"):
-                    print(f"source: {fname}: No such file", file=sys.stderr)
+                    print(f"source: {fname!r}: No such file", file=sys.stderr)
                 if i == 0:
                     raise RuntimeError(
-                        "must source at least one file, " + fname + " does not exist."
+                        f"must source at least one file, {fname!r} does not exist."
                     )
                 break
         _, fext = os.path.splitext(fpath)
@@ -796,7 +1104,7 @@ def source_alias_fn(
             fext = name  # hidden file with no extension
         if not ignore_ext and fext not in {".xsh", ".py", ".xonshrc"}:
             raise RuntimeError(
-                f"attempting to source file with non-xonsh extension {repr(name)}! "
+                f"Attempting to source file with non-xonsh extension {name!r}! "
                 f"If you are trying to source a file in another language, "
                 "then please use the appropriate source command "
                 "e.g. `source-bash script.sh`. "
@@ -814,13 +1122,14 @@ def source_alias_fn(
         ):
             try:
                 XSH.builtins.execx(src, "exec", ctx, filename=fpath)
-            except Exception:
+            except SyntaxError:
                 print_color(
-                    "{RED}You may be attempting to source non-xonsh file! "
-                    "{RESET}If you are trying to source a file in "
+                    "You may be attempting to source non-xonsh file: "
+                    f"{fpath!r}. "
+                    "If you are trying to source a file in "
                     "another language, then please use the appropriate "
-                    "source command. For example, {GREEN}`source-bash "
-                    "script.sh`{RESET}",
+                    "source command. For example, `source-bash "
+                    "script.sh`.",
                     file=sys.stderr,
                 )
                 raise
@@ -971,12 +1280,34 @@ def xexec_fn(
             old_shlvl = to_shlvl(denv["SHLVL"])
             denv["SHLVL"] = str(adjust_shlvl(old_shlvl, -1))
 
+    # Clear the alias stack so the new process doesn't falsely detect
+    # recursion.  exec replaces the process — there is no actual recursion.
+    # (https://github.com/xonsh/xonsh/pull/6198)
+    denv.pop("__ALIAS_STACK", None)
+    denv.pop("__ALIAS_NAME", None)
+
     try:
         os.execvpe(cmd, command, denv)
-    except FileNotFoundError as e:
+    except OSError as e:
+        if e.errno == 8:  # Exec format error — not a binary, try shebang
+            from xonsh.procs.specs import get_script_subproc_command
+
+            try:
+                scriptcmd = get_script_subproc_command(cmd, command[1:])
+            except PermissionError:
+                scriptcmd = None
+            if scriptcmd:
+                os.execvpe(scriptcmd[0], scriptcmd, denv)
+            # fall through to the error return below
+        if e.errno == 2:  # FileNotFoundError
+            return (
+                None,
+                f"xonsh: exec: file not found: {e.args[1]}: {command[0]}\n",
+                1,
+            )
         return (
             None,
-            f"xonsh: exec: file not found: {e.args[1]}: {command[0]}\n",
+            f"xonsh: exec: {e.args[1]}: {command[0]}\n",
             1,
         )
 
@@ -1032,7 +1363,55 @@ def showcmd(args, stdin=None):
         sys.displayhook(args)
 
 
-def detect_xpip_alias():
+def get_xxonsh_alias():
+    """
+    Determine the correct invocation to launch xonsh the same way the
+    current session was launched.
+
+    Always returns a list, so the result can be concatenated with other
+    argv lists (e.g. ``['tmux', 'new-session'] + get_xxonsh_alias()``).
+
+    For an entry-point launch (e.g. ``/usr/local/bin/xonsh``) the value of
+    ``sys.argv[0]`` is already a runnable absolute path, so the result is
+    a single-element list.
+
+    For a "from source" launch via ``python -m xonsh`` (``sys.argv[0]``
+    basename is ``__main__.py``) a naive ``[sys.executable, "-m", "xonsh"]``
+    would be CWD-dependent: ``python -m xonsh`` resolves the package via
+    ``sys.path``, which has the *current* working directory at position 0.
+    Running ``xxonsh`` from outside the source repo would silently pick
+    whatever ``import xonsh`` resolves to in ``site-packages`` (or raise
+    ``ModuleNotFoundError``), which is almost never what the user wants.
+
+    Instead, compute the parent directory of the source ``xonsh`` package
+    once (from the absolute path of ``__main__.py``) and spawn Python with
+    a ``-c`` bootstrap that prepends that directory to ``sys.path`` before
+    importing ``xonsh.main``. This makes the alias resolve to the same
+    source tree from any CWD, regardless of what is installed in
+    ``site-packages``.
+    """
+    # Local import: xonsh.main pulls in heavy modules (shell, execer,
+    # xontribs), so keep the dependency lazy.
+    from xonsh.main import get_current_xonsh
+
+    current_xonsh = get_current_xonsh()
+    if os.path.basename(current_xonsh) != "__main__.py":
+        # Entry-point case: sys.argv[0] is an absolute path to the xonsh
+        # launcher and is already runnable as-is.
+        return [current_xonsh]
+
+    # Source case: __main__.py lives inside the xonsh/ package, whose
+    # parent directory is the one we need on sys.path for
+    # ``from xonsh.main import main`` to pick up the source version.
+    pkg_parent = os.path.dirname(os.path.dirname(os.path.abspath(current_xonsh)))
+    bootstrap = (
+        f"import sys; sys.path.insert(0, {pkg_parent!r}); "
+        f"from xonsh.main import main; main()"
+    )
+    return [sys.executable, "-c", bootstrap]
+
+
+def get_xpip_alias():
     """
     Determines the correct invocation to get xonsh's pip
     """
@@ -1056,10 +1435,30 @@ def detect_xpip_alias():
                 "pip",
             ]
         elif not os.access(os.path.dirname(sys.executable), os.W_OK):
-            return (
-                sys.executable
-                + " -m pip @(['install', '--user'] + $args[1:] if $args and $args[0] == 'install' else $args)"
+            import site
+
+            pydir = os.path.dirname(sys.executable)
+
+            @Aliases.return_command
+            def _xpip_user(args):
+                if args and args[0] == "install":
+                    return basecmd + ["install", "--user"] + args[1:]
+                else:
+                    return basecmd + args
+
+            _xpip_user.__doc__ = (
+                f"Normally ``xpip`` runs ``{' '.join(basecmd)}``, but in this "
+                "session it is a wrapper that adds ``--user`` to ``pip install`` "
+                "commands.\n"
+                "\n"
+                "Created during startup because the directory containing the "
+                f"Python executable (``{pydir}``) is not writable by the current "
+                "user. This typically means Python is installed system-wide, so "
+                "``pip install`` without ``--user`` would require root privileges. "
+                "The ``--user`` flag tells pip to install packages into the "
+                f"per-user site-packages directory (``{site.getusersitepackages()}``)."
             )
+            return _xpip_user
         else:
             return basecmd
     except Exception:
@@ -1078,10 +1477,27 @@ def _find_cmd_exe() -> str:
     return str(canonical) if canonical.is_file() else os.environ["COMSPEC"]
 
 
+def _output_to_path_object(lines):
+    """Transform first output line into single path. Return None if the output is empty."""
+    if lines and (path_str := lines[0].strip()):
+        return XSH.imp.pathlib.Path(path_str)
+    else:
+        return None
+
+
+def _output_to_path_objects(lines):
+    """Transform lines output into list of path objects. Skip empty lines."""
+    if lines:
+        return [XSH.imp.pathlib.Path(line.strip()) for line in lines if line.strip()]
+    else:
+        return None
+
+
 def make_default_aliases():
     """Creates a new default aliases dictionary."""
     default_aliases = {
         "cd": cd,
+        "completer": xca.completer_alias,
         "pushd": pushd,
         "popd": popd,
         "dirs": dirs,
@@ -1115,13 +1531,21 @@ def make_default_aliases():
         "which": xxw.which,
         "xcontext": xxt.xcontext,
         "xontrib": xontribs_main,
-        "completer": xca.completer_alias,
-        "xpip": detect_xpip_alias(),
+        "xxonsh": get_xxonsh_alias(),
+        "xpip": get_xpip_alias(),
         "xpython": [XSH.env.get("_", sys.executable)]
         if IN_APPIMAGE
         else [sys.executable],
         "xreset": xonsh_reset,
         # Command decorators
+        "@error_raise": SpecAttrDecoratorAlias(
+            {"raise_subproc_error": True},
+            "Command decorator. Raise an exception if the command returns a non-zero exit code.",
+        ),
+        "@error_ignore": SpecAttrDecoratorAlias(
+            {"raise_subproc_error": False},
+            "Command decorator. Do not raise an exception if the command returns a non-zero exit code.",
+        ),
         "@thread": SpecAttrDecoratorAlias(
             {"threadable": True, "force_threadable": True},
             "Command decorator. Mark current command as threadable.",
@@ -1133,6 +1557,14 @@ def make_default_aliases():
         "@lines": SpecAttrDecoratorAlias(
             {"output_format": "list_lines"},
             "Command decorator. Return output as list of lines.",
+        ),
+        "@path": SpecAttrDecoratorAlias(
+            {"output_format": _output_to_path_object},
+            "Command decorator. Return Path object for the first line in output.",
+        ),
+        "@paths": SpecAttrDecoratorAlias(
+            {"output_format": _output_to_path_objects},
+            "Command decorator. Return Path objects for the lines in output.",
         ),
         "@json": SpecAttrDecoratorAlias(
             {"output_format": lambda lines: XSH.imp.json.loads("\n".join(lines))},

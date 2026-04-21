@@ -34,7 +34,7 @@ class TableHandlerInterface(object):
             self.table_name = model._table + '__history'
         else:
             self.table_name = model._table
-        self.object_name = model.__name__
+        self.model = model
         if history:
             self.sequence_name = self.table_name + '___id_seq'
         else:
@@ -71,7 +71,7 @@ class TableHandlerInterface(object):
     def db_default(self, column_name, value):
         raise NotImplementedError
 
-    def add_column(self, column_name, abstract_type, default=None, comment=''):
+    def add_column(self, column_name, abstract_type, default=None):
         raise NotImplementedError
 
     def add_fk(self, columns, reference, ref_columns=None, on_delete=None):

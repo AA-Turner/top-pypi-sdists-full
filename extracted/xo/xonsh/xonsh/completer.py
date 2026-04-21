@@ -6,6 +6,7 @@ import typing as tp
 
 from xonsh.built_ins import XSH
 from xonsh.completers.tools import (
+    RICH_COMPLETION_DEFAULTS,
     Completion,
     RichCompletion,
     apply_lprefix,
@@ -14,7 +15,7 @@ from xonsh.completers.tools import (
     is_exclusive_completer,
 )
 from xonsh.parsers.completion_context import CompletionContext, CompletionContextParser
-from xonsh.tools import print_exception
+from xonsh.tools import print_above_prompt, print_exception
 
 
 class Completer:
@@ -175,6 +176,44 @@ class Completer:
 
         return completion, lprefix
 
+    # Renames applied to ``RichCompletion`` attribute names in trace
+    # output only; the Python attributes themselves are unchanged.
+    _TRACE_ATTR_ALIASES = {
+        "append_closing_quote": "close_quote",
+    }
+
+    @staticmethod
+    def _format_trace_item(comp, lprefix, source: str, exclusive: bool) -> str:
+        """Render one completion as a single ``$XONSH_COMPLETER_TRACE`` line.
+
+        Format::
+
+            "value": src=<completer>, pvd=<sub-source>, type=<exclusive|non-exclusive>, <non-default RichCompletion attrs>
+
+        ``pvd`` (provider) is placed right after ``src`` (source) when
+        set, so the two origin fields stay visually adjacent. Other
+        non-default ``RichCompletion`` fields (``prefix_len``,
+        ``display``, ``description``, ``append_space``, ``close_quote``
+        — short for ``append_closing_quote`` — and ``style``) are
+        appended afterwards. Plain ``str`` completions fall back to
+        showing the pipeline's ``lprefix``.
+        """
+        parts = [f"src={source}"]
+        if isinstance(comp, RichCompletion) and comp.provider is not None:
+            parts.append(f"pvd={comp.provider!r}")
+        parts.append(f"type={'exclusive' if exclusive else 'non-exclusive'}")
+        if isinstance(comp, RichCompletion):
+            for name, default in RICH_COMPLETION_DEFAULTS:
+                if name == "provider":
+                    continue  # already placed right after ``src``
+                val = getattr(comp, name)
+                if val != default:
+                    label = Completer._TRACE_ATTR_ALIASES.get(name, name)
+                    parts.append(f"{label}={val!r}")
+        else:
+            parts.append(f"prefix_len={lprefix}")
+        return f"{str(comp)!r}: {', '.join(parts)}"
+
     @staticmethod
     def generate_completions(
         completion_context, old_completer_args, trace: bool
@@ -233,39 +272,68 @@ class Completer:
             else:
                 res = out
 
-            if res is None:
-                continue
+            # Completer was invoked (didn't raise, wasn't skipped by the
+            # contextual gate). Process its output into ``items``; note
+            # that ``res is None`` is valid — it just yields an empty
+            # ``items``, and trace will report ``Got 0 results``.
+            items: list = []
+            if res is not None:
+                for comp in res:
+                    if (not is_filtered) and (not filter_func(comp, prefix)):
+                        continue
+                    # Skip empty or whitespace-only completions as if the
+                    # completer had not returned them. Without this an
+                    # exclusive completer that yields only blanks (e.g. a
+                    # subprocess-based completer returning spurious empty
+                    # lines) would short-circuit the pipeline and hide
+                    # the fallback ``python``/``path`` completers. See #5810.
+                    if not str(comp).strip():
+                        continue
+                    comp = Completer._format_completion(
+                        comp,
+                        completion_context,
+                        completing_contextual_command,
+                        lprefix or 0,
+                        custom_lprefix,
+                    )
+                    items.append(comp)
+                    yield comp
 
-            items = []
-            for comp in res:
-                if (not is_filtered) and (not filter_func(comp, prefix)):
-                    continue
-                comp = Completer._format_completion(
-                    comp,
-                    completion_context,
-                    completing_contextual_command,
-                    lprefix or 0,
-                    custom_lprefix,
-                )
-                items.append(comp)
-                yield comp
+            exclusive = is_exclusive_completer(func)
+
+            if trace:
+                exclusivity = "exclusive" if exclusive else "non-exclusive"
+                if not items:
+                    # Completer was invoked but produced nothing usable —
+                    # still report it so the user can see which completers
+                    # ran. Trailing ``.`` since no list follows.
+                    print(
+                        f"TRACE COMPLETIONS: Got 0"
+                        f" from {exclusivity} '{name}'"
+                        f" for {prefix!r}."
+                    )
+                else:
+                    print(
+                        f"TRACE COMPLETIONS: Got {len(items)}"
+                        f" from {exclusivity} '{name}'"
+                        f" for {prefix!r}:"
+                    )
+                    for item_comp, item_lprefix in items:
+                        print(
+                            Completer._format_trace_item(
+                                item_comp, item_lprefix, name, exclusive
+                            )
+                        )
 
             if not items:  # empty completion
                 continue
 
-            if trace:
-                print(
-                    f"TRACE COMPLETIONS: Got {len(items)} results"
-                    f" from {'' if is_exclusive_completer(func) else 'non-'}exclusive completer '{name}':"
-                )
-                sys.displayhook(items)
-
-            if is_exclusive_completer(func):
+            if exclusive:
                 # we got completions for an exclusive completer
                 break
 
     def complete_from_context(self, completion_context, old_completer_args=None):
-        trace = XSH.env.get("XONSH_TRACE_COMPLETIONS")
+        trace = XSH.env.get("XONSH_COMPLETER_TRACE")
         if trace:
             print("\nTRACE COMPLETIONS: Getting completions with context:")
             sys.displayhook(completion_context)
@@ -275,6 +343,21 @@ class Completer:
         completions = {}
 
         query_limit = XSH.env.get("COMPLETION_QUERY_LIMIT")
+
+        # Whether there is any typed content at all. Bare Tab on a
+        # completely empty line always yields a huge candidate list, so
+        # the truncation notice would be pure noise there. For anything
+        # else (including ``ls <Tab>`` — empty arg prefix but a real
+        # command line) we want the notice to surface.
+        has_line_content = False
+        if old_completer_args and len(old_completer_args) >= 2:
+            has_line_content = bool(old_completer_args[1])
+        elif completion_context is not None:
+            if completion_context.command is not None:
+                cmd = completion_context.command
+                has_line_content = bool(cmd.args or cmd.prefix)
+            elif completion_context.python is not None:
+                has_line_content = bool(completion_context.python.prefix)
 
         for comp in self.generate_completions(
             completion_context,
@@ -288,22 +371,71 @@ class Completer:
                     print(
                         "TRACE COMPLETIONS: Stopped after $COMPLETION_QUERY_LIMIT reached."
                     )
+                if has_line_content:
+                    print_above_prompt(
+                        f"List truncated by $COMPLETION_QUERY_LIMIT = {query_limit}"
+                    )
                 break
 
+        # Deduplicate completions that differ only by a trailing space.
+        # For example, ``_cd`` (from Python name completions) and ``_cd ``
+        # (from command completions with append_space=True) should appear
+        # only once.  We keep the spaced variant because it carries the
+        # richer completion metadata.
+        spaced = {str(c) for c in completions if str(c).endswith(" ")}
+        if spaced:
+            completions = {
+                c: None
+                for c in completions
+                if str(c).endswith(" ") or (str(c) + " ") not in spaced
+            }
+
         if completion_context:
-            if completion_context.python is not None:
-                prefix = completion_context.python.prefix
-            elif completion_context.command is not None:
+            if completion_context.command is not None:
                 prefix = completion_context.command.prefix
+            elif completion_context.python is not None:
+                prefix = completion_context.python.prefix
             else:
                 raise RuntimeError("Completion context is empty")
 
             if prefix.startswith("$"):
                 prefix = prefix[1:]
 
+            lower_prefix = prefix.lower()
+
             def sortkey(s):
-                """Sort values by prefix position and then alphabetically."""
-                return (s.lower().find(prefix.lower()), s.lower())
+                """Sort completions by match quality tier, then by underscore prefix, match position, and name.
+
+                Tiers:
+                  0 - case-sensitive prefix match
+                  1 - case-insensitive prefix match
+                  2 - case-sensitive substring match
+                  3 - case-insensitive substring match
+                  4 - no match (sorted last)
+
+                Within each tier, completions whose last component starts
+                with '_' are sorted last (handles both bare names like
+                ``_codecs`` and dotted names like ``json._default_decoder``),
+                then by position of the match, then alphabetically.
+                """
+                text = str(s)
+                ltext = text.lower()
+                if text.startswith(prefix):
+                    tier = 0
+                elif ltext.startswith(lower_prefix):
+                    tier = 1
+                elif prefix in text:
+                    tier = 2
+                elif lower_prefix in ltext:
+                    tier = 3
+                else:
+                    tier = 4
+                last_part = text.rsplit(".", 1)[-1]
+                has_leading_underscore = last_part.startswith("_")
+                pos = ltext.find(lower_prefix) if lower_prefix else 0
+                if pos < 0:
+                    pos = 0
+                return (tier, has_leading_underscore, pos, ltext)
         else:
             # Fallback sort.
             sortkey = lambda s: s.lstrip(''''"''').lower()

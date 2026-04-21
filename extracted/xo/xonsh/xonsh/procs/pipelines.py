@@ -1,5 +1,6 @@
 """Command pipeline tools."""
 
+import errno
 import io
 import os
 import re
@@ -91,6 +92,22 @@ def update_process_group(pipeline_group, background):
     return xj.give_terminal_to(pipeline_group)
 
 
+def _read_all(stdout):
+    """Read all remaining bytes from *stdout*."""
+    if hasattr(stdout, "iterqueue"):
+        return b"".join(stdout.iterqueue())
+    return stdout.read()
+
+
+def _drain_stdout(stdout):
+    """Read all remaining bytes and yield them as lines."""
+    return _read_all(stdout).splitlines(keepends=True)
+
+
+class blocking_property(property):
+    """Property that may block waiting for process completion."""
+
+
 class CommandPipeline:
     """Represents a subprocess-mode command pipeline."""
 
@@ -143,6 +160,10 @@ class CommandPipeline:
             The output lines
         starttime : floats or None
             Pipeline start timestamp.
+        pipestatus : list of int or None
+            Current return codes of all commands in the pipeline.
+        pipecode : int
+            Current pipeline status: 1 if any command returned non-zero or is still running, 0 if all succeeded.
         """
         self.starttime = None
         self.ended = False
@@ -156,6 +177,7 @@ class CommandPipeline:
         self._raw_output = self._raw_error = b""
         self._stderr_prefix = self._stderr_postfix = None
         self.term_pgid = None
+        self._term_state = None  # saved terminal attrs for restoration
         self.suspended = None
         self.output_format = self.spec.output_format
 
@@ -178,19 +200,34 @@ class CommandPipeline:
             except Exception:
                 xt.print_exception()
                 self._return_terminal()
+                # Release any pipe wrappers held by specs that won't be
+                # routed through _close_proc(): the failing spec, plus any
+                # later specs that never got to run().
+                for s in specs[i:]:
+                    s.close()
                 self.proc = None
                 return
-            if (
-                proc.pid
-                and pipeline_group is None
-                and not spec.is_proxy
-                and self.captured != "object"
-            ):
+            if proc.pid and pipeline_group is None and not spec.is_proxy:
+                # All non-proxy pipeline members must share a single
+                # process group so that one os.killpg() can reach them
+                # all on Ctrl+C.  The first subprocess becomes the group
+                # leader (via os.setpgrp() in its preexec_fn); subsequent
+                # ones join it (via os.setpgid(0, pipeline_group)).
+                # Proxy specs (callable aliases) are Python threads inside
+                # xonsh, not child processes, so they cannot join the
+                # group — they are skipped here.
                 pipeline_group = proc.pid
-                if update_process_group(pipeline_group, background):
+                # Terminal ownership is a separate concern: for
+                # captured="object" the pipeline is returned as a live
+                # Python object, so the terminal must stay with xonsh.
+                if self.captured != "object" and update_process_group(
+                    pipeline_group, background
+                ):
                     self.term_pgid = pipeline_group
+                    self._save_term_state()
             self.procs.append(proc)
         self.proc = self.procs[-1]
+        self._pgid = pipeline_group  # process group for interrupt handling
 
     def __repr__(self):
         debug = XSH.env.get("XONSH_DEBUG", False)
@@ -274,15 +311,20 @@ class CommandPipeline:
             if task is None or task["status"] != "stopped":
                 proc.wait()
                 self._endtime()
-                if self.captured == "object":
+                # Close captured pipe write ends to signal EOF to readers.
+                # For non-threadable procs (plain Popen), the write end stays
+                # open in the parent after the child exits. PopenThread handles
+                # this itself, but plain Popen does not.
+                if not spec.threadable:
+                    for ch in spec.pipe_channels:
+                        ch.close_writer()
+                if self.captured in ("object", "hiddenobject") and stdout:
+                    yield from _drain_stdout(stdout)
                     self.end(tee_output=False)
-                elif self.captured == "hiddenobject" and stdout:
-                    b = stdout.read()
-                    lines = b.splitlines(keepends=True)
-                    yield from lines
+                elif self.captured == "object":
                     self.end(tee_output=False)
                 elif self.captured == "stdout" and stdout is not None:
-                    b = stdout.read()
+                    b = _read_all(stdout)
                     s = self._decode_uninew(b, universal_newlines=True)
                     self.lines = s.splitlines(keepends=True)
             return
@@ -300,7 +342,16 @@ class CommandPipeline:
         check_prev_done = len(self.procs) == 1
         prev_end_time = None
         i = j = cnt = 1
-        while proc.poll() is None:
+
+        # In the case of pipelines with more than one command
+        # we should give the commands a little time
+        # to start up fully. This is particularly true for
+        # GNU Parallel, which has a long startup time.
+        first_read = True
+
+        prev_procs_closed = False
+        while proc.poll() is None or first_read or self._any_proc_running():
+            first_read = False
             if getattr(proc, "suspended", False) or self._procs_suspended() is not None:
                 self.suspended = True
                 xj.update_job_attr(proc.pid, "status", "suspended")
@@ -308,17 +359,12 @@ class CommandPipeline:
             elif getattr(proc, "in_alt_mode", False):
                 time.sleep(0.1)  # probably not leaving any time soon
                 continue
-            elif not check_prev_done:
-                # In the case of pipelines with more than one command
-                # we should give the commands a little time
-                # to start up fully. This is particularly true for
-                # GNU Parallel, which has a long startup time.
-                pass
-            elif self._prev_procs_done():
-                self._close_prev_procs()
-                proc.prevs_are_closed = True
-                break
 
+            # Drain stdout/stderr BEFORE closing previous procs.
+            # _close_prev_procs() may block waiting for upstream processes
+            # (e.g. sleep) and get interrupted by Ctrl+C.  Reading first
+            # ensures that output already produced by the last process
+            # (e.g. echo) is captured in self.lines regardless.
             stdout_lines = safe_readlines(stdout, 1024)
             i = len(stdout_lines)
             if i != 0:
@@ -327,6 +373,14 @@ class CommandPipeline:
             j = len(stderr_lines)
             if j != 0:
                 self.stream_stderr(stderr_lines)
+
+            # When the last process (e.g. head) has exited but upstream
+            # processes are still alive, close the inter-process pipe read
+            # ends so that upstream writers get SIGPIPE instead of blocking
+            # on a full pipe buffer.
+            if not prev_procs_closed and proc.poll() is not None:
+                self._close_prev_procs()
+                prev_procs_closed = True
             if not check_prev_done:
                 # if we are piping...
                 if stdout_lines or stderr_lines:
@@ -349,6 +403,18 @@ class CommandPipeline:
             else:
                 cnt = 1
             time.sleep(timeout * cnt)
+
+            # Check if SIGINT was caught but not raised as KeyboardInterrupt.
+            # ProcProxyThread's _signal_int sets _interrupted without raising,
+            # so the while loop keeps spinning.  Detect it and kill everything.
+            if getattr(proc, "_interrupted", False):
+                self._signal_pipeline()
+                return
+
+        if not prev_procs_closed:
+            self._close_prev_procs()
+        proc.prevs_are_closed = True
+
         # read from process now that it is over
         yield from safe_readlines(stdout)
         self.stream_stderr(safe_readlines(stderr))
@@ -384,18 +450,38 @@ class CommandPipeline:
         stream = self.captured not in STDOUT_CAPTURE_KINDS
         if stream and not self.spec.stdout:
             stream = False
-        stdout_has_buffer = hasattr(sys.stdout, "buffer")
+        # Use STDOUT_DISPATCHER.handle directly to get the per-thread stdout.
+        # sys.stdout is set globally by redirect_stdout(STDOUT_DISPATCHER) in
+        # ProcProxyThread.run(), but another thread may restore sys.stdout
+        # before this thread finishes, causing output to leak to the terminal.
+        from xonsh.procs.proxies import STDOUT_DISPATCHER
+
+        if STDOUT_DISPATCHER.available:
+            out_target = STDOUT_DISPATCHER.handle
+        else:
+            out_target = sys.stdout
+        stdout_has_buffer = hasattr(out_target, "buffer")
         nl = b"\n"
         cr = b"\r"
         crnl = b"\r\n"
         for line in self.iterraw():
             # write to stdout line ASAP, if needed
             if stream:
-                if stdout_has_buffer:
-                    sys.stdout.buffer.write(line)
-                else:
-                    sys.stdout.write(line.decode(encoding=enc, errors=err))
-                sys.stdout.flush()
+                try:
+                    if stdout_has_buffer:
+                        out_target.buffer.write(line)
+                    else:
+                        out_target.write(line.decode(encoding=enc, errors=err))
+                    out_target.flush()
+                except OSError as e:
+                    if e.errno in (errno.EPIPE, errno.EINVAL):
+                        # Downstream process closed the pipe. Stop streaming
+                        # but keep collecting raw output for captured result.
+                        # Linux: errno.EPIPE (32, BrokenPipeError)
+                        # Windows: errno.EINVAL (22, "Invalid argument")
+                        stream = False
+                    else:
+                        raise
             # save the raw bytes
             raw_out_lines.append(line)
             # do some munging of the line before we return it
@@ -424,19 +510,34 @@ class CommandPipeline:
             b = self.stderr_prefix + b
         if self.stderr_postfix:
             b += self.stderr_postfix
-        stderr_has_buffer = hasattr(sys.stderr, "buffer")
+        # Use STDERR_DISPATCHER.handle for per-thread stderr (same race fix
+        # as tee_stdout — see comment there).
+        from xonsh.procs.proxies import STDERR_DISPATCHER
+
+        if STDERR_DISPATCHER.available:
+            err_target = STDERR_DISPATCHER.handle
+        else:
+            err_target = sys.stderr
+        stderr_has_buffer = hasattr(err_target, "buffer")
         show_stderr = self.captured != "object" or env.get(
             "XONSH_SUBPROC_CAPTURED_PRINT_STDERR", True
         )
         if show_stderr:
             # write bytes to std stream
-            if stderr_has_buffer:
-                sys.stderr.buffer.write(b)
-            else:
-                sys.stderr.write(b.decode(encoding=enc, errors=err))
-            sys.stderr.flush()
-        # save the raw bytes
-        self._raw_error = b
+            try:
+                if stderr_has_buffer:
+                    err_target.buffer.write(b)
+                else:
+                    err_target.write(b.decode(encoding=enc, errors=err))
+                err_target.flush()
+            except OSError as e:
+                if e.errno not in (errno.EPIPE, errno.EINVAL):
+                    raise
+                # Downstream process closed the pipe.
+                # Linux: errno.EPIPE (32, BrokenPipeError)
+                # Windows: errno.EINVAL (22, "Invalid argument")
+        # accumulate the raw bytes
+        self._raw_error += b
         # do some munging of the line before we save it to the attr
         b = b.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
         env = XSH.env
@@ -485,19 +586,38 @@ class CommandPipeline:
         """Waits for the command to complete and then runs any closing and
         cleanup procedures that need to be run.
         """
-        if tee_output:
-            for _ in self.tee_stdout():
-                pass
-        self._endtime()
-        # since we are driven by getting output, input may not be available
-        # until the command has completed.
-        self._set_input()
-        self._close_prev_procs()
-        self._close_proc()
+        try:
+            if tee_output:
+                for _ in self.tee_stdout():
+                    pass
+            self._endtime()
+            # since we are driven by getting output, input may not be available
+            # until the command has completed.
+            self._set_input()
+        finally:
+            if (
+                not hasattr(self.proc, "prevs_are_closed")
+                or not self.proc.prevs_are_closed
+            ):
+                self._close_prev_procs()
+            self._close_proc()
+            # Mark as ended even if an exception occurred (e.g. KeyboardInterrupt).
+            # Without this, subsequent access to the pipeline would try to
+            # re-read from already-closed pipes → ValueError.
+            self.ended = True
         self._check_signal()
         self._apply_to_history()
-        self.ended = True
+        self._apply_to_thread_local()
         self._raise_subproc_error()
+
+    def _save_term_state(self):
+        """Save terminal attributes so we can restore them exactly later."""
+        try:
+            import termios
+
+            self._term_state = termios.tcgetattr(sys.stdin.fileno())
+        except (termios.error, OSError, ValueError):
+            self._term_state = None
 
     def _return_terminal(self):
         if xp.ON_WINDOWS or not xp.ON_POSIX:
@@ -507,11 +627,20 @@ class CommandPipeline:
             return
         if xj.give_terminal_to(pgid):  # if gave term succeed
             self.term_pgid = pgid
-            if XSH.shell is not None:
-                # restoring sanity could probably be called whenever we return
-                # control to the shell. But it only seems to matter after a
-                # ^Z event. This *has* to be called after we give the terminal
-                # back to the shell.
+            if self._term_state is not None:
+                # Restore exact terminal state saved before the subprocess ran.
+                # The old approach (stty sane) reset to canonical mode which
+                # broke prompt-toolkit's raw mode after keybinding handlers.
+                try:
+                    import termios
+
+                    termios.tcsetattr(
+                        sys.stdin.fileno(), termios.TCSANOW, self._term_state
+                    )
+                except (termios.error, OSError, ValueError):
+                    pass
+            elif XSH.shell is not None:
+                # Fallback when no saved state is available.
                 XSH.shell.shell.restore_tty_sanity()
 
     def resume(self, job, tee_output=True):
@@ -527,6 +656,9 @@ class CommandPipeline:
             self.endtime = time.time()
 
     def _safe_close(self, handle):
+        # Skip integer fds — they are owned by PipeChannel and closed there.
+        if isinstance(handle, int):
+            return
         safe_fdclose(handle, cache=self._closed_handle_cache)
 
     def _procs_suspended(self):
@@ -543,51 +675,149 @@ class CommandPipeline:
                 )
                 return proc
 
+    def _any_proc_running(self):
+        """Boolean for if all previous processes have completed. If there
+        is only a single process in the pipeline, this returns False.
+        """
+        for p in self.procs:
+            if p.poll() is None:
+                return True
+        return False
+
+    def _signal_pipeline(self):
+        """Send SIGINT to all alive pipeline processes.
+
+        Two process groups are involved when a pipeline contains a
+        callable alias (ProcProxyThread):
+
+        * The *pipeline group* (self._pgid) — holds the non-proxy
+          subprocesses of the outer pipeline (e.g. ``sleep 100`` and
+          ``echo 1`` in ``sleep 100 | echo 1 | alias``).  Reached by
+          os.killpg() below.
+
+        * *xonsh's own group* — holds subprocesses spawned *inside*
+          the callable alias (they run on a non-main thread, so
+          CommandPipeline.__init__ sets their pipeline_group to
+          os.getpgid(0)).  These are killed directly by the kernel
+          when Ctrl+C sends SIGINT to the foreground (xonsh) group;
+          no action is needed here.
+        """
+        if not xp.ON_POSIX:
+            return
+        # Kill the pipeline process group (covers grouped subprocesses)
+        if self._pgid is not None:
+            try:
+                os.killpg(self._pgid, signal.SIGINT)
+            except (ProcessLookupError, OSError):
+                pass
+        # Also signal individual procs that may be in other groups
+        my_pid = os.getpid()
+        for p in self.procs:
+            if p is not None and p.poll() is None:
+                pid = getattr(p, "pid", None)
+                # Skip ProcProxyThread whose pid == xonsh's own pid
+                if pid and pid != my_pid:
+                    try:
+                        os.kill(pid, signal.SIGINT)
+                    except (ProcessLookupError, OSError):
+                        pass
+
     def _prev_procs_done(self):
         """Boolean for if all previous processes have completed. If there
         is only a single process in the pipeline, this returns False.
         """
         any_running = False
         for s, p in zip(self.specs[:-1], self.procs[:-1], strict=False):
-            if p.poll() is None:
+            if p is None or p.poll() is None:
                 any_running = True
                 continue
+            # Ensure thread is fully done - poll() returns non-None
+            # before run() finishes closing pipe channels.
+            if hasattr(p, "join"):
+                p.join(timeout=0.5)
             self._safe_close(s.stdin)
             self._safe_close(s.stdout)
             self._safe_close(s.stderr)
-            if p is None:
-                continue
+            # Close ONLY the writer end of any connecting pipe.  The reader
+            # end is in active use by the next proc in the pipeline (which
+            # may still be draining buffered data); closing it here would
+            # invalidate the fd mid-read and surface as
+            # `OSError: [Errno 9] Bad file descriptor` in the consumer
+            # (e.g. a callable alias iterating over `stdin`).
+            # The reader is closed later in `_close_prev_procs` /
+            # `_close_proc`, after the next proc has finished.
+            for ch in s.pipe_channels:
+                ch.close_writer()
             self._safe_close(p.stdin)
             self._safe_close(p.stdout)
             self._safe_close(p.stderr)
+
+            # Close ONLY the writer. Described above.
+            for ch in getattr(p, "pipe_channels", ()):
+                ch.close_writer()
         return False if any_running else (len(self) > 1)
 
     def _close_prev_procs(self):
         """Closes all but the last proc's stdout."""
         for s, p in zip(self.specs[:-1], self.procs[:-1], strict=False):
             self._safe_close(s.stdin)
-            self._safe_close(s.stdout)
             self._safe_close(s.stderr)
+            # Close read ends of connection pipes to unblock any blocked writes,
+            # then wait for the proc thread to finish to prevent fd-reuse races.
+            for ch in s.pipe_channels:
+                ch.close_reader()
+            if p is not None:
+                try:
+                    # Use join for threads (ProcProxyThread.wait ignores timeout)
+                    if hasattr(p, "join"):
+                        p.join(timeout=3)
+                    else:
+                        p.wait(timeout=3)
+                except BaseException:
+                    # BaseException (not Exception) — KeyboardInterrupt during
+                    # this wait must not prevent closing FDs below.  The
+                    # _interrupted flag on the proc is already set by
+                    # _signal_int and will be handled by the caller.
+                    pass
+            self._safe_close(s.stdout)
+            for ch in s.pipe_channels:
+                ch.close()
             if p is None:
                 continue
             self._safe_close(p.stdin)
             self._safe_close(p.stdout)
             self._safe_close(p.stderr)
+            for ch in getattr(p, "pipe_channels", ()):
+                ch.close()
 
     def _close_proc(self):
         """Closes last proc's stdout."""
         s = self.spec
         p = self.proc
+        # Wait for the last proc thread to finish before closing handles
+        # it may still be flushing.  Without this, tee.close() in the
+        # caller can destroy the mem buffer while the thread still uses it.
+        # Only join threads — ProcProxy.wait() is not idempotent (it re-runs
+        # parse_proxy_return, duplicating output).
+        if p is not None and hasattr(p, "join"):
+            try:
+                p.join(timeout=3)
+            except Exception:
+                pass
         self._safe_close(s.stdin)
         self._safe_close(s.stdout)
         self._safe_close(s.stderr)
         self._safe_close(s.captured_stdout)
         self._safe_close(s.captured_stderr)
+        for ch in s.pipe_channels:
+            ch.close()
         if p is None:
             return
         self._safe_close(p.stdin)
         self._safe_close(p.stdout)
         self._safe_close(p.stderr)
+        for ch in getattr(p, "pipe_channels", ()):
+            ch.close()
 
     def _set_input(self):
         """Sets the input variable."""
@@ -627,6 +857,12 @@ class CommandPipeline:
         if hist is not None:
             hist.last_cmd_rtn = 1 if self.proc is None else self.proc.returncode
 
+    def _apply_to_thread_local(self):
+        """Store the return code in the thread-local dict if present."""
+        tl = XSH.env.get("__THREAD_LOCAL__")
+        if tl is not None:
+            tl["returncode"] = 1 if self.proc is None else self.proc.returncode
+
     def _raise_subproc_error(self):
         """Raises a subprocess error, if we are supposed to."""
         spec = self.spec
@@ -638,14 +874,32 @@ class CommandPipeline:
         raise_subproc_error = spec.raise_subproc_error
         if callable(raise_subproc_error):
             raise_subproc_error = raise_subproc_error(spec, self)
+
+        # @error_ignore — never raise.
         if raise_subproc_error is False:
             return
 
-        if raise_subproc_error or XSH.env.get("RAISE_SUBPROC_ERROR", True):
+        # @error_raise — always raise, even mid-chain.
+        if raise_subproc_error is True:
             try:
                 raise subprocess.CalledProcessError(rtn, spec.args, output=self.output)
             finally:
-                # this is need to get a working terminal in interactive mode
+                # needed to get a working terminal in interactive mode
+                self._return_terminal()
+            return
+
+        # Default: defer chain operands to the BoolOp wrapper.
+        if getattr(spec, "in_boolop", False):
+            return
+
+        # Standalone — only raise here if the user explicitly opted in
+        # to per-command raising.  Otherwise let the AST wrapper around
+        # the statement do it via $XONSH_SUBPROC_RAISE_ERROR.
+        if XSH.env.get("XONSH_SUBPROC_CMD_RAISE_ERROR"):
+            try:
+                raise subprocess.CalledProcessError(rtn, spec.args, output=self.output)
+            finally:
+                # needed to get a working terminal in interactive mode
                 self._return_terminal()
 
     #
@@ -700,25 +954,25 @@ class CommandPipeline:
         else:
             return self.get_formatted_lines(self.lines)
 
-    @property
+    @blocking_property
     def out(self):
         """Output value as a str."""
         self.end()
         return self.output
 
-    @property
+    @blocking_property
     def err(self):
         """Error messages as a string."""
         self.end()
         return self.errors
 
-    @property
+    @blocking_property
     def raw_out(self):
         """Output as raw bytes."""
         self.end()
         return self._raw_output
 
-    @property
+    @blocking_property
     def raw_err(self):
         """Errors as raw bytes."""
         self.end()
@@ -730,6 +984,16 @@ class CommandPipeline:
         return self.proc.pid if self.proc else None
 
     @property
+    def pipestatus(self):
+        """Current status. Return codes of all commands in the pipeline."""
+        return [None if p is None else p.returncode for p in self.procs]
+
+    @property
+    def pipecode(self):
+        """Current status. 1 if any command in the pipeline returned non-zero or is still running, 0 if all succeeded."""
+        return 0 if all(r == 0 for r in self.pipestatus) else 1
+
+    @blocking_property
     def returncode(self):
         """Process return code, waits until command is completed."""
         self.end()
@@ -742,7 +1006,7 @@ class CommandPipeline:
         """Arguments to the process."""
         return self.spec.args
 
-    @property
+    @blocking_property
     def rtn(self):
         """Alias to return code."""
         return self.returncode
@@ -773,7 +1037,7 @@ class CommandPipeline:
         """Redirection used for stderr."""
         stderr = self.spec.stderr
         name = getattr(stderr, "name", "<stderr>")
-        mode = getattr(stderr, "mode", "r")
+        mode = getattr(stderr, "mode", "a")
         return [name, mode]
 
     @property

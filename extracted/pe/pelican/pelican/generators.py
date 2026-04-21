@@ -7,7 +7,6 @@ from collections import defaultdict
 from functools import partial
 from itertools import chain, groupby
 from operator import attrgetter
-from typing import Optional
 
 from jinja2 import (
     BaseLoader,
@@ -31,6 +30,7 @@ from pelican.utils import (
     posixize_path,
     process_translations,
 )
+from pelican.writers import FileOverwriteFailedError
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +158,7 @@ class Generator:
         return False
 
     def get_files(
-        self, paths, exclude: Optional[list[str]] = None, extensions=None
+        self, paths, exclude: list[str] | None = None, extensions=None
     ) -> set[str]:
         """Return a list of files to use, based on rules
 
@@ -253,7 +253,7 @@ class Generator:
         # return the name of the class for logging purposes
         return self.__class__.__name__
 
-    def _check_disabled_readers(self, paths, exclude: Optional[list[str]]) -> None:
+    def _check_disabled_readers(self, paths, exclude: list[str] | None) -> None:
         """Log warnings for files that would have been processed by disabled readers."""
         for fil in self.get_files(
             paths, exclude=exclude, extensions=self.readers.disabled_extensions
@@ -296,6 +296,7 @@ class _FileLoader(BaseLoader):
         self.fullpath = os.path.join(basedir, path)
 
     def get_source(self, environment, template):
+        del environment  # Unused argument
         if template != self.path or not os.path.exists(self.fullpath):
             raise TemplateNotFound(template)
         mtime = os.path.getmtime(self.fullpath)
@@ -512,7 +513,7 @@ class ArticlesGenerator(CachingGenerator):
                 self.get_template(article.template),
                 self.context,
                 article=article,
-                category=article.category,
+                category=getattr(article, "category", None),
                 override_output=hasattr(article, "override_save_as"),
                 url=article.url,
                 blog=True,
@@ -570,57 +571,93 @@ class ArticlesGenerator(CachingGenerator):
         tag_template = self.get_template("tag")
         for tag, articles in self.tags.items():
             dates = [article for article in self.dates if article in articles]
-            write(
-                tag.save_as,
-                tag_template,
-                self.context,
-                tag=tag,
-                url=tag.url,
-                articles=articles,
-                dates=dates,
-                template_name="tag",
-                blog=True,
-                page_name=tag.page_name,
-                all_articles=self.articles,
-            )
+            try:
+                write(
+                    tag.save_as,
+                    tag_template,
+                    self.context,
+                    tag=tag,
+                    url=tag.url,
+                    articles=articles,
+                    dates=dates,
+                    template_name="tag",
+                    blog=True,
+                    page_name=tag.page_name,
+                    all_articles=self.articles,
+                )
+            except FileOverwriteFailedError:
+                if not tag.slug:
+                    logger.info(
+                        'Tag "%s" has an invalid slug; skipping writing tag page...',
+                        tag,
+                        extra={"limit_msg": "Further tags with invalid slugs."},
+                    )
+                    continue
+                else:
+                    logger.error('Failed to write Tag page for "%s".', tag)
+                    raise
 
     def generate_categories(self, write):
         """Generate category pages."""
         category_template = self.get_template("category")
         for cat, articles in self.categories:
             dates = [article for article in self.dates if article in articles]
-            write(
-                cat.save_as,
-                category_template,
-                self.context,
-                url=cat.url,
-                category=cat,
-                articles=articles,
-                dates=dates,
-                template_name="category",
-                blog=True,
-                page_name=cat.page_name,
-                all_articles=self.articles,
-            )
+            try:
+                write(
+                    cat.save_as,
+                    category_template,
+                    self.context,
+                    url=cat.url,
+                    category=cat,
+                    articles=articles,
+                    dates=dates,
+                    template_name="category",
+                    blog=True,
+                    page_name=cat.page_name,
+                    all_articles=self.articles,
+                )
+            except FileOverwriteFailedError:
+                if not cat.slug:
+                    logger.info(
+                        'Category "%s" has an invalid slug; skipping writing category page...',
+                        cat,
+                        extra={"limit_msg": "Further categories with invalid slugs."},
+                    )
+                    continue
+                else:
+                    logger.error('Failed to write Category page for "%s".', cat)
+                    raise
 
     def generate_authors(self, write):
         """Generate Author pages."""
         author_template = self.get_template("author")
         for aut, articles in self.authors:
             dates = [article for article in self.dates if article in articles]
-            write(
-                aut.save_as,
-                author_template,
-                self.context,
-                url=aut.url,
-                author=aut,
-                articles=articles,
-                dates=dates,
-                template_name="author",
-                blog=True,
-                page_name=aut.page_name,
-                all_articles=self.articles,
-            )
+            try:
+                write(
+                    aut.save_as,
+                    author_template,
+                    self.context,
+                    url=aut.url,
+                    author=aut,
+                    articles=articles,
+                    dates=dates,
+                    template_name="author",
+                    blog=True,
+                    page_name=aut.page_name,
+                    all_articles=self.articles,
+                )
+            except FileOverwriteFailedError:
+                if not aut.slug:
+                    logger.info(
+                        'Author "%s" has an invalid slug; skipping writing author page...',
+                        aut,
+                        extra={"limit_msg": "Further authors with invalid slugs."},
+                    )
+                    continue
+                else:
+                    logger.error('Failed to write Author page for "%s".', aut)
+                    raise
 
     def generate_drafts(self, write):
         """Generate drafts pages."""
@@ -680,11 +717,10 @@ class ArticlesGenerator(CachingGenerator):
                         context_signal=signals.article_generator_context,
                         context_sender=self,
                     )
-                except Exception as e:
-                    logger.error(
-                        "Could not process %s\n%s",
+                except Exception:
+                    logger.exception(
+                        "Could not process %s",
                         f,
-                        e,
                         exc_info=self.settings.get("DEBUG", False),
                     )
                     self._add_failed_source_path(f)
@@ -728,7 +764,8 @@ class ArticlesGenerator(CachingGenerator):
         for article in self.articles:
             # only main articles are listed in categories and tags
             # not translations or hidden articles
-            self.categories[article.category].append(article)
+            if hasattr(article, "category"):
+                self.categories[article.category].append(article)
             if hasattr(article, "tags"):
                 for tag in article.tags:
                     self.tags[tag].append(article)
@@ -895,11 +932,10 @@ class PagesGenerator(CachingGenerator):
                         context_signal=signals.page_generator_context,
                         context_sender=self,
                     )
-                except Exception as e:
-                    logger.error(
-                        "Could not process %s\n%s",
+                except Exception:
+                    logger.exception(
+                        "Could not process %s",
                         f,
-                        e,
                         exc_info=self.settings.get("DEBUG", False),
                     )
                     self._add_failed_source_path(f)
@@ -1022,6 +1058,7 @@ class StaticGenerator(Generator):
         signals.static_generator_finalized.send(self)
 
     def generate_output(self, writer):
+        del writer  # Unused argument
         self._copy_paths(
             self.settings["THEME_STATIC_PATHS"],
             self.theme,
@@ -1131,6 +1168,7 @@ class SourceFileGenerator(Generator):
         copy(obj.source_path, dest)
 
     def generate_output(self, writer=None):
+        del writer  # Unused argument
         logger.info("Generating source files...")
         for obj in chain(self.context["articles"], self.context["pages"]):
             self._create_source(obj)

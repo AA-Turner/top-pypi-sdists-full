@@ -223,7 +223,7 @@ class PyEngine:
         r"""
         List all valid element names for an operation.
         """
-    def subscribe(self, tickers: typing.Sequence[builtins.str], fields: typing.Sequence[builtins.str], flush_threshold: typing.Optional[builtins.int] = None, overflow_policy: typing.Optional[builtins.str] = None, stream_capacity: typing.Optional[builtins.int] = None, recovery_policy: typing.Optional[builtins.str] = None, all_fields: builtins.bool = False) -> typing.Any:
+    def subscribe(self, tickers: typing.Sequence[builtins.str], fields: typing.Sequence[builtins.str], flush_threshold: typing.Optional[builtins.int] = None, overflow_policy: typing.Optional[builtins.str] = None, stream_capacity: typing.Optional[builtins.int] = None, all_fields: builtins.bool = False) -> typing.Any:
         r"""
         Subscribe to real-time market data.
         
@@ -239,7 +239,7 @@ class PyEngine:
         await sub.unsubscribe()
         ```
         """
-    def subscribe_with_options(self, service: builtins.str, tickers: typing.Sequence[builtins.str], fields: typing.Sequence[builtins.str], options: typing.Optional[typing.Sequence[builtins.str]] = None, flush_threshold: typing.Optional[builtins.int] = None, overflow_policy: typing.Optional[builtins.str] = None, stream_capacity: typing.Optional[builtins.int] = None, recovery_policy: typing.Optional[builtins.str] = None, all_fields: builtins.bool = False) -> typing.Any:
+    def subscribe_with_options(self, service: builtins.str, tickers: typing.Sequence[builtins.str], fields: typing.Sequence[builtins.str], options: typing.Optional[typing.Sequence[builtins.str]] = None, flush_threshold: typing.Optional[builtins.int] = None, overflow_policy: typing.Optional[builtins.str] = None, stream_capacity: typing.Optional[builtins.int] = None, all_fields: builtins.bool = False) -> typing.Any:
         r"""
         Subscribe to real-time data with custom service and options.
         
@@ -516,14 +516,6 @@ class PyEngineConfig:
         Whether Bloomberg should auto-restart the session on disconnect (default: True).
         """
     @property
-    def max_recovery_attempts(self) -> builtins.int: ...
-    @max_recovery_attempts.setter
-    def max_recovery_attempts(self, value: builtins.int) -> None: ...
-    @property
-    def recovery_timeout_ms(self) -> builtins.int: ...
-    @recovery_timeout_ms.setter
-    def recovery_timeout_ms(self, value: builtins.int) -> None: ...
-    @property
     def retry_max_retries(self) -> builtins.int: ...
     @retry_max_retries.setter
     def retry_max_retries(self, value: builtins.int) -> None: ...
@@ -540,9 +532,79 @@ class PyEngineConfig:
     @retry_max_delay_ms.setter
     def retry_max_delay_ms(self, value: builtins.int) -> None: ...
     @property
-    def health_check_interval_ms(self) -> builtins.int: ...
-    @health_check_interval_ms.setter
-    def health_check_interval_ms(self, value: builtins.int) -> None: ...
+    def request_timeout_ms(self) -> builtins.int:
+        r"""
+        Hard per-request timeout in ms; 0 disables. Default: 60_000.
+        """
+    @request_timeout_ms.setter
+    def request_timeout_ms(self, value: builtins.int) -> None:
+        r"""
+        Hard per-request timeout in ms; 0 disables. Default: 60_000.
+        """
+    @property
+    def streams_deactivated_warn_ms(self) -> builtins.int:
+        r"""
+        Warn threshold for a subscription's streams staying deactivated, in ms;
+        0 disables. Default: 30_000.
+        """
+    @streams_deactivated_warn_ms.setter
+    def streams_deactivated_warn_ms(self, value: builtins.int) -> None:
+        r"""
+        Warn threshold for a subscription's streams staying deactivated, in ms;
+        0 disables. Default: 30_000.
+        """
+    @property
+    def keep_alive_enabled(self) -> builtins.bool:
+        r"""
+        Enable BLPAPI keep-alive pings. SDK default: True.
+        """
+    @keep_alive_enabled.setter
+    def keep_alive_enabled(self, value: builtins.bool) -> None:
+        r"""
+        Enable BLPAPI keep-alive pings. SDK default: True.
+        """
+    @property
+    def keep_alive_inactivity_ms(self) -> typing.Optional[builtins.int]:
+        r"""
+        Milliseconds of inactivity before keep-alive ping is sent. None = SDK default (20_000).
+        """
+    @keep_alive_inactivity_ms.setter
+    def keep_alive_inactivity_ms(self, value: typing.Optional[builtins.int]) -> None:
+        r"""
+        Milliseconds of inactivity before keep-alive ping is sent. None = SDK default (20_000).
+        """
+    @property
+    def keep_alive_response_timeout_ms(self) -> typing.Optional[builtins.int]:
+        r"""
+        Milliseconds to wait for keep-alive response before declaring the connection dead.
+        None = SDK default (10_000).
+        """
+    @keep_alive_response_timeout_ms.setter
+    def keep_alive_response_timeout_ms(self, value: typing.Optional[builtins.int]) -> None:
+        r"""
+        Milliseconds to wait for keep-alive response before declaring the connection dead.
+        None = SDK default (10_000).
+        """
+    @property
+    def slow_consumer_hi_water_mark(self) -> typing.Optional[builtins.float]:
+        r"""
+        Slow-consumer hi water mark as fraction of max_event_queue_size. None = SDK default (0.75).
+        """
+    @slow_consumer_hi_water_mark.setter
+    def slow_consumer_hi_water_mark(self, value: typing.Optional[builtins.float]) -> None:
+        r"""
+        Slow-consumer hi water mark as fraction of max_event_queue_size. None = SDK default (0.75).
+        """
+    @property
+    def slow_consumer_lo_water_mark(self) -> typing.Optional[builtins.float]:
+        r"""
+        Slow-consumer lo water mark as fraction of max_event_queue_size. None = SDK default (0.5).
+        """
+    @slow_consumer_lo_water_mark.setter
+    def slow_consumer_lo_water_mark(self, value: typing.Optional[builtins.float]) -> None:
+        r"""
+        Slow-consumer lo water mark as fraction of max_event_queue_size. None = SDK default (0.5).
+        """
     @property
     def sdk_log_level(self) -> builtins.str: ...
     @sdk_log_level.setter

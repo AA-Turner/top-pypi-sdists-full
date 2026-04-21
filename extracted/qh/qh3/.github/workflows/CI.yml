@@ -77,7 +77,7 @@ jobs:
         env:
           UNSAFE_PYO3_SKIP_VERSION_CHECK: 1
       - name: "Upload artifact"
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: coverage-data-${{ matrix.os }}-${{ matrix.python_version }}
           path: ".coverage.*"
@@ -101,7 +101,7 @@ jobs:
         run: "python -m pip install --upgrade coverage"
 
       - name: "Download artifact"
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: coverage-data-*
           merge-multiple: true
@@ -113,7 +113,7 @@ jobs:
           python -m coverage report --ignore-errors --show-missing --fail-under=98
 
       - name: "Upload report"
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: coverage-report
           path: htmlcov
@@ -469,7 +469,7 @@ jobs:
             export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=/usr/local/musl/i686-unknown-linux-musl"
 
       - name: Upload wheels
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: wheels-linux-${{ matrix.target }}-${{ matrix.manylinux }}-${{ matrix.python_version }}
           path: dist/*.whl
@@ -541,7 +541,7 @@ jobs:
           args: --release --out dist -i ${{ matrix.python_version }}
           sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: wheels-windows-${{ matrix.target }}-${{ matrix.python_version }}
           path: dist/*.whl
@@ -572,7 +572,7 @@ jobs:
           args: --release --out dist --interpreter ${{ matrix.python_version }}
           sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: wheels-macos-${{ matrix.target }}-${{ matrix.python_version }}
           path: dist/*.whl
@@ -591,7 +591,7 @@ jobs:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: wheels-sdist
           path: dist/*.tar.gz
@@ -608,7 +608,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Download distributions
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: wheels-*
           path: dist
@@ -673,7 +673,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Download distributions
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: wheels-*
           path: dist

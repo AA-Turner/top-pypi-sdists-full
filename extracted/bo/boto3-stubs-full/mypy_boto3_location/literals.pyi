@@ -29,9 +29,16 @@ __all__ = (
     "ForecastedGeofenceEventTypeType",
     "GetDevicePositionHistoryPaginatorName",
     "IntendedUseType",
+    "JobActionType",
+    "JobCompletedWaiterName",
+    "JobErrorCodeType",
+    "JobInputFormatType",
+    "JobOutputFormatType",
+    "JobStatusType",
     "ListDevicePositionsPaginatorName",
     "ListGeofenceCollectionsPaginatorName",
     "ListGeofencesPaginatorName",
+    "ListJobsPaginatorName",
     "ListKeysPaginatorName",
     "ListMapsPaginatorName",
     "ListPlaceIndexesPaginatorName",
@@ -50,7 +57,9 @@ __all__ = (
     "SpeedUnitType",
     "StatusType",
     "TravelModeType",
+    "ValidateAddressAdditionalFeatureType",
     "VehicleWeightUnitType",
+    "WaiterName",
 )
 
 BatchItemErrorCodeType = Literal[
@@ -67,9 +76,16 @@ ForecastGeofenceEventsPaginatorName = Literal["forecast_geofence_events"]
 ForecastedGeofenceEventTypeType = Literal["ENTER", "EXIT", "IDLE"]
 GetDevicePositionHistoryPaginatorName = Literal["get_device_position_history"]
 IntendedUseType = Literal["SingleUse", "Storage"]
+JobActionType = Literal["ValidateAddress"]
+JobCompletedWaiterName = Literal["job_completed"]
+JobErrorCodeType = Literal["InternalServerError", "ValidationError"]
+JobInputFormatType = Literal["Parquet"]
+JobOutputFormatType = Literal["Parquet"]
+JobStatusType = Literal["Cancelled", "Cancelling", "Completed", "Failed", "Pending", "Running"]
 ListDevicePositionsPaginatorName = Literal["list_device_positions"]
 ListGeofenceCollectionsPaginatorName = Literal["list_geofence_collections"]
 ListGeofencesPaginatorName = Literal["list_geofences"]
+ListJobsPaginatorName = Literal["list_jobs"]
 ListKeysPaginatorName = Literal["list_keys"]
 ListMapsPaginatorName = Literal["list_maps"]
 ListPlaceIndexesPaginatorName = Literal["list_place_indexes"]
@@ -90,6 +106,7 @@ RouteMatrixErrorCodeType = Literal[
 SpeedUnitType = Literal["KilometersPerHour", "MilesPerHour"]
 StatusType = Literal["Active", "Expired"]
 TravelModeType = Literal["Bicycle", "Car", "Motorcycle", "Truck", "Walking"]
+ValidateAddressAdditionalFeatureType = Literal["CountrySpecificAttributes", "Position"]
 VehicleWeightUnitType = Literal["Kilograms", "Pounds"]
 LocationServiceServiceName = Literal["location"]
 ServiceName = Literal[
@@ -526,6 +543,7 @@ PaginatorName = Literal[
     "list_device_positions",
     "list_geofence_collections",
     "list_geofences",
+    "list_jobs",
     "list_keys",
     "list_maps",
     "list_place_indexes",
@@ -533,6 +551,7 @@ PaginatorName = Literal[
     "list_tracker_consumers",
     "list_trackers",
 ]
+WaiterName = Literal["job_completed"]
 RegionName = Literal[
     "ap-northeast-1",
     "ap-south-1",

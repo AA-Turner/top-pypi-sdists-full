@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oslo.versionedobjects
-Version: 3.9.0
+Version: 3.10.0
 Summary: Oslo Versioned Objects library
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -28,7 +29,6 @@ Requires-Dist: oslo.serialization>=2.18.0
 Requires-Dist: oslo.utils>=7.4.0
 Requires-Dist: oslo.log>=3.36.0
 Requires-Dist: oslo.i18n>=3.15.3
-Requires-Dist: WebOb>=1.7.1
 Requires-Dist: netaddr>=0.7.18
 Dynamic: license-file
 Dynamic: requires-dist

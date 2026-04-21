@@ -11,7 +11,9 @@ use crate::lint::{Level, LintRegistryBuilder, LintStatus};
 use crate::place::{DefinedPlace, Place, place_from_bindings};
 use crate::suppression::FileSuppressionId;
 use crate::types::call::CallError;
-use crate::types::class::{CodeGeneratorKind, DisjointBase, DisjointBaseKind, MethodDecorator};
+use crate::types::class::{
+    CodeGeneratorKind, DisjointBase, DisjointBaseKind, ExpandedClassBaseEntry, MethodDecorator,
+};
 use crate::types::function::{FunctionDecorators, FunctionType, KnownFunction, OverloadLiteral};
 use crate::types::infer::UnsupportedComparisonError;
 use crate::types::overrides::MethodKind;
@@ -24,7 +26,7 @@ use crate::types::tuple::TupleSpec;
 use crate::types::typed_dict::TypedDictSchema;
 use crate::types::typevar::TypeVarInstance;
 use crate::types::{
-    BoundTypeVarInstance, ClassType, DynamicType, LintDiagnosticGuard, Protocol,
+    BoundTypeVarInstance, ClassType, DynamicType, ErrorContextTree, LintDiagnosticGuard, Protocol,
     ProtocolInstanceType, SpecialFormType, SubclassOfInner, Type, TypeContext, TypeVarVariance,
     binding_type, protocol_class::ProtocolClass,
 };
@@ -3795,6 +3797,11 @@ pub(super) fn report_invalid_assignment<'db>(
             value_ty.display(context.db()),
         ));
 
+        let error_context = value_ty.assignability_error_context(context.db(), target_ty);
+        for message in error_context.info_messages(context.db()) {
+            diag.info(message);
+        }
+
         // Overwrite the concise message to avoid showing the value type twice
         let message = diag.primary_message().to_string();
         diag.set_concise_message(message);
@@ -4248,8 +4255,7 @@ pub(crate) fn report_invalid_exception_raised(
         return;
     };
     if raise_type.is_notimplemented(context.db()) {
-        let mut diagnostic =
-            builder.into_diagnostic(format_args!("Cannot raise `NotImplemented`",));
+        let mut diagnostic = builder.into_diagnostic(format_args!("Cannot raise `NotImplemented`"));
         diagnostic.set_primary_message("Did you mean `NotImplementedError`?");
         diagnostic.info("Can only raise an instance or subclass of `BaseException`");
     } else {
@@ -4798,7 +4804,7 @@ pub(crate) fn report_attempted_protocol_instantiation(
     let db = context.db();
     let class_name = protocol.name(db);
     let mut diagnostic =
-        builder.into_diagnostic(format_args!("Cannot instantiate class `{class_name}`",));
+        builder.into_diagnostic(format_args!("Cannot instantiate class `{class_name}`"));
     diagnostic.set_primary_message("This call will raise `TypeError` at runtime");
 
     let mut class_def_diagnostic = SubDiagnostic::new(
@@ -4919,7 +4925,7 @@ pub(crate) fn report_undeclared_protocol_member(
     );
     class_def_diagnostic.annotate(
         Annotation::primary(protocol_class.definition_span(db))
-            .message(format_args!("`{class_name}` declared as a protocol here",)),
+            .message(format_args!("`{class_name}` declared as a protocol here")),
     );
     diagnostic.sub(class_def_diagnostic);
 
@@ -4933,7 +4939,7 @@ pub(crate) fn report_duplicate_bases(
     context: &InferContext,
     class: StaticClassLiteral,
     duplicate_base_error: &DuplicateBaseError,
-    bases_list: &[ast::Expr],
+    bases_list: &[ExpandedClassBaseEntry],
 ) {
     let db = context.db();
 
@@ -4950,7 +4956,7 @@ pub(crate) fn report_duplicate_bases(
     let duplicate_name = duplicate_base.name(db);
 
     let mut diagnostic =
-        builder.into_diagnostic(format_args!("Duplicate base class `{duplicate_name}`",));
+        builder.into_diagnostic(format_args!("Duplicate base class `{duplicate_name}`"));
 
     let mut sub_diagnostic = SubDiagnostic::new(
         SubDiagnosticSeverity::Info,
@@ -4959,16 +4965,18 @@ pub(crate) fn report_duplicate_bases(
             class.name(db)
         ),
     );
-    sub_diagnostic.annotate(
-        Annotation::secondary(context.span(&bases_list[*first_index])).message(format_args!(
-            "Class `{duplicate_name}` first included in bases list here"
-        )),
-    );
+    if let Some(first_base) = bases_list[*first_index].source_node() {
+        sub_diagnostic.annotate(Annotation::secondary(context.span(first_base)).message(
+            format_args!("Class `{duplicate_name}` first included in bases list here"),
+        ));
+    }
     for index in later_indices {
-        sub_diagnostic.annotate(
-            Annotation::primary(context.span(&bases_list[*index]))
-                .message(format_args!("Class `{duplicate_name}` later repeated here")),
-        );
+        if let Some(repeated_base) = bases_list[*index].source_node() {
+            sub_diagnostic.annotate(
+                Annotation::primary(context.span(repeated_base))
+                    .message(format_args!("Class `{duplicate_name}` later repeated here")),
+            );
+        }
     }
 
     diagnostic.sub(sub_diagnostic);
@@ -5561,6 +5569,7 @@ pub(super) fn report_invalid_method_override<'db>(
     superclass: ClassType<'db>,
     superclass_type: Type<'db>,
     superclass_method_kind: MethodKind,
+    error_context: impl FnOnce() -> ErrorContextTree<'db>,
 ) {
     let db = context.db();
 
@@ -5584,6 +5593,10 @@ pub(super) fn report_invalid_method_override<'db>(
         subclass_definition.full_range(db, context.module()).range()
     };
 
+    let Some(builder) = context.report_lint(&INVALID_METHOD_OVERRIDE, diagnostic_range) else {
+        return;
+    };
+
     let class_name = subclass.name(db);
     let superclass_name = superclass.name(db);
 
@@ -5592,10 +5605,6 @@ pub(super) fn report_invalid_method_override<'db>(
         format!("{qualified_name}.{member}")
     } else {
         format!("{superclass_name}.{member}")
-    };
-
-    let Some(builder) = context.report_lint(&INVALID_METHOD_OVERRIDE, diagnostic_range) else {
-        return;
     };
 
     let mut diagnostic =
@@ -5629,6 +5638,10 @@ pub(super) fn report_invalid_method_override<'db>(
             superclass_function_kind = superclass_function_kind.description(),
             subclass_function_kind = subclass_function_kind.description(),
         ));
+    }
+
+    for message in error_context().info_messages(context.db()) {
+        diagnostic.info(message);
     }
 
     diagnostic.info("This violates the Liskov Substitution Principle");
@@ -5724,8 +5737,8 @@ pub(super) fn report_invalid_method_override<'db>(
                 "It is recommended for `{member}` to work with arbitrary objects, for example:",
             ),
             format_args!(""),
-            format_args!("    def {member}(self, other: object) -> bool:",),
-            format_args!("        if not isinstance(other, {class_name}):",),
+            format_args!("    def {member}(self, other: object) -> bool:"),
+            format_args!("        if not isinstance(other, {class_name}):"),
             format_args!("            return False"),
             format_args!("        return <logic to compare two `{class_name}` instances>"),
             format_args!(""),

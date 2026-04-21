@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import shlex
 import uuid
 
 import click
@@ -14,6 +15,8 @@ from mergify_cli.ci.junit_processing import cli as junit_processing_cli
 from mergify_cli.ci.queue import metadata as queue_metadata
 from mergify_cli.ci.scopes import cli as scopes_cli
 from mergify_cli.ci.scopes import exceptions as scopes_exc
+from mergify_cli.dym import DYMGroup
+from mergify_cli.exit_codes import ExitCode
 
 
 class JUnitFile(click.Path):
@@ -55,10 +58,15 @@ def _process_tests_target_branch(
     return value.removeprefix("refs/heads/") if value else value
 
 
-ci = click.Group(
-    "ci",
+@click.group(
+    cls=DYMGroup,
+    invoke_without_command=True,
     help="Mergify's CI related commands",
 )
+@click.pass_context
+def ci(ctx: click.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
 
 
 @ci.command(help="Upload JUnit XML reports", deprecated="Use `junit-process` instead")
@@ -226,11 +234,35 @@ async def junit_process(
     help="""Give the base/head git references of the pull request""",
     short_help="""Give the base/head git references of the pull request""",
 )
-def git_refs() -> None:
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "shell", "json"]),
+    default="text",
+    show_default=True,
+    help=(
+        "Output format. 'text' is human-readable. "
+        "'shell' emits MERGIFY_GIT_REFS_{BASE,HEAD,SOURCE}=... lines for `eval`. "
+        "'json' emits a single-line JSON object."
+    ),
+)
+def git_refs(output_format: str) -> None:
     ref = git_refs_detector.detect()
-    click.echo(f"Base: {ref.base}")
-    click.echo(f"Head: {ref.head}")
+
+    if output_format == "shell":
+        click.echo(f"MERGIFY_GIT_REFS_BASE={shlex.quote(ref.base or '')}")
+        click.echo(f"MERGIFY_GIT_REFS_HEAD={shlex.quote(ref.head)}")
+        click.echo(f"MERGIFY_GIT_REFS_SOURCE={shlex.quote(ref.source)}")
+    elif output_format == "json":
+        click.echo(
+            json.dumps({"base": ref.base, "head": ref.head, "source": ref.source}),
+        )
+    else:
+        click.echo(f"Base: {ref.base}")
+        click.echo(f"Head: {ref.head}")
+
     ref.maybe_write_to_github_outputs()
+    ref.maybe_write_to_buildkite_metadata()
 
 
 @ci.command(
@@ -272,11 +304,11 @@ def scopes(
     if config_path is None:
         locations = ", ".join(detector.MERGIFY_CONFIG_PATHS)
         msg = f"Mergify configuration file not found. Looked in: {locations}"
-        raise click.ClickException(msg)
+        raise utils.MergifyError(msg, exit_code=ExitCode.CONFIGURATION_ERROR)
 
     if not pathlib.Path(config_path).is_file():
         msg = f"Config file '{config_path}' does not exist."
-        raise click.ClickException(msg)
+        raise utils.MergifyError(msg, exit_code=ExitCode.CONFIGURATION_ERROR)
 
     if base or head:
         ref = git_refs_detector.References(
@@ -293,7 +325,10 @@ def scopes(
             references=ref,
         )
     except scopes_exc.ScopesError as e:
-        raise click.ClickException(str(e)) from e
+        raise utils.MergifyError(
+            str(e),
+            exit_code=ExitCode.CONFIGURATION_ERROR,
+        ) from e
 
     if write is not None:
         scopes.save_to_file(write)
@@ -329,31 +364,69 @@ def scopes(
     help="pull_request number",
     type=int,
     default=detector.get_github_pull_request_number,
-    required=True,
 )
 @click.option("--scope", "-s", multiple=True, help="Scope to upload")
 @click.option(
+    "--scopes-json",
+    help="JSON file containing scopes to upload (output of `mergify ci scopes --write`)",
+    type=click.Path(exists=True, dir_okay=False),
+)
+@click.option(
+    "--scopes-file",
+    help="Plain-text file with one scope per line",
+    type=click.Path(exists=True, dir_okay=False),
+)
+@click.option(
     "--file",
     "-f",
-    help="File containing scopes to upload",
-    type=click.Path(exists=True),
+    "file_deprecated",
+    type=click.Path(exists=True, dir_okay=False),
+    hidden=True,
 )
 @utils.run_with_asyncio
 async def scopes_send(
     api_url: str,
     token: str,
     repository: str,
-    pull_request: int,
+    pull_request: int | None,
     scope: tuple[str, ...],
-    file: str | None,
+    scopes_json: str | None,
+    scopes_file: str | None,
+    file_deprecated: str | None,
 ) -> None:
+    if pull_request is None:
+        click.echo("No pull request number detected, skipping scopes upload.")
+        return
+
+    if file_deprecated is not None:
+        click.echo(
+            "Warning: --file is deprecated, use --scopes-json instead.",
+            err=True,
+        )
+        if scopes_json is None:
+            scopes_json = file_deprecated
+
     scopes = list(scope)
-    if file is not None:
+    if scopes_json is not None:
         try:
-            dump = scopes_cli.DetectedScope.load_from_file(file)
+            dump = scopes_cli.DetectedScope.load_from_file(scopes_json)
         except scopes_exc.ScopesError as e:
-            raise click.ClickException(str(e)) from e
+            raise utils.MergifyError(
+                str(e),
+                exit_code=ExitCode.CONFIGURATION_ERROR,
+            ) from e
         scopes.extend(dump.scopes)
+    if scopes_file is not None:
+        scopes.extend(
+            line
+            for line in (
+                raw.strip()
+                for raw in pathlib.Path(scopes_file)
+                .read_text(encoding="utf-8")
+                .splitlines()
+            )
+            if line
+        )
 
     await scopes_cli.send_scopes(
         api_url,
@@ -371,9 +444,10 @@ async def scopes_send(
 def queue_info() -> None:
     metadata = queue_metadata.detect()
     if metadata is None:
-        raise click.ClickException(
+        raise utils.MergifyError(
             "Not running in a merge queue context. "
             "This command must be run on a merge queue draft pull request.",
+            exit_code=ExitCode.INVALID_STATE,
         )
 
     click.echo(json.dumps(metadata, indent=2))

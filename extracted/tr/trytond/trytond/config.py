@@ -55,6 +55,7 @@ class TrytonConfigParser(configparser.ConfigParser):
         super().__init__(interpolation=None)
         self.add_section('web')
         self.set('web', 'listen', 'localhost:8000')
+        self.set('web', 'root_path', '/')
         self.set('web', 'root', os.path.join(os.path.expanduser('~'), 'www'))
         self.set('web', 'num_proxies', '0')
         self.set('web', 'cache_timeout', str(60 * 60 * 12))
@@ -107,6 +108,7 @@ class TrytonConfigParser(configparser.ConfigParser):
         self.set('bus', 'select_timeout', '5')
         self.add_section('report')
         self.add_section('html')
+        self.add_section('attachment')
         self.update_environ()
         self.update_etc()
 

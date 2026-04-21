@@ -1,10 +1,20 @@
 from __future__ import annotations
 
 import os
-from typing import Callable, Dict
+from typing import TYPE_CHECKING, Callable, Dict
 
-from abstra_internals.controllers.sdk.sdk_context import SDKContextStore
-from abstra_internals.services.jwt import UserClaims
+if TYPE_CHECKING:
+    from abstra_internals.services.jwt import UserClaims
+
+
+def _get_page_sdk():
+    # Lazy import: SDKContextStore transitively loads the execution/transport
+    # stack (RabbitMQ, NATS, …). Users of abstra.pages should not pay that
+    # cost at import time, and a failure in any of those deps must not turn
+    # into "cannot import name 'register_function' from abstra.pages".
+    from abstra_internals.controllers.sdk.sdk_context import SDKContextStore
+
+    return SDKContextStore.get_by_thread().page_sdk
 
 
 def register_function(func: Callable) -> Callable:
@@ -32,7 +42,7 @@ def register_function(func: Callable) -> Callable:
             return "<h1>My Page</h1><script>get_data('test').then(console.log)</script>"
         ```
     """
-    return SDKContextStore.get_by_thread().page_sdk.register_function(func)
+    return _get_page_sdk().register_function(func)
 
 
 def get_user() -> UserClaims:
@@ -56,7 +66,7 @@ def get_user() -> UserClaims:
             return f"<h1>Hello, {user.email}</h1>"
         ```
     """
-    return SDKContextStore.get_by_thread().page_sdk.get_user()
+    return _get_page_sdk().get_user()
 
 
 def get_query_params() -> Dict[str, str]:
@@ -76,7 +86,7 @@ def get_query_params() -> Dict[str, str]:
             return f"<h1>Hello, {name}!</h1>"
         ```
     """
-    return SDKContextStore.get_by_thread().page_sdk.get_query_params()
+    return _get_page_sdk().get_query_params()
 
 
 def register_static(file_path: str | os.PathLike) -> str:
@@ -85,7 +95,7 @@ def register_static(file_path: str | os.PathLike) -> str:
     Args:
         file_path (str | os.PathLike): Path to the static file to register.
     """
-    return SDKContextStore.get_by_thread().page_sdk.register_static(file_path)
+    return _get_page_sdk().register_static(file_path)
 
 
 __all__ = [

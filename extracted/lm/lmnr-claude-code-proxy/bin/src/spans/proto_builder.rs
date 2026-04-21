@@ -72,6 +72,11 @@ impl From<CompletedSpawningToolSpan> for ToolSpanData {
                 "command": span.prompt,
             })
             .to_string(),
+            SpawningToolType::WebFetch => serde_json::json!({
+                "prompt": span.prompt,
+                "url": span.description,
+            })
+            .to_string(),
         };
 
         Self {

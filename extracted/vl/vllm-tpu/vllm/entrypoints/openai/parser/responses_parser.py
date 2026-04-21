@@ -3,7 +3,11 @@
 import logging
 from collections.abc import Callable
 
-from openai.types.responses.response_function_tool_call import ResponseFunctionToolCall
+from openai.types.responses import ResponseFunctionToolCall, ResponseOutputItem
+from openai.types.responses.response_function_tool_call_output_item import (
+    ResponseFunctionToolCallOutputItem,
+)
+from openai.types.responses.response_output_item import McpCall
 from openai.types.responses.response_output_message import ResponseOutputMessage
 from openai.types.responses.response_output_text import ResponseOutputText
 from openai.types.responses.response_reasoning_item import (
@@ -11,12 +15,15 @@ from openai.types.responses.response_reasoning_item import (
     ResponseReasoningItem,
 )
 
-from vllm.entrypoints.openai.protocol import ResponseInputOutputItem, ResponsesRequest
+from vllm.entrypoints.constants import MCP_PREFIX
+from vllm.entrypoints.openai.responses.protocol import (
+    ResponseInputOutputItem,
+    ResponsesRequest,
+)
 from vllm.outputs import CompletionOutput
 from vllm.reasoning.abs_reasoning_parsers import ReasoningParser
-from vllm.tokenizers.protocol import TokenizerLike
+from vllm.tokenizers import TokenizerLike
 from vllm.tool_parsers.abstract_tool_parser import ToolParser
-from vllm.transformers_utils.tokenizer import AnyTokenizer
 from vllm.utils import random_uuid
 
 logger = logging.getLogger(__name__)
@@ -28,11 +35,11 @@ class ResponsesParser:
     def __init__(
         self,
         *,
-        tokenizer: AnyTokenizer,
-        reasoning_parser_cls: Callable[[AnyTokenizer], ReasoningParser],
+        tokenizer: TokenizerLike,
+        reasoning_parser_cls: Callable[[TokenizerLike], ReasoningParser],
         response_messages: list[ResponseInputOutputItem],
         request: ResponsesRequest,
-        tool_parser_cls: Callable[[TokenizerLike], ToolParser] | None,
+        tool_parser_cls: type[ToolParser] | None,
     ):
         self.response_messages: list[ResponseInputOutputItem] = (
             # TODO: initial messages may not be properly typed
@@ -45,13 +52,19 @@ class ResponsesParser:
         self.reasoning_parser_instance = reasoning_parser_cls(tokenizer)
         self.tool_parser_instance = None
         if tool_parser_cls is not None:
-            self.tool_parser_instance = tool_parser_cls(tokenizer)
+            self.tool_parser_instance = tool_parser_cls(tokenizer, request.tools)
+
+        # Store the last finish_reason to determine response status
+        self.finish_reason: str | None = None
 
     def process(self, output: CompletionOutput) -> "ResponsesParser":
-        reasoning_content, content = self.reasoning_parser_instance.extract_reasoning(
+        # Store the finish_reason from the output
+        self.finish_reason = output.finish_reason
+
+        reasoning, content = self.reasoning_parser_instance.extract_reasoning(
             output.text, request=self.request
         )
-        if reasoning_content:
+        if reasoning:
             self.response_messages.append(
                 ResponseReasoningItem(
                     type="reasoning",
@@ -60,7 +73,7 @@ class ResponsesParser:
                     content=[
                         Content(
                             type="reasoning_text",
-                            text=reasoning_content,
+                            text=reasoning,
                         )
                     ],
                 )
@@ -111,11 +124,42 @@ class ResponsesParser:
 
         return self
 
+    def make_response_output_items_from_parsable_context(
+        self,
+    ) -> list[ResponseOutputItem]:
+        """Given a list of sentences, construct ResponseOutput Items."""
+        response_messages = self.response_messages[self.num_init_messages :]
+        output_messages: list[ResponseOutputItem] = []
+        for message in response_messages:
+            if not isinstance(message, ResponseFunctionToolCallOutputItem):
+                output_messages.append(message)
+            else:
+                if len(output_messages) == 0:
+                    raise ValueError(
+                        "Cannot have a FunctionToolCallOutput before FunctionToolCall."
+                    )
+                if isinstance(output_messages[-1], ResponseFunctionToolCall):
+                    mcp_message = McpCall(
+                        id=f"{MCP_PREFIX}{random_uuid()}",
+                        arguments=output_messages[-1].arguments,
+                        name=output_messages[-1].name,
+                        server_label=output_messages[
+                            -1
+                        ].name,  # TODO: store the server label
+                        type="mcp_call",
+                        status="completed",
+                        output=message.output,
+                        # TODO: support error output
+                    )
+                    output_messages[-1] = mcp_message
+
+        return output_messages
+
 
 def get_responses_parser_for_simple_context(
     *,
-    tokenizer: AnyTokenizer,
-    reasoning_parser_cls: Callable[[AnyTokenizer], ReasoningParser],
+    tokenizer: TokenizerLike,
+    reasoning_parser_cls: Callable[[TokenizerLike], ReasoningParser],
     response_messages: list[ResponseInputOutputItem],
     request: ResponsesRequest,
     tool_parser_cls,

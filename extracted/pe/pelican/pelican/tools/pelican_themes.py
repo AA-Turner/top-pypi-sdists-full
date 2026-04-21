@@ -17,8 +17,7 @@ try:
     import pelican
 except ImportError:
     err(
-        "Cannot import pelican.\nYou must "
-        "install Pelican in order to run this script.",
+        "Cannot import pelican.\nYou must install Pelican in order to run this script.",
         -1,
     )
 
@@ -242,7 +241,7 @@ def install(path, v=False, u=False):
                         f"or directory in `{theme_path}':\n{e!s}",
                         die=False,
                     )
-            except Exception as e:
+            except OSError as e:
                 err(f"Cannot copy `{path}' to `{theme_path}':\n{e!s}")
 
 
@@ -263,7 +262,7 @@ def symlink(path, v=False):
                 print(f"Linking `{path}' to `{theme_path}' ...")
             try:
                 os.symlink(path, theme_path)
-            except Exception as e:
+            except OSError as e:
                 err(f"Cannot link `{path}' to `{theme_path}':\n{e!s}")
 
 

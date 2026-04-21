@@ -22,7 +22,7 @@ from samplomatic import Twirl, build
 from ibm_quantum_schemas.common.qpy import QpyDataV13ToV17Model as QpyDataModel
 from ibm_quantum_schemas.common.samplex import SamplexModelSSV1ToSSV3 as SamplexModel
 from ibm_quantum_schemas.common.tensor import F64TensorModel, TensorModel
-from ibm_quantum_schemas.executor.version_1_0_dev import (
+from ibm_quantum_schemas.executor.version_1_0 import (
     ChunkPart,
     ChunkSpan,
     CircuitItemModel,
@@ -134,7 +134,7 @@ def test_initialization_results_model():
         ChunkSpan(
             start=now,
             stop=now + datetime.timedelta(seconds=5.1),
-            parts=[ChunkPart(idx_item=0, size=5)],
+            parts=[ChunkPart(idx_item=0, size=5, permutation=[], element_range=(0, 5, 1))],
         )
     ]
     metadata = MetadataModel(chunk_timing=spans)
@@ -341,3 +341,27 @@ def test_passthrough_data_serialization_roundtrip():
 
     assert restored.passthrough_data["nested"] == passthrough_data["nested"]
     assert np.array_equal(restored.passthrough_data["tensor"].to_numpy(), tensor.to_numpy())
+
+
+def test_chunk_part_valid():
+    """Test the chunk part works when expected."""
+    ChunkPart(idx_item=0, size=1, permutation=[], element_range=(0, 1, 1))
+    ChunkPart(idx_item=0, size=10, permutation=[0, 2, 1], element_range=(1, 21, 2))
+
+
+def test_chunk_part_invalid():
+    """Test the chunk part fails when expected."""
+    with pytest.raises(ValueError, match=r"Must be a permutation of \[0, 1, ..., 2\]"):
+        ChunkPart(idx_item=0, size=10, permutation=[0, 3, 1], element_range=(0, 10, 1))
+
+    with pytest.raises(ValueError, match="integers.*0, 10, 1.*inconsistent with.*5"):
+        ChunkPart(idx_item=0, size=5, permutation=[0, 2, 1], element_range=(0, 10, 1))
+
+    with pytest.raises(ValueError, match="Must be a valid range"):
+        ChunkPart(idx_item=0, size=5, permutation=[0, 2, 1], element_range=(-1, 5, 1))
+
+    with pytest.raises(ValueError, match="Must be a valid range"):
+        ChunkPart(idx_item=0, size=5, permutation=[0, 2, 1], element_range=(4, 2, 1))
+
+    with pytest.raises(ValueError, match="Must be a valid range"):
+        ChunkPart(idx_item=0, size=5, permutation=[0, 2, 1], element_range=(0, 5, 0))

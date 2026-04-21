@@ -56,9 +56,9 @@ use xbbg_log::{debug, info, warn};
 
 use xbbg_async::engine::state::SubscriptionMetrics;
 use xbbg_async::engine::{
-    AdminStatusInfo, Engine, EngineConfig, ExtractorType, RequestParams, RetryPolicy,
-    ServiceStatusInfo, SessionStatusInfo, SubscriptionCommandHandle, SubscriptionEventInfo,
-    SubscriptionFailureInfo, SubscriptionRecoveryPolicy, TopicStatusInfo,
+    AdminStatusInfo, Engine, EngineConfig, ExtractorType, RequestParams, RetryPolicy, ServerAddr,
+    ServiceStatusInfo, SessionStatusInfo, Socks5Proxy, SubscriptionCommandHandle,
+    SubscriptionEventInfo, SubscriptionFailureInfo, TlsConfig, TopicStatusInfo, Transport,
 };
 use xbbg_async::{BlpAsyncError, OverflowPolicy, ValidationMode};
 use xbbg_core::{AuthConfig, BlpError};
@@ -455,10 +455,6 @@ pub struct PyEngineConfig {
     #[pyo3(get, set)]
     pub auto_restart_on_disconnection: bool,
     #[pyo3(get, set)]
-    pub max_recovery_attempts: usize,
-    #[pyo3(get, set)]
-    pub recovery_timeout_ms: u64,
-    #[pyo3(get, set)]
     pub retry_max_retries: u32,
     #[pyo3(get, set)]
     pub retry_initial_delay_ms: u64,
@@ -466,8 +462,29 @@ pub struct PyEngineConfig {
     pub retry_backoff_factor: f64,
     #[pyo3(get, set)]
     pub retry_max_delay_ms: u64,
+    /// Hard per-request timeout in ms; 0 disables. Default: 60_000.
     #[pyo3(get, set)]
-    pub health_check_interval_ms: u64,
+    pub request_timeout_ms: u64,
+    /// Warn threshold for a subscription's streams staying deactivated, in ms;
+    /// 0 disables. Default: 30_000.
+    #[pyo3(get, set)]
+    pub streams_deactivated_warn_ms: u64,
+    /// Enable BLPAPI keep-alive pings. SDK default: True.
+    #[pyo3(get, set)]
+    pub keep_alive_enabled: bool,
+    /// Milliseconds of inactivity before keep-alive ping is sent. None = SDK default (20_000).
+    #[pyo3(get, set)]
+    pub keep_alive_inactivity_ms: Option<i32>,
+    /// Milliseconds to wait for keep-alive response before declaring the connection dead.
+    /// None = SDK default (10_000).
+    #[pyo3(get, set)]
+    pub keep_alive_response_timeout_ms: Option<i32>,
+    /// Slow-consumer hi water mark as fraction of max_event_queue_size. None = SDK default (0.75).
+    #[pyo3(get, set)]
+    pub slow_consumer_hi_water_mark: Option<f32>,
+    /// Slow-consumer lo water mark as fraction of max_event_queue_size. None = SDK default (0.5).
+    #[pyo3(get, set)]
+    pub slow_consumer_lo_water_mark: Option<f32>,
     #[pyo3(get, set)]
     pub sdk_log_level: String,
     /// SOCKS5 proxy hostname for Bloomberg connections.
@@ -488,9 +505,10 @@ impl PyEngineConfig {
     #[pyo3(signature = (**kwargs))]
     fn new(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
         let defaults = EngineConfig::default();
+        let (default_host, default_port) = default_direct_host_port(&defaults);
         let mut config = Self {
-            host: defaults.server_host,
-            port: defaults.server_port,
+            host: default_host,
+            port: default_port,
             servers: Vec::new(),
             zfp_remote: None,
             request_pool_size: defaults.request_pool_size,
@@ -516,13 +534,17 @@ impl PyEngineConfig {
             tls_crl_fetch_timeout_ms: None,
             num_start_attempts: defaults.num_start_attempts,
             auto_restart_on_disconnection: defaults.auto_restart_on_disconnection,
-            max_recovery_attempts: 3,
-            recovery_timeout_ms: 30_000,
             retry_max_retries: 0,
             retry_initial_delay_ms: 1000,
             retry_backoff_factor: 2.0,
             retry_max_delay_ms: 30_000,
-            health_check_interval_ms: 30_000,
+            request_timeout_ms: defaults.request_timeout_ms,
+            streams_deactivated_warn_ms: defaults.streams_deactivated_warn_ms,
+            keep_alive_enabled: defaults.keep_alive_enabled,
+            keep_alive_inactivity_ms: defaults.keep_alive_inactivity_ms,
+            keep_alive_response_timeout_ms: defaults.keep_alive_response_timeout_ms,
+            slow_consumer_hi_water_mark: defaults.slow_consumer_hi_water_mark,
+            slow_consumer_lo_water_mark: defaults.slow_consumer_lo_water_mark,
             sdk_log_level: "off".to_string(),
             socks5_host: None,
             socks5_port: None,
@@ -610,12 +632,6 @@ impl PyEngineConfig {
             if let Some(v) = kw.get_item("auto_restart_on_disconnection")? {
                 config.auto_restart_on_disconnection = v.extract()?;
             }
-            if let Some(v) = kw.get_item("max_recovery_attempts")? {
-                config.max_recovery_attempts = v.extract()?;
-            }
-            if let Some(v) = kw.get_item("recovery_timeout_ms")? {
-                config.recovery_timeout_ms = v.extract()?;
-            }
             if let Some(v) = kw.get_item("retry_max_retries")? {
                 config.retry_max_retries = v.extract()?;
             }
@@ -628,8 +644,26 @@ impl PyEngineConfig {
             if let Some(v) = kw.get_item("retry_max_delay_ms")? {
                 config.retry_max_delay_ms = v.extract()?;
             }
-            if let Some(v) = kw.get_item("health_check_interval_ms")? {
-                config.health_check_interval_ms = v.extract()?;
+            if let Some(v) = kw.get_item("request_timeout_ms")? {
+                config.request_timeout_ms = v.extract()?;
+            }
+            if let Some(v) = kw.get_item("streams_deactivated_warn_ms")? {
+                config.streams_deactivated_warn_ms = v.extract()?;
+            }
+            if let Some(v) = kw.get_item("keep_alive_enabled")? {
+                config.keep_alive_enabled = v.extract()?;
+            }
+            if let Some(v) = kw.get_item("keep_alive_inactivity_ms")? {
+                config.keep_alive_inactivity_ms = v.extract()?;
+            }
+            if let Some(v) = kw.get_item("keep_alive_response_timeout_ms")? {
+                config.keep_alive_response_timeout_ms = v.extract()?;
+            }
+            if let Some(v) = kw.get_item("slow_consumer_hi_water_mark")? {
+                config.slow_consumer_hi_water_mark = v.extract()?;
+            }
+            if let Some(v) = kw.get_item("slow_consumer_lo_water_mark")? {
+                config.slow_consumer_lo_water_mark = v.extract()?;
             }
             if let Some(v) = kw.get_item("sdk_log_level")? {
                 config.sdk_log_level = v.extract()?;
@@ -721,6 +755,100 @@ fn build_auth_config(py_config: &PyEngineConfig) -> PyResult<Option<AuthConfig>>
     Ok(auth)
 }
 
+/// Expose `(host, port)` of the first server in the default `Transport::Direct`,
+/// so `PyEngineConfig`'s Python-visible defaults stay in lockstep with the
+/// Rust-side default.
+fn default_direct_host_port(defaults: &EngineConfig) -> (String, u16) {
+    match &defaults.transport {
+        Transport::Direct(servers) => servers
+            .first()
+            .map(|s| (s.host.clone(), s.port))
+            .unwrap_or_else(|| ("localhost".to_string(), 8194)),
+        Transport::Zfp(_) => ("localhost".to_string(), 8194),
+    }
+}
+
+fn resolve_transport(py: &PyEngineConfig) -> PyResult<Transport> {
+    let zfp = py
+        .zfp_remote
+        .as_deref()
+        .map(|s| s.parse::<xbbg_core::zfp::ZfpRemote>())
+        .transpose()
+        .map_err(PyValueError::new_err)?;
+
+    let socks5 = match (py.socks5_host.as_deref(), py.socks5_port) {
+        (Some(host), Some(port)) => Some(Socks5Proxy {
+            host: host.to_string(),
+            port,
+        }),
+        (Some(_), None) => {
+            return Err(PyValueError::new_err("socks5_host set without socks5_port"));
+        }
+        (None, Some(_)) => {
+            return Err(PyValueError::new_err("socks5_port set without socks5_host"));
+        }
+        (None, None) => None,
+    };
+
+    let explicit_servers = !py.servers.is_empty();
+    let explicit_hostport = py.host != "localhost" || py.port != 8194;
+
+    if let Some(remote) = zfp {
+        if explicit_servers || explicit_hostport {
+            return Err(PyValueError::new_err(
+                "zfp_remote cannot be combined with host/port/servers — \
+                 ZFP supplies Bloomberg endpoints via the leased-line path",
+            ));
+        }
+        if socks5.is_some() {
+            return Err(PyValueError::new_err(
+                "zfp_remote cannot be combined with socks5_host/socks5_port",
+            ));
+        }
+        return Ok(Transport::Zfp(remote));
+    }
+
+    let raw = if explicit_servers {
+        py.servers.clone()
+    } else {
+        vec![(py.host.clone(), py.port)]
+    };
+    let servers = raw
+        .into_iter()
+        .map(|(host, port)| ServerAddr {
+            host,
+            port,
+            proxy: socks5.clone(),
+        })
+        .collect();
+    Ok(Transport::Direct(servers))
+}
+
+fn resolve_tls(py: &PyEngineConfig) -> PyResult<Option<TlsConfig>> {
+    match (
+        py.tls_client_credentials.as_deref(),
+        py.tls_trust_material.as_deref(),
+    ) {
+        (None, None) => Ok(None),
+        (Some(creds), Some(trust)) => Ok(Some(TlsConfig {
+            client_credentials: creds.to_string(),
+            client_credentials_password: py
+                .tls_client_credentials_password
+                .clone()
+                .unwrap_or_default(),
+            trust_material: trust.to_string(),
+            handshake_timeout_ms: py.tls_handshake_timeout_ms,
+            crl_fetch_timeout_ms: py.tls_crl_fetch_timeout_ms,
+        })),
+        (Some(_), None) => Err(PyValueError::new_err(
+            "tls_client_credentials set without tls_trust_material",
+        )),
+        (None, Some(_)) => Err(PyValueError::new_err(
+            "tls_trust_material set without tls_client_credentials",
+        )),
+    }
+}
+
 impl TryFrom<&PyEngineConfig> for EngineConfig {
     type Error = PyErr;
 
@@ -736,17 +864,12 @@ impl TryFrom<&PyEngineConfig> for EngineConfig {
             .map_err(|e: String| pyo3::exceptions::PyValueError::new_err(e))?;
 
         let auth = build_auth_config(py_config)?;
+        let transport = resolve_transport(py_config)?;
+        let tls = resolve_tls(py_config)?;
 
         Ok(EngineConfig {
-            server_host: py_config.host.clone(),
-            server_port: py_config.port,
-            servers: py_config.servers.clone(),
-            zfp_remote: py_config
-                .zfp_remote
-                .as_deref()
-                .map(|s| s.parse())
-                .transpose()
-                .map_err(|e: String| pyo3::exceptions::PyValueError::new_err(e))?,
+            transport,
+            tls,
             request_pool_size: py_config.request_pool_size,
             subscription_pool_size: py_config.subscription_pool_size,
             validation_mode,
@@ -761,28 +884,25 @@ impl TryFrom<&PyEngineConfig> for EngineConfig {
                 .as_ref()
                 .map(std::path::PathBuf::from),
             auth,
-            tls_client_credentials: py_config.tls_client_credentials.clone(),
-            tls_client_credentials_password: py_config.tls_client_credentials_password.clone(),
-            tls_trust_material: py_config.tls_trust_material.clone(),
-            tls_handshake_timeout_ms: py_config.tls_handshake_timeout_ms,
-            tls_crl_fetch_timeout_ms: py_config.tls_crl_fetch_timeout_ms,
             num_start_attempts: py_config.num_start_attempts,
             auto_restart_on_disconnection: py_config.auto_restart_on_disconnection,
-            max_recovery_attempts: py_config.max_recovery_attempts,
-            recovery_timeout_ms: py_config.recovery_timeout_ms,
             retry_policy: RetryPolicy {
                 max_retries: py_config.retry_max_retries,
                 initial_delay_ms: py_config.retry_initial_delay_ms,
                 backoff_factor: py_config.retry_backoff_factor,
                 max_delay_ms: py_config.retry_max_delay_ms,
             },
-            health_check_interval_ms: py_config.health_check_interval_ms,
+            request_timeout_ms: py_config.request_timeout_ms,
+            streams_deactivated_warn_ms: py_config.streams_deactivated_warn_ms,
+            keep_alive_enabled: py_config.keep_alive_enabled,
+            keep_alive_inactivity_ms: py_config.keep_alive_inactivity_ms,
+            keep_alive_response_timeout_ms: py_config.keep_alive_response_timeout_ms,
+            slow_consumer_hi_water_mark: py_config.slow_consumer_hi_water_mark,
+            slow_consumer_lo_water_mark: py_config.slow_consumer_lo_water_mark,
             sdk_log_level: py_config
                 .sdk_log_level
                 .parse()
                 .map_err(|e: String| pyo3::exceptions::PyValueError::new_err(e))?,
-            socks5_host: py_config.socks5_host.clone(),
-            socks5_port: py_config.socks5_port,
         })
     }
 }
@@ -811,8 +931,7 @@ impl PyEngine {
         );
 
         let config = EngineConfig {
-            server_host: host.to_string(),
-            server_port: port,
+            transport: Transport::Direct(vec![ServerAddr::new(host, port)]),
             ..Default::default()
         };
 
@@ -1242,7 +1361,7 @@ impl PyEngine {
     /// await sub.unsubscribe()
     /// ```
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (tickers, fields, flush_threshold=None, overflow_policy=None, stream_capacity=None, recovery_policy=None, all_fields=false))]
+    #[pyo3(signature = (tickers, fields, flush_threshold=None, overflow_policy=None, stream_capacity=None, all_fields=false))]
     fn subscribe<'py>(
         &self,
         py: Python<'py>,
@@ -1251,7 +1370,6 @@ impl PyEngine {
         flush_threshold: Option<usize>,
         overflow_policy: Option<String>,
         stream_capacity: Option<usize>,
-        recovery_policy: Option<String>,
         all_fields: bool,
     ) -> PyResult<Bound<'py, PyAny>> {
         let engine = self.engine.clone();
@@ -1261,10 +1379,6 @@ impl PyEngine {
         let op = overflow_policy.as_deref().map(|s| match s {
             "block" => OverflowPolicy::Block,
             _ => OverflowPolicy::DropNewest,
-        });
-        let recovery = recovery_policy.as_deref().map(|s| match s {
-            "resubscribe" => SubscriptionRecoveryPolicy::Resubscribe,
-            _ => SubscriptionRecoveryPolicy::None,
         });
 
         debug!(
@@ -1284,7 +1398,6 @@ impl PyEngine {
                     stream_capacity,
                     flush_threshold,
                     op,
-                    recovery,
                 )
                 .await
                 .map_err(blp_async_error_to_pyerr)?;
@@ -1344,7 +1457,7 @@ impl PyEngine {
     /// async for batch in sub:
     ///     print(batch)
     /// ```
-    #[pyo3(signature = (service, tickers, fields, options=None, flush_threshold=None, overflow_policy=None, stream_capacity=None, recovery_policy=None, all_fields=false))]
+    #[pyo3(signature = (service, tickers, fields, options=None, flush_threshold=None, overflow_policy=None, stream_capacity=None, all_fields=false))]
     #[allow(clippy::too_many_arguments)]
     fn subscribe_with_options<'py>(
         &self,
@@ -1356,7 +1469,6 @@ impl PyEngine {
         flush_threshold: Option<usize>,
         overflow_policy: Option<String>,
         stream_capacity: Option<usize>,
-        recovery_policy: Option<String>,
         all_fields: bool,
     ) -> PyResult<Bound<'py, PyAny>> {
         let engine = self.engine.clone();
@@ -1368,10 +1480,6 @@ impl PyEngine {
         let op = overflow_policy.as_deref().map(|s| match s {
             "block" => OverflowPolicy::Block,
             _ => OverflowPolicy::DropNewest,
-        });
-        let recovery = recovery_policy.as_deref().map(|s| match s {
-            "resubscribe" => SubscriptionRecoveryPolicy::Resubscribe,
-            _ => SubscriptionRecoveryPolicy::None,
         });
 
         debug!(
@@ -1393,7 +1501,6 @@ impl PyEngine {
                     stream_capacity,
                     flush_threshold,
                     op,
-                    recovery,
                 )
                 .await
                 .map_err(blp_async_error_to_pyerr)?;
@@ -1913,24 +2020,6 @@ impl PySubscription {
         dict.set_item("last_change_us", snapshot.session.last_change_us)?;
         dict.set_item("disconnect_count", snapshot.session.disconnect_count)?;
         dict.set_item("reconnect_count", snapshot.session.reconnect_count)?;
-        dict.set_item("recovery_policy", snapshot.session.recovery_policy.as_str())?;
-        dict.set_item(
-            "recovery_attempt_count",
-            snapshot.session.recovery_attempt_count,
-        )?;
-        dict.set_item(
-            "recovery_success_count",
-            snapshot.session.recovery_success_count,
-        )?;
-        dict.set_item(
-            "last_recovery_attempt_us",
-            snapshot.session.last_recovery_attempt_us,
-        )?;
-        dict.set_item(
-            "last_recovery_success_us",
-            snapshot.session.last_recovery_success_us,
-        )?;
-        dict.set_item("last_recovery_error", snapshot.session.last_recovery_error)?;
         Ok(dict.into())
     }
 

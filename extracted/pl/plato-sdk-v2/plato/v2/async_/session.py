@@ -7,16 +7,18 @@ It acts like a Ray actor - the spec holds state, the class provides methods.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import multiprocessing
 import signal
 import time
 import uuid
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
 import httpx
 import tenacity
@@ -81,6 +83,11 @@ from plato._generated.models import (
     WaitForReadyResponse,
 )
 from plato.v2.async_.environment import Environment
+from plato.v2.async_.flow_backends import (
+    CLAUDE_CODE_SSH_SHELL_PREFIX,
+    AgentBrowserBackend,
+    make_ssh_run_cmd,
+)
 from plato.v2.async_.flow_executor import FlowExecutor
 from plato.v2.types import EnvFromArtifact, EnvFromResource, EnvFromSimulator
 from plato.v2.utils.models import (
@@ -1190,24 +1197,37 @@ class Session:
     async def login(
         self,
         browser: Browser,
-        dataset: str = "base",
+        flow: str = "login",
         screenshots_dir: Path | None = None,
         port: int | None = None,
+        *,
+        env_alias: str | None = None,
+        context: BrowserContext | None = None,
+        retries: int = 0,
+        retry_delay_ms: int = 0,
     ) -> LoginResult:
-        """Login to all environments and return browser context with pages.
+        """Login to environments and return browser context with pages.
 
-        Creates a single browser context and one page per environment.
-        Navigates each page to the environment's public URL and executes
-        the login flow.
+        Creates a single browser context (unless ``context`` is provided) and
+        one page per target environment. Navigates each page to the env's
+        public URL and executes the login flow.
 
         Requires playwright to be installed:
-            pip install playwright
+            uv add playwright
 
         Args:
             browser: Playwright Browser instance.
-            dataset: Dataset name for login flow (default: "base" uses "login" flow).
+            flow: Name of the flow to run (default: "login").
             screenshots_dir: Optional directory to save screenshots during login.
             port: Optional port for public URL (default uses standard port).
+            env_alias: If set, only log into this single env. ``None`` iterates
+                all envs in ``self.envs``.
+            context: Reuse an existing BrowserContext (useful for CDP callers
+                that want to keep stray default-context tabs). When ``None``,
+                a fresh context is created.
+            retries: Per-env retries on flow-execution failure. Between
+                attempts the page is re-navigated to the public URL.
+            retry_delay_ms: Delay between retries in milliseconds.
 
         Returns:
             LoginResult containing the browser context and a dict mapping
@@ -1230,73 +1250,326 @@ class Session:
         import importlib.util
 
         if importlib.util.find_spec("playwright") is None:
-            raise ImportError("The login() method requires playwright. Install it with: pip install playwright")
+            raise ImportError("The login() method requires playwright. Install it with: uv add playwright")
 
-        context = await browser.new_context()
+        owns_context = context is None
+        if context is None:
+            context = await browser.new_context()
+
         pages: dict[str, Page] = {}
-
-        for env in self.envs:
-            page = await context.new_page()
-            pages[env.alias] = page
-
-            # Get public URL for this job
-            public_url_result = await jobs_public_url.asyncio(
-                client=self._http,
-                job_id=env.job_id,
-                port=port,
-                x_api_key=self._api_key,
-            )
-
-            if public_url_result.error:
+        target_envs = [e for e in self.envs if e.alias == env_alias] if env_alias else list(self.envs)
+        if env_alias and not target_envs:
+            if owns_context:
                 await context.close()
-                raise RuntimeError(f"Failed to get public URL for {env.alias}: {public_url_result.error}")
+            raise RuntimeError(f"No env with alias '{env_alias}' in session")
 
-            if not public_url_result.url:
-                await context.close()
-                raise RuntimeError(f"No public URL returned for {env.alias}")
+        try:
+            for env in target_envs:
+                page = await context.new_page()
+                pages[env.alias] = page
 
-            await page.goto(public_url_result.url)
+                public_url = await self._public_url(env, port=port)
+                login_flow = await self._fetch_login_flow(env, flow)
 
-            # Get flows for this environment using v2 endpoint
-            try:
-                flows_response = await jobs_get_flows.asyncio(
-                    client=self._http,
-                    job_id=env.job_id,
-                    x_api_key=self._api_key,
+                flow_executor = FlowExecutor(
+                    page,
+                    login_flow,
+                    log=logger,
+                    screenshots_dir=screenshots_dir,
                 )
-            except Exception as e:
+
+                last_error: Exception | None = None
+                for attempt in range(1 + retries):
+                    try:
+                        await page.goto(public_url)
+                        await flow_executor.execute()
+                        last_error = None
+                        break
+                    except Exception as e:
+                        last_error = e
+                        if attempt < retries:
+                            logger.warning(
+                                "Login flow failed for %s (attempt %d/%d), retrying in %dms: %s",
+                                env.alias,
+                                attempt + 1,
+                                1 + retries,
+                                retry_delay_ms,
+                                e,
+                            )
+                            await asyncio.sleep(retry_delay_ms / 1000)
+                if last_error is not None:
+                    raise RuntimeError(f"Login failed for env {env.alias}: {last_error}") from last_error
+        except Exception:
+            if owns_context:
                 await context.close()
-                raise RuntimeError(f"Failed to get flows for env {env.alias}: {e}") from e
-
-            if not flows_response:
-                await context.close()
-                raise RuntimeError(f"No flows found for env {env.alias}")
-
-            flows_list = [Flow.model_validate(f) for f in flows_response]
-
-            # Determine flow name based on dataset
-            flow_name = "login" if dataset == "base" else dataset
-
-            login_flow = next((flow for flow in flows_list if flow.name == flow_name), None)
-            if not login_flow:
-                error_msg = f"No flow named '{flow_name}' found for env {env.alias}"
-                await context.close()
-                raise RuntimeError(error_msg)
-
-            # Execute the login flow (raises FlowExecutionError on failure)
-            flow_executor = FlowExecutor(
-                page,
-                login_flow,
-                log=logger,
-                screenshots_dir=screenshots_dir,
-            )
-            try:
-                await flow_executor.execute()
-            except Exception as e:
-                await context.close()
-                raise RuntimeError(f"Login failed for env {env.alias}: {e}") from e
+            raise
 
         return LoginResult(context=context, pages=pages)
+
+    async def _fetch_login_flow(self, env: Environment, flow_name: str) -> Flow:
+        """Fetch the flow named ``flow_name`` for ``env``."""
+        try:
+            flows_response = await jobs_get_flows.asyncio(
+                client=self._http,
+                job_id=env.job_id,
+                x_api_key=self._api_key,
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to get flows for env {env.alias}: {e}") from e
+
+        if not flows_response:
+            raise RuntimeError(f"No flows found for env {env.alias}")
+
+        flows_list = [Flow.model_validate(f) for f in flows_response]
+        match = next((f for f in flows_list if f.name == flow_name), None)
+        if not match:
+            raise RuntimeError(f"No flow named '{flow_name}' found for env {env.alias}")
+        return match
+
+    async def _public_url(self, env: Environment, port: int | None = None) -> str:
+        """Fetch a public URL for ``env`` with uniform error handling."""
+        result = await jobs_public_url.asyncio(
+            client=self._http,
+            job_id=env.job_id,
+            port=port,
+            x_api_key=self._api_key,
+        )
+        if result.error:
+            raise RuntimeError(f"Failed to get public URL for {env.alias}: {result.error}")
+        if not result.url:
+            raise RuntimeError(f"No public URL returned for {env.alias}")
+        return result.url
+
+    @staticmethod
+    async def _resolve_cdp_ws_url(cdp_url: str, ready_timeout: float = 60.0) -> str:
+        """Fetch Chrome's ``/json/version`` and rewrite the WS URL for cross-host use.
+
+        Chrome reports ``ws://localhost:9225`` in ``webSocketDebuggerUrl``
+        regardless of who's asking, so a Playwright client on another host
+        can't use it directly. Substitute the CDP endpoint's actual host/port
+        so callers reaching the agent VM over the mesh network succeed.
+
+        Polls ``/json/version`` every 0.5s until it returns 200 or
+        ``ready_timeout`` seconds elapse, so callers on freshly-provisioned VMs
+        don't race Chrome startup.
+        """
+        import aiohttp
+
+        parsed = urlparse(cdp_url)
+        host = parsed.hostname
+        port = parsed.port or 9224
+        version_url = f"{cdp_url}/json/version"
+
+        deadline = asyncio.get_event_loop().time() + ready_timeout
+        last_error: str = ""
+        version_info: dict | None = None
+        async with aiohttp.ClientSession() as http:
+            while True:
+                try:
+                    async with http.get(version_url, timeout=aiohttp.ClientTimeout(total=2)) as resp:
+                        if resp.status == 200:
+                            version_info = await resp.json()
+                            break
+                        last_error = f"HTTP {resp.status}"
+                except Exception as e:
+                    last_error = str(e)
+                if asyncio.get_event_loop().time() >= deadline:
+                    raise TimeoutError(f"Chrome CDP not ready at {cdp_url} after {ready_timeout:.0f}s: {last_error}")
+                await asyncio.sleep(0.5)
+
+        assert version_info is not None
+        ws_url: str = version_info["webSocketDebuggerUrl"]
+        for loopback in ("ws://localhost:9225", "ws://127.0.0.1:9225"):
+            ws_url = ws_url.replace(loopback, f"ws://{host}:{port}")
+        return ws_url
+
+    @contextlib.asynccontextmanager
+    async def connect_cdp(self, cdp_url: str, *, ready_timeout: float = 60.0) -> AsyncIterator[Browser]:
+        """Connect Playwright to a CDP endpoint and yield the Browser.
+
+        Polls ``/json/version`` until Chrome is ready (``ready_timeout`` seconds,
+        default 60) then fetches + rewrites the WS URL so callers on a
+        different host than the Chrome instance don't hit the
+        ``ws://localhost:9225`` bug. The browser is closed automatically when
+        the ``async with`` block exits.
+
+        Example::
+
+            async with session.connect_cdp(f"http://{host}:9224") as browser:
+                result = await session.login(browser=browser, env_alias="env1")
+                # use result.pages["env1"] for post-login work
+        """
+        self._check_closed()
+
+        import importlib.util
+
+        if importlib.util.find_spec("playwright") is None:
+            raise ImportError("connect_cdp() requires playwright. Install with: uv add playwright")
+
+        from playwright.async_api import async_playwright
+
+        ws_url = await self._resolve_cdp_ws_url(cdp_url, ready_timeout=ready_timeout)
+        async with async_playwright() as p:
+            browser = await p.chromium.connect_over_cdp(ws_url)
+            try:
+                yield browser
+            finally:
+                with contextlib.suppress(Exception):
+                    await browser.close()
+
+    async def login_via_cdp(
+        self,
+        cdp_url: str,
+        flow: str = "login",
+        screenshots_dir: Path | None = None,
+        port: int | None = None,
+        *,
+        env_alias: str | None = None,
+        retries: int = 0,
+        retry_delay_ms: int = 0,
+        ready_timeout: float = 60.0,
+        log: logging.Logger | None = None,
+    ) -> None:
+        """Log in via a CDP-attached Chromium, closing the browser when done.
+
+        Logs into each env, then (because the typical caller is a world that
+        will hand the same Chrome to a downstream agent) reloads each
+        logged-in page with ``networkidle``, closes stray ``about:blank``
+        tabs left in the default context, and brings the logged-in page to
+        the front. Apps like Mattermost finish JWT/token setup *after* form
+        submission — an agent that attaches before the reload can race it.
+
+        For raw login without the post-login cleanup, use
+        :meth:`connect_cdp` + :meth:`login` directly.
+        """
+        active_log = log or logger
+        async with self.connect_cdp(cdp_url, ready_timeout=ready_timeout) as browser:
+            result = await self.login(
+                browser=browser,
+                context=browser.contexts[0],
+                flow=flow,
+                screenshots_dir=screenshots_dir,
+                port=port,
+                env_alias=env_alias,
+                retries=retries,
+                retry_delay_ms=retry_delay_ms,
+            )
+            context = result.context
+            login_pages = set(result.pages.values())
+            for page in list(result.pages.values()):
+                await asyncio.sleep(2)
+                with contextlib.suppress(Exception):
+                    await page.reload(wait_until="networkidle", timeout=15000)
+                await asyncio.sleep(1)
+                active_log.info("Post-login page URL: %s", page.url)
+            for tab in list(context.pages):
+                if tab not in login_pages and tab.url == "about:blank":
+                    with contextlib.suppress(Exception):
+                        await tab.close()
+            primary = next(iter(result.pages.values()), None)
+            if primary is not None:
+                with contextlib.suppress(Exception):
+                    await primary.bring_to_front()
+
+    async def login_via_agent_browser(
+        self,
+        *,
+        hostname: str,
+        ssh_key_path: Path,
+        extra_ssh_opts: list[tuple[str, str]] | None = None,
+        shell_prefix: str = CLAUDE_CODE_SSH_SHELL_PREFIX,
+        flow: str = "login",
+        port: int | None = None,
+        retries: int = 0,
+        retry_delay_ms: int = 0,
+        log: logging.Logger | None = None,
+    ) -> list[str]:
+        """Log in to all envs via the ``agent-browser`` CLI on a remote VM.
+
+        One ``agent-browser`` daemon per env, keyed by ``--session <env.alias>``,
+        keeps each env's cookies in its own jar — so the model can later reuse
+        the same session name to inherit authenticated state.
+
+        Parameters
+        ----------
+        hostname, ssh_key_path, extra_ssh_opts, shell_prefix:
+            Forwarded to :func:`make_ssh_run_cmd`. ``shell_prefix`` defaults
+            to the claude-code/gemini-cli/codex base image layout; override for
+            other images.
+        flow:
+            Name of the flow to run (default: ``"login"``).
+        port:
+            Optional port for the env's public URL.
+        retries:
+            Number of retries per env on flow-execution failure. Total attempts
+            per env is ``1 + retries``. Defaults to ``0``. Between attempts the
+            backend re-navigates to the public URL so flows that mutated page
+            state start from a clean slate.
+        retry_delay_ms:
+            Delay between retries in milliseconds. Ignored when ``retries == 0``.
+        log:
+            Optional logger; defaults to the module logger.
+
+        Returns
+        -------
+        list[str]
+            Aliases of envs that logged in successfully, in input order.
+        """
+        self._check_closed()
+
+        active_log = log or logger
+        run_cmd = make_ssh_run_cmd(
+            ssh_key_path=ssh_key_path,
+            hostname=hostname,
+            shell_prefix=shell_prefix,
+            extra_opts=extra_ssh_opts,
+        )
+
+        logged_in: list[str] = []
+        for env in self.envs:
+            if not env.artifact_id:
+                # Resource/compute envs have no login flow — skip cleanly so
+                # callers can pass ``session.envs`` without pre-filtering.
+                continue
+
+            public_url = await self._public_url(env, port=port)
+            env_flow = await self._fetch_login_flow(env, flow)
+
+            active_log.info(
+                "agent-browser login: env=%s flow=%s session=%s url=%s",
+                env.alias,
+                env_flow.name,
+                env.alias,
+                public_url,
+            )
+            backend = AgentBrowserBackend(run_cmd=run_cmd, session=env.alias)
+            executor = FlowExecutor(flow=env_flow, backend=backend, log=active_log)
+
+            last_error: Exception | None = None
+            for attempt in range(1 + retries):
+                try:
+                    await backend.navigate(public_url)
+                    await executor.execute()
+                    break
+                except Exception as e:
+                    last_error = e
+                    if attempt < retries:
+                        active_log.warning(
+                            "agent-browser login failed for %s (attempt %d/%d), retrying in %dms: %s",
+                            env.alias,
+                            attempt + 1,
+                            1 + retries,
+                            retry_delay_ms,
+                            e,
+                        )
+                        await asyncio.sleep(retry_delay_ms / 1000)
+            else:
+                assert last_error is not None
+                raise last_error
+
+            logged_in.append(env.alias)
+
+        return logged_in
 
     async def heartbeat(self) -> AppApiV2SchemasSessionHeartbeatResponse:
         """Send heartbeat to keep all environments alive.

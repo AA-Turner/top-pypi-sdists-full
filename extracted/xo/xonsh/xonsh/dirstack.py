@@ -6,13 +6,13 @@ import contextlib
 import glob
 import os
 import subprocess
+import sys
 import typing as tp
 
 from xonsh.built_ins import XSH
 from xonsh.cli_utils import Annotated, Arg, ArgParserAlias
 from xonsh.events import events
 from xonsh.platform import ON_WINDOWS
-from xonsh.tools import get_sep
 
 DIRSTACK: list[str] = []
 """A list containing the currently remembered directories."""
@@ -134,8 +134,8 @@ def _unc_unmap_temp_drive(left_drive, cwd):
         if p.casefold().startswith(left_drive):
             return
 
-    _unc_tempDrives.pop(left_drive)
     subprocess.check_output(["NET", "USE", left_drive, "/delete"], text=True)
+    _unc_tempDrives.pop(left_drive)
 
 
 events.doc(
@@ -176,11 +176,9 @@ def _change_working_directory(newdir, follow_symlinks=False):
 
     try:
         os.chdir(absnew)
-    except OSError:
-        if new.endswith(get_sep()):
-            new = new[:-1]
-        if os.path.basename(new) == "..":
-            env["PWD"] = new
+    except OSError as e:
+        print(f"cd: {e}", file=sys.stderr)
+        return
     else:
         if old is not None:
             env["OLDPWD"] = old
@@ -228,7 +226,7 @@ def cd(args, stdin=None):
     if len(args) == 0:
         d = env.get("HOME", os.path.expanduser("~"))
     elif len(args) == 1:
-        d = os.path.expanduser(args[0])
+        d = args[0]
         if not os.path.isdir(d):
             if d == "-":
                 if oldpwd is not None:
@@ -419,8 +417,8 @@ def popd_fn(
         BACKWARD = "-"
         FORWARD = "+"
     else:
-        BACKWARD = "-"
-        FORWARD = "+"
+        BACKWARD = "+"
+        FORWARD = "-"
 
     new_pwd: str | None = None
     if nth is None:
@@ -511,8 +509,8 @@ def dirs_fn(
         BACKWARD = "-"
         FORWARD = "+"
     else:
-        BACKWARD = "-"
-        FORWARD = "+"
+        BACKWARD = "+"
+        FORWARD = "-"
 
     if clear:
         DIRSTACK = []
@@ -545,7 +543,7 @@ def dirs_fn(
 
         if num < 0:
             e = "Invalid argument to dirs: {0}\n"
-            return None, e.format(len(o)), 1
+            return None, e.format(nth), 1
 
         if num >= len(o):
             e = "Too few elements in dirstack ({0} elements)\n"
@@ -570,7 +568,9 @@ dirs = ArgParserAlias(prog="dirs", func=dirs_fn, has_args=True)
 @contextlib.contextmanager
 def with_pushd(d):
     """Use pushd as a context manager"""
-    pushd_fn(d)
+    _out, err, rtn = pushd_fn(d)
+    if rtn:
+        raise RuntimeError(err or f"pushd failed for {d!r}")
     try:
         yield
     finally:

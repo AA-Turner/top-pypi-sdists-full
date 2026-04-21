@@ -16,7 +16,7 @@ from xonsh.cli_utils import Annotated, Arg, ArgParserAlias
 from xonsh.completers.tools import RichCompletion
 from xonsh.lib.lazyasd import LazyObject
 from xonsh.platform import FD_STDERR, LIBC, ON_CYGWIN, ON_DARWIN, ON_MSYS, ON_WINDOWS
-from xonsh.tools import get_signal_name, on_main_thread, unthreadable
+from xonsh.tools import get_signal_name, on_main_thread, print_warning, unthreadable
 
 # Track time stamp of last exit command, so that two consecutive attempts to
 # exit can kill all jobs and exit.
@@ -100,7 +100,7 @@ def proc_untraced_waitpid(proc, hang, task=None, raise_child_process_error=False
         if task is not None:
             task["status"] = "stopped"
         info["backgrounded"] = True
-        proc.signal = (os.WSTOPSIG(wcode), os.WCOREDUMP(wcode))
+        proc.signal = (os.WSTOPSIG(wcode), False)
         info["signal"] = os.WSTOPSIG(wcode)
         proc.suspended = True
 
@@ -160,47 +160,66 @@ def get_jobs() -> dict[int, dict]:
         return _jobs_thread_local.jobs
 
 
+def _kill_per_pid(job, signal):
+    """Send signal to each process in the job individually."""
+    for pid in job["pids"]:
+        if pid is None:  # the pid of an aliased proc is None
+            continue
+        try:
+            os.kill(pid, signal)
+        except ProcessLookupError:
+            pass  # process already exited
+        except PermissionError:
+            print_warning(
+                f"xonsh: permission denied sending {get_signal_name(signal)} to pid {pid}"
+            )
+
+
+# Platform-specific _send_signal implementations.
+#
+# macOS:  os.killpg() raises PermissionError on zombie children in
+#         the process group (github #1012), so we always signal per-pid.
+# Cygwin/MSYS: os.killpg() may fail for various OS-level reasons
+#         (github #514), so we try killpg first and fall back to per-pid.
+# Linux:  os.killpg() works correctly; per-pid fallback only when
+#         pgrp is None (callable aliases have no real process group).
+
 if ON_DARWIN:
 
     def _send_signal(job, signal):
-        # On OS X, os.killpg() may cause PermissionError when there are
-        # any zombie processes in the process group.
-        # See github issue #1012 for details
-        for pid in job["pids"]:
-            if pid is None:  # the pid of an aliased proc is None
-                continue
-            try:
-                os.kill(pid, signal)
-            except ProcessLookupError:
-                pass
+        _kill_per_pid(job, signal)
 
 elif ON_WINDOWS:
     pass
 elif ON_CYGWIN or ON_MSYS:
-    # Similar to what happened on OSX, more issues on Cygwin
-    # (see Github issue #514).
+
     def _send_signal(job, signal):
         try:
             os.killpg(job["pgrp"], signal)
-        except Exception:
-            for pid in job["pids"]:
-                try:
-                    os.kill(pid, signal)
-                except Exception:
-                    pass
+        except ProcessLookupError:
+            pass  # process group already exited
+        except PermissionError:
+            print_warning(
+                f"xonsh: permission denied sending {get_signal_name(signal)} to process group {job['pgrp']}"
+            )
+        except OSError:
+            _kill_per_pid(job, signal)  # killpg failed, try per-pid
 
 else:
 
     def _send_signal(job, signal):
         pgrp = job["pgrp"]
         if pgrp is None:
-            for pid in job["pids"]:
-                try:
-                    os.kill(pid, signal)
-                except Exception:
-                    pass
+            _kill_per_pid(job, signal)  # callable alias, no process group
         else:
-            os.killpg(job["pgrp"], signal)
+            try:
+                os.killpg(pgrp, signal)
+            except ProcessLookupError:
+                pass  # process group already exited
+            except PermissionError:
+                print_warning(
+                    f"xonsh: permission denied sending {get_signal_name(signal)} to process group {pgrp}"
+                )
 
 
 if ON_WINDOWS:
@@ -394,13 +413,28 @@ def get_task(tid):
 def _clear_dead_jobs():
     to_remove = set()
     tasks = get_tasks()
-    for tid in tasks:
-        proc = get_task(tid)["obj"]
+    # list() creates a copy so we iterate over a static snapshot, not the
+    # live deque. This function may be called from the SIGHUP signal
+    # handler which runs between bytecodes on the main thread. Without
+    # the copy, modifying the deque/dict while the main thread iterates
+    # them causes RuntimeError.
+    for tid in list(tasks):
+        try:
+            proc = get_task(tid)["obj"]
+        except KeyError:
+            to_remove.add(tid)
+            continue
         if proc is None or proc.poll() is not None:
             to_remove.add(tid)
-    for job in to_remove:
-        tasks.remove(job)
-        del get_jobs()[job]
+    if to_remove:
+        # Replace the deque contents atomically to avoid racing with
+        # the main thread's iteration over the same deque.
+        alive = collections.deque(tid for tid in tasks if tid not in to_remove)
+        tasks.clear()
+        tasks.extend(alive)
+        jobs = get_jobs()
+        for job in to_remove:
+            jobs.pop(job, None)
 
 
 def format_job_string(num: int, format="dict") -> str:
@@ -419,7 +453,13 @@ def format_job_string(num: int, format="dict") -> str:
     }
 
     if format == "posix":
-        r["pos"] = "+" if tasks[0] == num else "-" if tasks[1] == num else " "
+        r["pos"] = (
+            "+"
+            if tasks and tasks[0] == num
+            else "-"
+            if len(tasks) > 1 and tasks[1] == num
+            else " "
+        )
         r["bg"] = " &" if job["bg"] else ""
         r["pid"] = f"({','.join(str(pid) for pid in r['pids'])})" if r["pids"] else ""
         return "[{num}]{pos} {status}: {cmd}{bg} {pid}".format(**r)
@@ -461,7 +501,7 @@ def add_job(info):
 def update_job_attr(pid, name, value):
     """Update job attribute."""
     jobs = get_jobs()
-    for num, job in get_jobs().items():
+    for num, job in list(jobs.items()):
         if "pids" in job and pid in job["pids"]:
             jobs[num][name] = value
 
@@ -523,7 +563,12 @@ def hup_all_jobs():
     Send SIGHUP to all child processes (called when exiting xonsh).
     """
     _clear_dead_jobs()
-    for job in get_jobs().values():
+    # list() creates a copy so we iterate over a static list, not the
+    # live dict. This is called from the SIGHUP signal handler which
+    # runs between bytecodes on the main thread. If the main thread is
+    # iterating get_jobs() at that moment, modifying the live dict would
+    # cause RuntimeError.
+    for job in list(get_jobs().values()):
         _hup(job)
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awscurl
-Version: 0.39
+Version: 0.40
 Summary: Curl like tool with AWS request signing
 Home-page: http://github.com/okigan/awscurl
 Author: Igor Okulist

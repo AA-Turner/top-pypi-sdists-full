@@ -144,6 +144,11 @@ def playbook_catalog_schema() -> "StructType":
             t["StructField"]("analysis_population_rule", t["StringType"](), True),
             t["StructField"]("active_from", t["TimestampType"](), True),
             t["StructField"]("active_to", t["TimestampType"](), True),
+            # Prose field: "when this playbook has been found useful" — feeds
+            # the archetype→playbook matcher (ProseOverlapMatcher + LLM) alongside
+            # description. Authored by CS leadership in the YAML. No feature
+            # column names; business prose only.
+            t["StructField"]("when_applicable", t["StringType"](), True),
         ]
     )
 
@@ -305,6 +310,12 @@ def eligibility_policy_schema() -> "StructType":
             t["StructField"]("eligibility_rules_sql", t["StringType"](), True),  # rendered SQL for dashboard
             t["StructField"]("requires_features", t["ArrayType"](t["StringType"]()), True),
             t["StructField"]("expected_uplift_pct", t["DoubleType"](), True),
+            # Archetype↔playbook prose/LLM match score in [0, 1]. Review tier
+            # for this row derives from thresholds in DerivationConfig.
+            t["StructField"]("fit_score", t["DoubleType"](), True),
+            # Classification: auto / review / manual / catch_all. Drives c03
+            # auto-promotion decisions and manual-review queue display.
+            t["StructField"]("fit_tier", t["StringType"](), True),
             t["StructField"]("rationale", t["StringType"](), True),
             t["StructField"]("llm_model_id", t["StringType"](), True),
             t["StructField"]("status", t["StringType"](), False),
@@ -383,9 +394,13 @@ def decision_policy_schema() -> "StructType":
 def eligibility_snapshot_schema() -> "StructType":
     """§1.7 — The grouping pivot.
 
-    One row per ``(scoring_run, account, playbook)`` for every customer
-    matching a playbook's eligibility predicates, including holdouts. Carries
-    the four-way definition anchor and the multi-arm context.
+    One row per ``(scoring_run, entity, playbook)`` for every subject
+    matching a playbook's eligibility predicates, including holdouts.
+    Carries the four-way definition anchor and the multi-arm context.
+    The ``entity_id`` key is the generic scoring subject (subscriber for
+    email, account for SPS). Downstream CSM writeback tables
+    (``assignments``/``actions``/``outcomes``) keep their own
+    ``account_id`` column to match the CSM tool's internal model.
     """
     t = _types()
     return t["StructType"](
@@ -393,7 +408,7 @@ def eligibility_snapshot_schema() -> "StructType":
             t["StructField"]("eligibility_id", t["StringType"](), False),  # UUID
             t["StructField"]("scoring_run_id", t["StringType"](), False),
             t["StructField"]("as_of_date", t["TimestampType"](), False),
-            t["StructField"]("account_id", t["StringType"](), False),
+            t["StructField"]("entity_id", t["StringType"](), False),
             # Four-way definition anchor
             t["StructField"]("playbook_id", t["StringType"](), False),
             t["StructField"]("playbook_version", t["StringType"](), False),
@@ -653,7 +668,7 @@ def top_shap_drivers_schema() -> "StructType":
         [
             t["StructField"]("model_name", t["StringType"](), False),
             t["StructField"]("model_version", t["StringType"](), False),
-            t["StructField"]("account_id", t["StringType"](), False),
+            t["StructField"]("entity_id", t["StringType"](), False),
             t["StructField"]("as_of_date", t["TimestampType"](), True),
             t["StructField"](
                 "top_drivers",

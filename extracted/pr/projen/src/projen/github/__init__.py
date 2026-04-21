@@ -859,6 +859,30 @@ class CheckoutOptions(_JobStepConfiguration_9caff420):
         )
 
 
+@jsii.enum(jsii_type="projen.github.CheckoutSubmodules")
+class CheckoutSubmodules(enum.Enum):
+    '''(experimental) Whether to checkout Git submodules in CI workflows.
+
+    :stability: experimental
+    '''
+
+    DISABLED = "DISABLED"
+    '''(experimental) Don't checkout submodules.
+
+    :stability: experimental
+    '''
+    ENABLED = "ENABLED"
+    '''(experimental) Checkout only top-level submodules.
+
+    :stability: experimental
+    '''
+    RECURSIVE = "RECURSIVE"
+    '''(experimental) Checkout submodules recursively.
+
+    :stability: experimental
+    '''
+
+
 @jsii.data_type(
     jsii_type="projen.github.CheckoutWith",
     jsii_struct_bases=[],
@@ -868,6 +892,7 @@ class CheckoutOptions(_JobStepConfiguration_9caff420):
         "path": "path",
         "ref": "ref",
         "repository": "repository",
+        "submodules": "submodules",
         "token": "token",
     },
 )
@@ -880,6 +905,7 @@ class CheckoutWith:
         path: typing.Optional[builtins.str] = None,
         ref: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
+        submodules: typing.Optional["CheckoutSubmodules"] = None,
         token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Options for ``checkout``.
@@ -889,6 +915,7 @@ class CheckoutWith:
         :param path: (experimental) Relative path under $GITHUB_WORKSPACE to place the repository. Default: - $GITHUB_WORKSPACE
         :param ref: (experimental) Branch or tag name. Default: - the default branch is implicitly used
         :param repository: (experimental) The repository (owner/repo) to use. Default: - the default repository is implicitly used
+        :param submodules: (experimental) Whether to checkout Git submodules. Default: CheckoutSubmodules.DISABLED
         :param token: (experimental) A GitHub token to use when checking out the repository. If the intent is to push changes back to the branch, then you must use a PAT with ``repo`` (and possibly ``workflows``) permissions. Default: - the default GITHUB_TOKEN is implicitly used
 
         :stability: experimental
@@ -900,6 +927,7 @@ class CheckoutWith:
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument ref", value=ref, expected_type=type_hints["ref"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
+            check_type(argname="argument submodules", value=submodules, expected_type=type_hints["submodules"])
             check_type(argname="argument token", value=token, expected_type=type_hints["token"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if fetch_depth is not None:
@@ -912,6 +940,8 @@ class CheckoutWith:
             self._values["ref"] = ref
         if repository is not None:
             self._values["repository"] = repository
+        if submodules is not None:
+            self._values["submodules"] = submodules
         if token is not None:
             self._values["token"] = token
 
@@ -973,6 +1003,17 @@ class CheckoutWith:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def submodules(self) -> typing.Optional["CheckoutSubmodules"]:
+        '''(experimental) Whether to checkout Git submodules.
+
+        :default: CheckoutSubmodules.DISABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("submodules")
+        return typing.cast(typing.Optional["CheckoutSubmodules"], result)
+
+    @builtins.property
     def token(self) -> typing.Optional[builtins.str]:
         '''(experimental) A GitHub token to use when checking out the repository.
 
@@ -1007,6 +1048,7 @@ class CheckoutWith:
         "path": "path",
         "ref": "ref",
         "repository": "repository",
+        "submodules": "submodules",
         "token": "token",
         "patch_file": "patchFile",
     },
@@ -1020,6 +1062,7 @@ class CheckoutWithPatchOptions(CheckoutWith):
         path: typing.Optional[builtins.str] = None,
         ref: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
+        submodules: typing.Optional["CheckoutSubmodules"] = None,
         token: typing.Optional[builtins.str] = None,
         patch_file: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -1030,6 +1073,7 @@ class CheckoutWithPatchOptions(CheckoutWith):
         :param path: (experimental) Relative path under $GITHUB_WORKSPACE to place the repository. Default: - $GITHUB_WORKSPACE
         :param ref: (experimental) Branch or tag name. Default: - the default branch is implicitly used
         :param repository: (experimental) The repository (owner/repo) to use. Default: - the default repository is implicitly used
+        :param submodules: (experimental) Whether to checkout Git submodules. Default: CheckoutSubmodules.DISABLED
         :param token: (experimental) A GitHub token to use when checking out the repository. If the intent is to push changes back to the branch, then you must use a PAT with ``repo`` (and possibly ``workflows``) permissions. Default: - the default GITHUB_TOKEN is implicitly used
         :param patch_file: (experimental) The name of the artifact the patch is stored as. Default: ".repo.patch"
 
@@ -1042,6 +1086,7 @@ class CheckoutWithPatchOptions(CheckoutWith):
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument ref", value=ref, expected_type=type_hints["ref"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
+            check_type(argname="argument submodules", value=submodules, expected_type=type_hints["submodules"])
             check_type(argname="argument token", value=token, expected_type=type_hints["token"])
             check_type(argname="argument patch_file", value=patch_file, expected_type=type_hints["patch_file"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1055,6 +1100,8 @@ class CheckoutWithPatchOptions(CheckoutWith):
             self._values["ref"] = ref
         if repository is not None:
             self._values["repository"] = repository
+        if submodules is not None:
+            self._values["submodules"] = submodules
         if token is not None:
             self._values["token"] = token
         if patch_file is not None:
@@ -1116,6 +1163,17 @@ class CheckoutWithPatchOptions(CheckoutWith):
         '''
         result = self._values.get("repository")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def submodules(self) -> typing.Optional["CheckoutSubmodules"]:
+        '''(experimental) Whether to checkout Git submodules.
+
+        :default: CheckoutSubmodules.DISABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("submodules")
+        return typing.cast(typing.Optional["CheckoutSubmodules"], result)
 
     @builtins.property
     def token(self) -> typing.Optional[builtins.str]:
@@ -3319,6 +3377,7 @@ class GitHub(
         self,
         project: "_Project_57d89203",
         *,
+        checkout_submodules: typing.Optional["CheckoutSubmodules"] = None,
         dependency_review: typing.Optional[builtins.bool] = None,
         dependency_review_options: typing.Optional[typing.Union["DependencyReviewOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
@@ -3336,6 +3395,7 @@ class GitHub(
     ) -> None:
         '''
         :param project: -
+        :param checkout_submodules: (experimental) Whether to checkout Git submodules. Default: CheckoutSubmodules.DISABLED
         :param dependency_review: (experimental) Enable the dependency-review-action workflow on pull requests. Adds a separate workflow that runs ``actions/dependency-review-action`` to scan pull requests for newly introduced vulnerable or non-compliant dependencies. Default: false
         :param dependency_review_options: (experimental) Options for the dependency review workflow. Only used when ``dependencyReview`` is ``true``. Default: - default options
         :param download_lfs: (experimental) Download files in LFS in workflows. Default: true if the associated project has ``lfsPatterns``, ``false`` otherwise
@@ -3357,6 +3417,7 @@ class GitHub(
             type_hints = typing.get_type_hints(_typecheckingstub__65db11e8703472c7fa4e013294c649e43b7f8634b29ca11be71b46d8c549c4d1)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = GitHubOptions(
+            checkout_submodules=checkout_submodules,
             dependency_review=dependency_review,
             dependency_review_options=dependency_review_options,
             download_lfs=download_lfs,
@@ -3500,6 +3561,15 @@ class GitHub(
         return typing.cast("GitHubActionsProvider", jsii.get(self, "actions"))
 
     @builtins.property
+    @jsii.member(jsii_name="checkoutSubmodules")
+    def checkout_submodules(self) -> "CheckoutSubmodules":
+        '''(experimental) Whether checking out Git submodules is enabled for this GitHub project.
+
+        :stability: experimental
+        '''
+        return typing.cast("CheckoutSubmodules", jsii.get(self, "checkoutSubmodules"))
+
+    @builtins.property
     @jsii.member(jsii_name="downloadLfs")
     def download_lfs(self) -> builtins.bool:
         '''(experimental) Whether downloading from LFS is enabled for this GitHub project.
@@ -3616,6 +3686,7 @@ class GitHubActionsProvider(
     jsii_type="projen.github.GitHubOptions",
     jsii_struct_bases=[],
     name_mapping={
+        "checkout_submodules": "checkoutSubmodules",
         "dependency_review": "dependencyReview",
         "dependency_review_options": "dependencyReviewOptions",
         "download_lfs": "downloadLfs",
@@ -3636,6 +3707,7 @@ class GitHubOptions:
     def __init__(
         self,
         *,
+        checkout_submodules: typing.Optional["CheckoutSubmodules"] = None,
         dependency_review: typing.Optional[builtins.bool] = None,
         dependency_review_options: typing.Optional[typing.Union["DependencyReviewOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
@@ -3652,6 +3724,7 @@ class GitHubOptions:
         workflows: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
+        :param checkout_submodules: (experimental) Whether to checkout Git submodules. Default: CheckoutSubmodules.DISABLED
         :param dependency_review: (experimental) Enable the dependency-review-action workflow on pull requests. Adds a separate workflow that runs ``actions/dependency-review-action`` to scan pull requests for newly introduced vulnerable or non-compliant dependencies. Default: false
         :param dependency_review_options: (experimental) Options for the dependency review workflow. Only used when ``dependencyReview`` is ``true``. Default: - default options
         :param download_lfs: (experimental) Download files in LFS in workflows. Default: true if the associated project has ``lfsPatterns``, ``false`` otherwise
@@ -3681,6 +3754,7 @@ class GitHubOptions:
             pull_request_lint_options = PullRequestLintOptions(**pull_request_lint_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c22e66f011c96f13a6f4e5b07bb676bf98b477678e968ee61f79ee107a7d2bd7)
+            check_type(argname="argument checkout_submodules", value=checkout_submodules, expected_type=type_hints["checkout_submodules"])
             check_type(argname="argument dependency_review", value=dependency_review, expected_type=type_hints["dependency_review"])
             check_type(argname="argument dependency_review_options", value=dependency_review_options, expected_type=type_hints["dependency_review_options"])
             check_type(argname="argument download_lfs", value=download_lfs, expected_type=type_hints["download_lfs"])
@@ -3696,6 +3770,8 @@ class GitHubOptions:
             check_type(argname="argument pull_request_lint_options", value=pull_request_lint_options, expected_type=type_hints["pull_request_lint_options"])
             check_type(argname="argument workflows", value=workflows, expected_type=type_hints["workflows"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if checkout_submodules is not None:
+            self._values["checkout_submodules"] = checkout_submodules
         if dependency_review is not None:
             self._values["dependency_review"] = dependency_review
         if dependency_review_options is not None:
@@ -3724,6 +3800,17 @@ class GitHubOptions:
             self._values["pull_request_lint_options"] = pull_request_lint_options
         if workflows is not None:
             self._values["workflows"] = workflows
+
+    @builtins.property
+    def checkout_submodules(self) -> typing.Optional["CheckoutSubmodules"]:
+        '''(experimental) Whether to checkout Git submodules.
+
+        :default: CheckoutSubmodules.DISABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("checkout_submodules")
+        return typing.cast(typing.Optional["CheckoutSubmodules"], result)
 
     @builtins.property
     def dependency_review(self) -> typing.Optional[builtins.bool]:
@@ -6959,6 +7046,7 @@ class PullRequestLintOptions:
         "path": "path",
         "ref": "ref",
         "repository": "repository",
+        "submodules": "submodules",
         "token": "token",
         "patch_file": "patchFile",
         "job_id": "jobId",
@@ -6974,6 +7062,7 @@ class PullRequestPatchSource(CheckoutWithPatchOptions):
         path: typing.Optional[builtins.str] = None,
         ref: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
+        submodules: typing.Optional["CheckoutSubmodules"] = None,
         token: typing.Optional[builtins.str] = None,
         patch_file: typing.Optional[builtins.str] = None,
         job_id: builtins.str,
@@ -6985,6 +7074,7 @@ class PullRequestPatchSource(CheckoutWithPatchOptions):
         :param path: (experimental) Relative path under $GITHUB_WORKSPACE to place the repository. Default: - $GITHUB_WORKSPACE
         :param ref: (experimental) Branch or tag name. Default: - the default branch is implicitly used
         :param repository: (experimental) The repository (owner/repo) to use. Default: - the default repository is implicitly used
+        :param submodules: (experimental) Whether to checkout Git submodules. Default: CheckoutSubmodules.DISABLED
         :param token: (experimental) A GitHub token to use when checking out the repository. If the intent is to push changes back to the branch, then you must use a PAT with ``repo`` (and possibly ``workflows``) permissions. Default: - the default GITHUB_TOKEN is implicitly used
         :param patch_file: (experimental) The name of the artifact the patch is stored as. Default: ".repo.patch"
         :param job_id: (experimental) The id of the job that created the patch file.
@@ -6999,6 +7089,7 @@ class PullRequestPatchSource(CheckoutWithPatchOptions):
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument ref", value=ref, expected_type=type_hints["ref"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
+            check_type(argname="argument submodules", value=submodules, expected_type=type_hints["submodules"])
             check_type(argname="argument token", value=token, expected_type=type_hints["token"])
             check_type(argname="argument patch_file", value=patch_file, expected_type=type_hints["patch_file"])
             check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
@@ -7017,6 +7108,8 @@ class PullRequestPatchSource(CheckoutWithPatchOptions):
             self._values["ref"] = ref
         if repository is not None:
             self._values["repository"] = repository
+        if submodules is not None:
+            self._values["submodules"] = submodules
         if token is not None:
             self._values["token"] = token
         if patch_file is not None:
@@ -7078,6 +7171,17 @@ class PullRequestPatchSource(CheckoutWithPatchOptions):
         '''
         result = self._values.get("repository")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def submodules(self) -> typing.Optional["CheckoutSubmodules"]:
+        '''(experimental) Whether to checkout Git submodules.
+
+        :default: CheckoutSubmodules.DISABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("submodules")
+        return typing.cast(typing.Optional["CheckoutSubmodules"], result)
 
     @builtins.property
     def token(self) -> typing.Optional[builtins.str]:
@@ -7846,6 +7950,7 @@ class TaskWorkflow(
         triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         permissions: typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]],
         artifacts_directory: typing.Optional[builtins.str] = None,
+        checkout_submodules: typing.Optional["CheckoutSubmodules"] = None,
         checkout_with: typing.Optional[typing.Union["CheckoutWith", typing.Dict[builtins.str, typing.Any]]] = None,
         condition: typing.Optional[builtins.str] = None,
         container: typing.Optional[typing.Union["_ContainerOptions_f50907af", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7869,6 +7974,7 @@ class TaskWorkflow(
         :param triggers: (experimental) The triggers for the workflow. Default: - by default workflows can only be triggered by manually.
         :param permissions: (experimental) Permissions for the build job.
         :param artifacts_directory: (experimental) A directory name which contains artifacts to be uploaded (e.g. ``dist``). If this is set, the contents of this directory will be uploaded as an artifact at the end of the workflow run, even if other steps fail. Default: - not set
+        :param checkout_submodules: (experimental) Whether to checkout Git submodules. Default: - Use the setting on the corresponding GitHub project
         :param checkout_with: (experimental) Override for the ``with`` property of the source code checkout step. Default: - not set
         :param condition: (experimental) Adds an 'if' condition to the workflow.
         :param container: Default: - default image
@@ -7896,6 +8002,7 @@ class TaskWorkflow(
             triggers=triggers,
             permissions=permissions,
             artifacts_directory=artifacts_directory,
+            checkout_submodules=checkout_submodules,
             checkout_with=checkout_with,
             condition=condition,
             container=container,
@@ -7949,6 +8056,7 @@ class TaskWorkflowJob(
         *,
         permissions: typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]],
         artifacts_directory: typing.Optional[builtins.str] = None,
+        checkout_submodules: typing.Optional["CheckoutSubmodules"] = None,
         checkout_with: typing.Optional[typing.Union["CheckoutWith", typing.Dict[builtins.str, typing.Any]]] = None,
         condition: typing.Optional[builtins.str] = None,
         container: typing.Optional[typing.Union["_ContainerOptions_f50907af", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7969,6 +8077,7 @@ class TaskWorkflowJob(
         :param task: the main task that is run as part of this job.
         :param permissions: (experimental) Permissions for the build job.
         :param artifacts_directory: (experimental) A directory name which contains artifacts to be uploaded (e.g. ``dist``). If this is set, the contents of this directory will be uploaded as an artifact at the end of the workflow run, even if other steps fail. Default: - not set
+        :param checkout_submodules: (experimental) Whether to checkout Git submodules. Default: - Use the setting on the corresponding GitHub project
         :param checkout_with: (experimental) Override for the ``with`` property of the source code checkout step. Default: - not set
         :param condition: (experimental) Adds an 'if' condition to the workflow.
         :param container: Default: - default image
@@ -7993,6 +8102,7 @@ class TaskWorkflowJob(
         options = TaskWorkflowJobOptions(
             permissions=permissions,
             artifacts_directory=artifacts_directory,
+            checkout_submodules=checkout_submodules,
             checkout_with=checkout_with,
             condition=condition,
             container=container,
@@ -8166,6 +8276,7 @@ class TaskWorkflowJob(
     name_mapping={
         "permissions": "permissions",
         "artifacts_directory": "artifactsDirectory",
+        "checkout_submodules": "checkoutSubmodules",
         "checkout_with": "checkoutWith",
         "condition": "condition",
         "container": "container",
@@ -8188,6 +8299,7 @@ class TaskWorkflowJobOptions:
         *,
         permissions: typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]],
         artifacts_directory: typing.Optional[builtins.str] = None,
+        checkout_submodules: typing.Optional["CheckoutSubmodules"] = None,
         checkout_with: typing.Optional[typing.Union["CheckoutWith", typing.Dict[builtins.str, typing.Any]]] = None,
         condition: typing.Optional[builtins.str] = None,
         container: typing.Optional[typing.Union["_ContainerOptions_f50907af", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -8207,6 +8319,7 @@ class TaskWorkflowJobOptions:
 
         :param permissions: (experimental) Permissions for the build job.
         :param artifacts_directory: (experimental) A directory name which contains artifacts to be uploaded (e.g. ``dist``). If this is set, the contents of this directory will be uploaded as an artifact at the end of the workflow run, even if other steps fail. Default: - not set
+        :param checkout_submodules: (experimental) Whether to checkout Git submodules. Default: - Use the setting on the corresponding GitHub project
         :param checkout_with: (experimental) Override for the ``with`` property of the source code checkout step. Default: - not set
         :param condition: (experimental) Adds an 'if' condition to the workflow.
         :param container: Default: - default image
@@ -8240,6 +8353,7 @@ class TaskWorkflowJobOptions:
             type_hints = typing.get_type_hints(_typecheckingstub__4f2039f9f0120fa5bcc0261afed5aa5fd2be59874413018ee781d5e75221c30c)
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
+            check_type(argname="argument checkout_submodules", value=checkout_submodules, expected_type=type_hints["checkout_submodules"])
             check_type(argname="argument checkout_with", value=checkout_with, expected_type=type_hints["checkout_with"])
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
             check_type(argname="argument container", value=container, expected_type=type_hints["container"])
@@ -8259,6 +8373,8 @@ class TaskWorkflowJobOptions:
         }
         if artifacts_directory is not None:
             self._values["artifacts_directory"] = artifacts_directory
+        if checkout_submodules is not None:
+            self._values["checkout_submodules"] = checkout_submodules
         if checkout_with is not None:
             self._values["checkout_with"] = checkout_with
         if condition is not None:
@@ -8308,6 +8424,17 @@ class TaskWorkflowJobOptions:
         '''
         result = self._values.get("artifacts_directory")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def checkout_submodules(self) -> typing.Optional["CheckoutSubmodules"]:
+        '''(experimental) Whether to checkout Git submodules.
+
+        :default: - Use the setting on the corresponding GitHub project
+
+        :stability: experimental
+        '''
+        result = self._values.get("checkout_submodules")
+        return typing.cast(typing.Optional["CheckoutSubmodules"], result)
 
     @builtins.property
     def checkout_with(self) -> typing.Optional["CheckoutWith"]:
@@ -8480,6 +8607,7 @@ class TaskWorkflowJobOptions:
     name_mapping={
         "permissions": "permissions",
         "artifacts_directory": "artifactsDirectory",
+        "checkout_submodules": "checkoutSubmodules",
         "checkout_with": "checkoutWith",
         "condition": "condition",
         "container": "container",
@@ -8506,6 +8634,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         *,
         permissions: typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]],
         artifacts_directory: typing.Optional[builtins.str] = None,
+        checkout_submodules: typing.Optional["CheckoutSubmodules"] = None,
         checkout_with: typing.Optional[typing.Union["CheckoutWith", typing.Dict[builtins.str, typing.Any]]] = None,
         condition: typing.Optional[builtins.str] = None,
         container: typing.Optional[typing.Union["_ContainerOptions_f50907af", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -8529,6 +8658,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
 
         :param permissions: (experimental) Permissions for the build job.
         :param artifacts_directory: (experimental) A directory name which contains artifacts to be uploaded (e.g. ``dist``). If this is set, the contents of this directory will be uploaded as an artifact at the end of the workflow run, even if other steps fail. Default: - not set
+        :param checkout_submodules: (experimental) Whether to checkout Git submodules. Default: - Use the setting on the corresponding GitHub project
         :param checkout_with: (experimental) Override for the ``with`` property of the source code checkout step. Default: - not set
         :param condition: (experimental) Adds an 'if' condition to the workflow.
         :param container: Default: - default image
@@ -8568,6 +8698,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
             type_hints = typing.get_type_hints(_typecheckingstub__15e1c594f5876baf2e105789fcb541bcb5e71cea5ad4320fb67052a9ce6946a8)
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
+            check_type(argname="argument checkout_submodules", value=checkout_submodules, expected_type=type_hints["checkout_submodules"])
             check_type(argname="argument checkout_with", value=checkout_with, expected_type=type_hints["checkout_with"])
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
             check_type(argname="argument container", value=container, expected_type=type_hints["container"])
@@ -8593,6 +8724,8 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         }
         if artifacts_directory is not None:
             self._values["artifacts_directory"] = artifacts_directory
+        if checkout_submodules is not None:
+            self._values["checkout_submodules"] = checkout_submodules
         if checkout_with is not None:
             self._values["checkout_with"] = checkout_with
         if condition is not None:
@@ -8646,6 +8779,17 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         '''
         result = self._values.get("artifacts_directory")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def checkout_submodules(self) -> typing.Optional["CheckoutSubmodules"]:
+        '''(experimental) Whether to checkout Git submodules.
+
+        :default: - Use the setting on the corresponding GitHub project
+
+        :stability: experimental
+        '''
+        result = self._values.get("checkout_submodules")
+        return typing.cast(typing.Optional["CheckoutSubmodules"], result)
 
     @builtins.property
     def checkout_with(self) -> typing.Optional["CheckoutWith"]:
@@ -9385,6 +9529,7 @@ class WorkflowActions(
         path: typing.Optional[builtins.str] = None,
         ref: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
+        submodules: typing.Optional["CheckoutSubmodules"] = None,
         token: typing.Optional[builtins.str] = None,
     ) -> typing.List["_JobStep_c3287c05"]:
         '''(experimental) Checks out a repository and applies a git patch that was created using ``uploadGitPatch``.
@@ -9395,6 +9540,7 @@ class WorkflowActions(
         :param path: (experimental) Relative path under $GITHUB_WORKSPACE to place the repository. Default: - $GITHUB_WORKSPACE
         :param ref: (experimental) Branch or tag name. Default: - the default branch is implicitly used
         :param repository: (experimental) The repository (owner/repo) to use. Default: - the default repository is implicitly used
+        :param submodules: (experimental) Whether to checkout Git submodules. Default: CheckoutSubmodules.DISABLED
         :param token: (experimental) A GitHub token to use when checking out the repository. If the intent is to push changes back to the branch, then you must use a PAT with ``repo`` (and possibly ``workflows``) permissions. Default: - the default GITHUB_TOKEN is implicitly used
 
         :return: Job steps
@@ -9408,6 +9554,7 @@ class WorkflowActions(
             path=path,
             ref=ref,
             repository=repository,
+            submodules=submodules,
             token=token,
         )
 
@@ -9859,6 +10006,7 @@ __all__ = [
     "AutoQueue",
     "AutoQueueOptions",
     "CheckoutOptions",
+    "CheckoutSubmodules",
     "CheckoutWith",
     "CheckoutWithPatchOptions",
     "ConcurrencyOptions",
@@ -10035,6 +10183,7 @@ def _typecheckingstub__57379070911f0df36ef38a23c138780de73f270c4e64ea8e6b7f4f128
     path: typing.Optional[builtins.str] = None,
     ref: typing.Optional[builtins.str] = None,
     repository: typing.Optional[builtins.str] = None,
+    submodules: typing.Optional[CheckoutSubmodules] = None,
     token: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -10047,6 +10196,7 @@ def _typecheckingstub__c7405ea05e49b1f743e00dc103618fbd659c979bbec234492b8928ed6
     path: typing.Optional[builtins.str] = None,
     ref: typing.Optional[builtins.str] = None,
     repository: typing.Optional[builtins.str] = None,
+    submodules: typing.Optional[CheckoutSubmodules] = None,
     token: typing.Optional[builtins.str] = None,
     patch_file: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -10263,6 +10413,7 @@ def _typecheckingstub__3e5008f68a85d8490ecf62a54f413b82cc795d9a14d3bc8eabcc2720f
 def _typecheckingstub__65db11e8703472c7fa4e013294c649e43b7f8634b29ca11be71b46d8c549c4d1(
     project: _Project_57d89203,
     *,
+    checkout_submodules: typing.Optional[CheckoutSubmodules] = None,
     dependency_review: typing.Optional[builtins.bool] = None,
     dependency_review_options: typing.Optional[typing.Union[DependencyReviewOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
@@ -10320,6 +10471,7 @@ def _typecheckingstub__20166ac47381861e1a45b550a5e9646380c52a927fca9ebf00ec36dab
 
 def _typecheckingstub__c22e66f011c96f13a6f4e5b07bb676bf98b477678e968ee61f79ee107a7d2bd7(
     *,
+    checkout_submodules: typing.Optional[CheckoutSubmodules] = None,
     dependency_review: typing.Optional[builtins.bool] = None,
     dependency_review_options: typing.Optional[typing.Union[DependencyReviewOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
@@ -10623,6 +10775,7 @@ def _typecheckingstub__c3c9a28aa8266154d9a36adad571b3695e958b931e79b9eaff4a7dc55
     path: typing.Optional[builtins.str] = None,
     ref: typing.Optional[builtins.str] = None,
     repository: typing.Optional[builtins.str] = None,
+    submodules: typing.Optional[CheckoutSubmodules] = None,
     token: typing.Optional[builtins.str] = None,
     patch_file: typing.Optional[builtins.str] = None,
     job_id: builtins.str,
@@ -10719,6 +10872,7 @@ def _typecheckingstub__8d4fb3030e96a87b921aa6bfb0d4ccf7a90d4c2affbcb8eeca2d5a24c
     triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
     permissions: typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]],
     artifacts_directory: typing.Optional[builtins.str] = None,
+    checkout_submodules: typing.Optional[CheckoutSubmodules] = None,
     checkout_with: typing.Optional[typing.Union[CheckoutWith, typing.Dict[builtins.str, typing.Any]]] = None,
     condition: typing.Optional[builtins.str] = None,
     container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -10743,6 +10897,7 @@ def _typecheckingstub__8e35b96aa7e4fe84c59cac8c7e3f4c146c780c7b09807f610b1aaf727
     *,
     permissions: typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]],
     artifacts_directory: typing.Optional[builtins.str] = None,
+    checkout_submodules: typing.Optional[CheckoutSubmodules] = None,
     checkout_with: typing.Optional[typing.Union[CheckoutWith, typing.Dict[builtins.str, typing.Any]]] = None,
     condition: typing.Optional[builtins.str] = None,
     container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -10765,6 +10920,7 @@ def _typecheckingstub__4f2039f9f0120fa5bcc0261afed5aa5fd2be59874413018ee781d5e75
     *,
     permissions: typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]],
     artifacts_directory: typing.Optional[builtins.str] = None,
+    checkout_submodules: typing.Optional[CheckoutSubmodules] = None,
     checkout_with: typing.Optional[typing.Union[CheckoutWith, typing.Dict[builtins.str, typing.Any]]] = None,
     condition: typing.Optional[builtins.str] = None,
     container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -10787,6 +10943,7 @@ def _typecheckingstub__15e1c594f5876baf2e105789fcb541bcb5e71cea5ad4320fb67052a9c
     *,
     permissions: typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]],
     artifacts_directory: typing.Optional[builtins.str] = None,
+    checkout_submodules: typing.Optional[CheckoutSubmodules] = None,
     checkout_with: typing.Optional[typing.Union[CheckoutWith, typing.Dict[builtins.str, typing.Any]]] = None,
     condition: typing.Optional[builtins.str] = None,
     container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,

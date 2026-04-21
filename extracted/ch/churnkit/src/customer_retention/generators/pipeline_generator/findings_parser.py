@@ -98,6 +98,25 @@ _RECOGNIZED_BRONZE_OVERRIDE_KEYS = frozenset(
 )
 
 
+def resolve_aggregation_windows(*, intent, material, override):
+    """Precedence: per-dataset override > multi-dataset intent > findings material.
+
+    Intent (``multi.aggregation_windows``) is the user-declared window breadth;
+    ``ts.aggregation_windows_used`` records what NB01d actually materialized
+    after coverage-based narrowing. When intent is set, it must win — otherwise
+    a coverage recommendation silently drops window families the user expects
+    to appear in generated bronze (cycle 3 / G4). ``override`` is the
+    per-dataset ``BRONZE_AGGREGATIONS[<ds>]['windows']`` escape hatch.
+    """
+    if override:
+        return list(override)
+    if intent:
+        return list(intent)
+    if material:
+        return list(material)
+    return []
+
+
 def _get_delta_for_silver_schema():
     from customer_retention.integrations.adapters.factory import get_delta
     return get_delta()
@@ -412,6 +431,7 @@ class FindingsParser:
                 entity_column=info.get("entity_column"),
                 time_column=info.get("time_column"),
                 target_column=info.get("target_column"),
+                raw_source_path=info.get("raw_source_path"),
                 excluded=info.get("excluded", False),
                 excluded_leaking_features=[
                     LeakageExclusion.from_dict(e) for e in info.get("excluded_leaking_features") or []
@@ -1035,6 +1055,17 @@ class FindingsParser:
         return columns
 
     def _read_silver_merged_columns(self) -> Set[str]:
+        """Return ONLY unpaired ``_x``/``_y``-suffixed columns from stale silver.
+
+        Why: a previous silver Delta may carry bare columns (e.g. ``dow_sin``)
+        that the current bronze config no longer produces — lifting those into
+        ``pipeline_columns`` silently green-lights silver derived-column recs
+        that crash at runtime with ``UNRESOLVED_COLUMN``. Bare names must come
+        from the current config (``bronze_raw ∪ event_aggregated``); the stale
+        cache is only trusted for merge-artifact suffixes, which genuinely only
+        exist post-silver-merge and cannot be predicted from bronze alone.
+        Paired ``<base>_x``/``<base>_y`` are pandas-merge collisions and excluded.
+        """
         cached = getattr(self, "_silver_merged_columns_cache", None)
         if cached is not None:
             return cached
@@ -1045,8 +1076,19 @@ class FindingsParser:
             return self._silver_merged_columns_cache
         delta = _get_delta_for_silver_schema()
         df = delta.read(str(silver_path))
-        self._silver_merged_columns_cache = self._strip_merge_suffix_artifacts(set(df.columns))
+        self._silver_merged_columns_cache = self._unpaired_merge_suffix_columns(set(df.columns))
         return self._silver_merged_columns_cache
+
+    @staticmethod
+    def _unpaired_merge_suffix_columns(columns: Set[str]) -> Set[str]:
+        merge_pairs = {
+            c[:-2] for c in columns
+            if c.endswith("_x") and (c[:-2] + "_y") in columns
+        }
+        return {
+            c for c in columns
+            if (c.endswith("_x") or c.endswith("_y")) and c[:-2] not in merge_pairs
+        }
 
     @staticmethod
     def _strip_merge_suffix_artifacts(columns: Set[str]) -> Set[str]:
@@ -1612,10 +1654,20 @@ class FindingsParser:
         self, multi: MultiDatasetFindings, findings: ExplorationFindings, dataset_name: str = ""
     ) -> Optional[AggregationWindowConfig]:
         ts = findings.time_series_metadata
-        windows = getattr(ts, "aggregation_windows_used", None) or [] if ts else []
+        if not ts:
+            return None
+        material = getattr(ts, "aggregation_windows_used", None) or []
+        intent = list(getattr(multi, "aggregation_windows", None) or [])
+        override_windows = (
+            (getattr(self, "_bronze_aggregation_overrides", {}) or {})
+            .get(dataset_name, {})
+            .get("windows")
+            if dataset_name else None
+        )
+        windows = resolve_aggregation_windows(
+            intent=intent, material=material, override=override_windows
+        )
         if not windows:
-            if not ts:
-                return None
             raise ValueError(
                 f"No aggregation_windows_used in findings for '{dataset_name}'. "
                 "NB01d must run before pipeline generation to record actual aggregation windows."

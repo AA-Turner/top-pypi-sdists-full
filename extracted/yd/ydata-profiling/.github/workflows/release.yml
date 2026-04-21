@@ -6,8 +6,6 @@ on:
     types:
     - released
 
-permissions:
-  contents: write
 
 jobs:
   package:
@@ -68,7 +66,7 @@ jobs:
     - uses: AButler/upload-release-assets@v3.0
       with:
         files: "dist/*"
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        repo-token: ${{ secrets.ACCESS_TOKEN }}
         release-tag: ${{ needs.package.outputs.version }}
   
   publish-pypi:

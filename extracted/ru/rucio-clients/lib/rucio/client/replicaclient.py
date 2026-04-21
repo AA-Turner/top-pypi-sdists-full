@@ -360,6 +360,7 @@ class ReplicaClient(BaseClient):
     def delete_replicas(self, rse, files, ignore_availability=True):
         """
         Bulk delete file replicas from a RSE.
+
         Parameters
         ----------
         rse:
@@ -383,9 +384,7 @@ class ReplicaClient(BaseClient):
         raise exc_cls(exc_msg)
 
     def update_replicas_states(self, rse, files):
-
         """
-
         Bulk update the file replicas states from a RSE.
 
         Parameters
@@ -556,10 +555,12 @@ class ReplicaClient(BaseClient):
         """
         Set a tombstone on a list of replicas.
 
+        This will result in the reaper daemon deleting the corresponding files on the RSE.
+
         Parameters
         ----------
         replicas:
-            list of replicas.
+            list of replicas. [{"scope": <scope>, "name": <name>, "rse": <rse>}, ...]
         """
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'tombstone']))
         data = {'replicas': replicas}

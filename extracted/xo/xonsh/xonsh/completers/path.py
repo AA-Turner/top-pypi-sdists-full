@@ -74,7 +74,13 @@ def _path_from_partial_string(inp, pos=None):
     try:
         val = ast.literal_eval(_string)
     except (SyntaxError, ValueError):
-        return None
+        # Raw strings can't end with an odd number of backslashes
+        # (e.g. r"C:\App\" is a SyntaxError). Extract the path directly.
+        raw_prefix = xt.RE_STRING_START.match(string)
+        if raw_prefix and "r" in raw_prefix.group().lower():
+            val = string[raw_prefix.end() + len(end) :]
+        else:
+            return None
     if isinstance(val, bytes):
         env = XSH.env
         val = val.decode(
@@ -90,7 +96,7 @@ def _normpath(p):
     """
     initial_dotslash = p.startswith(os.curdir + os.sep)
     initial_dotslash |= xp.ON_WINDOWS and p.startswith(os.curdir + os.altsep)
-    p = p.rstrip()
+    p = p.rstrip(" ")
     trailing_slash = p.endswith(os.sep)
     trailing_slash |= xp.ON_WINDOWS and p.endswith(os.altsep)
     p = os.path.normpath(p)
@@ -134,12 +140,11 @@ def _dots(prefix):
 def _add_cdpaths(paths, prefix):
     """Completes current prefix using CDPATH"""
     env = XSH.env
-    csc = env.get("CASE_SENSITIVE_COMPLETIONS")
     glob_sorted = env.get("GLOB_SORTED")
     for cdp in env.get("CDPATH"):
         test_glob = os.path.join(cdp, prefix) + "*"
         for s in xt.iglobpath(
-            test_glob, ignore_case=(not csc), sort_result=glob_sorted
+            test_glob, ignore_case=(not xp.ON_WINDOWS), sort_result=glob_sorted
         ):
             if os.path.isdir(s):
                 paths.add(os.path.relpath(s, cdp))
@@ -162,6 +167,33 @@ def _is_directory_in_cdpath(path):
     return False
 
 
+_CONTROL_CHAR_ESCAPE = str.maketrans(
+    {
+        "\n": "\\n",
+        "\t": "\\t",
+        "\r": "\\r",
+        "\f": "\\f",
+        "\v": "\\v",
+    }
+)
+
+
+def _has_control_chars(s):
+    return any(chr(c) in s for c in _CONTROL_CHAR_ESCAPE)
+
+
+def _raw_quote(s):
+    """Wrap *s* in r'...' with a trailing-backslash fix.
+
+    Raw strings can't end with an odd number of backslashes before the
+    closing quote (``r'path\\'`` is valid, ``r'path\\'`` is not).  Double
+    a lone trailing backslash so the result is always valid syntax.
+    """
+    if s.endswith("\\") and not s.endswith("\\\\"):
+        s += "\\"
+    return "r'" + s + "'"
+
+
 def _quote_paths(paths, start, end, append_end=True, cdpath=False):
     expand_path = XSH.expand_path
     out = set()
@@ -182,21 +214,38 @@ def _quote_paths(paths, start, end, append_end=True, cdpath=False):
         end = orig_end
         if start == "" and need_quotes:
             start = end = _quote_to_use(s)
-        expanded = expand_path(s)
-        if os.path.isdir(expanded) or (cdpath and _is_directory_in_cdpath(expanded)):
+        # For paths with $ or starting with ~ use the literal path for
+        # isdir — expand_path("$HOME") and expand_path("~") resolve to
+        # the home directory (always a dir), masking literal files.
+        check_path = s if ("$" in s or s.startswith("~")) else expand_path(s)
+        if os.path.isdir(check_path) or (
+            cdpath and _is_directory_in_cdpath(check_path)
+        ):
             _tail = slash
         elif end == "":
             _tail = space
         else:
             _tail = ""
-        if start != "" and "r" not in start and backslash in s:
+        # Filenames with control characters (newline, tab, etc.) must use
+        # regular (non-raw) strings so the escape sequences are interpreted.
+        has_ctrl = _has_control_chars(s)
+        needs_raw = (backslash in s or "$" in s) and not has_ctrl
+        if start != "" and "r" not in start.lower() and needs_raw:
             start = f"r{start}"
         s = s + _tail
+        # Raw strings can't end with \ before closing quote (e.g. r"path\" is
+        # a SyntaxError). Double the trailing backslash so it's valid (r"path\\").
+        if "r" in start.lower() and end != "" and s.endswith(backslash):
+            s = s + backslash
         if end != "":
             if "r" not in start.lower():
                 s = s.replace(backslash, double_backslash)
         if end in s:
             s = s.replace(end, "".join(f"\\{i}" for i in end))
+        # Translate control chars AFTER all backslash escaping so the
+        # introduced backslashes are not doubled.
+        if has_ctrl:
+            s = s.translate(_CONTROL_CHAR_ESCAPE)
         s = start + s + end if append_end else start + s
         out.add(s)
     return out, need_quotes
@@ -258,14 +307,8 @@ def subsequence_match(ref, typed, csc):
 
 
 def _subsequence_match_iter(ref, typed):
-    if len(typed) == 0:
-        return True
-    elif len(ref) == 0:
-        return False
-    elif ref[0] == typed[0]:
-        return _subsequence_match_iter(ref[1:], typed[1:])
-    else:
-        return _subsequence_match_iter(ref[1:], typed)
+    it = iter(ref)
+    return all(c in it for c in typed)
 
 
 def _expand_one(sofar, nextone, csc):
@@ -299,14 +342,63 @@ def _complete_path_raw(prefix, line, start, end, ctx, cdpath=True, filtfunc=None
         if len(line) >= end + 1 and line[end] == path_str_end:
             append_end = False
     tilde = "~"
+    # Raw strings (r'...') treat ~ literally — skip tilde expansion
+    # so that r'~/' completes inside a directory named ~ in cwd.
+    is_raw_string = "r" in path_str_start.lower() if path_str_start else False
     paths = set()
     env = XSH.env
-    csc = env.get("CASE_SENSITIVE_COMPLETIONS")
     glob_sorted = env.get("GLOB_SORTED")
     prefix = glob.escape(prefix)
-    for s in xt.iglobpath(prefix + "*", ignore_case=(not csc), sort_result=glob_sorted):
-        paths.add(s)
-    if len(paths) == 0 and env.get("SUBSEQUENCE_PATH_COMPLETION"):
+    # On Windows, bare ~ is not expanded by windows_expanduser (it requires
+    # a trailing separator).  Append os.sep so that iglobpath lists the
+    # home directory contents, matching the behavior of ~\ and ~/.
+    # Skip when a literal file/dir named ~ exists in cwd (PR #6339).
+    if (
+        xp.ON_WINDOWS
+        and prefix == tilde
+        and not is_raw_string
+        and not os.path.exists(tilde)
+    ):
+        prefix = tilde + os.sep
+    _prefix_is_dir_listing = prefix.endswith(os.sep) or (
+        os.altsep and prefix.endswith(os.altsep)
+    )
+    if is_raw_string and prefix.startswith(tilde):
+        # Use glob.glob directly to avoid iglobpath's expanduser
+        for s in (
+            sorted(glob.glob(prefix + "*")) if glob_sorted else glob.iglob(prefix + "*")
+        ):
+            paths.add(s)
+    else:
+        for s in xt.iglobpath(
+            prefix + "*", ignore_case=(not xp.ON_WINDOWS), sort_result=glob_sorted
+        ):
+            paths.add(s)
+    # Substring matches: *prefix* catches files containing the prefix
+    # anywhere in their name.  The pipeline's tier-based sort ensures
+    # prefix matches rank above substring matches.
+    if (
+        prefix
+        and not _prefix_is_dir_listing
+        and env.get("XONSH_COMPLETER_MODE", "substring_tier") == "substring_tier"
+    ):
+        dirpart = os.path.dirname(prefix)
+        namepart = os.path.basename(prefix)
+        if namepart:
+            pattern = (
+                os.path.join(dirpart, "*" + namepart + "*")
+                if dirpart
+                else "*" + namepart + "*"
+            )
+            for s in xt.iglobpath(
+                pattern, ignore_case=(not xp.ON_WINDOWS), sort_result=glob_sorted
+            ):
+                paths.add(s)
+    if (
+        len(paths) == 0
+        and env.get("SUBSEQUENCE_PATH_COMPLETION")
+        and not _prefix_is_dir_listing
+    ):
         # this block implements 'subsequence' matching, similar to fish and zsh.
         # matches are based on subsequences, not substrings.
         # e.g., ~/u/ro completes to ~/lou/carcolh
@@ -325,13 +417,17 @@ def _complete_path_raw(prefix, line, start, end, ctx, cdpath=True, filtfunc=None
                 basedir = None
             matches_so_far = {basedir}
             for i in p:
-                matches_so_far = _expand_one(matches_so_far, i, csc)
+                matches_so_far = _expand_one(matches_so_far, i, False)
             paths |= {_joinpath(i) for i in matches_so_far}
-    if len(paths) == 0 and env.get("FUZZY_PATH_COMPLETION"):
+    if (
+        len(paths) == 0
+        and env.get("FUZZY_PATH_COMPLETION")
+        and not _prefix_is_dir_listing
+    ):
         threshold = env.get("SUGGEST_THRESHOLD")
         for s in xt.iglobpath(
             os.path.dirname(prefix) + "*",
-            ignore_case=(not csc),
+            ignore_case=(not xp.ON_WINDOWS),
             sort_result=glob_sorted,
         ):
             if xt.levenshtein(prefix, s, threshold) < threshold:
@@ -339,12 +435,39 @@ def _complete_path_raw(prefix, line, start, end, ctx, cdpath=True, filtfunc=None
     if cdpath and cd_in_command(line):
         _add_cdpaths(paths, prefix)
     paths = set(filter(filtfunc, paths))
-    if tilde in prefix:
+    if tilde in prefix and not xp.ON_WINDOWS:
         home = os.path.expanduser(tilde)
         paths = {s.replace(home, tilde) for s in paths}
     paths, _ = _quote_paths(
         {_normpath(s) for s in paths}, path_str_start, path_str_end, append_end, cdpath
     )
+    # When a literal file/directory named ~ exists in cwd, add r'~...'
+    # completions so the user can select the local file instead of $HOME.
+    # This handles both "cd ~<Tab>" (prefix starts with ~) and "cd <Tab>"
+    # (empty prefix, ~ found by glob in cwd).
+    if not is_raw_string and os.path.exists(tilde):
+        tilde_remove = set()
+        for p in list(paths):
+            raw = p.rstrip()
+            # Skip entries already wrapped as r'...'.
+            if raw.startswith(("r'", 'r"')):
+                continue
+            # Strip optional quotes to inspect the path content.
+            inner = raw
+            if inner[:1] in ("'", '"'):
+                inner = inner[1:]
+            if inner[-1:] in ("'", '"'):
+                inner = inner[:-1]
+            # Unescape and strip trailing separator to compare.
+            inner = inner.replace("\\\\", "\\").rstrip("\\/ ")
+            if inner == tilde:
+                tilde_remove.add(p)
+        # Add the correct r'~...' entry for the literal ~ path.
+        if not filtfunc or filtfunc(tilde):
+            slash = xt.get_sep()
+            entry = tilde + slash if os.path.isdir(tilde) else tilde
+            paths -= tilde_remove
+            paths.add(_raw_quote(entry))
     paths.update(filter(filtfunc, _dots(prefix)))
     return paths, lprefix
 
@@ -366,9 +489,19 @@ def contextual_complete_path(command: CommandContext, cdpath=True, filtfunc=None
     # ``_complete_path_raw`` may add opening quotes:
     prefix = command.raw_prefix
 
+    # When the cursor is inside a closed string (before the closing quote),
+    # append the closing quote to the line so ``_complete_path_raw`` can
+    # detect it and set ``append_end = False``.  The completion will NOT
+    # include a closing quote, and lprefix will NOT cover the original
+    # closing quote — so the existing quote stays in place.
+    if command.closing_quote and not command.is_after_closing_quote:
+        line = prefix + command.closing_quote
+    else:
+        line = prefix
+
     completions, lprefix = _complete_path_raw(
         prefix,
-        prefix,
+        line,
         0,
         len(prefix),
         ctx={},
@@ -376,10 +509,24 @@ def contextual_complete_path(command: CommandContext, cdpath=True, filtfunc=None
         filtfunc=filtfunc,
     )
 
-    # ``_complete_path_raw`` may have added closing quotes:
-    rich_completions = {
-        RichCompletion(comp, append_closing_quote=False) for comp in completions
-    }
+    # Set an explicit display on completions whose text no longer
+    # starts with the typed prefix (e.g. expanded tilde on Windows:
+    # prefix "~" → completion "C:/Users/...").  Without this, the ptk
+    # completer strips ``len(prefix)`` chars from the front of the
+    # display, eating the drive letter.
+    rich_completions = set()
+    for comp in completions:
+        # Strip quote prefix (r', r", ', ") to get the path content.
+        inner = comp
+        if inner[:2] in ("r'", 'r"', "R'", 'R"'):
+            inner = inner[2:]
+        elif inner[:1] in ("'", '"'):
+            inner = inner[1:]
+        needs_display = not inner.startswith(prefix)
+        display = comp if needs_display else None
+        rich_completions.add(
+            RichCompletion(comp, display=display, append_closing_quote=False)
+        )
 
     return rich_completions, lprefix
 

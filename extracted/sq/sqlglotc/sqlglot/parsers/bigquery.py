@@ -199,7 +199,9 @@ class BigQueryParser(parser.Parser):
         "DATETIME_SUB": build_date_delta_with_interval(exp.DatetimeSub),
         "DIV": binary_from_function(exp.IntDiv),
         "EDIT_DISTANCE": _build_levenshtein,
+        "EMBED": exp.AIEmbed.from_arg_list,
         "FORMAT_DATE": _build_format_time(exp.TsOrDsToDate),
+        "GENERATE": exp.AIGenerate.from_arg_list,
         "GENERATE_ARRAY": exp.GenerateSeries.from_arg_list,
         "JSON_EXTRACT_SCALAR": _build_extract_json_with_default_path(exp.JSONExtractScalar),
         "JSON_EXTRACT_ARRAY": _build_extract_json_with_default_path(exp.JSONExtractArray),
@@ -238,6 +240,7 @@ class BigQueryParser(parser.Parser):
             this=seq_get(args, 0), length=exp.Literal.number(256)
         ),
         "SHA512": lambda args: exp.SHA2(this=seq_get(args, 0), length=exp.Literal.number(512)),
+        "SIMILARITY": exp.AISimilarity.from_arg_list,
         "SPLIT": lambda args: exp.Split(
             # https://cloud.google.com/bigquery/docs/reference/standard-sql/string_functions#split
             this=seq_get(args, 0),

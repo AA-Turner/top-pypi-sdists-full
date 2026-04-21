@@ -292,7 +292,7 @@ class TestElasticsearch7SearchQuery(TestCase):
                     {"match": {"_django_content_type": "searchtests.Book"}},
                     {
                         "bool": {
-                            "mustNot": {
+                            "must_not": {
                                 "term": {"publication_date_filter": "2017-10-18"}
                             }
                         }
@@ -445,7 +445,7 @@ class TestElasticsearch7SearchQuery(TestCase):
             "bool": {
                 "filter": [
                     {"match": {"_django_content_type": "searchtests.Book"}},
-                    {"bool": {"mustNot": {"exists": {"field": "title_filter"}}}},
+                    {"bool": {"must_not": {"exists": {"field": "title_filter"}}}},
                 ],
                 "must": {
                     "multi_match": {
@@ -472,7 +472,7 @@ class TestElasticsearch7SearchQuery(TestCase):
             "bool": {
                 "filter": [
                     {"match": {"_django_content_type": "searchtests.Book"}},
-                    {"bool": {"mustNot": {"exists": {"field": "title_filter"}}}},
+                    {"bool": {"must_not": {"exists": {"field": "title_filter"}}}},
                 ],
                 "must": {
                     "multi_match": {
@@ -1106,9 +1106,6 @@ class TestElasticsearch7Mapping(TestCase):
         # Create ES document
         self.obj = models.Book.objects.get(id=4)
 
-    def test_get_document_type(self):
-        self.assertEqual(self.es_mapping.get_document_type(), "doc")
-
     def test_get_mapping(self):
         # Build mapping
         mapping = self.es_mapping.get_mapping()
@@ -1226,9 +1223,6 @@ class TestElasticsearch7MappingInheritance(TestCase):
 
         self.obj = models.Novel.objects.get(id=4)
 
-    def test_get_document_type(self):
-        self.assertEqual(self.es_mapping.get_document_type(), "doc")
-
     def test_get_mapping(self):
         # Build mapping
         mapping = self.es_mapping.get_mapping()
@@ -1253,6 +1247,7 @@ class TestElasticsearch7MappingInheritance(TestCase):
                             "type": "text",
                             "copy_to": ["_all_text", "_all_text_boost_0_5"],
                         },
+                        "name_filter": {"type": "keyword"},
                         "novel_id_filter": {"type": "integer"},
                     },
                 },
@@ -1264,6 +1259,7 @@ class TestElasticsearch7MappingInheritance(TestCase):
                             "type": "text",
                             "copy_to": ["_all_text", "_all_text_boost_0_25"],
                         },
+                        "name_filter": {"type": "keyword"},
                     },
                 },
                 # Inherited
@@ -1346,13 +1342,14 @@ class TestElasticsearch7MappingInheritance(TestCase):
             "searchtests_novel__setting_edgengrams": "Middle Earth",
             "searchtests_novel__protagonist": {
                 "name": "Frodo Baggins",
+                "name_filter": "Frodo Baggins",
                 "novel_id_filter": 4,
             },
             "searchtests_novel__protagonist_id_filter": 8,
             "searchtests_novel__characters": [
-                {"name": "Bilbo Baggins"},
-                {"name": "Frodo Baggins"},
-                {"name": "Gandalf"},
+                {"name": "Bilbo Baggins", "name_filter": "Bilbo Baggins"},
+                {"name": "Frodo Baggins", "name_filter": "Frodo Baggins"},
+                {"name": "Gandalf", "name_filter": "Gandalf"},
             ],
             # Changed
             "_django_content_type": ["searchtests.Novel", "searchtests.Book"],

@@ -14,6 +14,7 @@ from typing import (
     Pattern,
     Type,
 )
+import uuid
 
 import numpy as np
 from hdbcli import dbapi  # type: ignore
@@ -28,6 +29,11 @@ from langchain_hana.vectorstores.create_where_clause import (
     CreateWhereClause,
 )
 from langchain_hana.utils import DistanceStrategy, _validate_k, _validate_k_and_fetch_k
+from langchain_hana.vectorstores.utils import (
+    _generate_cross_encode_sql_and_params,
+    _sanitize_metadata_keys,
+    _validate_rerank_model_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +102,7 @@ class HanaDB(VectorStore):
         self.specific_metadata_columns = HanaDB._sanitize_specific_metadata_columns(
             specific_metadata_columns or []
         )
+        self._validated_reranking_model_ids = set()
 
         # Configure the embedding (internal or external)
         self.embedding: Embeddings
@@ -270,17 +277,6 @@ class HanaDB(VectorStore):
             if not isinstance(value, float):
                 raise ValueError(f"Value ({value}) does not have type float")
         return embedding
-
-    # Compile pattern only once, for better performance
-    _compiled_pattern: Pattern = re.compile("^[_a-zA-Z][_a-zA-Z0-9]*$")
-
-    @staticmethod
-    def _sanitize_metadata_keys(metadata: dict) -> dict:
-        for key in metadata.keys():
-            if not HanaDB._compiled_pattern.match(key):
-                raise ValueError(f"Invalid metadata key {key}")
-
-        return metadata
 
     @staticmethod
     def _sanitize_specific_metadata_columns(
@@ -538,6 +534,8 @@ class HanaDB(VectorStore):
         texts: Iterable[str],
         metadatas: Optional[list[dict]] = None,
         embeddings: Optional[list[list[float]]] = None,
+        *,
+        use_map_merge: bool = False,
         **kwargs: Any,
     ) -> list[str]:
         """Add texts to the vectorstore.
@@ -548,6 +546,8 @@ class HanaDB(VectorStore):
                 Defaults to None.
             embeddings (Optional[list[list[float]]], optional): Optional pre-generated
                 embeddings. Defaults to None.
+            use_map_merge (bool, optional): Whether to use map merge for insertion
+                when using internal embeddings. Defaults to False.
 
         Returns:
             list[str]: empty list
@@ -556,10 +556,16 @@ class HanaDB(VectorStore):
         # decide how to add texts
         # using external embedding instance or internal embedding function of HanaDB
         if self.use_internal_embeddings:
+            if use_map_merge:
+                return self._add_texts_with_map_merge_using_internal_embedding(
+                    texts, metadatas
+                )
             return self._add_texts_using_internal_embedding(
                 texts, metadatas, embeddings
             )
         else:
+            if use_map_merge:
+                raise ValueError("map merge cannot be used with external embeddings")
             return self._add_texts_using_external_embedding(
                 texts, metadatas, embeddings
             )
@@ -583,10 +589,11 @@ class HanaDB(VectorStore):
             metadata, extracted_special_metadata = self._split_off_special_metadata(
                 metadata
             )
+            _sanitize_metadata_keys(list(metadata.keys()))
             sql_params.append(
                 (
                     text,
-                    json.dumps(HanaDB._sanitize_metadata_keys(metadata)),
+                    json.dumps(metadata),
                     self._serialize_binary_format(embeddings[i]),
                     *extracted_special_metadata,
                 )
@@ -623,10 +630,9 @@ class HanaDB(VectorStore):
             metadata, extracted_special_metadata = self._split_off_special_metadata(
                 metadata
             )
+            _sanitize_metadata_keys(list(metadata.keys()))
             parameters = [text]
-            parameters.append(json.dumps(
-                    HanaDB._sanitize_metadata_keys(metadata)
-                ))  # Replace `metadata_value` with the actual value
+            parameters.append(json.dumps(metadata))  # Replace `metadata_value` with the actual value
             parameters.extend(self._generate_vector_embedding_sql_and_params(text, 'DOCUMENT')[1])
             # specific_metadata_values must align with the columns
             parameters.extend(extracted_special_metadata)
@@ -659,6 +665,128 @@ class HanaDB(VectorStore):
             cur.close()
         return []
 
+    def _add_texts_with_map_merge_using_internal_embedding(
+        self,
+        texts: Iterable[str],
+        metadatas: Optional[list[dict]] = None,
+        **kwargs: Any,
+    ) -> list[str]:
+        """Add texts with map merge insertion using internal embedding function"""
+
+        cur = self.connection.cursor()
+
+        temp_table_name = f"#{self.table_name}_TEMP"
+        # TEMP TABLES ARE ROW BASED BY DEFAULT
+        create_temp_table_sql = f'''
+        CREATE LOCAL TEMPORARY COLUMN TABLE "{temp_table_name}" (
+            ID INT,
+            "VEC_TEXT" NCLOB,
+            "VEC_VECTOR" {self.vector_column_type}
+        )
+        '''
+
+        try:
+            cur.execute(create_temp_table_sql)
+        except Exception as e:
+            raise Exception(f"Error while creating temporary table for map merge :{e}")
+
+        try:
+            insert_temp_table_sql = f'''
+            INSERT INTO "{temp_table_name}" (ID, "VEC_TEXT", "VEC_VECTOR")
+            VALUES (?,?,NULL)
+            '''
+            cur.executemany(insert_temp_table_sql, [(i, text) for i,text in enumerate(texts)])
+            
+            if self.internal_embedding_remote_source:
+                vector_embedding_sql = f"""VECTOR_EMBEDDING(:i_text, 'DOCUMENT', :i_model_id, "{self.internal_embedding_remote_source}")"""
+            else:
+                vector_embedding_sql = """VECTOR_EMBEDDING(:i_text, 'DOCUMENT', :i_model_id)"""
+            vector_embedding_sql = self._convert_vector_embedding_to_column_type(
+                vector_embedding_sql
+            )
+            
+            uid = str(uuid.uuid4()).replace("-", "_")
+            temp_func_name = f"F_VECTOR_EMBEDDING_{uid}"
+            create_map_merge_function_sql = f"""
+            CREATE FUNCTION "{temp_func_name}"(
+                    IN i_id INT,
+                    IN i_text NCLOB,
+                    IN i_model_id NVARCHAR(5000)
+                )
+                RETURNS TABLE("ID" INT, "PAL_EMBEDDING" {self.vector_column_type})
+                LANGUAGE SQLSCRIPT READS SQL DATA AS
+                BEGIN
+                    RETURN 
+                        SELECT :i_id AS "ID", 
+                            {vector_embedding_sql} AS "PAL_EMBEDDING"
+                        FROM DUMMY;
+                END;
+            """
+            
+            try:
+                cur.execute(create_map_merge_function_sql)
+            except Exception as e:
+                raise Exception(f"Error while creating temporary function for map merge :{e}")
+
+            try:
+                call_map_merge_sql = f"""
+                    DO(IN i_model_id NVARCHAR(5000) => ?)
+                    BEGIN
+                        dat = SELECT "ID", "VEC_TEXT", "VEC_VECTOR" FROM "{temp_table_name}";
+                        o_res = MAP_MERGE(:dat, "{temp_func_name}"(:dat."ID", :dat."VEC_TEXT", :i_model_id));
+                        MERGE INTO "{temp_table_name}" AS dat
+                        USING :o_res AS upd
+                        ON dat."ID" = upd."ID"
+                        WHEN MATCHED THEN
+                            UPDATE SET dat."VEC_VECTOR" = upd."PAL_EMBEDDING";
+                    END;
+                """
+                cur.execute(call_map_merge_sql, [self.internal_embedding_model_id])
+
+                fetch_embeddings_sql = f"""
+                SELECT "VEC_VECTOR" FROM "{temp_table_name}" ORDER BY "ID"
+                """
+                cur.execute(fetch_embeddings_sql)
+                rows = cur.fetchall()
+                embeddings = [row[0] for row in rows]
+            finally:
+                cur.execute(f'DROP FUNCTION "{temp_func_name}"')
+        finally:
+            cur.execute(f'DROP TABLE "{temp_table_name}"')
+
+        sql_params = []
+        for i, text in enumerate(texts):
+            metadata = metadatas[i] if metadatas else {}
+            metadata, extracted_special_metadata = self._split_off_special_metadata(
+                metadata
+            )
+            _sanitize_metadata_keys(list(metadata.keys()))
+            sql_params.append(
+                (
+                    text,
+                    json.dumps(metadata),
+                    embeddings[i],
+                    *extracted_special_metadata
+                )
+            )
+
+        specific_metadata_columns_string = self._get_specific_metadata_columns_string()
+
+        sql_str = (
+            f'INSERT INTO "{self.table_name}" ("{self.content_column}", '
+            f'"{self.metadata_column}", '
+            f'"{self.vector_column}"{specific_metadata_columns_string}) '
+            f"VALUES (?, ?, ? "
+            f"{(', ?'* len(self.specific_metadata_columns))});"
+        )
+
+        # Insert data into the table
+        try:
+            cur.executemany(sql_str, sql_params)
+        finally:
+            cur.close()
+        return []
+
     def _get_specific_metadata_columns_string(self) -> str:
         """
         Helper function to generate the specific metadata columns as a SQL string.
@@ -684,6 +812,7 @@ class HanaDB(VectorStore):
         vector_column_length: int = default_vector_column_length,
         vector_column_type: str = default_vector_column_type,
         *,
+        use_map_merge: bool = False,
         specific_metadata_columns: Optional[list[str]] = None,
     ):
         """Create a HanaDB instance from raw documents.
@@ -706,11 +835,26 @@ class HanaDB(VectorStore):
             vector_column_type=vector_column_type,
             specific_metadata_columns=specific_metadata_columns,
         )
-        instance.add_texts(texts, metadatas)
+        instance.add_texts(texts, metadatas, use_map_merge=use_map_merge)
         return instance
-
+    
+    @staticmethod
+    def _validate_rerank_config(rerank_config: dict) -> None:
+        if not isinstance(rerank_config, dict):
+            raise ValueError("rerank_config must be a dictionary")
+        if "query" not in rerank_config or not isinstance(rerank_config["query"], str):
+            raise ValueError("rerank_config must contain 'query' and it must be a string")
+        if "top_n" in rerank_config and (not isinstance(rerank_config["top_n"], int) or rerank_config["top_n"] <= 0):
+            raise ValueError("rerank_config 'top_n' must be a positive integer")
+        if "rank_fields" in rerank_config:
+            if not isinstance(rerank_config["rank_fields"], list) or not all(isinstance(field, str) for field in rerank_config["rank_fields"]):
+                raise ValueError("rerank_config 'rank_fields' must be a list of strings")
+            _sanitize_metadata_keys(rerank_config["rank_fields"])
+        if "model_id" not in rerank_config or not isinstance(rerank_config["model_id"], str) or not rerank_config["model_id"]:
+            raise ValueError("rerank_config 'model_id' must be a non-empty string")
+        
     def similarity_search(  # type: ignore[override]
-        self, query: str, k: int = 4, filter: Optional[dict] = None
+        self, query: str, k: int = 4, filter: Optional[dict] = None, *, rerank_config: Optional[dict[str, Any]] = None
     ) -> list[Document]:
         """Return docs most similar to query.
 
@@ -719,17 +863,24 @@ class HanaDB(VectorStore):
             k: Number of Documents to return. Defaults to 4.
             filter: A dictionary of metadata fields and values to filter by.
                     Defaults to None.
+            rerank_config: Optional dictionary for reranking configuration with the following keys.
+                Defaults to None, which means no reranking will be applied.
+                - query (str): The query to use for reranking. If not provided, the similarity search query will be used.
+                - top_n (int): The number of top results to consider for reranking. Optional, defaults to min(3, k).
+                - rank_fields: list of fields to use for reranking. Optional, defaults to an empty list, which means only the content column will be used.
+                - model_id (str): The model ID to use for reranking.
 
         Returns:
             List of Documents most similar to the query
         """
+
         docs_and_scores = self.similarity_search_with_score(
-            query=query, k=k, filter=filter
+            query=query, k=k, filter=filter, rerank_config=rerank_config
         )
         return [doc for doc, _ in docs_and_scores]
 
     def similarity_search_with_score(
-        self, query: str, k: int = 4, filter: Optional[dict] = None
+        self, query: str, k: int = 4, filter: Optional[dict] = None, *, rerank_config: Optional[dict[str, Any]] = None
     ) -> list[tuple[Document, float]]:
         """Return documents and score values most similar to query.
 
@@ -738,6 +889,12 @@ class HanaDB(VectorStore):
             k: Number of Documents to return. Defaults to 4.
             filter: A dictionary of metadata fields and values to filter by.
                     Defaults to None.
+            rerank_config: Optional dictionary for reranking configuration with the following keys.
+                Defaults to None, which means no reranking will be applied.
+                - query (str): The query to use for reranking. If not provided, the similarity search query will be used.
+                - top_n (int): The number of top results to consider for reranking. Optional, defaults to min(3, k).
+                - rank_fields: list of fields to use for reranking. Optional, defaults to an empty list, which means only the content column will be used.
+                - model_id (str): The model ID to use for reranking.
 
         Returns:
             List of tuples (containing a Document and a score) that are
@@ -747,19 +904,26 @@ class HanaDB(VectorStore):
         if self.use_internal_embeddings:
             # Internal embeddings: pass the query directly
             whole_result = self.similarity_search_with_score_and_vector_by_query(
-                query=query, k=k, filter=filter
+                query=query, k=k, filter=filter, rerank_config=rerank_config
             )
         else:
+            if rerank_config:
+                rerank_config_copy = {**rerank_config}
+                if rerank_config.get("query") is None:
+                        rerank_config_copy["query"] = query  # Use the original query if no specific rerank query is provided
+            else:
+                rerank_config_copy = None
+
             # External embeddings: generate embedding from the query
             embedding = self.embedding.embed_query(query)
             whole_result = self.similarity_search_with_score_and_vector_by_vector(
-                embedding=embedding, k=k, filter=filter
+                embedding=embedding, k=k, filter=filter, rerank_config=rerank_config_copy
             )
 
         return [(result_item[0], result_item[1]) for result_item in whole_result]
 
     def similarity_search_with_score_and_vector_by_vector(
-        self, embedding: list[float], k: int = 4, filter: Optional[dict] = None
+        self, embedding: list[float], k: int = 4, filter: Optional[dict] = None, *, rerank_config: Optional[dict[str, Any]] = None
     ) -> list[tuple[Document, float, list[float]]]:
         """Return docs most similar to the given embedding.
 
@@ -768,22 +932,28 @@ class HanaDB(VectorStore):
             k: Number of Documents to return. Defaults to 4.
             filter: A dictionary of metadata fields and values to filter by.
                     Defaults to None.
+            rerank_config: Optional dictionary for reranking configuration with the following keys.
+                Defaults to None, which means no reranking will be applied.
+                - query (str): The query to use for reranking. Required if reranking is desired.
+                - top_n (int): The number of top results to consider for reranking. Optional, defaults to min(3, k).
+                - rank_fields: list of fields to use for reranking. Optional, defaults to an empty list, which means only the content column will be used.
+                - model_id (str): The model ID to use for reranking.
 
         Returns:
             List of tuples, each containing:
             - Document: The matched document with its content and metadata
-            - float: The similarity score
+            - float: The score ; reranking_score when reranking_config is present else similarity_score
             - list[float]: The document's embedding vector
         """
         # Use the appropriate vector conversion function
         embedding_expr = self._convert_to_target_vector_type(expr=f"'{str(embedding)}'")
 
         return self._similarity_search_with_score_and_vector(
-            embedding_expr, k=k, filter=filter
+            embedding_expr, k=k, filter=filter, rerank_config=rerank_config
         )
 
     def similarity_search_with_score_and_vector_by_query(
-        self, query: str, k: int = 4, filter: Optional[dict] = None
+        self, query: str, k: int = 4, filter: Optional[dict] = None, *, rerank_config: Optional[dict[str, Any]] = None
     ) -> list[tuple[Document, float, list[float]]]:
         """
         Return docs most similar to the given query.
@@ -799,11 +969,17 @@ class HanaDB(VectorStore):
             k: Number of Documents to return. Defaults to 4.
             filter: A dictionary of metadata fields and values to filter by.
                     Defaults to None.
+            rerank_config: Optional dictionary for reranking configuration with the following keys.
+                Defaults to None, which means no reranking will be applied.
+                - query (str): The query to use for reranking. If not provided, the similarity search query will be used.
+                - top_n (int): The number of top results to consider for reranking. Optional, defaults to min(3, k).
+                - rank_fields: list of fields to use for reranking. Optional, defaults to an empty list, which means only the content column will be used.
+                - model_id (str): The model ID to use for reranking.
 
         Returns:
             List of tuples, each containing:
             - Document: The matched document with its content and metadata
-            - float: The similarity score
+            - float: The score ; reranking_score when reranking_config is present else similarity_score
             - list[float]: The document's embedding vector
         """
         # Check if the embedding instance is of the correct type
@@ -813,6 +989,13 @@ class HanaDB(VectorStore):
                 "HanaInternalEmbeddings to use the method "
                 "similarity_search_with_score_and_vector_by_query"
             )
+        
+        if rerank_config:
+            rerank_config_copy = {**rerank_config}
+            if rerank_config.get("query") is None:
+                rerank_config_copy["query"] = query  # Use the original query if no specific rerank query is provided
+        else:
+            rerank_config_copy = None
 
         vector_embedding_sql, vector_embedding_params = self._generate_vector_embedding_sql_and_params(query, 'QUERY')
         # Wrap VECTOR_EMBEDDING with vector type conversion if needed
@@ -825,6 +1008,7 @@ class HanaDB(VectorStore):
             vector_embedding_params=vector_embedding_params,
             k=k,
             filter=filter,
+            rerank_config=rerank_config_copy
         )
 
     def _similarity_search_with_score_and_vector(
@@ -833,6 +1017,7 @@ class HanaDB(VectorStore):
         k: int,
         filter: Optional[dict] = None,
         vector_embedding_params: Optional[dict] = None,
+        rerank_config: Optional[dict[str, Any]] = None,
     ) -> list[tuple[Document, float, list[float]]]:
         """Perform similarity search and return documents with scores and vectors.
 
@@ -847,11 +1032,17 @@ class HanaDB(VectorStore):
             query_params: Optional parameters for the embedding_expr SQL expression.
                 For VECTOR_EMBEDDING function: [text, model_id] for the placeholders.
                 For TO_REAL_VECTOR: None as the vector is included in the expression.
+            rerank_config: Optional dictionary for reranking configuration with the following keys.
+                Defaults to None, which means no reranking will be applied.
+                - query (str): The query to use for reranking. Required if reranking is desired.
+                - top_n (int): The number of top results to consider for reranking. Optional, defaults to min(3, k).
+                - rank_fields: list of fields to use for reranking. Optional, defaults to an empty list, which means only the content column will be used.
+                - model_id (str): The model ID to use for reranking.
 
         Returns:
             List of tuples, each containing:
             - Document: The matched document with its content and metadata
-            - float: The similarity score
+            - float: The score ; reranking_score when reranking_config is present else similarity_score
             - list[float]: The document's embedding vector
         """
 
@@ -879,7 +1070,7 @@ class HanaDB(VectorStore):
             f'  "{self.metadata_column}", '  # row[1]
             f'  "{self.vector_column}", '  # row[2]
             f'  {distance_func_name}("{self.vector_column}", '
-            f"  {embedding_expr}) AS CS "  # row[3]
+            f"  {embedding_expr}) AS SCORE "  # row[3]
             f"FROM {from_clause}"
         )
         parameters = []
@@ -889,7 +1080,40 @@ class HanaDB(VectorStore):
         if where_clause:
             sql_str += f" {where_clause}"
             parameters += where_parameters
-        sql_str += f" order by CS {HANA_DISTANCE_FUNCTION[self.distance_strategy][1]}"
+        sql_str += f" order by SCORE {HANA_DISTANCE_FUNCTION[self.distance_strategy][1]}"
+
+        if rerank_config:
+            HanaDB._validate_rerank_config(rerank_config)
+            rerank_top_n = rerank_config.get("top_n", min(3, k))  # Default top_n to min(3, k) if not provided
+            rerank_rank_fields = rerank_config.get("rank_fields", [])  # Default rank_fields to empty list
+            rerank_model_id = rerank_config["model_id"]
+
+            _validate_rerank_model_id(rerank_model_id, self.connection)
+
+            rerank_query = rerank_config["query"]
+            
+            if rerank_top_n > k:
+                raise ValueError("rerank_config 'top_n' cannot be greater than k")
+            
+            cross_encoding_sql, cross_encoding_params = _generate_cross_encode_sql_and_params(
+                text_column=self.content_column,
+                metadata_column=self.metadata_column,
+                query=rerank_query,
+                rank_fields=rerank_rank_fields,
+                rerank_model_id=rerank_model_id,
+            )
+            sql_str = f"""
+            SELECT TOP {rerank_top_n}
+            "{self.content_column}",
+            "{self.metadata_column}",
+            "{self.vector_column}",
+            {cross_encoding_sql} AS SCORE
+            FROM (
+                {sql_str}
+            )
+            ORDER BY SCORE DESC
+            """
+            parameters = cross_encoding_params + parameters  # CROSS_ENCODE params come first in the SQL expression
 
         try:
             cur = self.connection.cursor()
@@ -990,7 +1214,7 @@ class HanaDB(VectorStore):
         )
 
     def similarity_search_by_vector(  # type: ignore[override]
-        self, embedding: list[float], k: int = 4, filter: Optional[dict] = None
+        self, embedding: list[float], k: int = 4, filter: Optional[dict] = None, *, rerank_config: Optional[dict[str, Any]] = None
     ) -> list[Document]:
         """Return docs most similar to embedding vector.
 
@@ -999,12 +1223,18 @@ class HanaDB(VectorStore):
             k: Number of Documents to return. Defaults to 4.
             filter: A dictionary of metadata fields and values to filter by.
                     Defaults to None.
+            rerank_config: Optional dictionary for reranking configuration with the following keys.
+                Defaults to None, which means no reranking will be applied.
+                - query (str): The query to use for reranking. Required if reranking is desired.
+                - top_n (int): The number of top results to consider for reranking. Optional, defaults to min(3, k).
+                - rank_fields: list of fields to use for reranking. Optional, defaults to an empty list, which means only the content column will be used.
+                - model_id (str): The model ID to use for reranking.
 
         Returns:
             List of Documents most similar to the query vector.
         """
         whole_result = self.similarity_search_with_score_and_vector_by_vector(
-            embedding=embedding, k=k, filter=filter
+            embedding=embedding, k=k, filter=filter, rerank_config=rerank_config
         )
         docs_and_scores = [
             (result_item[0], result_item[1]) for result_item in whole_result

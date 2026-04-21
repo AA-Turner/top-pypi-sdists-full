@@ -119,6 +119,7 @@ from chalk.client.models import (
     NamedQueryMetadata,
     OfflineQueryContext,
     OfflineQueryDeadlineOptions,
+    OfflineQueryInfo,
     OfflineQueryInput,
     OfflineQueryInputSql,
     OfflineQueryInputUri,
@@ -155,6 +156,7 @@ from chalk.client.models import (
     UploadFeaturesRequest,
     UploadFeaturesResponse,
     WhoAmIResponse,
+    WorkflowExecutionInfo,
 )
 from chalk.client.response import Dataset, FeatureReference, OnlineQueryResult
 from chalk.client.serialization.query_serialization import MULTI_QUERY_MAGIC_STR, write_query_to_buffer
@@ -2774,9 +2776,7 @@ https://docs.chalk.ai/cli/apply
         return resp
 
     def get_scheduled_query_run_history(
-        self,
-        name: str,
-        limit: int = 10,
+        self, name: str, limit: int = 10, include_run_details: bool = False
     ) -> List[ScheduledQueryRun]:
         """
         Get the run history for a scheduled query.
@@ -2787,6 +2787,8 @@ https://docs.chalk.ai/cli/apply
             The name of the scheduled query.
         limit
             The maximum number of runs to return. Defaults to 10.
+        include_run_details
+            Whether or not to populate the metadata fields of each run.
 
         Returns
         -------
@@ -2811,9 +2813,23 @@ https://docs.chalk.ai/cli/apply
         )
 
         return client_grpc.get_scheduled_query_run_history(
-            name=name,
-            limit=limit,
+            name=name, limit=limit, include_run_details=include_run_details
         )
+
+    def get_scheduled_query_run_details(
+        self, scheduled_run: ScheduledQueryRun
+    ) -> Union[WorkflowExecutionInfo, OfflineQueryInfo, None]:
+        """Fetch the offline query or workflow execution metadata underlying a scheduled query run."""
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        return client_grpc.get_scheduled_query_run_details(scheduled_run)
 
     def get_named_query_metadata(
         self,

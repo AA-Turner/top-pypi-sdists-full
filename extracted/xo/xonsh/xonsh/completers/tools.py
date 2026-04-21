@@ -21,25 +21,33 @@ def _filter_with_func(text, prefix, func):
     return func(text, prefix)
 
 
-def _filter_normal(text, prefix):
-    return _filter_with_func(text, prefix, str.startswith)
+def _filter_substring(text, prefix):
+    func = lambda txt, pre: pre.lower() in txt.lower()
+    return _filter_with_func(text, prefix, func)
 
 
-def _filter_ignorecase(text, prefix):
+def _filter_prefix(text, prefix):
     func = lambda txt, pre: txt.lower().startswith(pre.lower())
     return _filter_with_func(text, prefix, func)
 
 
 def get_filter_function():
+    """Return the completion filter function based on ``$XONSH_COMPLETER_MODE``.
+
+    Modes:
+
+    * ``"substring_tier"`` (default) — completions are filtered by
+      case-insensitive substring match.  The pipeline's tier-based sort
+      ranks prefix matches above substring matches.
+    * ``"prefix"`` — only completions that start with the prefix are
+      shown (case-insensitive).
     """
-    Return an appropriate filtering function for completions, given the valid
-    of $CASE_SENSITIVE_COMPLETIONS
-    """
-    csc = XSH.env.get("CASE_SENSITIVE_COMPLETIONS")
-    if csc:
-        return _filter_normal
-    else:
-        return _filter_ignorecase
+    from xonsh.built_ins import XSH
+
+    mode = (XSH.env or {}).get("XONSH_COMPLETER_MODE", "substring_tier")
+    if mode == "prefix":
+        return _filter_prefix
+    return _filter_substring
 
 
 def justify(s, max_length, left_pad=0):
@@ -70,6 +78,7 @@ class RichCompletion(str):
         style: str = "",
         append_closing_quote: bool = True,
         append_space: bool = False,
+        provider: str | None = None,
     ):
         """
         Parameters
@@ -94,6 +103,13 @@ class RichCompletion(str):
             This is intended to work with ``appending_closing_quote``, so the space will be added correctly **after** the closing quote.
             This is used in ``Completer.complete``.
             An extra bonus is that the space won't show up in the ``display`` attribute.
+        provider :
+            Optional, debug-only tag identifying the sub-source inside the
+            completer that produced this completion (e.g. ``"alias"``,
+            ``"command"``, ``"python"``, ``"path"``). Surfaced by
+            ``$XONSH_COMPLETER_TRACE`` so users can tell whether a match
+            came from, say, an alias vs. a ``$PATH`` executable inside the
+            same ``base`` completer. Does not affect UX.
         """
         super().__init__()
         self.prefix_len = prefix_len
@@ -102,6 +118,7 @@ class RichCompletion(str):
         self.style = style
         self.append_closing_quote = append_closing_quote
         self.append_space = append_space
+        self.provider = provider
 
     @property
     def value(self):
@@ -217,6 +234,40 @@ def apply_lprefix(comps, lprefix):
             yield RichCompletion(comp, prefix_len=lprefix)
 
 
+def _tag_each(comps, provider: str):
+    """Yield completions with ``provider`` set, promoting ``str`` to
+    ``RichCompletion``. A completion that already has a ``provider`` keeps
+    its own — lets a nested completer override the outer tag.
+    """
+    for comp in comps:
+        if isinstance(comp, RichCompletion):
+            if comp.provider is None:
+                yield comp.replace(provider=provider)
+            else:
+                yield comp
+        else:
+            yield RichCompletion(comp, provider=provider)
+
+
+def tag_provider(result, provider: str):
+    """Tag completer output with ``provider`` for ``$XONSH_COMPLETER_TRACE``.
+
+    Accepts any of the three standard completer return shapes and
+    preserves the shape so downstream pipeline logic (exclusivity,
+    filtering, lprefix) is unaffected:
+
+    - ``None`` → returned unchanged.
+    - ``(comps, extra)`` 2-tuple → ``(tagged_generator, extra)``.
+    - Any other iterable → generator of tagged completions.
+    """
+    if result is None:
+        return None
+    if isinstance(result, tuple) and len(result) == 2:
+        comps, extra = result
+        return _tag_each(comps, provider), extra
+    return _tag_each(result, provider)
+
+
 def completion_from_cmd_output(line: str, append_space=False):
     line = line.strip()
     if "\t" in line:
@@ -226,7 +277,7 @@ def completion_from_cmd_output(line: str, append_space=False):
 
     # special treatment for path completions.
     # not appending space even if it is a single candidate.
-    if cmd.endswith(os.pathsep) or (os.altsep and cmd.endswith(os.altsep)):
+    if cmd.endswith(os.sep) or (os.altsep and cmd.endswith(os.altsep)):
         append_space = False
 
     return RichCompletion(
@@ -274,6 +325,11 @@ def complete_from_sub_proc(*args: str, sep=None, filter_prefix=None, **env_vars:
         else:
             lines = output.split(sep)
 
+        # Drop blank lines before counting / yielding so that a subprocess
+        # emitting trailing/extra whitespace doesn't produce empty
+        # RichCompletion objects (see #5810).
+        lines = [ln for ln in lines if ln.strip()]
+
         # if there is a single completion candidate then maybe it is over
         append_space = len(lines) == 1 and not lines[0].rstrip().endswith(os.sep)
         for line in lines:
@@ -281,6 +337,18 @@ def complete_from_sub_proc(*args: str, sep=None, filter_prefix=None, **env_vars:
                 continue
             comp = completion_from_cmd_output(line, append_space)
             yield comp
+
+
+def _shlex_split_safe(s):
+    """Split like shlex but preserve backslashes on Windows.
+
+    ``shlex.split`` in POSIX mode treats ``\\`` as an escape character,
+    which corrupts Windows paths (``".\\dir"`` → ``".dir"``).  Using
+    ``posix=False`` keeps backslashes intact.
+    """
+    lex = shlex.shlex(s, posix=False)
+    lex.whitespace_split = True
+    return list(lex)
 
 
 def comp_based_completer(ctx: CommandContext, start_index=0, **env: str):
@@ -293,7 +361,7 @@ def comp_based_completer(ctx: CommandContext, start_index=0, **env: str):
 
     yield from complete_from_sub_proc(
         *args[: start_index + 1],
-        sep=shlex.split,
+        sep=_shlex_split_safe,
         COMP_WORDS=os.linesep.join(args[start_index:]) + os.linesep,
         COMP_CWORD=str(ctx.arg_index - start_index),
         **env,

@@ -14,6 +14,7 @@ from mergify_cli.ci import cli as ci_cli
 from mergify_cli.ci.junit_processing import cli as junit_processing_cli
 from mergify_cli.ci.junit_processing import quarantine
 from mergify_cli.ci.junit_processing import upload
+from mergify_cli.exit_codes import ExitCode
 
 
 if TYPE_CHECKING:
@@ -320,13 +321,14 @@ def test_scopes_send(
 ) -> None:
     """Test scopes command with all required parameters."""
 
-    # Create config file
-    scopes_file = tmp_path / "scopes.json"
-    scopes_file.write_text(
+    scopes_json = tmp_path / "scopes.json"
+    scopes_json.write_text(
         json.dumps(
             {"base_ref": "base", "head_ref": "head", "scopes": ["backend", "frontend"]},
         ),
     )
+    scopes_file = tmp_path / "scopes.txt"
+    scopes_file.write_text("docs\n\n  infra  \n")
 
     runner = testing.CliRunner()
 
@@ -345,14 +347,87 @@ def test_scopes_send(
             "test-token",
             "--scope",
             "foobar",
-            "--file",
+            "--scopes-json",
+            str(scopes_json),
+            "--scopes-file",
             str(scopes_file),
         ],
     )
 
     assert result.exit_code == 0, result.output
     payload = json.loads(post_mock.calls[0].request.content)
-    assert sorted(payload["scopes"]) == ["backend", "foobar", "frontend"]
+    assert sorted(payload["scopes"]) == [
+        "backend",
+        "docs",
+        "foobar",
+        "frontend",
+        "infra",
+    ]
+
+
+@pytest.mark.respx(base_url="https://api.github.com/")
+def test_scopes_send_file_deprecated(
+    respx_mock: respx.MockRouter,
+    tmp_path: pathlib.Path,
+) -> None:
+    """`--file` still works but emits a deprecation warning on stderr."""
+
+    scopes_json = tmp_path / "scopes.json"
+    scopes_json.write_text(
+        json.dumps(
+            {"base_ref": "base", "head_ref": "head", "scopes": ["backend"]},
+        ),
+    )
+
+    runner = testing.CliRunner()
+
+    post_mock = respx_mock.post(
+        "https://api.mergify.com/v1/repos/owner/repository/pulls/123/scopes",
+        headers={"Authorization": "Bearer test-token"},
+    ).respond(200)
+    result = runner.invoke(
+        ci_cli.scopes_send,
+        [
+            "--pull-request",
+            "123",
+            "--repository",
+            "owner/repository",
+            "--token",
+            "test-token",
+            "--file",
+            str(scopes_json),
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert "--file is deprecated" in result.stderr
+    payload = json.loads(post_mock.calls[0].request.content)
+    assert payload["scopes"] == ["backend"]
+
+
+def test_scopes_send_no_pull_request_skips(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When no pull request number is detected, scopes-send should skip gracefully."""
+    monkeypatch.delenv("BUILDKITE_PULL_REQUEST", raising=False)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+
+    runner = testing.CliRunner()
+    result = runner.invoke(
+        ci_cli.scopes_send,
+        [
+            "--repository",
+            "owner/repository",
+            "--token",
+            "test-token",
+            "--scope",
+            "backend",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "No pull request number detected, skipping scopes upload." in result.output
 
 
 def test_scopes_empty_mergify_config_env_uses_autodetection(
@@ -369,8 +444,9 @@ def test_scopes_empty_mergify_config_env_uses_autodetection(
     runner = testing.CliRunner()
     result = runner.invoke(ci_cli.scopes, ["--base", "old", "--head", "new"])
 
-    # The command found the auto-detected config and ran (source is manual so exit 1)
-    assert result.exit_code == 1
+    # The command found the auto-detected config and ran; source is manual so
+    # ScopesError is raised -> CONFIGURATION_ERROR exit code.
+    assert result.exit_code == ExitCode.CONFIGURATION_ERROR
     assert "source `manual` has been set" in result.output
 
 
@@ -391,12 +467,100 @@ def test_git_refs(
     runner = testing.CliRunner()
     result = runner.invoke(ci_cli.git_refs, [])
     assert result.exit_code == 0, result.output
+    assert result.output == "Base: abc123\nHead: xyz987\n"
 
     content = output_file.read_text()
     expected = """base=abc123
 head=xyz987
 """
     assert content == expected
+
+
+def test_git_refs_format_shell(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    event_data = {"before": "abc123", "after": "xyz987"}
+    event_file = tmp_path / "event.json"
+    event_file.write_text(json.dumps(event_data))
+
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "push")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_file))
+
+    runner = testing.CliRunner()
+    result = runner.invoke(ci_cli.git_refs, ["--format", "shell"])
+    assert result.exit_code == 0, result.output
+    assert result.output == (
+        "MERGIFY_GIT_REFS_BASE=abc123\n"
+        "MERGIFY_GIT_REFS_HEAD=xyz987\n"
+        "MERGIFY_GIT_REFS_SOURCE=github_event_push\n"
+    )
+
+
+def test_git_refs_format_shell_quotes_special_chars(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Values containing shell-special chars must be properly quoted so `eval` is safe."""
+    event_data = {
+        "repository": {"default_branch": "weird branch $name"},
+    }
+    event_file = tmp_path / "event.json"
+    event_file.write_text(json.dumps(event_data))
+
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "push")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_file))
+
+    runner = testing.CliRunner()
+    result = runner.invoke(ci_cli.git_refs, ["--format", "shell"])
+    assert result.exit_code == 0, result.output
+    # space and `$` both trigger shlex.quote to wrap the value in single quotes
+    assert "MERGIFY_GIT_REFS_BASE='weird branch $name'\n" in result.output
+
+
+def test_git_refs_format_shell_empty_base(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When base is None, shell format emits an empty quoted string."""
+    event_data: dict[str, object] = {}
+    event_file = tmp_path / "event.json"
+    event_file.write_text(json.dumps(event_data))
+
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "workflow_dispatch")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_file))
+
+    runner = testing.CliRunner()
+    result = runner.invoke(ci_cli.git_refs, ["--format", "shell"])
+    assert result.exit_code == 0, result.output
+    assert "MERGIFY_GIT_REFS_BASE=''\n" in result.output
+    assert "MERGIFY_GIT_REFS_HEAD=HEAD\n" in result.output
+    assert "MERGIFY_GIT_REFS_SOURCE=github_event_other\n" in result.output
+
+
+def test_git_refs_format_json(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    event_data = {"before": "abc123", "after": "xyz987"}
+    event_file = tmp_path / "event.json"
+    event_file.write_text(json.dumps(event_data))
+
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "push")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_file))
+
+    runner = testing.CliRunner()
+    result = runner.invoke(ci_cli.git_refs, ["--format", "json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == {
+        "base": "abc123",
+        "head": "xyz987",
+        "source": "github_event_push",
+    }
 
 
 def test_queue_info(
@@ -456,5 +620,5 @@ def test_queue_info_not_merge_queue(
 
     runner = testing.CliRunner()
     result = runner.invoke(ci_cli.queue_info, [])
-    assert result.exit_code == 1
+    assert result.exit_code == ExitCode.INVALID_STATE
     assert "Not running in a merge queue context" in result.output

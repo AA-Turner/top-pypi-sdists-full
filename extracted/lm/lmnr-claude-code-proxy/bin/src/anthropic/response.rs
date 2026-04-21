@@ -1,10 +1,19 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
-use crate::spans::SpanError;
-
-use super::common::{CacheControl, Citation, StopReason, Usage};
-use super::request::{McpToolResultContent, SearchResultContent, ToolResultContent};
+use super::common::{
+    Citation, ServerToolUseBlock, ServerToolUseNameWrapper, StopReason, ToolUseBlock,
+    ToolUseCaller, Usage,
+};
+use super::request::{McpToolResultContent, TextBlockWrapper};
 use super::stream::{ContentDelta, StreamContentBlock, StreamEvent};
+use super::tool_result::{
+    BashCodeExecutionToolResultBlock, CodeExecutionToolResultBlock,
+    TextEditorCodeExecutionToolResultBlock, ToolSearchToolResultBlock, WebFetchToolResultBlock,
+    WebSearchToolResultBlock,
+};
+use crate::spans::SpanError;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct MessageResponse {
@@ -121,6 +130,8 @@ impl MessageResponse {
                     // Update output token count from delta
                     message.usage.output_tokens = usage.output_tokens;
                 }
+                // TODO: this will be needed to create tool spans as they end
+                StreamEvent::ContentBlockStop { .. } => {}
                 _ => {
                     // Ignore Ping, ContentBlockStop, MessageStop, MessageStart, and Error events
                 }
@@ -164,7 +175,6 @@ impl ContentBlockBuilder {
         match self {
             ContentBlockBuilder::Text { text } => ResponseContentBlock::Text {
                 text,
-                cache_control: None,
                 citations: None,
             },
             ContentBlockBuilder::ToolUse {
@@ -173,8 +183,13 @@ impl ContentBlockBuilder {
                 input_json,
             } => {
                 let input =
-                    serde_json::from_str(&input_json).unwrap_or_else(|_| serde_json::json!({}));
-                ResponseContentBlock::ToolUse { id, name, input }
+                    serde_json::from_str(&input_json).unwrap_or(std::collections::BTreeMap::new());
+                ResponseContentBlock::ToolUse(ToolUseBlock {
+                    id,
+                    name,
+                    input,
+                    caller: None,
+                })
             }
             ContentBlockBuilder::Thinking {
                 thinking,
@@ -187,40 +202,14 @@ impl ContentBlockBuilder {
                 id,
                 name,
                 input_json,
-            } => ResponseContentBlock::ServerToolUse {
+            } => ResponseContentBlock::ServerToolUse(ServerToolUseBlock {
                 id,
-                name,
-                input: serde_json::from_str(&input_json).unwrap_or(serde_json::json!({})),
-                cache_control: None,
-            },
+                name: ServerToolUseNameWrapper::String(name),
+                input: serde_json::from_str(&input_json).unwrap_or(BTreeMap::new()),
+                caller: None,
+            }),
         }
     }
-}
-
-/// Individual web search result block
-#[derive(Debug, Deserialize, Clone, Serialize)]
-#[serde(tag = "type")]
-#[serde(rename_all = "snake_case")]
-pub enum WebSearchResultBlock {
-    WebSearchResult {
-        url: String,
-        title: String,
-        encrypted_content: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        page_age: Option<String>,
-    },
-}
-
-/// Web search tool result content - can be results or an error
-#[derive(Debug, Deserialize, Clone, Serialize)]
-#[serde(untagged)]
-pub enum WebSearchToolResultContent {
-    Results(Vec<WebSearchResultBlock>),
-    Error {
-        error_code: String,
-        #[serde(rename = "type")]
-        block_type: String,
-    },
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -230,23 +219,7 @@ pub enum ResponseContentBlock {
     Text {
         text: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         citations: Option<Vec<Citation>>,
-    },
-    ToolUse {
-        id: String,
-        name: String,
-        input: serde_json::Value,
-    },
-    ToolResult {
-        tool_use_id: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        content: Option<ToolResultContent>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        is_error: Option<bool>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
     },
     Thinking {
         thinking: String,
@@ -255,75 +228,35 @@ pub enum ResponseContentBlock {
     RedactedThinking {
         data: String,
     },
+    ToolUse(ToolUseBlock),
+    ServerToolUse(ServerToolUseBlock),
+    WebSearchToolResult(WebSearchToolResultBlock),
+    WebFetchToolResult(WebFetchToolResultBlock),
+    CodeExecutionToolResult(CodeExecutionToolResultBlock),
+    BashCodeExecutionToolResult(BashCodeExecutionToolResultBlock),
+    TextEditorCodeExecutionToolResult(TextEditorCodeExecutionToolResultBlock),
+    ToolSearchToolResult(ToolSearchToolResultBlock),
+    ContainerUpload {
+        file_id: String,
+    },
+    // The below are undocumented / deprecated
     SearchResult {
-        content: SearchResultContent,
+        content: TextBlockWrapper,
         source: String,
         title: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         citations: Option<Vec<Citation>>,
-    },
-    ServerToolUse {
-        id: String,
-        input: serde_json::Value,
-        name: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-    },
-    WebSearchToolResult {
-        tool_use_id: String,
-        content: WebSearchToolResultContent,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-    },
-    WebFetchToolResult {
-        tool_use_id: String,
-        // TODO: type this
-        content: serde_json::Value,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-    },
-    CodeExecutionToolResult {
-        tool_use_id: String,
-        // TODO: type this
-        content: serde_json::Value,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-    },
-    BashCodeExecutionToolResult {
-        tool_use_id: String,
-        // TODO: type this
-        content: serde_json::Value,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-    },
-    TextEditorCodeExecutionToolResult {
-        tool_use_id: String,
-        // TODO: type this
-        content: serde_json::Value,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
     },
     McpToolUse {
         id: String,
         input: serde_json::Value,
         name: String,
         server_name: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
     },
     McpToolResult {
         tool_use_id: String,
         content: McpToolResultContent,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         is_error: Option<bool>,
-    },
-    ContainerUpload {
-        file_id: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
     },
 }

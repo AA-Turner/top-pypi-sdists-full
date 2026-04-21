@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: cdk-nag
-Version: 2.37.55
+Version: 2.37.56
 Summary: Check CDK v2 applications for best practices using a combination on available rule packs.
 Home-page: https://github.com/cdklabs/cdk-nag.git
-Author: Arun Donti<donti@amazon.com>
+Author: Amazon Web Services<aws-cdk-dev@amazon.com>
 License: Apache-2.0
 Project-URL: Source, https://github.com/cdklabs/cdk-nag.git
 Classifier: Intended Audience :: Developers
@@ -14,17 +14,17 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Typing :: Typed
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved
 Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.176.0
-Requires-Dist: constructs<11.0.0,>=10.0.5
-Requires-Dist: jsii<2.0.0,>=1.116.0
+Requires-Dist: constructs<11.0.0,>=10.5.1
+Requires-Dist: jsii<2.0.0,>=1.128.0
 Requires-Dist: publication>=0.0.3
-Requires-Dist: typeguard<4.3.0,>=2.13.3
+Requires-Dist: typeguard==2.13.3
 
 <!--
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -70,18 +70,18 @@ For a full list of options See `NagPackProps` in the [API.md](./API.md#struct-na
 <summary>Including in an application</summary>
 
 ```python
-import { App, Aspects } from 'aws-cdk-lib';
-import { CdkTestStack } from '../lib/cdk-test-stack';
-import { AwsSolutionsChecks } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk import App, Aspects
+from ...lib.cdk_test_stack import CdkTestStack
+from cdk_nag import AwsSolutionsChecks
 
-const app = new App();
-new CdkTestStack(app, 'CdkNagDemo');
-// Simple rule informational messages using the AWS Solutions Rule pack
-Aspects.of(app).add(new AwsSolutionsChecks());
-// Multiple rule packs can be run against the same app
-Aspects.of(app).add(new NIST80053R5Checks());
-// Additional explanations on the purpose of triggered rules
-// Aspects.of(stack).add(new AwsSolutionsChecks({ verbose: true }));
+
+app = App()
+CdkTestStack(app, "CdkNagDemo")
+# Simple rule informational messages using the AWS Solutions Rule pack
+Aspects.of(app).add(AwsSolutionsChecks())
+# Multiple rule packs can be run against the same app
+Aspects.of(app).add(NIST80053R5Checks())
 ```
 
 </details>
@@ -92,99 +92,91 @@ Aspects.of(app).add(new NIST80053R5Checks());
   <summary>Example 1) Default Construct</summary>
 
 ```python
-import { SecurityGroup, Vpc, Peer, Port } from 'aws-cdk-lib/aws-ec2';
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import { NagSuppressions } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_ec2 import SecurityGroup, Vpc, Peer, Port
+from aws_cdk import Stack, StackProps
+from constructs import Construct
+from cdk_nag import NagSuppressions
 
-export class CdkTestStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
-    const test = new SecurityGroup(this, 'test', {
-      vpc: new Vpc(this, 'vpc'),
-    });
-    test.addIngressRule(Peer.anyIpv4(), Port.allTraffic());
-    NagSuppressions.addResourceSuppressions(test, [
-      { id: 'AwsSolutions-EC23', reason: 'lorem ipsum' },
-    ]);
-  }
-}
+
+class CdkTestStack(Stack):
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
+        test = SecurityGroup(self, "test",
+            vpc=Vpc(self, "vpc")
+        )
+        test.add_ingress_rule(Peer.any_ipv4(), Port.all_traffic())
+        NagSuppressions.add_resource_suppressions(test, [id="AwsSolutions-EC23", reason="lorem ipsum"
+        ])
 ```
 
 </details><details>
   <summary>Example 2) On Multiple Constructs</summary>
 
 ```python
-import { SecurityGroup, Vpc, Peer, Port } from 'aws-cdk-lib/aws-ec2';
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import { NagSuppressions } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_ec2 import SecurityGroup, Vpc, Peer, Port
+from aws_cdk import Stack, StackProps
+from constructs import Construct
+from cdk_nag import NagSuppressions
 
-export class CdkTestStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
-    const vpc = new Vpc(this, 'vpc');
-    const test1 = new SecurityGroup(this, 'test', { vpc });
-    test1.addIngressRule(Peer.anyIpv4(), Port.allTraffic());
-    const test2 = new SecurityGroup(this, 'test', { vpc });
-    test2.addIngressRule(Peer.anyIpv4(), Port.allTraffic());
-    NagSuppressions.addResourceSuppressions(
-      [test1, test2],
-      [{ id: 'AwsSolutions-EC23', reason: 'lorem ipsum' }]
-    );
-  }
-}
+
+class CdkTestStack(Stack):
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
+        vpc = Vpc(self, "vpc")
+        test1 = SecurityGroup(self, "test", vpc=vpc)
+        test1.add_ingress_rule(Peer.any_ipv4(), Port.all_traffic())
+        test2 = SecurityGroup(self, "test", vpc=vpc)
+        test2.add_ingress_rule(Peer.any_ipv4(), Port.all_traffic())
+        NagSuppressions.add_resource_suppressions([test1, test2], [id="AwsSolutions-EC23", reason="lorem ipsum"])
 ```
 
 </details><details>
   <summary>Example 3) Child Constructs</summary>
 
 ```python
-import { User, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import { NagSuppressions } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from cdk_nag import NagPackSuppression
+from aws_cdk.aws_iam import User, PolicyStatement
+from aws_cdk import Stack, StackProps
+from constructs import Construct
+from cdk_nag import NagSuppressions
 
-export class CdkTestStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
-    const user = new User(this, 'rUser');
-    user.addToPolicy(
-      new PolicyStatement({
-        actions: ['s3:PutObject'],
-        resources: ['arn:aws:s3:::bucket_name/*'],
-      })
-    );
-    // Enable adding suppressions to child constructs
-    NagSuppressions.addResourceSuppressions(
-      user,
-      [
-        {
-          id: 'AwsSolutions-IAM5',
-          reason: 'lorem ipsum',
-          appliesTo: ['Resource::arn:aws:s3:::bucket_name/*'], // optional
-        },
-      ],
-      true
-    );
-  }
-}
+
+class CdkTestStack(Stack):
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
+        user = User(self, "rUser")
+        user.add_to_policy(
+            PolicyStatement(
+                actions=["s3:PutObject"],
+                resources=["arn:aws:s3:::bucket_name/*"]
+            ))
+        # Enable adding suppressions to child constructs
+        NagSuppressions.add_resource_suppressions(user, [NagPackSuppression(
+            id="AwsSolutions-IAM5",
+            reason="lorem ipsum",
+            applies_to=["Resource::arn:aws:s3:::bucket_name/*"]
+        )
+        ], True)
 ```
 
 </details><details>
   <summary>Example 4) Stack Level </summary>
 
 ```python
-import { App, Aspects } from 'aws-cdk-lib';
-import { CdkTestStack } from '../lib/cdk-test-stack';
-import { AwsSolutionsChecks, NagSuppressions } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk import App, Aspects
+from ...lib.cdk_test_stack import CdkTestStack
+from cdk_nag import AwsSolutionsChecks, NagSuppressions
 
-const app = new App();
-const stack = new CdkTestStack(app, 'CdkNagDemo');
-Aspects.of(app).add(new AwsSolutionsChecks());
-NagSuppressions.addStackSuppressions(stack, [
-  { id: 'AwsSolutions-EC23', reason: 'lorem ipsum' },
-]);
+
+app = App()
+stack = CdkTestStack(app, "CdkNagDemo")
+Aspects.of(app).add(AwsSolutionsChecks())
+NagSuppressions.add_stack_suppressions(stack, [id="AwsSolutions-EC23", reason="lorem ipsum"
+])
 ```
 
 </details><details>
@@ -197,26 +189,22 @@ If you received the following error on synth/deploy
 ```
 
 ```python
-import { Bucket } from 'aws-cdk-lib/aws-s3';
-import { BucketDeployment } from 'aws-cdk-lib/aws-s3-deployment';
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import { NagSuppressions } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_s3 import Bucket
+from aws_cdk.aws_s3_deployment import BucketDeployment
+from aws_cdk import Stack, StackProps
+from constructs import Construct
+from cdk_nag import NagSuppressions
 
-export class CdkTestStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
-    new BucketDeployment(this, 'rDeployment', {
-      sources: [],
-      destinationBucket: Bucket.fromBucketName(this, 'rBucket', 'foo'),
-    });
-    NagSuppressions.addResourceSuppressionsByPath(
-      this,
-      '/StackName/Custom::CDKBucketDeployment8675309/ServiceRole/Resource',
-      [{ id: 'AwsSolutions-IAM4', reason: 'at least 10 characters' }]
-    );
-  }
-}
+
+class CdkTestStack(Stack):
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
+        BucketDeployment(self, "rDeployment",
+            sources=[],
+            destination_bucket=Bucket.from_bucket_name(self, "rBucket", "foo")
+        )
+        NagSuppressions.add_resource_suppressions_by_path(self, "/StackName/Custom::CDKBucketDeployment8675309/ServiceRole/Resource", [id="AwsSolutions-IAM4", reason="at least 10 characters"])
 ```
 
 </details><details>
@@ -234,74 +222,55 @@ Certain rules support granular suppressions of `findings`. If you received the f
 By applying the following suppressions
 
 ```python
-import { User } from 'aws-cdk-lib/aws-iam';
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import { NagSuppressions } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from cdk_nag import NagPackSuppression, NagPackSuppression, NagPackSuppression, RegexAppliesTo
+from aws_cdk.aws_iam import User
+from aws_cdk import Stack, StackProps
+from constructs import Construct
+from cdk_nag import NagSuppressions
 
-export class CdkTestStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
-    const firstUser = new User(this, 'rFirstUser');
-    firstUser.addToPolicy(
-      new PolicyStatement({
-        actions: ['s3:*'],
-        resources: ['*'],
-      })
-    );
-    const secondUser = new User(this, 'rSecondUser');
-    secondUser.addToPolicy(
-      new PolicyStatement({
-        actions: ['s3:*'],
-        resources: ['*'],
-      })
-    );
-    const thirdUser = new User(this, 'rSecondUser');
-    thirdUser.addToPolicy(
-      new PolicyStatement({
-        actions: ['sqs:CreateQueue'],
-        resources: [`arn:aws:sqs:${this.region}:${this.account}:*`],
-      })
-    );
-    NagSuppressions.addResourceSuppressions(
-      firstUser,
-      [
-        {
-          id: 'AwsSolutions-IAM5',
-          reason:
-            "Only suppress AwsSolutions-IAM5 's3:*' finding on First User.",
-          appliesTo: ['Action::s3:*'],
-        },
-      ],
-      true
-    );
-    NagSuppressions.addResourceSuppressions(
-      secondUser,
-      [
-        {
-          id: 'AwsSolutions-IAM5',
-          reason: 'Suppress all AwsSolutions-IAM5 findings on Second User.',
-        },
-      ],
-      true
-    );
-    NagSuppressions.addResourceSuppressions(
-      thirdUser,
-      [
-        {
-          id: 'AwsSolutions-IAM5',
-          reason: 'Suppress AwsSolutions-IAM5 on the SQS resource.',
-          appliesTo: [
-            {
-              regex: '/^Resource::arn:aws:sqs:(.*):\\*$/g',
-            },
-          ],
-        },
-      ],
-      true
-    );
-  }
-}
+
+class CdkTestStack(Stack):
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
+        first_user = User(self, "rFirstUser")
+        first_user.add_to_policy(
+            PolicyStatement(
+                actions=["s3:*"],
+                resources=["*"]
+            ))
+        second_user = User(self, "rSecondUser")
+        second_user.add_to_policy(
+            PolicyStatement(
+                actions=["s3:*"],
+                resources=["*"]
+            ))
+        third_user = User(self, "rSecondUser")
+        third_user.add_to_policy(
+            PolicyStatement(
+                actions=["sqs:CreateQueue"],
+                resources=[f"arn:aws:sqs:{this.region}:{this.account}:*"]
+            ))
+        NagSuppressions.add_resource_suppressions(first_user, [NagPackSuppression(
+            id="AwsSolutions-IAM5",
+            reason="Only suppress AwsSolutions-IAM5 's3:*' finding on First User.",
+            applies_to=["Action::s3:*"]
+        )
+        ], True)
+        NagSuppressions.add_resource_suppressions(second_user, [NagPackSuppression(
+            id="AwsSolutions-IAM5",
+            reason="Suppress all AwsSolutions-IAM5 findings on Second User."
+        )
+        ], True)
+        NagSuppressions.add_resource_suppressions(third_user, [NagPackSuppression(
+            id="AwsSolutions-IAM5",
+            reason="Suppress AwsSolutions-IAM5 on the SQS resource.",
+            applies_to=[RegexAppliesTo(
+                regex="/^Resource::arn:aws:sqs:(.*):\\*$/g"
+            )
+            ]
+        )
+        ], True)
 ```
 
 You would see the following error on synth/deploy
@@ -324,23 +293,22 @@ Validation failure suppression respects any applied [Suppression Ignore Conditio
   <summary>Example 1) Suppress all Validation Failures on a Resource</summary>
 
 ```python
-import { SecurityGroup, Vpc, Peer, Port } from 'aws-cdk-lib/aws-ec2';
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import { NagSuppressions } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_ec2 import SecurityGroup, Vpc, Peer, Port
+from aws_cdk import Stack, StackProps
+from constructs import Construct
+from cdk_nag import NagSuppressions
 
-export class CdkTestStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
-    const test = new SecurityGroup(this, 'test', {
-      vpc: new Vpc(this, 'vpc'),
-    });
-    test.addIngressRule(Peer.anyIpv4(), Port.allTraffic());
-    NagSuppressions.addResourceSuppressions(test, [
-      { id: 'CdkNagValidationFailure', reason: 'lorem ipsum' },
-    ]);
-  }
-}
+
+class CdkTestStack(Stack):
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
+        test = SecurityGroup(self, "test",
+            vpc=Vpc(self, "vpc")
+        )
+        test.add_ingress_rule(Peer.any_ipv4(), Port.all_traffic())
+        NagSuppressions.add_resource_suppressions(test, [id="CdkNagValidationFailure", reason="lorem ipsum"
+        ])
 ```
 
 </details><details>
@@ -348,27 +316,26 @@ export class CdkTestStack extends Stack {
 Validation failures can be suppressed for individual rules by using `appliesTo` to list the desired rules
 
 ```python
-import { SecurityGroup, Vpc, Peer, Port } from 'aws-cdk-lib/aws-ec2';
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import { NagSuppressions } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_ec2 import SecurityGroup, Vpc, Peer, Port
+from aws_cdk import Stack, StackProps
+from constructs import Construct
+from cdk_nag import NagSuppressions
 
-export class CdkTestStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
-    const test = new SecurityGroup(this, 'test', {
-      vpc: new Vpc(this, 'vpc'),
-    });
-    test.addIngressRule(Peer.anyIpv4(), Port.allTraffic());
-    NagSuppressions.addResourceSuppressions(test, [
-      {
-        id: 'CdkNagValidationFailure',
-        reason: 'lorem ipsum',
-        appliesTo: ['AwsSolutions-L1'],
-      },
-    ]);
-  }
-}
+
+class CdkTestStack(Stack):
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
+        test = SecurityGroup(self, "test",
+            vpc=Vpc(self, "vpc")
+        )
+        test.add_ingress_rule(Peer.any_ipv4(), Port.all_traffic())
+        NagSuppressions.add_resource_suppressions(test, [
+            id="CdkNagValidationFailure",
+            reason="lorem ipsum",
+            applies_to=["AwsSolutions-L1"]
+
+        ])
 ```
 
 </details>
@@ -391,62 +358,53 @@ See [this issue](https://github.com/aws/aws-cdk/issues/18440) for more informati
 `example-app.ts`
 
 ```python
-import { App, Aspects } from 'aws-cdk-lib';
-import { AwsSolutionsChecks } from 'cdk-nag';
-import { ExamplePipeline } from '../lib/example-pipeline';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk import App, Aspects
+from cdk_nag import AwsSolutionsChecks
+from ...lib.example_pipeline import ExamplePipeline
 
-const app = new App();
-new ExamplePipeline(app, 'example-cdk-pipeline');
-Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
-app.synth();
+
+app = App()
+ExamplePipeline(app, "example-cdk-pipeline")
+Aspects.of(app).add(AwsSolutionsChecks(verbose=True))
+app.synth()
 ```
 
 `example-pipeline.ts`
 
 ```python
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { Repository } from 'aws-cdk-lib/aws-codecommit';
-import {
-  CodePipeline,
-  CodePipelineSource,
-  ShellStep,
-} from 'aws-cdk-lib/pipelines';
-import { NagSuppressions } from 'cdk-nag';
-import { Construct } from 'constructs';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk import Stack, StackProps
+from aws_cdk.aws_codecommit import Repository
+from aws_cdk.pipelines import CodePipeline, CodePipelineSource, ShellStep
+from cdk_nag import NagSuppressions
+from constructs import Construct
 
-export class ExamplePipeline extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
 
-    const exampleSynth = new ShellStep('ExampleSynth', {
-      commands: ['yarn build --frozen-lockfile'],
-      input: CodePipelineSource.codeCommit(
-        new Repository(this, 'ExampleRepo', { repositoryName: 'ExampleRepo' }),
-        'main'
-      ),
-    });
+class ExamplePipeline(Stack):
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
 
-    const ExamplePipeline = new CodePipeline(this, 'ExamplePipeline', {
-      synth: exampleSynth,
-    });
+        example_synth = ShellStep("ExampleSynth",
+            commands=["yarn build --frozen-lockfile"],
+            input=CodePipelineSource.code_commit(
+                Repository(self, "ExampleRepo", repository_name="ExampleRepo"), "main")
+        )
 
-    // Force the pipeline construct creation forward before applying suppressions.
-    // @See https://github.com/aws/aws-cdk/issues/18440
-    ExamplePipeline.buildPipeline();
+        ExamplePipeline = CodePipeline(self, "ExamplePipeline",
+            synth=example_synth
+        )
 
-    // The path suppression will error if you comment out "ExamplePipeline.buildPipeline();""
-    NagSuppressions.addResourceSuppressionsByPath(
-      this,
-      '/example-cdk-pipeline/ExamplePipeline/Pipeline/ArtifactsBucket/Resource',
-      [
-        {
-          id: 'AwsSolutions-S1',
-          reason: 'Because I said so',
-        },
-      ]
-    );
-  }
-}
+        # Force the pipeline construct creation forward before applying suppressions.
+        # @See https://github.com/aws/aws-cdk/issues/18440
+        ExamplePipeline.build_pipeline()
+
+        # The path suppression will error if you comment out "ExamplePipeline.buildPipeline();""
+        NagSuppressions.add_resource_suppressions_by_path(self, "/example-cdk-pipeline/ExamplePipeline/Pipeline/ArtifactsBucket/Resource", [
+            id="AwsSolutions-S1",
+            reason="Because I said so"
+
+        ])
 ```
 
 </details>
@@ -459,36 +417,28 @@ In some cases L2 Constructs do not have a native option to remediate an issue an
   <summary>Example) Property Overrides</summary>
 
 ```python
-import {
-  Instance,
-  InstanceType,
-  InstanceClass,
-  MachineImage,
-  Vpc,
-  CfnInstance,
-} from 'aws-cdk-lib/aws-ec2';
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import { NagSuppressions } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_ec2 import Instance, InstanceType, InstanceClass, MachineImage, Vpc, CfnInstance
+from aws_cdk import Stack, StackProps
+from constructs import Construct
+from cdk_nag import NagSuppressions
 
-export class CdkTestStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
-    const instance = new Instance(this, 'rInstance', {
-      vpc: new Vpc(this, 'rVpc'),
-      instanceType: new InstanceType(InstanceClass.T3),
-      machineImage: MachineImage.latestAmazonLinux(),
-    });
-    const cfnIns = instance.node.defaultChild as CfnInstance;
-    cfnIns.addPropertyOverride('DisableApiTermination', true);
-    NagSuppressions.addResourceSuppressions(instance, [
-      {
-        id: 'AwsSolutions-EC29',
-        reason: 'Remediated through property override.',
-      },
-    ]);
-  }
-}
+
+class CdkTestStack(Stack):
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
+        instance = Instance(self, "rInstance",
+            vpc=Vpc(self, "rVpc"),
+            instance_type=InstanceType(InstanceClass.T3),
+            machine_image=MachineImage.latest_amazon_linux()
+        )
+        cfn_ins = instance.node.default_child
+        cfn_ins.add_property_override("DisableApiTermination", True)
+        NagSuppressions.add_resource_suppressions(instance, [
+            id="AwsSolutions-EC29",
+            reason="Remediated through property override."
+
+        ])
 ```
 
 </details>
@@ -501,18 +451,19 @@ You can optionally create a condition that prevents certain rules from being sup
   <summary>Example) Using the pre-built `SuppressionIgnoreErrors` class to ignore suppressions on any `Error` level rules.</summary>
 
 ```python
-import { App, Aspects } from 'aws-cdk-lib';
-import { CdkTestStack } from '../lib/cdk-test-stack';
-import { AwsSolutionsChecks, SuppressionIgnoreErrors } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk import App, Aspects
+from ...lib.cdk_test_stack import CdkTestStack
+from cdk_nag import AwsSolutionsChecks, SuppressionIgnoreErrors
 
-const app = new App();
-new CdkTestStack(app, 'CdkNagDemo');
-// Ignore Suppressions on any errors
+
+app = App()
+CdkTestStack(app, "CdkNagDemo")
+# Ignore Suppressions on any errors
 Aspects.of(app).add(
-  new AwsSolutionsChecks({
-    suppressionIgnoreCondition: new SuppressionIgnoreErrors(),
-  })
-);
+    AwsSolutionsChecks(
+        suppression_ignore_condition=SuppressionIgnoreErrors()
+    ))
 ```
 
 </details>
@@ -527,18 +478,19 @@ See the [NagLogger](./docs/NagLogger.md) developer docs for more information.
   <summary>Example) Adding the `ExtremelyHelpfulConsoleLogger` example from the NagLogger docs</summary>
 
 ```python
-import { App, Aspects } from 'aws-cdk-lib';
-import { CdkTestStack } from '../lib/cdk-test-stack';
-import { ExtremelyHelpfulConsoleLogger } from './docs/NagLogger';
-import { AwsSolutionsChecks } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk import App, Aspects
+from ...lib.cdk_test_stack import CdkTestStack
+from ..docs.NagLogger import ExtremelyHelpfulConsoleLogger
+from cdk_nag import AwsSolutionsChecks
 
-const app = new App();
-new CdkTestStack(app, 'CdkNagDemo');
+
+app = App()
+CdkTestStack(app, "CdkNagDemo")
 Aspects.of(app).add(
-  new AwsSolutionsChecks({
-    additionalLoggers: [new ExtremelyHelpfulConsoleLogger()],
-  })
-);
+    AwsSolutionsChecks(
+        additional_loggers=[ExtremelyHelpfulConsoleLogger()]
+    ))
 ```
 
 </details>
@@ -578,42 +530,39 @@ Sample CloudFormation template with suppression
 Sample App
 
 ```python
-import { App, Aspects } from 'aws-cdk-lib';
-import { CdkTestStack } from '../lib/cdk-test-stack';
-import { AwsSolutionsChecks } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk import App, Aspects
+from ...lib.cdk_test_stack import CdkTestStack
+from cdk_nag import AwsSolutionsChecks
 
-const app = new App();
-new CdkTestStack(app, 'CdkNagDemo');
-Aspects.of(app).add(new AwsSolutionsChecks());
+
+app = App()
+CdkTestStack(app, "CdkNagDemo")
+Aspects.of(app).add(AwsSolutionsChecks())
 ```
 
 Sample Stack with imported template
 
 ```python
-import { CfnInclude } from 'aws-cdk-lib/cloudformation-include';
-import { NagSuppressions } from 'cdk-nag';
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.cloudformation_include import CfnInclude
+from cdk_nag import NagSuppressions
+from aws_cdk import Stack, StackProps
+from constructs import Construct
 
-export class CdkTestStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
-    new CfnInclude(this, 'Template', {
-      templateFile: 'my-template.json',
-    });
-    // Add any additional suppressions
-    NagSuppressions.addResourceSuppressionsByPath(
-      this,
-      '/CdkNagDemo/Template/rBucket',
-      [
-        {
-          id: 'AwsSolutions-S2',
-          reason: 'at least 10 characters',
-        },
-      ]
-    );
-  }
-}
+
+class CdkTestStack(Stack):
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
+        CfnInclude(self, "Template",
+            template_file="my-template.json"
+        )
+        # Add any additional suppressions
+        NagSuppressions.add_resource_suppressions_by_path(self, "/CdkNagDemo/Template/rBucket", [
+            id="AwsSolutions-S2",
+            reason="at least 10 characters"
+
+        ])
 ```
 
 </details><details>
@@ -666,43 +615,40 @@ Sample CloudFormation template with suppression
 Sample App
 
 ```python
-import { App, Aspects } from 'aws-cdk-lib';
-import { CdkTestStack } from '../lib/cdk-test-stack';
-import { AwsSolutionsChecks } from 'cdk-nag';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk import App, Aspects
+from ...lib.cdk_test_stack import CdkTestStack
+from cdk_nag import AwsSolutionsChecks
 
-const app = new App();
-new CdkTestStack(app, 'CdkNagDemo');
-Aspects.of(app).add(new AwsSolutionsChecks());
+
+app = App()
+CdkTestStack(app, "CdkNagDemo")
+Aspects.of(app).add(AwsSolutionsChecks())
 ```
 
 Sample Stack with imported template
 
 ```python
-import { CfnInclude } from 'aws-cdk-lib/cloudformation-include';
-import { NagSuppressions } from 'cdk-nag';
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.cloudformation_include import CfnInclude
+from cdk_nag import NagSuppressions
+from aws_cdk import Stack, StackProps
+from constructs import Construct
 
-export class CdkTestStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
-    new CfnInclude(this, 'Template', {
-      templateFile: 'my-template.json',
-    });
-    // Add any additional suppressions
-    NagSuppressions.addResourceSuppressionsByPath(
-      this,
-      '/CdkNagDemo/Template/myPolicy',
-      [
-        {
-          id: 'AwsSolutions-IAM5',
-          reason: 'Allow key data access',
-          appliesTo: ['Action::kms:ReEncrypt*', 'Action::kms:GenerateDataKey*'],
-        },
-      ]
-    );
-  }
-}
+
+class CdkTestStack(Stack):
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
+        CfnInclude(self, "Template",
+            template_file="my-template.json"
+        )
+        # Add any additional suppressions
+        NagSuppressions.add_resource_suppressions_by_path(self, "/CdkNagDemo/Template/myPolicy", [
+            id="AwsSolutions-IAM5",
+            reason="Allow key data access",
+            applies_to=["Action::kms:ReEncrypt*", "Action::kms:GenerateDataKey*"]
+
+        ])
 ```
 
 </details>

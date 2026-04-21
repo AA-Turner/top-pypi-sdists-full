@@ -1,22 +1,22 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-03T19:36:22.747621                                                            #
+# Generated on 2026-04-21T02:03:41.379058                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.events
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
-    import metaflow.plugins.cards.component_serializer
-    import metaflow
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
-    import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator
     import metaflow.metaflow_current
+    import typing
+    import metaflow.events
+    import metaflow
+    import metaflow.plugins.cards.component_serializer
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
 
 
 TYPE_CHECKING: bool
@@ -232,6 +232,80 @@ class Current(object, metaclass=type):
     def perimeter(_, v = None):
         ...
     @property
+    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
+        """
+        (only in the presence of the @card decorator)
+        
+        The `@card` decorator makes the cards available through the `current.card`
+        object. If multiple `@card` decorators are present, you can add an `ID` to
+        distinguish between them using `@card(id=ID)` as the decorator. You will then
+        be able to access that specific card using `current.card[ID].
+        
+        Methods available are `append` and `extend`
+        
+        Returns
+        -------
+        CardComponentCollector
+            The or one of the cards attached to this step.
+        """
+        ...
+    @property
+    def parallel(self) -> "metaflow.metaflow_current.Parallel":
+        """
+        (only in the presence of the @parallel decorator)
+        
+        Returns a namedtuple with relevant information about the parallel task.
+        
+        Returns
+        -------
+        Parallel
+            `namedtuple` with the following fields:
+                - main_ip (`str`)
+                    The IP address of the control task.
+                - num_nodes (`int`)
+                    The total number of tasks created by @parallel
+                - node_index (`int`)
+                    The index of the current task in all the @parallel tasks.
+                - control_task_id (`Optional[str]`)
+                    The task ID of the control task. Available to all tasks.
+        """
+        ...
+    @property
+    def is_parallel(self) -> bool:
+        """
+        (only in the presence of the @parallel decorator)
+        
+        True if the current step is a @parallel step.
+        """
+        ...
+    @property
+    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
+        """
+        (only in the presence of the @model decorator)
+        
+        The object used for loading / saving models.
+        `current.model` exposes a `save` method to save models and a `load` method to load models.
+        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
+        or models loaded via `current.model.load`.
+        
+        Returns
+        ----------
+        ModelSerializer
+            The object used for loading / saving models.
+        """
+        ...
+    @property
+    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator.FlowAppManager":
+        """
+        (only in the presence of the @app_deploy_internal decorator)
+        
+        
+        Returns
+        ----------
+        FlowAppManager
+        """
+        ...
+    @property
     def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
         """
         (only in the presence of the @checkpoint decorator)
@@ -247,17 +321,6 @@ class Current(object, metaclass=type):
         ----------
         CurrentCheckpointer
             The object for handling checkpointing within a step.
-        """
-        ...
-    @property
-    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator.FlowAppManager":
-        """
-        (only in the presence of the @app_deploy_internal decorator)
-        
-        
-        Returns
-        ----------
-        FlowAppManager
         """
         ...
     @property
@@ -311,72 +374,9 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
-        """
-        (only in the presence of the @model decorator)
-        
-        The object used for loading / saving models.
-        `current.model` exposes a `save` method to save models and a `load` method to load models.
-        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
-        or models loaded via `current.model.load`.
-        
-        Returns
-        ----------
-        ModelSerializer
-            The object used for loading / saving models.
-        """
-        ...
-    @property
-    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
-        """
-        (only in the presence of the @card decorator)
-        
-        The `@card` decorator makes the cards available through the `current.card`
-        object. If multiple `@card` decorators are present, you can add an `ID` to
-        distinguish between them using `@card(id=ID)` as the decorator. You will then
-        be able to access that specific card using `current.card[ID].
-        
-        Methods available are `append` and `extend`
-        
-        Returns
-        -------
-        CardComponentCollector
-            The or one of the cards attached to this step.
-        """
-        ...
-    @property
-    def parallel(self) -> "metaflow.metaflow_current.Parallel":
-        """
-        (only in the presence of the @parallel decorator)
-        
-        Returns a namedtuple with relevant information about the parallel task.
-        
-        Returns
-        -------
-        Parallel
-            `namedtuple` with the following fields:
-                - main_ip (`str`)
-                    The IP address of the control task.
-                - num_nodes (`int`)
-                    The total number of tasks created by @parallel
-                - node_index (`int`)
-                    The index of the current task in all the @parallel tasks.
-                - control_task_id (`Optional[str]`)
-                    The task ID of the control task. Available to all tasks.
-        """
-        ...
-    @property
-    def is_parallel(self) -> bool:
-        """
-        (only in the presence of the @parallel decorator)
-        
-        True if the current step is a @parallel step.
-        """
-        ...
-    @property
     def trigger(self) -> "metaflow.events.Trigger":
         """
-        (only in the presence of the @trigger_on_finish, or @trigger decorators)
+        (only in the presence of the @trigger, or @trigger_on_finish decorators)
         
         Returns `Trigger` if the current run is triggered by an event
         

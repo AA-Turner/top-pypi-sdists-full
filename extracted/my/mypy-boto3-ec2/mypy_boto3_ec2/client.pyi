@@ -205,6 +205,8 @@ from .type_defs import (
     AcceptCapacityReservationBillingOwnershipResultTypeDef,
     AcceptReservedInstancesExchangeQuoteRequestTypeDef,
     AcceptReservedInstancesExchangeQuoteResultTypeDef,
+    AcceptTransitGatewayClientVpnAttachmentRequestTypeDef,
+    AcceptTransitGatewayClientVpnAttachmentResultTypeDef,
     AcceptTransitGatewayMulticastDomainAssociationsRequestTypeDef,
     AcceptTransitGatewayMulticastDomainAssociationsResultTypeDef,
     AcceptTransitGatewayPeeringAttachmentRequestTypeDef,
@@ -631,6 +633,8 @@ from .type_defs import (
     DeleteTrafficMirrorSessionResultTypeDef,
     DeleteTrafficMirrorTargetRequestTypeDef,
     DeleteTrafficMirrorTargetResultTypeDef,
+    DeleteTransitGatewayClientVpnAttachmentRequestTypeDef,
+    DeleteTransitGatewayClientVpnAttachmentResultTypeDef,
     DeleteTransitGatewayConnectPeerRequestTypeDef,
     DeleteTransitGatewayConnectPeerResultTypeDef,
     DeleteTransitGatewayConnectRequestTypeDef,
@@ -1549,6 +1553,8 @@ from .type_defs import (
     RegisterTransitGatewayMulticastGroupSourcesResultTypeDef,
     RejectCapacityReservationBillingOwnershipRequestTypeDef,
     RejectCapacityReservationBillingOwnershipResultTypeDef,
+    RejectTransitGatewayClientVpnAttachmentRequestTypeDef,
+    RejectTransitGatewayClientVpnAttachmentResultTypeDef,
     RejectTransitGatewayMulticastDomainAssociationsRequestTypeDef,
     RejectTransitGatewayMulticastDomainAssociationsResultTypeDef,
     RejectTransitGatewayPeeringAttachmentRequestTypeDef,
@@ -1784,6 +1790,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/accept_reserved_instances_exchange_quote.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#accept_reserved_instances_exchange_quote)
+        """
+
+    def accept_transit_gateway_client_vpn_attachment(
+        self, **kwargs: Unpack[AcceptTransitGatewayClientVpnAttachmentRequestTypeDef]
+    ) -> AcceptTransitGatewayClientVpnAttachmentResultTypeDef:
+        """
+        Accepts a Transit Gateway attachment request for a Client VPN endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/accept_transit_gateway_client_vpn_attachment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#accept_transit_gateway_client_vpn_attachment)
         """
 
     def accept_transit_gateway_multicast_domain_associations(
@@ -4088,6 +4104,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_transit_gateway.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_transit_gateway)
+        """
+
+    def delete_transit_gateway_client_vpn_attachment(
+        self, **kwargs: Unpack[DeleteTransitGatewayClientVpnAttachmentRequestTypeDef]
+    ) -> DeleteTransitGatewayClientVpnAttachmentResultTypeDef:
+        """
+        Deletes a Transit Gateway attachment for a Client VPN endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_transit_gateway_client_vpn_attachment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_transit_gateway_client_vpn_attachment)
         """
 
     def delete_transit_gateway_connect(
@@ -8932,6 +8958,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/reject_capacity_reservation_billing_ownership.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#reject_capacity_reservation_billing_ownership)
+        """
+
+    def reject_transit_gateway_client_vpn_attachment(
+        self, **kwargs: Unpack[RejectTransitGatewayClientVpnAttachmentRequestTypeDef]
+    ) -> RejectTransitGatewayClientVpnAttachmentResultTypeDef:
+        """
+        Rejects a Transit Gateway attachment request for a Client VPN endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/reject_transit_gateway_client_vpn_attachment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#reject_transit_gateway_client_vpn_attachment)
         """
 
     def reject_transit_gateway_multicast_domain_associations(

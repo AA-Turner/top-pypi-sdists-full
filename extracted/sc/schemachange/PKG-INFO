@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schemachange
-Version: 4.3.2
+Version: 4.3.3
 Summary: A Database Change Management tool for Snowflake
 Project-URL: Homepage, https://github.com/Snowflake-Labs/schemachange
 Project-URL: Repository, https://github.com/Snowflake-Labs/schemachange
@@ -21,7 +21,7 @@ Requires-Dist: colorama; platform_system == 'Windows'
 Requires-Dist: jinja2~=3.0
 Requires-Dist: pyyaml~=6.0
 Requires-Dist: snowflake-connector-python<5.0,>=3.0
-Requires-Dist: structlog~=24.1.0
+Requires-Dist: structlog<26.0,>=24.1.0
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: pyfakefs; extra == 'dev'
@@ -257,7 +257,7 @@ e.g:
 * R__fn_sort_ascii.sql
 
 All repeatable change scripts are applied each time the utility is run, if there is a change in the file.
-Repeatable scripts could be used for maintaining code that always needs to be applied in its entirety. e.g. stores
+Repeatable scripts could be used for maintaining code that always needs to be applied in its entirety. e.g. stored
 procedures, functions and view definitions etc.
 
 Just like Flyway, within a single migration run, repeatable scripts are always applied after all pending versioned

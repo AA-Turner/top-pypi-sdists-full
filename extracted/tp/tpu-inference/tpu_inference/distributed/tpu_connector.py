@@ -59,7 +59,6 @@ D workflow:
 """
 
 import copy
-import functools
 import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -85,11 +84,9 @@ if TYPE_CHECKING:
     from vllm.v1.core.kv_cache_manager import KVCacheBlocks
     from vllm.v1.request import Request
 
+import tpu_inference.distributed.utils as dist_utils
 from tpu_inference import envs
-from tpu_inference.distributed.utils import (get_host_ip, get_kv_ips,
-                                             get_kv_ports,
-                                             get_kv_transfer_port,
-                                             get_side_channel_port)
+from tpu_inference.distributed.kv_transfer import multi_layer_copy
 from tpu_inference.logger import init_logger
 from tpu_inference.runner.tpu_runner import TPUModelRunner
 from tpu_inference.utils import device_array
@@ -100,10 +97,6 @@ ReqId = str
 # 1. support async pulling natively
 # 2. partial pulling (like RDMA)
 # 3. non-blocking jax array read/write
-
-# The await pull KV cache will be cleared after
-# this time (in seconds) if no pulling occurred on it.
-P2P_WAIT_PULL_TIMEOUT = 120
 
 logger = init_logger(__name__)
 
@@ -149,6 +142,7 @@ class TPUConnector(KVConnectorBase_V1):
 
     def __init__(self, vllm_config: VllmConfig, role: KVConnectorRole):
         assert vllm_config.kv_transfer_config is not None
+        self._connector_metadata = None
 
         if role == KVConnectorRole.SCHEDULER:
             self.connector_scheduler = \
@@ -218,7 +212,7 @@ class TPUConnector(KVConnectorBase_V1):
         """TPU connector doesn't support layer wise load."""
         pass
 
-    def save_kv_layer(self, **kwargs) -> None:
+    def save_kv_layer(self, *args, **kwargs) -> None:
         """TPU connector doesn't support layer wise save."""
         pass
 
@@ -255,8 +249,8 @@ class TPUConnectorScheduler():
         # each request that finished prefilling will be added to it.
         self.reqs_to_load: dict[ReqId, LoadMeta] = {}
 
-        self.kv_ip = get_kv_ips()
-        self.kv_port = get_kv_ports()
+        self.kv_ip = dist_utils.get_kv_ips()
+        self.kv_port = dist_utils.get_kv_ports()
         logger.info(
             f"TPUConnectorScheduler --> kv_ip={self.kv_ip} | kv_port={self.kv_port}"
         )
@@ -414,7 +408,8 @@ class TPUConnectorScheduler():
         delay_free_blocks = len(computed_block_ids) > 0
         if delay_free_blocks:
             uuid = get_uuid()
-            expiration_time = time.perf_counter() + P2P_WAIT_PULL_TIMEOUT
+            expiration_time = time.perf_counter(
+            ) + dist_utils.get_p2p_wait_pull_timeout()
             self.reqs_to_send[request.request_id] = SendMeta(
                 uuid=uuid,
                 local_block_ids=computed_block_ids,
@@ -451,10 +446,19 @@ class TPUConnectorWorker:
         self.reqs_wait_pull: dict[ReqId, list[list[jax.Array], float]] = {}
         # req_id: thread_future
         self.reqs_pulling: dict[ReqId, Future] = {}
+        # req_id: (kv, indices)
+        self.reqs_ready_to_insert: dict[ReqId, tuple[list[jax.Array],
+                                                     jax.Array]] = {}
+        # the KV cache strafer uuid to request mapping
+        # the reason is vllm add prefix + external uuid suffix for each request id
+        # for example: prefill req_id:cmpl-cd70b21e-0f2b-46ed-910c-9525f706389a-0-99ae74c8
+        # decode req_id:cmpl-cd70b21e-0f2b-46ed-910c-9525f706389a-0-23cb9419
+        # this map will use the uuid to query the original request id
+        self.kv_pull_uuid_to_req_id_map: dict[int, ReqId] = {}
 
-        self.host_ip = get_host_ip()
-        self.kv_transfer_port = get_kv_transfer_port()
-        self.side_channel_port = get_side_channel_port()
+        self.host_ip = dist_utils.get_host_ip()
+        self.kv_transfer_port = dist_utils.get_kv_transfer_port()
+        self.side_channel_port = dist_utils.get_side_channel_port()
 
         self.kv_transfer_server = None
         self.zmq_cxt = zmq.Context()
@@ -468,7 +472,7 @@ class TPUConnectorWorker:
             self.pull_notify_listener_t.start()
             ready_event.wait()
         else:
-            self.pull_executor = ThreadPoolExecutor(max_workers=64)
+            self.pull_executor = ThreadPoolExecutor(max_workers=128)
             self.pull_conns: dict[str, Any] = {}
             self.notif_sockets: dict[str, zmq.Socket] = {}
 
@@ -499,6 +503,11 @@ class TPUConnectorWorker:
         self.shape = list(kv_layer.shape)
         self.dtype = kv_layer.dtype
         self.sharding = kv_layer.sharding
+        self.host_sharding = jax.sharding.NamedSharding(
+            self.sharding.mesh,
+            self.sharding.spec,
+            memory_kind='pinned_host',
+        )
         logger.info(f"TPUConnector Worker --> register_runner | "
                     f"node_id={self.node_id} | "
                     f"ip={self.host_ip} | "
@@ -513,13 +522,13 @@ class TPUConnectorWorker:
         self.kv_transfer_server = start_transfer_server(
             jax.local_devices()[0].client,
             server_addr,
-            [transport_addr],
+            [transport_addr] * dist_utils.get_transfer_channel_number(),
             max_num_parallel_copies=8,
             transfer_size=256 * 1024 * 1024,
             use_raw_buffers=False,
         )
         logger.info(
-            f"TPUConnector Worker {self.node_id} --> kv transfer | addr={self.kv_transfer_server.address()}"
+            f"TPUConnector Worker {self.node_id} --> KV start_transfer_server | addr={self.kv_transfer_server.address()} | channel number={dist_utils.get_transfer_channel_number()}"
         )
 
     def _pull_notify_listener(self, ready_event: threading.Event):
@@ -534,17 +543,24 @@ class TPUConnectorWorker:
         )
 
         while True:
-            client_id, req_id_bytes = sock.recv_multipart()
-            req_id = req_id_bytes.decode('utf-8')
-            logger.info(
-                f"TPUConnector Worker {self.node_id} --> zmq recieve | req_id={req_id}"
-            )
-            if req_id in self.reqs_wait_pull:
-                # Set the expiration time of this request to -1, mark to be done
-                self.reqs_wait_pull[req_id][1] = -1
+            client_id, uuid_bytes = sock.recv_multipart()
+            uuid = int(uuid_bytes.decode('utf-8'))
+            if uuid in self.kv_pull_uuid_to_req_id_map:
+                req_id = self.kv_pull_uuid_to_req_id_map[uuid]
+                logger.info(
+                    f"TPUConnector Worker {self.node_id} --> zmq recieve | req_id={req_id} | uuid={uuid}"
+                )
+                if req_id in self.reqs_wait_pull:
+                    # Set the expiration time of this request to -1, mark to be done
+                    self.reqs_wait_pull[req_id][1] = -1
+                    self.kv_pull_uuid_to_req_id_map.pop(uuid)
+                else:
+                    logger.warning(
+                        f"TPUConnector Worker {self.node_id} --> Disagg producer recives a non-exist pulling finished notification request {req_id} | uuid {uuid}"
+                    )
             else:
-                raise ValueError(
-                    f"Disagg producer recives a non-exist pulling finished notification request {req_id}"
+                logger.warning(
+                    f"TPUConnector Worker {self.node_id} --> Disagg producer recives a non-exist pulling finished notification uuid {uuid}"
                 )
             time.sleep(0)
             # The response is not really needed.
@@ -572,26 +588,50 @@ class TPUConnectorWorker:
             if req_meta.remote_block_ids is not None:
                 # The request requires to pull KV from P, build the connection and pull
                 # the data asyncly.
+
+                # We execute device_array here so JAX sees the exact same sequence
+                # of local_block_ids across all TPU nodes simultaneously.
+                # TODO(xiang): pad block_ids to avoid recompilation
+                indices = device_array(self.mesh,
+                                       np.array(req_meta.local_block_ids))
                 conn = self._maybe_build_kv_connection(req_meta)
+
                 self.reqs_pulling[req_id] = self.pull_executor.submit(
-                    self._pull_kv, conn, req_meta)
+                    self._pull_kv, req_id, conn, req_meta, indices)
             else:
+                if req_id in self.reqs_ready_to_insert:
+                    kv, indices, block_numbers = self.reqs_ready_to_insert.pop(
+                        req_id)
+                    if len(block_numbers) > 0:
+                        self.runner.kv_caches = insert_kv_chunks(
+                            self.runner.kv_caches, kv, block_numbers,
+                            self.mesh, self.sharding.spec)
+
                 # The request has finished pulling the KV from remote, or it has full local
                 # prefix cache, need to notify P to let it free blocks.
                 socket = self._maybe_build_notif_socket(req_meta)
-                self._notify_pull_done(socket, req_id)
+                self._notify_pull_done(socket, req_id, req_meta.uuid)
 
     def _prepare_kv_and_wait(self, req_id: str, req_meta: SendMeta):
         local_block_ids = req_meta.local_block_ids
         # TODO(xiang): pad block_ids to avoid recompilation
         indices = device_array(self.mesh, np.array(local_block_ids))
         kv = select_from_kv_caches(self.runner.kv_caches, indices)
+        if dist_utils.get_enable_d2h_transfer():
+            # (mrjunwan): we directly put the kv to host memory to reduce the memory pressure on device
+            # add time log here to monitor the transfer speed.
+            logger.info(
+                f"Worker {self.node_id} --> Doing D2H kv transfer for req_id={req_id}"
+            )
+            kv = jax.device_put(kv, self.host_sharding)
+
         # NOTE(xiang): We need to manually store the kv because:
         # Although we can set use_raw_buffers=True to let kv be safely destroyed after
         # calling await_pull, it could be a stranding buffer if D never pulls it.
         # So we have to set use_raw_buffers=False and stores the kv, then the kv buffer
         # will be safely destroyed by either D notifying or expiration.
         self.reqs_wait_pull[req_id] = [kv, req_meta.expiration_time]
+        self.kv_pull_uuid_to_req_id_map[req_meta.uuid] = req_id
         self.kv_transfer_server.await_pull(req_meta.uuid, kv)
 
     def _maybe_build_kv_connection(self, req_meta: LoadMeta) -> Any:
@@ -611,7 +651,8 @@ class TPUConnectorWorker:
             )
         return conn
 
-    def _pull_kv(self, conn: Any, req_meta: LoadMeta):
+    def _pull_kv(self, req_id: str, conn: Any, req_meta: LoadMeta,
+                 indices: jax.Array):
         # The local allocated blocks which don't hit prefix caching.
         local_block_ids = req_meta.local_block_ids
         # The remote computed blocks which need to pull from P.
@@ -621,13 +662,31 @@ class TPUConnectorWorker:
         assert len(local_block_ids) == len(remote_block_ids)
 
         kv_spec = self._get_kv_spec(len(remote_block_ids))
-        # TODO(xiang): pad block_ids to avoid recompilation
-        indices = device_array(self.mesh, np.array(local_block_ids))
-        kv = conn.pull(req_meta.uuid, kv_spec)
         logger.info(
-            f"Worker {self.node_id} --> kv transfer | pull uuid={req_meta.uuid}"
+            f"Worker {self.node_id} --> kv transfer | start pull req_id={req_id} | uuid={req_meta.uuid}"
         )
-        return kv, indices
+        start_time = time.perf_counter()
+        kv = conn.pull(req_meta.uuid, kv_spec)
+        kv_size_mb = sum(k.nbytes for k in kv) / (1024 * 1024)
+        end_time_0, end_time_1 = time.perf_counter(), None
+        if dist_utils.get_enable_block_kv_transfer():
+            while True:
+                end_time_1 = time.perf_counter()
+                if all(
+                        chunk.is_ready() for chunk in kv
+                ) or end_time_1 - end_time_0 > dist_utils.get_p2p_wait_pull_timeout(
+                ):
+                    break
+                time.sleep(0.001)
+
+        prepare_time_ms = (end_time_0 - start_time) * 1000
+        pull_time_ms = (end_time_1 -
+                        end_time_0) * 1000 if end_time_1 is not None else 0.0
+        logger.info(
+            f"Worker {self.node_id} --> kv transfer | done pull req_id={req_id} | "
+            f"uuid={req_meta.uuid} | prepare time={prepare_time_ms:.2f}ms | "
+            f"pull time={pull_time_ms:.2f}ms | size={kv_size_mb:.2f}MB")
+        return kv, indices, req_meta.local_block_ids
 
     def _get_kv_spec(self, num_blocks: int) -> list[jax.ShapeDtypeStruct]:
         assert num_blocks <= self.shape[0]
@@ -651,13 +710,15 @@ class TPUConnectorWorker:
                                    socket_type=zmq.DEALER,
                                    bind=False)
             logger.info(
-                f"Worker {self.node_id} --> zmq notify | sock_path={sock_path}"
+                f"Worker {self.node_id} --> notify make_zmq_socket | sock_path={sock_path}"
             )
         return sock
 
-    def _notify_pull_done(self, sock: zmq.Socket, req_id: str):
-        logger.info(f"Worker {self.node_id} --> zmq notify | req_id={req_id}")
-        sock.send_string(req_id)
+    def _notify_pull_done(self, sock: zmq.Socket, req_id: str, uuid: int):
+        logger.info(
+            f"Worker {self.node_id} --> zmq notify | req_id={req_id} | uuid={uuid}"
+        )
+        sock.send_string(str(uuid))
         # The response is not really needed.
         # ack = sock.recv_string()
 
@@ -672,11 +733,9 @@ class TPUConnectorWorker:
         for req_id in list(self.reqs_pulling.keys()):
             future = self.reqs_pulling[req_id]
             if future.done():
-                # NOTE(xiang): we do the scatter in main thread to avoid data racing.
-                # The data racing is not for the kv_caches buffer, it's for the runner.kv_caches ref.
-                kv, indices = future.result()
-                self.runner.kv_caches = scatter_kv_slices(
-                    self.runner.kv_caches, kv, indices)
+                kv, indices, block_numbers = future.result()
+                self.reqs_ready_to_insert[req_id] = (kv, indices,
+                                                     block_numbers)
                 del self.reqs_pulling[req_id]
                 done_recving.add(req_id)
 
@@ -711,22 +770,51 @@ def select_from_kv_caches(kv_caches: list[jax.Array],
     return selected
 
 
-@functools.partial(
-    jax.jit,
-    donate_argnames=("kv_caches", ),
-)
-def scatter_kv_slices(kv_caches: list[jax.Array], kv_slices: list[jax.Array],
-                      indices: list[jax.Array]) -> list[jax.Array]:
-    num_indices = indices.shape[0]
-    num_slices = kv_slices[0].shape[0]
-    # indices might be padded
-    assert num_slices <= num_indices
+def insert_kv_chunks(kv_caches: list[jax.Array], kv_slices: list[jax.Array],
+                     block_numbers: list[int], mesh: jax.sharding.Mesh,
+                     spec) -> list[jax.Array]:
+    src_offsets = []
+    dest_offsets = []
+    chunk_sizes = []
 
-    new_kv_caches = []
-    for cache, slice in zip(kv_caches, kv_slices):
-        if num_slices < num_indices:
-            slice = jnp.pad(slice, ((0, num_indices - num_slices), (0, 0),
-                                    (0, 0), (0, 0)))
-        new_cache = cache.at[indices].set(slice)
-        new_kv_caches.append(new_cache)
-    return new_kv_caches
+    start_idx = 0
+    for i in range(1, len(block_numbers) + 1):
+        if i == len(block_numbers) or block_numbers[i] != block_numbers[i -
+                                                                        1] + 1:
+            start_block = block_numbers[start_idx]
+            chunk_size = i - start_idx
+
+            src_offsets.append(start_idx)
+            dest_offsets.append(start_block)
+            chunk_sizes.append(chunk_size)
+
+            start_idx = i
+
+    num_chunks = len(src_offsets)
+    total_len = len(block_numbers)
+
+    # Pad to total_len to avoid recompilation
+    while len(src_offsets) < total_len:
+        src_offsets.append(0)
+        dest_offsets.append(0)
+        chunk_sizes.append(0)
+
+    src_offsets_arr = jnp.array(src_offsets, dtype=jnp.int32)
+    dest_offsets_arr = jnp.array(dest_offsets, dtype=jnp.int32)
+    chunk_sizes_arr = jnp.array(chunk_sizes, dtype=jnp.int32)
+    num_chunks_arr = jnp.array([num_chunks], dtype=jnp.int32)
+
+    replicated_spec = jax.sharding.PartitionSpec()
+
+    return multi_layer_copy(
+        src_array=kv_slices,
+        dest_array=kv_caches,
+        src_offsets=src_offsets_arr,
+        dest_offsets=dest_offsets_arr,
+        chunk_sizes=chunk_sizes_arr,
+        num_chunks=num_chunks_arr,
+        mesh=mesh,
+        src_sharding_spec=spec,
+        dest_sharding_spec=spec,
+        replicated_sharding_spec=replicated_spec,
+    )

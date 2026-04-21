@@ -21,7 +21,7 @@
 #include "jsdrv_prv/frontend.h"
 #include "jsdrv_prv/log.h"
 #include "jsdrv/time.h"
-#include "jsdrv_prv/js220_i128.h"
+#include "jsdrv_prv/devices/js220/js220_i128.h"
 #include "jsdrv_prv/statistics.h"
 #include "jsdrv/tmap.h"
 #include <inttypes.h>
@@ -126,7 +126,7 @@ void jsdrv_bufsig_free(struct bufsig_s * self) {
     self->N = 0;
     self->level_count = 0;
     self->sample_id_head = 0;
-    jsdrv_tmap_ref_decr(self->tmap);
+    jsdrv_tmap_free(self->tmap);
     self->tmap = NULL;
 }
 
@@ -190,8 +190,7 @@ bool jsdrv_bufsig_info(struct bufsig_s * self, struct jsdrv_buffer_info_s * info
         size_t tmap_sz = jsdrv_tmap_length(self->tmap);
         if (tmap_sz) {
             jsdrv_tmap_get(self->tmap, tmap_sz - 1, &info->time_map);
-            jsdrv_tmap_ref_incr(self->tmap);
-            info->tmap = self->tmap;
+            info->tmap = jsdrv_tmap_copy(self->tmap);
         }
     }
     return true;
@@ -572,6 +571,7 @@ static uint64_t summary_level0_get_by_idx(struct bufsig_s * self, uint64_t index
         y->std = (float) js220_i128_compute_std(x1, x2, incr, 0);
         y->min = y_min;
         y->max = y_max;
+        sample_count = incr;
     }
     return sample_count;
 }
@@ -626,7 +626,7 @@ static void summary_get(struct bufsig_s * self, struct jsdrv_buffer_response_s *
     uint64_t incr = range_req / entries_length;
     entries_length = range_req / incr;
     rsp->info.time_range_samples.length = entries_length;
-    rsp->info.time_range_samples.end = sample_id_start + incr * entries_length;
+    rsp->info.time_range_samples.end = sample_id_start + incr * entries_length - 1;
 
     if (self->level0_size == 0) {
         JSDRV_LOGI("summary request: buffer empty");

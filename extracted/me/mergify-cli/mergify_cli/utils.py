@@ -23,11 +23,14 @@ import pathlib
 import typing
 from urllib import parse
 
+import click
 import httpx
 
 from mergify_cli import VERSION
 from mergify_cli import console
+from mergify_cli import console_error
 from mergify_cli.ci import github_event
+from mergify_cli.exit_codes import ExitCode
 
 
 if typing.TYPE_CHECKING:
@@ -69,10 +72,7 @@ async def check_for_status(response: httpx.Response) -> None:
     except ValueError:
         pass
 
-    console.print(
-        f"error: API error (HTTP {response.status_code}): {detail}",
-        style="red",
-    )
+    console_error(f"API error (HTTP {response.status_code}): {detail}")
     console.print(f"url: {response.request.url}", style="red")
 
     if is_debug():
@@ -93,6 +93,31 @@ class CommandError(Exception):
 
     def __str__(self) -> str:
         return f"failed to run `{' '.join(self.command_args)}`: {self.stdout.decode()}"
+
+
+class MergifyError(click.ClickException):
+    """CLI-level error with a typed exit code.
+
+    Raised from any command path that encounters a semantic failure.
+    Click's standalone-mode handler (used by the real entrypoint and by
+    CliRunner in tests) catches ClickException subclasses, calls
+    ``show()``, then exits with ``self.exit_code``.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        exit_code: ExitCode = ExitCode.GENERIC_ERROR,
+    ) -> None:
+        super().__init__(message)
+        # click.ClickException declares exit_code as an int class attribute.
+        # Override per-instance with the typed ExitCode; IntEnum satisfies
+        # any `int` consumer (sys.exit, click's standalone-mode handler).
+        self.exit_code: ExitCode = exit_code
+
+    def show(self, file: typing.IO[str] | None = None) -> None:
+        click.secho(f"error: {self.message}", file=file, err=True, fg="red")
 
 
 async def run_command(*args: str) -> str:
@@ -195,7 +220,7 @@ async def get_trunk() -> str:
     try:
         branch_name = await git_get_branch_name()
     except CommandError:
-        console.print("error: can't get the current branch", style="red")
+        console_error("can't get the current branch")
         raise
 
     target_branch = None
@@ -213,9 +238,8 @@ async def get_trunk() -> str:
         try:
             default_remote, default_branch = await _get_default_remote_branch()
         except CommandError:
-            console.print(
-                f"error: can't detect the remote target branch for {branch_name}",
-                style="red",
+            console_error(
+                f"can't detect the remote target branch for {branch_name}",
             )
             console.print(
                 f"Please set it with `git branch {branch_name} --set-upstream-to=<remote>/<branch>`",
@@ -386,10 +410,9 @@ async def get_default_token() -> str | None:
         try:
             token = await run_command("gh", "auth", "token")
         except CommandError:
-            console.print(
-                "error: please set the 'MERGIFY_TOKEN' or 'GITHUB_TOKEN' environment variable, "
+            console_error(
+                "please set the 'MERGIFY_TOKEN' or 'GITHUB_TOKEN' environment variable, "
                 "or make sure that gh client is installed and you are authenticated",
-                style="red",
             )
             return None
     return token

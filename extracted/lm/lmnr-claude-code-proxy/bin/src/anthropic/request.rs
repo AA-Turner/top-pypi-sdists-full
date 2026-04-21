@@ -2,7 +2,41 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::common::{CacheControl, ImageSource};
+use crate::anthropic::{
+    common::{ServerToolUseBlock, ToolUseBlock},
+    tool_result::{
+        BashCodeExecutionToolResultBlock, CodeExecutionToolResultBlock,
+        TextEditorCodeExecutionToolResultBlock, WebFetchToolResultBlock, WebSearchToolResultBlock,
+    },
+};
+
+use super::common::ImageSource;
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
+pub enum CacheControl {
+    Ephemeral {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ttl: Option<CacheControlEphemeralTtlWrapper>,
+    },
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(untagged)]
+// Safety wrapper, so that we don't fail if Anthropic adds one variant
+pub enum CacheControlEphemeralTtlWrapper {
+    CacheControlEphemeralTtl(CacheControlEphemeralTtl),
+    String(String),
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub enum CacheControlEphemeralTtl {
+    #[serde(rename = "5m")]
+    FiveMinutes,
+    #[serde(rename = "1h")]
+    OneHour,
+}
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct PostMessagesRequest {
@@ -146,7 +180,9 @@ impl MessageContent {
             MessageContent::Blocks(blocks) => blocks
                 .iter()
                 .filter_map(|block| match block {
-                    ContentBlock::ToolUse { id, .. } => Some((id.clone(), block.clone())),
+                    ContentBlock::ToolUse(ToolUseBlock { id, .. }) => {
+                        Some((id.clone(), block.clone()))
+                    }
                     _ => None,
                 })
                 .collect(),
@@ -159,7 +195,7 @@ impl MessageContent {
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum DocumentSourceNestedContentBlock {
-    Text { text: String },
+    Text(TextBlock),
     Image { source: ImageSource },
 }
 
@@ -199,30 +235,6 @@ pub struct CitationConfig {
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct SearchResultContentBlock {
-    pub text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cache_control: Option<CacheControl>,
-}
-
-#[derive(Debug, Deserialize, Clone, Serialize)]
-#[serde(untagged)]
-pub enum SearchResultContent {
-    String(String),
-    Blocks(Vec<SearchResultContentBlock>),
-}
-
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct WebSearchResultContentBlock {
-    pub encrypted_content: String,
-    pub title: String,
-    pub url: String,
-    #[serde(rename = "type")]
-    pub block_type: String,
-    pub page_age: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum McpToolResultContentBlock {
@@ -240,32 +252,10 @@ pub enum McpToolResultContent {
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum ContentBlock {
-    Text {
-        text: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-    },
-    Image {
-        source: ImageSource,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-    },
-    Document {
-        source: DocumentSource,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        citations: Option<CitationConfig>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        context: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        title: Option<String>,
-    },
-    ToolUse {
-        id: String,
-        name: String,
-        input: serde_json::Value,
-    },
+    Text(TextBlock),
+    Image(ImageBlock),
+    Document(DocumentBlock),
+    ToolUse(ToolUseBlock),
     ToolResult {
         tool_use_id: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -282,56 +272,16 @@ pub enum ContentBlock {
     RedactedThinking {
         data: String,
     },
-    SearchResult {
-        content: SearchResultContent,
-        source: String,
-        title: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        citations: Option<Vec<super::common::Citation>>,
-    },
-    ServerToolUse {
-        id: String,
-        input: serde_json::Value,
-        name: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-    },
-    WebSearchToolResult {
-        tool_use_id: String,
-        content: Vec<WebSearchResultContentBlock>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-    },
-    WebFetchToolResult {
-        tool_use_id: String,
-        // TODO: type this
-        content: serde_json::Value,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-    },
-    CodeExecutionToolResult {
-        tool_use_id: String,
-        // TODO: type this
-        content: serde_json::Value,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-    },
-    BashCodeExecutionToolResult {
-        tool_use_id: String,
-        // TODO: type this
-        content: serde_json::Value,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-    },
-    TextEditorCodeExecutionToolResult {
-        tool_use_id: String,
-        // TODO: type this
-        content: serde_json::Value,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cache_control: Option<CacheControl>,
-    },
+    // many of this have cache control on the same level as other fields, but
+    // it's ok. Our parsing is not strict and allows additional fields, and we
+    // do not use cache_control in any logic yet
+    SearchResult(SearchResultBlock),
+    ServerToolUse(ServerToolUseBlock),
+    WebSearchToolResult(WebSearchToolResultBlock),
+    WebFetchToolResult(WebFetchToolResultBlock),
+    CodeExecutionToolResult(CodeExecutionToolResultBlock),
+    BashCodeExecutionToolResult(BashCodeExecutionToolResultBlock),
+    TextEditorCodeExecutionToolResult(TextEditorCodeExecutionToolResultBlock),
     McpToolUse {
         id: String,
         input: serde_json::Value,
@@ -366,8 +316,62 @@ pub enum ToolResultContent {
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum ToolResultBlock {
-    Text { text: String },
-    Image { source: ImageSource },
+    Text(TextBlock),
+    Image(ImageBlock),
+    SearchResult(SearchResultBlock),
+    Document(DocumentBlock),
+    ToolReference {
+        tool_name: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cache_control: Option<CacheControl>,
+    },
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
+pub enum TextBlockWrapper {
+    Text(TextBlock),
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub struct TextBlock {
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<CacheControl>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub citations: Option<Vec<super::common::Citation>>,
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub struct DocumentBlock {
+    source: DocumentSource,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cache_control: Option<CacheControl>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    citations: Option<CitationConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    context: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub struct ImageBlock {
+    source: ImageSource,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cache_control: Option<CacheControl>,
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub struct SearchResultBlock {
+    source: String,
+    title: String,
+    content: Vec<TextBlockWrapper>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cache_control: Option<CacheControl>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    citations: Option<CitationConfig>,
 }
 
 fn default_input_schema() -> serde_json::Value {

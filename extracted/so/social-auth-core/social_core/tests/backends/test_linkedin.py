@@ -1,7 +1,14 @@
 import json
+from typing import Protocol, cast
 
 from .oauth import BaseAuthUrlTestMixin, OAuth2Test
 from .open_id_connect import OpenIdConnectTest
+
+
+class SupportsLinkedinFlows(Protocol):
+    def do_login(self) -> None: ...
+
+    def do_partial_pipeline(self) -> None: ...
 
 
 class LinkedinOpenIdConnectTest(OpenIdConnectTest, BaseAuthUrlTestMixin):
@@ -43,12 +50,14 @@ class LinkedinOpenIdConnectTest(OpenIdConnectTest, BaseAuthUrlTestMixin):
 class BaseLinkedinTest:
     user_data_url = "https://api.linkedin.com/v2/me?projection=(firstName,id,lastName)"
     expected_username = "FooBar"
-    access_token_body = json.dumps({"access_token": "foobar", "token_type": "bearer"})
+    access_token_body: str | None = json.dumps(
+        {"access_token": "foobar", "token_type": "bearer"}
+    )
 
     # Reference:
     # https://docs.microsoft.com/en-us/linkedin/consumer/integrations/self
     # -serve/sign-in-with-linkedin?context=linkedin/consumer/context#api-request
-    user_data_body = json.dumps(
+    user_data_body: str | None = json.dumps(
         {
             "id": "1010101010",
             "firstName": {
@@ -63,10 +72,10 @@ class BaseLinkedinTest:
     )
 
     def test_login(self) -> None:
-        self.do_login()  # type: ignore[attr-defined]
+        cast("SupportsLinkedinFlows", self).do_login()
 
     def test_partial_pipeline(self) -> None:
-        self.do_partial_pipeline()  # type: ignore[attr-defined]
+        cast("SupportsLinkedinFlows", self).do_partial_pipeline()
 
 
 class LinkedinOAuth2Test(BaseLinkedinTest, OAuth2Test):

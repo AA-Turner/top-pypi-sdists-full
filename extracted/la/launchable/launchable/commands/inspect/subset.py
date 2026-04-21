@@ -110,7 +110,7 @@ def subset(context: click.core.Context, subset_id: int, is_json_format: bool):
     rest = []
     client = LaunchableClient(app=context.obj)
     try:
-        res = client.request("get", "subset/{}".format(subset_id))
+        res = client.request("get", "subset/{}".format(subset_id), timeout=(30, 300))
 
         if res.status_code == HTTPStatus.NOT_FOUND:
             click.echo(click.style(

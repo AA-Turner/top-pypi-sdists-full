@@ -27,6 +27,7 @@ class DataContract:
         data_contract: OpenDataContractStandard = None,
         schema_location: str = None,
         server: str = None,
+        schema_name: str = "all",
         publish_url: str = None,
         spark: "SparkSession" = None,
         duckdb_connection: "DuckDBPyConnection" = None,
@@ -34,12 +35,14 @@ class DataContract:
         ssl_verification: bool = True,
         publish_test_results: bool = False,
         all_errors: bool = False,
+        check_categories: set[str] | None = None,
     ):
         self._data_contract_file = data_contract_file
         self._data_contract_str = data_contract_str
         self._data_contract = data_contract
         self._schema_location = schema_location
         self._server = server
+        self._schema_name = schema_name
         self._publish_url = publish_url
         self._publish_test_results = publish_test_results
         self._spark = spark
@@ -47,6 +50,7 @@ class DataContract:
         self._inline_definitions = inline_definitions
         self._ssl_verification = ssl_verification
         self._all_errors = all_errors
+        self._check_categories = check_categories
 
     @classmethod
     def init(cls, template: typing.Optional[str], schema: typing.Optional[str] = None) -> OpenDataContractStandard:
@@ -120,7 +124,15 @@ class DataContract:
                 inline_definitions=self._inline_definitions,
             )
 
-            execute_data_contract_test(data_contract, run, self._server, self._spark, self._duckdb_connection)
+            execute_data_contract_test(
+                data_contract,
+                run,
+                self._server,
+                self._spark,
+                self._duckdb_connection,
+                schema_name=self._schema_name,
+                check_categories=self._check_categories,
+            )
 
         except DataContractException as e:
             run.checks.append(
@@ -244,7 +256,6 @@ class DataContract:
         cls,
         format: str,
         source: typing.Optional[str] = None,
-        template: typing.Optional[str] = None,
         **kwargs,
     ) -> OpenDataContractStandard:
         """Import a data contract from a source in a given format.

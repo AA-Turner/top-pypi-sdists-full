@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import sys
 import asyncio
 import logging
 
@@ -12,12 +11,6 @@ import zigpy.state
 import zigpy.types
 import zigpy.config
 import zigpy.device
-
-if sys.version_info[:2] < (3, 11):
-    from async_timeout import timeout as asyncio_timeout  # pragma: no cover
-else:
-    from asyncio import timeout as asyncio_timeout  # pragma: no cover
-
 import zigpy.profiles
 import zigpy.zdo.types as zdo_t
 import zigpy.application
@@ -447,7 +440,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
                 cluster_id=packet.cluster_id, data=packet.data.serialize()
             )
         except Exception:
-            LOGGER.warning("Failed to deserialize ZDO packet", exc_info=True)
+            LOGGER.debug(f"Failed to deserialize ZDO packet {packet}", exc_info=True)
         else:
             if zdo_hdr.command_id == zdo_t.ZDOCmd.Device_annce:
                 _, ieee, _ = zdo_args
@@ -609,7 +602,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
         # XXX: If Z-Stack is not compiled with HAL_LED, it will just not respond at all
         try:
-            async with asyncio_timeout(0.5):
+            async with asyncio.timeout(0.5):
                 await self._znp.request(
                     c.UTIL.LEDControl.Req(LED=led, Mode=mode),
                     RspStatus=t.Status.SUCCESS,
@@ -813,7 +806,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             # Broadcasts and ZDO requests will not receive a confirmation
             await self._znp.request(request=request, RspStatus=t.Status.SUCCESS)
         else:
-            async with asyncio_timeout(
+            async with asyncio.timeout(
                 EXTENDED_DATA_CONFIRM_TIMEOUT
                 if extended_timeout
                 else DATA_CONFIRM_TIMEOUT

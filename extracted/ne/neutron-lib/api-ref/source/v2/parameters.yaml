@@ -157,6 +157,12 @@ flow_classifier_id-path:
   in: path
   required: true
   type: string
+host-path:
+  description: |
+    The hostname of the system.
+  in: path
+  required: true
+  type: string
 ikepolicy_id-path:
   description: |
     The ID of the IKE policy.
@@ -2167,10 +2173,10 @@ bgp_speaker-name-body:
   type: string
 bgp_speaker-networks-body:
   description: |
-    The ID of the network to which the BGP Speaker is associated.
+    A list of network IDs to which the BGP Speaker is associated.
   in: body
   required: true
-  type: string
+  type: array
 bgp_speaker_advertise_fip_host_routes-body:
   description: |
     Whether to enable or disable the advertisement of floating ip host
@@ -2544,6 +2550,20 @@ binary:
   in: body
   required: true
   type: string
+binary-dhcp:
+  description: |
+    The executable command used to start the agent,
+    which is ``neutron-dhcp-agent`` for DHCP agents.
+  in: body
+  required: true
+  type: string
+binary-l3:
+  description: |
+    The executable command used to start the agent,
+    which is ``neutron-l3-agent`` for L3 agents.
+  in: body
+  required: true
+  type: string
 binding:host_id:
   description: |
     The ID of the host where the port resides.
@@ -2824,18 +2844,6 @@ description_taf:
 description_tas:
   description: |
     The description for this Tap Service.
-  in: body
-  required: true
-  type: string
-destination_firewall_group_id-body-optional:
-  description: |
-    The ID of the remote destination firewall group.
-  in: body
-  required: false
-  type: string
-destination_firewall_group_id-body-required:
-  description: |
-    The ID of the remote destination firewall group.
   in: body
   required: true
   type: string
@@ -5701,6 +5709,64 @@ psk:
   in: body
   required: true
   type: string
+pvlan:
+  description: |
+    Indicates the Private VLAN mode of the network, which is
+    Private VLAN enabled (``true``) or disabled (``false``).
+    When enabled, the network supports Private VLAN semantics
+    allowing port isolation within the same network.
+  in: body
+  required: true
+  type: boolean
+pvlan-request:
+  description: |
+    Indicates the Private VLAN mode of the network, which is
+    Private VLAN enabled (``true``) or disabled (``false``).
+    When enabled, the network supports Private VLAN semantics
+    allowing port isolation within the same network.
+  in: body
+  required: false
+  type: boolean
+pvlan_community:
+  description: |
+    The Private VLAN community name. Used to group ports within the same
+    community. Ports in the same community can communicate with each other and
+    with promiscuous ports but are isolated from ports in other communities.
+    Must match the pattern: ``[a-zA-Z_.][a-zA-Z_.0-9]*``. Maximum length is 232
+    characters.
+  in: body
+  required: false
+  type: string
+pvlan_community-request:
+  description: |
+    The Private VLAN community name. Used to group ports
+    within the same community. Ports in the same community can
+    communicate with each other but are isolated from ports
+    in other communities. Must match the pattern: ``[a-zA-Z_.][a-zA-Z_.0-9]*``.
+    Maximum length is 232 characters.
+  in: body
+  required: false
+  type: string
+pvlan_type:
+  description: |
+    The Private VLAN type for the port. Valid values are:
+    ``isolated`` (port can only communicate with promiscuous ports),
+    ``promiscuous`` (port can communicate with all ports),
+    or ``community`` (port can communicate with ports in the same community
+    and promiscuous ports).
+  in: body
+  required: false
+  type: string
+pvlan_type-request:
+  description: |
+    The Private VLAN type for the port. Valid values are:
+    ``isolated`` (port can only communicate with promiscuous ports),
+    ``promiscuous`` (port can communicate with all ports),
+    or ``community`` (port can communicate with ports in the same community
+    and promiscuous ports).
+  in: body
+  required: false
+  type: string
 qinq:
   description: |
     Indicates the VLAN QinQ mode of the network, which is
@@ -6876,18 +6942,6 @@ shared-response:
   in: body
   required: true
   type: boolean
-source_firewall_group_id-body-optional:
-  description: |
-    The ID  of the remote source firewall group.
-  in: body
-  required: no
-  type: string
-source_firewall_group_id-body-required:
-  description: |
-    The ID  of the remote source firewall group.
-  in: body
-  required: true
-  type: string
 source_ip_address:
   description: |
     The source IPv4 or IPv6 address or CIDR.

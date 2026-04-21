@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prowler
-Version: 5.24.0
+Version: 5.24.1
 Summary: Prowler is an Open Source security tool to perform AWS, GCP and Azure security best practices assessments, audits, incident response, continuous monitoring, hardening and forensics readiness. It contains hundreds of controls covering CIS, NIST 800, NIST CSF, CISA, RBI, FedRAMP, PCI-DSS, GDPR, HIPAA, FFIEC, SOC2, GXP, AWS Well-Architected Framework Security Pillar, AWS Foundational Technical Review (FTR), ENS (Spanish National Security Scheme) and your custom security frameworks.
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -46,7 +46,7 @@ Requires-Dist: azure-mgmt-postgresqlflexibleservers (==1.1.0)
 Requires-Dist: azure-mgmt-rdbms (==10.1.0)
 Requires-Dist: azure-mgmt-recoveryservices (==3.1.0)
 Requires-Dist: azure-mgmt-recoveryservicesbackup (==9.2.0)
-Requires-Dist: azure-mgmt-resource (==23.3.0)
+Requires-Dist: azure-mgmt-resource (==24.0.0)
 Requires-Dist: azure-mgmt-search (==9.1.0)
 Requires-Dist: azure-mgmt-security (==7.0.0)
 Requires-Dist: azure-mgmt-sql (==3.0.1)
@@ -72,7 +72,7 @@ Requires-Dist: jsonschema (==4.23.0)
 Requires-Dist: kubernetes (==32.0.1)
 Requires-Dist: markdown (==3.10.2)
 Requires-Dist: microsoft-kiota-abstractions (==1.9.2)
-Requires-Dist: msgraph-sdk (==1.23.0)
+Requires-Dist: msgraph-sdk (==1.55.0)
 Requires-Dist: numpy (==2.0.2)
 Requires-Dist: oci (==2.169.0)
 Requires-Dist: openstacksdk (==4.2.0)

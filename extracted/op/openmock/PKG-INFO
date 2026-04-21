@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: openmock
-Version: 3.1.5
+Version: 3.2.0
 Summary: Python OpenSearch Mock for test purposes
 Project-URL: Bug Tracker, https://github.com/matthewdeanmartin/openmock/issues
 Project-URL: Change Log, https://github.com/matthewdeanmartin/openmock/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://openmock.readthedocs.io/en/latest/
 Author: Marcos Cardoso
 Author-email: Mathew Martin <matthewdeanmartin@gmail.com>
 License: MIT
@@ -25,6 +26,17 @@ Requires-Dist: aiohttp
 Requires-Dist: opensearch-py
 Requires-Dist: python-dateutil>=2.8.2
 Requires-Dist: python-ranges==0.2.1
+Provides-Extra: all
+Requires-Dist: fastapi; extra == 'all'
+Requires-Dist: streamlit; extra == 'all'
+Requires-Dist: uvicorn; extra == 'all'
+Provides-Extra: rest
+Requires-Dist: fastapi; extra == 'rest'
+Requires-Dist: uvicorn; extra == 'rest'
+Provides-Extra: web
+Requires-Dist: fastapi; extra == 'web'
+Requires-Dist: streamlit; extra == 'web'
+Requires-Dist: uvicorn; extra == 'web'
 Description-Content-Type: text/markdown
 
 # Openmock
@@ -143,9 +155,33 @@ class FooServiceTest(TestCase):
 
 ```
 
+## Admin tools
+
+Openmock ships three interactive admin tools for exploring fake state outside of tests.
+
+**Streamlit web UI** (requires `pip install openmock[web]`):
+
+```bash
+openmock
+```
+
+**Tkinter desktop GUI** (no extra dependencies — uses Python's built-in `tkinter`):
+
+```bash
+openmock gui
+```
+
+**FastAPI REST Bridge** (requires `pip install openmock[rest]`):
+
+```bash
+openmock serve
+```
+
+These tools open a six-tab interface or an HTTP facade covering indices, search sandbox, cluster stats, CAT output, fake security (users/roles), and ingest pipelines. State in these tools is separate from your test processes.
+
 ## Notes:
 
-- The mocked **search** method returns **all available documents** indexed on the index with the requested document type.
+- The mocked **search** method evaluates the query against indexed documents and returns matching results, not all documents. Use `match_all` if you want everything.
 - The mocked **suggest** method returns the exactly suggestions dictionary passed as body serialized in OpenSearch.suggest response. **Attention:** If the term is an *int*, the suggestion will be `python term + 1`. If not, the suggestion will be formatted as `python {0}_suggestion.format(term) `.
   Example:
   - **Suggestion Body**:
@@ -205,6 +241,29 @@ Preferred for testing one version of python.
 
 ```bash
 pytest test
+```
+
+Run the same pytest suite against a disposable Docker OpenSearch instead of the in-memory
+fake:
+
+```bash
+uv run python scripts/opensearch_docker.py test
+```
+
+If you want to manage the container yourself, the backend seam is driven by
+`OPENMOCK_TEST_BACKEND=real` and `OPENMOCK_REAL_OPENSEARCH_URL=http://localhost:9200`.
+The default remains the in-memory mock backend.
+
+The collected tests are split into two marker groups:
+
+- `parity` for live-backend parity coverage,
+- `mock_backend` for tests that are specific to the in-memory fake.
+
+Examples:
+
+```bash
+uv run python -m pytest tests -m parity
+uv run python -m pytest tests -m mock_backend
 ```
 
 Won't catch pytest tests.

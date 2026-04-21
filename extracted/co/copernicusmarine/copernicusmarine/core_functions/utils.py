@@ -4,16 +4,7 @@ import logging
 import pathlib
 import re
 from datetime import datetime, timedelta, timezone
-from typing import (
-    Any,
-    Callable,
-    Iterator,
-    Literal,
-    Optional,
-    Sequence,
-    TypeVar,
-    Union,
-)
+from typing import Any, Callable, Iterator, Literal, Sequence, TypeVar
 
 import numpy
 import xarray
@@ -22,6 +13,9 @@ from dateutil.parser._parser import ParserError
 from requests import PreparedRequest
 from tqdm import tqdm
 
+from copernicusmarine.core_functions.environment_variables import (
+    COPERNICUSMARINE_USE_THREADS,
+)
 from copernicusmarine.core_functions.exceptions import WrongDatetimeFormat
 from copernicusmarine.versioner import __version__ as copernicusmarine_version
 
@@ -42,6 +36,19 @@ def get_unique_filepath(
     return filepath
 
 
+def get_unique_directorypath(
+    dirpath: pathlib.Path,
+) -> pathlib.Path:
+    parent = dirpath.parent
+    dirname = dirpath.name
+    counter = 1
+
+    while dirpath.exists():
+        dirpath = parent / (dirname + "_(" + str(counter) + ")")
+        counter += 1
+    return dirpath
+
+
 _T = TypeVar("_T")
 
 
@@ -54,15 +61,17 @@ def next_or_raise_exception(
         raise exception_to_raise from exception
 
 
-def construct_url_with_query_params(url, query_params: dict) -> Optional[str]:
+def construct_url_with_query_params(
+    url: str, query_params: dict[str, str]
+) -> str | None:
     req = PreparedRequest()
     req.prepare_url(url, query_params)
     return req.url
 
 
 def construct_query_params_for_marine_data_store_monitoring(
-    username: Optional[str] = None,
-) -> dict:
+    username: str | None = None,
+) -> dict[str, str]:
     query_params = {
         "x-cop-client": "copernicus-marine-toolbox",
         "x-cop-client-version": copernicusmarine_version,
@@ -72,7 +81,7 @@ def construct_query_params_for_marine_data_store_monitoring(
     return query_params
 
 
-def datetime_parser(date: Union[str, numpy.datetime64]) -> datetime:
+def datetime_parser(date: str | numpy.datetime64) -> datetime:
     if date == "now":
         return datetime.now(tz=timezone.utc)
     try:
@@ -88,7 +97,7 @@ def datetime_parser(date: Union[str, numpy.datetime64]) -> datetime:
 
 
 def timestamp_parser(
-    timestamp: Union[int, float], unit: Literal["s", "ms"] = "ms"
+    timestamp: int | float, unit: Literal["s", "ms"] = "ms"
 ) -> datetime:
     """
     Convert a timestamp in milliseconds to a datetime object.
@@ -104,15 +113,19 @@ def timestamp_parser(
 
 def datetime_to_timestamp(
     date: datetime, unit: Literal["s", "ms"] = "ms"
-) -> Union[int, float]:
+) -> int | float:
     """
     Should be Windows compatible for datetime before 1970
+    Returns a timestamp corresponding to the seconds or
+    milliseconds since the epoch (January 1, 1970, 00:00:00 UTC).
     """
-    return calendar.timegm(date.timetuple()) * (1000 if unit == "ms" else 1)
+    return (
+        calendar.timegm(date.timetuple()) + date.microsecond / 1_000_000
+    ) * (1000 if unit == "ms" else 1)
 
 
 def timestamp_or_datestring_to_datetime(
-    date: Union[str, int, float, numpy.datetime64],
+    date: str | int | float | numpy.datetime64,
 ) -> datetime:
     if isinstance(date, int) or isinstance(date, float):
         return timestamp_parser(date)
@@ -152,17 +165,22 @@ def run_concurrently(
         total=len(function_arguments),
         **tdqm_bar_configuration,
     ) as pbar:
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=max_concurrent_requests
-        ) as executor:
-            future_to_url = (
-                executor.submit(func, *function_argument)
-                for function_argument in function_arguments
-            )
-            for future in concurrent.futures.as_completed(future_to_url):
-                data = future.result()
-                out.append(data)
+        if max_concurrent_requests <= 0 or not COPERNICUSMARINE_USE_THREADS:
+            for function_argument in function_arguments:
+                out.append(func(*function_argument))
                 pbar.update(1)
+        else:
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=max_concurrent_requests
+            ) as executor:
+                future_to_url = (
+                    executor.submit(func, *function_argument)
+                    for function_argument in function_arguments
+                )
+                for future in concurrent.futures.as_completed(future_to_url):
+                    data = future.result()
+                    out.append(data)
+                    pbar.update(1)
     return out
 
 
@@ -224,7 +242,7 @@ def parse_access_dataset_url(
         raise ValueError(f"Invalid data path: {data_path}")
 
 
-def create_custom_query_function(username: Optional[str]) -> Callable:
+def create_custom_query_function(username: str | None) -> Callable:
     def _add_custom_query_param(params, context, **kwargs):
         """
         Add custom query params for MDS's Monitoring
@@ -235,3 +253,15 @@ def create_custom_query_function(username: Optional[str]) -> Callable:
         )
 
     return _add_custom_query_param
+
+
+def human_readable_size(size_mb: numpy.float64 | float) -> str:
+    units = ["B", "KB", "MB", "GB", "TB", "PB"]
+    size_bytes = size_mb * 1024 * 1024
+    index = 0
+
+    while size_bytes >= 1024 and index < len(units) - 1:
+        size_bytes /= 1024.0
+        index += 1
+
+    return f"{size_bytes:.2f} {units[index]}"

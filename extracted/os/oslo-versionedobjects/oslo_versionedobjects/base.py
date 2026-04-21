@@ -14,12 +14,29 @@
 
 """Common internal object model"""
 
+from __future__ import annotations
+
 import abc
 import collections
-from collections import abc as collections_abc
+from collections.abc import (
+    Callable,
+    Iterator,
+    MutableMapping,
+    Mapping,
+    Sequence,
+)
 import copy
 import functools
 import logging
+from typing import (
+    Any,
+    cast,
+    Concatenate,
+    overload,
+    ParamSpec,
+    TypeVar,
+    TYPE_CHECKING,
+)
 import warnings
 
 import oslo_messaging as messaging
@@ -30,20 +47,24 @@ from oslo_versionedobjects._i18n import _
 from oslo_versionedobjects import exception
 from oslo_versionedobjects import fields as obj_fields
 
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 LOG = logging.getLogger('object')
+
+_VO = TypeVar('_VO', bound='VersionedObject')
 
 
 class _NotSpecifiedSentinel:
     pass
 
 
-def _get_attrname(name):
+def _get_attrname(name: str) -> str:
     """Return the mangled name of the attribute's underlying storage."""
     return '_obj_' + name
 
 
-def _make_class_properties(cls):
+def _make_class_properties(cls: type[VersionedObject]) -> None:
     # NOTE(danms/comstud): Inherit fields from super classes.
     # mro() returns the current class first and returns 'object' last, so
     # those can be skipped.  Also be careful to not overwrite any fields
@@ -59,15 +80,21 @@ def _make_class_properties(cls):
     for name, field in cls.fields.items():
         if not isinstance(field, obj_fields.Field):
             raise exception.ObjectFieldInvalid(
-                field=name, objname=cls.obj_name())
+                field=name, objname=cls.obj_name()
+            )
 
-        def getter(self, name=name):
+        def getter(self: VersionedObject, name: str = name) -> Any:
             attrname = _get_attrname(name)
             if not hasattr(self, attrname):
                 self.obj_load_attr(name)
             return getattr(self, attrname)
 
-        def setter(self, value, name=name, field=field):
+        def setter(
+            self: VersionedObject,
+            value: Any,
+            name: str = name,
+            field: obj_fields.Field[Any] = field,
+        ) -> None:
             attrname = _get_attrname(name)
             field_value = field.coerce(self, name, value)
             if field.read_only and hasattr(self, attrname):
@@ -80,40 +107,46 @@ def _make_class_properties(cls):
 
             self._changed_fields.add(name)
             try:
-                return setattr(self, attrname, field_value)
+                setattr(self, attrname, field_value)
             except Exception:
                 with excutils.save_and_reraise_exception():
                     attr = f"{self.obj_name()}.{name}"
-                    LOG.exception('Error setting %(attr)s',
-                                  {'attr': attr})
+                    LOG.exception('Error setting %(attr)s', {'attr': attr})
 
-        def deleter(self, name=name):
+        def deleter(self: VersionedObject, name: str = name) -> None:
             attrname = _get_attrname(name)
             if not hasattr(self, attrname):
-                raise AttributeError("No such attribute `%s'" % name)
+                raise AttributeError(f"No such attribute `{name}'")
             delattr(self, attrname)
 
         setattr(cls, name, property(getter, setter, deleter))
 
 
 class VersionedObjectRegistry:
-    _registry = None
+    _registry: VersionedObjectRegistry | None = None
+    _obj_classes: collections.defaultdict[str, list[type[VersionedObject]]]
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
         if not VersionedObjectRegistry._registry:
             VersionedObjectRegistry._registry = object.__new__(
-                VersionedObjectRegistry, *args, **kwargs)
-            VersionedObjectRegistry._registry._obj_classes = \
+                VersionedObjectRegistry, *args, **kwargs
+            )
+            VersionedObjectRegistry._registry._obj_classes = (
                 collections.defaultdict(list)
+            )
         self = object.__new__(cls, *args, **kwargs)
         self._obj_classes = VersionedObjectRegistry._registry._obj_classes
         return self
 
-    def registration_hook(self, cls, index):
+    def registration_hook(
+        self, cls: type[VersionedObject], index: int
+    ) -> None:
         pass
 
-    def _register_class(self, cls):
-        def _vers_tuple(obj):
+    def _register_class(self, cls: type[VersionedObject]) -> None:
+        def _vers_tuple(
+            obj: type[VersionedObject],
+        ) -> tuple[int, ...]:
             return vutils.convert_version_to_tuple(obj.VERSION)
 
         _make_class_properties(cls)
@@ -134,100 +167,216 @@ class VersionedObjectRegistry:
             self.registration_hook(cls, 0)
 
     @classmethod
-    def register(cls, obj_cls):
+    def register(cls, obj_cls: type[_VO]) -> type[_VO]:
         registry = cls()
         registry._register_class(obj_cls)
         return obj_cls
 
     @classmethod
-    def register_if(cls, condition):
-        def wraps(obj_cls):
+    def register_if(cls, condition: bool) -> Callable[[type[_VO]], type[_VO]]:
+        def wraps(obj_cls: type[_VO]) -> type[_VO]:
             if condition:
                 obj_cls = cls.register(obj_cls)
             else:
                 _make_class_properties(obj_cls)
             return obj_cls
+
         return wraps
 
     @classmethod
-    def objectify(cls, obj_cls):
+    def objectify(cls, obj_cls: type[_VO]) -> type[_VO]:
         return cls.register_if(False)(obj_cls)
 
     @classmethod
-    def obj_classes(cls):
+    def obj_classes(
+        cls,
+    ) -> collections.defaultdict[str, list[type[VersionedObject]]]:
         registry = cls()
         return registry._obj_classes
 
 
-# These are decorators that mark an object's method as remotable.
+P = ParamSpec('P')
+R = TypeVar('R')
+
+
+# Decorator that marks an object's method as remotable.
 # If the metaclass is configured to forward object methods to an
-# indirection service, these will result in making an RPC call
+# indirection service, this will result in making an RPC call
 # instead of directly calling the implementation in the object. Instead,
 # the object implementation on the remote end will perform the
 # requested action and the result will be returned here.
-def remotable_classmethod(fn):
-    """Decorator for remotable classmethods."""
-    @functools.wraps(fn)
-    def wrapper(cls, context, *args, **kwargs):
+#
+# This decorator works for both instance methods and classmethods. When
+# used with an instance method, context is retrieved from self._context:
+#
+#     @remotable
+#     def foo(self):
+#         ...
+#
+# When used with a classmethod, context is passed as first argument after cls:
+#
+#       @classmethod
+#       @remotable
+#       def bar(cls, context):
+#           ...
+#
+# Note that for instance methods, if context is not present, the object
+# is "orphaned" and remotable methods cannot be called.
+@overload
+def remotable(
+    fn: Callable[Concatenate[_VO, P], R],
+) -> Callable[Concatenate[_VO, P], R]: ...
+
+
+@overload
+def remotable(
+    fn: Callable[Concatenate[type[_VO], P], R],
+) -> Callable[Concatenate[type[_VO], P], R]: ...
+
+
+def remotable(fn: Callable[..., R]) -> Callable[..., R]:
+    """Decorator for remotable object methods."""
+
+    def _wrapper_classmethod(cls: type[_VO], *args: Any, **kwargs: Any) -> R:
+        context = args[0]
+        remaining_args = args[1:]
+
         if cls.indirection_api:
             version_manifest = obj_tree_get_versions(cls.obj_name())
             try:
                 result = cls.indirection_api.object_class_action_versions(
-                    context, cls.obj_name(), fn.__name__, version_manifest,
-                    args, kwargs)
+                    context,
+                    cls.obj_name(),
+                    fn.__name__,
+                    version_manifest,
+                    remaining_args,
+                    kwargs,
+                )
             except NotImplementedError:
-                # FIXME(danms): Maybe start to warn here about deprecation?
                 result = cls.indirection_api.object_class_action(
-                    context, cls.obj_name(), fn.__name__, cls.VERSION,
-                    args, kwargs)
-        else:
-            result = fn(cls, context, *args, **kwargs)
-            if isinstance(result, VersionedObject):
-                result._context = context
+                    context,
+                    cls.obj_name(),
+                    fn.__name__,
+                    cls.VERSION,
+                    remaining_args,
+                    kwargs,
+                )
+            return cast(R, result)
+
+        result = fn(cls, *args, **kwargs)
+        if isinstance(result, VersionedObject):
+            result._context = context
         return result
 
-    # NOTE(danms): Make this discoverable
-    wrapper.remotable = True
-    wrapper.original_fn = fn
-    return classmethod(wrapper)
-
-
-# See comment above for remotable_classmethod()
-#
-# Note that this will use either the provided context, or the one
-# stashed in the object. If neither are present, the object is
-# "orphaned" and remotable methods cannot be called.
-def remotable(fn):
-    """Decorator for remotable object methods."""
-    @functools.wraps(fn)
-    def wrapper(self, *args, **kwargs):
+    def _wrapper_instancemethod(self: _VO, *args: Any, **kwargs: Any) -> R:
         ctxt = self._context
         if ctxt is None:
-            raise exception.OrphanedObjectError(method=fn.__name__,
-                                                objtype=self.obj_name())
+            raise exception.OrphanedObjectError(
+                method=fn.__name__, objtype=self.obj_name()
+            )
+
         if self.indirection_api:
             updates, result = self.indirection_api.object_action(
-                ctxt, self, fn.__name__, args, kwargs)
+                ctxt, self, fn.__name__, args, kwargs
+            )
             for key, value in updates.items():
                 if key in self.fields:
                     field = self.fields[key]
-                    # NOTE(ndipanov): Since VersionedObjectSerializer will have
-                    # deserialized any object fields into objects already,
-                    # we do not try to deserialize them again here.
+                    # NOTE(ndipanov): Since VersionedObjectSerializer will
+                    # have deserialized any object fields into objects
+                    # already, we do not try to deserialize them again.
                     if isinstance(value, VersionedObject):
                         setattr(self, key, value)
                     else:
-                        setattr(self, key,
-                                field.from_primitive(self, key, value))
+                        setattr(
+                            self,
+                            key,
+                            field.from_primitive(self, key, value),
+                        )
             self.obj_reset_changes()
             self._changed_fields = set(updates.get('obj_what_changed', []))
-            return result
-        else:
-            return fn(self, *args, **kwargs)
+            return cast(R, result)
 
-    wrapper.remotable = True
-    wrapper.original_fn = fn
+        return fn(self, *args, **kwargs)
+
+    def wrapper(
+        first: type[_VO] | _VO,
+        /,
+        *args: Any,
+        **kwargs: Any,
+    ) -> R:
+        if isinstance(first, type):
+            return _wrapper_classmethod(first, *args, **kwargs)
+        else:
+            return _wrapper_instancemethod(first, *args, **kwargs)
+
+    # NOTE(danms): Make this discoverable
+    setattr(wrapper, 'remotable', True)
+    setattr(wrapper, 'original_fn', fn)
+
+    functools.update_wrapper(wrapper, fn)
+
     return wrapper
+
+
+def remotable_classmethod(
+    fn: Callable[Concatenate[type[_VO], P], R],
+) -> classmethod[_VO, P, R]:
+    """Decorator for remotable classmethods.
+
+    .. deprecated::
+        Use ``@classmethod`` combined with ``@remotable`` instead::
+
+            @classmethod
+            @remotable
+            def my_method(cls, context): ...
+    """
+    warnings.warn(
+        "remotable_classmethod is deprecated, use @classmethod with "
+        "@remotable",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+    def wrapper(cls: type[_VO], /, *args: P.args, **kwargs: P.kwargs) -> R:
+        # The first positional argument is always the context
+        context = args[0]
+        remaining_args = args[1:]
+        if cls.indirection_api:
+            version_manifest = obj_tree_get_versions(cls.obj_name())
+            try:
+                result = cls.indirection_api.object_class_action_versions(
+                    context,
+                    cls.obj_name(),
+                    fn.__name__,
+                    version_manifest,
+                    remaining_args,
+                    kwargs,
+                )
+            except NotImplementedError:
+                # FIXME(danms): Maybe start to warn here about deprecation?
+                result = cls.indirection_api.object_class_action(
+                    context,
+                    cls.obj_name(),
+                    fn.__name__,
+                    cls.VERSION,
+                    remaining_args,
+                    kwargs,
+                )
+            return cast(R, result)
+
+        result = fn(cls, *args, **kwargs)
+        if isinstance(result, VersionedObject):
+            result._context = context
+        return result
+
+    # NOTE(danms): Make this discoverable
+    setattr(wrapper, 'remotable', True)
+    setattr(wrapper, 'original_fn', fn)
+
+    functools.update_wrapper(wrapper, fn)
+
+    return classmethod(wrapper)
 
 
 class VersionedObject:
@@ -240,7 +389,7 @@ class VersionedObject:
     as appropriate.
     """
 
-    indirection_api = None
+    indirection_api: VersionedObjectIndirectionAPI | None = None
 
     # Object versioning rules
     #
@@ -254,25 +403,25 @@ class VersionedObject:
     # purposes of triggering a backport, which means anything changed under
     # a .Z must be additive and non-destructive such that a node that knows
     # about X.Y can consider X.Y.Z equivalent.
-    VERSION = '1.0'
+    VERSION: str = '1.0'
 
     # Object namespace for serialization
     # NB: Generally this should not be changed, but is needed for backwards
     #     compatibility
-    OBJ_SERIAL_NAMESPACE = 'versioned_object'
+    OBJ_SERIAL_NAMESPACE: str = 'versioned_object'
 
     # Object project namespace for serialization
     # This is used to disambiguate owners of objects sharing a common RPC
     # medium
-    OBJ_PROJECT_NAMESPACE = 'versionedobjects'
+    OBJ_PROJECT_NAMESPACE: str = 'versionedobjects'
 
     # The fields present in this object as key:field pairs. For example:
     #
     # fields = { 'foo': obj_fields.IntegerField(),
     #            'bar': obj_fields.StringField(),
     #          }
-    fields = {}
-    obj_extra_fields = []
+    fields: MutableMapping[str, obj_fields.Field[Any]] = {}
+    obj_extra_fields: Sequence[str] = []
 
     # Table of sub-object versioning information
     #
@@ -298,34 +447,48 @@ class VersionedObject:
     # - If we are asked to backlevel our object to version 1.1, we
     #   will remove both subobject1 and subobject2 from the primitive,
     #   since they were not added until version 1.2.
-    obj_relationships = {}
+    obj_relationships: dict[str, list[tuple[str, str]]] = {}
 
-    def __init__(self, context=None, **kwargs):
+    _changed_fields: set[str]
+    _context: Any
+
+    def __init__(self, context: Any = None, **kwargs: Any) -> None:
         self._changed_fields = set()
         self._context = context
         for key in kwargs.keys():
             setattr(self, key, kwargs[key])
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         repr_str = '{}({})'.format(
             self.obj_name(),
-            ','.join(['{}={}'.format(name,
-                                     (self.obj_attr_is_set(name) and
-                                      field.stringify(getattr(self, name)) or
-                                      '<?>'))
-                      for name, field in sorted(self.fields.items())]))
+            ','.join(
+                [
+                    '{}={}'.format(
+                        name,
+                        (
+                            self.obj_attr_is_set(name)
+                            and field.stringify(getattr(self, name))
+                            or '<?>'
+                        ),
+                    )
+                    for name, field in sorted(self.fields.items())
+                ]
+            ),
+        )
         return repr_str
 
-    def __contains__(self, name):
+    def __contains__(self, name: object) -> bool:
+        if not isinstance(name, str):
+            return False
         try:
             return self.obj_attr_is_set(name)
         except AttributeError:
             return False
 
     @classmethod
-    def to_json_schema(cls):
+    def to_json_schema(cls) -> dict[str, Any]:
         obj_name = cls.obj_name()
-        schema = {
+        schema: dict[str, Any] = {
             '$schema': 'http://json-schema.org/draft-04/schema#',
             'title': obj_name,
         }
@@ -333,7 +496,7 @@ class VersionedObject:
         return schema
 
     @classmethod
-    def obj_name(cls):
+    def obj_name(cls) -> str:
         """Return the object's name
 
         Return a canonical name for this object which will be used over
@@ -342,12 +505,16 @@ class VersionedObject:
         return cls.__name__
 
     @classmethod
-    def _obj_primitive_key(cls, field):
+    def _obj_primitive_key(cls, field: str) -> str:
         return f'{cls.OBJ_SERIAL_NAMESPACE}.{field}'
 
     @classmethod
-    def _obj_primitive_field(cls, primitive, field,
-                             default=obj_fields.UnspecifiedDefault):
+    def _obj_primitive_field(
+        cls,
+        primitive: dict[str, Any],
+        field: str,
+        default: Any = obj_fields.UnspecifiedDefault,
+    ) -> Any:
         key = cls._obj_primitive_key(field)
         if default == obj_fields.UnspecifiedDefault:
             return primitive[key]
@@ -355,24 +522,29 @@ class VersionedObject:
             return primitive.get(key, default)
 
     @classmethod
-    def obj_class_from_name(cls, objname, objver):
+    def obj_class_from_name(
+        cls, objname: str, objver: str
+    ) -> type[VersionedObject]:
         """Returns a class from the registry based on a name and version."""
         if objname not in VersionedObjectRegistry.obj_classes():
-            LOG.error('Unable to instantiate unregistered object type '
-                      '%(objtype)s'), dict(objtype=objname)
+            LOG.error(
+                'Unable to instantiate unregistered object type %(objtype)s',
+                {'objtype': objname},
+            )
             raise exception.UnsupportedObjectError(objtype=objname)
 
         # NOTE(comstud): If there's not an exact match, return the highest
         # compatible version. The objects stored in the class are sorted
         # such that highest version is first, so only set compatible_match
         # once below.
-        compatible_match = None
+        compatible_match: type[VersionedObject] | None = None
 
         for objclass in VersionedObjectRegistry.obj_classes()[objname]:
             if objclass.VERSION == objver:
                 return objclass
-            if (not compatible_match and
-                    vutils.is_compatible(objver, objclass.VERSION)):
+            if not compatible_match and vutils.is_compatible(
+                objver, objclass.VERSION
+            ):
                 compatible_match = objclass
 
         if compatible_match:
@@ -380,12 +552,14 @@ class VersionedObject:
 
         # As mentioned above, latest version is always first in the list.
         latest_ver = VersionedObjectRegistry.obj_classes()[objname][0].VERSION
-        raise exception.IncompatibleObjectVersion(objname=objname,
-                                                  objver=objver,
-                                                  supported=latest_ver)
+        raise exception.IncompatibleObjectVersion(
+            objname=objname, objver=objver, supported=latest_ver
+        )
 
     @classmethod
-    def _obj_from_primitive(cls, context, objver, primitive):
+    def _obj_from_primitive(
+        cls, context: Any, objver: str, primitive: dict[str, Any]
+    ) -> Self:
         self = cls()
         self._context = context
         self.VERSION = objver
@@ -393,13 +567,16 @@ class VersionedObject:
         changes = cls._obj_primitive_field(primitive, 'changes', [])
         for name, field in self.fields.items():
             if name in objdata:
-                setattr(self, name, field.from_primitive(self, name,
-                                                         objdata[name]))
+                setattr(
+                    self, name, field.from_primitive(self, name, objdata[name])
+                )
         self._changed_fields = {x for x in changes if x in self.fields}
         return self
 
     @classmethod
-    def obj_from_primitive(cls, primitive, context=None):
+    def obj_from_primitive(
+        cls, primitive: dict[str, Any], context: Any = None
+    ) -> Self:
         """Object field-by-field hydration."""
         objns = cls._obj_primitive_field(primitive, 'namespace')
         objname = cls._obj_primitive_field(primitive, 'name')
@@ -408,11 +585,12 @@ class VersionedObject:
             # NOTE(danms): We don't do anything with this now, but it's
             # there for "the future"
             raise exception.UnsupportedObjectError(
-                objtype=f'{objns}.{objname}')
+                objtype=f'{objns}.{objname}'
+            )
         objclass = cls.obj_class_from_name(objname, objver)
-        return objclass._obj_from_primitive(context, objver, primitive)
+        return objclass._obj_from_primitive(context, objver, primitive)  # type: ignore[return-value]
 
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
         """Efficiently make a deep copy of this object."""
 
         # NOTE(danms): A naive deepcopy would copy more than we need,
@@ -435,30 +613,38 @@ class VersionedObject:
         nobj._changed_fields = set(self._changed_fields)
         return nobj
 
-    def obj_clone(self):
+    def obj_clone(self) -> Self:
         """Create a copy."""
         return copy.deepcopy(self)
 
-    def _obj_relationship_for(self, field, target_version):
+    def _obj_relationship_for(
+        self, field: str, target_version: str
+    ) -> list[tuple[str, str]] | None:
         # NOTE(danms): We need to be graceful about not having the temporary
         # version manifest if called from obj_make_compatible().
-        if (not hasattr(self, '_obj_version_manifest') or
-                self._obj_version_manifest is None):
+        if (
+            not hasattr(self, '_obj_version_manifest')
+            or self._obj_version_manifest is None
+        ):
             try:
                 return self.obj_relationships[field]
             except KeyError:
                 raise exception.ObjectActionError(
-                    action='obj_make_compatible',
-                    reason='No rule for %s' % field)
+                    action='obj_make_compatible', reason=f'No rule for {field}'
+                )
 
-        objname = self.fields[field].objname
+        # The field is expected to be an ObjectField or ListOfObjectsField;
+        # both store objname as an instance attribute set in __init__
+        objname = cast(obj_fields.ObjectField, self.fields[field]).objname
         if objname not in self._obj_version_manifest:
-            return
+            return None
         # NOTE(danms): Compute a relationship mapping that looks like
         # what the caller expects.
         return [(target_version, self._obj_version_manifest[objname])]
 
-    def _obj_make_obj_compatible(self, primitive, target_version, field):
+    def _obj_make_obj_compatible(
+        self, primitive: dict[str, Any], target_version: str, field: str
+    ) -> None:
         """Backlevel a sub-object based on our versioning rules.
 
         This is responsible for backporting objects contained within
@@ -480,15 +666,20 @@ class VersionedObject:
             return
 
         try:
-            _get_subobject_version(target_version,
-                                   relationship_map,
-                                   lambda ver: _do_subobject_backport(
-                                       ver, self, field, primitive))
+            _get_subobject_version(
+                target_version,
+                relationship_map,
+                lambda ver: _do_subobject_backport(
+                    ver, self, field, primitive
+                ),
+            )
         except exception.TargetBeforeSubobjectExistedException:
             # Subobject did not exist, so delete it from the primitive
             del primitive[field]
 
-    def obj_make_compatible(self, primitive, target_version):
+    def obj_make_compatible(
+        self, primitive: dict[str, Any], target_version: str
+    ) -> None:
         """Make an object representation compatible with a target version.
 
         This is responsible for taking the primitive representation of
@@ -515,15 +706,20 @@ class VersionedObject:
                  if conversion is not possible for some reason
         """
         for key, field in self.fields.items():
-            if not isinstance(field, (obj_fields.ObjectField,
-                                      obj_fields.ListOfObjectsField)):
+            if not isinstance(
+                field, (obj_fields.ObjectField, obj_fields.ListOfObjectsField)
+            ):
                 continue
             if not self.obj_attr_is_set(key):
                 continue
             self._obj_make_obj_compatible(primitive, target_version, key)
 
-    def obj_make_compatible_from_manifest(self, primitive, target_version,
-                                          version_manifest):
+    def obj_make_compatible_from_manifest(
+        self,
+        primitive: dict[str, Any],
+        target_version: str,
+        version_manifest: dict[str, str] | None,
+    ) -> None:
         # NOTE(danms): Stash the manifest on the object so we can use it in
         # the deeper layers. We do this because obj_make_compatible() is
         # defined library API at this point, yet we need to get this manifest
@@ -537,21 +733,27 @@ class VersionedObject:
         finally:
             delattr(self, '_obj_version_manifest')
 
-    def obj_to_primitive(self, target_version=None, version_manifest=None):
+    def obj_to_primitive(
+        self,
+        target_version: str | None = None,
+        version_manifest: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """Simple base-case dehydration.
 
         This calls to_primitive() for each item in fields.
         """
         if target_version is None:
             target_version = self.VERSION
-        if (vutils.convert_version_to_tuple(target_version) >
-                vutils.convert_version_to_tuple(self.VERSION)):
+        if vutils.convert_version_to_tuple(
+            target_version
+        ) > vutils.convert_version_to_tuple(self.VERSION):
             raise exception.InvalidTargetVersion(version=target_version)
         primitive = dict()
         for name, field in self.fields.items():
             if self.obj_attr_is_set(name):
-                primitive[name] = field.to_primitive(self, name,
-                                                     getattr(self, name))
+                primitive[name] = field.to_primitive(
+                    self, name, getattr(self, name)
+                )
         # NOTE(danms): If we know we're being asked for a different version,
         # then do the compat step. However, even if we think we're not,
         # we may have sub-objects that need it, so if we have a manifest we
@@ -559,14 +761,15 @@ class VersionedObject:
         # required a parent version bump for any child, so the target
         # check was enough.
         if target_version != self.VERSION or version_manifest:
-            self.obj_make_compatible_from_manifest(primitive,
-                                                   target_version,
-                                                   version_manifest)
-        obj = {self._obj_primitive_key('name'): self.obj_name(),
-               self._obj_primitive_key('namespace'): (
-                   self.OBJ_PROJECT_NAMESPACE),
-               self._obj_primitive_key('version'): target_version,
-               self._obj_primitive_key('data'): primitive}
+            self.obj_make_compatible_from_manifest(
+                primitive, target_version, version_manifest
+            )
+        obj = {
+            self._obj_primitive_key('name'): self.obj_name(),
+            self._obj_primitive_key('namespace'): (self.OBJ_PROJECT_NAMESPACE),
+            self._obj_primitive_key('version'): target_version,
+            self._obj_primitive_key('data'): primitive,
+        }
         if self.obj_what_changed():
             # NOTE(cfriesen): if we're downgrading to a lower version, then
             # it's possible that self.obj_what_changed() includes fields that
@@ -577,30 +780,35 @@ class VersionedObject:
                 obj[self._obj_primitive_key('changes')] = changes
         return obj
 
-    def obj_set_defaults(self, *attrs):
+    def obj_set_defaults(self, *attrs: str) -> None:
         if not attrs:
-            attrs = [name for name, field in self.fields.items()
-                     if field.default != obj_fields.UnspecifiedDefault]
+            attrs = tuple(
+                name
+                for name, field in self.fields.items()
+                if field.default != obj_fields.UnspecifiedDefault
+            )
 
         for attr in attrs:
             default = copy.deepcopy(self.fields[attr].default)
             if default is obj_fields.UnspecifiedDefault:
                 raise exception.ObjectActionError(
                     action='set_defaults',
-                    reason='No default set for field %s' % attr)
+                    reason=f'No default set for field {attr}',
+                )
             if not self.obj_attr_is_set(attr):
                 setattr(self, attr, default)
 
-    def obj_load_attr(self, attrname):
+    def obj_load_attr(self, attrname: str) -> None:
         """Load an additional attribute from the real object.
 
         This should load self.$attrname and cache any data that might
         be useful for future load operations.
         """
         raise NotImplementedError(
-            _("Cannot load '%s' in the base class") % attrname)
+            _("Cannot load '%s' in the base class") % attrname
+        )
 
-    def save(self, context):
+    def save(self) -> None:
         """Save the changed fields back to the store.
 
         This is optional for subclasses, but is presented here in the base
@@ -608,25 +816,30 @@ class VersionedObject:
         """
         raise NotImplementedError(_('Cannot save anything in the base class'))
 
-    def obj_what_changed(self):
+    def obj_what_changed(self) -> set[str]:
         """Returns a set of fields that have been modified."""
-        changes = {field for field in self._changed_fields
-                   if field in self.fields}
+        changes = {
+            field for field in self._changed_fields if field in self.fields
+        }
         for field in self.fields:
-            if (self.obj_attr_is_set(field) and
-                    isinstance(getattr(self, field), VersionedObject) and
-                    getattr(self, field).obj_what_changed()):
+            if (
+                self.obj_attr_is_set(field)
+                and isinstance(getattr(self, field), VersionedObject)
+                and getattr(self, field).obj_what_changed()
+            ):
                 changes.add(field)
         return changes
 
-    def obj_get_changes(self):
+    def obj_get_changes(self) -> dict[str, Any]:
         """Returns a dict of changed fields and their new values."""
-        changes = {}
+        changes: dict[str, Any] = {}
         for key in self.obj_what_changed():
             changes[key] = getattr(self, key)
         return changes
 
-    def obj_reset_changes(self, fields=None, recursive=False):
+    def obj_reset_changes(
+        self, fields: list[str] | None = None, recursive: bool = False
+    ) -> None:
         """Reset the list of fields that have been changed.
 
         :param fields: List of fields to reset, or "all" if None.
@@ -641,7 +854,6 @@ class VersionedObject:
         """
         if recursive:
             for field in self.obj_get_changes():
-
                 # Ignore fields not in requested set (if applicable)
                 if fields and field not in fields:
                     continue
@@ -659,8 +871,9 @@ class VersionedObject:
                 # Reset straight Object and ListOfObjects fields
                 if isinstance(self.fields[field], obj_fields.ObjectField):
                     value.obj_reset_changes(recursive=True)
-                elif isinstance(self.fields[field],
-                                obj_fields.ListOfObjectsField):
+                elif isinstance(
+                    self.fields[field], obj_fields.ListOfObjectsField
+                ):
                     for thing in value:
                         thing.obj_reset_changes(recursive=True)
 
@@ -669,7 +882,7 @@ class VersionedObject:
         else:
             self._changed_fields.clear()
 
-    def obj_attr_is_set(self, attrname):
+    def obj_attr_is_set(self, attrname: str) -> bool:
         """Test object to see if attrname is present.
 
         Returns True if the named attribute has a value set, or
@@ -678,16 +891,17 @@ class VersionedObject:
         """
         if attrname not in self.obj_fields:
             raise AttributeError(
-                _("%(objname)s object has no attribute '%(attrname)s'") %
-                {'objname': self.obj_name(), 'attrname': attrname})
+                _("%(objname)s object has no attribute '%(attrname)s'")
+                % {'objname': self.obj_name(), 'attrname': attrname}
+            )
         return hasattr(self, _get_attrname(attrname))
 
     @property
-    def obj_fields(self):
-        return list(self.fields.keys()) + self.obj_extra_fields
+    def obj_fields(self) -> list[str]:
+        return list(self.fields.keys()) + list(self.obj_extra_fields)
 
     @property
-    def obj_context(self):
+    def obj_context(self) -> Any:
         return self._context
 
 
@@ -697,19 +911,28 @@ class ComparableVersionedObject:
     When objects are to be compared with each other (in tests for example),
     this mixin can be used.
     """
-    def __eq__(self, obj):
+
+    def __eq__(self, obj: object) -> bool:
         # FIXME(inc0): this can return incorrect value if we consider partially
         # loaded objects from db and fields which are dropped out differ
         if hasattr(obj, 'obj_to_primitive'):
-            return self.obj_to_primitive() == obj.obj_to_primitive()
+            # This mixin is always combined with VersionedObject
+            return bool(
+                cast(VersionedObject, self).obj_to_primitive()
+                == obj.obj_to_primitive()
+            )
         return NotImplemented
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return super().__hash__()
 
-    def __ne__(self, obj):
+    def __ne__(self, obj: object) -> bool:
         if hasattr(obj, 'obj_to_primitive'):
-            return self.obj_to_primitive() != obj.obj_to_primitive()
+            # This mixin is always combined with VersionedObject
+            return bool(
+                cast(VersionedObject, self).obj_to_primitive()
+                != obj.obj_to_primitive()
+            )
         return NotImplemented
 
 
@@ -719,7 +942,10 @@ class TimestampedObject:
     Sqlalchemy models that inherit from the oslo_db TimestampMixin will include
     these fields and the corresponding objects will benefit from this mixin.
     """
-    fields = {
+
+    # Explicitly annotated to match VersionedObject.fields, which allows
+    # subclasses to override with specific field dicts without type errors.
+    fields: MutableMapping[str, obj_fields.Field[Any]] = {
         'created_at': obj_fields.DateTimeField(nullable=True),
         'updated_at': obj_fields.DateTimeField(nullable=True),
     }
@@ -735,43 +961,47 @@ class VersionedObjectDictCompat:
     attribute access.
     """
 
-    def __iter__(self):
-        for name in self.obj_fields:
-            if (self.obj_attr_is_set(name) or
-                    name in self.obj_extra_fields):
+    def __iter__(self) -> Iterator[str]:
+        # This mixin is always combined with VersionedObject
+        vo = cast(VersionedObject, self)
+        for name in vo.obj_fields:
+            if vo.obj_attr_is_set(name) or name in vo.obj_extra_fields:
                 yield name
 
     keys = __iter__
 
-    def values(self):
+    def values(self) -> Iterator[Any]:
         for name in self:
             yield getattr(self, name)
 
-    def items(self):
+    def items(self) -> Iterator[tuple[str, Any]]:
         for name in self:
             yield name, getattr(self, name)
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> Any:
         return getattr(self, name)
 
-    def __setitem__(self, name, value):
+    def __setitem__(self, name: str, value: Any) -> None:
         setattr(self, name, value)
 
-    def get(self, key, value=_NotSpecifiedSentinel):
-        if key not in self.obj_fields:
-            raise AttributeError("'{}' object has no attribute '{}'".format(
-                self.__class__, key))
-        if value != _NotSpecifiedSentinel and not self.obj_attr_is_set(key):
+    def get(self, key: str, value: Any = _NotSpecifiedSentinel) -> Any:
+        # This mixin is always combined with VersionedObject
+        vo = cast(VersionedObject, self)
+        if key not in vo.obj_fields:
+            raise AttributeError(
+                f"'{self.__class__}' object has no attribute '{key}'"
+            )
+        if value != _NotSpecifiedSentinel and not vo.obj_attr_is_set(key):
             return value
         else:
             return getattr(self, key)
 
-    def update(self, updates):
+    def update(self, updates: dict[str, Any]) -> None:
         for key, value in updates.items():
             setattr(self, key, value)
 
 
-class ObjectListBase(collections_abc.Sequence):
+class ObjectListBase(Sequence[_VO]):
     """Mixin class for lists of objects.
 
     This mixin class can be added as a base class for an object that
@@ -779,48 +1009,72 @@ class ObjectListBase(collections_abc.Sequence):
     which is the list store, and behaves like a list itself. It supports
     serialization of the list of objects automatically.
     """
-    fields = {
+
+    _context: Any
+
+    # Explicitly annotated to match VersionedObject.fields, which allows
+    # subclasses to override with specific field dicts without type errors.
+    fields: MutableMapping[str, obj_fields.Field[Any]] = {
         'objects': obj_fields.ListOfObjectsField('VersionedObject'),
-        }
+    }
 
     # This is a dictionary of my_version:child_version mappings so that
     # we can support backleveling our contents based on the version
     # requested of the list object.
-    child_versions = {}
+    child_versions: Mapping[str, str] = {}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         if 'objects' not in kwargs:
-            self.objects = []
-            self._changed_fields.discard('objects')
+            self.objects: list[_VO] = []
+            # This mixin is always combined with VersionedObject
+            cast(VersionedObject, self)._changed_fields.discard('objects')
 
-    def __len__(self):
+    def __len__(self) -> int:
         """List length."""
         return len(self.objects)
 
-    def __getitem__(self, index):
+    def __contains__(self, value: object) -> bool:
+        """Check if an object is in the list."""
+        return value in self.objects
+
+    @overload
+    def __getitem__(self, index: int) -> _VO: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> ObjectListBase[_VO]: ...
+
+    def __getitem__(self, index: int | slice) -> _VO | ObjectListBase[_VO]:
         """List index access."""
         if isinstance(index, slice):
             new_obj = self.__class__()
             new_obj.objects = self.objects[index]
             # NOTE(danms): We must be mixed in with a VersionedObject!
-            new_obj.obj_reset_changes()
+            cast(VersionedObject, new_obj).obj_reset_changes()
             new_obj._context = self._context
             return new_obj
         return self.objects[index]
 
-    def sort(self, key=None, reverse=False):
-        self.objects.sort(key=key, reverse=reverse)
+    def sort(
+        self,
+        key: Callable[[_VO], Any] | None = None,
+        reverse: bool = False,
+    ) -> None:
+        self.objects.sort(key=key, reverse=reverse)  # type: ignore[arg-type]
 
-    def obj_make_compatible(self, primitive, target_version):
+    def obj_make_compatible(
+        self, primitive: dict[str, Any], target_version: str
+    ) -> None:
         # Give priority to using child_versions, if that isn't set, try
         # obj_relationships
         if self.child_versions:
-            relationships = self.child_versions.items()
+            relationships: Any = self.child_versions.items()
         else:
             try:
-                relationships = self._obj_relationship_for('objects',
-                                                           target_version)
+                # This mixin is always combined with VersionedObject
+                relationships = cast(
+                    VersionedObject, self
+                )._obj_relationship_for('objects', target_version)
             except exception.ObjectActionError:
                 # No relationship for this found in manifest or
                 # in obj_relationships
@@ -831,46 +1085,62 @@ class ObjectListBase(collections_abc.Sequence):
             # backport to child version 1.0 (maintaining default
             # behavior)
             if relationships:
-                _get_subobject_version(target_version, relationships,
-                                       lambda ver: _do_subobject_backport(
-                                           ver, self, 'objects', primitive))
+                _get_subobject_version(
+                    target_version,
+                    relationships,
+                    lambda ver: _do_subobject_backport(
+                        ver,
+                        self,
+                        'objects',
+                        primitive,
+                    ),
+                )
             else:
                 _do_subobject_backport('1.0', self, 'objects', primitive)
         except exception.TargetBeforeSubobjectExistedException:
             # Child did not exist, so delete it from the primitive
             del primitive['objects']
 
-    def obj_what_changed(self):
-        changes = set(self._changed_fields)
+    def obj_what_changed(self) -> set[str]:
+        # NOTE: This mixin expects to be combined with VersionedObject
+        # This mixin is always combined with VersionedObject
+        changes = set(cast(VersionedObject, self)._changed_fields)
         for child in self.objects:
             if child.obj_what_changed():
                 changes.add('objects')
         return changes
 
-    def __add__(self, other):
+    def __add__(self, other: ObjectListBase[_VO]) -> ObjectListBase[_VO]:
         # Handling arbitrary fields may not make sense if those fields are not
         # all concatenatable. Only concatenate if the base 'objects' field is
         # the only one and the classes match.
-        if (self.__class__ == other.__class__ and
-                list(self.__class__.fields.keys()) == ['objects']):
+        if self.__class__ == other.__class__ and list(
+            self.__class__.fields.keys()
+        ) == ['objects']:
             return self.__class__(objects=self.objects + other.objects)
         else:
-            raise TypeError("List Objects should be of the same type and only "
-                            "have an 'objects' field")
+            raise TypeError(
+                "List Objects should be of the same type and only "
+                "have an 'objects' field"
+            )
 
-    def __radd__(self, other):
-        if (self.__class__ == other.__class__ and
-                list(self.__class__.fields.keys()) == ['objects']):
+    def __radd__(self, other: ObjectListBase[_VO]) -> ObjectListBase[_VO]:
+        if self.__class__ == other.__class__ and list(
+            self.__class__.fields.keys()
+        ) == ['objects']:
             # This should never be run in practice. If the above condition is
             # met then __add__ would have been run.
-            raise NotImplementedError('__radd__ is not implemented for '
-                                      'objects of the same type')
+            raise NotImplementedError(
+                '__radd__ is not implemented for objects of the same type'
+            )
         else:
-            raise TypeError("List Objects should be of the same type and only "
-                            "have an 'objects' field")
+            raise TypeError(
+                "List Objects should be of the same type and only "
+                "have an 'objects' field"
+            )
 
 
-class VersionedObjectSerializer(messaging.NoOpSerializer):
+class VersionedObjectSerializer(messaging.NoOpSerializer):  # type: ignore[misc]
     """A VersionedObject-aware Serializer.
 
     This implements the Oslo Serializer interface and provides the
@@ -882,42 +1152,64 @@ class VersionedObjectSerializer(messaging.NoOpSerializer):
     # Base class to use for object hydration
     OBJ_BASE_CLASS = VersionedObject
 
-    def _do_backport(self, context, objprim, objclass):
+    def _do_backport(
+        self,
+        context: Any,
+        objprim: dict[str, Any],
+        objclass: type[VersionedObject],
+    ) -> VersionedObject:
         obj_versions = obj_tree_get_versions(objclass.obj_name())
         indirection_api = self.OBJ_BASE_CLASS.indirection_api
+        assert indirection_api is not None
         try:
+            # NOTE: The API signature says VersionedObject but primitive is
+            # passed here; the implementation handles both
             return indirection_api.object_backport_versions(
-                context, objprim, obj_versions)
+                context,
+                cast(VersionedObject, objprim),
+                obj_versions,
+            )
         except NotImplementedError:
             # FIXME(danms): Maybe start to warn here about deprecation?
-            return indirection_api.object_backport(context, objprim,
-                                                   objclass.VERSION)
+            return indirection_api.object_backport(
+                context,
+                cast(VersionedObject, objprim),
+                objclass.VERSION,
+            )
 
-    def _process_object(self, context, objprim):
+    def _process_object(
+        self, context: Any, objprim: dict[str, Any]
+    ) -> VersionedObject | None:
         try:
             return self.OBJ_BASE_CLASS.obj_from_primitive(
-                objprim, context=context)
+                objprim, context=context
+            )
         except exception.IncompatibleObjectVersion:
             with excutils.save_and_reraise_exception(reraise=False) as ctxt:
-                verkey = \
-                    '%s.version' % self.OBJ_BASE_CLASS.OBJ_SERIAL_NAMESPACE
+                verkey = f'{self.OBJ_BASE_CLASS.OBJ_SERIAL_NAMESPACE}.version'
                 objver = objprim[verkey]
                 if objver.count('.') == 2:
                     # NOTE(danms): For our purposes, the .z part of the version
                     # should be safe to accept without requiring a backport
-                    objprim[verkey] = \
-                        '.'.join(objver.split('.')[:2])
+                    objprim[verkey] = '.'.join(objver.split('.')[:2])
                     return self._process_object(context, objprim)
-                namekey = '%s.name' % self.OBJ_BASE_CLASS.OBJ_SERIAL_NAMESPACE
+                namekey = f'{self.OBJ_BASE_CLASS.OBJ_SERIAL_NAMESPACE}.name'
                 objname = objprim[namekey]
-                supported = VersionedObjectRegistry.obj_classes().get(objname,
-                                                                      [])
+                supported = VersionedObjectRegistry.obj_classes().get(
+                    objname, []
+                )
                 if self.OBJ_BASE_CLASS.indirection_api and supported:
                     return self._do_backport(context, objprim, supported[0])
                 else:
                     ctxt.reraise = True
+        return None
 
-    def _process_iterable(self, context, action_fn, values):
+    def _process_iterable(
+        self,
+        context: Any,
+        action_fn: Callable[[Any, Any], Any],
+        values: tuple[Any, ...] | list[Any] | set[Any] | dict[str, Any],
+    ) -> tuple[Any, ...] | list[Any] | dict[str, Any]:
         """Process an iterable, taking an action on each value.
 
         :param:context: Request context
@@ -926,41 +1218,55 @@ class VersionedObjectSerializer(messaging.NoOpSerializer):
         :returns: A new container of the same type (except set) with
                   items from values having had action applied.
         """
-        iterable = values.__class__
-        if issubclass(iterable, dict):
-            return iterable([(k, action_fn(context, v))
-                             for k, v in values.items()])
-        else:
+        if isinstance(values, dict):
+            return type(values)(
+                [(k, action_fn(context, v)) for k, v in values.items()]
+            )
+        elif isinstance(values, set):
             # NOTE(danms, gibi) A set can't have an unhashable value inside,
             # such as a dict. Convert the set to list, which is fine, since we
             # can't send them over RPC anyway. We convert it to list as this
             # way there will be no semantic change between the fake rpc driver
             # used in functional test and a normal rpc driver.
-            if iterable == set:
-                iterable = list
-            return iterable([action_fn(context, value) for value in values])
+            return list([action_fn(context, value) for value in values])
+        elif isinstance(values, tuple):
+            return tuple([action_fn(context, value) for value in values])
+        else:
+            # list
+            return list([action_fn(context, value) for value in values])
 
-    def serialize_entity(self, context, entity):
+    def serialize_entity(self, context: Any, entity: Any) -> Any:
         if isinstance(entity, (tuple, list, set, dict)):
-            entity = self._process_iterable(context, self.serialize_entity,
-                                            entity)
-        elif (hasattr(entity, 'obj_to_primitive') and
-              callable(entity.obj_to_primitive)):
+            entity = self._process_iterable(
+                context, self.serialize_entity, entity
+            )
+        elif hasattr(entity, 'obj_to_primitive') and callable(
+            entity.obj_to_primitive
+        ):
             entity = entity.obj_to_primitive()
         return entity
 
-    def deserialize_entity(self, context, entity):
-        namekey = '%s.name' % self.OBJ_BASE_CLASS.OBJ_SERIAL_NAMESPACE
+    def deserialize_entity(self, context: Any, entity: Any) -> Any:
+        namekey = f'{self.OBJ_BASE_CLASS.OBJ_SERIAL_NAMESPACE}.name'
         if isinstance(entity, dict) and namekey in entity:
             entity = self._process_object(context, entity)
         elif isinstance(entity, (tuple, list, set, dict)):
-            entity = self._process_iterable(context, self.deserialize_entity,
-                                            entity)
+            entity = self._process_iterable(
+                context, self.deserialize_entity, entity
+            )
         return entity
 
 
 class VersionedObjectIndirectionAPI(metaclass=abc.ABCMeta):
-    def object_action(self, context, objinst, objmethod, args, kwargs):
+    @abc.abstractmethod
+    def object_action(
+        self,
+        context: Any,
+        objinst: VersionedObject,
+        objmethod: str,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ) -> tuple[dict[str, Any], Any]:
         """Perform an action on a VersionedObject instance.
 
         When indirection_api is set on a VersionedObject (to a class
@@ -975,10 +1281,17 @@ class VersionedObjectIndirectionAPI(metaclass=abc.ABCMeta):
         :param kwargs: The keyword arguments to the action method
         :returns: The result of the action method
         """
-        pass
+        ...
 
-    def object_class_action(self, context, objname, objmethod, objver,
-                            args, kwargs):
+    def object_class_action(
+        self,
+        context: Any,
+        objname: str,
+        objmethod: str,
+        objver: str,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ) -> VersionedObject | Any:
         """.. deprecated:: 0.10.0
 
         Use :func:`object_class_action_versions` instead.
@@ -1003,8 +1316,15 @@ class VersionedObjectIndirectionAPI(metaclass=abc.ABCMeta):
         """
         pass
 
-    def object_class_action_versions(self, context, objname, objmethod,
-                                     object_versions, args, kwargs):
+    def object_class_action_versions(
+        self,
+        context: Any,
+        objname: str,
+        objmethod: str,
+        object_versions: dict[str, str],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ) -> VersionedObject | Any:
         """Perform an action on a VersionedObject class.
 
         When indirection_api is set on a VersionedObject (to a class
@@ -1033,12 +1353,18 @@ class VersionedObjectIndirectionAPI(metaclass=abc.ABCMeta):
         :returns: The result of the action method, which may (or may not)
                   be an instance of the implementing VersionedObject class.
         """
-        warnings.warn('object_class_action() is deprecated in favor of '
-                      'object_class_action_versions() and will be removed '
-                      'in a later release', DeprecationWarning)
+        warnings.warn(
+            'object_class_action() is deprecated in favor of '
+            'object_class_action_versions() and will be removed '
+            'in a later release',
+            DeprecationWarning,
+        )
         raise NotImplementedError('Multi-version class action not supported')
 
-    def object_backport(self, context, objinst, target_version):
+    @abc.abstractmethod
+    def object_backport(
+        self, context: Any, objinst: VersionedObject, target_version: str
+    ) -> VersionedObject:
         """.. deprecated:: 0.10.0
 
         Use :func:`object_backport_versions` instead.
@@ -1065,9 +1391,14 @@ class VersionedObjectIndirectionAPI(metaclass=abc.ABCMeta):
                                that is understood by the requesting host.
         :returns: The downgraded instance of objinst
         """
-        pass
+        ...
 
-    def object_backport_versions(self, context, objinst, object_versions):
+    def object_backport_versions(
+        self,
+        context: Any,
+        objinst: VersionedObject,
+        object_versions: dict[str, str],
+    ) -> VersionedObject:
         """Perform a backport of an object instance.
 
         This method is basically just like object_backport() but instead of
@@ -1088,13 +1419,22 @@ class VersionedObjectIndirectionAPI(metaclass=abc.ABCMeta):
         :param objinst: An instance of a VersionedObject to be backported
         :param object_versions: A dict of {objname: version} mappings
         """
-        warnings.warn('object_backport() is deprecated in favor of '
-                      'object_backport_versions() and will be removed '
-                      'in a later release', DeprecationWarning)
+        warnings.warn(
+            'object_backport() is deprecated in favor of '
+            'object_backport_versions() and will be removed '
+            'in a later release',
+            DeprecationWarning,
+        )
         raise NotImplementedError('Multi-version backport not supported')
 
 
-def obj_make_list(context, list_obj, item_cls, db_list, **extra_args):
+def obj_make_list(
+    context: Any,
+    list_obj: ObjectListBase[_VO],
+    item_cls: type[_VO],
+    db_list: list[dict[str, Any]],
+    **extra_args: Any,
+) -> ObjectListBase[_VO]:
     """Construct an object list from a list of primitives.
 
     This calls item_cls._from_db_object() on each item of db_list, and
@@ -1109,15 +1449,22 @@ def obj_make_list(context, list_obj, item_cls, db_list, **extra_args):
     """
     list_obj.objects = []
     for db_item in db_list:
-        item = item_cls._from_db_object(context, item_cls(), db_item,
-                                        **extra_args)
+        # _from_db_object is a convention classmethod for VersionedObject
+        # subclasses that work with database backends; it is not declared in
+        # the VersionedObject base class since not all objects support it
+        item = getattr(item_cls, '_from_db_object')(
+            context, item_cls(), db_item, **extra_args
+        )
         list_obj.objects.append(item)
+    # list_obj is always an ObjectListBase combined with VersionedObject
     list_obj._context = context
-    list_obj.obj_reset_changes()
+    cast(VersionedObject, list_obj).obj_reset_changes()
     return list_obj
 
 
-def obj_tree_get_versions(objname, tree=None):
+def obj_tree_get_versions(
+    objname: str, tree: dict[str, str] | None = None
+) -> dict[str, str]:
     """Construct a mapping of dependent object versions.
 
     This method builds a list of dependent object versions given a top-
@@ -1141,9 +1488,12 @@ def obj_tree_get_versions(objname, tree=None):
     for field_name in objclass.fields:
         field = objclass.fields[field_name]
         if isinstance(field, obj_fields.ObjectField):
-            child_cls = field._type._obj_name
+            # ObjectField stores objname directly as an instance attribute
+            child_cls = field.objname
         elif isinstance(field, obj_fields.ListOfObjectsField):
-            child_cls = field._type._element_type._type._obj_name
+            # ListOfObjectsField stores objname directly as an instance
+            # attribute
+            child_cls = field.objname
         else:
             continue
 
@@ -1151,11 +1501,16 @@ def obj_tree_get_versions(objname, tree=None):
             obj_tree_get_versions(child_cls, tree=tree)
         except IndexError:
             raise exception.UnregisteredSubobject(
-                child_objname=child_cls, parent_objname=objname)
+                child_objname=child_cls, parent_objname=objname
+            )
     return tree
 
 
-def _get_subobject_version(tgt_version, relationships, backport_func):
+def _get_subobject_version(
+    tgt_version: str,
+    relationships: list[tuple[str, str]] | Any,
+    backport_func: Callable[[str], None],
+) -> None:
     """Get the version to which we need to convert a subobject.
 
     This uses the relationships between a parent and a subobject,
@@ -1180,7 +1535,8 @@ def _get_subobject_version(tgt_version, relationships, backport_func):
                 # We're backporting to a version of the parent that did
                 # not contain this subobject
                 raise exception.TargetBeforeSubobjectExistedException(
-                    target_version=tgt_version)
+                    target_version=tgt_version
+                )
             else:
                 # We're in a gap between index-1 and index, so set the desired
                 # version to the previous index's version
@@ -1193,20 +1549,32 @@ def _get_subobject_version(tgt_version, relationships, backport_func):
             return
 
 
-def _do_subobject_backport(to_version, parent, field, primitive):
+def _do_subobject_backport(
+    to_version: str,
+    parent: VersionedObject | ObjectListBase[Any],
+    field: str,
+    primitive: dict[str, Any],
+) -> None:
     obj = getattr(parent, field)
-    manifest = (hasattr(parent, '_obj_version_manifest') and
-                parent._obj_version_manifest or None)
+    manifest = (
+        hasattr(parent, '_obj_version_manifest')
+        and parent._obj_version_manifest
+        or None
+    )
     if isinstance(obj, VersionedObject):
         obj.obj_make_compatible_from_manifest(
             obj._obj_primitive_field(primitive[field], 'data'),
-            to_version, version_manifest=manifest)
+            to_version,
+            version_manifest=manifest,
+        )
         ver_key = obj._obj_primitive_key('version')
         primitive[field][ver_key] = to_version
     elif isinstance(obj, list):
         for i, element in enumerate(obj):
             element.obj_make_compatible_from_manifest(
                 element._obj_primitive_field(primitive[field][i], 'data'),
-                to_version, version_manifest=manifest)
+                to_version,
+                version_manifest=manifest,
+            )
             ver_key = element._obj_primitive_key('version')
             primitive[field][i][ver_key] = to_version

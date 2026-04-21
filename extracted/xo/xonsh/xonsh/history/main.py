@@ -126,22 +126,29 @@ def _xh_zsh_hist_parser(location=None, **kwargs):
             os.path.join("~", ".zsh_history"),
         )
     if location:
-        with open(location, errors="backslashreplace") as zsh_hist:
-            for ind, line in enumerate(zsh_hist):
-                if line.startswith(":"):
-                    try:
-                        start_time, command = line.split(";", 1)
-                    except ValueError:
-                        # Invalid history entry
-                        continue
-                    try:
-                        start_time = float(start_time.split(":")[1])
-                    except ValueError:
-                        start_time = 0.0
-                    yield {"inp": command.rstrip(), "ts": start_time, "ind": ind}
-                else:
-                    yield {"inp": line.rstrip(), "ts": 0.0, "ind": ind}
-
+        try:
+            with open(location, errors="backslashreplace") as zsh_hist:
+                for ind, line in enumerate(zsh_hist):
+                    if line.startswith(":"):
+                        try:
+                            start_time, command = line.split(";", 1)
+                        except ValueError:
+                            # Invalid history entry
+                            continue
+                        try:
+                            start_time = float(start_time.split(":")[1])
+                        except ValueError:
+                            start_time = 0.0
+                        yield {"inp": command.rstrip(), "ts": start_time, "ind": ind}
+                    else:
+                        yield {"inp": line.rstrip(), "ts": 0.0, "ind": ind}
+        except PermissionError:
+            print(f"Zsh history permission error in {location!r}", file=sys.stderr)
+            yield {
+                "inp": f"# Zsh history permission error in {location!r}",
+                "ts": 0.0,
+                "ind": 0,
+            }
     else:
         print("No zsh history file found", file=sys.stderr)
 
@@ -188,7 +195,7 @@ def _xh_get_history(
         # transform/check all slices
         slices = [xt.ensure_slice(s) for s in slices]
         cmds = xt.get_portions(cmds, slices)
-    if start_time or end_time:
+    if start_time is not None or end_time is not None:
         if start_time is None:
             start_time = 0.0
         else:
@@ -253,9 +260,11 @@ class HistoryAlias(xcli.ArgParserAlias):
         datetime_format : -f
             the datetime format to be used for filtering and printing
         start_time: --start-time, +T
-            show only commands after timestamp
+            show only commands after timestamp.
+            Accepts $XONSH_DATETIME_FORMAT or ISO-8601 (e.g. 2023-07-17)
         end_time: -T, --end-time
-            show only commands before timestamp
+            show only commands before timestamp.
+            Accepts $XONSH_DATETIME_FORMAT or ISO-8601 (e.g. 2023-07-17)
         location: -l, --location
             The history file location (bash or zsh)
         reverse: -r, --reverse
@@ -282,7 +291,7 @@ class HistoryAlias(xcli.ArgParserAlias):
                 location=location,
             )
         except Exception as err:
-            self.parser.error(err)
+            print(f"history: error: {err}", file=_stderr or sys.stderr)
             return
 
         if reverse:
@@ -340,6 +349,7 @@ class HistoryAlias(xcli.ArgParserAlias):
                 f"Pull method is not supported in {backend} history backend.",
                 file=_stdout,
             )
+            return
 
         lines_added = hist.pull(show_commands, session_id)
         if lines_added:
@@ -392,6 +402,19 @@ class HistoryAlias(xcli.ArgParserAlias):
         hist = XSH.history
         deleted = hist.delete(pattern)
         print(f"Deleted {deleted} entries from history")
+
+    @staticmethod
+    def erasedups():
+        """Remove duplicate commands, keeping only the latest occurrence of each"""
+        hist = XSH.history
+        removed, total = hist.erasedups()
+        if removed:
+            print(
+                f"Removed {removed} duplicate entries ({total} total)",
+                file=sys.stderr,
+            )
+        else:
+            print(f"No duplicates found ({total} total)", file=sys.stderr)
 
     @staticmethod
     def file(_stdout):
@@ -520,6 +543,7 @@ class HistoryAlias(xcli.ArgParserAlias):
         parser.add_command(self.on)
         parser.add_command(self.clear)
         parser.add_command(self.delete)
+        parser.add_command(self.erasedups)
         parser.add_command(self.gc)
         parser.add_command(self.transfer)
 

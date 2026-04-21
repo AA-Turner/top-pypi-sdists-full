@@ -257,6 +257,16 @@ class BackendTests:
 
         self.assertCountEqual([r.title for r in results], ["The Hobbit"])
 
+    def test_search_on_no_fields(self):
+        # fields=[] should return no results
+        results = self.backend.search(
+            "hobbit",
+            models.Book,
+            fields=[],
+        )
+
+        self.assertCountEqual([r.title for r in results], [])
+
     def test_search_on_unknown_field(self):
         with self.assertRaises(FieldError):
             list(
@@ -289,6 +299,17 @@ class BackendTests:
             ],
         )
 
+    def test_search_on_related_fields_reverse_one_to_one(self):
+        # "hobbit" is part of the search record for Bilbo Baggins via RelatedFields("novel_as_protagonist")
+        results = self.backend.search("hobbit", models.Character)
+
+        self.assertCountEqual(
+            [r.name for r in results],
+            [
+                "Bilbo Baggins",
+            ],
+        )
+
     def test_search_boosting_on_related_fields(self):
         # Bilbo Baggins is the protagonist of "The Hobbit" but not any of the "Lord of the Rings" novels.
         # As the protagonist has more boost than other characters, "The Hobbit" should always be returned
@@ -301,6 +322,13 @@ class BackendTests:
         self.assertCountEqual(
             [r.title for r in results[1:]],
             ["The Fellowship of the Ring", "The Two Towers", "The Return of the King"],
+        )
+
+    def test_search_on_nested_related_fields(self):
+        results = list(self.backend.search("Doyle", models.Meeting))
+        self.assertCountEqual(
+            [r.name for r in results],
+            ["Stand-up meeting"],
         )
 
     def test_search_callable_field(self):
@@ -792,6 +820,196 @@ class BackendTests:
             "Python", models.ProgrammingGuide.objects.filter(id=learning_python.id)
         )
         self.assertEqual(set(results), {learning_python})
+
+    def test_filter_on_related_fields_one_to_many(self):
+        results = list(
+            self.backend.search(
+                "king", models.Novel.objects.filter(characters__name="Frodo Baggins")
+            )
+        )
+        self.assertCountEqual(
+            [r.title for r in results],
+            ["The Return of the King"],
+        )
+
+        results = list(
+            self.backend.search(
+                "thrones", models.Novel.objects.filter(characters__name="Frodo Baggins")
+            )
+        )
+        self.assertCountEqual(
+            [r.title for r in results],
+            [],
+        )
+
+    def test_filter_on_related_fields_foreign_key(self):
+        results = list(
+            self.backend.search(
+                "thorin", models.Character.objects.filter(novel__setting="Middle Earth")
+            )
+        )
+        self.assertCountEqual(
+            [r.name for r in results],
+            ["Thorin Oakenshield"],
+        )
+
+        results = list(
+            self.backend.search(
+                "thorin", models.Character.objects.filter(novel__setting="Westeros")
+            )
+        )
+        self.assertCountEqual(
+            [r.name for r in results],
+            [],
+        )
+
+    def test_filter_on_related_fields_one_to_one(self):
+        results = list(
+            self.backend.search(
+                "hobbit", models.Novel.objects.filter(protagonist__name="Bilbo Baggins")
+            )
+        )
+        self.assertCountEqual(
+            [r.title for r in results],
+            ["The Hobbit"],
+        )
+
+        results = list(
+            self.backend.search(
+                "hobbit", models.Novel.objects.filter(protagonist__name="Frodo Baggins")
+            )
+        )
+        self.assertCountEqual(
+            [r.title for r in results],
+            [],
+        )
+
+    def test_filter_on_related_fields_reverse_one_to_one(self):
+        results = list(
+            self.backend.search(
+                "baggins",
+                models.Character.objects.filter(
+                    novel_as_protagonist__title="The Hobbit"
+                ),
+            )
+        )
+        self.assertCountEqual(
+            [r.name for r in results],
+            ["Bilbo Baggins"],
+        )
+
+    def test_filter_on_related_fields_forward_many_to_many(self):
+        results = list(
+            self.backend.search(
+                "hobbit",
+                models.Book.objects.filter(authors__date_of_birth=date(1892, 1, 3)),
+            )
+        )
+        self.assertCountEqual(
+            [r.title for r in results],
+            ["The Hobbit"],
+        )
+        results = list(
+            self.backend.search(
+                "hobbit",
+                models.Book.objects.filter(authors__date_of_birth=date(1920, 1, 2)),
+            )
+        )
+        self.assertCountEqual(
+            [r.title for r in results],
+            [],
+        )
+
+    def test_filter_on_related_fields_reverse_many_to_many(self):
+        results = list(
+            self.backend.search(
+                "tolkien",
+                models.Author.objects.filter(books__publication_date=date(1954, 7, 29)),
+            )
+        )
+        self.assertCountEqual(
+            [r.name for r in results],
+            ["J. R. R. Tolkien"],
+        )
+        results = list(
+            self.backend.search(
+                "tolkien",
+                models.Author.objects.filter(books__publication_date=date(2000, 1, 1)),
+            )
+        )
+        self.assertCountEqual(
+            [r.name for r in results],
+            [],
+        )
+
+    def test_multiple_filters_on_related_fields(self):
+        results = list(
+            self.backend.search(
+                "tolkien",
+                models.Author.objects.filter(
+                    books__publication_date=date(1954, 7, 29),
+                    books__number_of_pages__gt=400,
+                ),
+            )
+        )
+        self.assertCountEqual(
+            [r.name for r in results],
+            ["J. R. R. Tolkien"],
+        )
+        results = list(
+            self.backend.search(
+                "tolkien",
+                models.Author.objects.filter(
+                    # There is no single book that matches both of these criteria, so no results should be returned
+                    # (even though there are matches for the individual criteria)
+                    books__publication_date=date(1954, 7, 29),
+                    books__number_of_pages__lt=400,
+                ),
+            )
+        )
+        self.assertCountEqual(
+            [r.name for r in results],
+            [],
+        )
+
+    def test_missing_filter_field(self):
+        with self.assertRaisesMessage(
+            FilterFieldError,
+            'Cannot filter search results with field "name". Please add index.FilterField("name") to Author.search_fields.',
+        ):
+            list(
+                self.backend.search(
+                    MATCH_ALL, models.Author.objects.filter(name="Isaac Asimov")
+                )
+            )
+
+    def test_missing_filter_field_in_related_fields(self):
+        with self.assertRaisesMessage(
+            FilterFieldError,
+            'Cannot filter search results with field "publication_date". Please add index.FilterField("publication_date") to the RelatedFields("novel_as_protagonist") definition in Character.search_fields.',
+        ):
+            list(
+                self.backend.search(
+                    MATCH_ALL,
+                    models.Character.objects.filter(
+                        novel_as_protagonist__publication_date=date(1937, 9, 21)
+                    ),
+                )
+            )
+
+    def test_missing_related_fields(self):
+        with self.assertRaisesMessage(
+            FilterFieldError,
+            'Cannot filter search results with field "name". Please add a suitable index.RelatedFields definition to Character.search_fields.',
+        ):
+            list(
+                self.backend.search(
+                    MATCH_ALL,
+                    models.Character.objects.filter(
+                        novel__authors__name="J. R. R. Tolkien"
+                    ),
+                )
+            )
 
     # ORDER BY RELEVANCE
 

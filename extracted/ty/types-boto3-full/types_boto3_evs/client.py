@@ -27,17 +27,27 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListEnvironmentConnectorsPaginator,
     ListEnvironmentHostsPaginator,
     ListEnvironmentsPaginator,
     ListEnvironmentVlansPaginator,
+    ListVmEntitlementsPaginator,
 )
 from .type_defs import (
     AssociateEipToVlanRequestTypeDef,
     AssociateEipToVlanResponseTypeDef,
+    CreateEntitlementRequestTypeDef,
+    CreateEntitlementResponseTypeDef,
+    CreateEnvironmentConnectorRequestTypeDef,
+    CreateEnvironmentConnectorResponseTypeDef,
     CreateEnvironmentHostRequestTypeDef,
     CreateEnvironmentHostResponseTypeDef,
     CreateEnvironmentRequestTypeDef,
     CreateEnvironmentResponseTypeDef,
+    DeleteEntitlementRequestTypeDef,
+    DeleteEntitlementResponseTypeDef,
+    DeleteEnvironmentConnectorRequestTypeDef,
+    DeleteEnvironmentConnectorResponseTypeDef,
     DeleteEnvironmentHostRequestTypeDef,
     DeleteEnvironmentHostResponseTypeDef,
     DeleteEnvironmentRequestTypeDef,
@@ -47,6 +57,8 @@ from .type_defs import (
     GetEnvironmentRequestTypeDef,
     GetEnvironmentResponseTypeDef,
     GetVersionsResponseTypeDef,
+    ListEnvironmentConnectorsRequestTypeDef,
+    ListEnvironmentConnectorsResponseTypeDef,
     ListEnvironmentHostsRequestTypeDef,
     ListEnvironmentHostsResponseTypeDef,
     ListEnvironmentsRequestTypeDef,
@@ -55,8 +67,12 @@ from .type_defs import (
     ListEnvironmentVlansResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListVmEntitlementsRequestTypeDef,
+    ListVmEntitlementsResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateEnvironmentConnectorRequestTypeDef,
+    UpdateEnvironmentConnectorResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -124,6 +140,17 @@ class EVSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#associate_eip_to_vlan)
         """
 
+    def create_entitlement(
+        self, **kwargs: Unpack[CreateEntitlementRequestTypeDef]
+    ) -> CreateEntitlementResponseTypeDef:
+        """
+        Creates a Windows Server License entitlement for virtual machines in an Amazon
+        EVS environment using the provided vCenter Server connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/create_entitlement.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#create_entitlement)
+        """
+
     def create_environment(
         self, **kwargs: Unpack[CreateEnvironmentRequestTypeDef]
     ) -> CreateEnvironmentResponseTypeDef:
@@ -133,6 +160,16 @@ class EVSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/create_environment.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#create_environment)
+        """
+
+    def create_environment_connector(
+        self, **kwargs: Unpack[CreateEnvironmentConnectorRequestTypeDef]
+    ) -> CreateEnvironmentConnectorResponseTypeDef:
+        """
+        Creates a connector for an Amazon EVS environment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/create_environment_connector.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#create_environment_connector)
         """
 
     def create_environment_host(
@@ -145,6 +182,17 @@ class EVSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#create_environment_host)
         """
 
+    def delete_entitlement(
+        self, **kwargs: Unpack[DeleteEntitlementRequestTypeDef]
+    ) -> DeleteEntitlementResponseTypeDef:
+        """
+        Deletes a Windows Server License entitlement for virtual machines in an Amazon
+        EVS environment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/delete_entitlement.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#delete_entitlement)
+        """
+
     def delete_environment(
         self, **kwargs: Unpack[DeleteEnvironmentRequestTypeDef]
     ) -> DeleteEnvironmentResponseTypeDef:
@@ -153,6 +201,16 @@ class EVSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/delete_environment.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#delete_environment)
+        """
+
+    def delete_environment_connector(
+        self, **kwargs: Unpack[DeleteEnvironmentConnectorRequestTypeDef]
+    ) -> DeleteEnvironmentConnectorResponseTypeDef:
+        """
+        Deletes a connector from an Amazon EVS environment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/delete_environment_connector.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#delete_environment_connector)
         """
 
     def delete_environment_host(
@@ -192,6 +250,16 @@ class EVSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/get_versions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#get_versions)
+        """
+
+    def list_environment_connectors(
+        self, **kwargs: Unpack[ListEnvironmentConnectorsRequestTypeDef]
+    ) -> ListEnvironmentConnectorsResponseTypeDef:
+        """
+        Lists the connectors within an environment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/list_environment_connectors.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#list_environment_connectors)
         """
 
     def list_environment_hosts(
@@ -235,6 +303,17 @@ class EVSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#list_tags_for_resource)
         """
 
+    def list_vm_entitlements(
+        self, **kwargs: Unpack[ListVmEntitlementsRequestTypeDef]
+    ) -> ListVmEntitlementsResponseTypeDef:
+        """
+        Lists the Windows Server License entitlements for virtual machines in an Amazon
+        EVS environment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/list_vm_entitlements.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#list_vm_entitlements)
+        """
+
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates the specified tags to an Amazon EVS resource with the specified
@@ -250,6 +329,27 @@ class EVSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#untag_resource)
+        """
+
+    def update_environment_connector(
+        self, **kwargs: Unpack[UpdateEnvironmentConnectorRequestTypeDef]
+    ) -> UpdateEnvironmentConnectorResponseTypeDef:
+        """
+        Updates a connector for an Amazon EVS environment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/update_environment_connector.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#update_environment_connector)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_environment_connectors"]
+    ) -> ListEnvironmentConnectorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]
@@ -278,6 +378,17 @@ class EVSClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_environments"]
     ) -> ListEnvironmentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_vm_entitlements"]
+    ) -> ListVmEntitlementsPaginator:
         """
         Create a paginator for an operation.
 

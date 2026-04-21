@@ -1,18 +1,16 @@
 import logging
 import pathlib
 from datetime import datetime
-from typing import Any, Optional, TypedDict, Union
+from typing import Any
 
+import numpy
 import xarray
 
-from copernicusmarine.catalogue_parser.models import CopernicusMarineService
 from copernicusmarine.core_functions.models import (
     DEFAULT_FILE_EXTENSIONS,
-    CoordinatesSelectionMethod,
     DatasetChunking,
     FileFormat,
     GeographicalExtent,
-    SplitOnTimeOption,
     TimeExtent,
 )
 from copernicusmarine.core_functions.request_structure import SubsetRequest
@@ -40,7 +38,7 @@ def get_file_extension(file_format: FileFormat) -> str:
 
 
 def get_filename(
-    filename: Optional[str],
+    filename: str | None,
     dataset: xarray.Dataset,
     dataset_id: str,
     file_format: FileFormat,
@@ -149,7 +147,7 @@ def build_filename_from_request(
     variables: list[str],
     platform_ids: list[str],
     axis_coordinate_id_mapping: dict[str, str],
-    time_format: Optional[str] = None,
+    time_format: str | None = None,
 ) -> str:
     """
     In the sparse dataset case we don't have the dataset to build the filename from.
@@ -255,7 +253,7 @@ def _get_unit_coordinate(dataset: xarray.Dataset, coordinate_id: str) -> Any:
 
 
 def _format_longitudes(
-    minimum_longitude: Optional[float], maximum_longitude: Optional[float]
+    minimum_longitude: float | None, maximum_longitude: float | None
 ) -> str:
     if minimum_longitude is None or maximum_longitude is None:
         return ""
@@ -274,7 +272,7 @@ def _format_longitudes(
 
 
 def _format_latitudes(
-    minimum_latitude: Optional[float], maximum_latitude: Optional[float]
+    minimum_latitude: float | None, maximum_latitude: float | None
 ) -> str:
     if minimum_latitude is None or maximum_latitude is None:
         return ""
@@ -293,8 +291,8 @@ def _format_latitudes(
 
 
 def _format_xy_axis(
-    minimum_value: Optional[float],
-    maximum_value: Optional[float],
+    minimum_value: float | None,
+    maximum_value: float | None,
     coordinate_id: str,
 ) -> str:
     if minimum_value is None or maximum_value is None:
@@ -314,7 +312,7 @@ def _format_xy_axis(
 
 
 def _format_depths(
-    minimum_depth: Optional[float], maximum_depth: Optional[float]
+    minimum_depth: float | None, maximum_depth: float | None
 ) -> str:
     if minimum_depth is None or maximum_depth is None:
         return ""
@@ -327,9 +325,9 @@ def _format_depths(
 
 
 def _format_datetimes(
-    minimum_datetime: Optional[datetime],
-    maximum_datetime: Optional[datetime],
-    time_format: Optional[str],
+    minimum_datetime: datetime | None,
+    maximum_datetime: datetime | None,
+    time_format: str | None,
 ) -> str:
     time_format = time_format or "%Y-%m-%d"
     if minimum_datetime is None or maximum_datetime is None:
@@ -349,7 +347,7 @@ def _format_datetimes(
 
 def get_dataset_coordinates_extent(
     dataset: xarray.Dataset, axis_coordinate_id_mapping: dict[str, str]
-) -> list[Union[GeographicalExtent, TimeExtent]]:
+) -> list[GeographicalExtent | TimeExtent]:
     coordinates_extent = []
     for coord_axis in ["x", "y", "t", "z"]:
         if coordinate_id := axis_coordinate_id_mapping.get(coord_axis):
@@ -364,7 +362,7 @@ def get_dataset_coordinates_extent(
 def _get_coordinate_extent(
     dataset: xarray.Dataset,
     coordinate_id: str,
-) -> Optional[Union[GeographicalExtent, TimeExtent]]:
+) -> GeographicalExtent | TimeExtent | None:
     if coordinate_id in dataset.sizes:
         minimum = _get_min_coordinate(dataset, coordinate_id)
         maximum = _get_max_coordinate(dataset, coordinate_id)
@@ -410,7 +408,7 @@ def get_approximation_size_final_result(
 def get_approximation_size_data_downloaded(
     dataset: xarray.Dataset,
     dataset_chunking: DatasetChunking,
-) -> Optional[float]:
+) -> float | None:
     # TODO: Test it not sure how to, maybe ask if the chunk size is correct
     temp_dataset = dataset.copy()
     if "elevation" in dataset.sizes:
@@ -428,28 +426,17 @@ def get_approximation_size_data_downloaded(
     return download_estimated_size
 
 
-class DownloadParams(TypedDict):
-    output_filename: Optional[str]
-    key: Optional[str]
-    split_on: Optional[SplitOnTimeOption]
-    dataset_id: str
-    file_format: FileFormat
-    axis_coordinate_id_mapping: dict[str, str]
-    geographical_parameters: GeographicalParameters
-    output_directory: pathlib.Path
-    netcdf_compression_level: int
-    netcdf3_compatible: bool
-    overwrite: bool
-    skip_existing: bool
-    dry_run: bool
-    username: str
-    password: str
-    dataset_url: str
-    variables: Optional[list[str]]
-    temporal_parameters: TemporalParameters
-    depth_parameters: DepthParameters
-    coordinates_selection_method: CoordinatesSelectionMethod
-    chunk_size_limit: int
-    service: CopernicusMarineService
-    dataset_chunking: Optional[DatasetChunking]
-    disable_progress_bar: bool
+def get_approximation_size_final_result_csv(
+    dataset: xarray.Dataset,
+) -> numpy.float64:
+    n_rows = numpy.prod([dataset.sizes[dim] for dim in dataset.dims])
+    n_columns = len(dataset.data_vars) + len(dataset.dims)
+
+    if "depth" in dataset.sizes or "elevation" in dataset.sizes:
+        bytes_per_value = 10
+    else:
+        bytes_per_value = 7
+
+    csv_size_bytes = n_rows * n_columns * bytes_per_value
+    csv_size_mb = csv_size_bytes / (1024**2)
+    return csv_size_mb

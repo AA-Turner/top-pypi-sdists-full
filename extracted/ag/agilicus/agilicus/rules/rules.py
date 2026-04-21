@@ -1069,6 +1069,19 @@ def add_agilicus_default_has_resource_permission(
     action="allow",
     **kwargs,
 ):
+    default_not_application = "default_not_application"
+    cond = agilicus.ScopeCondition(
+        condition_type=ConditionTypes.scope_condition.name,
+        scopes=[agilicus.StandaloneRuleScope("urn:agilicus:application")],
+    )
+    add_rule(
+        ctx,
+        default_not_application,
+        cond,
+        ["none"],
+        negated=True,
+        **kwargs,
+    )
     add_has_resource_permission_condition_rule(
         ctx,
         name,
@@ -1084,7 +1097,7 @@ def add_agilicus_default_has_resource_permission(
         ctx,
         name,
         children=[name, "default_expose_network", no_permission_rule_name],
-        rules=[],
+        rules=[default_not_application],
         **kwargs,
     )
     add_ruleset(ctx, name, trees=[name], labels=[label], **kwargs)
@@ -1100,13 +1113,14 @@ def add_rule(
     roles=None,
     scope=None,
     standalone_rule_policy_id=None,
+    negated=False,
     **kwargs,
 ):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
     kwargs = strip_none(kwargs)
 
-    extended_cond = agilicus.RuleCondition(condition=condition, negated=False)
+    extended_cond = agilicus.RuleCondition(condition=condition, negated=negated)
 
     rule = agilicus.RuleConfig(
         name=name,

@@ -55,6 +55,7 @@ class ShowExecutedCodePostprocessor(ResponsesApiPostprocessor):
     ):
         super().__init__(self.__class__.__name__)
         self._config = config
+        self._company_id = company_id
         self._is_enabled = (
             self._config.enable
             and not feature_flags.enable_code_execution_fence_un_17972.is_enabled(
@@ -78,7 +79,7 @@ class ShowExecutedCodePostprocessor(ResponsesApiPostprocessor):
         for output in loop_response.code_interpreter_calls:
             prepended_text += _TEMPLATE.format(code=output.code)
 
-        loop_response.message.text = prepended_text + loop_response.message.text
+        loop_response.message.text = prepended_text + (loop_response.message.text or "")
 
         return prepended_text != ""
 

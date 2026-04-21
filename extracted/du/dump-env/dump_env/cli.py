@@ -43,6 +43,31 @@ def escape(raw_env_value: str) -> str:
     )
 
 
+def format_env_line(
+    env_name: str,
+    env_value: str,
+    *,
+    quote_values: bool,
+) -> str:
+    """
+    Formats an environment variable for output.
+
+    Args:
+        env_name: The variable name to format.
+
+        env_value: The variable value to format.
+
+        quote_values: Whether the value should be quoted when required.
+
+    Returns:
+        str: The formatted environment variable line.
+
+    """
+    if quote_values and needs_quotes(env_value):
+        env_value = f'"{escape(env_value)}"'
+    return f'{env_name}={env_value}\n'
+
+
 def _create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -76,6 +101,11 @@ def _create_parser() -> argparse.ArgumentParser:
         '--strict-source',
         action='store_true',
         help='All source template variables should exist in os envs',
+    )
+    parser.add_argument(
+        '--no-quote-values',
+        action='store_true',
+        help='Do not quote values in the output',
     )
     return parser
 
@@ -149,7 +179,11 @@ def main() -> NoReturn:
         sys.exit(1)
     else:
         for env_name, env_value in variables.items():
-            if needs_quotes(env_value):
-                env_value = f'"{escape(env_value)}"'  # noqa: PLW2901
-            sys.stdout.write(f'{env_name}={env_value}\n')
+            sys.stdout.write(
+                format_env_line(
+                    env_name,
+                    env_value,
+                    quote_values=not args.no_quote_values,
+                ),
+            )
         sys.exit(0)

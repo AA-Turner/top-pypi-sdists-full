@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from typing import AsyncIterator, Iterable, Optional, Union
+from collections.abc import AsyncIterator, Iterable
 
 import botocore.config
 import botocore.exceptions
@@ -10,9 +10,7 @@ from zarr.abc.store import ByteRequest, Store
 from zarr.core.buffer import Buffer, BufferPrototype, default_buffer_prototype
 from zarr.core.common import BytesLike
 
-from copernicusmarine.core_functions.sessions import (
-    get_configured_boto3_session,
-)
+from copernicusmarine.core_functions.sessions import ConfiguredBoto3Session
 
 logger = logging.getLogger("copernicusmarine")
 
@@ -23,7 +21,7 @@ class CustomS3StoreZarrV3(Store):
         endpoint: str,
         bucket: str,
         root_path: str,
-        copernicus_marine_username: Optional[str] = None,
+        copernicus_marine_username: str | None = None,
         number_of_retries: int = 9,
         initial_retry_wait_seconds: int = 1,
         **kwargs,
@@ -37,30 +35,31 @@ class CustomS3StoreZarrV3(Store):
         self.number_of_retries = number_of_retries
         self.initial_retry_wait_seconds = initial_retry_wait_seconds
 
-        self._client = None
+        self._session = None
 
-    def _get_client(self):
-        if self._client is None:
+    def _get_session(self):
+        if self._session is None:
             logger.debug("Creating new boto3 client")
-            client, _ = get_configured_boto3_session(
+            session = ConfiguredBoto3Session(
                 self._endpoint,
                 ["GetObject", "HeadObject", "ListObjectsV2"],
                 self._copernicus_marine_username,
+                need_resources=False,
             )
-            self._client = client
-        return self._client
+            self._session = session
+        return self._session
 
     def __getstate__(self):
         """
         Ensure boto3 client isn't pickled.
         """
         st = self.__dict__.copy()
-        st["_client"] = None
+        st["_session"] = None
         return st
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self._client = None
+        self._session = None
 
     def __eq__(self, value: object) -> bool:
         """Equality comparison."""
@@ -77,15 +76,16 @@ class CustomS3StoreZarrV3(Store):
         self,
         key: str,
         prototype: BufferPrototype,
-        byte_range: Union[ByteRequest, None] = None,
-    ) -> Union[Buffer, None]:
+        byte_range: ByteRequest | None = None,
+    ) -> Buffer | None:
         loop = asyncio.get_running_loop()
 
         def fn():
             full_key = f"{self._root_path}/{key}"
             try:
-                resp = self._get_client().get_object(
-                    Bucket=self._bucket, Key=full_key
+                resp = self._get_session().get_object(
+                    bucket_name=self._bucket,
+                    object_key=full_key,
                 )
                 res = resp["Body"].read()
                 return prototype.buffer.from_bytes(res)
@@ -100,8 +100,8 @@ class CustomS3StoreZarrV3(Store):
     async def get_partial_values(
         self,
         prototype: BufferPrototype,
-        key_ranges: Iterable[tuple[str, Union[ByteRequest, None]]],
-    ) -> list[Union[Buffer, None]]:
+        key_ranges: Iterable[tuple[str, ByteRequest | None]],
+    ) -> list[Buffer | None]:
         return [
             await self.get(key, prototype, byte_range)
             for key, byte_range in key_ranges
@@ -138,7 +138,7 @@ class CustomS3StoreZarrV3(Store):
         keys = []
         cursor = self._root_path
         while True:
-            resp = self._get_client().list_objects_v2(
+            resp = self._get_session().s3_client.list_objects_v2(
                 Bucket=self._bucket,
                 Prefix=self._root_path + prefix,
                 StartAfter=cursor,

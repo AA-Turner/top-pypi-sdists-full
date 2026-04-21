@@ -45,15 +45,15 @@ DUPLICATES_DEFINITIONS_ALLOWED = {
 
 METADATA_PROCESSORS = {
     "tags": lambda x, y: ([Tag(tag, y) for tag in ensure_metadata_list(x)] or _DISCARD),
-    "date": lambda x, y: get_date(x.replace("_", " ")),
-    "modified": lambda x, y: get_date(x),
-    "status": lambda x, y: x.strip() or _DISCARD,
+    "date": lambda x, _y: get_date(x.replace("_", " ")),
+    "modified": lambda x, _y: get_date(x),
+    "status": lambda x, _y: x.strip() or _DISCARD,
     "category": lambda x, y: _process_if_nonempty(Category, x, y),
     "author": lambda x, y: _process_if_nonempty(Author, x, y),
     "authors": lambda x, y: (
         [Author(author, y) for author in ensure_metadata_list(x)] or _DISCARD
     ),
-    "slug": lambda x, y: x.strip() or _DISCARD,
+    "slug": lambda x, _y: x.strip() or _DISCARD,
 }
 
 logger = logging.getLogger(__name__)
@@ -121,6 +121,7 @@ class BaseReader:
 
     def read(self, source_path):
         "No-op parser"
+        del source_path  # Unused argument
         content = None
         metadata = {}
         return content, metadata
@@ -165,6 +166,7 @@ class PelicanHTMLTranslator(HTMLTranslator):
         self.body.append(self.starttag(node, "abbr", "", **attrs))
 
     def depart_abbreviation(self, node):
+        del node  # Unused argument
         self.body.append("</abbr>")
 
     def visit_image(self, node):
@@ -266,9 +268,11 @@ class RstReader(BaseReader):
             extra_params.update(user_params)
 
         pub = docutils.core.Publisher(
-            writer=self.writer_class(), destination_class=docutils.io.StringOutput
+            reader="standalone",
+            parser="restructuredtext",
+            writer=self.writer_class(),
+            destination_class=docutils.io.StringOutput,
         )
-        pub.set_components("standalone", "restructuredtext", "html")
         pub.process_programmatic_settings(None, extra_params, None)
         pub.set_source(source_path=source_path)
         pub.publish()
@@ -630,8 +634,9 @@ class Readers(FileStampDataCacher):
 
         # eventually filter the content with typogrify if asked so
         if self.settings["TYPOGRIFY"]:
-            import smartypants
-            from typogrify.filters import typogrify
+            # typogrify is an optional feature, user may not have it installed
+            import smartypants  # noqa: PLC0415
+            from typogrify.filters import typogrify  # noqa: PLC0415
 
             typogrify_dashes = self.settings["TYPOGRIFY_DASHES"]
             if typogrify_dashes == "oldschool":
@@ -657,7 +662,7 @@ class Readers(FileStampDataCacher):
                     return typogrify(
                         text,
                         self.settings["TYPOGRIFY_IGNORE_TAGS"],
-                        **{f: False for f in self.settings["TYPOGRIFY_OMIT_FILTERS"]},
+                        **dict.fromkeys(self.settings["TYPOGRIFY_OMIT_FILTERS"], False),
                     )
                 except TypeError:
                     try:
@@ -741,7 +746,7 @@ def default_metadata(settings=None, process=None):
             if process:
                 value = process(name, value)
             metadata[name] = value
-        if "DEFAULT_CATEGORY" in settings:
+        if "DEFAULT_CATEGORY" in settings and settings.get("CATEGORY_SAVE_AS"):
             value = settings["DEFAULT_CATEGORY"]
             if process:
                 value = process("category", value)
@@ -806,7 +811,7 @@ def parse_path_metadata(source_path, settings=None, process=None):
         checks = []
         for key, data in [("FILENAME_METADATA", base), ("PATH_METADATA", source_path)]:
             checks.append((settings.get(key, None), data))
-        if settings.get("USE_FOLDER_AS_CATEGORY", None):
+        if settings.get("USE_FOLDER_AS_CATEGORY") and settings.get("CATEGORY_SAVE_AS"):
             checks.append(("(?P<category>.*)", subdir))
         for regexp, data in checks:
             if regexp and data:

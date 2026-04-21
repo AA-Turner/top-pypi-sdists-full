@@ -1,6 +1,5 @@
 import logging
 import pathlib
-from typing import List, Optional, Union
 
 import click
 from click import Context
@@ -74,17 +73,17 @@ def cli_subset():
     + " \n\nReturns\n "
     + documentation_utils.SUBSET["SUBSET_RESPONSE_HELP"],
     epilog="""
-    Examples:
+    For example the command:
 
     .. code-block:: bash
 
-        copernicusmarine subset --dataset-id cmems_mod_ibi_phy_my_0.083deg-3D_P1D-m --variable thetao --variable so --start-datetime 2021-01-01 --end-datetime 2021-01-03 --minimum-longitude 0.0 --maximum-longitude 0.1 --minimum-latitude 28.0 --maximum-latitude 28.1 --minimum-depth 1 --maximum-depth 2
+        copernicusmarine subset --dataset-id cmems_mod_glo_phy_anfc_0.083deg_P1M-m --variable siconc --variable siage --start-datetime 2023-01-01 --end-datetime 2024-01-03 --minimum-longitude 0.0 --maximum-longitude 0.1 --minimum-latitude 28.0 --maximum-latitude 28.1 --minimum-depth 1 --maximum-depth 2
 
-    Equivalent to:
+    This is equivalent to the following one with short form arguments:
 
     .. code-block:: bash
 
-        copernicusmarine subset -i cmems_mod_ibi_phy_my_0.083deg-3D_P1D-m -v thetao -v so -t 2021-01-01 -T 2021-01-03 -x 0.0 -X 0.1 -y 28.0 -Y 28.1 -z 1 -Z 2 \n
+        copernicusmarine subset -i cmems_mod_glo_phy_anfc_0.083deg_P1M-m -v siconc -v siage -t 2023-01-01 -T 2024-01-03 -x 0.0 -X 0.1 -y 28.0 -Y 28.1 -z 1 -Z 2 \n
     """,  # noqa
     invoke_without_command=True,
 )
@@ -354,44 +353,44 @@ def cli_subset():
 def subset(
     context: Context,
     dataset_id: str,
-    dataset_version: Optional[str],
-    dataset_part: Optional[str],
-    username: Optional[str],
-    password: Optional[str],
-    variables: Optional[List[str]],
-    minimum_longitude: Optional[float],
-    maximum_longitude: Optional[float],
-    minimum_latitude: Optional[float],
-    maximum_latitude: Optional[float],
-    minimum_x: Optional[float],
-    maximum_x: Optional[float],
-    minimum_y: Optional[float],
-    maximum_y: Optional[float],
-    alias_min_x: Optional[float],
-    alias_max_x: Optional[float],
-    alias_min_y: Optional[float],
-    alias_max_y: Optional[float],
-    minimum_depth: Optional[float],
-    maximum_depth: Optional[float],
+    dataset_version: str | None,
+    dataset_part: str | None,
+    username: str | None,
+    password: str | None,
+    variables: list[str] | None,
+    minimum_longitude: float | None,
+    maximum_longitude: float | None,
+    minimum_latitude: float | None,
+    maximum_latitude: float | None,
+    minimum_x: float | None,
+    maximum_x: float | None,
+    minimum_y: float | None,
+    maximum_y: float | None,
+    alias_min_x: float | None,
+    alias_max_x: float | None,
+    alias_min_y: float | None,
+    alias_max_y: float | None,
+    minimum_depth: float | None,
+    maximum_depth: float | None,
     vertical_axis: VerticalAxis,
-    start_datetime: Optional[str],
-    end_datetime: Optional[str],
-    platform_ids: Optional[List[str]],
+    start_datetime: str | None,
+    end_datetime: str | None,
+    platform_ids: list[str] | None,
     coordinates_selection_method: CoordinatesSelectionMethod,
-    output_filename: Optional[str],
-    file_format: Optional[FileFormat],
+    output_filename: str | None,
+    file_format: FileFormat | None,
     netcdf_compression_level: int,
     netcdf3_compatible: bool,
-    service: Optional[str],
+    service: str | None,
     create_template: bool,
-    request_file: Optional[pathlib.Path],
-    output_directory: Optional[pathlib.Path],
-    credentials_file: Optional[pathlib.Path],
-    motu_api_request: Optional[str],
+    request_file: pathlib.Path | None,
+    output_directory: pathlib.Path | None,
+    credentials_file: pathlib.Path | None,
+    motu_api_request: str | None,
     overwrite: bool,
     skip_existing: bool,
     dry_run: bool,
-    response_fields: Optional[str],
+    response_fields: str | None,
     disable_progress_bar: bool,
     log_level: str,
     chunk_size_limit: int,
@@ -470,12 +469,12 @@ def subset(
 
     if response_fields:
         fields_to_include = set(response_fields.replace(" ", "").split(","))
-    elif dry_run:
+    elif subset_request.dry_run:
         fields_to_include = {"all"}
     else:
         fields_to_include = DEFAULT_FIELDS_TO_INCLUDE
 
-    included_fields: Optional[Union[dict, set]]
+    included_fields: dict | set | None
     if "all" in fields_to_include:
         included_fields = None
     elif "none" in fields_to_include:

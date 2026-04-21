@@ -8,6 +8,7 @@ import ctypes
 import logging
 import warnings
 from pathlib import Path
+from codecs import decode
 
 import pypdfium2.raw as pdfium_c
 import pypdfium2.internal as pdfium_i
@@ -210,7 +211,7 @@ class PdfDocument (pdfium_i.AutoCloseable):
         Returns:
             bool: Whether the document is tagged (cf. PDF 1.7, 10.7 "Tagged PDF").
         """
-        return bool( pdfium_c.FPDFCatalog_IsTagged(self) )
+        return pdfium_c.FPDFCatalog_IsTagged(self) == 1
     
     
     def save(self, dest, version=None, flags=0):
@@ -284,7 +285,7 @@ class PdfDocument (pdfium_i.AutoCloseable):
         n_bytes = pdfium_c.FPDF_GetMetaText(self, enc_key, None, 0)
         buffer = ctypes.create_string_buffer(n_bytes)
         pdfium_c.FPDF_GetMetaText(self, enc_key, buffer, n_bytes)
-        return buffer[:n_bytes-2].decode("utf-16-le")
+        return decode(memoryview(buffer)[:n_bytes-2], "utf-16-le")
     
     
     METADATA_KEYS = ("Title", "Author", "Subject", "Keywords", "Creator", "Producer", "CreationDate", "ModDate")
@@ -465,7 +466,7 @@ class PdfDocument (pdfium_i.AutoCloseable):
         n_bytes = pdfium_c.FPDF_GetPageLabel(self, index, None, 0)
         buffer = ctypes.create_string_buffer(n_bytes)
         pdfium_c.FPDF_GetPageLabel(self, index, buffer, n_bytes)
-        return buffer[:n_bytes-2].decode("utf-16-le")
+        return decode(memoryview(buffer)[:n_bytes-2], "utf-16-le")
     
     
     def page_as_xobject(self, index, dest_pdf):
@@ -530,7 +531,7 @@ class PdfDocument (pdfium_i.AutoCloseable):
             bm_ptr = pdfium_c.FPDFBookmark_GetNextSibling(self, bm_ptr)
 
 
-_ENC_ERRHANDLER = ("surrogateescape", ) if not sys.platform.startswith("win32") else ()
+_ENC_ERRHANDLER = "strict" if sys.platform.startswith("win32") else "surrogateescape"
 
 def _open_pdf(input_data, password, autoclose):
     
@@ -539,7 +540,7 @@ def _open_pdf(input_data, password, autoclose):
         password = (password+"\x00").encode("utf-8")
     
     if isinstance(input_data, Path):
-        pdf = pdfium_c.FPDF_LoadDocument((str(input_data)+"\x00").encode("utf-8", *_ENC_ERRHANDLER), password)
+        pdf = pdfium_c.FPDF_LoadDocument((str(input_data)+"\x00").encode("utf-8", errors=_ENC_ERRHANDLER), password)
     elif isinstance(input_data, (bytes, ctypes.Array)):
         pdf = pdfium_c.FPDF_LoadMemDocument64(input_data, len(input_data), password)
         to_hold = (input_data, )
@@ -644,7 +645,7 @@ class PdfBookmark (pdfium_i.AutoCastable):
         n_bytes = pdfium_c.FPDFBookmark_GetTitle(self, None, 0)
         buffer = ctypes.create_string_buffer(n_bytes)
         pdfium_c.FPDFBookmark_GetTitle(self, buffer, n_bytes)
-        return buffer[:n_bytes-2].decode("utf-16-le")
+        return decode(memoryview(buffer)[:n_bytes-2], "utf-16-le")
     
     def get_count(self):
         """

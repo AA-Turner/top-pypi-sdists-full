@@ -9,7 +9,11 @@ True) or must be run the foreground (returns False).
 import argparse
 import collections.abc as cabc
 import os
-import pickle
+
+try:
+    import ujson as json
+except ImportError:
+    import json  # type: ignore
 import time
 import typing as tp
 from pathlib import Path
@@ -54,10 +58,10 @@ class CaseInsensitiveDict(dict[tp.Any, tp.Any]):
 
     def keys(self):
         # Return the original keys with their original casing
-        return (self._store[k] for k in self._store)
+        return list(self._store.values())
 
     def items(self):
-        return ((self._store[k], self[k]) for k in self._store)
+        return [(self._store[k], self[k]) for k in self._store]
 
     def __repr__(self):
         return f"{self.__class__.__name__}({dict(self.items())})"
@@ -132,7 +136,7 @@ class CommandsCache(cabc.Mapping):
     where you just need to locate executable command.
     """
 
-    CACHE_FILE = "path-commands-cache.pickle"
+    CACHE_FILE = "path-commands-cache.json"
 
     def __init__(self, env, aliases=None) -> None:
         # cache commands in path by mtime
@@ -277,14 +281,20 @@ class CommandsCache(cabc.Mapping):
         if (not self._paths_cache) and self.cache_file and self.cache_file.exists():
             # first time load the commands from cache-file if configured
             try:
-                self._paths_cache = pickle.loads(self.cache_file.read_bytes()) or {}
+                raw = json.loads(self.cache_file.read_text()) or {}
+                self._paths_cache = {
+                    k: _Commands(v[0], tuple(v[1])) for k, v in raw.items()
+                }
             except Exception:
                 # the file is corrupt
                 self.cache_file.unlink(missing_ok=True)
 
         updated = False
         for path in paths:
-            modified_time = os.path.getmtime(path)
+            try:
+                modified_time = os.path.getmtime(path)
+            except OSError:
+                continue
             if (
                 (not self.env.get("ENABLE_COMMANDS_CACHE", True))
                 or (path not in self._paths_cache)
@@ -296,7 +306,8 @@ class CommandsCache(cabc.Mapping):
                 )
 
         if updated and self.cache_file:
-            self.cache_file.write_bytes(pickle.dumps(self._paths_cache))
+            raw = {k: [v.mtime, list(v.cmds)] for k, v in self._paths_cache.items()}
+            self.cache_file.write_text(json.dumps(raw))
         return updated
 
     def _iter_binaries(self, paths):
@@ -451,9 +462,9 @@ class CommandsCache(cabc.Mapping):
         alias_recursion_limit = (
             10  # this limit is se to handle infinite loops in aliases definition
         )
-        first_args = []  # contains in reverse order args passed to the aliased command
+        first_args = []  # accumulated args from the alias chain, in correct order
         while cmd0 in self.aliases:
-            alias_name = self.aliases
+            alias_name = self.aliases[cmd0]
             if isinstance(alias_name, str | bytes) or not isinstance(
                 alias_name, cabc.Sequence
             ):
@@ -468,7 +479,7 @@ class CommandsCache(cabc.Mapping):
             if alias_recursion_limit == 0:
                 return predict_true
         predictor_cmd0 = self.get_predictor_threadable(cmd0)
-        return lambda cmd1: predictor_cmd0(first_args[::-1] + cmd1, self)
+        return lambda cmd1, cache: predictor_cmd0(first_args + cmd1, cache)
 
     def default_predictor_readbin(self, name, cmd0, timeout, failure):
         """Make a default predictor by

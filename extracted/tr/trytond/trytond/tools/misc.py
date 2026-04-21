@@ -12,14 +12,12 @@ import re
 import types
 import unicodedata
 import warnings
-from array import array
 from collections.abc import Iterable, Sized
 from functools import cache, wraps
 from itertools import chain, islice, tee, zip_longest
 
-from sql import As, Literal, Select
+from sql import As, Cast, Select
 from sql.conditionals import Case
-from sql.operators import Or
 
 from trytond.const import MODULES_GROUP, OPERATORS
 
@@ -111,45 +109,11 @@ def get_smtp_server():
 
 
 def reduce_ids(field, ids):
-    '''
-    Return a small SQL expression for the list of ids and the sql column
-    '''
-    if __debug__:
-        def strict_int(value):
-            assert not isinstance(value, float) or value.is_integer(), \
-                "ids must be integer"
-            return int(value)
-    else:
-        strict_int = int
-    ids = list(map(strict_int, ids))
-    if not ids:
-        return Literal(False)
-    ids.sort()
-    prev = ids.pop(0)
-    continue_list = [prev, prev]
-    discontinue_list = array('l')
-    sql = Or()
-    for i in ids:
-        if i == prev:
-            continue
-        if i != prev + 1:
-            if continue_list[-1] - continue_list[0] < 5:
-                discontinue_list.extend([continue_list[0] + x for x in
-                    range(continue_list[-1] - continue_list[0] + 1)])
-            else:
-                sql.append((field >= continue_list[0])
-                    & (field <= continue_list[-1]))
-            continue_list = []
-        continue_list.append(i)
-        prev = i
-    if continue_list[-1] - continue_list[0] < 5:
-        discontinue_list.extend([continue_list[0] + x for x in
-            range(continue_list[-1] - continue_list[0] + 1)])
-    else:
-        sql.append((field >= continue_list[0]) & (field <= continue_list[-1]))
-    if discontinue_list:
-        sql.append(field.in_(discontinue_list))
-    return sql
+    from trytond.model.fields import SQL_OPERATORS
+    warnings.warn(
+        "reduce_ids is deprecated use trytond.fields.SQL_OPERATORS['in']",
+        DeprecationWarning)
+    return SQL_OPERATORS['in'](field, ids)
 
 
 def reduce_domain(domain):
@@ -185,9 +149,11 @@ def reduce_domain(domain):
 
 def grouped_slice(records, count=None):
     'Grouped slice'
-    from trytond.transaction import Transaction
     if count is None:
-        count = Transaction().database.IN_MAX
+        warnings.warn(
+            "grouped_slice without size is deprecated",
+            DeprecationWarning)
+        count = 1
     count = max(1, count)
     if not isinstance(records, Sized):
         records = list(records)
@@ -304,9 +270,11 @@ def sortable_values(func):
 def sql_pairing(x, y):
     """Return SQL expression to pair x and y
     Pairing function from http://szudzik.com/ElegantPairing.pdf"""
-    return Case(
-        (x < y, (y * y) + x),
-        else_=(x * x) + x + y)
+    x = Cast(x, 'BIGINT')
+    y = Cast(y, 'BIGINT')
+    return Cast(Case(
+            (x < y, (y * y) + x),
+            else_=(x * x) + x + y), 'BIGINT')
 
 
 def pair(x, y):

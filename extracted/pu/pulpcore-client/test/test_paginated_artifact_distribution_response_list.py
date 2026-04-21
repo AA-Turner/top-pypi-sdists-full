@@ -41,21 +41,21 @@ class TestPaginatedArtifactDistributionResponseList(unittest.TestCase):
                 previous = 'http://api.example.org/accounts/?offset=200&limit=100',
                 results = [
                     pulpcore.client.pulpcore.models.artifact_distribution_response.ArtifactDistributionResponse(
-                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        base_url = '', 
+                        pulp_href = '', 
+                        hidden = True, 
+                        content_guard_prn = '', 
                         pulp_labels = {
                             'key' : ''
                             }, 
-                        name = '', 
                         repository_version = '', 
-                        content_guard_prn = '', 
-                        no_content_change_since = '', 
-                        pulp_href = '', 
+                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         prn = '', 
+                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         content_guard = '', 
+                        no_content_change_since = '', 
+                        name = '', 
                         base_path = '', 
-                        hidden = True, )
+                        base_url = '', )
                     ]
             )
         else:
@@ -63,21 +63,21 @@ class TestPaginatedArtifactDistributionResponseList(unittest.TestCase):
                 count = 123,
                 results = [
                     pulpcore.client.pulpcore.models.artifact_distribution_response.ArtifactDistributionResponse(
-                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        base_url = '', 
+                        pulp_href = '', 
+                        hidden = True, 
+                        content_guard_prn = '', 
                         pulp_labels = {
                             'key' : ''
                             }, 
-                        name = '', 
                         repository_version = '', 
-                        content_guard_prn = '', 
-                        no_content_change_since = '', 
-                        pulp_href = '', 
+                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         prn = '', 
+                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         content_guard = '', 
+                        no_content_change_since = '', 
+                        name = '', 
                         base_path = '', 
-                        hidden = True, )
+                        base_url = '', )
                     ],
         )
         """

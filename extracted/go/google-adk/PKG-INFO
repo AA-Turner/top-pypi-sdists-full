@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 1.31.0
+Version: 1.31.1
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.10
@@ -27,7 +27,7 @@ Requires-Dist: click>=8.1.8, <9.0.0
 Requires-Dist: fastapi>=0.124.1, <1.0.0
 Requires-Dist: google-api-python-client>=2.157.0, <3.0.0
 Requires-Dist: google-auth[pyopenssl]>=2.47.0
-Requires-Dist: google-cloud-aiplatform[agent-engines]>=1.148.0, <2.0.0
+Requires-Dist: google-cloud-aiplatform[agent-engines]>=1.148.1, <2.0.0
 Requires-Dist: google-cloud-bigquery-storage>=2.0.0
 Requires-Dist: google-cloud-bigquery>=2.2.0
 Requires-Dist: google-cloud-bigtable>=2.32.0

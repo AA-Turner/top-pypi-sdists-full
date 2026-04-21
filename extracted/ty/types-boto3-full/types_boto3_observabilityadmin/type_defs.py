@@ -876,6 +876,7 @@ class TelemetryRuleOutputTypeDef(TypedDict):
     DestinationConfiguration: NotRequired[TelemetryDestinationConfigurationOutputTypeDef]
     Scope: NotRequired[str]
     SelectionCriteria: NotRequired[str]
+    AllowFieldUpdates: NotRequired[bool]
     Regions: NotRequired[list[str]]
     AllRegions: NotRequired[bool]
 
@@ -887,6 +888,7 @@ class TelemetryRuleTypeDef(TypedDict):
     DestinationConfiguration: NotRequired[TelemetryDestinationConfigurationTypeDef]
     Scope: NotRequired[str]
     SelectionCriteria: NotRequired[str]
+    AllowFieldUpdates: NotRequired[bool]
     Regions: NotRequired[Sequence[str]]
     AllRegions: NotRequired[bool]
 

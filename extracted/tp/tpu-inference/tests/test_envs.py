@@ -62,6 +62,8 @@ def test_boolean_env_vars(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("NEW_MODEL_DESIGN", "0")
     monkeypatch.setenv("ENABLE_QUANTIZED_MATMUL_KERNEL", "0")
     monkeypatch.setenv("USE_MOE_EP_KERNEL", "0")
+    monkeypatch.setenv("LAYOUT_Q_PROJ_AS_NDH", "0")
+    monkeypatch.setenv("USE_BATCHED_RPA_KERNEL", "0")
 
     # Test SKIP_JAX_PRECOMPILE (default False)
     assert envs.SKIP_JAX_PRECOMPILE is False
@@ -91,6 +93,16 @@ def test_boolean_env_vars(monkeypatch: pytest.MonkeyPatch):
     assert envs.ENABLE_QUANTIZED_MATMUL_KERNEL is False
     monkeypatch.setenv("ENABLE_QUANTIZED_MATMUL_KERNEL", "1")
     assert envs.ENABLE_QUANTIZED_MATMUL_KERNEL is True
+
+    # Test LAYOUT_Q_PROJ_AS_NDH (default False)
+    assert envs.LAYOUT_Q_PROJ_AS_NDH is False
+    monkeypatch.setenv("LAYOUT_Q_PROJ_AS_NDH", "1")
+    assert envs.LAYOUT_Q_PROJ_AS_NDH is True
+
+    # Test USE_BATCHED_RPA_KERNEL (default False)
+    assert envs.USE_BATCHED_RPA_KERNEL is False
+    monkeypatch.setenv("USE_BATCHED_RPA_KERNEL", "1")
+    assert envs.USE_BATCHED_RPA_KERNEL is True
 
 
 def test_boolean_env_vars_string_values(monkeypatch: pytest.MonkeyPatch):
@@ -168,6 +180,8 @@ def test_integer_env_vars(monkeypatch: pytest.MonkeyPatch):
     # Ensure clean environment for integer vars by setting to defaults
     monkeypatch.setenv("PYTHON_TRACER_LEVEL", "1")
     monkeypatch.setenv("NUM_SLICES", "1")
+    monkeypatch.delenv("REQUANTIZE_BLOCK_SIZE", raising=False)
+    monkeypatch.delenv("MOE_REQUANTIZE_BLOCK_SIZE", raising=False)
 
     assert envs.PYTHON_TRACER_LEVEL == 1
     monkeypatch.setenv("PYTHON_TRACER_LEVEL", "3")
@@ -182,6 +196,16 @@ def test_integer_env_vars(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("NUM_SLICES", "4")
     assert envs.NUM_SLICES == 4
 
+    # Test REQUANTIZE_BLOCK_SIZE: default should be None
+    assert envs.REQUANTIZE_BLOCK_SIZE is None
+    monkeypatch.setenv("REQUANTIZE_BLOCK_SIZE", "512")
+    assert envs.REQUANTIZE_BLOCK_SIZE == 512
+
+    # Test MOE_REQUANTIZE_BLOCK_SIZE default should be None
+    assert envs.MOE_REQUANTIZE_BLOCK_SIZE is None
+    monkeypatch.setenv("MOE_REQUANTIZE_BLOCK_SIZE", "512")
+    assert envs.MOE_REQUANTIZE_BLOCK_SIZE == 512
+
 
 def test_model_impl_type_choices(monkeypatch: pytest.MonkeyPatch):
     # Test case sensitive choices
@@ -191,16 +215,26 @@ def test_model_impl_type_choices(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MODEL_IMPL_TYPE", "vllm")
     assert envs.MODEL_IMPL_TYPE == "vllm"
 
+    monkeypatch.setenv("DRAFT_MODEL_IMPL_TYPE", "flax_nnx")
+    assert envs.DRAFT_MODEL_IMPL_TYPE == "flax_nnx"
+
+    monkeypatch.setenv("DRAFT_MODEL_IMPL_TYPE", "vllm")
+    assert envs.DRAFT_MODEL_IMPL_TYPE == "vllm"
+
 
 def test_string_env_vars_defaults(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("JAX_PLATFORMS", raising=False)
     monkeypatch.delenv("PREFILL_SLICES", raising=False)
     monkeypatch.delenv("DECODE_SLICES", raising=False)
+    monkeypatch.delenv("REQUANTIZE_WEIGHT_DTYPE", raising=False)
+    monkeypatch.delenv("MOE_REQUANTIZE_WEIGHT_DTYPE", raising=False)
 
     assert envs.JAX_PLATFORMS == ""
     assert envs.PREFILL_SLICES == ""
     assert envs.DECODE_SLICES == ""
     assert envs.PHASED_PROFILING_DIR == ""
+    assert envs.REQUANTIZE_WEIGHT_DTYPE == "float8_e4m3fn"
+    assert envs.MOE_REQUANTIZE_WEIGHT_DTYPE == "float8_e4m3fn"
 
 
 def test_none_default_env_vars(monkeypatch: pytest.MonkeyPatch):
@@ -214,9 +248,9 @@ def test_none_default_env_vars(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_ray_env_vars(monkeypatch: pytest.MonkeyPatch):
-    assert envs.RAY_USAGE_STATS_ENABLED == "0"
+    assert not envs.RAY_USAGE_STATS_ENABLED
     monkeypatch.setenv("RAY_USAGE_STATS_ENABLED", "1")
-    assert envs.RAY_USAGE_STATS_ENABLED == "1"
+    assert envs.RAY_USAGE_STATS_ENABLED
 
     assert envs.VLLM_USE_RAY_COMPILED_DAG_CHANNEL_TYPE == "shm"
 

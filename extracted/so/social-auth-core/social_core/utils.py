@@ -8,7 +8,7 @@ import re
 import time
 import unicodedata
 from importlib import import_module
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import parse_qs as battery_parse_qs
 from urllib.parse import unquote, urlencode, urlparse, urlunparse
 
@@ -42,7 +42,7 @@ def module_member(name):
     return getattr(module, member)
 
 
-def user_agent():
+def user_agent() -> str:
     """Builds a simple User-Agent string to send in requests"""
     return f"social-auth-{social_core.__version__}"
 
@@ -88,7 +88,7 @@ def sanitize_redirect(hosts: list[str], redirect_to: str | Any) -> str | None:
     try:
         # Don't redirect to a host that's not in the list
         netloc = urlparse(redirect_to)[1] or hosts[0]
-    except (TypeError, AttributeError):
+    except (TypeError, AttributeError, ValueError):
         return None
 
     if netloc in hosts:
@@ -333,7 +333,7 @@ class cache:
                         raise
             return cached_value
 
-        wrapped.invalidate = self._invalidate  # type: ignore[attr-defined]
+        cast("Any", wrapped).invalidate = self._invalidate
         return wrapped
 
     def _invalidate(self) -> None:

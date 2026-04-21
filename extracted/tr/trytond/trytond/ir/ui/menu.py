@@ -1,13 +1,12 @@
 # This file is part of Tryton.  The COPYRIGHT file at the top level of
 # this repository contains the full copyright notices and license terms.
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from itertools import groupby
 
 from trytond.model import (
     DeactivableMixin, ModelSQL, ModelView, fields, sequence_ordered, tree)
 from trytond.pool import Pool
 from trytond.rpc import RPC
-from trytond.tools import grouped_slice
 from trytond.transaction import Transaction, inactive_records
 
 
@@ -176,12 +175,10 @@ class UIMenu(
 
             menus = list(filter(has_action_access, menus))
 
-            parent_ids = {x.parent.id for x in menus if x.parent}
-            parents = set()
-            for sub_parent_ids in grouped_slice(parent_ids):
-                parents.update(cls.search([
-                            ('id', 'in', list(sub_parent_ids)),
-                            ]))
+            parent_ids = list({x.parent.id for x in menus if x.parent})
+            parents = cls.search([
+                    ('id', 'in', parent_ids),
+                    ])
             # Re-browse to avoid side-cache access
             menus = cls.browse([x.id for x in menus
                     if (x.parent and x.parent in parents) or not x.parent])
@@ -223,14 +220,10 @@ class UIMenu(
     def set_action(cls, menus, name, value):
         pool = Pool()
         ActionKeyword = pool.get('ir.action.keyword')
-        action_keywords = []
-        transaction = Transaction()
-        for i in range(0, len(menus), transaction.database.IN_MAX):
-            sub_menus = menus[i:i + transaction.database.IN_MAX]
-            action_keywords += ActionKeyword.search([
-                ('keyword', '=', 'tree_open'),
-                ('model', 'in', [str(menu) for menu in sub_menus]),
-                ])
+        action_keywords = ActionKeyword.search([
+            ('keyword', '=', 'tree_open'),
+            ('model', 'in', [str(menu) for menu in menus]),
+            ])
         if action_keywords:
             with Transaction().set_context(_timestamp=False):
                 ActionKeyword.delete(action_keywords)
@@ -306,7 +299,8 @@ class UIMenuFavorite(ModelSQL):
                 ('user', '=', user),
                 ],
             order=[('id', 'DESC')])
-        return [(f.menu.id, f.menu.rec_name, f.menu.icon) for f in favorites]
+        return list(OrderedDict.fromkeys(
+                (f.menu.id, f.menu.rec_name, f.menu.icon) for f in favorites))
 
     @classmethod
     def set(cls, menu_id):

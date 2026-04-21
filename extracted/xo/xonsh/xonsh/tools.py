@@ -1,20 +1,48 @@
-"""Misc. xonsh tools.
+"""Shared utility functions and helpers for the xonsh shell.
 
-The following implementations were forked from the IPython project:
+This module is the grab-bag of small, broadly-useful helpers used across
+the xonsh codebase — anything that doesn't naturally fit into one of the
+more focused subsystems (parser, execer, environ, procs, completers,
+prompt, history) ends up here. Downstream code — including xontribs —
+can import from :mod:`xonsh.tools` as a stable public API.
+
+The module groups its helpers roughly by topic:
+
+* **Exceptions and error handling** — :class:`XonshError`,
+  :class:`XonshCalledProcessError`, :func:`print_exception`,
+  :func:`format_std_prepost`.
+* **Type conversion and validation** — the ``is_*`` / ``to_*`` /
+  ``*_or_default`` family used by :class:`~xonsh.environ.Env` to
+  validate and normalise environment variables (bools, ints, paths,
+  lists, dicts, history units, log levels, color schemes, etc.).
+* **Path and file utilities** — :func:`expand_path`,
+  :func:`expanduser_abs_path`, :func:`is_writable_file`,
+  :func:`executables_in`, :func:`iglobpath`, cross-platform path
+  normalisation helpers.
+* **String, token and AST helpers** — quoting/escaping,
+  :func:`subexpr_from_unbalanced`, :func:`find_next_break`, regex
+  constants for string prefixes and history tuples, the
+  :class:`FlexibleFormatter` for prompt/format-string rendering.
+* **Subprocess and signal helpers** — :func:`on_main_thread`,
+  :func:`suggest_commands`, signal-safe context managers, PTY helpers.
+* **Terminal and color handling** — ANSI/ANSI256/RGB color parsing,
+  ``PTK_NEW_OLD_COLOR_MAP``, ``WIN10_COLOR_MAP`` and related lookup
+  tables, :func:`print_color` / :func:`format_color`.
+* **Collections and functional helpers** — :class:`LazyObject`,
+  :class:`LazyDict`, :class:`DefaultNotGivenType`, ``always_true``,
+  ``always_false``, ``all_permutations``, small functional shims.
+* **Platform and environment probes** — Windows/POSIX conditionals,
+  locale detection, terminal-size queries, shell-level (``SHLVL``)
+  adjustment.
+
+A handful of the oldest helpers (``decode``, ``encode``,
+``cast_unicode``, ``safe_hasattr``, ``indent``) were originally forked
+from the IPython project and retain their upstream copyrights:
 
 * Copyright (c) 2008-2014, IPython Development Team
 * Copyright (C) 2001-2007 Fernando Perez <fperez@colorado.edu>
 * Copyright (c) 2001, Janko Hauser <jhauser@zscout.de>
 * Copyright (c) 2001, Nathaniel Gray <n8gray@caltech.edu>
-
-Implementations:
-
-* decode()
-* encode()
-* cast_unicode()
-* safe_hasattr()
-* indent()
-
 """
 
 import ast
@@ -40,19 +68,6 @@ import typing as tp
 import warnings
 from contextlib import contextmanager
 
-try:
-    from prompt_toolkit.cursor_shapes import (
-        CursorShape,
-        CursorShapeConfig,
-        DynamicCursorShapeConfig,
-        ModalCursorShapeConfig,
-        SimpleCursorShapeConfig,
-    )
-
-    HAVE_CURSOR_SHAPE = True
-except ImportError:
-    HAVE_CURSOR_SHAPE = False
-
 # adding imports from further xonsh modules is discouraged to avoid circular
 # dependencies
 from xonsh import __version__
@@ -66,6 +81,17 @@ from xonsh.platform import (
     os_environ,
     pygments_version_info,
 )
+
+
+@lazyobject
+def _ptk_cursor_shapes():
+    """Lazily load prompt_toolkit cursor shapes module."""
+    try:
+        from prompt_toolkit import cursor_shapes
+
+        return cursor_shapes
+    except ImportError:
+        return None
 
 
 @contextmanager
@@ -141,7 +167,7 @@ def expand_path(s, expand_user=True):
     env = xsh.env or os_environ
     if env.get("EXPAND_ENV_VARS", False):
         s = expandvars(s)
-    if expand_user:
+    if expand_user and env.get("XONSH_SUBPROC_ARG_EXPANDUSER", True):
         # expand ~ according to Bash unquoted rules "Each variable assignment is
         # checked for unquoted tilde-prefixes immediately following a ':' or the
         # first '='". See the following for more details.
@@ -241,7 +267,14 @@ RE_END_TOKS = LazyObject(
 )
 LPARENS = LazyObject(
     lambda: frozenset(
-        ["LPAREN", "AT_LPAREN", "BANG_LPAREN", "DOLLAR_LPAREN", "ATDOLLAR_LPAREN"]
+        [
+            "LPAREN",
+            "AT_LPAREN",
+            "ATBANG_LPAREN",
+            "BANG_LPAREN",
+            "DOLLAR_LPAREN",
+            "ATDOLLAR_LPAREN",
+        ]
     ),
     globals(),
     "LPARENS",
@@ -297,7 +330,7 @@ def find_next_break(line, mincol=0, lexer=None):
         return None
     maxcol = None
     lparens = []
-    lexer.input(line)
+    lexer.input(line, is_subproc=True)
     for tok in lexer:
         if tok.type in LPARENS:
             lparens.append(tok.type)
@@ -365,6 +398,7 @@ def subproc_toks(
             elif pos < maxcol and tok.type not in ("NEWLINE", "DEDENT", "WS"):
                 if not greedy:
                     toks.clear()
+                    lparens.clear()
                 if tok.type in BEG_TOK_SKIPS:
                     continue
             else:
@@ -426,6 +460,8 @@ def subproc_toks(
 
 def check_bad_str_token(tok):
     """Checks if a token is a bad string."""
+    if tok.type in ("FSTRING_START", "FSTRING_MIDDLE", "FSTRING_END"):
+        return False
     if tok.type == "ERRORTOKEN" and tok.value == "EOF in multi-line string":
         return True
     elif isinstance(tok.value, str) and not check_quotes(tok.value):
@@ -475,6 +511,48 @@ def get_line_continuation():
     return "\\"
 
 
+def _ends_with_line_continuation(line, linecont):
+    """True if ``line`` ends with ``linecont`` outside of a comment.
+
+    A ``#`` that is not inside a string literal starts a comment;
+    Python's tokenizer treats ``\\`` inside a comment as literal text,
+    not as a line continuation. ``xonsh``'s context-free subproc
+    fallback must agree, otherwise a comment ending in ``\\`` silently
+    swallows the next physical line (#6294 follow-up).
+    """
+    if not line.endswith(linecont):
+        return False
+    quote = None  # active string delimiter, or None
+    triple = False  # whether the active string is triple-quoted
+    escape = False  # previous char in a string opened an escape
+    i = 0
+    end = len(line) - len(linecont)
+    while i < end:
+        c = line[i]
+        if quote is None:
+            if c == "#":
+                return False
+            if c in ("'", '"'):
+                if line[i : i + 3] == c * 3:
+                    quote, triple = c, True
+                    i += 3
+                    continue
+                quote, triple = c, False
+        else:
+            if escape:
+                escape = False
+            elif c == "\\":
+                escape = True
+            elif triple and line[i : i + 3] == quote * 3:
+                quote, triple = None, False
+                i += 3
+                continue
+            elif not triple and c == quote:
+                quote, triple = None, False
+        i += 1
+    return True
+
+
 def get_logical_line(lines, idx):
     """Returns a single logical line (i.e. one without line continuations)
     from a list of lines.  This line should begin at index idx. This also
@@ -484,15 +562,17 @@ def get_logical_line(lines, idx):
     n = 1
     nlines = len(lines)
     linecont = get_line_continuation()
-    while idx > 0 and lines[idx - 1].endswith(linecont):
+    while idx > 0 and _ends_with_line_continuation(lines[idx - 1], linecont):
         idx -= 1
     start = idx
     line = lines[idx]
     open_triple = _have_open_triple_quotes(line)
-    while (line.endswith(linecont) or open_triple) and idx < nlines - 1:
+    while (
+        _ends_with_line_continuation(line, linecont) or open_triple
+    ) and idx < nlines - 1:
         n += 1
         idx += 1
-        if line.endswith(linecont):
+        if _ends_with_line_continuation(line, linecont):
             line = line[:-1] + lines[idx]
         else:
             line = line + "\n" + lines[idx]
@@ -623,7 +703,7 @@ def indent(instr, nspaces=4, ntabs=0, flatten=False):
 
     """
     if instr is None:
-        return
+        return ""
     ind = "\t" * ntabs + " " * nspaces
     if flatten:
         pat = re.compile(r"^\s*", re.MULTILINE)
@@ -640,7 +720,8 @@ def get_sep():
     """Returns the appropriate filepath separator char depending on OS and
     xonsh options set
     """
-    if ON_WINDOWS and xsh.env.get("FORCE_POSIX_PATHS"):
+    env = xsh.env or os_environ
+    if ON_WINDOWS and env.get("FORCE_POSIX_PATHS"):
         return os.altsep
     else:
         return os.sep
@@ -838,7 +919,7 @@ def print_warning(msg):
         if not manually_set_logfile:
             sys.stderr.write(
                 "xonsh: To log full traceback to a file set: "
-                "$XONSH_TRACEBACK_LOGFILE = <filename>\n"
+                "$XONSH_TRACEBACK_LOGFILE = 'error.log'\n"
             )
         traceback.print_stack()
     # additionally, check if a file for traceback logging has been
@@ -854,8 +935,21 @@ def print_warning(msg):
     sys.stderr.write(msg)
 
 
+def print_above_prompt(msg):
+    """Print a message above the active prompt when using prompt_toolkit,
+    otherwise fall back to stderr. Safe to call from background threads."""
+    try:
+        from prompt_toolkit.shortcuts import print_formatted_text
+
+        print_formatted_text(msg)
+    except Exception:
+        print(msg, file=sys.stderr)
+
+
 def print_exception(msg=None, exc_info=None, source_msg=None):
     """Print given exception (or current if None) with/without traceback and set sys.last_exc accordingly."""
+
+    env = xsh.env or os_environ
 
     # is no exec_info() triple is given, use the exception beeing handled at the moment
     if exc_info is None:
@@ -872,7 +966,7 @@ def print_exception(msg=None, exc_info=None, source_msg=None):
     # this is also done to be consistent with python
     is_syntax_error = issubclass(exc_info[0], SyntaxError)
 
-    # XonshErrors don't show where in the users code they occured
+    # XonshErrors don't show where in the users code they occurred
     # (most are reported deeper in the callstack, e.g. see procs/pipelines.py),
     # but only show non-helpful xonsh internals.
     # These are only relevent when developing/debugging xonsh itself.
@@ -885,7 +979,7 @@ def print_exception(msg=None, exc_info=None, source_msg=None):
         limit = 0
         chain = False
 
-    if xsh.env.get("XONSH_SHOW_TRACEBACK", False):
+    if env.get("XONSH_SHOW_TRACEBACK", False):
         """
         This moved under ``XONSH_SHOW_TRACEBACK`` because it looks that python's
         internal machinery behind ``sys.last_*`` is not thread safe
@@ -893,7 +987,7 @@ def print_exception(msg=None, exc_info=None, source_msg=None):
         """
         if sys.version_info >= (3, 12):
             # https://docs.python.org/3/library/sys.html#sys.last_exc
-            sys.last_exc = exc_info
+            sys.last_exc = exc_info[1]
         else:
             sys.last_type, sys.last_value, sys.last_traceback = exc_info
 
@@ -918,7 +1012,7 @@ def print_exception(msg=None, exc_info=None, source_msg=None):
         if not manually_set_logfile:
             sys.stderr.write(
                 "xonsh: To log full traceback to a file set: "
-                "$XONSH_TRACEBACK_LOGFILE = <filename>\n"
+                "$XONSH_TRACEBACK_LOGFILE = 'error.log'\n"
             )
 
         display_colored_error_message(exc_info)
@@ -935,9 +1029,7 @@ def print_exception(msg=None, exc_info=None, source_msg=None):
     if not show_trace:
         # if traceback output is disabled, print the exception's
         # error message on stderr.
-        if not xsh.env.get("XONSH_SHOW_TRACEBACK") and xsh.env.get(
-            "RAISE_SUBPROC_ERROR"
-        ):
+        if not env.get("XONSH_SHOW_TRACEBACK") and env.get("RAISE_SUBPROC_ERROR"):
             display_colored_error_message(exc_info, limit=1)
         else:
             display_error_message(exc_info)
@@ -1082,7 +1174,7 @@ def argvquote(arg, force=False):
         # Escape all backslashes, but let the terminating
         # double quotation mark we add below be interpreted
         # as a metacharacter
-        cmdline += +n_backslashes * 2 * "\\" + '"'
+        cmdline += n_backslashes * 2 * "\\" + '"'
         return cmdline
 
 
@@ -1344,7 +1436,10 @@ def is_bool_or_int(x):
 def to_bool_or_int(x):
     """Converts a value to a boolean or an integer."""
     if isinstance(x, str):
-        return int(x) if x.isdigit() else to_bool(x)
+        try:
+            return int(x)
+        except ValueError:
+            return to_bool(x)
     elif is_int(x):  # bools are ints too!
         return x
     else:
@@ -1574,8 +1669,8 @@ def ptk2_color_depth_setter(x):
         "TRUE_COLOR",
     }:
         pass
-    elif x in {"", None}:
-        x = ""
+    elif x == "":
+        pass
     else:
         msg = f'"{x}" is not a valid value for $PROMPT_TOOLKIT_COLOR_DEPTH. '
         warnings.warn(msg, RuntimeWarning, stacklevel=2)
@@ -1589,42 +1684,44 @@ def ptk2_color_depth_setter(x):
 
 def ptk_cursor_shape_vi_modal():
     if xsh.env.get("VI_MODE"):
-        return ModalCursorShapeConfig()
+        return _ptk_cursor_shapes.ModalCursorShapeConfig()
     else:
-        return SimpleCursorShapeConfig()
+        return _ptk_cursor_shapes.SimpleCursorShapeConfig()
 
 
 def to_ptk_cursor_shape(x):
-    if not HAVE_CURSOR_SHAPE:
+    if not _ptk_cursor_shapes:
         return None
-    if isinstance(x, CursorShape | CursorShapeConfig):
+    if isinstance(
+        x, _ptk_cursor_shapes.CursorShape | _ptk_cursor_shapes.CursorShapeConfig
+    ):
         return x
     if not isinstance(x, str):
         raise ValueError("invalid cursor shape")
     x = str(x).upper().replace("-", "_")
     if x == "MODAL":
-        return ModalCursorShapeConfig()
+        return _ptk_cursor_shapes.ModalCursorShapeConfig()
     elif x == "MODAL_VI_MODE_ONLY":
-        return DynamicCursorShapeConfig(ptk_cursor_shape_vi_modal)
+        return _ptk_cursor_shapes.DynamicCursorShapeConfig(ptk_cursor_shape_vi_modal)
     try:
-        return CursorShape[x]
+        return _ptk_cursor_shapes.CursorShape[x]
     except KeyError:
-        return SimpleCursorShapeConfig()
+        return _ptk_cursor_shapes.SimpleCursorShapeConfig()
 
 
 def to_ptk_cursor_shape_display_value(x):
     if not x:
         return ""
-    if isinstance(x, SimpleCursorShapeConfig):
+    if isinstance(x, _ptk_cursor_shapes.SimpleCursorShapeConfig):
         x = x.get_cursor_shape(None)
-    if isinstance(x, CursorShape):
+    if isinstance(x, _ptk_cursor_shapes.CursorShape):
         x = x.value.lower().replace("_", "-")
         if x.startswith("-"):
             x = x[1:]
         return x
-    if isinstance(x, ModalCursorShapeConfig):
+    if isinstance(x, _ptk_cursor_shapes.ModalCursorShapeConfig):
         return "modal"
-    if isinstance(x, DynamicCursorShapeConfig):
+    if isinstance(x, _ptk_cursor_shapes.DynamicCursorShapeConfig):
         return "modal-vi-mode-only"
     return "unknown"
 
@@ -1750,7 +1847,7 @@ _year_to_sec = lambda x: 365.25 * _day_to_sec(x)
 _kb_to_b = lambda x: 1024 * int(x)
 _mb_to_b = lambda x: 1024 * _kb_to_b(x)
 _gb_to_b = lambda x: 1024 * _mb_to_b(x)
-_tb_to_b = lambda x: 1024 * _tb_to_b(x)  # type: ignore
+_tb_to_b = lambda x: 1024 * _gb_to_b(x)  # type: ignore
 
 CANON_HISTORY_UNITS = LazyObject(
     lambda: frozenset(["commands", "files", "s", "b"]), globals(), "CANON_HISTORY_UNITS"
@@ -1828,6 +1925,8 @@ def is_history_tuple(x):
 
 def is_regex(x):
     """Tests if something is a valid regular expression."""
+    if x is None:
+        return False
     try:
         re.compile(x)
         return True
@@ -1838,7 +1937,7 @@ def is_regex(x):
 
 def is_history_backend(x):
     """Tests if something is a valid history backend."""
-    return is_string(x) or is_class(x) or isinstance(x, object)
+    return is_string(x) or is_class(x)
 
 
 def is_dynamic_cwd_width(x):
@@ -1857,7 +1956,7 @@ def to_dynamic_cwd_tuple(x):
     """Convert to a canonical cwd_width tuple."""
     unit = "c"
     if isinstance(x, str):
-        if x[-1] == "%":
+        if x and x[-1] == "%":
             x = x[:-1]
             unit = "%"
         else:
@@ -1888,6 +1987,8 @@ def to_history_tuple(x):
         raise ValueError("history size must be given as a sequence or number")
     if isinstance(x, str):
         m = RE_HISTORY_TUPLE.match(x.strip().lower())
+        if m is None:
+            raise ValueError(f"could not parse history size: {x!r}")
         return to_history_tuple((m.group(1), m.group(3)))
     elif isinstance(x, float | int):
         return to_history_tuple((x, "commands"))
@@ -2118,7 +2219,7 @@ def hardcode_colors_for_win10(style_map):
                     # Win10  doesn't yet handle bold colors. Instead dark
                     # colors are mapped to their lighter version. We simulate
                     # the same here.
-                    style_str.replace("bold", "")
+                    style_str = style_str.replace("bold", "")
                     hexcolor = WIN10_COLOR_MAP[
                         WIN_BOLD_COLOR_MAP.get(ansicolor, ansicolor)
                     ]
@@ -2193,6 +2294,7 @@ def format_std_prepost(template, env=None):
     else:
         # shell has fully started. do the normal thing
         shell = xsh.shell.shell
+        s = ""
         try:
             s = shell.prompt_formatter(template)
         except Exception:
@@ -2202,6 +2304,14 @@ def format_std_prepost(template, env=None):
         # color code with no visible text.
         s = shell.format_color(invis + s + invis, force_string=True)
     s = s.replace(invis, "")
+    if not s and template:
+        # PTK's pygments formatter produces no ANSI for Color.RESET tokens
+        # (it treats RESET as "no style").  Fall back to direct ANSI conversion.
+        from xonsh.ansi_colors import ansi_partial_color_format
+
+        style = env.get("XONSH_COLOR_STYLE")
+        s = ansi_partial_color_format(invis + template + invis, hide=False, style=style)
+        s = s.replace(invis, "")
     return s
 
 
@@ -2315,12 +2425,54 @@ def check_for_partial_string(x):
     quote : str (or None)
         A string containing the quote used to start the string (e.g., b", ",
         '''), or None if no string was found.
+
+    Notes
+    -----
+    This is a regex-based scanner, not a full Python tokenizer. It correctly
+    handles `#` comments at the top level (quotes inside `#...\n` are ignored)
+    and `#` inside string literals (which are part of the string, not a
+    comment). Known limitations / cases NOT covered:
+
+    * PEP 701 f-strings with nested quotes of the same kind, e.g.
+      ``f"{ "hi" }"`` (Python 3.12+). The scanner sees this as two separate
+      strings (``f"{ "`` and ``" }"``) instead of one f-string. Quotes of a
+      *different* kind nested inside f-string expressions work fine.
+    * Brace-balancing inside f-string expressions in general — anything that
+      relies on knowing where ``{ ... }`` starts and ends is out of scope.
+    * Comment characters that are not ``#`` (xonsh has no others, but other
+      shells' line-comment markers are not recognized).
+    * Line continuation inside ``#`` comments — irrelevant since Python
+      comments always end at the next newline regardless of any trailing
+      backslash.
+    * Arbitrary Python tokenization errors: malformed input (e.g. four
+      double-quotes in a row) may be reported as a partial triple-quoted
+      string rather than a syntax error; downstream code is responsible for
+      validating syntax.
+
+    Improvements are welcome!
     """
     string_indices = []
     starting_quote = []
     current_index = 0
-    match = re.search(RE_BEGIN_STRING, x)
-    while match is not None:
+    while True:
+        match = re.search(RE_BEGIN_STRING, x)
+        if match is None:
+            break
+        # If the match is inside a `#` comment (i.e. there is a `#` between
+        # the most recent newline and the match), skip the rest of that
+        # comment line and search again. This avoids treating quotes inside
+        # comments as string delimiters.
+        prefix = x[: match.start()]
+        line_prefix = prefix[prefix.rfind("\n") + 1 :]
+        if "#" in line_prefix:
+            nl_after = x.find("\n", match.start())
+            if nl_after < 0:
+                # rest of input is a comment; no more strings to find
+                break
+            offset = nl_after + 1
+            current_index += offset
+            x = x[offset:]
+            continue
         # add the start in
         start = match.start()
         quote = match.group(0)
@@ -2345,8 +2497,6 @@ def check_for_partial_string(x):
         if contents.end() < len(x):
             string_indices.append(current_index)
         x = x[leninside + len(ender) :]
-        # find the next match
-        match = re.search(RE_BEGIN_STRING, x)
     numquotes = len(string_indices)
     if numquotes == 0:
         return (None, None, None)
@@ -2439,6 +2589,9 @@ def expand_case_matching(s):
         t.append(drive_part)
         s = s[len(drive_part) :]
 
+    if ON_WINDOWS:
+        s = s.replace("\\", "/")
+
     for c in s:
         if c in openers:
             nesting += 1
@@ -2474,19 +2627,6 @@ def globpath(
     return o if len(o) != 0 else no_match
 
 
-def _dotglobstr(s):
-    modified = False
-    dotted_s = s
-    if "/*" in dotted_s:
-        dotted_s = dotted_s.replace("/*", "/.*")
-        dotted_s = dotted_s.replace("/.**/.*", "/**/.*")
-        modified = True
-    if dotted_s.startswith("*") and not dotted_s.startswith("**"):
-        dotted_s = "." + dotted_s
-        modified = True
-    return dotted_s, modified
-
-
 def _iglobpath(s, ignore_case=False, sort_result=None, include_dotfiles=None):
     s = xsh.expand_path(s)
     if sort_result is None:
@@ -2495,20 +2635,11 @@ def _iglobpath(s, ignore_case=False, sort_result=None, include_dotfiles=None):
         include_dotfiles = xsh.env.get("DOTGLOB")
     if ignore_case:
         s = expand_case_matching(s)
-    if "**" in s and "**/*" not in s:
-        s = s.replace("**", "**/*")
-    if include_dotfiles:
-        dotted_s, dotmodified = _dotglobstr(s)
+    kwargs = {"recursive": True, "include_hidden": include_dotfiles or False}
     if sort_result:
-        paths = glob.glob(s, recursive=True)
-        if include_dotfiles and dotmodified:
-            paths.extend(glob.iglob(dotted_s, recursive=True))
-        paths.sort()
-        paths = iter(paths)
+        paths = iter(sorted(glob.glob(s, **kwargs)))
     else:
-        paths = glob.iglob(s, recursive=True)
-        if include_dotfiles and dotmodified:
-            paths = itertools.chain(glob.iglob(dotted_s, recursive=True), paths)
+        paths = glob.iglob(s, **kwargs)
     return paths, s
 
 
@@ -2533,13 +2664,23 @@ def ensure_timestamp(t, datetime_format=None):
         return float(t)
     except (ValueError, TypeError):
         pass
+    if isinstance(t, datetime.datetime):
+        return t.timestamp()
     if datetime_format is None:
         datetime_format = xsh.env["XONSH_DATETIME_FORMAT"]
-    if isinstance(t, datetime.datetime):
-        t = t.timestamp()
-    else:
-        t = datetime.datetime.strptime(t, datetime_format).timestamp()
-    return t
+    # Try the configured format first, then fall back to ISO-8601 parsing
+    # so that e.g. "2023-07-17" works without requiring "2023-07-17 00:00".
+    try:
+        return datetime.datetime.strptime(t, datetime_format).timestamp()
+    except ValueError:
+        pass
+    try:
+        return datetime.datetime.fromisoformat(t).timestamp()
+    except ValueError as err:
+        raise ValueError(
+            f"time data {t!r} does not match format {datetime_format!r} "
+            f"and is not a valid ISO-8601 date"
+        ) from err
 
 
 def format_datetime(dt):
@@ -2553,6 +2694,8 @@ def columnize(elems, width=80, newline="\n"):
     elements placed in columns. Each line will be at most *width* columns.
     The newline character will be appended to the end of each line.
     """
+    if not elems:
+        return []
     sizes = [len(e) + 1 for e in elems]
     total = sum(sizes)
     nelem = len(elems)
@@ -2574,6 +2717,8 @@ def columnize(elems, width=80, newline="\n"):
             # we might be able to fit another column.
             ncols += 1
             nrows = nelem // ncols
+            if nrows == 0:
+                break
             columns = [sizes[i * nrows : (i + 1) * nrows] for i in range(ncols)]
             last_longest_row = longest_row
         else:
@@ -2595,9 +2740,6 @@ def columnize(elems, width=80, newline="\n"):
     return lines
 
 
-ALIAS_KWARG_NAMES = frozenset(["args", "stdin", "stdout", "stderr", "spec", "stack"])
-
-
 def unthreadable(f):
     """Decorator that specifies that a callable alias should be run only
     on the main thread process. This is often needed for debuggers and
@@ -2607,12 +2749,28 @@ def unthreadable(f):
     return f
 
 
+def threadable(f):
+    """Decorator that specifies that a callable alias should be run
+    in a background thread. This is the default behavior.
+    """
+    f.__xonsh_threadable__ = True
+    return f
+
+
 def uncapturable(f):
     """Decorator that specifies that a callable alias should not be run with
     any capturing. This is often needed if the alias call interactive
     subprocess, like pagers and text editors.
     """
     f.__xonsh_capturable__ = False
+    return f
+
+
+def capturable(f):
+    """Decorator that specifies that a callable alias should be run with
+    capturing. This is the default behavior.
+    """
+    f.__xonsh_capturable__ = True
     return f
 
 
@@ -2653,8 +2811,8 @@ def deprecated(deprecated_in=None, removed_in=None):
         @functools.wraps(func)
         def wrapped(*args, **kwargs):
             _deprecated_error_on_expiration(func.__name__, removed_in)
-            func(*args, **kwargs)
             warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
+            return func(*args, **kwargs)
 
         wrapped.__doc__ = (
             f"{wrapped.__doc__}\n\n{warning_message}"
@@ -2691,8 +2849,17 @@ def _deprecated_error_on_expiration(name, removed_in):
         raise AssertionError(f"{name} has passed its version {removed_in} expiry date!")
 
 
+def qualified_name(obj) -> str:
+    """Return fully qualified class name, e.g. 'xonsh.environ.VarPattern'."""
+    cls = obj if isinstance(obj, type) else type(obj)
+    module = getattr(cls, "__module__", None)
+    if module and not module.startswith("builtins"):
+        return f"{module}.{cls.__name__}"
+    return cls.__name__
+
+
 def to_repr_pretty_(inst, p, cycle):
-    name = f"{inst.__class__.__module__}.{inst.__class__.__name__}"
+    name = qualified_name(inst)
     with p.group(0, name + "(", ")"):
         if cycle:
             p.text("...")

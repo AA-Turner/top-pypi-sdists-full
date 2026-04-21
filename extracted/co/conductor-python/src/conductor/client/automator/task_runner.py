@@ -3,8 +3,10 @@ import logging
 import os
 import sys
 import time
+import threading
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from typing import List, Optional, Any
 
 from conductor.client.configuration.configuration import Configuration
@@ -34,6 +36,7 @@ from conductor.client.worker.worker_interface import WorkerInterface
 from conductor.client.worker.worker_config import resolve_worker_config, get_worker_config_oneline
 from conductor.client.worker.exception import NonRetryableException
 from conductor.client.automator.json_schema_generator import generate_json_schema_from_function
+from conductor.client.automator.lease_tracker import LeaseManager
 
 logger = logging.getLogger(
     Configuration.get_logging_formatted_name(
@@ -79,9 +82,25 @@ class TaskRunner:
             )
         )
 
-        # Auth failure backoff tracking to prevent retry storms
+        # Auth failure backoff tracking to prevent retry storms.
+        # `_auth_failures` is capped at `_max_auth_failure_exp` so that
+        # 2**N cannot overflow on a long-lived worker whose auth is broken.
+        # The resulting sleep is further clamped to `_auth_backoff_cap_seconds`.
         self._auth_failures = 0
         self._last_auth_failure = 0
+        self._auth_backoff_cap_seconds = 60
+        self._max_auth_failure_exp = 6  # 2**6 = 64s, sleep clamped to cap
+
+        # Generic poll-failure backoff. This is distinct from the empty-poll
+        # adaptive delay (`_consecutive_empty_polls`) and from the auth-error
+        # backoff above. It kicks in when batch_poll raises an exception
+        # (server 5xx, NGINX 502/504 under load, DNS hiccup, a closed httpx
+        # client that couldn't heal, etc.) so we don't hot-loop the log with
+        # stack traces while waiting for the server to recover.
+        self._poll_failures = 0
+        self._last_poll_failure = 0
+        self._poll_backoff_cap_seconds = 120  # max 2 minutes between retries
+        self._max_poll_failure_exp = 7  # 2**7 = 128s, sleep clamped to cap
 
         # Thread pool for concurrent task execution
         # thread_count from worker configuration controls concurrency
@@ -93,6 +112,9 @@ class TaskRunner:
         self._consecutive_empty_polls = 0  # Track empty polls to implement backoff
         self._shutdown = False  # Flag to indicate graceful shutdown
         self._use_update_v2 = True  # Will be set to False if server doesn't support v2 endpoint
+        self._lease_manager = LeaseManager.get_instance()
+        self._tracked_task_ids = set()  # Local set for cleanup on shutdown
+        self._tracked_task_ids_lock = threading.Lock()
 
     def run(self) -> None:
         if self.configuration is not None:
@@ -131,6 +153,13 @@ class TaskRunner:
     def _cleanup(self) -> None:
         """Clean up resources - called on exit."""
         logger.debug("Cleaning up TaskRunner resources...")
+
+        # Untrack all tasks this runner was tracking from the shared LeaseManager
+        with self._tracked_task_ids_lock:
+            task_ids = list(self._tracked_task_ids)
+            self._tracked_task_ids.clear()
+        for task_id in task_ids:
+            self._lease_manager.untrack(task_id)
 
         # Shutdown ThreadPoolExecutor (EAFP style - more Pythonic)
         try:
@@ -195,7 +224,18 @@ class TaskRunner:
             output_schema_name = None
             schema_registry_available = True
 
-            if hasattr(self.worker, 'execute_function'):
+            # Check if schema registration is enabled for this worker
+            register_schema = getattr(self.worker, 'register_schema', False)
+            # Also check global Configuration default
+            if hasattr(self.configuration, 'register_schema') and self.configuration.register_schema is not None:
+                # Worker-level setting takes precedence if explicitly set (not default)
+                if not hasattr(self.worker, 'register_schema'):
+                    register_schema = self.configuration.register_schema
+
+            if not register_schema:
+                logger.debug(f"Schema registration disabled for {task_name} (register_schema=False)")
+
+            if register_schema and hasattr(self.worker, 'execute_function'):
                 logger.debug(f"Generating JSON schemas from function signature...")
                 # Pass strict_schema flag to control additionalProperties
                 strict_mode = getattr(self.worker, 'strict_schema', False)
@@ -278,6 +318,8 @@ class TaskRunner:
                             logger.debug(f"Could not register schemas for {task_name}: {e}")
                 else:
                     logger.debug(f"  ⚠ No schemas generated (unable to analyze function signature)")
+            elif not register_schema:
+                pass  # Already logged above
             else:
                 logger.debug(f"  ⚠ Class-based worker (no execute_function) - registering task without schemas")
 
@@ -465,6 +507,9 @@ class TaskRunner:
 
         for task_id, task_result, submit_time, task in completed:
             try:
+                # Async task finished — stop heartbeating for it
+                self._untrack_lease(task_id)
+
                 # Calculate actual execution time (from submission to completion)
                 finish_time = time.time()
                 time_spent = finish_time - submit_time
@@ -511,17 +556,19 @@ class TaskRunner:
         The loop breaks when no next task is available, the task is async/in-progress,
         or shutdown is requested.
         """
+        self._track_lease(task)
+        async_running = False  # True when task is running async in background
         try:
             while task is not None and not self._shutdown:
                 task_result = self.__execute_task(task)
-                # If task returned None, it's an async task running in background - don't update yet
+                # If task returned None, it's an async task running in background.
+                # Keep the lease tracked — __check_completed_async_tasks will untrack
+                # when the async task finishes.
                 if task_result is None:
                     logger.debug("Task %s is running async, will update when complete", task.task_id)
+                    async_running = True
                     return
-                # If task returned TaskInProgress, it's running async - don't update yet
-                if isinstance(task_result, TaskInProgress):
-                    logger.debug("Task %s is in progress, will update when complete", task.task_id)
-                    return
+                self._untrack_lease(task.task_id)
                 # Update task and get next task from v2 response
                 task = self.__update_task(task_result)
                 # v2 returns the next task; if v1 was used (returns None), immediately
@@ -529,12 +576,19 @@ class TaskRunner:
                 if task is None and not self._use_update_v2 and not self._shutdown:
                     tasks = self.__batch_poll_tasks(1)
                     task = tasks[0] if tasks else None
+                if task is not None:
+                    self._track_lease(task)
         except Exception as e:
             logger.error(
                 "Error executing/updating task %s: %s",
                 task.task_id if task else "unknown",
                 traceback.format_exc()
             )
+        finally:
+            # Don't untrack if the task is still running async in the background —
+            # the lease must stay active until __check_completed_async_tasks handles it.
+            if task is not None and not async_running:
+                self._untrack_lease(task.task_id)
 
     def __batch_poll_tasks(self, count: int) -> list:
         """Poll for multiple tasks at once (more efficient than polling one at a time)"""
@@ -543,11 +597,29 @@ class TaskRunner:
             logger.debug("Stop polling task for: %s", task_definition_name)
             return []
 
-        # Apply exponential backoff if we have recent auth failures
+        # Apply exponential backoff if we have recent auth failures.
         if self._auth_failures > 0:
             now = time.time()
-            backoff_seconds = min(2 ** self._auth_failures, 60)
+            backoff_seconds = min(
+                2 ** min(self._auth_failures, self._max_auth_failure_exp),
+                self._auth_backoff_cap_seconds,
+            )
             time_since_last_failure = now - self._last_auth_failure
+            if time_since_last_failure < backoff_seconds:
+                time.sleep(0.1)
+                return []
+
+        # Apply exponential backoff for generic poll failures (5xx, network
+        # errors, closed-client runtime errors that couldn't self-heal, etc.).
+        # Bounded at `_poll_backoff_cap_seconds` (2 min) to avoid log floods
+        # without giving up on recovery.
+        if self._poll_failures > 0:
+            now = time.time()
+            backoff_seconds = min(
+                2 ** min(self._poll_failures, self._max_poll_failure_exp),
+                self._poll_backoff_cap_seconds,
+            )
+            time_since_last_failure = now - self._last_poll_failure
             if time_since_last_failure < backoff_seconds:
                 time.sleep(0.1)
                 return []
@@ -583,15 +655,20 @@ class TaskRunner:
                 tasks_received=len(tasks) if tasks else 0
             ))
 
-            # Success - reset auth failure counter (any successful HTTP response means auth is working)
+            # Success - reset both failure counters (any successful HTTP
+            # response means auth and connectivity are working).
             self._auth_failures = 0
+            self._poll_failures = 0
 
             return tasks if tasks else []
 
         except AuthorizationException as auth_exception:
             self._auth_failures += 1
             self._last_auth_failure = time.time()
-            backoff_seconds = min(2 ** self._auth_failures, 60)
+            backoff_seconds = min(
+                2 ** min(self._auth_failures, self._max_auth_failure_exp),
+                self._auth_backoff_cap_seconds,
+            )
 
             # Publish PollFailure event (metrics collector will handle via event)
             self.event_dispatcher.publish(PollFailure(
@@ -619,10 +696,55 @@ class TaskRunner:
                 duration_ms=(time.time() - start_time) * 1000,
                 cause=e
             ))
-            logger.error(
-                "Failed to batch poll task for: %s, reason: %s",
+
+            # Bump the poll-failure counter so the next poll waits with
+            # exponential backoff instead of hot-looping on a broken server
+            # or connection.
+            self._poll_failures += 1
+            self._last_poll_failure = time.time()
+            backoff_seconds = min(
+                2 ** min(self._poll_failures, self._max_poll_failure_exp),
+                self._poll_backoff_cap_seconds,
+            )
+
+            # Belt-and-suspenders: if the underlying httpx client got closed
+            # and rest.request() couldn't heal it (e.g. because the error
+            # arrived as a non-RuntimeError), nudge it here. Pass the current
+            # connection as `expected` so concurrent threads racing to heal
+            # can't cause a reset storm: only the first caller per client
+            # generation actually replaces it.
+            try:
+                rest_client = getattr(
+                    getattr(self.task_client, "api_client", None),
+                    "rest_client",
+                    None,
+                )
+                if rest_client is not None and getattr(rest_client, "_is_client_closed", lambda: False)():
+                    current_conn = getattr(rest_client, "connection", None)
+                    reset = rest_client._reset_connection(expected=current_conn)
+                    if reset:
+                        logger.warning(
+                            "rest_client was closed after poll failure; reset"
+                        )
+            except Exception:
+                # Healing is best-effort; never let it mask the original error.
+                pass
+
+            # Log a single-line warning at a modest level to avoid drowning
+            # ops in tracebacks when the server is flapping. Full traceback
+            # goes to debug for when operators need it.
+            logger.warning(
+                "Failed to batch poll task for: %s (failure #%d). Will retry with exponential backoff (%ss). Reason: %s: %s",
                 task_definition_name,
-                traceback.format_exc()
+                self._poll_failures,
+                backoff_seconds,
+                type(e).__name__,
+                e,
+            )
+            logger.debug(
+                "batch poll failure traceback for %s:\n%s",
+                task_definition_name,
+                traceback.format_exc(),
             )
             return []
 
@@ -891,15 +1013,33 @@ class TaskRunner:
                     self.metrics_collector.increment_task_update_error(
                         task_definition_name, type(e)
                     )
-                logger.error(
-                    "Failed to update task (attempt %d/%d), id: %s, workflow_instance_id: %s, task_definition_name: %s, reason: %s",
-                    attempt + 1,
-                    retry_count,
-                    task_result.task_id,
-                    task_result.workflow_instance_id,
-                    task_definition_name,
-                    traceback.format_exc()
-                )
+                is_last_attempt = (attempt + 1) >= retry_count
+                # Known recoverable transport hiccups (stale keep-alive,
+                # HTTP/2 GOAWAY race, client closed mid-request) are flagged
+                # `transient=True` by the REST layer after it self-heals. For
+                # those, skip the stack trace until the final attempt — the
+                # retry normally succeeds immediately and a full traceback per
+                # in-flight task just spams the log.
+                if getattr(e, "transient", False) and not is_last_attempt:
+                    logger.warning(
+                        "Transient transport error updating task; will retry (attempt %d/%d), id: %s, workflow_instance_id: %s, task_definition_name: %s, reason: %s",
+                        attempt + 1,
+                        retry_count,
+                        task_result.task_id,
+                        task_result.workflow_instance_id,
+                        task_definition_name,
+                        getattr(e, "reason", None) or str(e),
+                    )
+                else:
+                    logger.error(
+                        "Failed to update task (attempt %d/%d), id: %s, workflow_instance_id: %s, task_definition_name: %s, reason: %s",
+                        attempt + 1,
+                        retry_count,
+                        task_result.task_id,
+                        task_result.workflow_instance_id,
+                        task_definition_name,
+                        traceback.format_exc()
+                    )
                 continue
             except Exception as e:
                 last_exception = e
@@ -937,6 +1077,32 @@ class TaskRunner:
         ))
 
         return None
+
+    # -- Lease extension (heartbeat) delegation to LeaseManager ----------------
+
+    def _track_lease(self, task: Task) -> None:
+        """Start tracking a task for lease extension via the shared LeaseManager."""
+        if not getattr(self.worker, 'lease_extend_enabled', False):
+            return
+        timeout = getattr(task, 'response_timeout_seconds', None) or 0
+        if timeout <= 0:
+            return
+        self._lease_manager.track(
+            task_id=task.task_id,
+            workflow_instance_id=task.workflow_instance_id,
+            response_timeout_seconds=timeout,
+            task_client=self.task_client,
+        )
+        with self._tracked_task_ids_lock:
+            self._tracked_task_ids.add(task.task_id)
+
+    def _untrack_lease(self, task_id: str) -> None:
+        """Stop tracking a task for lease extension."""
+        self._lease_manager.untrack(task_id)
+        with self._tracked_task_ids_lock:
+            self._tracked_task_ids.discard(task_id)
+
+    # --------------------------------------------------------------------------
 
     def __wait_for_polling_interval(self) -> None:
         polling_interval = self.worker.get_polling_interval_in_seconds()

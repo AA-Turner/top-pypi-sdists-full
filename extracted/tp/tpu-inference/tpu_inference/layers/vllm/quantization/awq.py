@@ -17,35 +17,50 @@ from typing import Optional, Union
 import jax
 import jax.numpy as jnp
 import torch
-from jax.sharding import NamedSharding, PartitionSpec
+from jax.sharding import Mesh, PartitionSpec
+from torch.nn.parameter import Parameter
 from torchax.interop import jax_view, torch_view
-from vllm.logger import init_logger
-from vllm.model_executor.layers.fused_moe.layer import FusedMoE
-from vllm.model_executor.layers.linear import LinearBase, LinearMethodBase
+from vllm.model_executor.layers.fused_moe import FusedMoE, FusedMoEMethodBase
+from vllm.model_executor.layers.fused_moe.activation import MoEActivation
+from vllm.model_executor.layers.fused_moe.layer import \
+    FusedMoeWeightScaleSupported
+from vllm.model_executor.layers.linear import (LinearBase, LinearMethodBase,
+                                               set_weight_attrs)
 from vllm.model_executor.layers.quantization import \
     register_quantization_config
 from vllm.model_executor.layers.quantization.awq import (AWQConfig,
                                                          AWQLinearMethod)
 from vllm.model_executor.layers.quantization.base_config import \
     QuantizeMethodBase
-from vllm.model_executor.layers.quantization.utils.quant_utils import (
-    is_layer_skipped, unpack_quantized_values_into_int32)
-from vllm.scalar_type import scalar_types
+from vllm.model_executor.layers.quantization.utils.quant_utils import \
+    is_layer_skipped
 
-from tpu_inference.layers.common.quant_methods import AWQ, get_tpu_quant_method
-from tpu_inference.layers.vllm.linear_common import (
-    slice_sharded_tensor_for_concatenation, torch_to_jax_param)
-from tpu_inference.layers.vllm.quantization.common import (
-    JaxCommonConfig, JaxCommonLinearConfig)
+from tpu_inference.layers.common.process_weights.linear_weights import (
+    LinearWeights, process_linear_weights, shard_linear_weights,
+    to_parameter_list)
+from tpu_inference.layers.common.process_weights.moe_weights import (
+    FusedMoEWeights, process_moe_weights, shard_moe_weights)
+from tpu_inference.layers.common.quant_methods import AWQ
+from tpu_inference.layers.common.quantization import awq_u32_unpack_u4
+from tpu_inference.layers.common.sharding import ShardingAxisName
+from tpu_inference.layers.common.utils import \
+    slice_sharded_tensor_for_concatenation
+from tpu_inference.layers.vllm.interface.moe import (
+    MoEBackend, select_moe_backend_from_fused_moe_config, vllm_moe_apply)
+from tpu_inference.layers.vllm.quantization.configs import (
+    VllmQuantConfig, VllmQuantLinearConfig)
 from tpu_inference.layers.vllm.quantization.unquantized import \
     VllmUnquantizedLinearMethod
+from tpu_inference.logger import init_logger
+from tpu_inference.utils import get_mesh_shape_product, t2j
 
 P = PartitionSpec
+
 logger = init_logger(__name__)
 
 
-@register_quantization_config(get_tpu_quant_method(AWQ))
-class VllmAWQConfig(AWQConfig, JaxCommonConfig):
+@register_quantization_config(AWQ)
+class VllmAWQConfig(AWQConfig, VllmQuantConfig):
 
     @classmethod
     def get_name(cls):
@@ -60,86 +75,95 @@ class VllmAWQConfig(AWQConfig, JaxCommonConfig):
     def get_quant_method(
         self, layer: torch.nn.Module, prefix: str
     ) -> Optional[Union["LinearMethodBase", "QuantizeMethodBase"]]:
-        if isinstance(layer, LinearBase):
-            linear_config = self.get_linear_config(layer)
-            if is_layer_skipped(prefix, self.modules_to_not_convert):
-                return VllmUnquantizedLinearMethod(linear_config)
-            return VllmAWQLinearMethod(self, linear_config)
-        elif isinstance(layer, FusedMoE):
-            raise NotImplementedError(
-                "AWQ FusedMoE is currently not supported in torchax-jax")
-        return None
+        match layer:
+            case LinearBase():
+                linear_config = self.get_linear_config(layer)
+                if is_layer_skipped(prefix, self.modules_to_not_convert):
+                    return VllmUnquantizedLinearMethod(linear_config)
+                return VllmAWQLinearMethod(self, linear_config)
+            case FusedMoE():
+                layer.moe_config = self.get_moe_config(layer)
+                return VllmAWQMoEMethod(self, layer, self.mesh)
+            case _:
+                return None
 
 
 class VllmAWQLinearMethod(AWQLinearMethod):
 
     def __init__(self, quant_config: VllmAWQConfig,
-                 jax_config: JaxCommonLinearConfig):
+                 linear_config: VllmQuantLinearConfig):
         super().__init__(quant_config)
-        self.jax_config = jax_config
-
-        out_sharding, in_sharding = self.jax_config.weight_sharding[:]
-        self.jax_config.weight_sharding = P(in_sharding, None, out_sharding)
-        self.jax_config.scale_sharding = P(in_sharding, out_sharding)
+        self.linear_config = linear_config
 
     def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
-        qweight = layer.qweight
-        qweight = unpack_awq_weight(qweight, qweight.packed_dim)
-
-        group_size = self.quant_config.group_size
-        # Reshape so that each qweight[i] were quantized with same scales[i].
-        qweight = qweight.reshape((-1, group_size, layer.output_size))
-        qweight = torch_to_jax_param(qweight,
-                                     NamedSharding(
-                                         self.jax_config.mesh,
-                                         self.jax_config.weight_sharding),
-                                     self.jax_config.output_sizes,
-                                     self.jax_config.n_shards,
-                                     self.jax_config.fuse_matmuls,
-                                     dim=2,
-                                     jax_dtype=jnp.uint4)
+        assert layer.qweight.packed_dim == layer.qweight.ndim - 1
+        weight = t2j(layer.qweight, use_dlpack=False)
         delattr(layer, "qweight")
-        layer.qweight = qweight
 
-        qzeros = layer.qzeros
-        qzeros = unpack_awq_weight(qzeros, qzeros.packed_dim)
-        qzeros = torch_to_jax_param(qzeros,
-                                    NamedSharding(
-                                        self.jax_config.mesh,
-                                        self.jax_config.scale_sharding),
-                                    self.jax_config.output_sizes,
-                                    self.jax_config.n_shards,
-                                    self.jax_config.fuse_matmuls,
-                                    dim=1,
-                                    jax_dtype=jnp.uint4)
-        delattr(layer, "qzeros")
-        layer.qzeros = qzeros
-
-        scales = torch_to_jax_param(layer.scales,
-                                    NamedSharding(
-                                        self.jax_config.mesh,
-                                        self.jax_config.scale_sharding),
-                                    self.jax_config.output_sizes,
-                                    self.jax_config.n_shards,
-                                    self.jax_config.fuse_matmuls,
-                                    dim=1)
+        weight_scale = t2j(layer.scales, use_dlpack=False)
         delattr(layer, "scales")
-        layer.scales = scales
+
+        assert layer.qzeros.packed_dim == layer.qzeros.ndim - 1
+        zero_point = t2j(layer.qzeros, use_dlpack=False)
+        delattr(layer, "qzeros")
 
         if layer.bias is not None and not layer.skip_bias_add:
             if layer.return_bias:
                 logger.warning_once("Bias might return incorrect value.")
-
-            bias = torch_to_jax_param(
-                layer.bias,
-                NamedSharding(self.jax_config.mesh,
-                              self.jax_config.bias_sharding),
-                self.jax_config.output_sizes,
-                self.jax_config.n_shards,
-                self.jax_config.fuse_matmuls,
-            )
+            bias = t2j(layer.bias, use_dlpack=False)
             delattr(layer, "bias")
-            layer.bias = bias
+        else:
+            bias = None
+
+        @jax.jit
+        def process_awq_linear_weights(
+            weight: jax.Array,
+            weight_scale: jax.Array,
+            zero_point: jax.Array,
+            bias: jax.Array | None,
+        ) -> LinearWeights:
+            weight = awq_u32_unpack_u4(weight)
+            group_size = self.quant_config.group_size
+            weight = weight.reshape((-1, group_size, weight.shape[-1]))
+
+            zero_point = awq_u32_unpack_u4(zero_point)
+
+            return process_linear_weights(
+                LinearWeights(
+                    weight=weight,
+                    weight_scale=weight_scale,
+                    zero_point=zero_point,
+                    bias=bias,
+                ),
+                fused=self.linear_config.fuse_matmuls,
+                output_sizes=self.linear_config.output_sizes,
+                reorder_size=self.linear_config.n_shards,
+                transposed=False,
+            )
+
+        weights = process_awq_linear_weights(weight, weight_scale, zero_point,
+                                             bias)
+        weights = torch_view(
+            shard_linear_weights(
+                weights,
+                mesh=self.linear_config.mesh,
+                weight_p_spec=self.linear_config.weight_sharding,
+                bias_p_spec=self.linear_config.bias_sharding,
+                transposed=False,
+            ))
+
+        if self.linear_config.fuse_matmuls:
+            layer.qweight = Parameter(weights.weight, requires_grad=False)
+            layer.scales = Parameter(weights.weight_scale, requires_grad=False)
+            layer.qzeros = Parameter(weights.zero_point, requires_grad=False)
+            if bias is not None:
+                layer.bias = Parameter(weights.bias, requires_grad=False)
+        else:
+            layer.qweight = to_parameter_list(weights.weight)
+            layer.scales = to_parameter_list(weights.weight_scale)
+            layer.qzeros = to_parameter_list(weights.zero_point)
+            if bias is not None:
+                layer.bias = to_parameter_list(weights.bias)
 
     def apply(self,
               layer: torch.nn.Module,
@@ -147,7 +171,7 @@ class VllmAWQLinearMethod(AWQLinearMethod):
               bias: Optional[torch.Tensor] = None) -> torch.Tensor:
 
         with jax.named_scope(layer._get_name()):
-            if self.jax_config.fuse_matmuls:
+            if self.linear_config.fuse_matmuls:
                 out = self._apply_fused(layer, x, bias)
             else:
                 out = self._apply_split(layer, x, bias)
@@ -175,7 +199,7 @@ class VllmAWQLinearMethod(AWQLinearMethod):
             outs += bias.jax()
 
         outs = slice_sharded_tensor_for_concatenation(
-            outs, self.jax_config.output_sizes, self.jax_config.n_shards)
+            outs, self.linear_config.output_sizes, self.linear_config.n_shards)
         out = jnp.concatenate(outs, axis=-1)
         return torch_view(out)
 
@@ -208,14 +232,269 @@ class VllmAWQLinearMethod(AWQLinearMethod):
         return torch_view(out)
 
 
-def unpack_awq_weight(weight: torch.Tensor, packed_dim: int):
-    weight = unpack_quantized_values_into_int32(weight, scalar_types.uint4,
-                                                packed_dim)
+class VllmAWQMoEMethod(FusedMoEMethodBase):
 
-    # AWQ packs 8 uint4 into 32-bits in this order: (0, 2, 4, 6, 1, 3, 5, 7).
-    # Following list maps the order used by AWQ into an ascending order.
-    reverse_awq_order = (0, 4, 1, 5, 2, 6, 3, 7)
+    def __init__(
+        self,
+        quant_config: VllmAWQConfig,
+        layer: torch.nn.Module,
+        mesh: Mesh,
+        ep_axis_name: str = "model",
+    ):
+        FusedMoEMethodBase.__init__(self, layer.moe_config)
+        self.quant_config = quant_config
+        self.mesh = mesh
+        self.moe_backend = select_moe_backend_from_fused_moe_config(self.moe)
+        self.extra_backend_kwargs = {}
+        if self.moe_backend == MoEBackend.FUSED_MOE:
+            self.extra_backend_kwargs = dict(ep_axis_name=ep_axis_name)
 
-    orig_shape = weight.shape
-    weight = weight.reshape(orig_shape[:-1] + (-1, 8))
-    return weight[..., reverse_awq_order].reshape(orig_shape)
+    @property
+    def is_monolithic(self) -> bool:
+        return True
+
+    def get_fused_moe_quant_config(self, layer: torch.nn.Module) -> None:
+        return None
+
+    def create_weights(
+        self,
+        layer: torch.nn.Module,
+        num_experts: int,
+        hidden_size: int,
+        intermediate_size_per_partition: int,
+        params_dtype: torch.dtype,
+        **extra_weight_attrs,
+    ):
+        extra_weight_attrs.update({
+            "is_transposed":
+            True,
+            "quant_method":
+            FusedMoeWeightScaleSupported.GROUP.value,
+        })
+
+        w13_qweight = Parameter(
+            torch.empty(
+                num_experts,
+                hidden_size,
+                2 * intermediate_size_per_partition //
+                self.quant_config.pack_factor,
+                dtype=torch.int32,
+            ),
+            requires_grad=False,
+        )
+        layer.register_parameter("w13_qweight", w13_qweight)
+        set_weight_attrs(w13_qweight, extra_weight_attrs)
+
+        w2_qweight = Parameter(
+            torch.empty(
+                num_experts,
+                intermediate_size_per_partition,
+                hidden_size // self.quant_config.pack_factor,
+                dtype=torch.int32,
+            ),
+            requires_grad=False,
+        )
+        layer.register_parameter("w2_qweight", w2_qweight)
+        set_weight_attrs(w2_qweight, extra_weight_attrs)
+
+        num_groups_w13 = hidden_size // self.quant_config.group_size
+        num_groups_w2 = intermediate_size_per_partition // self.quant_config.group_size
+
+        # WEIGHT_SCALES
+        # Allocate 2 scales for w1 and w3 respectively.
+        w13_scales = Parameter(
+            torch.empty(
+                num_experts,
+                num_groups_w13,
+                intermediate_size_per_partition * 2,
+                dtype=params_dtype,
+            ),
+            requires_grad=False,
+        )
+        layer.register_parameter("w13_scales", w13_scales)
+        set_weight_attrs(w13_scales, extra_weight_attrs)
+
+        w2_scales = Parameter(
+            torch.empty(num_experts,
+                        num_groups_w2,
+                        hidden_size,
+                        dtype=params_dtype),
+            requires_grad=False,
+        )
+        layer.register_parameter("w2_scales", w2_scales)
+        set_weight_attrs(w2_scales, extra_weight_attrs)
+
+        # WEIGHT_ZERO_POINT
+        # Allocate 2 zero points for w1 and w3 respectively.
+        w13_qzeros = Parameter(
+            torch.empty(
+                num_experts,
+                num_groups_w13,
+                2 * intermediate_size_per_partition //
+                self.quant_config.pack_factor,
+                dtype=torch.int32,
+            ),
+            requires_grad=False,
+        )
+        layer.register_parameter("w13_qzeros", w13_qzeros)
+        set_weight_attrs(w13_qzeros, extra_weight_attrs)
+
+        w2_qzeros = Parameter(
+            torch.empty(
+                num_experts,
+                num_groups_w2,
+                hidden_size // self.quant_config.pack_factor,
+                dtype=torch.int32,
+            ),
+            requires_grad=False,
+        )
+        layer.register_parameter("w2_qzeros", w2_qzeros)
+        set_weight_attrs(w2_qzeros, extra_weight_attrs)
+
+        if self.moe.has_bias:
+            w13_bias = Parameter(
+                torch.empty(
+                    num_experts,
+                    2 * intermediate_size_per_partition,
+                    dtype=params_dtype,
+                ),
+                requires_grad=False,
+            )
+            layer.register_parameter("w13_bias", w13_bias)
+            set_weight_attrs(w13_bias, extra_weight_attrs)
+
+            w2_bias = Parameter(
+                torch.empty(
+                    num_experts,
+                    hidden_size,
+                    dtype=params_dtype,
+                ),
+                requires_grad=False,
+            )
+            layer.register_parameter("w2_bias", w2_bias)
+            set_weight_attrs(w2_bias, extra_weight_attrs)
+
+    def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
+        assert isinstance(layer, FusedMoE)
+
+        w13_qweight = t2j(layer.w13_qweight, use_dlpack=False)
+        delattr(layer, "w13_qweight")
+
+        w2_qweight = t2j(layer.w2_qweight, use_dlpack=False)
+        delattr(layer, "w2_qweight")
+
+        w13_scales = t2j(layer.w13_scales, use_dlpack=False)
+        delattr(layer, "w13_scales")
+
+        w2_scales = t2j(layer.w2_scales, use_dlpack=False)
+        delattr(layer, "w2_scales")
+
+        w13_qzeros = t2j(layer.w13_qzeros, use_dlpack=False)
+        delattr(layer, "w13_qzeros")
+
+        w2_qzeros = t2j(layer.w2_qzeros, use_dlpack=False)
+        delattr(layer, "w2_qzeros")
+
+        if self.moe.has_bias:
+            w13_bias = t2j(layer.w13_bias, use_dlpack=False)
+            w2_bias = t2j(layer.w2_bias, use_dlpack=False)
+            delattr(layer, "w13_bias")
+            delattr(layer, "w2_bias")
+        else:
+            w13_bias = w2_bias = None
+
+        @jax.jit
+        def process_awq_moe_weights(
+            w13_qweight: jax.Array,
+            w13_scales: jax.Array,
+            w13_qzeros: jax.Array,
+            w13_bias: jax.Array | None,
+            w2_qweight: jax.Array,
+            w2_scales: jax.Array,
+            w2_qzeros: jax.Array,
+            w2_bias: jax.Array | None,
+        ) -> FusedMoEWeights:
+            w13_qweight = awq_u32_unpack_u4(w13_qweight).astype(jnp.int8)
+            w13_qzeros = awq_u32_unpack_u4(w13_qzeros).astype(jnp.int8)
+            w2_qweight = awq_u32_unpack_u4(w2_qweight).astype(jnp.int8)
+            w2_qzeros = awq_u32_unpack_u4(w2_qzeros).astype(jnp.int8)
+
+            w13_weight = (w13_qweight.reshape(w13_qweight.shape[0], -1,
+                                              self.quant_config.group_size,
+                                              w13_qweight.shape[-1]) -
+                          w13_qzeros[:, :, jnp.newaxis, :]).reshape(
+                              w13_qweight.shape)
+            w2_weight = (w2_qweight.reshape(w2_qweight.shape[0], -1,
+                                            self.quant_config.group_size,
+                                            w2_qweight.shape[-1]) -
+                         w2_qzeros[:, :, jnp.newaxis, :]).reshape(
+                             w2_qweight.shape)
+
+            w13_weight = jnp.swapaxes(w13_weight, 1, 2)
+            w2_weight = jnp.swapaxes(w2_weight, 1, 2)
+            w13_scales = jnp.swapaxes(w13_scales, 1, 2)
+            w2_scales = jnp.swapaxes(w2_scales, 1, 2)
+
+            w13_interleave = layer.activation == MoEActivation.SWIGLUOAI
+            w13_reorder_size = get_mesh_shape_product(
+                self.mesh, ShardingAxisName.MLP_TENSOR)
+
+            return process_moe_weights(
+                FusedMoEWeights(
+                    w13_weight=w13_weight,
+                    w13_weight_scale=w13_scales,
+                    w13_bias=w13_bias,
+                    w2_weight=w2_weight,
+                    w2_weight_scale=w2_scales,
+                    w2_bias=w2_bias,
+                ),
+                moe_backend=self.moe_backend,
+                w13_interleave=w13_interleave,
+                w13_reorder_size=w13_reorder_size,
+            )
+
+        weights = process_awq_moe_weights(
+            w13_qweight,
+            w13_scales,
+            w13_qzeros,
+            w13_bias,
+            w2_qweight,
+            w2_scales,
+            w2_qzeros,
+            w2_bias,
+        )
+
+        weights = torch_view(
+            shard_moe_weights(weights, self.moe_backend, self.mesh))
+
+        layer.w13_weight = Parameter(weights.w13_weight, requires_grad=False)
+        layer.w2_weight = Parameter(weights.w2_weight, requires_grad=False)
+
+        layer.w13_weight_scale = Parameter(weights.w13_weight_scale,
+                                           requires_grad=False)
+        layer.w2_weight_scale = Parameter(weights.w2_weight_scale,
+                                          requires_grad=False)
+
+        if self.moe.has_bias:
+            layer.w13_bias = Parameter(weights.w13_bias, requires_grad=False)
+            layer.w2_bias = Parameter(weights.w2_bias, requires_grad=False)
+
+    def apply_monolithic(
+        self,
+        layer: FusedMoE,
+        x: torch.Tensor,
+        router_logits: torch.Tensor,
+    ) -> torch.Tensor:
+        weights = FusedMoEWeights(
+            w13_weight=jax_view(layer.w13_weight),
+            w13_weight_scale=jax_view(layer.w13_weight_scale),
+            w13_bias=jax_view(layer.w13_bias) if self.moe.has_bias else None,
+            w2_weight=jax_view(layer.w2_weight),
+            w2_weight_scale=jax_view(layer.w2_weight_scale),
+            w2_bias=jax_view(layer.w2_bias) if self.moe.has_bias else None)
+
+        return vllm_moe_apply(layer=layer,
+                              weights=weights,
+                              quant_method_instance=self,
+                              x=x,
+                              router_logits=router_logits)

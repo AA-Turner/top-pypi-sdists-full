@@ -1,7 +1,6 @@
 import json
 import logging
 import pathlib
-from typing import Optional
 
 from copernicusmarine.catalogue_parser.models import (
     CopernicusMarineServiceFormat,
@@ -20,7 +19,10 @@ from copernicusmarine.core_functions.services_utils import (
     RetrievalService,
     get_retrieval_service,
 )
-from copernicusmarine.core_functions.utils import get_unique_filepath
+from copernicusmarine.core_functions.utils import (
+    get_unique_filepath,
+    human_readable_size,
+)
 from copernicusmarine.download_functions.download_sparse import download_sparse
 from copernicusmarine.download_functions.download_zarr import download_zarr
 from copernicusmarine.download_functions.subset_xarray import (
@@ -42,11 +44,17 @@ def subset_function(
         CopernicusMarineServiceNames.STATIC_ARCO,
     ]:
         raise ServiceNotSupported(retrieval_service.service_name)
-    return download_zarr_or_sparse(
+    subset_response = download_zarr_or_sparse(
         subset_request=subset_request,
         retrieval_service=retrieval_service,
         tdqm_configuration={"disable": subset_request.disable_progress_bar},
     )
+    if subset_response.file_size:
+        logger.info(
+            f"Total size of the download: "
+            f"{human_readable_size(subset_response.file_size)}."
+        )
+    return subset_response
 
 
 def retrieve_metadata_and_check_request(
@@ -86,10 +94,10 @@ def download_zarr_or_sparse(
         raise_when_all_dataset_requested(subset_request, False)
         if "file_format" not in subset_request.model_fields_set:
             subset_request.file_format = "netcdf"
-        elif subset_request.file_format not in ["netcdf", "zarr"]:
+        elif subset_request.file_format not in ["netcdf", "zarr", "csv"]:
             raise WrongFormatRequested(
                 requested_format=subset_request.file_format,
-                supported_formats=["netcdf", "zarr"],
+                supported_formats=["netcdf", "zarr", "csv"],
             )
         logger.debug(
             f"Downloading data in {subset_request.file_format} format."
@@ -111,10 +119,10 @@ def download_zarr_or_sparse(
         raise_when_all_dataset_requested(subset_request, True)
         if "file_format" not in subset_request.model_fields_set:
             subset_request.file_format = "csv"
-        elif subset_request.file_format not in ["parquet", "csv"]:
+        elif subset_request.file_format not in ["parquet", "csv", "netcdf"]:
             raise WrongFormatRequested(
                 requested_format=subset_request.file_format,
-                supported_formats=["parquet", "csv"],
+                supported_formats=["parquet", "csv", "netcdf"],
             )
         logger.debug(
             f"Downloading data in {subset_request.file_format} format."
@@ -136,6 +144,7 @@ def download_zarr_or_sparse(
             retrieval_service.service,
             retrieval_service.axis_coordinate_id_mapping,
             retrieval_service.product_doi,
+            retrieval_service.product_id,
             subset_request.disable_progress_bar,
         )
     else:
@@ -214,7 +223,7 @@ def raise_when_all_dataset_requested(
 
 def check_requested_area_time_valid(
     subset_request: SubsetRequest,
-    service_format: Optional[CopernicusMarineServiceFormat],
+    service_format: CopernicusMarineServiceFormat | None,
     dataset_part: str,
 ) -> None:
     is_original_grid = dataset_part == "originalGrid"

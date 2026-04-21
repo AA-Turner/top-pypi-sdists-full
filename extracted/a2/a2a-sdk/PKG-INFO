@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a2a-sdk
-Version: 0.3.26
+Version: 1.0.0
 Summary: A2A Python SDK
 Project-URL: homepage, https://a2a-protocol.org/
 Project-URL: repository, https://github.com/a2aproject/a2a-python
@@ -19,18 +19,23 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
+Requires-Dist: culsans>=0.11.0; python_full_version < '3.13'
 Requires-Dist: google-api-core>=1.26.0
+Requires-Dist: googleapis-common-protos>=1.70.0
 Requires-Dist: httpx-sse>=0.4.0
 Requires-Dist: httpx>=0.28.1
+Requires-Dist: json-rpc>=1.15.0
+Requires-Dist: packaging>=24.0
 Requires-Dist: protobuf>=5.29.5
 Requires-Dist: pydantic>=2.11.3
 Provides-Extra: all
+Requires-Dist: alembic>=1.14.0; extra == 'all'
 Requires-Dist: cryptography>=43.0.0; extra == 'all'
-Requires-Dist: fastapi>=0.115.2; extra == 'all'
-Requires-Dist: google-cloud-aiplatform>=1.140.0; extra == 'all'
 Requires-Dist: grpcio-reflection>=1.7.0; extra == 'all'
+Requires-Dist: grpcio-status>=1.60; extra == 'all'
 Requires-Dist: grpcio-tools>=1.60; extra == 'all'
 Requires-Dist: grpcio>=1.60; extra == 'all'
 Requires-Dist: opentelemetry-api>=1.33.0; extra == 'all'
@@ -41,14 +46,16 @@ Requires-Dist: sqlalchemy[aiosqlite,asyncio]>=2.0.0; extra == 'all'
 Requires-Dist: sqlalchemy[asyncio,postgresql-asyncpg]>=2.0.0; extra == 'all'
 Requires-Dist: sse-starlette; extra == 'all'
 Requires-Dist: starlette; extra == 'all'
+Provides-Extra: db-cli
+Requires-Dist: alembic>=1.14.0; extra == 'db-cli'
 Provides-Extra: encryption
 Requires-Dist: cryptography>=43.0.0; extra == 'encryption'
 Provides-Extra: grpc
 Requires-Dist: grpcio-reflection>=1.7.0; extra == 'grpc'
+Requires-Dist: grpcio-status>=1.60; extra == 'grpc'
 Requires-Dist: grpcio-tools>=1.60; extra == 'grpc'
 Requires-Dist: grpcio>=1.60; extra == 'grpc'
 Provides-Extra: http-server
-Requires-Dist: fastapi>=0.115.2; extra == 'http-server'
 Requires-Dist: sse-starlette; extra == 'http-server'
 Requires-Dist: starlette; extra == 'http-server'
 Provides-Extra: mysql
@@ -66,8 +73,6 @@ Requires-Dist: sqlalchemy[aiosqlite,asyncio]>=2.0.0; extra == 'sqlite'
 Provides-Extra: telemetry
 Requires-Dist: opentelemetry-api>=1.33.0; extra == 'telemetry'
 Requires-Dist: opentelemetry-sdk>=1.33.0; extra == 'telemetry'
-Provides-Extra: vertex
-Requires-Dist: google-cloud-aiplatform>=1.140.0; extra == 'vertex'
 Description-Content-Type: text/markdown
 
 # A2A Python SDK
@@ -93,6 +98,10 @@ Description-Content-Type: text/markdown
 
 ---
 
+> [!IMPORTANT]
+> **Upgrading the SDK from `0.3` to `1.0`?** See the [**v0.3 → v1.0 migration guide**](docs/migrations/v1_0/README.md). For supported A2A spec versions, see [Compatibility](#-compatibility).
+
+
 ## ✨ Features
 
 - **A2A Protocol Compliant:** Build agentic applications that adhere to the Agent2Agent (A2A) Protocol.
@@ -108,16 +117,16 @@ Description-Content-Type: text/markdown
 
 ## 🧩 Compatibility
 
-This SDK implements the A2A Protocol Specification [`0.3`](https://a2a-protocol.org/v0.3.0/specification).
+This SDK implements the A2A Protocol Specification [`1.0`](https://a2a-protocol.org/v1.0.0/specification/), with compatibility mode for [`0.3`](https://a2a-protocol.org/v0.3.0/specification). See [#742](https://github.com/a2aproject/a2a-python/issues/742) for details on the compatibility scope.
 
-> [!IMPORTANT]
-> There is an [**alpha version**](https://github.com/a2aproject/a2a-python/releases?q=%22v1.0.0-alpha%22&expanded=true) available with support for both [`1.0`](https://a2a-protocol.org/v1.0.0/specification/) and [`0.3`](https://a2a-protocol.org/v0.3.0/specification) versions. Development for this version is taking place in the [`1.0-dev`](https://github.com/a2aproject/a2a-python/tree/1.0-dev) branch, tracked in [#701](https://github.com/a2aproject/a2a-python/issues/701).
-
-| Transport | Client | Server |
-| :--- | :---: | :---: |
-| **JSON-RPC** | ✅ | ✅ |
-| **HTTP+JSON/REST** | ✅ | ✅ |
-| **GRPC** | ✅ | ✅ |
+| Spec Version | Transport | Client | Server |
+| :--- | :--- | :---: | :---: |
+| **`1.0`** | JSON-RPC | ✅ | ✅ |
+| **`1.0`** | HTTP+JSON/REST | ✅ | ✅ |
+| **`1.0`** | gRPC | ✅ | ✅ |
+| **`0.3`** (compat) | JSON-RPC | ✅ | ✅ |
+| **`0.3`** (compat) | HTTP+JSON/REST | ✅ | ✅ |
+| **`0.3`** (compat) | gRPC | ✅ | ✅ |
 
 ---
 
@@ -140,7 +149,6 @@ Install the core SDK and any desired extras using your preferred package manager
 | **gRPC Support**         | `uv add "a2a-sdk[grpc]"`                   | `pip install "a2a-sdk[grpc]"`                |
 | **OpenTelemetry Tracing**| `uv add "a2a-sdk[telemetry]"`              | `pip install "a2a-sdk[telemetry]"`           |
 | **Encryption**           | `uv add "a2a-sdk[encryption]"`             | `pip install "a2a-sdk[encryption]"`          |
-| **Vertex AI Task Store** | `uv add "a2a-sdk[vertex]"`                 | `pip install "a2a-sdk[vertex]"`              |
 |                          |                                            |                                              |
 | **Database Drivers**     |                                            |                                              |
 | **PostgreSQL**           | `uv add "a2a-sdk[postgresql]"`             | `pip install "a2a-sdk[postgresql]"`          |

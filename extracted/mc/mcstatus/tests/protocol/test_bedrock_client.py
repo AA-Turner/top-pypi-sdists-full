@@ -35,13 +35,12 @@ def test_latency_is_real_number():
     ):
         mocked_read.side_effect = mocked_read_status
 
-        bedrock_client.read_status()
+        _ = bedrock_client.read_status()
 
         # we slept 1ms, so this should be always ~1.
         assert mocked_parse_response.call_args[0][1] >= 1
 
 
-@pytest.mark.asyncio
 @pytest.mark.flaky(reruns=5, condition=sys.platform.startswith("win32"))
 async def test_async_latency_is_real_number():
     """``time.perf_counter`` returns fractional seconds, we must convert it to milliseconds."""
@@ -57,7 +56,7 @@ async def test_async_latency_is_real_number():
     ):
         mocked_read.side_effect = mocked_read_status
 
-        await bedrock_client.read_status_async()
+        _ = await bedrock_client.read_status_async()
 
         # we slept 1ms, so this should be always ~1.
         assert mocked_parse_response.call_args[0][1] >= 1

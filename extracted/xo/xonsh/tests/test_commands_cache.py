@@ -1,5 +1,5 @@
+import json
 import os
-import pickle
 import stat
 import time
 from pathlib import Path
@@ -50,7 +50,7 @@ class TestCommandsCacheSaveIntermediate:
             "bin2",
         ]
 
-        files = tmp_path.glob("*.pickle")
+        files = tmp_path.glob("*.json")
         assert len(list(files)) == 1
         exin_mock.assert_called_once()
 
@@ -64,7 +64,8 @@ class TestCommandsCacheSaveIntermediate:
             )
         }
 
-        file.write_bytes(pickle.dumps(cached))
+        raw = {k: [v.mtime, list(v.cmds)] for k, v in cached.items()}
+        file.write_text(json.dumps(raw))
         assert str(cc.cache_file) == str(file)
         assert [b.lower() for b in cc.all_commands.keys()] == ["bin1", "bin2"]
         exin_mock.assert_not_called()
@@ -374,12 +375,18 @@ def test_caseinsdict_update():
 
 def test_caseinsdict_keys():
     actual = CaseInsensitiveDict({"Key1": "Val1"})
-    assert next(actual.keys()) == "Key1"
+    keys = actual.keys()
+    assert keys == ["Key1"]
+    assert len(keys) == 1
+    assert list(keys) == list(keys)  # can iterate twice
 
 
 def test_caseinsdict_items():
     actual = CaseInsensitiveDict({"Key1": "Val1"})
-    assert next(actual.items()) == ("Key1", "Val1")
+    items = actual.items()
+    assert items == [("Key1", "Val1")]
+    assert len(items) == 1
+    assert list(items) == list(items)  # can iterate twice
 
 
 def test_caseinsdict_repr():
@@ -399,6 +406,62 @@ def test_cached_name():
     cache = CommandsCache({"PATH": ["/bin"]})
     cache._cmds_cache["bash"] = ("/bin/bash", None)
     assert cache.cached_name("/path/to/bash") == "bash"
+
+
+def test_predictor_alias_forwards_args(xession):
+    """A simple alias like tst -> ['echo', 'hello'] should forward alias args to predictor."""
+    cc = xession.commands_cache
+    received = {}
+
+    def spy_predictor(args, cache):
+        received["args"] = list(args)
+        received["cache"] = cache
+        return True
+
+    cc.threadable_predictors["echo"] = spy_predictor
+    xession.aliases["tst"] = ["echo", "hello"]
+
+    result = cc.predict_threadable(["tst", "world"])
+
+    assert result is True
+    assert received["args"] == ["hello", "world"]
+    assert received["cache"] is cc
+
+
+def test_predictor_alias_chained_preserves_arg_order(xession):
+    """Multi-hop alias: tst -> ['tst2', '-a'], tst2 -> ['echo', '-b'] should give ['-b', '-a']."""
+    cc = xession.commands_cache
+    received = {}
+
+    def spy_predictor(args, cache):
+        received["args"] = list(args)
+        return True
+
+    cc.threadable_predictors["echo"] = spy_predictor
+    xession.aliases["tst"] = ["tst2", "-a"]
+    xession.aliases["tst2"] = ["echo", "-b"]
+
+    cc.predict_threadable(["tst", "-c"])
+
+    assert received["args"] == ["-b", "-a", "-c"]
+
+
+def test_predictor_alias_callable_returns_predict_true(xession):
+    """Callable (non-Sequence) aliases should return predict_true."""
+    cc = xession.commands_cache
+    xession.aliases["tst"] = lambda args: None
+
+    predictor = cc.get_predictor_threadable("tst")
+    assert predictor is predict_true
+
+
+def test_predictor_alias_self_referencing(xession):
+    """Self-referencing alias like ls -> ['ls', '--color'] should return predict_true."""
+    cc = xession.commands_cache
+    xession.aliases["ls"] = ["ls", "--color"]
+
+    predictor = cc.get_predictor_threadable("ls")
+    assert predictor is predict_true
 
 
 @skip_if_on_windows

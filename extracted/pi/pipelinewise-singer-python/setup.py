@@ -6,8 +6,9 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name="pipelinewise-singer-python",
-      version='2.0.1',
+      version='3.0.0',
       description="Singer.io utility library - PipelineWise compatible",
+      python_requires=">=3.12, <3.13",
       long_description=long_description,
       long_description_content_type="text/markdown",
       author="TransferWise",
@@ -16,20 +17,25 @@ setup(name="pipelinewise-singer-python",
           'Programming Language :: Python :: 3 :: Only'
       ],
       url="https://github.com/transferwise/pipelinewise-singer-python",
+      setup_requires=[
+        'wrapt>=1.14.0',
+      ],
       install_requires=[
+          'wrapt>=1.14.0',
           'pytz',
           'jsonschema==3.2.0',
-          'orjson==3.6.1',
+          'orjson==3.11.8',
           'python-dateutil>=2.6.0',
-          'backoff==1.11.1',
+          'backoff==2.1.2',
           'ciso8601',
       ],
       extras_require={
           'dev': [
-              'pylint==2.11.1',
+              'pylint==4.0.5',
+              'pytest==9.0.3',
+              'coverage[toml]~=6.3',
               'ipython',
               'ipdb',
-              'nose',
               'unify==0.5'
           ]
       },

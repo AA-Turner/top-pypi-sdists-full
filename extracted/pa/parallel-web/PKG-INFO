@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: parallel-web
-Version: 0.4.2
+Version: 0.5.0
 Summary: The official Python library for the Parallel API
 Project-URL: Homepage, https://github.com/parallel-web/parallel-sdk-python
 Project-URL: Repository, https://github.com/parallel-web/parallel-sdk-python
@@ -27,7 +27,7 @@ Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: sniffio
-Requires-Dist: typing-extensions<5,>=4.10
+Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'

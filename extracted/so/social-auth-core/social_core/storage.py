@@ -7,7 +7,7 @@ import re
 import uuid
 from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from openid.association import Association as OpenIdAssociation
 
@@ -24,14 +24,20 @@ NO_SPECIAL_REGEX = re.compile(r"[^\w.@+_-]+", re.UNICODE)
 
 
 class UserProtocol(Protocol):
-    id: int
-    username: str
-    is_active: bool | Callable[[], bool]
-    is_authenticated: bool | Callable[[], bool]
+    @property
+    def id(self, /) -> int: ...
+    @property
+    def username(self, /) -> str: ...
+    @property
+    def is_active(self, /) -> bool | Callable[[], bool]: ...
+    @property
+    def is_authenticated(self, /) -> bool | Callable[[], bool]: ...
 
+
+class PipelineUserProtocol(UserProtocol, Protocol):
     # Set in BaseAuth.pipeline
-    # social_user: UserMixin
-    # is_new: bool
+    social_user: UserMixin | None
+    is_new: bool
 
 
 class UserMixin:
@@ -65,8 +71,10 @@ class UserMixin:
             "access_token"
         )
         backend = self.get_backend_instance(strategy)
-        if token and backend and hasattr(backend, "refresh_token"):
-            response = backend.refresh_token(token, *args, **kwargs)  # type: ignore[attr-defined]
+        refresh_token = getattr(backend, "refresh_token", None) if backend else None
+        if token and callable(refresh_token):
+            assert backend is not None
+            response = cast("dict[str, Any]", refresh_token(token, *args, **kwargs))
             extra_data = backend.extra_data(
                 self.user, self.uid, response, self.extra_data or {}, {}
             )
@@ -306,7 +314,7 @@ class AssociationMixin:
 
     server_url = ""
     handle = ""
-    secret = ""
+    secret: str | bytes = ""
     issued = 0
     lifetime = 0
     assoc_type = ""

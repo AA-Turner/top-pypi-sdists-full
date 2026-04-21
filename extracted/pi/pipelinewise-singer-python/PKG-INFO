@@ -1,16 +1,38 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pipelinewise-singer-python
-Version: 2.0.1
+Version: 3.0.0
 Summary: Singer.io utility library - PipelineWise compatible
 Home-page: https://github.com/transferwise/pipelinewise-singer-python
 Author: TransferWise
-License: UNKNOWN
-Platform: UNKNOWN
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.12, <3.13
 Description-Content-Type: text/markdown
-Provides-Extra: dev
 License-File: LICENSE
+Requires-Dist: wrapt>=1.14.0
+Requires-Dist: pytz
+Requires-Dist: jsonschema==3.2.0
+Requires-Dist: orjson==3.11.8
+Requires-Dist: python-dateutil>=2.6.0
+Requires-Dist: backoff==2.1.2
+Requires-Dist: ciso8601
+Provides-Extra: dev
+Requires-Dist: pylint==4.0.5; extra == "dev"
+Requires-Dist: pytest==9.0.3; extra == "dev"
+Requires-Dist: coverage[toml]~=6.3; extra == "dev"
+Requires-Dist: ipython; extra == "dev"
+Requires-Dist: ipdb; extra == "dev"
+Requires-Dist: unify==0.5; extra == "dev"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 pipelinewise-singer-python
 ===================
@@ -67,5 +89,3 @@ License
 -------
 
 Distributed under the Apache License Version 2.0
-
-

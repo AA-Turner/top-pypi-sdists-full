@@ -1,8 +1,10 @@
 import copy
 import locale
+import logging
 import os
 from os.path import abspath, dirname, join
 
+from pelican import log
 from pelican.settings import (
     DEFAULT_CONFIG,
     DEFAULT_THEME,
@@ -11,7 +13,7 @@ from pelican.settings import (
     handle_deprecated_settings,
     read_settings,
 )
-from pelican.tests.support import unittest
+from pelican.tests.support import LogCountHandler, unittest
 
 
 class TestSettingsConfiguration(unittest.TestCase):
@@ -108,6 +110,39 @@ class TestSettingsConfiguration(unittest.TestCase):
         configure_settings(settings)
         self.assertEqual(settings["FEED_DOMAIN"], "http://feeds.example.com")
 
+    def _feeds_warning_settings(self, **overrides):
+        base = {
+            "LOCALE": "",
+            "PATH": os.curdir,
+            "THEME": DEFAULT_THEME,
+            "FEED_RSS": "feeds/all.rss.xml",
+        }
+        base.update(overrides)
+        handler = LogCountHandler()
+        logger = logging.getLogger()
+        logger.addHandler(handler)
+        saved = log.LimitFilter._raised_messages.copy()
+        log.LimitFilter._raised_messages = set()
+        try:
+            configure_settings(base)
+            return handler.count_logs(
+                "Feeds generated without SITEURL", logging.WARNING
+            )
+        finally:
+            log.LimitFilter._raised_messages = saved
+            logger.removeHandler(handler)
+
+    def test_feeds_warning_with_siteurl(self):
+        self.assertEqual(self._feeds_warning_settings(SITEURL="http://example.com"), 0)
+
+    def test_feeds_warning_with_feed_domain(self):
+        self.assertEqual(
+            self._feeds_warning_settings(FEED_DOMAIN="http://feeds.example.com"), 0
+        )
+
+    def test_feeds_warning_without_siteurl_or_feed_domain(self):
+        self.assertEqual(self._feeds_warning_settings(), 1)
+
     def test_theme_settings_exceptions(self):
         settings = self.settings
 
@@ -118,7 +153,7 @@ class TestSettingsConfiguration(unittest.TestCase):
 
         # Check that non-existent theme raises exception
         settings["THEME"] = "foo"
-        self.assertRaises(Exception, configure_settings, settings)
+        self.assertRaises(ValueError, configure_settings, settings)
 
     def test_deprecated_dir_setting(self):
         settings = self.settings
@@ -155,17 +190,17 @@ class TestSettingsConfiguration(unittest.TestCase):
         # test that 'PATH' is set
         settings = {}
 
-        self.assertRaises(Exception, configure_settings, settings)
+        self.assertRaises(ValueError, configure_settings, settings)
 
         # Test that 'PATH' is valid
         settings["PATH"] = ""
-        self.assertRaises(Exception, configure_settings, settings)
+        self.assertRaises(ValueError, configure_settings, settings)
 
         # Test nonexistent THEME
         settings["PATH"] = os.curdir
         settings["THEME"] = "foo"
 
-        self.assertRaises(Exception, configure_settings, settings)
+        self.assertRaises(ValueError, configure_settings, settings)
 
     def test__printf_s_to_format_field(self):
         for s in ("%s", "{%s}", "{%s"):
@@ -218,14 +253,14 @@ class TestSettingsConfiguration(unittest.TestCase):
         settings["EXTRA_TEMPLATES_PATHS"] = ["/ha"]
         settings["THEME_TEMPLATES_OVERRIDES"] = ["/foo/bar"]
 
-        self.assertRaises(Exception, handle_deprecated_settings, settings)
+        self.assertRaises(ValueError, handle_deprecated_settings, settings)
 
     def test_slug_and_slug_regex_substitutions_exception(self):
         settings = {}
         settings["SLUG_REGEX_SUBSTITUTIONS"] = [("C++", "cpp")]
         settings["TAG_SUBSTITUTIONS"] = [("C#", "csharp")]
 
-        self.assertRaises(Exception, handle_deprecated_settings, settings)
+        self.assertRaises(ValueError, handle_deprecated_settings, settings)
 
     def test_deprecated_slug_substitutions(self):
         default_slug_regex_subs = self.settings["SLUG_REGEX_SUBSTITUTIONS"]

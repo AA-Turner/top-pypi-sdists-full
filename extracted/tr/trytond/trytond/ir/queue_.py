@@ -61,7 +61,6 @@ class Queue(ModelSQL):
     def push(cls, name, data, scheduled_at=None, expected_at=None):
         transaction = Transaction()
         database = transaction.database
-        cursor = transaction.connection.cursor()
         with without_check_access():
             record, = cls.create([{
                         'name': name,
@@ -70,7 +69,7 @@ class Queue(ModelSQL):
                         'expected_at': expected_at,
                         }])
         if database.has_channel():
-            cursor.execute('NOTIFY "%s"', (cls.__name__,))
+            database.notify(transaction.connection, cls.__name__, '')
         if not config.getboolean('queue', 'worker', default=False):
             transaction.tasks.append(record.id)
         return record.id
@@ -159,12 +158,9 @@ class Queue(ModelSQL):
                     else:
                         instances = None
             else:
-                ids = set()
                 with inactive_records():
-                    for sub_ids in grouped_slice(instances):
-                        records = Model.search([('id', 'in', list(sub_ids))])
-                        ids.update(map(int, records))
-                if ids:
+                    records = Model.search([('id', 'in', instances)])
+                if ids := set(map(int, records)):
                     instances = Model.browse(
                         [i for i in instances if i in ids])
                 else:

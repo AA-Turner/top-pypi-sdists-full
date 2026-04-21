@@ -16,7 +16,6 @@ class DatabaseInterface(object):
     Define generic interface for database connection
     '''
     flavor = None
-    IN_MAX = 1000
 
     def __new__(cls, name=''):
         return object.__new__(cls)
@@ -31,7 +30,7 @@ class DatabaseInterface(object):
             self, autocommit=False, readonly=False, statement_timeout=None):
         raise NotImplementedError
 
-    def put_connection(self, connection, close=False):
+    def put_connection(self, connection):
         raise NotImplementedError
 
     def close(self):
@@ -71,6 +70,12 @@ class DatabaseInterface(object):
         pass
 
     def estimated_count(self, connection, table):
+        raise NotImplementedError
+
+    def notify(self, connection, channel, payload):
+        raise NotImplementedError
+
+    def get_notifications(self, connection):
         raise NotImplementedError
 
     @classmethod
@@ -197,6 +202,10 @@ class DatabaseInterface(object):
 
     def refresh_materialized_view(self, connection, view_name):
         raise NotImplementedError
+
+    @classmethod
+    def has_array(cls):
+        return False
 
     def sql_type(self, type_):
         pass

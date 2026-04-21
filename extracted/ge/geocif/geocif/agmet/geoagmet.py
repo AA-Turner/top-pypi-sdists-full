@@ -525,6 +525,11 @@ def _process_combination(obj, country, scale, crop, growing_season):
         for region in obj.list_regions:
             obj.setup_region(region, plot_season, "region")
 
+            # Skip regions with no crop calendar data
+            if pd.isna(obj.date_planting):
+                obj.logger.warning(f"Skipping plot for {region} — no crop calendar data")
+                continue
+
             if obj.precip_var == "chirps":
                 obj.add_precip_forecast(plot_season)
 
@@ -575,6 +580,12 @@ def _process_combination(obj, country, scale, crop, growing_season):
             # Use first region in this calendar region for crop calendar dates
             first_region = df_district["region"].iloc[0]
             obj.setup_region(first_region, plot_season, "region")
+
+            # Skip calendar regions with no crop calendar data
+            if pd.isna(obj.date_planting):
+                obj.logger.warning(f"Skipping plot for calendar region {cal_region} — no crop calendar data")
+                continue
+
             dates_calendar = [
                 obj.date_planting,
                 obj.date_greenup,

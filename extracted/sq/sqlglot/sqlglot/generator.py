@@ -234,6 +234,7 @@ class Generator:
         exp.ProjectionPolicyColumnConstraint: lambda self, e: (
             f"PROJECTION POLICY {self.sql(e, 'this')}"
         ),
+        exp.InvisibleColumnConstraint: lambda self, e: "INVISIBLE",
         exp.ZeroFillColumnConstraint: lambda self, e: "ZEROFILL",
         exp.Put: lambda self, e: self.get_put_sql(e),
         exp.RemoteWithConnectionModelProperty: lambda self, e: (
@@ -319,6 +320,9 @@ class Generator:
 
     # Whether MERGE ... WHEN MATCHED BY SOURCE is allowed
     MATCHED_BY_SOURCE = True
+
+    # Whether MERGE ... WHEN MATCHED/NOT MATCHED THEN UPDATE/INSERT ... WHERE is supported
+    SUPPORTS_MERGE_WHERE = False
 
     # Whether the INTERVAL expression works only with values like '1 day'
     SINGLE_STRING_INTERVAL = False
@@ -1681,6 +1685,7 @@ class Generator:
         return f"{local}DIRECTORY {self.sql(expression, 'this')}{row_format}"
 
     def delete_sql(self, expression: exp.Delete) -> str:
+        hint = self.sql(expression, "hint")
         this = self.sql(expression, "this")
         this = f" FROM {this}" if this else ""
         using = self.expressions(expression, key="using")
@@ -1697,7 +1702,7 @@ class Generator:
             expression_sql = f"{this}{using}{cluster}{where}{returning}{order}{limit}"
         else:
             expression_sql = f"{returning}{this}{using}{cluster}{where}{order}{limit}"
-        return self.prepend_ctes(expression, f"DELETE{tables}{expression_sql}")
+        return self.prepend_ctes(expression, f"DELETE{hint}{tables}{expression_sql}")
 
     def drop_sql(self, expression: exp.Drop) -> str:
         this = self.sql(expression, "this")
@@ -2463,6 +2468,7 @@ class Generator:
         return (join_sql, "")
 
     def update_sql(self, expression: exp.Update) -> str:
+        hint = self.sql(expression, "hint")
         this = self.sql(expression, "this")
         join_sql, from_sql = self._update_from_joins_sql(expression)
         set_sql = self.expressions(expression, flat=True)
@@ -2476,7 +2482,7 @@ class Generator:
             expression_sql = f"{returning}{from_sql}{where_sql}"
         options = self.expressions(expression, key="options")
         options = f" OPTION({options})" if options else ""
-        sql = f"UPDATE {this}{join_sql} SET {set_sql}{expression_sql}{order}{limit}{options}"
+        sql = f"UPDATE{hint} {this}{join_sql} SET {set_sql}{expression_sql}{order}{limit}{options}"
         return self.prepend_ctes(expression, sql)
 
     def values_sql(self, expression: exp.Values, values_as_table: bool = True) -> str:
@@ -2811,10 +2817,20 @@ class Generator:
         return self._replace_line_breaks(text).replace(delimiter, escaped_delimiter)
 
     def loaddata_sql(self, expression: exp.LoadData) -> str:
+        is_overwrite = expression.args.get("overwrite")
+        overwrite = " OVERWRITE" if is_overwrite else ""
+        this = self.sql(expression, "this")
+
+        files = expression.args.get("files")
+        if files:
+            files_sql = self.expressions(files, flat=True)
+            files_sql = f"FILES{self.wrap(files_sql)}"
+            this = f" {this}" if is_overwrite else f" INTO TABLE {this}"
+            return f"LOAD DATA{overwrite}{this} FROM {files_sql}"
+
         local = " LOCAL" if expression.args.get("local") else ""
         inpath = f" INPATH {self.sql(expression, 'inpath')}"
-        overwrite = " OVERWRITE" if expression.args.get("overwrite") else ""
-        this = f" INTO TABLE {self.sql(expression, 'this')}"
+        this = f" INTO TABLE {this}"
         partition = self.sql(expression, "partition")
         partition = f" {partition}" if partition else ""
         input_format = self.sql(expression, "input_format")
@@ -4448,9 +4464,16 @@ class Generator:
             else:
                 expressions_sql = self.expressions(then_expression)
                 then = f"UPDATE SET{self.sep()}{expressions_sql}" if expressions_sql else "UPDATE"
-
         else:
             then = self.sql(then_expression)
+
+        if isinstance(then_expression, (exp.Insert, exp.Update)):
+            where = self.sql(then_expression, "where")
+            if where and not self.SUPPORTS_MERGE_WHERE:
+                kind = "INSERT" if isinstance(then_expression, exp.Insert) else "UPDATE"
+                self.unsupported(f"WHERE clause in MERGE {kind} is not supported")
+                where = ""
+            then = f"{then}{where}"
         return f"WHEN {matched}{source}{condition} THEN {then}"
 
     def whens_sql(self, expression: exp.Whens) -> str:
@@ -5899,3 +5922,8 @@ class Generator:
     def usingproperty_sql(self, expression: exp.UsingProperty) -> str:
         kind = expression.args.get("kind")
         return f"USING {kind} {self.sql(expression, 'this')}"
+
+    def renameindex_sql(self, expression: exp.RenameIndex) -> str:
+        this = self.sql(expression, "this")
+        to = self.sql(expression, "to")
+        return f"RENAME INDEX {this} TO {to}"

@@ -138,14 +138,16 @@ class RawMultipartUploadClient:
         filename: str,
         type: CreateAssetUploadRequestType,
         total_size: int,
+        enable_hls: typing.Optional[bool] = OMIT,
+        enable_thumbnail: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateAssetUploadResponse]:
         """
         This method creates a multipart upload session.
 
-        **Supported content**: Video and audio
+        **Supported content**: Video
 
-        **File size**: 4GB maximum.
+        **File size**: 4 GB maximum.
 
         **Additional requirements** depend on your workflow:
         - **Search**: [Marengo requirements](/v1.3/docs/concepts/models/marengo#video-file-requirements)
@@ -166,6 +168,16 @@ class RawMultipartUploadClient:
             - Determine the total number of chunks required
             - Generate the initial set of presigned URLs
 
+        enable_hls : typing.Optional[bool]
+            When set to `true`, the platform generates an HLS playlist and segments for streaming. Applicable to video and audio assets only.
+
+            **Default**: `false`.
+
+        enable_thumbnail : typing.Optional[bool]
+            When set to `true`, the platform generates thumbnail images from the uploaded content.
+
+            **Default**: `false`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -181,6 +193,8 @@ class RawMultipartUploadClient:
                 "filename": filename,
                 "type": type,
                 "total_size": total_size,
+                "enable_hls": enable_hls,
+                "enable_thumbnail": enable_thumbnail,
             },
             headers={
                 "content-type": "application/json",
@@ -666,14 +680,16 @@ class AsyncRawMultipartUploadClient:
         filename: str,
         type: CreateAssetUploadRequestType,
         total_size: int,
+        enable_hls: typing.Optional[bool] = OMIT,
+        enable_thumbnail: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateAssetUploadResponse]:
         """
         This method creates a multipart upload session.
 
-        **Supported content**: Video and audio
+        **Supported content**: Video
 
-        **File size**: 4GB maximum.
+        **File size**: 4 GB maximum.
 
         **Additional requirements** depend on your workflow:
         - **Search**: [Marengo requirements](/v1.3/docs/concepts/models/marengo#video-file-requirements)
@@ -694,6 +710,16 @@ class AsyncRawMultipartUploadClient:
             - Determine the total number of chunks required
             - Generate the initial set of presigned URLs
 
+        enable_hls : typing.Optional[bool]
+            When set to `true`, the platform generates an HLS playlist and segments for streaming. Applicable to video and audio assets only.
+
+            **Default**: `false`.
+
+        enable_thumbnail : typing.Optional[bool]
+            When set to `true`, the platform generates thumbnail images from the uploaded content.
+
+            **Default**: `false`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -709,6 +735,8 @@ class AsyncRawMultipartUploadClient:
                 "filename": filename,
                 "type": type,
                 "total_size": total_size,
+                "enable_hls": enable_hls,
+                "enable_thumbnail": enable_thumbnail,
             },
             headers={
                 "content-type": "application/json",

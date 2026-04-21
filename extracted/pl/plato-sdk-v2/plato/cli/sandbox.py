@@ -403,6 +403,14 @@ def sandbox_snapshot(
     session_id: SessionIdArg,
     mode: ModeArg,
     dataset: DatasetArg,
+    job_id: JobIdArg,
+    job: Annotated[
+        bool,
+        typer.Option(
+            "--job",
+            help="Snapshot only this env's job (POST /api/v2/jobs/{job_id}/checkpoint) instead of the whole session.",
+        ),
+    ] = False,
     json_output: JsonArg = False,
     verbose: VerboseArg = False,
 ):
@@ -413,10 +421,18 @@ def sandbox_snapshot(
     Examples:
         plato sandbox snapshot                    # Uses mode from state.json
         plato sandbox snapshot --mode config      # Override to pass local plato-config.yml and flows to artifact
+        plato sandbox snapshot --job              # Snapshot one env in a multi-env (unified) session
     """
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
-        out.console.print("Creating snapshot...")
+        if job:
+            if not job_id:
+                raise SandboxStateError("job_id")
+            out.console.print("Creating job checkpoint...")
+            response = client.snapshot_job(job_id=str(job_id))
+            out.success(response, "Snapshot created")
+            return
 
+        out.console.print("Creating snapshot...")
         response = client.snapshot(
             session_id=str(session_id),
             mode=str(mode),
@@ -744,6 +760,8 @@ def sandbox_pull_config(
 def sandbox_clear_audit(
     working_dir: WorkingDirArg,
     session_id: SessionIdArg,
+    job_id: JobIdArg,
+    simulator_name: SimulatorNameArg,
     json_output: JsonArg = False,
     verbose: VerboseArg = False,
 ):
@@ -754,7 +772,11 @@ def sandbox_clear_audit(
     """
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
         out.console.print("Clearing audit logs...")
-        result = client.clear_audit(job_group_id=str(session_id))
+        result = client.clear_audit(
+            job_group_id=str(session_id),
+            job_id=job_id,
+            simulator_name=simulator_name,
+        )
 
         if not result.success:
             raise Exception(result.error or "Failed to clear audit logs")

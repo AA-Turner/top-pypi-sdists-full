@@ -133,7 +133,7 @@ def _show_startup_banner(
     mycli: 'MyCli',
     sqlexecute: SQLExecute,
 ) -> None:
-    if mycli.less_chatty:
+    if mycli.verbosity < 0:
         return
 
     if sqlexecute.server_info is not None:
@@ -585,7 +585,7 @@ def _one_iteration(
                     click.echo(context)
                     click.echo('---')
                 if special.is_timing_enabled():
-                    mycli.output_timing(f'Time: {duration:.2f} seconds')
+                    mycli.output_timing(f'Time: {duration:0.03f}s')
                 assert mycli.prompt_session is not None
                 text = mycli.prompt_session.prompt(
                     default=sql or '',
@@ -807,5 +807,5 @@ def main_repl(mycli: 'MyCli') -> None:
             state.iterations += 1
     except EOFError:
         special.close_tee()
-        if not mycli.less_chatty:
+        if mycli.verbosity >= 0:
             mycli.echo('Goodbye!')

@@ -99,6 +99,7 @@ ResourceTypeType = Literal[
     "AWS::Lambda::Function",
     "AWS::Route53Resolver::ResolverEndpoint",
     "AWS::SecurityHub::Hub",
+    "AWS::SecurityHub::HubV2",
     "AWS::WAFv2::WebACL",
 ]
 RuleHealthType = Literal["Healthy", "Provisioning", "Unhealthy"]
@@ -308,6 +309,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",

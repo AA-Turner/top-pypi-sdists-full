@@ -71,12 +71,11 @@ class OpenIdAuth(BaseAuth):
         @sreg_names and @ax_names must be a list of name and aliases
         for such name. The alias will be used as mapping key.
         """
-        values = {}
+        values: dict[str, str] = {}
 
         # Use Simple Registration attributes if provided
         if sreg_names:
-            # pyright does not detect the classmethod correctly
-            resp = sreg.SRegResponse.fromSuccessResponse(response)  # type: ignore[reportCallIssue]
+            resp = cast("Any", sreg.SRegResponse).fromSuccessResponse(response)
             if resp:
                 values.update(
                     (alias, resp.get(name) or "") for name, alias in sreg_names
@@ -84,12 +83,13 @@ class OpenIdAuth(BaseAuth):
 
         # Use Attribute Exchange attributes if provided
         if ax_names:
-            # pyright does not detect the classmethod correctly
-            resp = ax.FetchResponse.fromSuccessResponse(response)  # type: ignore[reportCallIssue]
+            resp = cast("Any", ax.FetchResponse).fromSuccessResponse(response)
             if resp:
                 for src, alias in ax_names:
                     name = alias.replace("old_", "")
-                    values[name] = resp.getSingle(src, "") or values.get(name)
+                    values[name] = cast(
+                        "str | None", resp.getSingle(src, "")
+                    ) or values.get(name, "")
 
         return values
 
@@ -123,7 +123,7 @@ class OpenIdAuth(BaseAuth):
             except ValueError:
                 last_name = fullname
 
-        username_key = self.setting("USERNAME_KEY") or self.USERNAME_KEY
+        username_key = cast("str", self.setting("USERNAME_KEY") or self.USERNAME_KEY)
         values.update(
             {
                 "fullname": fullname,

@@ -14,6 +14,7 @@ from sql import Column, Literal, Null
 from sql.aggregate import Max
 from sql.conditionals import Case
 from sql.functions import CharLength, Position, Substring
+from sql.operators import Concat
 
 import trytond.config as config
 from trytond.cache import Cache
@@ -22,7 +23,7 @@ from trytond.i18n import gettext
 from trytond.model import Index, ModelSQL, ModelView, fields
 from trytond.pool import Pool
 from trytond.pyson import Eval, PYSONEncoder
-from trytond.tools import cursor_dict, file_open, grouped_slice
+from trytond.tools import cursor_dict, file_open
 from trytond.tools.string_ import LazyString, StringPartitioned
 from trytond.transaction import (
     Transaction, inactive_records, without_check_access)
@@ -67,10 +68,15 @@ class Translation(
         fields.fmany2one(
             'overriding_module_ref', 'overriding_module', 'ir.module,name',
             "Overriding Module", readonly=True),
+        fields.fmany2one(
+            'model_ref', 'model', 'ir.model,name', "Model", readonly=True),
+        fields.fmany2one(
+            'field_ref', 'field,model', 'ir.model.field,name,model', "Field",
+            readonly=True),
         ModelSQL, ModelView):
     __name__ = "ir.translation"
 
-    name = fields.Char('Field Name', required=True)
+    name = fields.Char("Name", required=True)
     res_id = fields.Integer('Resource ID', required=True)
     lang = fields.Selection('get_language', string='Language')
     type = fields.Selection(TRANSLATION_TYPE, string='Type',
@@ -96,8 +102,10 @@ class Translation(
 
     module = fields.Char('Module', readonly=True)
     fuzzy = fields.Boolean('Fuzzy')
-    model = fields.Function(fields.Char('Model'), 'get_model',
-            searcher='search_model')
+    model = fields.Function(
+        fields.Char("Model"), 'get_model', searcher='search_model')
+    field = fields.Function(
+        fields.Char("Field"), 'get_field', searcher='search_field')
     overriding_module = fields.Char('Overriding Module', readonly=True)
     _translation_cache = Cache('ir.translation', context=False)
     _translation_report_cache = Cache(
@@ -285,6 +293,80 @@ class Translation(
         return self.name.split(',')[0]
 
     @classmethod
+    def search_model(cls, name, clause):
+        table = cls.__table__()
+        _, operator, value = clause
+        Operator = fields.SQL_OPERATORS[operator]
+        return [('id', 'in', table.select(table.id,
+                    where=Operator(Substring(table.name, 1,
+                            Case((
+                                    Position(',', table.name) > 0,
+                                    Position(',', table.name) - 1),
+                                else_=CharLength(table.name))), value)))]
+
+    @classmethod
+    def domain_model_ref(cls, clause, tables):
+        pool = Pool()
+        IrModel = pool.get('ir.model')
+        table, _ = tables[None]
+        if 'model_ref' not in tables:
+            ir_model = IrModel.__table__()
+            tables['model_ref'] = {
+                None: (ir_model, ir_model.name == Substring(table.name, 1,
+                        Case((
+                                Position(',', table.name) > 0,
+                                Position(',', table.name) - 1),
+                            else_=CharLength(table.name)))),
+                }
+        nested = clause[0][len('model_ref') + 1:]
+        if not nested:
+            if isinstance(clause[2], str):
+                nested = 'rec_name'
+            else:
+                nested = 'id'
+        domain = [(nested, *clause[1:])]
+        tables, clause = IrModel.search_domain(
+            domain, tables=tables['model_ref'])
+        return clause
+
+    def get_field(self, name):
+        return self.name.split(',', 1)[1] if ',' in self.name else None
+
+    @classmethod
+    def search_field(cls, name, clause):
+        table = cls.__table__()
+        _, operator, value = clause
+        Operator = fields.SQL_OPERATORS[operator]
+        return [('id', 'in', table.select(table.id,
+                    where=Operator(Substring(table.name,
+                            Case((
+                                    Position(',', table.name) > 0,
+                                    Position(',', table.name) - 1),
+                                else_=CharLength(table.name))), value)))]
+
+    @classmethod
+    def domain_field_ref(cls, clause, tables):
+        pool = Pool()
+        Field = pool.get('ir.model.field')
+        table, _ = tables[None]
+        if 'field_ref' not in tables:
+            field = Field.__table__()
+            tables['field_ref'] = {
+                None: (field, (table.name == Concat(Concat(
+                            field.model, ','), field.name))),
+                }
+        nested = clause[0][len('model_ref') + 1:]
+        if not nested:
+            if isinstance(clause[2], str):
+                nested = 'rec_name'
+            else:
+                nested = 'id'
+        domain = [(nested, *clause[1:])]
+        tables, clause = Field.search_domain(
+            domain, tables=tables['field_ref'])
+        return clause
+
+    @classmethod
     def search_rec_name(cls, name, clause):
         clause = tuple(clause)
         if clause[1].startswith('!') or clause[1].startswith('not '):
@@ -298,18 +380,6 @@ class Translation(
             ]
 
     @classmethod
-    def search_model(cls, name, clause):
-        table = cls.__table__()
-        _, operator, value = clause
-        Operator = fields.SQL_OPERATORS[operator]
-        return [('id', 'in', table.select(table.id,
-                    where=Operator(Substring(table.name, 1,
-                            Case((
-                                    Position(',', table.name) > 0,
-                                    Position(',', table.name) - 1),
-                                else_=CharLength(table.name))), value)))]
-
-    @classmethod
     def get_language(cls):
         language = Transaction().language
         result = cls._get_language_cache.get(language)
@@ -319,8 +389,7 @@ class Translation(
         Lang = pool.get('ir.lang')
         langs = Lang.search([])
         result = [(lang.code, lang.name) for lang in langs]
-        cls._get_language_cache.set(language, result)
-        return result
+        return cls._get_language_cache.set(language, result)
 
     @classmethod
     def view_attributes(cls):
@@ -424,16 +493,15 @@ class Translation(
                 fuzzy_clause = []
             else:
                 fuzzy_clause = [('fuzzy', '=', False)]
-            for sub_to_fetch in grouped_slice(to_fetch):
-                for translation in cls.search([
-                            ('lang', '=', lang),
-                            ('type', '=', ttype),
-                            ('name', '=', name),
-                            ('value', '!=', ''),
-                            ('value', '!=', None),
-                            ('res_id', 'in', list(sub_to_fetch)),
-                            ] + fuzzy_clause):
-                    translations[translation.res_id] = translation.value
+            for translation in cls.search([
+                        ('lang', '=', lang),
+                        ('type', '=', ttype),
+                        ('name', '=', name),
+                        ('value', '!=', ''),
+                        ('value', '!=', None),
+                        ('res_id', 'in', to_fetch),
+                        ] + fuzzy_clause):
+                translations[translation.res_id] = translation.value
             # Don't store fuzzy translation in cache
             if not fuzzy_translation:
                 for res_id in to_fetch:
@@ -450,15 +518,6 @@ class Translation(
         ModelFields = pool.get('ir.model.field')
         Model = pool.get('ir.model')
         Config = pool.get('ir.configuration')
-        transaction = Transaction()
-        in_max = transaction.database.IN_MAX
-
-        if len(ids) > in_max:
-            for i in range(0, len(ids), in_max):
-                sub_ids = ids[i:i + in_max]
-                sub_values = values[i:i + in_max]
-                cls.set_ids(name, ttype, lang, sub_ids, sub_values)
-            return
 
         model_name, field_name = name.split(',')
         if model_name in ('ir.model.field', 'ir.model'):
@@ -580,13 +639,11 @@ class Translation(
     @without_check_access
     def delete_ids(cls, model, ttype, ids):
         "Delete translation for each id"
-        translations = []
-        for sub_ids in grouped_slice(ids):
-            translations += cls.search([
-                    ('type', '=', ttype),
-                    ('name', 'like', model + ',%'),
-                    ('res_id', 'in', list(sub_ids)),
-                    ])
+        translations = cls.search([
+                ('type', '=', ttype),
+                ('name', 'like', model + ',%'),
+                ('res_id', 'in', ids),
+                ])
         cls.delete(translations)
 
     @classmethod
@@ -607,12 +664,6 @@ class Translation(
         parent_args = []
         parent_langs = []
         clauses = []
-        transaction = Transaction()
-        if len(args) > transaction.database.IN_MAX:
-            for sub_args in grouped_slice(args):
-                res.update(cls.get_sources(list(sub_args)))
-            return res
-
         to_cache = []
         for name, ttype, lang, source in args:
             name = str(name)
@@ -651,9 +702,10 @@ class Translation(
                 res[(name, ttype, lang, source)] = parent_src[
                     (name, ttype, parent_lang, source)]
 
-        in_max = transaction.database.IN_MAX // 7
-        for sub_clause in grouped_slice(clauses, in_max):
-            for translation in cls.search(['OR'] + list(sub_clause)):
+        while clauses:
+            clauses_slice = clauses[:100]
+            clauses = clauses[100:]
+            for translation in cls.search(['OR'] + clauses_slice):
                 key = (translation.name, translation.type,
                     translation.lang, translation.src)
                 if key not in args:
@@ -1062,6 +1114,11 @@ class TranslationSet(Wizard):
                     txt = node.nodeValue.strip()
                     if txt:
                         yield txt
+            if (node.nodeType == node.ELEMENT_NODE
+                    and node.tagName == 'text:a'
+                    and node.getAttribute('xlink:href').startswith(
+                        'relatorio://')):
+                return
 
             for child in [x for x in node.childNodes]:
                 for string in extract(child):
@@ -1455,11 +1512,10 @@ class TranslationClean(Wizard):
         with inactive_records():
             for model_name, translations in records.items():
                 Model = pool.get(model_name)
-                for sub_ids in grouped_slice(translations.keys()):
-                    sub_ids = list(sub_ids)
-                    records = Model.search([('id', 'in', sub_ids)])
-                    for record_id in set(sub_ids) - set(map(int, records)):
-                        to_delete.extend(translations[record_id])
+                ids = translations.keys()
+                records = Model.search([('id', 'in', ids)])
+                for record_id in set(ids) - set(map(int, records)):
+                    to_delete.extend(translations[record_id])
 
         # skip translation handled in ir.model.data
         models_data = ModelData.search([

@@ -17,6 +17,13 @@ class Author(index.Indexed, models.Model):
         index.SearchField("name"),
         index.AutocompleteField("name"),
         index.FilterField("date_of_birth"),
+        index.RelatedFields(
+            "books",
+            [
+                index.FilterField("publication_date"),
+                index.FilterField("number_of_pages"),
+            ],
+        ),
     ]
 
     def __str__(self):
@@ -41,7 +48,14 @@ class Book(index.Indexed, models.Model):
         index.AutocompleteField("title"),
         index.FilterField("title"),
         index.FilterField("authors"),
-        index.RelatedFields("authors", Author.search_fields),
+        index.RelatedFields(
+            "authors",
+            [
+                index.SearchField("name"),
+                index.AutocompleteField("name"),
+                index.FilterField("date_of_birth"),
+            ],
+        ),
         index.FilterField("publication_date"),
         index.FilterField("number_of_pages"),
         index.RelatedFields(
@@ -87,11 +101,29 @@ class Book(index.Indexed, models.Model):
         return novel or programming_guide or self
 
 
-class Character(models.Model):
+class Character(index.Indexed, models.Model):
     name = models.CharField(max_length=255)
     novel = models.ForeignKey(
         "Novel", related_name="characters", on_delete=models.CASCADE
     )
+
+    search_fields = [
+        index.SearchField("name"),
+        index.RelatedFields(
+            "novel_as_protagonist",
+            [
+                index.SearchField("title"),
+                index.FilterField("title"),
+            ],
+        ),
+        index.RelatedFields(
+            "novel",
+            [
+                index.FilterField("setting"),
+                index.FilterField("publication_date"),
+            ],
+        ),
+    ]
 
     def __str__(self):
         return self.name
@@ -100,7 +132,10 @@ class Character(models.Model):
 class Novel(Book):
     setting = models.CharField(max_length=255)
     protagonist = models.OneToOneField(
-        Character, related_name="+", null=True, on_delete=models.SET_NULL
+        Character,
+        related_name="novel_as_protagonist",
+        null=True,
+        on_delete=models.SET_NULL,
     )
 
     search_fields = Book.search_fields + [
@@ -110,12 +145,14 @@ class Novel(Book):
             "characters",
             [
                 index.SearchField("name", boost=0.25),
+                index.FilterField("name"),
             ],
         ),
         index.RelatedFields(
             "protagonist",
             [
                 index.SearchField("name", boost=0.5),
+                index.FilterField("name"),
                 index.FilterField("novel"),
             ],
         ),
@@ -202,7 +239,39 @@ class Meeting(index.Indexed, models.Model):
         index.SearchField("name"),
         index.SearchField("start_time"),
         index.FilterField("start_time"),
+        index.RelatedFields(
+            "agenda_items",
+            [
+                index.SearchField("topic"),
+                index.RelatedFields(
+                    "speakers",
+                    [
+                        index.SearchField("name"),
+                    ],
+                ),
+            ],
+        ),
     ]
+
+    def __str__(self):
+        return self.name
+
+
+class AgendaItem(models.Model):
+    meeting = models.ForeignKey(
+        Meeting, related_name="agenda_items", on_delete=models.CASCADE
+    )
+    topic = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.topic
+
+
+class Speaker(models.Model):
+    agenda_item = models.ForeignKey(
+        AgendaItem, related_name="speakers", on_delete=models.CASCADE
+    )
+    name = models.CharField(max_length=255)
 
     def __str__(self):
         return self.name

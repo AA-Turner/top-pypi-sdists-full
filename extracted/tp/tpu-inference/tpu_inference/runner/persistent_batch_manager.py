@@ -137,7 +137,7 @@ class PersistentBatchManager:
                 prompt_token_ids=new_req_data.prompt_token_ids,
                 mm_features=new_req_data.mm_features,
                 sampling_params=sampling_params,
-                pooling_params=None,
+                pooling_params=new_req_data.pooling_params,
                 generator=None,
                 block_ids=new_req_data.block_ids,
                 num_computed_tokens=new_req_data.num_computed_tokens,
@@ -149,42 +149,10 @@ class PersistentBatchManager:
 
             # Only relevant for models using M-RoPE (e.g, Qwen2-VL)
             if self.uses_mrope:
-                image_grid_thw = []
-                video_grid_thw = []
-                second_per_grid_ts = []
-                audio_feature_lengths = []
-                use_audio_in_video = False
-                for mm_feature in self.requests[req_id].mm_features:
-                    item = mm_feature.data
-                    if item is None:
-                        continue
-                    mm_input = item.get_data()
-                    if mm_input.get("image_grid_thw") is not None:
-                        image_grid_thw.append(
-                            mm_input["image_grid_thw"].tolist())
-                    if mm_input.get("video_grid_thw") is not None:
-                        video_grid_thw.append(
-                            mm_input["video_grid_thw"].tolist())
-                    if mm_input.get("second_per_grid_ts") is not None:
-                        second_per_grid_ts.append(
-                            mm_input["second_per_grid_ts"])
-                    if mm_input.get("audio_feature_lengths") is not None:
-                        audio_feature_lengths.append(
-                            mm_input["audio_feature_lengths"])
-                    if mm_input.get("use_audio_in_video") is True:
-                        use_audio_in_video = True
-
-                hf_config = self.model_config.hf_config
-
                 self.requests[req_id].mrope_positions, self.requests[
                     req_id].mrope_position_delta = get_mrope_input_positions_fn(
                         self.requests[req_id].prompt_token_ids,
-                        hf_config=hf_config,
-                        image_grid_thw=image_grid_thw,
-                        video_grid_thw=video_grid_thw,
-                        second_per_grid_ts=second_per_grid_ts,
-                        audio_feature_lengths=audio_feature_lengths,
-                        use_audio_in_video=use_audio_in_video,
+                        self.requests[req_id].mm_features,
                     )
 
         # Update the states of the running/resumed requests.
@@ -193,7 +161,7 @@ class PersistentBatchManager:
             req_state = self.requests[req_id]
             num_computed_tokens = req_data.num_computed_tokens[i]
             new_block_ids = req_data.new_block_ids[i]
-            resumed_from_preemption = req_data.resumed_from_preemption[i]
+            resumed_from_preemption = req_id in req_data.resumed_req_ids
             num_output_tokens = req_data.num_output_tokens[i]
 
             # Update the cached states.

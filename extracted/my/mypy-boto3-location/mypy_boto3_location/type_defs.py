@@ -3,7 +3,7 @@ Type annotations for location service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_location/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -29,6 +29,8 @@ from .literals import (
     DistanceUnitType,
     ForecastedGeofenceEventTypeType,
     IntendedUseType,
+    JobErrorCodeType,
+    JobStatusType,
     OptimizationModeType,
     PositionFilteringType,
     PricingPlanType,
@@ -36,13 +38,14 @@ from .literals import (
     SpeedUnitType,
     StatusType,
     TravelModeType,
+    ValidateAddressAdditionalFeatureType,
     VehicleWeightUnitType,
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 
 __all__ = (
@@ -83,6 +86,8 @@ __all__ = (
     "CalculateRouteResponseTypeDef",
     "CalculateRouteSummaryTypeDef",
     "CalculateRouteTruckModeOptionsTypeDef",
+    "CancelJobRequestTypeDef",
+    "CancelJobResponseTypeDef",
     "CellSignalsTypeDef",
     "CircleOutputTypeDef",
     "CircleTypeDef",
@@ -137,6 +142,9 @@ __all__ = (
     "GetDevicePositionResponseTypeDef",
     "GetGeofenceRequestTypeDef",
     "GetGeofenceResponseTypeDef",
+    "GetJobRequestTypeDef",
+    "GetJobRequestWaitTypeDef",
+    "GetJobResponseTypeDef",
     "GetMapGlyphsRequestTypeDef",
     "GetMapGlyphsResponseTypeDef",
     "GetMapSpritesRequestTypeDef",
@@ -148,6 +156,13 @@ __all__ = (
     "GetPlaceRequestTypeDef",
     "GetPlaceResponseTypeDef",
     "InferredStateTypeDef",
+    "JobActionOptionsOutputTypeDef",
+    "JobActionOptionsTypeDef",
+    "JobActionOptionsUnionTypeDef",
+    "JobErrorTypeDef",
+    "JobInputOptionsTypeDef",
+    "JobOutputOptionsTypeDef",
+    "JobsFilterTypeDef",
     "LegGeometryTypeDef",
     "LegTypeDef",
     "ListDevicePositionsRequestPaginateTypeDef",
@@ -162,6 +177,10 @@ __all__ = (
     "ListGeofencesRequestPaginateTypeDef",
     "ListGeofencesRequestTypeDef",
     "ListGeofencesResponseTypeDef",
+    "ListJobsRequestPaginateTypeDef",
+    "ListJobsRequestTypeDef",
+    "ListJobsResponseEntryTypeDef",
+    "ListJobsResponseTypeDef",
     "ListKeysRequestPaginateTypeDef",
     "ListKeysRequestTypeDef",
     "ListKeysResponseEntryTypeDef",
@@ -215,6 +234,8 @@ __all__ = (
     "SearchPlaceIndexForTextRequestTypeDef",
     "SearchPlaceIndexForTextResponseTypeDef",
     "SearchPlaceIndexForTextSummaryTypeDef",
+    "StartJobRequestTypeDef",
+    "StartJobResponseTypeDef",
     "StepTypeDef",
     "TagResourceRequestTypeDef",
     "TimeZoneTypeDef",
@@ -235,8 +256,11 @@ __all__ = (
     "UpdateRouteCalculatorResponseTypeDef",
     "UpdateTrackerRequestTypeDef",
     "UpdateTrackerResponseTypeDef",
+    "ValidateAddressActionOptionsOutputTypeDef",
+    "ValidateAddressActionOptionsTypeDef",
     "VerifyDevicePositionRequestTypeDef",
     "VerifyDevicePositionResponseTypeDef",
+    "WaiterConfigTypeDef",
     "WiFiAccessPointTypeDef",
 )
 
@@ -329,6 +353,10 @@ class TruckDimensionsTypeDef(TypedDict):
 class TruckWeightTypeDef(TypedDict):
     Total: NotRequired[float]
     Unit: NotRequired[VehicleWeightUnitType]
+
+
+class CancelJobRequestTypeDef(TypedDict):
+    JobId: str
 
 
 class CircleOutputTypeDef(TypedDict):
@@ -474,6 +502,30 @@ class GetGeofenceRequestTypeDef(TypedDict):
     GeofenceId: str
 
 
+class GetJobRequestTypeDef(TypedDict):
+    JobId: str
+
+
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
+
+
+class JobErrorTypeDef(TypedDict):
+    Code: JobErrorCodeType
+    Messages: NotRequired[list[str]]
+
+
+class JobInputOptionsTypeDef(TypedDict):
+    Location: str
+    Format: Literal["Parquet"]
+
+
+class JobOutputOptionsTypeDef(TypedDict):
+    Format: Literal["Parquet"]
+    Location: str
+
+
 class GetMapGlyphsRequestTypeDef(TypedDict):
     MapName: str
     FontStack: str
@@ -505,6 +557,18 @@ class GetPlaceRequestTypeDef(TypedDict):
     PlaceId: str
     Language: NotRequired[str]
     Key: NotRequired[str]
+
+
+class ValidateAddressActionOptionsOutputTypeDef(TypedDict):
+    AdditionalFeatures: NotRequired[list[ValidateAddressAdditionalFeatureType]]
+
+
+class ValidateAddressActionOptionsTypeDef(TypedDict):
+    AdditionalFeatures: NotRequired[Sequence[ValidateAddressAdditionalFeatureType]]
+
+
+class JobsFilterTypeDef(TypedDict):
+    JobStatus: NotRequired[JobStatusType]
 
 
 class LegGeometryTypeDef(TypedDict):
@@ -817,6 +881,13 @@ class BatchUpdateDevicePositionErrorTypeDef(TypedDict):
     Error: BatchItemErrorTypeDef
 
 
+class CancelJobResponseTypeDef(TypedDict):
+    JobArn: str
+    JobId: str
+    Status: JobStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateGeofenceCollectionResponseTypeDef(TypedDict):
     CollectionName: str
     CollectionArn: str
@@ -945,6 +1016,14 @@ class PutGeofenceResponseTypeDef(TypedDict):
     GeofenceId: str
     CreateTime: datetime
     UpdateTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartJobResponseTypeDef(TypedDict):
+    CreatedAt: datetime
+    JobArn: str
+    JobId: str
+    Status: JobStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1167,6 +1246,30 @@ class ForecastGeofenceEventsResponseTypeDef(TypedDict):
     DistanceUnit: DistanceUnitType
     SpeedUnit: SpeedUnitType
     ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class GetJobRequestWaitTypeDef(TypedDict):
+    JobId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class JobActionOptionsOutputTypeDef(TypedDict):
+    ValidateAddress: NotRequired[ValidateAddressActionOptionsOutputTypeDef]
+
+
+class JobActionOptionsTypeDef(TypedDict):
+    ValidateAddress: NotRequired[ValidateAddressActionOptionsTypeDef]
+
+
+class ListJobsRequestPaginateTypeDef(TypedDict):
+    Filter: NotRequired[JobsFilterTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListJobsRequestTypeDef(TypedDict):
+    Filter: NotRequired[JobsFilterTypeDef]
+    MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
 
@@ -1421,6 +1524,43 @@ class ListDevicePositionsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class GetJobResponseTypeDef(TypedDict):
+    Action: Literal["ValidateAddress"]
+    ActionOptions: JobActionOptionsOutputTypeDef
+    CreatedAt: datetime
+    EndedAt: datetime
+    Error: JobErrorTypeDef
+    ExecutionRoleArn: str
+    InputOptions: JobInputOptionsTypeDef
+    JobArn: str
+    JobId: str
+    Name: str
+    OutputOptions: JobOutputOptionsTypeDef
+    Status: JobStatusType
+    UpdatedAt: datetime
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListJobsResponseEntryTypeDef(TypedDict):
+    Action: Literal["ValidateAddress"]
+    CreatedAt: datetime
+    ExecutionRoleArn: str
+    InputOptions: JobInputOptionsTypeDef
+    JobId: str
+    JobArn: str
+    OutputOptions: JobOutputOptionsTypeDef
+    Status: JobStatusType
+    UpdatedAt: datetime
+    ActionOptions: NotRequired[JobActionOptionsOutputTypeDef]
+    EndedAt: NotRequired[datetime]
+    Error: NotRequired[JobErrorTypeDef]
+    Name: NotRequired[str]
+
+
+JobActionOptionsUnionTypeDef = Union[JobActionOptionsTypeDef, JobActionOptionsOutputTypeDef]
+
+
 class CalculateRouteResponseTypeDef(TypedDict):
     Legs: list[LegTypeDef]
     Summary: CalculateRouteSummaryTypeDef
@@ -1496,6 +1636,23 @@ class ListGeofencesResponseTypeDef(TypedDict):
 
 
 GeofenceGeometryUnionTypeDef = Union[GeofenceGeometryTypeDef, GeofenceGeometryOutputTypeDef]
+
+
+class ListJobsResponseTypeDef(TypedDict):
+    Entries: list[ListJobsResponseEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class StartJobRequestTypeDef(TypedDict):
+    Action: Literal["ValidateAddress"]
+    ExecutionRoleArn: str
+    InputOptions: JobInputOptionsTypeDef
+    OutputOptions: JobOutputOptionsTypeDef
+    ClientToken: NotRequired[str]
+    ActionOptions: NotRequired[JobActionOptionsUnionTypeDef]
+    Name: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
 
 
 class DeviceStateTypeDef(TypedDict):

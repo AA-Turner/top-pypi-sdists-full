@@ -24,7 +24,6 @@ from sqlglot.dialects.dialect import (
     getbit_sql,
     groupconcat_sql,
     inline_array_unless_query,
-    jarowinkler_similarity,
     months_between_sql,
     no_datetime_sql,
     no_comment_column_constraint_sql,
@@ -1537,7 +1536,6 @@ class DuckDBGenerator(generator.Generator):
         exp.BitwiseOrAgg: _bitwise_agg_sql,
         exp.BitwiseRightShift: _bitshift_sql,
         exp.BitwiseXorAgg: _bitwise_agg_sql,
-        exp.ByteLength: lambda self, e: self.func("OCTET_LENGTH", e.this),
         exp.CommentColumnConstraint: no_comment_column_constraint_sql,
         exp.Corr: lambda self, e: self._corr_sql(e),
         exp.CosineDistance: rename_func("LIST_COSINE_DISTANCE"),
@@ -1609,7 +1607,6 @@ class DuckDBGenerator(generator.Generator):
         ),
         exp.Ceil: _ceil_floor,
         exp.Floor: _ceil_floor,
-        exp.JarowinklerSimilarity: jarowinkler_similarity("JARO_WINKLER_SIMILARITY"),
         exp.JSONBExists: rename_func("JSON_EXISTS"),
         exp.JSONExtract: _arrow_json_extract_sql,
         exp.JSONExtractArray: _json_extract_value_array_sql,
@@ -2259,6 +2256,47 @@ class DuckDBGenerator(generator.Generator):
         self.unsupported("DuckDB does not support the COMPRESS() function")
         return self.function_fallback_sql(expression)
 
+    def encrypt_sql(self, expression: exp.Encrypt) -> str:
+        self.unsupported("ENCRYPT is not supported in DuckDB")
+        return self.function_fallback_sql(expression)
+
+    def decrypt_sql(self, expression: exp.Decrypt) -> str:
+        func_name = "TRY_DECRYPT" if expression.args.get("safe") else "DECRYPT"
+        self.unsupported(f"{func_name} is not supported in DuckDB")
+        return self.function_fallback_sql(expression)
+
+    def decryptraw_sql(self, expression: exp.DecryptRaw) -> str:
+        func_name = "TRY_DECRYPT_RAW" if expression.args.get("safe") else "DECRYPT_RAW"
+        self.unsupported(f"{func_name} is not supported in DuckDB")
+        return self.function_fallback_sql(expression)
+
+    def encryptraw_sql(self, expression: exp.EncryptRaw) -> str:
+        self.unsupported("ENCRYPT_RAW is not supported in DuckDB")
+        return self.function_fallback_sql(expression)
+
+    def parseurl_sql(self, expression: exp.ParseUrl) -> str:
+        self.unsupported("PARSE_URL is not supported in DuckDB")
+        return self.function_fallback_sql(expression)
+
+    def parseip_sql(self, expression: exp.ParseIp) -> str:
+        self.unsupported("PARSE_IP is not supported in DuckDB")
+        return self.function_fallback_sql(expression)
+
+    def jarowinklersimilarity_sql(self, expression: exp.JarowinklerSimilarity) -> str:
+        this = expression.this
+        expr = expression.expression
+
+        if expression.args.get("case_insensitive"):
+            this = exp.Upper(this=this)
+            expr = exp.Upper(this=expr)
+
+        result = exp.func("JARO_WINKLER_SIMILARITY", this, expr)
+
+        if expression.args.get("integer_scale"):
+            result = exp.cast(result * 100, "INTEGER")
+
+        return self.sql(result)
+
     def nthvalue_sql(self, expression: exp.NthValue) -> str:
         from_first = expression.args.get("from_first", True)
         if not from_first:
@@ -2292,6 +2330,17 @@ class DuckDBGenerator(generator.Generator):
 
         replacements = {"seed": seed_value, "length": length}
         return f"({self.sql(exp.replace_placeholders(self.RANDSTR_TEMPLATE, **replacements))})"
+
+    @unsupported_args("finish")
+    def reduce_sql(self, expression: exp.Reduce) -> str:
+        array_arg = expression.this
+        initial_value = expression.args.get("initial")
+        merge_lambda = expression.args.get("merge")
+
+        if merge_lambda:
+            merge_lambda.set("colon", True)
+
+        return self.func("list_reduce", array_arg, merge_lambda, initial_value)
 
     def zipf_sql(self, expression: exp.Zipf) -> str:
         """
@@ -2431,6 +2480,10 @@ class DuckDBGenerator(generator.Generator):
         from_ = f" FROM {from_}" if from_ else ""
         return f"SHOW {expression.name}{from_}"
 
+    def soundex_sql(self, expression: exp.Soundex) -> str:
+        self.unsupported("SOUNDEX is not supported in DuckDB")
+        return self.func("SOUNDEX", expression.this)
+
     def sortarray_sql(self, expression: exp.SortArray) -> str:
         arr = expression.this
         asc = expression.args.get("asc")
@@ -2503,6 +2556,20 @@ class DuckDBGenerator(generator.Generator):
             )
 
         return strposition_sql(self, expression)
+
+    def substring_sql(self, expression: exp.Substring) -> str:
+        if expression.args.get("zero_start"):
+            start = expression.args.get("start")
+            length = expression.args.get("length")
+
+            if start := expression.args.get("start"):
+                start = exp.If(this=start.eq(0), true=exp.Literal.number(1), false=start)
+            if length := expression.args.get("length"):
+                length = exp.If(this=length < 0, true=exp.Literal.number(0), false=length)
+
+            return self.func("SUBSTRING", expression.this, start, length)
+
+        return self.function_fallback_sql(expression)
 
     def strtotime_sql(self, expression: exp.StrToTime) -> str:
         # Check if target_type requires TIMESTAMPTZ (for LTZ/TZ variants)
@@ -3229,6 +3296,10 @@ class DuckDBGenerator(generator.Generator):
             )
         )
 
+    def arrayunionagg_sql(self, expression: exp.ArrayUnionAgg) -> str:
+        self.unsupported("ARRAY_UNION_AGG is not supported in DuckDB")
+        return self.function_fallback_sql(expression)
+
     def arraydistinct_sql(self, expression: exp.ArrayDistinct) -> str:
         arr = expression.this
         func = self.func("LIST_DISTINCT", arr)
@@ -3396,6 +3467,44 @@ class DuckDBGenerator(generator.Generator):
     def rtrimmedlength_sql(self, expression: exp.RtrimmedLength) -> str:
         return self.func("LENGTH", exp.Trim(this=expression.this, position="TRAILING"))
 
+    def stuff_sql(self, expression: exp.Stuff) -> str:
+        base = expression.this
+        start = expression.args["start"]
+        length = expression.args["length"]
+        insertion = expression.expression
+        is_binary = _is_binary(base)
+
+        if is_binary:
+            # DuckDB's SUBSTRING doesn't accept BLOB; operate on the HEX string instead
+            # (each byte = 2 hex chars), then UNHEX back to BLOB
+            base = exp.Hex(this=base)
+            insertion = exp.Hex(this=insertion)
+            left = exp.Substring(
+                this=base.copy(),
+                start=exp.Literal.number(1),
+                length=(start.copy() - exp.Literal.number(1)) * exp.Literal.number(2),
+            )
+            right = exp.Substring(
+                this=base.copy(),
+                start=((start + length) - exp.Literal.number(1)) * exp.Literal.number(2)
+                + exp.Literal.number(1),
+            )
+        else:
+            left = exp.Substring(
+                this=base.copy(),
+                start=exp.Literal.number(1),
+                length=start.copy() - exp.Literal.number(1),
+            )
+            right = exp.Substring(this=base.copy(), start=start + length)
+        result: exp.Expr = exp.DPipe(
+            this=exp.DPipe(this=left, expression=insertion), expression=right
+        )
+
+        if is_binary:
+            result = exp.Unhex(this=result)
+
+        return self.sql(result)
+
     def rand_sql(self, expression: exp.Rand) -> str:
         seed = expression.this
         if seed is not None:
@@ -3415,6 +3524,16 @@ class DuckDBGenerator(generator.Generator):
 
         # Default DuckDB behavior - just return RANDOM() as float
         return "RANDOM()"
+
+    def bytelength_sql(self, expression: exp.ByteLength) -> str:
+        arg = expression.this
+
+        # Check if it's a text type (handles both literals and annotated expressions)
+        if arg.is_type(*exp.DataType.TEXT_TYPES):
+            return self.func("OCTET_LENGTH", exp.Encode(this=arg))
+
+        # Default: pass through as-is (conservative for DuckDB, handles binary and unannotated)
+        return self.func("OCTET_LENGTH", arg)
 
     def base64encode_sql(self, expression: exp.Base64Encode) -> str:
         # DuckDB TO_BASE64 requires BLOB input

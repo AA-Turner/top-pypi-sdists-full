@@ -1,14 +1,19 @@
+use crate::anthropic::common::{ToolUseBlock, Usage};
 use crate::anthropic::request::PostMessagesRequest;
-use crate::anthropic::response::{self, MessageResponse};
+use crate::anthropic::response::{self, MessageResponse, ResponseContentBlock};
+use crate::anthropic::stream::{ContentDelta, StreamContentBlock, StreamEvent};
 use crate::bedrock::{
-    is_bedrock_endpoint, is_bedrock_path, parse_bedrock_event_stream, update_bedrock_signature,
+    drain_bedrock_events, is_bedrock_endpoint, is_bedrock_path, parse_bedrock_event_stream,
+    update_bedrock_signature,
 };
 use crate::spans::utils::{
-    bytes_to_uuid_like_string, decompress_if_gzip, parse_span_id, parse_sse_events, parse_trace_id,
+    bytes_to_uuid_like_string, decompress_if_gzip, drain_sse_events, parse_span_id,
+    parse_sse_events, parse_trace_id,
 };
 use crate::spans::{
     CompletedSpawningToolSpan, CompletedToolSpan, NestedContext, RegistrationContext,
-    ResponseFailure, ResponseInfo, SpanProcessor, build_tool_span_request, create_span_request,
+    ResponseFailure, ResponseInfo, SpanProcessor, SpawningToolType, build_tool_span_request,
+    create_span_request,
 };
 use crate::state::{CurrentTraceAndLaminarContext, SharedState};
 
@@ -21,7 +26,9 @@ use hyper::{
 use hyper_rustls::HttpsConnector;
 use hyper_util::client::legacy::{Client, connect::HttpConnector};
 use prost::Message;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     pin::Pin,
     sync::Arc,
@@ -131,7 +138,39 @@ async fn send_tool_span<T: Into<crate::spans::ToolSpanData>>(
     send_trace_to_lmnr(export_request, client, project_api_key, laminar_url).await
 }
 
-struct SpanCapturingStream<S> {
+struct PartialToolUseBlock {
+    id: String,
+    name: String,
+    input_json: String,
+}
+
+struct MidStreamParseState {
+    sse_buffer: String,
+    bedrock_buffer: Vec<u8>,
+    in_progress_blocks: HashMap<u32, PartialToolUseBlock>,
+    already_registered: HashSet<String>,
+    /// Maps tool_use_id → unix_nano when ContentBlockStop arrived.
+    /// Used to give each tool span an accurate start time rather than the
+    /// whole-stream end time.
+    tool_call_start_times: HashMap<String, u64>,
+}
+
+impl MidStreamParseState {
+    fn new() -> Self {
+        Self {
+            sse_buffer: String::new(),
+            bedrock_buffer: Vec::new(),
+            in_progress_blocks: HashMap::new(),
+            already_registered: HashSet::new(),
+            tool_call_start_times: HashMap::new(),
+        }
+    }
+}
+
+struct SpanCapturingStream<S>
+where
+    S: Stream<Item = Result<Bytes, hyper::Error>>,
+{
     inner: S,
     accumulated: Arc<Mutex<Vec<Bytes>>>,
     request_body: String,
@@ -144,6 +183,9 @@ struct SpanCapturingStream<S> {
     nested_context: Option<NestedContext>,
     has_gzip_content_encoding: bool,
     response_status: StatusCode,
+    span_created: Arc<AtomicBool>,
+    mid_stream_state: MidStreamParseState,
+    is_bedrock_stream: bool,
 }
 
 impl<S> Stream for SpanCapturingStream<S>
@@ -155,23 +197,34 @@ where
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match Pin::new(&mut self.inner).poll_next(cx) {
             Poll::Ready(Some(Ok(bytes))) => {
-                // Push directly to accumulated using synchronous mutex
-                // This ensures all bytes are captured before stream ends
                 if let Ok(mut accumulated) = self.accumulated.lock() {
                     accumulated.push(bytes.clone());
+                }
+                if self.is_bedrock_stream {
+                    self.mid_stream_state
+                        .bedrock_buffer
+                        .extend_from_slice(&bytes);
+                    self.try_register_completed_tool_use_blocks();
+                } else if !self.has_gzip_content_encoding {
+                    if let Ok(text) = std::str::from_utf8(&bytes) {
+                        self.mid_stream_state.sse_buffer.push_str(text);
+                    }
+                    self.try_register_completed_tool_use_blocks();
                 }
                 Poll::Ready(Some(Ok(bytes)))
             }
             Poll::Ready(None) => {
-                // Stream ended successfully - create span
-                if should_create_span(&self.uri_path) {
+                if should_create_span(&self.uri_path)
+                    && !self.span_created.swap(true, Ordering::SeqCst)
+                {
                     self.create_span_in_background();
                 }
                 Poll::Ready(None)
             }
             Poll::Ready(Some(Err(e))) => {
-                // Stream ended with error - still try to create span with partial data
-                if should_create_span(&self.uri_path) {
+                if should_create_span(&self.uri_path)
+                    && !self.span_created.swap(true, Ordering::SeqCst)
+                {
                     self.create_span_in_background();
                 }
                 Poll::Ready(Some(Err(e)))
@@ -181,10 +234,142 @@ where
     }
 }
 
+impl<S> Drop for SpanCapturingStream<S>
+where
+    S: Stream<Item = Result<Bytes, hyper::Error>>,
+{
+    fn drop(&mut self) {
+        if should_create_span(&self.uri_path) && !self.span_created.swap(true, Ordering::SeqCst) {
+            self.create_span_in_background();
+        }
+    }
+}
+
+fn build_synthetic_response(id: String, name: String, input: serde_json::Value) -> MessageResponse {
+    MessageResponse {
+        id: String::new(),
+        response_type: "message".to_string(),
+        role: "assistant".to_string(),
+        content: vec![ResponseContentBlock::ToolUse(ToolUseBlock {
+            id,
+            name,
+            input: serde_json::from_value(input).unwrap_or_default(),
+            caller: None,
+        })],
+        model: String::new(),
+        stop_reason: None,
+        stop_sequence: None,
+        usage: Usage {
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_creation_input_tokens: None,
+            cache_read_input_tokens: None,
+        },
+    }
+}
+
+fn process_stream_event(
+    event: StreamEvent,
+    state: &mut MidStreamParseState,
+    span_processor: &SpanProcessor,
+    trace: &Option<CurrentTraceAndLaminarContext>,
+    nested_context: &Option<NestedContext>,
+) {
+    match event {
+        StreamEvent::ContentBlockStart {
+            index,
+            content_block: StreamContentBlock::ToolUse { id, name },
+        } => {
+            state.in_progress_blocks.insert(
+                index,
+                PartialToolUseBlock {
+                    id,
+                    name,
+                    input_json: String::new(),
+                },
+            );
+        }
+        StreamEvent::ContentBlockDelta {
+            index,
+            delta: ContentDelta::InputJsonDelta { partial_json },
+        } => {
+            if let Some(block) = state.in_progress_blocks.get_mut(&index) {
+                block.input_json.push_str(&partial_json);
+            }
+        }
+        StreamEvent::ContentBlockStop { index } => {
+            let block = match state.in_progress_blocks.remove(&index) {
+                Some(b) => b,
+                None => return,
+            };
+            let stop_time = get_unix_nano();
+            // Record stop time for all ToolUse blocks so register_tool_calls can use it.
+            // Add 1ms so tool spans start just after the LLM block that generated them.
+            state
+                .tool_call_start_times
+                .insert(block.id.clone(), stop_time + 1_000_000);
+
+            if !SpawningToolType::is_spawning_tool(&block.name) {
+                return;
+            }
+            let trace_ctx = match trace {
+                Some(ctx) => ctx,
+                None => return,
+            };
+            let (trace_id_bytes, span_id_bytes) = match (
+                parse_trace_id(&trace_ctx.trace_id),
+                parse_span_id(&trace_ctx.span_id),
+            ) {
+                (Ok(t), Ok(s)) => (t, s),
+                _ => return,
+            };
+            let input =
+                serde_json::from_str(&block.input_json).unwrap_or_else(|_| serde_json::json!({}));
+            let synthetic = build_synthetic_response(block.id.clone(), block.name, input);
+            let reg_ctx = RegistrationContext::new(
+                trace_id_bytes,
+                span_id_bytes,
+                trace_ctx.span_ids_path.clone(),
+                trace_ctx.span_path.clone(),
+                stop_time + 1_000_000,
+            );
+            span_processor.register_spawning_tool_calls(
+                &synthetic,
+                nested_context.as_ref(),
+                &reg_ctx,
+            );
+            span_processor.register_spawning_tools_as_pending(
+                &synthetic,
+                nested_context.as_ref(),
+                &reg_ctx,
+            );
+            state.already_registered.insert(block.id);
+        }
+        _ => {}
+    }
+}
+
 impl<S> SpanCapturingStream<S>
 where
-    S: Stream<Item = Result<Bytes, hyper::Error>> + Unpin,
+    S: Stream<Item = Result<Bytes, hyper::Error>>,
 {
+    fn try_register_completed_tool_use_blocks(&mut self) {
+        let events = if self.is_bedrock_stream {
+            drain_bedrock_events(&mut self.mid_stream_state.bedrock_buffer)
+        } else {
+            drain_sse_events(&mut self.mid_stream_state.sse_buffer)
+        };
+        for event in events {
+            process_stream_event(
+                event,
+                &mut self.mid_stream_state,
+                &self.span_processor,
+                &self.trace,
+                &self.nested_context,
+            );
+        }
+    }
+
     fn create_span_in_background(&self) {
         // Capture end time right when stream ends
         let end_time_unix_nano = get_unix_nano();
@@ -198,6 +383,8 @@ where
         let nested_context = self.nested_context.clone();
         let has_gzip_content_encoding = self.has_gzip_content_encoding;
         let uri_path = self.uri_path.clone();
+        let already_registered_mid_stream = self.mid_stream_state.already_registered.clone();
+        let tool_start_times = self.mid_stream_state.tool_call_start_times.clone();
 
         // Extract response body from accumulated chunks synchronously
         // This must be done before spawning to avoid holding MutexGuard across await
@@ -227,8 +414,15 @@ where
         // ============================================================
 
         // Parse the request to check if streaming is enabled
-        let mut parsed_request: Option<PostMessagesRequest> =
-            serde_json::from_str(&request_body).ok();
+        let mut parsed_request: Option<PostMessagesRequest> = serde_json::from_str(&request_body)
+            .map_err(|e| {
+                if std::env::var("LMNR_LOG_LEVEL").is_ok_and(|s| s.trim().to_lowercase() == "debug")
+                {
+                    eprintln!("Failed to parse request body: {:?}", e);
+                }
+                e
+            })
+            .ok();
 
         if let Some(req) = parsed_request.as_mut() {
             if req.model.is_none() && is_bedrock_path(&uri_path) {
@@ -256,11 +450,75 @@ where
                     .unwrap_or(String::from_utf8_lossy(&response_bytes).to_string());
             if req.stream {
                 let events = parse_sse_events(&response_str);
-                MessageResponse::try_from_stream_events(events).ok()
+                MessageResponse::try_from_stream_events(events)
+                    .map_err(|e| {
+                        if std::env::var("LMNR_LOG_LEVEL")
+                            .is_ok_and(|s| s.trim().to_lowercase() == "debug")
+                        {
+                            eprintln!("Failed to parse response body after stream: {:?}", e);
+                        }
+                        e
+                    })
+                    .ok()
             } else {
-                serde_json::from_str(&response_str).ok()
+                serde_json::from_str(&response_str)
+                    .map_err(|e| {
+                        if std::env::var("LMNR_LOG_LEVEL")
+                            .is_ok_and(|s| s.trim().to_lowercase() == "debug")
+                        {
+                            eprintln!("Failed to parse response body (non-streaming): {:?}", e);
+                        }
+                        e
+                    })
+                    .ok()
             }
         });
+
+        // Build a filtered response that excludes spawning tools already registered mid-stream
+        let filtered_for_spawning = parsed_response.as_ref().map(|resp| {
+            if already_registered_mid_stream.is_empty() {
+                resp.clone()
+            } else {
+                let mut r = resp.clone();
+                r.content.retain(|block| match block {
+                    ResponseContentBlock::ToolUse(ToolUseBlock { id, .. }) => {
+                        !already_registered_mid_stream.contains(id)
+                    }
+                    _ => true,
+                });
+                r
+            }
+        });
+
+        // Count total tool calls to decide start-time strategy.
+        // Single tool → start at LLM_end + 1ms (uniform, clean).
+        // Multiple parallel tools → start at each tool's ContentBlockStop + 1ms (from mid-stream).
+        let tool_count = parsed_response
+            .as_ref()
+            .map(|r| {
+                r.content
+                    .iter()
+                    .filter(|b| {
+                        matches!(
+                            b,
+                            ResponseContentBlock::ToolUse(_)
+                                | ResponseContentBlock::ServerToolUse(_)
+                        )
+                    })
+                    .count()
+            })
+            .unwrap_or(0);
+
+        let effective_tool_start_times: HashMap<String, u64> = if tool_count <= 1 {
+            // Single tool: patch any spawning tool registered mid-stream so it gets
+            // LLM_end + 1ms rather than ContentBlockStop + 1ms.
+            for id in &already_registered_mid_stream {
+                span_processor.patch_spawning_tool_start_time(id, end_time_unix_nano + 1_000_000);
+            }
+            HashMap::new() // fall back to tool_reg_ctx.start_time_unix_nano
+        } else {
+            tool_start_times // per-tool ContentBlockStop + 1ms times
+        };
 
         // If response contains tool calls, register them with the processor SYNCHRONOUSLY
         let server_tool_spans: Vec<CompletedToolSpan> =
@@ -269,31 +527,49 @@ where
                     parse_trace_id(&trace_ctx.trace_id),
                     parse_span_id(&trace_ctx.span_id),
                 ) {
-                    // Create registration context for this request
+                    // LLM span context (used only for the LLM span itself)
                     let reg_ctx = RegistrationContext::new(
+                        trace_id_bytes.clone(),
+                        span_id_bytes.clone(),
+                        trace_ctx.span_ids_path.clone(),
+                        trace_ctx.span_path.clone(),
+                        end_time_unix_nano,
+                    );
+
+                    // Tool spans start 1ms after the LLM response ends (single-tool fallback).
+                    // For parallel tools, effective_tool_start_times overrides per-tool.
+                    let tool_reg_ctx = RegistrationContext::new(
                         trace_id_bytes,
                         span_id_bytes,
                         trace_ctx.span_ids_path.clone(),
                         trace_ctx.span_path.clone(),
-                        end_time_unix_nano, // Tool starts when response is received
+                        end_time_unix_nano + 1_000_000,
                     );
 
-                    // Register spawning tool calls (Task, WebSearch, Bash) with proper parent context
-                    span_processor.register_spawning_tool_calls(
-                        response,
-                        nested_context.as_ref(),
-                        &reg_ctx,
-                    );
+                    // Register spawning tool calls (Task, WebSearch, Bash) with proper parent context,
+                    // skipping any that were already registered mid-stream to avoid double-registration
+                    if let Some(filtered_resp) = filtered_for_spawning.as_ref() {
+                        span_processor.register_spawning_tool_calls(
+                            filtered_resp,
+                            nested_context.as_ref(),
+                            &tool_reg_ctx,
+                        );
 
-                    // Also register spawning tools as pending tool spans for timing
-                    span_processor.register_spawning_tools_as_pending(
-                        response,
-                        nested_context.as_ref(),
-                        &reg_ctx,
-                    );
+                        // Also register spawning tools as pending tool spans for timing
+                        span_processor.register_spawning_tools_as_pending(
+                            filtered_resp,
+                            nested_context.as_ref(),
+                            &tool_reg_ctx,
+                        );
+                    }
 
                     // Register regular tool calls
-                    span_processor.register_tool_calls(response, nested_context.as_ref(), &reg_ctx);
+                    span_processor.register_tool_calls(
+                        response,
+                        nested_context.as_ref(),
+                        &tool_reg_ctx,
+                        &effective_tool_start_times,
+                    );
 
                     // Extract completed server tool spans (web_search, etc.)
                     span_processor.extract_server_tool_spans(
@@ -784,6 +1060,7 @@ async fn forward_request(
 
     // Wrap the response body in a stream that captures chunks while forwarding them
     let body_stream = body.into_data_stream();
+    let is_bedrock_stream = uri_path.ends_with("/invoke-with-response-stream");
     let capturing_stream = SpanCapturingStream {
         inner: body_stream,
         accumulated: Arc::new(Mutex::new(Vec::new())),
@@ -797,6 +1074,9 @@ async fn forward_request(
         nested_context,
         has_gzip_content_encoding: is_gzip_encoded,
         response_status,
+        span_created: Arc::new(AtomicBool::new(false)),
+        mid_stream_state: MidStreamParseState::new(),
+        is_bedrock_stream,
     };
 
     let streaming_body =

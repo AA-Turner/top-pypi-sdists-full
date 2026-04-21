@@ -1,8 +1,11 @@
 """Tests the xonsh.procs.specs"""
 
+import gc
 import itertools
+import os
 import signal
 import sys
+import warnings
 from subprocess import CalledProcessError, Popen
 
 import pytest
@@ -13,13 +16,15 @@ from xonsh.procs.specs import (
     DecoratorAlias,
     SpecAttrDecoratorAlias,
     SubprocSpec,
+    _has_path_component,
     _run_command_pipeline,
     cmds_to_specs,
     get_script_subproc_command,
     run_subproc,
+    safe_close,
 )
 from xonsh.pytest.tools import ON_WINDOWS, VER_MAJOR_MINOR, skip_if_on_windows
-from xonsh.tools import XonshError
+from xonsh.tools import XonshError, chdir
 
 # TODO: track down which pipeline + spec test is hanging CI
 # Skip entire test file for Linux on Python 3.12
@@ -43,34 +48,40 @@ def test_cmds_to_specs_thread_subproc(xession):
     env = xession.env
     cmds = [["pwd"]]
 
+    def _check_cls(cmds, expected_cls):
+        # `cmds_to_specs` opens pipe wrappers for captured specs that this
+        # test never executes; close them so they don't leak as
+        # `ResourceWarning: unclosed file`.
+        specs = cmds_to_specs(cmds, captured="hiddenobject")
+        try:
+            assert specs[0].cls is expected_cls
+        finally:
+            for s in specs:
+                s.close()
+
     # XONSH_CAPTURE_ALWAYS=False should disable interactive threaded subprocs
     env["XONSH_CAPTURE_ALWAYS"] = False
     env["THREAD_SUBPROCS"] = True
-    specs = cmds_to_specs(cmds, captured="hiddenobject")
-    assert specs[0].cls is Popen
+    _check_cls(cmds, Popen)
 
     # Now for the other situations
     env["XONSH_CAPTURE_ALWAYS"] = True
 
     # First check that threadable subprocs become threadable
     env["THREAD_SUBPROCS"] = True
-    specs = cmds_to_specs(cmds, captured="hiddenobject")
-    assert specs[0].cls is PopenThread
+    _check_cls(cmds, PopenThread)
     # turn off threading and check we use Popen
     env["THREAD_SUBPROCS"] = False
-    specs = cmds_to_specs(cmds, captured="hiddenobject")
-    assert specs[0].cls is Popen
+    _check_cls(cmds, Popen)
 
     # now check the threadbility of callable aliases
     cmds = [[lambda: "Keras Selyrian"]]
     # check that threadable alias become threadable
     env["THREAD_SUBPROCS"] = True
-    specs = cmds_to_specs(cmds, captured="hiddenobject")
-    assert specs[0].cls is ProcProxyThread
+    _check_cls(cmds, ProcProxyThread)
     # turn off threading and check we use ProcProxy
     env["THREAD_SUBPROCS"] = False
-    specs = cmds_to_specs(cmds, captured="hiddenobject")
-    assert specs[0].cls is ProcProxy
+    _check_cls(cmds, ProcProxy)
 
 
 @pytest.mark.parametrize("thread_subprocs", [True, False])
@@ -81,8 +92,59 @@ def test_cmds_to_specs_capture_stdout_not_stderr(thread_subprocs, xonsh_session)
     env["THREAD_SUBPROCS"] = thread_subprocs
 
     specs = cmds_to_specs(cmds, captured="stdout")
-    assert specs[0].stdout is not None
-    assert specs[0].stderr is None
+    try:
+        assert specs[0].stdout is not None
+        assert specs[0].stderr is None
+    finally:
+        # The spec is never executed here; release its pipe wrappers so they
+        # don't surface as `ResourceWarning: unclosed file` at GC time.
+        for s in specs:
+            s.close()
+
+
+@skip_if_on_windows
+@pytest.mark.parametrize("captured", ["stdout", "object", "hiddenobject"])
+def test_subproc_spec_close_releases_pipe_wrappers(captured, xession):
+    """Regression: SubprocSpec.close() must release every pipe wrapper.
+
+    `cmds_to_specs` opens pipe wrappers via `PipeChannel.open_writer/
+    open_reader` (with `closefd=False`) for any captured spec. When the
+    spec is never executed, GC reaping the wrappers triggers
+    `ResourceWarning: unclosed file` (delivered via sys.unraisablehook,
+    invisible to ordinary warning filters). `SubprocSpec.close()` must
+    drop them deterministically.
+    """
+    xession.env["THREAD_SUBPROCS"] = True
+    if captured == "hiddenobject":
+        xession.env["XONSH_CAPTURE_ALWAYS"] = True
+
+    # Reap any garbage left over from earlier tests so its ResourceWarnings
+    # don't leak into our tracking window.
+    gc.collect()
+
+    unraisable = []
+    orig_hook = sys.unraisablehook
+    sys.unraisablehook = lambda args: unraisable.append(args)
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", ResourceWarning)
+
+            specs = cmds_to_specs([["pwd"]], captured=captured)
+            assert specs[0].pipe_channels, "test premise: spec must own pipes"
+            for s in specs:
+                s.close()
+            del specs
+            gc.collect()
+    finally:
+        sys.unraisablehook = orig_hook
+
+    leaks = [
+        u
+        for u in unraisable
+        if isinstance(u.exc_value, ResourceWarning)
+        and "unclosed file" in str(u.exc_value)
+    ]
+    assert not leaks, f"pipe wrappers leaked: {[str(u.exc_value) for u in leaks]}"
 
 
 @skip_if_on_windows
@@ -142,13 +204,8 @@ def test_capture_always(
     # Explicitly captured commands are always captured
     hidden = run_subproc(cmds, "object")  # !()
     hidden.end()
-    if thread_subprocs:
-        assert exp not in capfd.readouterr().out
-        assert hidden.out == exp
-    else:
-        # for some reason THREAD_SUBPROCS=False fails to capture in `!()` but still succeeds in `$()`
-        assert exp in capfd.readouterr().out
-        assert not hidden.out
+    assert exp not in capfd.readouterr().out
+    assert hidden.out == exp
 
     output = run_subproc(cmds, "stdout")  # $()
     assert exp not in capfd.readouterr().out
@@ -184,7 +241,7 @@ def test_callias_captured_redirect(xonsh_session, tmpdir):
 @pytest.mark.flaky(reruns=3, reruns_delay=2)
 def test_interrupted_process_returncode(xonsh_session, captured, interactive):
     xonsh_session.env["XONSH_INTERACTIVE"] = interactive
-    xonsh_session.env["RAISE_SUBPROC_ERROR"] = False
+    xonsh_session.env["XONSH_SUBPROC_CMD_RAISE_ERROR"] = False
     cmd = [cmd_sig("SIGINT")]
     specs = cmds_to_specs(cmd, captured="stdout")
     (p := _run_command_pipeline(specs, cmd)).end()
@@ -194,7 +251,7 @@ def test_interrupted_process_returncode(xonsh_session, captured, interactive):
 @skip_if_on_windows
 @pytest.mark.flaky(reruns=3, reruns_delay=1)
 def test_proc_raise_subproc_error(xonsh_session):
-    xonsh_session.env["RAISE_SUBPROC_ERROR"] = False
+    xonsh_session.env["XONSH_SUBPROC_CMD_RAISE_ERROR"] = False
 
     specs = cmds_to_specs(cmd := [["ls"]], captured="stdout")
     specs[-1].raise_subproc_error = True
@@ -226,7 +283,7 @@ def test_proc_raise_subproc_error(xonsh_session):
         exception = e
     assert isinstance(exception, CalledProcessError)
 
-    xonsh_session.env["RAISE_SUBPROC_ERROR"] = True
+    xonsh_session.env["XONSH_SUBPROC_CMD_RAISE_ERROR"] = True
     specs = cmds_to_specs(cmd := [["ls", "nofile"]], captured="stdout")
     exception = None
     try:
@@ -291,10 +348,51 @@ def test_subproc_output_format(cmds, exp_stream_lines, exp_list_lines, xonsh_ses
         (False, True),
     ],
 )
-def test_run_subproc_background(captured, exp_is_none):
+def test_run_subproc_background(captured, exp_is_none, xonsh_session):
+    # Suppress job notification print from add_job()
+    xonsh_session.env["XONSH_INTERACTIVE"] = False
     cmds = (["echo", "hello"], "&")
     return_val = run_subproc(cmds, captured)
     assert (return_val is None) == exp_is_none
+
+
+@pytest.mark.timeout(15)
+@pytest.mark.parametrize(
+    "wrap_boolop",
+    [False, True],
+    ids=["helper_only", "with_boolop_wrap"],
+)
+def test_subproc_uncaptured_background_does_not_block(wrap_boolop, xonsh_session):
+    # Background jobs must return immediately even when
+    # $XONSH_SUBPROC_RAISE_ERROR=True. The error-check helpers used
+    # to read the blocking `returncode` property on the still-running
+    # pipeline, stalling the shell until the child exited.
+    import time as _time
+
+    from xonsh.built_ins import XSH, subproc_check_boolop, subproc_uncaptured
+
+    xonsh_session.env["XONSH_INTERACTIVE"] = False
+    xonsh_session.env["XONSH_SUBPROC_RAISE_ERROR"] = True
+
+    long_running = [sys.executable, "-c", "import time; time.sleep(30)"]
+    cp = None
+    try:
+        t0 = _time.monotonic()
+        result = subproc_uncaptured(long_running, "&")
+        if wrap_boolop:
+            result = subproc_check_boolop(result)
+        elapsed = _time.monotonic() - t0
+        assert result is None
+        assert elapsed < 5, f"background subproc helper blocked for {elapsed:.1f}s"
+        cp = XSH.lastcmd
+    finally:
+        proc = getattr(cp, "proc", None) if cp is not None else None
+        if proc is not None and proc.poll() is None:
+            proc.kill()
+            try:
+                proc.wait(timeout=5)
+            except Exception:
+                pass
 
 
 def test_spec_decorator_alias_alone(xession):
@@ -395,6 +493,12 @@ def test_callable_alias_cls(thread_subprocs, xession):
     spec = cmds_to_specs(cmds, captured="stdout")[0]
     proc = spec.run()
     assert proc.f == obj
+    if hasattr(proc, "join"):
+        proc.join()
+    safe_close(spec.stdout)
+    safe_close(spec.stderr)
+    safe_close(spec.captured_stdout)
+    safe_close(spec.captured_stderr)
 
 
 def test_specs_resolve_args_list():
@@ -471,6 +575,8 @@ def test_on_command_not_found_replacement(xession):
 
     def replacement_handler(cmd, **kwargs):
         if cmd[0] == "xonshcommandnotfound":
+            if ON_WINDOWS:
+                return ["cmd", "/c", "echo", "replaced"]
             return ["echo", "replaced"]
         return None
 
@@ -537,6 +643,69 @@ def test_on_command_not_found_fallback_on_bad_replacement(xession):
     assert "command not found: 'xonshcommandnotfound'" in str(expected.value)
 
 
+def test_on_command_not_found_dict_replacement_with_env(xession):
+    """Test that returning a dict with cmd and env sets the subprocess environment."""
+    xession.env.update(
+        dict(
+            XONSH_INTERACTIVE=True,
+        )
+    )
+
+    def dict_handler(cmd, **kwargs):
+        if cmd[0] == "xonshcommandnotfound":
+            if ON_WINDOWS:
+                return {
+                    "cmd": ["cmd", "/c", "echo", "%XONSH_TEST_VAR%"],
+                    "env": {"XONSH_TEST_VAR": "hello_from_env"},
+                }
+            return {
+                "cmd": ["sh", "-c", "echo $XONSH_TEST_VAR"],
+                "env": {"XONSH_TEST_VAR": "hello_from_env"},
+            }
+        return None
+
+    xession.builtins.events.on_command_not_found(dict_handler)
+    out = run_subproc([["xonshcommandnotfound"]], captured="stdout")
+    assert "hello_from_env" in out.strip()
+
+
+def test_on_command_not_found_dict_without_env(xession):
+    """Test that returning a dict with only cmd (no env) works."""
+    xession.env.update(
+        dict(
+            XONSH_INTERACTIVE=True,
+        )
+    )
+
+    def dict_no_env_handler(cmd, **kwargs):
+        if cmd[0] == "xonshcommandnotfound":
+            if ON_WINDOWS:
+                return {"cmd": ["cmd", "/c", "echo", "dict_no_env"]}
+            return {"cmd": ["echo", "dict_no_env"]}
+        return None
+
+    xession.builtins.events.on_command_not_found(dict_no_env_handler)
+    out = run_subproc([["xonshcommandnotfound"]], captured="stdout")
+    assert out.strip() == "dict_no_env"
+
+
+def test_on_command_not_found_dict_missing_cmd_ignored(xession):
+    """Test that a dict without 'cmd' key is treated as invalid and ignored."""
+    xession.env.update(
+        dict(
+            XONSH_INTERACTIVE=True,
+        )
+    )
+
+    def bad_dict_handler(cmd, **kwargs):
+        return {"env": {"FOO": "bar"}}  # no 'cmd' key
+
+    xession.builtins.events.on_command_not_found(bad_dict_handler)
+    subproc = SubprocSpec.build(["xonshcommandnotfound"])
+    with pytest.raises(XonshError):
+        subproc.run()
+
+
 def test_redirect_to_substitution(tmpdir):
     file = str(tmpdir / "test_redirect_to_substitution.txt")
     s = SubprocSpec.build(
@@ -544,6 +713,7 @@ def test_redirect_to_substitution(tmpdir):
         ["echo", "hello", (">", [file])]
     )
     assert s.stdout.name == file
+    s.stdout.close()
 
 
 def test_partial_args_from_classmethod(xession):
@@ -676,6 +846,168 @@ def test_alias_return_command_eval_inside(xession):
     assert spec.threadable is True
 
 
+def test_alias_env_overlay(xession):
+    """env overlay shadows global env during alias, global writes persist."""
+    xession.env["GLOBAL"] = "before"
+    alias_env = {}
+    with xession.env.swap(overlay=alias_env):
+        xession.env["GLOBAL"] = "global_write"
+        alias_env["GLOBAL"] = "overlay"
+        assert xession.env["GLOBAL"] == "overlay"
+    assert xession.env["GLOBAL"] == "global_write"
+
+
+def test_return_command_alias_env_kwarg_is_body_only(xession):
+    """The ``env=`` kwarg of a return_command alias is a live overlay
+    active only during the function body. It does NOT become the returned
+    command's env overlay, and it does NOT persist after the alias exits.
+    To set env for the returned command, the alias must use dict-return.
+    """
+    captured = {}
+
+    @xession.aliases.register("rca")
+    @xession.aliases.return_command
+    def _rca(args, env=None):
+        env["BODY_ONLY"] = "yes"
+        # While the body runs, the overlay is active. Read via
+        # ``__getitem__`` / ``__contains__`` — those consult the overlay
+        # stack (and so does the ``detype()`` path used for subprocess env).
+        captured["during"] = xession.env["BODY_ONLY"]
+        captured["in_env"] = "BODY_ONLY" in xession.env
+        captured["detype"] = xession.env.detype().get("BODY_ONLY")
+        xession.env["GLOBAL"] = "321"  # direct write persists after exit
+        return ["echo", "ok"]
+
+    spec = cmds_to_specs([["rca"]], captured="object")[-1]
+    # Overlay was visible to every "normal" read path during the body
+    assert captured["during"] == "yes"
+    assert captured["in_env"] is True
+    assert captured["detype"] == "yes"
+    # Overlay does NOT leak to the returned command's env
+    assert spec.env is None or "BODY_ONLY" not in (spec.env or {})
+    # Overlay does NOT persist in the global env either
+    assert "BODY_ONLY" not in xession.env
+    # A direct write during the body persists normally
+    assert xession.env["GLOBAL"] == "321"
+
+
+def test_return_command_alias_dict_cmd_only(xession):
+    """Dict return with only ``cmd`` is treated like a bare list return."""
+
+    @xession.aliases.register("rcdc")
+    @xession.aliases.return_command
+    def _rcdc(args):
+        return {"cmd": ["echo", "ok"] + args}
+
+    spec = cmds_to_specs([["rcdc", "x"]], captured="object")[-1]
+    assert spec.cmd == ["echo", "ok", "x"]
+    # No env overlay was requested
+    assert spec.env is None or "LOCAL" not in (spec.env or {})
+
+
+def test_return_command_alias_dict_cmd_and_env(xession):
+    """Dict return carries both ``cmd`` and ``env`` overlay in one go."""
+
+    @xession.aliases.register("rcde")
+    @xession.aliases.return_command
+    def _rcde(args):
+        return {"cmd": ["echo", "ok"], "env": {"LOCAL": "123", "FOO": "bar"}}
+
+    spec = cmds_to_specs([["rcde"]], captured="object")[-1]
+    assert spec.cmd == ["echo", "ok"]
+    assert spec.env is not None
+    assert spec.env.get("LOCAL") == "123"
+    assert spec.env.get("FOO") == "bar"
+    # env overlay must not leak into the global env
+    assert "LOCAL" not in xession.env
+    assert "FOO" not in xession.env
+
+
+def test_return_command_alias_dict_env_independent_of_kwarg_env(xession):
+    """Dict-return ``"env"`` and the ``env=`` kwarg are independent: the
+    kwarg env is only a body-scoped overlay, and the dict env is the only
+    source of the returned command's env overlay."""
+
+    @xession.aliases.register("rcme")
+    @xession.aliases.return_command
+    def _rcme(args, env=None):
+        # These only affect the function body, not the returned command.
+        env["BODY_ONLY_A"] = "body_a"
+        env["BODY_ONLY_B"] = "body_b"
+        return {
+            "cmd": ["echo", "ok"],
+            "env": {"RETURNED": "returned_value"},
+        }
+
+    spec = cmds_to_specs([["rcme"]], captured="object")[-1]
+    assert spec.cmd == ["echo", "ok"]
+    assert spec.env is not None
+    # Dict-return env is on the returned command
+    assert spec.env.get("RETURNED") == "returned_value"
+    # Kwarg env does NOT flow through
+    assert "BODY_ONLY_A" not in spec.env
+    assert "BODY_ONLY_B" not in spec.env
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {},  # no "cmd"
+        {"cmd": []},  # empty cmd
+        {"cmd": None},  # missing cmd
+        {"cmd": "echo"},  # cmd not a list
+        {"cmd": ["echo"], "env": "X=1"},  # env not a dict
+        {"cmd": ["echo"], "env": ["X", "1"]},  # env not a dict
+    ],
+)
+def test_return_command_alias_dict_wrong_return(xession, bad):
+    """Malformed dict returns raise ValueError."""
+
+    @xession.aliases.register("rcwr")
+    @xession.aliases.return_command
+    def _rcwr(args):
+        return bad
+
+    with pytest.raises(ValueError):
+        cmds_to_specs([["rcwr"]], captured="object")[-1]
+
+
+def test_return_command_alias_dict_env_through_string_alias_chain(xession):
+    """Chain: a plain string alias points to a return_command alias that
+    dict-returns an env overlay. The overlay must still reach the returned
+    command's spec.env (propagated through eval_alias via env_out).
+
+    Also verifies that the chain's positional args are concatenated with
+    the user's call-site args when both reach the return_command function.
+    """
+    seen_args = []
+
+    @xession.aliases.register("rca")
+    @xession.aliases.return_command
+    def _rca(args):
+        seen_args.append(list(args))
+        return {
+            "cmd": ["echo", "ok"] + args,
+            "env": {"VIA_CHAIN": "yes", "EXTRA": "1"},
+        }
+
+    xession.aliases["hlp"] = "rca X1 X2"
+
+    spec = cmds_to_specs([["hlp", "Y1", "Y2"]], captured="object")[-1]
+
+    # args from the chain ("X1 X2") come first, then args from the user call.
+    assert seen_args == [["X1", "X2", "Y1", "Y2"]]
+    assert spec.cmd == ["echo", "ok", "X1", "X2", "Y1", "Y2"]
+
+    # Dict-return env survived the string-alias chain and lives on spec.env.
+    assert spec.env is not None
+    assert spec.env.get("VIA_CHAIN") == "yes"
+    assert spec.env.get("EXTRA") == "1"
+    # And did not leak into the global env.
+    assert "VIA_CHAIN" not in xession.env
+    assert "EXTRA" not in xession.env
+
+
 def test_auto_cd(xession, tmpdir):
     xession.aliases["cd"] = lambda: "some_cd_alias"
     dir = str(tmpdir)
@@ -715,3 +1047,163 @@ def test_redirect_without_left_part(tmpdir):
     with pytest.raises(XonshError) as expected:
         SubprocSpec.build([(">", file)])
     assert "subprocess mode: command is empty" in str(expected.value)
+
+
+# -- a>p / e>p pipe-redirects ------------------------------------------------
+
+import subprocess as _subprocess  # noqa: E402
+
+from xonsh.procs.specs import _PIPE_ALL, _PIPE_ERR, _redirect_streams  # noqa: E402
+
+
+@pytest.mark.parametrize("op", ["a>p", "all>p"])
+def test_a2p_redirect_streams_returns_sentinel(op):
+    stdin, stdout, stderr = _redirect_streams(op)
+    assert stdin is None
+    assert stdout is _PIPE_ALL
+    assert stderr is _subprocess.STDOUT
+
+
+@pytest.mark.parametrize("op", ["e>p", "err>p", "2>p"])
+def test_e2p_redirect_streams_returns_sentinel(op):
+    stdin, stdout, stderr = _redirect_streams(op)
+    assert stdin is None
+    assert stdout is None
+    assert stderr is _PIPE_ERR
+
+
+@skip_if_on_windows
+def test_a2p_pipes_both_streams_to_next_spec(xession):
+    cmds = [["echo", "hi", ("a>p",)], "|", ["cat"]]
+    specs = cmds_to_specs(cmds, captured="hiddenobject")
+    assert len(specs) == 2
+    # upstream: stdout wired to pipe write fd, stderr merged via STDOUT flag
+    assert isinstance(specs[0].stdout, int)
+    assert specs[0].stderr is _subprocess.STDOUT
+    # downstream: stdin reads from pipe
+    assert isinstance(specs[1].stdin, int)
+    # sentinel was replaced
+    assert specs[0]._stdout is not _PIPE_ALL
+
+
+@skip_if_on_windows
+def test_e2p_without_stdout_redirect_pipes_both_streams(xession):
+    """`cmd e>p | next` — pipe still carries stdout by default, plus stderr."""
+    cmds = [["echo", "hi", ("e>p",)], "|", ["cat"]]
+    specs = cmds_to_specs(cmds, captured="hiddenobject")
+    assert len(specs) == 2
+    assert isinstance(specs[0].stdout, int)
+    assert isinstance(specs[0].stderr, int)
+    assert specs[0].stdout == specs[0].stderr  # same pipe write fd
+    assert isinstance(specs[1].stdin, int)
+    assert specs[0]._stderr is not _PIPE_ERR
+
+
+@skip_if_on_windows
+def test_e2p_with_stdout_redirect_preserves_file(xession, tmpdir):
+    """`cmd o> file e>p | grep` — stdout to file, stderr through pipe."""
+    outfile = str(tmpdir / "out.txt")
+    cmds = [["echo", "hi", ("o>", outfile), ("e>p",)], "|", ["cat"]]
+    specs = cmds_to_specs(cmds, captured="hiddenobject")
+    # stdout is a file object, stderr is the pipe fd
+    assert getattr(specs[0].stdout, "name", None) == outfile
+    assert isinstance(specs[0].stderr, int)
+    specs[0].stdout.close()
+
+
+@pytest.mark.parametrize("op", ["a>p", "e>p"])
+def test_pipe_redirect_without_pipe_errors(xession, op):
+    cmds = [["echo", "hi", (op,)]]
+    with pytest.raises(XonshError, match=r"requires a following pipe"):
+        cmds_to_specs(cmds, captured="hiddenobject")
+
+
+def test_a2p_conflict_with_o_redirect_errors(xession, tmpdir):
+    outfile = str(tmpdir / "conflict.txt")
+    cmds = [["echo", "hi", ("a>p",), ("o>", outfile)], "|", ["cat"]]
+    with pytest.raises(XonshError, match="Multiple redirections for stdout"):
+        cmds_to_specs(cmds, captured="hiddenobject")
+
+
+def test_e2p_conflict_with_e_redirect_errors(xession, tmpdir):
+    errfile = str(tmpdir / "conflict.txt")
+    cmds = [["echo", "hi", ("e>p",), ("e>", errfile)], "|", ["cat"]]
+    with pytest.raises(XonshError, match="Multiple redirections for stderr"):
+        cmds_to_specs(cmds, captured="hiddenobject")
+
+
+def test_resolve_executable_commands_updates_binary_loc(tmpdir, xession):
+    """After resolve_executable_commands wraps a script with an interpreter,
+    binary_loc must point to the interpreter, not the script.
+    Otherwise _run_binary (PR #4077) would try to launch the script directly
+    via CreateProcess on Windows, causing WinError 193."""
+    script = tmpdir / "test_script.xsh"
+    script.write_text("echo hello", encoding="utf-8")
+    if not ON_WINDOWS:
+        script.chmod(0o755)
+    spec = SubprocSpec.build([str(script)])
+    # The command should be wrapped with an interpreter (python -m xonsh.main
+    # on Windows, or xonsh on POSIX)
+    assert spec.cmd[0] != str(script), "script should be wrapped with interpreter"
+    # binary_loc must match the interpreter, not the original script
+    if spec.binary_loc is not None:
+        assert not spec.binary_loc.endswith(".xsh"), (
+            f"binary_loc should point to interpreter, not script: {spec.binary_loc}"
+        )
+
+
+def test_has_path_component():
+    """_has_path_component correctly distinguishes bare names from paths."""
+    # Bare names — no path component
+    assert not _has_path_component("ls")
+    assert not _has_path_component("ls.exe")
+    assert not _has_path_component("script.xsh")
+    assert not _has_path_component("python")
+
+    # Forward-slash paths (work on all platforms)
+    assert _has_path_component("./script.sh")
+    assert _has_path_component("../script.sh")
+    assert _has_path_component("subdir/script.sh")
+    assert _has_path_component("/usr/bin/ls")
+
+    if ON_WINDOWS:
+        assert _has_path_component(".\\script.exe")
+        assert _has_path_component("..\\script.exe")
+        assert _has_path_component("C:\\Windows\\cmd.exe")
+        assert _has_path_component("subdir\\script.exe")
+
+
+def test_bare_script_in_cwd_not_detected(tmpdir, xession):
+    """Typing a bare script name that exists in CWD should NOT activate
+    script detection.  The user must use an explicit path prefix
+    (e.g. ./script.xsh) to run scripts from the current directory,
+    matching POSIX shell behaviour."""
+    script = tmpdir / "my_script.xsh"
+    script.write_text("echo hello", encoding="utf-8")
+    if not ON_WINDOWS:
+        script.chmod(0o755)
+
+    with chdir(str(tmpdir)):
+        spec = SubprocSpec.build(["my_script.xsh"])
+        # Script detection must NOT wrap the bare name with an interpreter
+        assert spec.cmd[0] == "my_script.xsh", (
+            "bare script name in CWD should not be resolved"
+        )
+        assert spec.binary_loc is None
+
+
+def test_explicit_path_script_in_cwd_detected(tmpdir, xession):
+    """Scripts referenced with an explicit path (./script.xsh) should
+    still be detected and wrapped with an interpreter."""
+    script = tmpdir / "my_script.xsh"
+    script.write_text("echo hello", encoding="utf-8")
+    if not ON_WINDOWS:
+        script.chmod(0o755)
+
+    sep = os.path.sep
+    with chdir(str(tmpdir)):
+        spec = SubprocSpec.build([f".{sep}my_script.xsh"])
+        # Script detection MUST activate for explicit paths
+        assert spec.cmd[0] != f".{sep}my_script.xsh", (
+            "script with explicit path prefix should be wrapped with interpreter"
+        )

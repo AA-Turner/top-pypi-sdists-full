@@ -369,6 +369,34 @@ class AgentTypeEnum(sgqlc.types.Enum):
     __choices__ = ("DATA_STORE_AGENT", "REMOTE_AGENT")
 
 
+class AgenticPlatformScope(sgqlc.types.Enum):
+    """How the agentic platform's monitoring scope is bounded for an
+    account.
+
+    Enumeration Choices:
+
+    * `ACCOUNT`None
+    * `DOMAIN_SCOPED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ACCOUNT", "DOMAIN_SCOPED")
+
+
+class AgenticPlatformStatus(sgqlc.types.Enum):
+    """Derived runtime status of the agentic platform for an account.
+
+    Enumeration Choices:
+
+    * `BUDGET_EXHAUSTED`None
+    * `PAUSED`None
+    * `RUNNING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("BUDGET_EXHAUSTED", "PAUSED", "RUNNING")
+
+
 class AggregateMetricType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -1072,11 +1100,23 @@ class CapabilityMode(sgqlc.types.Enum):
     Enumeration Choices:
 
     * `COLLECT`None
+    * `PUSH`None
     * `REUSE`None
     """
 
     __schema__ = schema
-    __choices__ = ("COLLECT", "REUSE")
+    __choices__ = ("COLLECT", "PUSH", "REUSE")
+
+
+class ClassifiedAssetType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `FIELD`None
+    * `TABLE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("FIELD", "TABLE")
 
 
 class CollectionNodeModelStatus(sgqlc.types.Enum):
@@ -3918,6 +3958,7 @@ class InternalJobType(sgqlc.types.Enum):
 
     * `AGENT_REACHABILITY`None
     * `AGENT_SPANS`None
+    * `CONNECTION_MANIFEST`None
     * `DIRECT_LINEAGE`None
     * `ETL`None
     * `JSON_SCHEMA`None
@@ -3937,6 +3978,7 @@ class InternalJobType(sgqlc.types.Enum):
     __choices__ = (
         "AGENT_REACHABILITY",
         "AGENT_SPANS",
+        "CONNECTION_MANIFEST",
         "DIRECT_LINEAGE",
         "ETL",
         "JSON_SCHEMA",
@@ -4995,6 +5037,31 @@ class PiiFilteringFailModeType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("CLOSE", "OPEN")
+
+
+class PiiMonitorMode(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `ALERT`None
+    * `SCAN`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ALERT", "SCAN")
+
+
+class PiiType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `EMAIL`None
+    * `PHONE`None
+    * `SSN`None
+    * `US_STATE_CODE`None
+    * `US_ZIP_CODE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("EMAIL", "PHONE", "SSN", "US_STATE_CODE", "US_ZIP_CODE")
 
 
 class PlatformAgentType(sgqlc.types.Enum):
@@ -7403,6 +7470,30 @@ class AgentSpanFilterInput(sgqlc.types.Input):
     span_name = sgqlc.types.Field(AgentSpanFieldFilterInput, graphql_name="spanName")
 
 
+class AgenticPlatformConfigInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("is_enabled", "scope", "agentic_scope_uuids", "triage_batch_cadence_minutes")
+    is_enabled = sgqlc.types.Field(Boolean, graphql_name="isEnabled")
+    """Pause or resume the agentic platform for the account. Pass false
+    to pause triage runs, true to resume. Omit to leave unchanged.
+    """
+
+    scope = sgqlc.types.Field(AgenticPlatformScope, graphql_name="scope")
+    """Whether the platform should run across the whole account or a
+    selected subset.
+    """
+
+    agentic_scope_uuids = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="agenticScopeUuids"
+    )
+    """Agentic domain UUIDs to watch when scope is DOMAIN_SCOPED. Ignored
+    for ACCOUNT scope.
+    """
+
+    triage_batch_cadence_minutes = sgqlc.types.Field(Int, graphql_name="triageBatchCadenceMinutes")
+    """How often the triage batch should run, in minutes."""
+
+
 class AggregateInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("by", "time_axis")
@@ -8172,12 +8263,15 @@ class BulkUpdateIncidentsValues(sgqlc.types.Input):
 
 
 class CapabilityConfigInput(sgqlc.types.Input):
-    """Configuration for a single capability in a custom integration.
-    When mode is COLLECT, connectionType, credentialsKey, and
-    deploymentId are required. When mode is REUSE, reuseCapability is
-    required. Omitting this input (null) means "not configured" — push
-    via API is always available, and lineage inference from query logs
-    is automatic.
+    """Configuration for a single capability in a custom integration.  -
+    ``COLLECT``: ``connectionType``, ``credentialsKey``, and
+    ``deploymentId``   are required. - ``REUSE``: ``reuseCapability``
+    is required. - ``PUSH``: on update, transition this capability to
+    push mode (soft-deletes   the existing connection or strips its
+    job types if the connection is   shared). No other fields are
+    used.  Omitting this input (null) means "leave unchanged" on
+    update, or "not configured" on create (push via API is always
+    available, and lineage inference from query logs is automatic).
     """
 
     __schema__ = schema
@@ -8189,8 +8283,8 @@ class CapabilityConfigInput(sgqlc.types.Input):
         "reuse_capability",
     )
     mode = sgqlc.types.Field(sgqlc.types.non_null(CapabilityMode), graphql_name="mode")
-    """How this capability is configured: collect a new connection or
-    reuse an existing one.
+    """How this capability is configured: collect a new connection, reuse
+    an existing one, or push (transition to push mode).
     """
 
     connection_type = sgqlc.types.Field(String, graphql_name="connectionType")
@@ -8234,6 +8328,16 @@ class ClassificationCategoriesInput(sgqlc.types.Input):
     examples = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="examples"
     )
+
+
+class ClassifiedAssetScopeInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("database_name", "schema_name")
+    database_name = sgqlc.types.Field(String, graphql_name="databaseName")
+    """Limit results to this database."""
+
+    schema_name = sgqlc.types.Field(String, graphql_name="schemaName")
+    """Limit results to this schema."""
 
 
 class CollectionBlockInput(sgqlc.types.Input):
@@ -8432,6 +8536,7 @@ class CreateOrUpdatePlatformAgentInput(sgqlc.types.Input):
         "agent_database",
         "agent_schema",
         "connection_uuid",
+        "domain_uuid",
     )
     warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
     """Warehouse UUID"""
@@ -8449,6 +8554,9 @@ class CreateOrUpdatePlatformAgentInput(sgqlc.types.Input):
     """Connection UUID (optional, defaults to the warehouse's SQL query
     connection)
     """
+
+    domain_uuid = sgqlc.types.Field(UUID, graphql_name="domainUuid")
+    """Domain UUID to assign the agent to (optional)"""
 
 
 class CreatedByFilters(sgqlc.types.Input):
@@ -14384,6 +14492,7 @@ class Account(sgqlc.types.Type):
         "use_monitor_domains",
         "enable_exception_management",
         "enable_domain_metrics_digest",
+        "enable_platform_agent_domain_filtering",
         "validate_monitor_domains",
         "custom_dashboard_domain_validation",
         "has_warehouses",
@@ -15000,6 +15109,11 @@ class Account(sgqlc.types.Type):
     """Indicates whether the account has enabled domain metrics digest
     emails
     """
+
+    enable_platform_agent_domain_filtering = sgqlc.types.Field(
+        Boolean, graphql_name="enablePlatformAgentDomainFiltering"
+    )
+    """Indicates whether domain filtering is enabled for platform agents"""
 
     validate_monitor_domains = sgqlc.types.Field(Boolean, graphql_name="validateMonitorDomains")
     """Indicates whether the account is validating monitor domains"""
@@ -16233,6 +16347,64 @@ class AgenticDomainOutput(sgqlc.types.Type):
 
     created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
     """Email of the user who created the domain"""
+
+
+class AgenticPlatformConfigOutput(sgqlc.types.Type):
+    """Per-account configuration and runtime state of the agentic
+    platform.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "is_enabled",
+        "scope",
+        "agentic_scope_uuids",
+        "agentic_scopes",
+        "triage_batch_cadence_minutes",
+        "status",
+        "last_run_at",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Stable identifier for the configuration row."""
+
+    is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
+    """User-controlled pause/unpause toggle for the agentic platform.
+    When false, triage is paused and the runtime status is PAUSED.
+    """
+
+    scope = sgqlc.types.Field(sgqlc.types.non_null(AgenticPlatformScope), graphql_name="scope")
+    """Whether the platform runs across the whole account or a selected
+    set of scopes.
+    """
+
+    agentic_scope_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="agenticScopeUuids",
+    )
+    """Agentic domain UUIDs the platform is currently watching. When
+    scope is ACCOUNT this includes every agentic domain in the
+    account.
+    """
+
+    agentic_scopes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgenticDomainOutput))),
+        graphql_name="agenticScopes",
+    )
+    """Resolved agentic domains for display in the settings UI."""
+
+    triage_batch_cadence_minutes = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="triageBatchCadenceMinutes"
+    )
+    """How often the triage batch runs, in minutes."""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(AgenticPlatformStatus), graphql_name="status")
+    """Current runtime status for the agentic platform."""
+
+    last_run_at = sgqlc.types.Field(DateTime, graphql_name="lastRunAt")
+    """Timestamp of the most recent finding produced for this account, if
+    any.
+    """
 
 
 class AggregatedMetricDataType(sgqlc.types.Type):
@@ -19382,6 +19554,81 @@ class ClassificationCategories(sgqlc.types.Type):
     )
 
 
+class ClassifiedAssetConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("edges", "page_info", "total_count")
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("ClassifiedAssetEdge"))),
+        graphql_name="edges",
+    )
+    """List of classified asset edges."""
+
+    page_info = sgqlc.types.Field(
+        sgqlc.types.non_null("ClassifiedAssetPageInfo"), graphql_name="pageInfo"
+    )
+    """Pagination metadata."""
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+    """Total number of matching assets, regardless of pagination."""
+
+
+class ClassifiedAssetEdge(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("node",)
+    node = sgqlc.types.Field(sgqlc.types.non_null("ClassifiedAssetNode"), graphql_name="node")
+
+
+class ClassifiedAssetNode(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "mcon",
+        "asset_type",
+        "full_table_id",
+        "field_name",
+        "field_type",
+        "property_name",
+        "property_value",
+        "property_source",
+    )
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """Full MCON of the asset."""
+
+    asset_type = sgqlc.types.Field(
+        sgqlc.types.non_null(ClassifiedAssetType), graphql_name="assetType"
+    )
+    """Whether this asset is a table or a field."""
+
+    full_table_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fullTableId")
+    """Fully-qualified table identifier (e.g. database:schema.table)."""
+
+    field_name = sgqlc.types.Field(String, graphql_name="fieldName")
+    """Column name — populated only for FIELD assets."""
+
+    field_type = sgqlc.types.Field(String, graphql_name="fieldType")
+    """Column data type — populated only for FIELD assets when available."""
+
+    property_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="propertyName")
+    """Name of the matched property (e.g.
+    SNOWFLAKE.CORE.SEMANTIC_CATEGORY).
+    """
+
+    property_value = sgqlc.types.Field(String, graphql_name="propertyValue")
+    """Value of the matched property."""
+
+    property_source = sgqlc.types.Field(String, graphql_name="propertySource")
+    """Origin of the property (e.g. snowflake)."""
+
+
+class ClassifiedAssetPageInfo(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("has_next_page", "end_cursor")
+    has_next_page = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasNextPage")
+    """Whether there is another page of results."""
+
+    end_cursor = sgqlc.types.Field(String, graphql_name="endCursor")
+    """Cursor to pass as `after` to fetch the next page."""
+
+
 class CleanupCollectorRecordInAccount(sgqlc.types.Type):
     """Deletes an unassociated collector record in the account. This does
     not delete the CloudFormation stack and will not succeed if the
@@ -19808,6 +20055,18 @@ class ConditionMatches(sgqlc.types.Type):
     rows = sgqlc.types.Field(sgqlc.types.non_null(sgqlc.types.list_of(Int)), graphql_name="rows")
 
     sql = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sql")
+
+
+class ConfigureAgenticPlatform(sgqlc.types.Type):
+    """Upsert the agentic platform configuration for the caller's
+    account.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("config",)
+    config = sgqlc.types.Field(
+        sgqlc.types.non_null(AgenticPlatformConfigOutput), graphql_name="config"
+    )
 
 
 class ConfigureAiAgentPrompt(sgqlc.types.Type):
@@ -21819,6 +22078,21 @@ class CreatePagerDutyServiceIntegration(sgqlc.types.Type):
         "PagerDutyServiceIntegrationOutput", graphql_name="pagerdutyServiceIntegration"
     )
     """The integration that was created"""
+
+
+class CreatePiiMonitor(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("bulk_monitor", "yaml", "warnings")
+    bulk_monitor = sgqlc.types.Field("BulkMonitor", graphql_name="bulkMonitor")
+
+    yaml = sgqlc.types.Field(String, graphql_name="yaml")
+    """MaC YAML representation (dry_run only)"""
+
+    warnings = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="warnings",
+    )
+    """Advisory messages about the monitor configuration"""
 
 
 class CreateServiceNowIncidentForAlert(sgqlc.types.Type):
@@ -25288,6 +25562,21 @@ class DomainAlertCounts(sgqlc.types.Type):
     """Number of incidents"""
 
 
+class DomainMembershipOutput(sgqlc.types.Type):
+    """A single domain an mcon belongs to."""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "name", "tag")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Domain UUID"""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Domain name"""
+
+    tag = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tag")
+    """Domain tag"""
+
+
 class DomainMonitorCounts(sgqlc.types.Type):
     """Monitor counts by type for a domain"""
 
@@ -25426,6 +25715,18 @@ class DomainRestrictionEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class DomainSummaryOutput(sgqlc.types.Type):
+    """Minimal domain summary (uuid + name) for tag-based lookups"""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "name")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Domain UUID"""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Domain name"""
+
+
 class DomainTableCounts(sgqlc.types.Type):
     """Table counts for a domain"""
 
@@ -25439,6 +25740,48 @@ class DomainTableCounts(sgqlc.types.Type):
 
     total = sgqlc.types.Field(Int, graphql_name="total")
     """Total number of tables"""
+
+
+class DomainsByTagMatchOutput(sgqlc.types.Type):
+    """A single (tag, domain) match: a domain that contains at least one
+    table marked with the given tag
+    """
+
+    __schema__ = schema
+    __field_names__ = ("tag", "domain")
+    tag = sgqlc.types.Field(sgqlc.types.non_null("TagKeyValuePairOutput"), graphql_name="tag")
+    """The input tag that matched this domain"""
+
+    domain = sgqlc.types.Field(sgqlc.types.non_null(DomainSummaryOutput), graphql_name="domain")
+    """Domain that contains at least one table marked with the associated
+    tag
+    """
+
+
+class DomainsByTagsOutput(sgqlc.types.Type):
+    """Paginated result of domains grouped by their matching input tag"""
+
+    __schema__ = schema
+    __field_names__ = ("matches", "total_count", "tags_with_no_matches")
+    matches = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DomainsByTagMatchOutput))),
+        graphql_name="matches",
+    )
+    """Current page of (tag, domain) matches, ordered by input tag order
+    then domain name. Use `limit` and `offset` to page through.
+    """
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+    """Total number of (tag, domain) matches across all pages"""
+
+    tags_with_no_matches = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePairOutput"))),
+        graphql_name="tagsWithNoMatches",
+    )
+    """Input tags that did not match any domain. Always returned in full
+    regardless of pagination; empty when every input tag has at least
+    one match.
+    """
 
 
 class DomainsForMconsResponse(sgqlc.types.Type):
@@ -31037,6 +31380,21 @@ class MconCountPair(sgqlc.types.Type):
     )
 
 
+class MconDomainMembershipsOutput(sgqlc.types.Type):
+    """Domains an mcon belongs to, including inherited and tag-based."""
+
+    __schema__ = schema
+    __field_names__ = ("mcon", "domains")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """The mcon"""
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DomainMembershipOutput))),
+        graphql_name="domains",
+    )
+    """Domains the mcon belongs to"""
+
+
 class MconMonitorPair(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("mcon", "monitor_name", "table_tags")
@@ -32633,6 +32991,7 @@ class Mutation(sgqlc.types.Type):
         "test_custom_connector",
         "add_custom_connector",
         "update_custom_connector",
+        "trigger_connection_manifest_job",
         "create_or_update_custom_dashboard",
         "create_or_update_custom_dashboard_from_json",
         "delete_custom_dashboard",
@@ -32954,6 +33313,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_agent_evaluation_monitor",
         "create_or_update_json_schema_monitor",
         "validate_cron",
+        "configure_agentic_platform",
         "submit_finding_feedback",
         "set_event_detector_feedback",
         "set_event_detector_feedback_by_alert",
@@ -33120,6 +33480,7 @@ class Mutation(sgqlc.types.Type):
         "test_athena_credentials_v2",
         "test_glue_credentials_v2",
         "test_dbt_cloud_credentials_v2",
+        "create_pii_monitor",
         "create_or_update_bulk_monitor",
         "delete_bulk_monitor",
         "pause_bulk_monitor",
@@ -33672,16 +34033,20 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `lineage` (`CapabilityConfigInput`): Lineage capability
-      configuration. Null to skip (lineage is still inferred from
-      query logs automatically).
+      configuration (mode: COLLECT, REUSE, or PUSH). Omit to leave
+      unchanged (lineage is still inferred from query logs
+      automatically).
     * `metadata` (`CapabilityConfigInput`): Metadata capability
-      configuration. Null to skip.
+      configuration (mode: COLLECT, REUSE, or PUSH). Omit to leave
+      unchanged.
     * `monitors` (`CapabilityConfigInput`): Monitors capability
-      configuration. Null to skip.
+      configuration (mode: COLLECT, REUSE, or PUSH). Omit to leave
+      unchanged.
     * `name` (`String`): Display name for the integration. Required
       when creating a new integration; optional on update.
     * `query_logs` (`CapabilityConfigInput`): Query logs capability
-      configuration. Null to skip.
+      configuration (mode: COLLECT, REUSE, or PUSH). Omit to leave
+      unchanged.
     * `warehouse_uuid` (`UUID`): UUID of an existing custom-
       integration warehouse to update. When omitted, a new warehouse
       is created.
@@ -33804,6 +34169,28 @@ class Mutation(sgqlc.types.Type):
     * `connection_id` (`UUID!`): UUID of the connection to update.
     * `replace` (`Boolean`): Set true to replace credentials.
       Otherwise merges. (default: `false`)
+    """
+
+    trigger_connection_manifest_job = sgqlc.types.Field(
+        "TriggerConnectionManifestJob",
+        graphql_name="triggerConnectionManifestJob",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="agentUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Trigger a connection-manifest job for an agent.
+
+    Arguments:
+
+    * `agent_uuid` (`UUID!`): UUID of the agent to request manifests
+      from.
     """
 
     create_or_update_custom_dashboard = sgqlc.types.Field(
@@ -47077,6 +47464,30 @@ class Mutation(sgqlc.types.Type):
     * `cron` (`String!`): CRON expression
     """
 
+    configure_agentic_platform = sgqlc.types.Field(
+        ConfigureAgenticPlatform,
+        graphql_name="configureAgenticPlatform",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AgenticPlatformConfigInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Updates the agentic platform configuration for the
+    caller's account. Returns the resulting configuration on success.
+
+    Arguments:
+
+    * `input` (`AgenticPlatformConfigInput!`)None
+    """
+
     submit_finding_feedback = sgqlc.types.Field(
         "SubmitFindingFeedback",
         graphql_name="submitFindingFeedback",
@@ -52407,6 +52818,123 @@ class Mutation(sgqlc.types.Type):
       should be run.
     """
 
+    create_pii_monitor = sgqlc.types.Field(
+        CreatePiiMonitor,
+        graphql_name="createPiiMonitor",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "asset_selection",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AssetSelectionInput),
+                        graphql_name="assetSelection",
+                        default=None,
+                    ),
+                ),
+                (
+                    "audiences",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="audiences", default=None
+                    ),
+                ),
+                (
+                    "description",
+                    sgqlc.types.Arg(String, graphql_name="description", default="PII Monitor"),
+                ),
+                (
+                    "domain_restrictions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="domainRestrictions", default=None
+                    ),
+                ),
+                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
+                (
+                    "failure_audiences",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="failureAudiences", default=None
+                    ),
+                ),
+                (
+                    "field_pattern",
+                    sgqlc.types.Arg(String, graphql_name="fieldPattern", default="*"),
+                ),
+                (
+                    "match_threshold",
+                    sgqlc.types.Arg(Float, graphql_name="matchThreshold", default=0.01),
+                ),
+                ("mode", sgqlc.types.Arg(PiiMonitorMode, graphql_name="mode", default="ALERT")),
+                ("notes", sgqlc.types.Arg(String, graphql_name="notes", default=None)),
+                (
+                    "pii_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(PiiType)),
+                        graphql_name="piiTypes",
+                        default=None,
+                    ),
+                ),
+                ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
+                (
+                    "sampling_config",
+                    sgqlc.types.Arg(
+                        MonitorSamplingConfigInput, graphql_name="samplingConfig", default=None
+                    ),
+                ),
+                (
+                    "schedule_config",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ScheduleConfigInput),
+                        graphql_name="scheduleConfig",
+                        default=None,
+                    ),
+                ),
+                (
+                    "skip_classified_columns",
+                    sgqlc.types.Arg(Boolean, graphql_name="skipClassifiedColumns", default=None),
+                ),
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a PII monitor that tracks TEXT column
+    metrics (SSN, email, phone, etc.) across all tables matching the
+    asset selection.
+
+    Arguments:
+
+    * `asset_selection` (`AssetSelectionInput!`): Tables to monitor
+    * `audiences` (`[String]`): Notification audiences
+    * `description` (`String`): Human-readable description for the
+      monitor. (default: `"PII Monitor"`)
+    * `domain_restrictions` (`[String]`): Domain UUIDs restricting
+      alert delivery
+    * `dry_run` (`Boolean`): Return MaC YAML without persisting the
+      monitor. (default: `false`)
+    * `failure_audiences` (`[String]`): Failure-only notification
+      audiences
+    * `field_pattern` (`String`): Glob pattern to match TEXT column
+      names. Defaults to all TEXT columns. (default: `"*"`)
+    * `match_threshold` (`Float`): Alert threshold as a proportion
+      (0–1). Defaults to 0.01 (1%). (default: `0.01`)
+    * `mode` (`PiiMonitorMode`): ALERT creates threshold comparisons;
+      SCAN collects data without alerting (default: `"ALERT"`)
+    * `notes` (`String`): Notes for the monitor
+    * `pii_types` (`[PiiType!]`): PII types to monitor. Defaults to
+      all supported types.
+    * `priority` (`String`): Monitor priority (P1–P5)
+    * `sampling_config` (`MonitorSamplingConfigInput`): Row sampling
+      for child metric monitors.
+    * `schedule_config` (`ScheduleConfigInput!`): Collection schedule
+    * `skip_classified_columns` (`Boolean`): Exclude columns already
+      tagged via Snowflake auto-classification. Defaults to true for
+      ALERT mode, false for SCAN mode.
+    * `warehouse_uuid` (`UUID!`): Warehouse UUID
+    """
+
     create_or_update_bulk_monitor = sgqlc.types.Field(
         CreateOrUpdateBulkMonitor,
         graphql_name="createOrUpdateBulkMonitor",
@@ -54954,6 +55482,24 @@ class PiiFilteringPreferencesOutput(sgqlc.types.Type):
     """
 
 
+class PiiTypeInfo(sgqlc.types.Type):
+    """Metadata for a supported PII type"""
+
+    __schema__ = schema
+    __field_names__ = ("name", "metric", "description", "category")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """PII type identifier (e.g. SSN)"""
+
+    metric = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="metric")
+    """Underlying metric name (e.g. TEXT_SSN_RATE)"""
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """Human-readable description"""
+
+    category = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="category")
+    """Grouping category (e.g. PII, Location)"""
+
+
 class PineconeVectorIndexMetadata(sgqlc.types.Type):
     """Pinecone-specific metadata"""
 
@@ -55724,6 +56270,7 @@ class Query(sgqlc.types.Type):
         "get_datadog_users",
         "get_datadog_teams",
         "get_datadog_services",
+        "get_pii_types",
         "bulk_monitor",
         "bulk_monitors",
         "get_bulk_monitor",
@@ -55973,6 +56520,7 @@ class Query(sgqlc.types.Type):
         "get_object_property_name_values",
         "get_object_property_names",
         "get_object_property_values",
+        "get_classified_assets",
         "get_monitor_labels",
         "monitor_labels",
         "get_account_monitor_labels",
@@ -56043,6 +56591,8 @@ class Query(sgqlc.types.Type):
         "get_all_domains",
         "get_domain",
         "get_domains_v2",
+        "get_domain_memberships_for_mcons",
+        "get_domains_by_tags",
         "get_iamresource_definitions",
         "get_account_roles",
         "get_authorization_groups",
@@ -56204,6 +56754,7 @@ class Query(sgqlc.types.Type):
         "generate_eval_prompt",
         "generate_sql_eval",
         "get_agentic_domains",
+        "get_agentic_platform_config",
         "get_agent_operation_logs",
         "get_gcp_agent_logs",
         "get_azure_agent_logs",
@@ -56711,8 +57262,18 @@ class Query(sgqlc.types.Type):
     get_platform_agents = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PlatformAgent"))),
         graphql_name="getPlatformAgents",
+        args=sgqlc.types.ArgDict(
+            (("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),)
+        ),
     )
-    """(experimental) Get all platform agents"""
+    """(experimental) Get platform agents for the authenticated user's
+    account
+
+    Arguments:
+
+    * `domain_uuid` (`UUID`): Filter results to agents assigned to
+      this domain
+    """
 
     get_available_platform_agents = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AvailablePlatformAgentData))),
@@ -57157,6 +57718,30 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
                     ),
                 ),
+                (
+                    "consolidated_status_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(ConsolidatedMonitorStatusType)),
+                        graphql_name="consolidatedStatusTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "audience_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="audienceIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "monitor_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="monitorTags",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -57168,6 +57753,12 @@ class Query(sgqlc.types.Type):
     * `domain_ids` (`[UUID]`)None
     * `tags` (`[TagKeyValuePairInput]`)None
     * `data_product_ids` (`[UUID]`)None
+    * `consolidated_status_types`
+      (`[ConsolidatedMonitorStatusType!]`): Filter by consolidated
+      monitor status.
+    * `audience_ids` (`[UUID!]`): Filter by audience UUIDs.
+    * `monitor_tags` (`[TagKeyValuePairInput!]`): Filter by monitor
+      tags.
     """
 
     get_tables_for_coverage_dashboard = sgqlc.types.Field(
@@ -57203,6 +57794,30 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
                     ),
                 ),
+                (
+                    "consolidated_status_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(ConsolidatedMonitorStatusType)),
+                        graphql_name="consolidatedStatusTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "audience_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="audienceIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "monitor_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="monitorTags",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -57216,6 +57831,12 @@ class Query(sgqlc.types.Type):
     * `domain_ids` (`[UUID]`)None
     * `tags` (`[TagKeyValuePairInput]`)None
     * `data_product_ids` (`[UUID]`)None
+    * `consolidated_status_types`
+      (`[ConsolidatedMonitorStatusType!]`): Filter by consolidated
+      monitor status.
+    * `audience_ids` (`[UUID!]`): Filter by audience UUIDs.
+    * `monitor_tags` (`[TagKeyValuePairInput!]`): Filter by monitor
+      tags.
     """
 
     get_monitor_counts_by_creator = sgqlc.types.Field(
@@ -57241,6 +57862,30 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
                     ),
                 ),
+                (
+                    "consolidated_status_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(ConsolidatedMonitorStatusType)),
+                        graphql_name="consolidatedStatusTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "audience_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="audienceIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "monitor_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="monitorTags",
+                        default=None,
+                    ),
+                ),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=0)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=15)),
             )
@@ -57253,6 +57898,12 @@ class Query(sgqlc.types.Type):
     * `domain_ids` (`[UUID]`)None
     * `tags` (`[TagKeyValuePairInput]`)None
     * `data_product_ids` (`[UUID]`)None
+    * `consolidated_status_types`
+      (`[ConsolidatedMonitorStatusType!]`): Filter by consolidated
+      monitor status.
+    * `audience_ids` (`[UUID!]`): Filter by audience UUIDs.
+    * `monitor_tags` (`[TagKeyValuePairInput!]`): Filter by monitor
+      tags.
     * `offset` (`Int`)None (default: `0`)
     * `limit` (`Int`)None (default: `15`)
     """
@@ -57280,6 +57931,30 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
                     ),
                 ),
+                (
+                    "consolidated_status_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(ConsolidatedMonitorStatusType)),
+                        graphql_name="consolidatedStatusTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "audience_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="audienceIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "monitor_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="monitorTags",
+                        default=None,
+                    ),
+                ),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=0)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=15)),
             )
@@ -57293,6 +57968,12 @@ class Query(sgqlc.types.Type):
     * `domain_ids` (`[UUID]`)None
     * `tags` (`[TagKeyValuePairInput]`)None
     * `data_product_ids` (`[UUID]`)None
+    * `consolidated_status_types`
+      (`[ConsolidatedMonitorStatusType!]`): Filter by consolidated
+      monitor status.
+    * `audience_ids` (`[UUID!]`): Filter by audience UUIDs.
+    * `monitor_tags` (`[TagKeyValuePairInput!]`): Filter by monitor
+      tags.
     * `offset` (`Int`)None (default: `0`)
     * `limit` (`Int`)None (default: `15`)
     """
@@ -57450,6 +58131,14 @@ class Query(sgqlc.types.Type):
             (
                 ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
                 (
+                    "domain_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainIds",
+                        default=None,
+                    ),
+                ),
+                (
                     "tags",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
@@ -57472,7 +58161,9 @@ class Query(sgqlc.types.Type):
 
     Arguments:
 
-    * `domain_id` (`UUID`): Domain uuid to filter by
+    * `domain_id` (`UUID`): Domain uuid to filter by. Deprecated, use
+      domainIds instead.
+    * `domain_ids` (`[UUID!]`): Domain UUIDs to filter by.
     * `tags` (`[TagKeyValuePairInput!]`): Filter by monitor tags.
     * `consolidated_status_types`
       (`[ConsolidatedMonitorStatusType!]`): Type of consolidated
@@ -58159,6 +58850,12 @@ class Query(sgqlc.types.Type):
     * `page_number` (`Int`): Page number (default: 0)
     * `page_size` (`Int`): Page size (default: 100)
     """
+
+    get_pii_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(PiiTypeInfo))),
+        graphql_name="getPiiTypes",
+    )
+    """(experimental) List all supported PII types with their metrics"""
 
     bulk_monitor = sgqlc.types.Field(
         "BulkMonitor",
@@ -67814,6 +68511,69 @@ class Query(sgqlc.types.Type):
       string
     """
 
+    get_classified_assets = sgqlc.types.Field(
+        ClassifiedAssetConnection,
+        graphql_name="getClassifiedAssets",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="warehouseUuid", default=None),
+                ),
+                (
+                    "property_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="propertyName", default=None
+                    ),
+                ),
+                (
+                    "property_values",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="propertyValues",
+                        default=None,
+                    ),
+                ),
+                (
+                    "asset_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(ClassifiedAssetType)),
+                        graphql_name="assetTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "scope",
+                    sgqlc.types.Arg(ClassifiedAssetScopeInput, graphql_name="scope", default=None),
+                ),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=50)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+            )
+        ),
+    )
+    """(experimental) Return assets (tables and/or columns) that have
+    been tagged with a given object property. Designed for property-
+    based discovery, e.g. finding all columns classified with a
+    specific Snowflake semantic category. Results are empty when tag
+    ingestion is not enabled for the warehouse.
+
+    Arguments:
+
+    * `warehouse_uuid` (`UUID`): Limit results to this warehouse.
+    * `property_name` (`String!`): Property name to search for (e.g.
+      SNOWFLAKE.CORE.SEMANTIC_CATEGORY).
+    * `property_values` (`[String!]`): Optional list of property
+      values to match (OR-combined).
+    * `asset_types` (`[ClassifiedAssetType!]`): Limit to TABLE, FIELD,
+      or both (default: both).
+    * `scope` (`ClassifiedAssetScopeInput`): Optional database/schema
+      scope filter.
+    * `first` (`Int`): Maximum number of results to return per page.
+      (default: `50`)
+    * `after` (`String`): Relay cursor returned by a previous call for
+      fetching the next page.
+    """
+
     get_monitor_labels = sgqlc.types.Field(
         sgqlc.types.list_of(MonitorLabelObject), graphql_name="getMonitorLabels"
     )
@@ -70435,6 +71195,69 @@ class Query(sgqlc.types.Type):
       for descending)
     """
 
+    get_domain_memberships_for_mcons = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(MconDomainMembershipsOutput))
+        ),
+        graphql_name="getDomainMembershipsForMcons",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get the full list of domains each mcon belongs to,
+    including direct assignments and those inherited via
+    schema/database or tag-based rules. Returns one entry per input
+    mcon.
+
+    Arguments:
+
+    * `mcons` (`[String!]!`)None
+    """
+
+    get_domains_by_tags = sgqlc.types.Field(
+        sgqlc.types.non_null(DomainsByTagsOutput),
+        graphql_name="getDomainsByTags",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput))
+                        ),
+                        graphql_name="tags",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+            )
+        ),
+    )
+    """(experimental) Find domains that contain at least one table marked
+    with any of the given tags. When multiple tags are passed, results
+    are grouped per input tag (a single domain may appear under
+    several tags). Tags that match no domains are surfaced under
+    `tagsWithNoMatches`.
+
+    Arguments:
+
+    * `tags` (`[TagKeyValuePairInput!]!`): Tags to look up. Each tag
+      may be name-only or name+value. Duplicate tags are collapsed.
+    * `limit` (`Int`): Max (tag, domain) matches per page (default
+      100, capped at 500).
+    * `offset` (`Int`): Offset into the match list. Default 0.
+    """
+
     get_iamresource_definitions = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(IAMResourceDefinition))),
         graphql_name="getIAMResourceDefinitions",
@@ -72165,6 +72988,7 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="customRuleUuid", default=None
                     ),
                 ),
+                ("event_uuid", sgqlc.types.Arg(UUID, graphql_name="eventUuid", default=None)),
             )
         ),
     )
@@ -72174,6 +72998,11 @@ class Query(sgqlc.types.Type):
 
     * `dw_id` (`UUID!`): Warehouse the custom SQL ran in
     * `custom_rule_uuid` (`UUID!`): Custom rule to run
+    * `event_uuid` (`UUID`): Breach event whose captured runtime
+      variable values should be substituted into the SQL before
+      execution. Required for custom SQL rules that use runtime
+      template variables (e.g. {effective_date}); omit for rules
+      without runtime variables.
     """
 
     get_fh_sampling = sgqlc.types.Field(
@@ -75969,6 +76798,14 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) Get the list of agentic domains for the current
     account.
+    """
+
+    get_agentic_platform_config = sgqlc.types.Field(
+        sgqlc.types.non_null(AgenticPlatformConfigOutput), graphql_name="getAgenticPlatformConfig"
+    )
+    """(experimental) Returns the agentic platform configuration for the
+    caller's account, including current status and the most recent run
+    timestamp.
     """
 
     get_agent_operation_logs = sgqlc.types.Field(
@@ -83157,6 +83994,18 @@ class TriggerCircuitBreakerRuleV2(sgqlc.types.Type):
     """The UUIDs of the triggered rule job executions."""
 
 
+class TriggerConnectionManifestJob(sgqlc.types.Type):
+    """Trigger a connection-manifest job for an agent. The agent reports
+    its supported custom connector types and their capabilities, which
+    are persisted for use during onboarding.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+    """Whether the job was triggered successfully."""
+
+
 class TriggerCustomRule(sgqlc.types.Type):
     """Run a custom rule immediately"""
 
@@ -88472,6 +89321,7 @@ class BulkMonitor(sgqlc.types.Type, Node):
         "child_monitor_count",
         "has_reached_table_limit",
         "agg_time_interval",
+        "sampling_config",
         "tables",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
@@ -88585,6 +89435,9 @@ class BulkMonitor(sgqlc.types.Type, Node):
 
     agg_time_interval = sgqlc.types.Field(MonitorAggTimeInterval, graphql_name="aggTimeInterval")
     """Time interval for bucketing data (HOUR, DAY, WEEK, MONTH)"""
+
+    sampling_config = sgqlc.types.Field(MonitorSamplingConfig, graphql_name="samplingConfig")
+    """Sampling configuration for child metric monitors."""
 
     tables = sgqlc.types.Field(sgqlc.types.list_of(BulkMonitorTable), graphql_name="tables")
     """Tables from child monitors with their resolved alert conditions"""
@@ -92139,6 +92992,7 @@ class Finding(sgqlc.types.Type, Node):
         "severity",
         "status",
         "agentic_scope_uuid",
+        "agentic_scope",
         "parent_finding_uuid",
         "feedback_action",
         "feedback_at",
@@ -92208,6 +93062,11 @@ class Finding(sgqlc.types.Type, Node):
     agentic_scope_uuid = sgqlc.types.Field(
         sgqlc.types.non_null(UUID), graphql_name="agenticScopeUuid"
     )
+
+    agentic_scope = sgqlc.types.Field(
+        sgqlc.types.non_null(AgenticDomainOutput), graphql_name="agenticScope"
+    )
+    """Domain this finding is scoped to."""
 
     parent_finding_uuid = sgqlc.types.Field(UUID, graphql_name="parentFindingUuid")
 

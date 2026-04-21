@@ -61,6 +61,12 @@ DEFAULT_ANCHOR_KEY = os.getenv("ANCHOR_API_KEY", "")
 _CLAUDE_KEYCHAIN_SERVICE = "Claude Code-credentials"
 
 
+def _sanitize_mcp_name(raw: str) -> str:
+    """Coerce an arbitrary identifier into a valid MCP name (alphanumeric + underscore)."""
+    cleaned = re.sub(r"[^a-zA-Z0-9_]+", "_", raw).strip("_")
+    return cleaned or "db"
+
+
 def _get_claude_credentials() -> tuple[str, str]:
     """Get Claude credentials, preferring OAuth from Keychain, falling back to API key.
 
@@ -167,6 +173,9 @@ experiment_env_base_app = typer.Typer(help="Env base (fresh create) experiment")
 experiment_env_fix_app = typer.Typer(help="Env fix experiment")
 experiment_data_app = typer.Typer(help="Data pipeline experiments")
 experiment_data_base_app = typer.Typer(help="Data base experiment")
+experiment_data_unified_app = typer.Typer(help="Data unified (multi-sim) experiment")
+experiment_check_app = typer.Typer(help="Sim-checker experiments")
+experiment_check_base_app = typer.Typer(help="Sim-checker base experiment")
 
 pm_app.add_typer(list_app, name="list")
 pm_app.add_typer(review_app, name="review")
@@ -175,9 +184,12 @@ pm_app.add_typer(start_app, name="start")
 pm_app.add_typer(experiment_app, name="experiment")
 experiment_app.add_typer(experiment_env_app, name="env")
 experiment_app.add_typer(experiment_data_app, name="data")
+experiment_app.add_typer(experiment_check_app, name="check")
 experiment_env_app.add_typer(experiment_env_base_app, name="base")
 experiment_env_app.add_typer(experiment_env_fix_app, name="fix")
 experiment_data_app.add_typer(experiment_data_base_app, name="base")
+experiment_data_app.add_typer(experiment_data_unified_app, name="unified")
+experiment_check_app.add_typer(experiment_check_base_app, name="base")
 
 
 # =============================================================================
@@ -539,6 +551,8 @@ _EXPERIMENT_NAMES: dict[tuple[str, str], str] = {
     ("env", "base"): "env-create-launch",
     ("env", "fix"): "env-fix-launch",
     ("data", "base"): "datagen-launch",
+    ("data", "unified"): "datagen-unified-launch",
+    ("check", "base"): "sim-checker-launch",
 }
 
 
@@ -773,12 +787,14 @@ async def _launch_datagen_world(
             if not isinstance(db_configs, list):
                 db_configs = [db_configs]
 
-        # Build MCPs
+        # Build MCPs — each instance has an explicit `name` (unique per env).
         mcps = []
-        for db in db_configs:
+        for idx, db in enumerate(db_configs):
+            db_name = _sanitize_mcp_name(db.get("db_database") or f"db{idx}")
             mcps.append(
                 {
                     "type": "db",
+                    "name": db_name,
                     "db_type": db.get("db_type"),
                     "db_port": db.get("db_port"),
                     "db_user": db.get("db_user"),
@@ -787,9 +803,16 @@ async def _launch_datagen_world(
                     "service": simulator_name,
                 }
             )
-        mcps.append({"type": "vm"})
-        mcps.append({"type": "browser"})
-        mcps.append({"type": "functions", "session_id": f"run-{simulator_name}", "service": simulator_name})
+        mcps.append({"type": "vm", "name": "vm"})
+        mcps.append({"type": "browser", "name": "browser"})
+        mcps.append(
+            {
+                "type": "functions",
+                "name": "functions",
+                "session_id": f"run-{simulator_name}",
+                "service": simulator_name,
+            }
+        )
 
         config = template["world"]["config"]
         cred_key, cred_val = _get_claude_credentials()
@@ -800,25 +823,43 @@ async def _launch_datagen_world(
             _set_claude_credentials(agent_config, cred_key, cred_val)
         config["plato_api_key"] = datagen_api_key
         config["anchor_api_key"] = DEFAULT_ANCHOR_KEY
-        config["mcps"] = mcps
-        config["envs"] = [{"artifact_id": artifact_id, "alias": simulator_name}]
+        config["envs"] = [
+            {
+                "env": {"artifact_id": artifact_id, "alias": simulator_name},
+                "mcps": mcps,
+                "default": True,
+            }
+        ]
         config["sim_name"] = simulator_name
 
-        # Expand steps to match `iterations`: 1 generate + (iterations-1) audit_and_fill.
-        # Template ships with exactly those two step definitions.
+        # Expand steps to match `iterations`. Template ships as either:
+        #   - One step (stripped-down for verifier iteration): used as-is,
+        #     `iterations` ignored.
+        #   - Two steps (generate + audit_and_fill): 1 generate +
+        #     (iterations-1) audit_and_fill copies.
+        # Reject other lengths so a template change doesn't silently drop
+        # steps past index 1.
         template_steps = config["steps"]
-        generate_step = template_steps[0]
-        audit_step = template_steps[1]
-        if review_comments is not None:
-            generate_step["instruction"] = _build_datagen_review_prompt(
-                simulator_name, review_comments, generate_step["instruction"]
-            )
-        expanded = [generate_step]
-        for i in range(max(0, iterations - 1)):
-            step = json.loads(json.dumps(audit_step))
-            step["name"] = f"audit_and_fill_{i + 1}"
-            expanded.append(step)
-        config["steps"] = expanded
+        if len(template_steps) == 1:
+            step = template_steps[0]
+            if review_comments is not None:
+                step["instruction"] = _build_datagen_review_prompt(simulator_name, review_comments, step["instruction"])
+            config["steps"] = [step]
+        elif len(template_steps) == 2:
+            generate_step = template_steps[0]
+            audit_step = template_steps[1]
+            if review_comments is not None:
+                generate_step["instruction"] = _build_datagen_review_prompt(
+                    simulator_name, review_comments, generate_step["instruction"]
+                )
+            expanded = [generate_step]
+            for i in range(max(0, iterations - 1)):
+                step = json.loads(json.dumps(audit_step))
+                step["name"] = f"audit_and_fill_{i + 1}"
+                expanded.append(step)
+            config["steps"] = expanded
+        else:
+            raise ValueError(f"datagen template must have 1 or 2 steps, got {len(template_steps)}")
         # Render step-instruction placeholders after expansion so both the
         # generate and audit_and_fill_N copies pick up the values.
         _render_step_instructions(config, sim_name=simulator_name, workspace="/workspace")
@@ -834,6 +875,198 @@ async def _launch_datagen_world(
 
     except Exception as e:
         console.print(f"[red]❌ Datagen launch failed: {e}[/red]")
+        return None
+
+
+async def _launch_datagen_unified_world(
+    sims: list[dict],
+    api_key: str,
+) -> str | None:
+    """Launch a unified datagen session covering multiple sims in one session.
+
+    Each sim becomes its own env with its full MCP set (db, vm, browser,
+    functions). Tool names are env-prefixed (e.g. ``<alias>_db_select_context``)
+    by structured-execution's runtime, and the world writes per-env state.json
+    files so the final cross_verify step can snapshot each env independently.
+
+    ``sims`` is a list of ``{name, artifact_id}`` dicts.
+    """
+    datagen_api_key = DEFAULT_DATAGEN_API_KEY
+
+    if not DEFAULT_ANCHOR_KEY:
+        console.print("[yellow]⚠️  ANCHOR_API_KEY is not set. Datagen browsers will fail to launch.[/yellow]")
+        console.print("[yellow]   Set it with: export ANCHOR_API_KEY=<your-key>[/yellow]")
+        if not typer.confirm("Continue anyway?", default=False):
+            return None
+
+    try:
+        template, version_id = _fetch_experiment_config("data", "unified", api_key)
+
+        envs: list[dict] = []
+        base_url = _get_base_url()
+        with httpx.Client(timeout=30.0) as client:
+            for idx, sim in enumerate(sims):
+                sim_name = sim["name"]
+                artifact_id = sim["artifact_id"]
+
+                resp = client.get(
+                    f"{base_url}/api/v1/simulator/{artifact_id}/db_config",
+                    headers={"X-API-Key": api_key},
+                )
+                db_configs = resp.json() if resp.status_code == 200 else []
+                if not isinstance(db_configs, list):
+                    db_configs = [db_configs]
+
+                mcps: list[dict] = []
+                for db_idx, db in enumerate(db_configs):
+                    db_name = _sanitize_mcp_name(db.get("db_database") or f"db{db_idx}")
+                    mcps.append(
+                        {
+                            "type": "db",
+                            "name": db_name,
+                            "db_type": db.get("db_type"),
+                            "db_port": db.get("db_port"),
+                            "db_user": db.get("db_user"),
+                            "db_password": db.get("db_password"),
+                            "db_database": db.get("db_database"),
+                            "service": sim_name,
+                        }
+                    )
+                mcps.append({"type": "vm", "name": "vm"})
+                mcps.append({"type": "browser", "name": "browser"})
+                mcps.append(
+                    {
+                        "type": "functions",
+                        "name": "functions",
+                        "session_id": f"run-{sim_name}",
+                        "service": sim_name,
+                    }
+                )
+
+                envs.append(
+                    {
+                        "env": {"artifact_id": artifact_id, "alias": sim_name},
+                        "mcps": mcps,
+                        "default": idx == 0,
+                    }
+                )
+
+        config = template["world"]["config"]
+        cred_key, cred_val = _get_claude_credentials()
+        _set_claude_credentials(config, cred_key, cred_val)
+        agent_config = config.get("agent", {}).get("config")
+        if agent_config is not None:
+            _set_claude_credentials(agent_config, cred_key, cred_val)
+        config["plato_api_key"] = datagen_api_key
+        config["anchor_api_key"] = DEFAULT_ANCHOR_KEY
+        config["envs"] = envs
+        config["sim_names"] = [s["name"] for s in sims]
+        # Fallback simulator_name in per-env state.json when env.simulator is None
+        # (artifact-restored envs). The world picks the env's own alias when available,
+        # but config.sim_name is the last-resort fallback; keep it non-empty.
+        config["sim_name"] = sims[0]["name"]
+
+        _render_step_instructions(config, workspace="/workspace")
+
+        for sim in sims:
+            template["tags"].append(sim["name"])
+
+        console.print(f"[cyan]Launching unified datagen world on Chronos ({len(sims)} sims)...[/cyan]")
+        session_id = _launch_on_chronos(template, api_key)
+        _attach_session_to_experiment(version_id, session_id, api_key)
+        return session_id
+
+    except Exception as e:
+        console.print(f"[red]❌ Unified datagen launch failed: {e}[/red]")
+        return None
+
+
+async def _launch_sim_checker_world(
+    simulator_name: str,
+    artifact_id: str,
+    api_key: str,
+) -> str | None:
+    """Launch a structured-execution sim-checker session. Returns session_id or None.
+
+    Runs the sim-checker-launch template against a single artifact: walks the app,
+    performs mutations, queries audit state, and writes the verdict to the Chronos
+    session result via the set_session_output builtin verifier.
+    """
+    datagen_api_key = DEFAULT_DATAGEN_API_KEY
+
+    if not DEFAULT_ANCHOR_KEY:
+        console.print(
+            "[yellow]⚠️  ANCHOR_API_KEY is not set. The sim-checker session will fail to launch a browser.[/yellow]"
+        )
+        console.print("[yellow]   Set it with: export ANCHOR_API_KEY=<your-key>[/yellow]")
+        if not typer.confirm("Continue anyway?", default=False):
+            return None
+
+    try:
+        template, version_id = _fetch_experiment_config("check", "base", api_key)
+
+        # Fetch DB configs for MCP setup (same pattern as datagen).
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.get(
+                f"{_get_base_url()}/api/v1/simulator/{artifact_id}/db_config",
+                headers={"X-API-Key": api_key},
+            )
+            db_configs = resp.json() if resp.status_code == 200 else []
+            if not isinstance(db_configs, list):
+                db_configs = [db_configs]
+
+        mcps: list[dict] = []
+        for idx, db in enumerate(db_configs):
+            db_name = _sanitize_mcp_name(db.get("db_database") or f"db{idx}")
+            mcps.append(
+                {
+                    "type": "db",
+                    "name": db_name,
+                    "db_type": db.get("db_type"),
+                    "db_port": db.get("db_port"),
+                    "db_user": db.get("db_user"),
+                    "db_password": db.get("db_password"),
+                    "db_database": db.get("db_database"),
+                    "service": simulator_name,
+                }
+            )
+        mcps.append({"type": "vm", "name": "vm"})
+        mcps.append({"type": "browser", "name": "browser"})
+
+        config = template["world"]["config"]
+        cred_key, cred_val = _get_claude_credentials()
+        _set_claude_credentials(config, cred_key, cred_val)
+        agent_config = config.get("agent", {}).get("config")
+        if agent_config is not None:
+            _set_claude_credentials(agent_config, cred_key, cred_val)
+        config["plato_api_key"] = datagen_api_key
+        config["anchor_api_key"] = DEFAULT_ANCHOR_KEY
+        config["envs"] = [
+            {
+                "env": {"artifact_id": artifact_id, "alias": simulator_name},
+                "mcps": mcps,
+                "default": True,
+            }
+        ]
+        config["sim_name"] = simulator_name
+        config["artifact_id"] = artifact_id
+
+        _render_step_instructions(
+            config,
+            sim_name=simulator_name,
+            artifact_id=artifact_id,
+            mutation_threshold=str(config.get("mutation_threshold", 40)),
+        )
+
+        template["tags"].append(simulator_name)
+
+        console.print("[cyan]Launching sim-checker world on Chronos...[/cyan]")
+        session_id = _launch_on_chronos(template, api_key)
+        _attach_session_to_experiment(version_id, session_id, api_key)
+        return session_id
+
+    except Exception as e:
+        console.print(f"[red]❌ Sim-checker launch failed: {e}[/red]")
         return None
 
 
@@ -1084,6 +1317,11 @@ def start_data(
         help="Rerun datagen from the current data artifact using the latest rejected data review comments",
     ),
     iterations: int = typer.Option(2, "--iterations", "-i", help="Datagen iterations"),
+    unified: bool = typer.Option(
+        False,
+        "--unified",
+        help="Run all listed sims in one session with a shared scenario. Each sim gets its own env + MCPs; snapshots are created per env but no data artifact is submitted for review.",
+    ),
 ):
     """Start datagen (data pipeline) for one or more simulators.
 
@@ -1094,8 +1332,32 @@ def start_data(
         plato pm start data aureus memos
         plato pm start data aureus -i 3
         plato pm start data aureus -r    # rerun from current data_artifact_id with latest reject comments
+        plato pm start data crm gmail pm --unified    # one session with shared scenario across sims
     """
     api_key = require_api_key()
+
+    if unified and resume:
+        console.print(
+            "[red]--unified and --resume are not supported together yet (resume replays per-sim review comments).[/red]"
+        )
+        raise typer.Exit(1)
+    if unified and len(simulators) < 2:
+        console.print(
+            "[red]--unified requires 2 or more sims. Use plain `plato pm start data <sim>` for a single sim.[/red]"
+        )
+        raise typer.Exit(1)
+    if unified:
+        seen: set[str] = set()
+        duplicates: list[str] = []
+        for sim_name in simulators:
+            if sim_name in seen and sim_name not in duplicates:
+                duplicates.append(sim_name)
+            seen.add(sim_name)
+        if duplicates:
+            console.print(
+                f"[red]--unified requires unique simulator names (each becomes an env alias). Duplicates: {', '.join(duplicates)}[/red]"
+            )
+            raise typer.Exit(1)
 
     async def _start():
         base_url = _get_base_url()
@@ -1155,10 +1417,13 @@ def start_data(
             console.print("[yellow]Nothing to launch.[/yellow]")
             return
 
-        mode = "rerun" if resume else "fresh"
-        console.print(
-            f"\n[bold]Will launch datagen ({mode}, {iterations} iterations) for {len(to_launch)} simulator(s):[/bold]"
+        mode = "unified" if unified else ("rerun" if resume else "fresh")
+        label = (
+            f"\n[bold]Will launch unified datagen ({len(to_launch)} sims in one session):[/bold]"
+            if unified
+            else f"\n[bold]Will launch datagen ({mode}, {iterations} iterations) for {len(to_launch)} simulator(s):[/bold]"
         )
+        console.print(label)
         for s in to_launch:
             extra = f"artifact {s['artifact_id'][:8]}..."
             if resume:
@@ -1171,35 +1436,53 @@ def start_data(
             console.print("[yellow]Cancelled.[/yellow]")
             return
 
+        async def _prep_sim(s: dict) -> None:
+            async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
+                updates = {}
+                if not s["data_assignees"]:
+                    updates["data_assignees"] = DEFAULT_DATA_ASSIGNEES
+                if not s["data_review_assignees"]:
+                    updates["data_review_assignees"] = DEFAULT_DATA_REVIEW_ASSIGNEES
+                if updates:
+                    await update_simulator.asyncio(
+                        client=client,
+                        simulator_id=s["id"],
+                        body=AppApiV1SimulatorRoutesUpdateSimulatorRequest(**updates),
+                        x_api_key=api_key,
+                    )
+
+                if s["status"] != "data_in_progress":
+                    await update_simulator_status.asyncio(
+                        client=client,
+                        simulator_id=s["id"],
+                        body=UpdateStatusRequest(status="data_in_progress"),
+                        x_api_key=api_key,
+                    )
+                else:
+                    console.print(f"[cyan]{s['name']}: already in data_in_progress, re-launching datagen[/cyan]")
+
+        if unified:
+            try:
+                for s in to_launch:
+                    await _prep_sim(s)
+
+                launched = await _launch_datagen_unified_world(
+                    sims=[{"name": s["name"], "artifact_id": s["artifact_id"]} for s in to_launch],
+                    api_key=api_key,
+                )
+                if launched:
+                    console.print(
+                        f"[green]✅ unified session for {', '.join(s['name'] for s in to_launch)}:[/green] {launched}"
+                    )
+                else:
+                    console.print("[red]❌ unified datagen: launch returned None[/red]")
+            except Exception as e:
+                console.print(f"[red]❌ unified datagen: {e}[/red]")
+            return
+
         for s in to_launch:
             try:
-                # Set default assignees if missing
-                async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
-                    updates = {}
-                    if not s["data_assignees"]:
-                        updates["data_assignees"] = DEFAULT_DATA_ASSIGNEES
-                    if not s["data_review_assignees"]:
-                        updates["data_review_assignees"] = DEFAULT_DATA_REVIEW_ASSIGNEES
-                    if updates:
-                        await update_simulator.asyncio(
-                            client=client,
-                            simulator_id=s["id"],
-                            body=AppApiV1SimulatorRoutesUpdateSimulatorRequest(**updates),
-                            x_api_key=api_key,
-                        )
-
-                    # Move to data_in_progress (skip if already there)
-                    if s["status"] != "data_in_progress":
-                        await update_simulator_status.asyncio(
-                            client=client,
-                            simulator_id=s["id"],
-                            body=UpdateStatusRequest(status="data_in_progress"),
-                            x_api_key=api_key,
-                        )
-                    else:
-                        console.print(f"[cyan]{s['name']}: already in data_in_progress, re-launching datagen[/cyan]")
-
-                # Launch datagen
+                await _prep_sim(s)
                 launched = await _launch_datagen_world(
                     simulator_name=s["name"],
                     artifact_id=s["artifact_id"],
@@ -1217,9 +1500,147 @@ def start_data(
     handle_async(_start())
 
 
+@start_app.command(name="checker")
+def start_checker(
+    simulators: list[str] = typer.Argument(..., help="Simulator name(s)"),
+    artifact: str = typer.Option(
+        "",
+        "-a",
+        "--artifact",
+        help="Override artifact ID (skips simulator lookup, exactly one simulator name required)",
+    ),
+    use_base: bool = typer.Option(
+        False,
+        "--base",
+        help="Check base_artifact_id instead of data_artifact_id (pre-datagen check)",
+    ),
+):
+    """Run the sim-checker QA pass for one or more simulators.
+
+    Spins up a structured-execution session per simulator that verifies the app loads,
+    walks every main nav section, performs 2-3 real DB mutations, and writes a
+    pass/fail verdict with warning flags to the Chronos session result
+    (result.data.output = sim-check-result.json).
+
+    By default each sim's data_artifact_id is checked; falls back to base_artifact_id
+    if no data artifact exists. Pass --base to force checking base_artifact_id.
+
+    Examples:
+        plato pm start checker aureus
+        plato pm start checker aureus memos
+        plato pm start checker aureus --base
+        plato pm start checker aureus -a 9c744a5b-f52c-40a7-ad67-c3863b34c68d
+    """
+    api_key = require_api_key()
+
+    if artifact and len(simulators) != 1:
+        console.print("[red]❌ --artifact can only be used with exactly one simulator name[/red]")
+        raise typer.Exit(code=1)
+
+    async def _start():
+        base_url = _get_base_url()
+
+        to_launch = []
+        if artifact:
+            to_launch.append({"name": simulators[0], "artifact_id": artifact, "source": "override"})
+        else:
+            for sim_name in simulators:
+                try:
+                    async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
+                        sim = await get_simulator_by_name.asyncio(
+                            client=client,
+                            name=sim_name,
+                            x_api_key=api_key,
+                        )
+                    current_config = sim.config or {}
+                    base_artifact_id = current_config.get("base_artifact_id", "")
+                    data_artifact_id = current_config.get("data_artifact_id", "")
+
+                    if use_base:
+                        artifact_id = base_artifact_id
+                        source = "base_artifact_id"
+                    else:
+                        artifact_id = data_artifact_id or base_artifact_id
+                        source = "data_artifact_id" if data_artifact_id else "base_artifact_id"
+
+                    if not artifact_id:
+                        missing = "base_artifact_id" if use_base else "data_artifact_id/base_artifact_id"
+                        console.print(f"[yellow]⚠️  {sim_name}: no {missing}, skipping[/yellow]")
+                        continue
+
+                    to_launch.append({"name": sim_name, "artifact_id": artifact_id, "source": source})
+                except Exception as e:
+                    console.print(f"[red]❌ {sim_name}: {e}[/red]")
+
+        if not to_launch:
+            console.print("[yellow]Nothing to launch.[/yellow]")
+            return
+
+        console.print(f"\n[bold]Will launch sim-checker for {len(to_launch)} simulator(s):[/bold]")
+        for s in to_launch:
+            console.print(f"  {s['name']} — artifact {s['artifact_id'][:8]}... ({s['source']})")
+
+        if not typer.confirm("\nProceed?", default=True):
+            console.print("[yellow]Cancelled.[/yellow]")
+            return
+
+        for s in to_launch:
+            try:
+                launched = await _launch_sim_checker_world(
+                    simulator_name=s["name"],
+                    artifact_id=s["artifact_id"],
+                    api_key=api_key,
+                )
+                if launched:
+                    console.print(f"[green]✅ {s['name']}:[/green] {launched}")
+                else:
+                    console.print(f"[red]❌ {s['name']}: launch returned None[/red]")
+            except Exception as e:
+                console.print(f"[red]❌ {s['name']}: {e}[/red]")
+
+    handle_async(_start())
+
+
 # =============================================================================
 # ARCHIVE COMMAND
 # =============================================================================
+
+
+@pm_app.command(name="set-status")
+def set_status(
+    simulators: list[str] = typer.Argument(..., help="Simulator name(s)"),
+    status: str = typer.Option(..., "--status", "-s", help="Target status to set"),
+):
+    """Force-set the status of one or more simulators.
+
+    Useful for unsticking simulators in a bad state (e.g. env_in_progress → env_review_requested).
+
+    Examples:
+        plato pm set-status espocrm -s env_review_requested
+        plato pm set-status espocrm memos -s data_in_progress
+    """
+    api_key = require_api_key()
+    base_url = _get_base_url()
+
+    async def _run():
+        async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as client:
+            for sim_name in simulators:
+                try:
+                    sim = await get_simulator_by_name.asyncio(client=client, name=sim_name, x_api_key=api_key)
+                    if not sim:
+                        console.print(f"[red]❌ {sim_name}: not found[/red]")
+                        continue
+                    await update_simulator_status.asyncio(
+                        client=client,
+                        simulator_id=sim.id,
+                        x_api_key=api_key,
+                        body=UpdateStatusRequest(status=status),
+                    )
+                    console.print(f"[green]✅ {sim_name}:[/green] → {status}")
+                except Exception as e:
+                    console.print(f"[red]❌ {sim_name}: {e}[/red]")
+
+    handle_async(_run())
 
 
 @pm_app.command(name="archive")
@@ -2684,7 +3105,6 @@ def submit_data(
             console.print(f"[cyan]Current Status:[/cyan] {current_status}")
             console.print()
 
-            # Update simulator status
             await update_simulator_status.asyncio(
                 client=client,
                 simulator_id=simulator_id,
@@ -2692,9 +3112,22 @@ def submit_data(
                 x_api_key=api_key,
             )
 
-            # Set data_artifact_id via tag update (simulator_name and artifact_id already asserted above)
+            # Record the data artifact on the sim config so review/resume can
+            # find it. update_tag below only tags the artifact; it does not
+            # write data_artifact_id.
+            await update_simulator.asyncio(
+                client=client,
+                simulator_id=simulator_id,
+                body=AppApiV1SimulatorRoutesUpdateSimulatorRequest(data_artifact_id=artifact_id),
+                x_api_key=api_key,
+            )
+
+            # update_tag requires SIM_DATA_REVIEWER and returns 200 with
+            # {success: false} on auth rejection — so check the body, not just
+            # HTTP status. Tolerate failure since data_artifact_id above is the
+            # load-bearing field for downstream flows.
             try:
-                await update_tag.asyncio(
+                tag_resp = await update_tag.asyncio(
                     client=client,
                     body=UpdateTagRequest(
                         simulator_name=simulator_name,
@@ -2704,6 +3137,8 @@ def submit_data(
                     ),
                     x_api_key=api_key,
                 )
+                if not tag_resp.success:
+                    console.print(f"[yellow]⚠️  Could not set artifact tag: {tag_resp.error}[/yellow]")
             except Exception as e:
                 console.print(f"[yellow]⚠️  Could not set artifact tag: {e}[/yellow]")
 
@@ -2729,16 +3164,19 @@ def _push_experiment(pipeline: str, mode: str, api_key: str) -> None:
         ("env", "base"): "env-create-launch.json",
         ("env", "fix"): "env-fix-launch.json",
         ("data", "base"): "datagen-launch.json",
+        ("check", "base"): "sim-checker-launch.json",
     }[(pipeline, mode)]
     description = {
         ("env", "base"): "Run via: plato pm start env <sim> (fresh create) or plato pm review env <sim> (action=fresh)",
         ("env", "fix"): "Run via: plato pm review env <sim> (action=fix, after rejection)",
         ("data", "base"): "Run via: plato pm start data <sim>",
+        ("check", "base"): "Run via: plato pm start checker <sim>",
     }[(pipeline, mode)]
     world_key = {
         ("env", "base"): "structured-execution",
         ("env", "fix"): "structured-execution",
         ("data", "base"): "interactive",
+        ("check", "base"): "structured-execution",
     }[(pipeline, mode)]
     config_json = _load_template(template_file)
 
@@ -2801,3 +3239,17 @@ def experiment_data_base_push() -> None:
     """Push local datagen-launch.json to Chronos as a new experiment version."""
     api_key = require_api_key()
     _push_experiment("data", "base", api_key)
+
+
+@experiment_data_unified_app.command(name="push")
+def experiment_data_unified_push() -> None:
+    """Push local datagen-unified-launch.json to Chronos as a new experiment version."""
+    api_key = require_api_key()
+    _push_experiment("data", "unified", api_key)
+
+
+@experiment_check_base_app.command(name="push")
+def experiment_check_base_push() -> None:
+    """Push local sim-checker-launch.json to Chronos as a new experiment version."""
+    api_key = require_api_key()
+    _push_experiment("check", "base", api_key)

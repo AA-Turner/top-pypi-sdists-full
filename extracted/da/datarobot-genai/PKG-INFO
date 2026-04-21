@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.15.3
+Version: 0.15.5
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -92,7 +92,7 @@ Requires-Dist: llama-index-llms-openai<0.7.0,>=0.6.0; extra == "llamaindex"
 Requires-Dist: llama-index-tools-mcp<0.5.0,>=0.1.0; extra == "llamaindex"
 Requires-Dist: nvidia-nat-llama-index==1.6.0; extra == "llamaindex"
 Requires-Dist: opentelemetry-instrumentation-llamaindex<1.0.0,>=0.40.5; extra == "llamaindex"
-Requires-Dist: pypdf<7.0.0,>=6.9.2; extra == "llamaindex"
+Requires-Dist: pypdf<7.0.0,>=6.10.1; extra == "llamaindex"
 Provides-Extra: nat
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "nat"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "nat"
@@ -127,7 +127,7 @@ Requires-Dist: beautifulsoup4<5.0.0,>=4.12.0; extra == "drmcp"
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == "drmcp"
 Requires-Dist: tavily-python<1.0.0,>=0.7.20; extra == "drmcp"
 Requires-Dist: perplexityai<1.0,>=0.27; extra == "drmcp"
-Requires-Dist: pypdf<7.0.0,>=6.9.2; extra == "drmcp"
+Requires-Dist: pypdf<7.0.0,>=6.10.1; extra == "drmcp"
 Requires-Dist: polars<2.0.0,>=1.0.0; extra == "drmcp"
 Requires-Dist: pyarrow<22.0.0,>=21.0.0; extra == "drmcp"
 Requires-Dist: python-dateutil<3.0.0,>=2.9.0; extra == "drmcp"
@@ -161,7 +161,7 @@ Requires-Dist: beautifulsoup4<5.0.0,>=4.12.0; extra == "drtools"
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == "drtools"
 Requires-Dist: tavily-python<1.0.0,>=0.7.20; extra == "drtools"
 Requires-Dist: perplexityai<1.0,>=0.27; extra == "drtools"
-Requires-Dist: pypdf<7.0.0,>=6.9.2; extra == "drtools"
+Requires-Dist: pypdf<7.0.0,>=6.10.1; extra == "drtools"
 Requires-Dist: polars<2.0.0,>=1.0.0; extra == "drtools"
 Requires-Dist: pyarrow<22.0.0,>=21.0.0; extra == "drtools"
 Requires-Dist: python-dateutil<3.0.0,>=2.9.0; extra == "drtools"
@@ -225,8 +225,14 @@ Dynamic: provides-extra
 
 
 ## Features
-- Utilities for common GenAI workflows
-- Integrations: CrewAI, LangGraph, LlamaIndex, NAT, MCP
+
+- **AG-UI integration** — Agents expose a standard **AG-UI** event stream (`RunAgentInput` in, lifecycle + text + tool-call events out), so UIs and the DataRobot platform can render runs consistently without bespoke adapters per framework.
+- **Multi-agent systems out of the box** — First-class patterns for **planner/writer crews**, **LangGraph** multi-node graphs, and **LlamaIndex** `AgentWorkflow` handoffs; wrap them with one helper and keep the same streaming contract.
+- **Unified LLM layer (DataRobot-compatible)** — One **`get_llm()`** entry point per integration (**LangGraph**, **LlamaIndex**, **CrewAI**), all backed by the same **LiteLLM**-based routing to the **DataRobot LLM Gateway**, **LLM deployments**, **NIM**, or external providers—driven by the same environment and `Config`, so every component speaks to DataRobot consistently.
+- Utilities for common GenAI workflows.
+- **Integrations:** CrewAI, LangGraph, LlamaIndex, NAT, MCP.
+
+User-facing walkthrough: [docs/README.md](docs/README.md).
 
 ## Installation
 - Requires Python 3.11–3.13.

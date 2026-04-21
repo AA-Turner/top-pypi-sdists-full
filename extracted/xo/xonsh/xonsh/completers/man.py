@@ -25,17 +25,24 @@ def get_man_completions_path() -> Path:
 def _get_man_page(cmd: str):
     """without control characters"""
     env = XSH.env.detype()
-    manpage = subprocess.Popen(
+    # Use context manager to ensure man's Popen is waited on and its
+    # stdout fd is closed. Without this, the man process becomes a
+    # zombie (never reaped) and the pipe fd leaks.
+    with subprocess.Popen(
         ["man", cmd], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env
-    )
-    # This is a trick to get rid of reverse line feeds
-    return subprocess.check_output(["col", "-b"], stdin=manpage.stdout, env=env)
+    ) as manpage:
+        # This is a trick to get rid of reverse line feeds
+        result = subprocess.check_output(["col", "-b"], stdin=manpage.stdout, env=env)
+        if manpage.stdout:
+            manpage.stdout.close()
+        manpage.wait()
+        return result
 
 
 @functools.cache
 def _man_option_string_regex():
     return re.compile(
-        r"(?:(,\s?)|^|(\sor\s))(?P<option>-[\w]|--[\w-]+)(?=\[?(\s|,|=\w+|$))"
+        r"(?:(,\s?)|^|(\sor\s))(?P<option>-[\w]|--[\w-]+)(?=\[?(\s|,|=|$))"
     )
 
 
@@ -50,7 +57,7 @@ def generate_options_of(cmd: str):
             return
         header = ""
         body = []
-        for line in textwrap.dedent(text.replace("\n\t", "\n    ")).splitlines():
+        for line in textwrap.dedent(text.expandtabs(8)).splitlines():
             if not line.strip():
                 continue
             if line.startswith((" ", "\t")):
@@ -69,7 +76,6 @@ def generate_options_of(cmd: str):
         text = text.strip()
         regex = _man_option_string_regex()
 
-        regex.findall(text)
         options = []
         for match in regex.finditer(text):
             option = match.groupdict().pop("option", None)
@@ -84,6 +90,7 @@ def generate_options_of(cmd: str):
         for head in (
             "options",
             "command options",
+            "command line options",
             "description",
         ):  # prefer sections in this order
             if head in small_names:
@@ -112,13 +119,28 @@ def generate_options_of(cmd: str):
     yield from get_options(get_option_section())
 
 
+def _man_page_path(cmd: str) -> "Path | None":
+    """Return the file path of cmd's man page, or None."""
+    try:
+        out = subprocess.check_output(
+            ["man", "-w", cmd], stderr=subprocess.DEVNULL, text=True
+        )
+        p = Path(out.strip())
+        return p if p.exists() else None
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+
 @functools.lru_cache(maxsize=10)
 def _parse_man_page_options(cmd: str) -> "dict[str, tuple[str, ...]]":
-    path = get_man_completions_path() / Path(cmd).with_suffix(".json").name
-    if path.exists():
-        return json.loads(path.read_text())
+    cache = get_man_completions_path() / Path(cmd).with_suffix(".json").name
+    if cache.exists():
+        # Invalidate if the man page is newer than the cached JSON.
+        man = _man_page_path(cmd)
+        if man is None or man.stat().st_mtime <= cache.stat().st_mtime:
+            return json.loads(cache.read_text())
     options = dict(generate_options_of(cmd))
-    path.write_text(json.dumps(options))
+    cache.write_text(json.dumps(options))
     return options
 
 
@@ -133,10 +155,20 @@ def complete_from_man(context: CommandContext):
         return
     cmd = context.args[0].value
 
+    # Tools like cargo, docker use per-subcommand man pages
+    # (e.g. cargo-build). Try the hyphenated form first.
+    if context.arg_index >= 2:
+        subcmd_man = f"{cmd}-{context.args[1].value}"
+        if _man_page_path(subcmd_man) is not None:
+            cmd = subcmd_man
+
     def completions():
         for desc, opts in _parse_man_page_options(cmd).items():
             yield RichCompletion(
-                value=opts[-1], display=", ".join(opts), description=desc
+                value=opts[-1],
+                display=", ".join(opts),
+                description=desc,
+                provider=f"man:{cmd}",
             )
 
     return completions(), False

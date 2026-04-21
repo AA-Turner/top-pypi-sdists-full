@@ -1,35 +1,53 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 use bytes::Bytes;
 use futures_util::StreamExt;
+use indexmap::IndexSet;
 use libwebrtc::video_source::{RtcVideoSource, native::NativeVideoSource};
-use livekit::options::TrackPublishOptions;
-use livekit::prelude::*;
+use livekit::options::{TrackPublishOptions, VideoCodec};
 use livekit::{ByteStreamReader, Room, StreamByteOptions, id::ParticipantIdentity};
+use livekit::{StreamWriter, prelude::*};
 use parking_lot::RwLock;
+use semver::Version;
 use smallvec::SmallVec;
 use tokio::io::AsyncReadExt;
+use tokio::runtime::Handle;
 use tokio_util::{io::StreamReader, sync::CancellationToken};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::protocol::v2::DecodeError;
-use crate::remote_access::participant::ChannelWriter;
+use crate::protocol::v2::parameter::Parameter;
+use crate::protocol::v2::server::ParameterValues;
+use crate::remote_common::ClientId;
+use crate::remote_common::connection_graph::ConnectionGraph;
+use crate::remote_common::{
+    fetch_asset::AssetResponder,
+    service::{CallId, Service, ServiceId, ServiceMap},
+};
+use crate::time::millis_since_epoch;
 use crate::{
     ChannelDescriptor, ChannelId, Context, FoxgloveError, Metadata, RawChannel, Schema, Sink,
     SinkChannelFilter, SinkId,
     protocol::v2::{
         BinaryMessage, JsonMessage,
         client::{self, ClientMessage},
-        server::{MessageData as ServerMessageData, ServerInfo, Status, Unadvertise, advertise},
+        server::{
+            AdvertiseServices, MessageData, Pong, RemoveStatus, ServerInfo, ServiceCallFailure,
+            Status, Unadvertise, UnadvertiseServices, advertise, advertise_services,
+        },
     },
+    remote_access::qos::{QosClassifier, Reliability},
     remote_access::{
-        Capability, Listener, RemoteAccessError, client::Client, participant::Participant,
+        AssetHandler, Capability, Listener, RemoteAccessError, client::Client,
+        participant::Participant, protocol_version, rtt_tracker::RttTracker,
         session_state::SessionState,
     },
 };
 
+mod data_track;
+pub(crate) use data_track::DataTrack;
 mod video_track;
 pub(crate) use video_track::{
     VideoInputSchema, VideoMetadata, VideoPublisher, get_video_input_schema,
@@ -42,23 +60,11 @@ pub(crate) struct SessionStats {
     pub video_tracks: usize,
 }
 
-const WS_PROTOCOL_TOPIC: &str = "ws-protocol";
-const CHANNEL_TOPIC_PREFIX: &str = "ch-";
+const CONTROL_CHANNEL_TOPIC: &str = "control";
 const MESSAGE_FRAME_SIZE: usize = 5; // 1 byte opcode + u32 LE length
 const MAX_MESSAGE_SIZE: usize = 16 * 1024 * 1024; // 16 MiB
-const MAX_SEND_RETRIES: usize = 3;
 
-/// A data plane message queued for delivery to subscribed participants.
-struct ChannelMessage {
-    channel_id: ChannelId,
-    data: Bytes,
-}
-
-/// A control plane message queued for delivery to a specific participant.
-struct ControlPlaneMessage {
-    participant: Arc<Participant>,
-    data: Bytes,
-}
+pub(crate) const DEFAULT_MESSAGE_BACKLOG_SIZE: usize = 1024;
 
 /// The operation code for the message framing for protocol v2.
 /// Distinguishes between frames containing JSON messages vs binary messages.
@@ -71,8 +77,10 @@ enum OpCode {
     Binary = 2,
 }
 
-/// Frames a text payload with the v2 message framing (1 byte opcode + 4 byte LE length + payload).
-fn frame_text_message(payload: &[u8]) -> Bytes {
+/// Encodes a JSON message with the v2 byte stream framing (1 byte opcode + 4 byte LE length + payload).
+pub(super) fn encode_json_message(message: &impl JsonMessage) -> Bytes {
+    let payload = message.to_string();
+    let payload = payload.as_bytes();
     let mut buf = Vec::with_capacity(MESSAGE_FRAME_SIZE + payload.len());
     buf.push(OpCode::Text as u8);
     let len = u32::try_from(payload.len()).expect("message too large");
@@ -81,7 +89,7 @@ fn frame_text_message(payload: &[u8]) -> Bytes {
     Bytes::from(buf)
 }
 
-fn encode_binary_message<'a>(message: &impl BinaryMessage<'a>) -> Bytes {
+pub(super) fn encode_binary_message<'a>(message: &impl BinaryMessage<'a>) -> Bytes {
     let msg_len = message.encoded_len();
     let mut buf = Vec::with_capacity(MESSAGE_FRAME_SIZE + msg_len);
     buf.push(OpCode::Binary as u8);
@@ -92,6 +100,26 @@ fn encode_binary_message<'a>(message: &impl BinaryMessage<'a>) -> Bytes {
     );
     message.encode(&mut buf);
     Bytes::from(buf)
+}
+
+fn build_advertise_services_msg(services: &[Arc<Service>]) -> Option<AdvertiseServices<'_>> {
+    if services.is_empty() {
+        return None;
+    }
+    let msg = AdvertiseServices::new(services.iter().filter_map(|s| {
+        advertise_services::Service::try_from(s.as_ref())
+            .inspect_err(|err| {
+                error!(
+                    "Failed to encode service advertisement for {}: {err}",
+                    s.name()
+                )
+            })
+            .ok()
+    }));
+    if msg.services.is_empty() {
+        return None;
+    }
+    Some(msg)
 }
 
 /// RemoteAccessSession tracks a connected LiveKit session (the Room)
@@ -105,15 +133,17 @@ pub(crate) struct RemoteAccessSession {
     sink_id: SinkId,
     room: Room,
     context: Weak<Context>,
+    remote_access_session_id: Option<String>,
     state: RwLock<SessionState>,
     channel_filter: Option<Arc<dyn SinkChannelFilter>>,
+    qos_classifier: Option<Arc<dyn QosClassifier>>,
     listener: Option<Arc<dyn Listener>>,
     capabilities: Vec<Capability>,
+    fetch_asset_handler: Option<Arc<dyn AssetHandler<Client>>>,
+    runtime: Handle,
     cancellation_token: CancellationToken,
-    data_plane_tx: flume::Sender<ChannelMessage>,
-    data_plane_rx: flume::Receiver<ChannelMessage>,
-    control_plane_tx: flume::Sender<ControlPlaneMessage>,
-    control_plane_rx: flume::Receiver<ControlPlaneMessage>,
+    services: Arc<parking_lot::RwLock<ServiceMap>>,
+    supported_encodings: IndexSet<String>,
     /// Serializes all participant-scoped state mutations: subscription changes, video track
     /// lifecycle operations, client channel advertise/unadvertise, and participant removal.
     /// This prevents TOCTOU races between byte-stream message handlers and room-event handlers,
@@ -123,6 +153,20 @@ pub(crate) struct RemoteAccessSession {
     /// the sender loop to re-advertise affected channels.
     video_metadata_tx: tokio::sync::watch::Sender<()>,
     video_metadata_rx: tokio::sync::watch::Receiver<()>,
+    rtt_tracker: parking_lot::Mutex<RttTracker>,
+    ice_rtt_tracker: parking_lot::Mutex<RttTracker>,
+    connection_graph: Arc<parking_lot::Mutex<ConnectionGraph>>,
+    /// Immutable `ServerInfo` message sent to each participant on connect and reset.
+    server_info: ServerInfo,
+    /// Set of `ClientId`s pending a reset (disconnect + reconnect).
+    /// Populated by `Participant::send_control` on queue overflow and by flush
+    /// tasks on write failure. Drained by `handle_room_events`. See
+    /// [`Participant::pending_resets`] for why this is keyed by `ClientId`.
+    pending_resets: Arc<parking_lot::Mutex<HashSet<ClientId>>>,
+    /// Wakes `handle_room_events` when a new reset is added to `pending_resets`.
+    reset_notify: Arc<tokio::sync::Notify>,
+    /// Size of the per-participant control plane queue.
+    message_backlog_size: usize,
 }
 
 impl Sink for RemoteAccessSession {
@@ -147,10 +191,18 @@ impl Sink for RemoteAccessSession {
 
         // Send to data subscribers.
         if state.has_data_subscribers(&channel_id) {
-            drop(state);
-            let message = ServerMessageData::new(u64::from(channel_id), metadata.log_time, msg);
-            let data = encode_binary_message(&message);
-            self.send_data_lossy(ChannelMessage { channel_id, data });
+            if state.qos_profile(&channel_id).reliability == Reliability::Reliable {
+                // Reliable channels: send MessageData via the control bytestream
+                // to each subscribed participant.
+                let message = MessageData::new(u64::from(channel_id), metadata.log_time, msg);
+                let encoded = encode_binary_message(&message);
+                for participant in state.data_subscriber_participants(&channel_id) {
+                    participant.send_control(encoded.clone());
+                }
+            } else if let Some(track) = state.get_subscribed_data_track(&channel_id) {
+                // Lossy channels: send via the eagerly-published data track.
+                track.log(channel_id, msg, metadata);
+            }
         }
 
         Ok(())
@@ -177,24 +229,47 @@ impl Sink for RemoteAccessSession {
             return None;
         }
 
-        // Track advertised channels and detect video-capable ones.
+        // Track advertised channels, detect video-capable ones, and classify QoS.
         let advertised_ids: std::collections::HashSet<u64> =
             advertise_msg.channels.iter().map(|ch| ch.id).collect();
-        {
+        let advertised_channel_ids: SmallVec<[ChannelId; 4]> = {
             let mut state = self.state.write();
+            let mut ids = SmallVec::new();
             for &ch in &filtered {
                 if advertised_ids.contains(&u64::from(ch.id())) {
                     state.insert_channel(ch);
-                    if let Some(input_schema) = get_video_input_schema(ch) {
+                    let video_schema = get_video_input_schema(ch);
+                    if let Some(input_schema) = video_schema {
                         state.insert_video_schema(ch.id(), input_schema);
+                    }
+                    let mut qos = self
+                        .qos_classifier
+                        .as_ref()
+                        .map(|c| c.classify(ch.descriptor()))
+                        .unwrap_or_default();
+                    if video_schema.is_some() && qos.reliability == Reliability::Reliable {
+                        warn!(
+                            "Forcing QoS to Lossy for video channel {:?} (topic={}): \
+                             Reliable delivery is not supported for video",
+                            ch.id(),
+                            ch.topic()
+                        );
+                        qos.reliability = Reliability::Lossy;
+                    }
+                    state.insert_qos_profile(ch.id(), qos);
+                    if qos.reliability != Reliability::Reliable {
+                        ids.push(ch.id());
                     }
                 }
             }
             state.add_metadata_to_advertisement(&mut advertise_msg);
-        }
+            ids
+        };
 
-        let framed = frame_text_message(advertise_msg.to_string().as_bytes());
-        self.broadcast_control(framed);
+        self.broadcast_control(encode_json_message(&advertise_msg));
+
+        // Eagerly publish a data track for each newly advertised channel.
+        self.publish_data_tracks(&advertised_channel_ids);
 
         // Clients subscribe asynchronously.
         None
@@ -203,16 +278,29 @@ impl Sink for RemoteAccessSession {
     fn remove_channel(&self, channel: &RawChannel) {
         let _guard = self.subscription_lock.lock();
         let channel_id = channel.id();
+
+        // Collect subscriber info before removal for on_unsubscribe callbacks.
+        let subscriber_clients = self.state.read().channel_subscriber_clients(&channel_id);
+
         if !self.state.write().remove_channel(channel_id) {
             return;
         }
 
         self.teardown_video_track(channel_id);
+        self.teardown_data_track(channel_id);
         self.state.write().remove_video_schema(&channel_id);
 
         let unadvertise = Unadvertise::new([u64::from(channel_id)]);
-        let framed = frame_text_message(unadvertise.to_string().as_bytes());
-        self.broadcast_control(framed);
+        self.broadcast_control(encode_json_message(&unadvertise));
+
+        // Fire on_unsubscribe callbacks for subscribers of the removed channel.
+        if let Some(listener) = &self.listener {
+            let descriptor = channel.descriptor();
+            for (client_id, participant_id) in subscriber_clients {
+                let client = Client::new(client_id, participant_id);
+                listener.on_unsubscribe(&client, descriptor);
+            }
+        }
     }
 
     fn auto_subscribe(&self) -> bool {
@@ -220,41 +308,64 @@ impl Sink for RemoteAccessSession {
     }
 }
 
+pub(crate) struct SessionParams {
+    pub room: Room,
+    pub context: Weak<Context>,
+    pub channel_filter: Option<Arc<dyn SinkChannelFilter>>,
+    pub qos_classifier: Option<Arc<dyn QosClassifier>>,
+    pub listener: Option<Arc<dyn Listener>>,
+    pub capabilities: Vec<Capability>,
+    pub supported_encodings: IndexSet<String>,
+    pub runtime: Handle,
+    pub cancellation_token: CancellationToken,
+    pub message_backlog_size: usize,
+    pub services: Arc<parking_lot::RwLock<ServiceMap>>,
+    pub connection_graph: Arc<parking_lot::Mutex<ConnectionGraph>>,
+    pub remote_access_session_id: Option<String>,
+    pub fetch_asset_handler: Option<Arc<dyn AssetHandler<Client>>>,
+    pub server_info: ServerInfo,
+}
+
 impl RemoteAccessSession {
-    pub(crate) fn new(
-        room: Room,
-        context: Weak<Context>,
-        channel_filter: Option<Arc<dyn SinkChannelFilter>>,
-        listener: Option<Arc<dyn Listener>>,
-        capabilities: Vec<Capability>,
-        cancellation_token: CancellationToken,
-        message_backlog_size: usize,
-    ) -> Self {
-        let (data_plane_tx, data_plane_rx) = flume::bounded(message_backlog_size);
-        let (control_plane_tx, control_plane_rx) = flume::bounded(message_backlog_size);
+    pub(crate) fn new(params: SessionParams) -> Self {
         let (video_metadata_tx, video_metadata_rx) = tokio::sync::watch::channel(());
+        let pending_resets = Arc::new(parking_lot::Mutex::new(HashSet::new()));
+        let reset_notify = Arc::new(tokio::sync::Notify::new());
         Self {
             sink_id: SinkId::next(),
-            room,
-            context,
+            room: params.room,
+            context: params.context,
+            remote_access_session_id: params.remote_access_session_id,
             state: RwLock::new(SessionState::new()),
-            channel_filter,
-            listener,
-            capabilities,
-            cancellation_token,
-            data_plane_tx,
-            data_plane_rx,
-            control_plane_tx,
-            control_plane_rx,
+            channel_filter: params.channel_filter,
+            qos_classifier: params.qos_classifier,
+            listener: params.listener,
+            capabilities: params.capabilities,
+            fetch_asset_handler: params.fetch_asset_handler,
+            runtime: params.runtime,
+            cancellation_token: params.cancellation_token,
             subscription_lock: parking_lot::Mutex::new(()),
             video_metadata_tx,
             video_metadata_rx,
+            services: params.services,
+            supported_encodings: params.supported_encodings,
+            rtt_tracker: parking_lot::Mutex::new(RttTracker::new("ping/pong")),
+            ice_rtt_tracker: parking_lot::Mutex::new(RttTracker::new("ICE")),
+            connection_graph: params.connection_graph,
+            server_info: params.server_info,
+            pending_resets,
+            reset_notify,
+            message_backlog_size: params.message_backlog_size,
         }
     }
 
     /// Returns true if the given capability is enabled for this session.
     fn has_capability(&self, cap: Capability) -> bool {
         self.capabilities.contains(&cap)
+    }
+
+    pub(crate) fn remote_access_session_id(&self) -> Option<&str> {
+        self.remote_access_session_id.as_deref()
     }
 
     pub(crate) fn sink_id(&self) -> SinkId {
@@ -274,134 +385,79 @@ impl RemoteAccessSession {
         }
     }
 
-    /// Enqueue a data plane message, dropping old messages if the queue is full.
-    fn send_data_lossy(&self, mut msg: ChannelMessage) {
-        static THROTTLER: parking_lot::Mutex<crate::throttler::Throttler> =
-            parking_lot::Mutex::new(crate::throttler::Throttler::new(Duration::from_secs(30)));
-        let mut dropped = 0;
-        loop {
-            match self.data_plane_tx.try_send(msg) {
-                Ok(_) => {
-                    if dropped > 0 && THROTTLER.lock().try_acquire() {
-                        info!("data plane queue full, dropped {dropped} message(s)");
-                    }
-                    return;
-                }
-                Err(flume::TrySendError::Disconnected(_)) => return,
-                Err(flume::TrySendError::Full(rejected)) => {
-                    if dropped >= MAX_SEND_RETRIES {
-                        if THROTTLER.lock().try_acquire() {
-                            info!("data plane queue full, dropped message");
-                        }
-                        return;
-                    }
-                    msg = rejected;
-                    let _ = self.data_plane_rx.try_recv();
-                    dropped += 1;
-                }
-            }
-        }
-    }
-
-    /// Enqueue a control plane message for a specific participant.
-    /// Blocks the thread if the queue is full.
-    fn send_control(&self, participant: Arc<Participant>, data: Bytes) {
-        let msg = ControlPlaneMessage { participant, data };
-        if let Err(e) = self.control_plane_tx.send(msg) {
-            warn!("control plane queue disconnected, dropping message: {e}");
-        }
-    }
-
     /// Send an error status message to a participant.
-    fn send_error(&self, participant: &Arc<Participant>, message: String) {
+    fn send_error(&self, participant: &Participant, message: String) {
         debug!("Sending error to {participant}: {message}");
         let status = Status::error(message);
-        let framed = frame_text_message(status.to_string().as_bytes());
-        self.send_control(participant.clone(), framed);
+        participant.send_control(encode_json_message(&status));
     }
 
     /// Send a warning status message to a participant.
-    fn send_warning(&self, participant: &Arc<Participant>, message: String) {
+    fn send_warning(&self, participant: &Participant, message: String) {
         debug!("Sending warning to {participant}: {message}");
         let status = Status::warning(message);
-        let framed = frame_text_message(status.to_string().as_bytes());
-        self.send_control(participant.clone(), framed);
+        participant.send_control(encode_json_message(&status));
     }
 
     /// Enqueue a control plane message for all currently connected participants.
+    /// If a participant's queue is full, a reset is requested for that participant.
     fn broadcast_control(&self, data: Bytes) {
         let participants = self.state.read().collect_participants();
         for participant in participants {
-            self.send_control(participant, data.clone());
+            participant.send_control(data.clone());
         }
     }
 
-    /// Reads from the data plane and control plane queues and sends messages to participants.
+    /// Watches for video metadata changes and re-advertises affected channels.
     ///
-    /// Control plane messages are sent to the targeted participant via its per-participant writer.
-    /// Data plane messages are written to a per-channel `ByteStreamWriter` addressed to the
-    /// channel's current subscriber set. The writer is created (or replaced) lazily: if the
-    /// locally cached writer's subscription version differs from the current version in state,
-    /// the old writer is dropped and a new one is opened for the up-to-date subscriber set.
-    pub(crate) async fn run_sender(session: Arc<Self>) {
-        let mut channel_writers: HashMap<ChannelId, ChannelWriter> = HashMap::new();
+    /// Runs until the cancellation token fires.
+    pub(crate) async fn run_video_metadata_watcher(session: Arc<Self>) {
         let mut video_metadata: HashMap<ChannelId, VideoMetadata> = HashMap::new();
         let mut video_metadata_rx = session.video_metadata_rx.clone();
         loop {
             tokio::select! {
                 biased;
                 () = session.cancellation_token.cancelled() => break,
-                msg = session.control_plane_rx.recv_async() => {
-                    let Ok(msg) = msg else { break };
-                    if let Err(e) = msg.participant.send(&msg.data).await {
-                        error!("failed to send control message to {:?}: {e:?}", msg.participant);
-                    }
-                }
                 Ok(()) = video_metadata_rx.changed() => {
-                    session
-                        .republish_video_metadata(&mut video_metadata);
-                }
-                msg = session.data_plane_rx.recv_async() => {
-                    let Ok(msg) = msg else { break };
-                    process_data_message(
-                        &session.state,
-                        &msg,
-                        &mut channel_writers,
-                        |channel_id, subscribers, version| {
-                            let session = Arc::clone(&session);
-                            async move {
-                                let topic = format!(
-                                    "{CHANNEL_TOPIC_PREFIX}{}",
-                                    u64::from(channel_id),
-                                );
-                                match session
-                                    .room
-                                    .local_participant()
-                                    .stream_bytes(StreamByteOptions {
-                                        topic,
-                                        destination_identities: subscribers,
-                                        ..StreamByteOptions::default()
-                                    })
-                                    .await
-                                {
-                                    Ok(s) => Some(ChannelWriter::new(s, version)),
-                                    Err(e) => {
-                                        error!(
-                                            "failed to open byte stream for channel \
-                                             {channel_id:?}: {e:?}",
-                                        );
-                                        None
-                                    }
-                                }
-                            }
-                        },
-                    )
-                    .await;
+                    session.republish_video_metadata(&mut video_metadata);
                 }
             }
         }
     }
 
+    /// Cancel the session's `CancellationToken`, signaling all session-scoped
+    /// tasks to stop.
+    pub(crate) fn cancel(&self) {
+        self.cancellation_token.cancel();
+    }
+
+    /// Shut down the session: clear all participants (dropping their control
+    /// queue senders so flush tasks exit), await the flush task handles, then
+    /// close the LiveKit room.
+    ///
+    /// The caller must ensure that `handle_room_events` has stopped so no new
+    /// `remove_participant` / `reset_participant` calls can race with us.
+    pub(crate) async fn close(&self) {
+        let (participants, flush_handles) = self.state.write().take_participants();
+        // Cancel each participant's flush task so it breaks out of the recv/write
+        // select! and doesn't pick up new messages. In-flight writes will complete
+        // or fail once room.close() tears down the transport.
+        for participant in participants {
+            participant.cancel();
+        }
+        for handle in flush_handles {
+            let _ = handle.await;
+        }
+        if let Err(e) = self.room.close().await {
+            error!(
+                remote_access_session_id = self.remote_access_session_id(),
+                error = %e,
+                "failed to close room: {e}",
+            );
+        }
+    }
+
+    /// Read framed messages from a client byte stream on the control channel.
     pub(crate) async fn handle_byte_stream_from_client(
         self: &Arc<Self>,
         participant_identity: ParticipantIdentity,
@@ -457,15 +513,19 @@ impl RemoteAccessSession {
                 }
             }
 
-            if !self.handle_client_message(&participant_identity, opcode, Bytes::from(payload)) {
+            if !self.handle_client_control_message(
+                &participant_identity,
+                opcode,
+                Bytes::from(payload),
+            ) {
                 return;
             }
         }
     }
 
-    /// Handle a single framed client message. Returns `false` if the byte stream
+    /// Handle a single framed control channel message. Returns `false` if the byte stream
     /// should be closed (e.g. unrecognized opcode indicating a protocol mismatch).
-    fn handle_client_message(
+    fn handle_client_control_message(
         self: &Arc<Self>,
         participant_identity: &ParticipantIdentity,
         opcode: u8,
@@ -516,7 +576,49 @@ impl RemoteAccessSession {
             ClientMessage::Unadvertise(msg) => {
                 self.handle_client_unadvertise(&participant, msg);
             }
-            // TODO: Implement other message handling branches
+            ClientMessage::MessageData(msg) => {
+                self.handle_client_message_data(&participant, msg);
+            }
+            ClientMessage::FetchAsset(msg) => {
+                self.handle_fetch_asset(&participant, msg.uri, msg.request_id);
+            }
+            ClientMessage::ServiceCallRequest(req) => {
+                self.handle_service_call(&participant, req);
+            }
+            ClientMessage::GetParameters(msg) => {
+                self.handle_get_parameters(&participant, msg.parameter_names, msg.id);
+            }
+            ClientMessage::SetParameters(msg) => {
+                self.handle_set_parameters(&participant, msg.parameters, msg.id);
+            }
+            ClientMessage::SubscribeParameterUpdates(msg) => {
+                self.handle_subscribe_parameter_updates(&participant, msg.parameter_names);
+            }
+            ClientMessage::UnsubscribeParameterUpdates(msg) => {
+                self.handle_unsubscribe_parameter_updates(&participant, msg.parameter_names);
+            }
+            ClientMessage::Ping(msg) => {
+                // Build pong payload: [appTimestamp: u64 LE][deviceTimestamp: u64 LE]
+                let mut pong_payload = Vec::with_capacity(16);
+                pong_payload.extend_from_slice(&msg.payload[..8]);
+                pong_payload.extend_from_slice(&millis_since_epoch().to_le_bytes());
+                let pong = Pong::new(&pong_payload);
+                let framed = encode_binary_message(&pong);
+                participant.send_control(framed);
+            }
+            ClientMessage::PingAck(ack) => {
+                let now = millis_since_epoch();
+                if now >= ack.device_timestamp {
+                    let rtt_ms = (now - ack.device_timestamp) as f64;
+                    self.rtt_tracker.lock().record_sample(rtt_ms);
+                }
+            }
+            ClientMessage::SubscribeConnectionGraph => {
+                self.handle_connection_graph_subscribe(&participant);
+            }
+            ClientMessage::UnsubscribeConnectionGraph => {
+                self.handle_connection_graph_unsubscribe(&participant);
+            }
             _ => {
                 warn!("Unhandled client message: {client_msg:?}");
             }
@@ -524,6 +626,10 @@ impl RemoteAccessSession {
         true
     }
 
+    /// Subscribes the participant to the requested channels and notifies the listener.
+    ///
+    /// Channels the participant is already subscribed to are silently skipped.
+    /// The context is notified only for channels gaining their first subscriber.
     fn handle_client_subscribe(
         self: &Arc<Self>,
         participant: &Arc<Participant>,
@@ -560,23 +666,37 @@ impl RemoteAccessSession {
         drop(state);
 
         let mut state = self.state.write();
-        let first_subscribed = state.subscribe(participant, &channel_ids);
-        state.subscribe_data(participant, &data_channel_ids);
-        state.unsubscribe_data(participant, &video_channel_ids);
+        let subscribe_result = state.subscribe(participant, &channel_ids);
         let first_video_subscribed = state.subscribe_video(participant, &video_channel_ids);
         let last_video_unsubscribed = state.unsubscribe_video(participant, &data_channel_ids);
         drop(state);
 
-        if !first_subscribed.is_empty() {
+        if !subscribe_result.first_subscribed.is_empty() {
             if let Some(context) = self.context.upgrade() {
-                context.subscribe_channels(self.sink_id, &first_subscribed);
+                context.subscribe_channels(self.sink_id, &subscribe_result.first_subscribed);
             }
         }
 
         self.start_video_tracks(&first_video_subscribed);
         self.stop_video_tracks(&last_video_unsubscribed);
+
+        if let Some(listener) = &self.listener {
+            if !subscribe_result.newly_subscribed_descriptors.is_empty() {
+                let client = Client::new(
+                    participant.client_id(),
+                    participant.participant_id().clone(),
+                );
+                for descriptor in &subscribe_result.newly_subscribed_descriptors {
+                    listener.on_subscribe(&client, descriptor);
+                }
+            }
+        }
     }
 
+    /// Unsubscribes the participant from the requested channels and notifies the listener.
+    ///
+    /// Channels the participant was not subscribed to are silently skipped.
+    /// The context is notified only for channels losing their last subscriber.
     fn handle_client_unsubscribe(
         self: &Arc<Self>,
         participant: &Participant,
@@ -590,22 +710,45 @@ impl RemoteAccessSession {
             .collect();
 
         let mut state = self.state.write();
-        let last_unsubscribed = state.unsubscribe(participant, &channel_ids);
-        state.unsubscribe_data(participant, &channel_ids);
+        let unsubscribe_result = state.unsubscribe(participant, &channel_ids);
         let last_video_unsubscribed = state.unsubscribe_video(participant, &channel_ids);
         drop(state);
 
-        if !last_unsubscribed.is_empty() {
+        if !unsubscribe_result.last_unsubscribed.is_empty() {
             if let Some(context) = self.context.upgrade() {
-                context.unsubscribe_channels(self.sink_id, &last_unsubscribed);
+                context.unsubscribe_channels(self.sink_id, &unsubscribe_result.last_unsubscribed);
             }
         }
 
         self.stop_video_tracks(&last_video_unsubscribed);
+
+        if let Some(listener) = &self.listener {
+            if !unsubscribe_result
+                .actually_unsubscribed_descriptors
+                .is_empty()
+            {
+                let client = Client::new(
+                    participant.client_id(),
+                    participant.participant_id().clone(),
+                );
+                for descriptor in &unsubscribe_result.actually_unsubscribed_descriptors {
+                    listener.on_unsubscribe(&client, descriptor);
+                }
+            }
+        }
     }
 
-    fn handle_client_advertise(&self, participant: &Arc<Participant>, msg: client::Advertise<'_>) {
+    fn handle_client_advertise(
+        self: &Arc<Self>,
+        participant: &Arc<Participant>,
+        msg: client::Advertise<'_>,
+    ) {
+        // Serialize with remove_participant, which also holds this lock. Without it,
+        // remove_participant can remove the participant from state between the point where
+        // handle_client_message resolves the participant and the point where
+        // insert_client_channel asserts its presence, causing a panic.
         let _guard = self.subscription_lock.lock();
+
         if !self.has_capability(Capability::ClientPublish) {
             self.send_error(
                 participant,
@@ -622,13 +765,19 @@ impl RemoteAccessSession {
         for ch in msg.channels {
             let channel_id = ChannelId::new(ch.id.into());
 
-            // Decode the schema. A missing schema is valid for encodings that don't require one
-            // (e.g. "json"); only return an error for malformed schema data.
+            // Decode the schema, tolerating absent schemas. Even when binary schema
+            // data is missing, preserve the schema_name so downstream consumers (e.g.
+            // the ROS bridge) can identify the message type.
             let schema = match ch.decode_schema() {
                 Ok(data) => Some(Schema {
                     name: ch.schema_name.to_string(),
                     encoding: ch.schema_encoding.as_deref().unwrap_or("").to_string(),
                     data: data.into(),
+                }),
+                Err(DecodeError::MissingSchema) if !ch.schema_name.is_empty() => Some(Schema {
+                    name: ch.schema_name.to_string(),
+                    encoding: ch.schema_encoding.as_deref().unwrap_or("").to_string(),
+                    data: Vec::new().into(),
                 }),
                 Err(DecodeError::MissingSchema) => None,
                 Err(e) => {
@@ -669,13 +818,17 @@ impl RemoteAccessSession {
             }
 
             if let Some(listener) = &self.listener {
-                listener.on_client_advertise(client.clone(), &descriptor);
+                listener.on_client_advertise(&client, &descriptor);
             }
         }
     }
 
     fn handle_client_unadvertise(&self, participant: &Arc<Participant>, msg: client::Unadvertise) {
+        // Serialize with remove_participant, which also holds this lock. Without it,
+        // remove_participant can race with this method and fire on_client_unadvertise for channels
+        // it already cleaned up, causing a double invocation of the listener callback.
         let _guard = self.subscription_lock.lock();
+
         let client = Client::new(
             participant.client_id(),
             participant.participant_id().clone(),
@@ -689,17 +842,98 @@ impl RemoteAccessSession {
                 .remove_client_channel(participant.participant_id(), channel_id);
 
             match removed {
-                None => {
-                    debug!(
-                        "Client is not advertising channel: {channel_id_raw}; ignoring unadvertisement"
-                    );
-                }
+                None => debug!(
+                    "Client is not advertising channel: {channel_id_raw}; ignoring unadvertisement"
+                ),
                 Some(descriptor) => {
                     if let Some(listener) = &self.listener {
-                        listener.on_client_unadvertise(client.clone(), &descriptor);
+                        listener.on_client_unadvertise(&client, &descriptor);
                     }
                 }
             }
+        }
+    }
+
+    /// Send an incompatible protocol version error to a participant that will not be added to the
+    /// session. Opens a one-shot byte stream, writes the error status, and closes it.
+    pub(crate) async fn send_incompatible_version_error(
+        &self,
+        participant_id: &ParticipantIdentity,
+        attributes: &std::collections::HashMap<String, String>,
+    ) {
+        let advertised = attributes
+            .get(protocol_version::PROTOCOL_VERSION_ATTRIBUTE)
+            .cloned()
+            .unwrap_or_else(|| protocol_version::DEFAULT_PROTOCOL_VERSION.to_string());
+        let message = format!(
+            "Remote access protocol version {} is not compatible with this device (supported: {})",
+            advertised,
+            protocol_version::REMOTE_ACCESS_PROTOCOL_VERSION,
+        );
+        error!("{}", message);
+
+        let stream = match self
+            .room
+            .local_participant()
+            .stream_bytes(StreamByteOptions {
+                topic: CONTROL_CHANNEL_TOPIC.to_string(),
+                destination_identities: vec![participant_id.clone()],
+                ..StreamByteOptions::default()
+            })
+            .await
+        {
+            Ok(s) => s,
+            Err(e) => {
+                error!(
+                    "failed to open error stream for incompatible participant {participant_id}: {e:?}"
+                );
+                return;
+            }
+        };
+
+        let status = Status::error(message);
+        if let Err(e) = stream.write(&encode_json_message(&status)).await {
+            error!("failed to send incompatible version error to {participant_id}: {e:?}");
+        }
+
+        // Close the stream so the client receives the end of stream signal.
+        // This is not required, if we just drop it LiveKit will spawn a task
+        // to close the stream and send the signal anyway, but it's clearer to make it explicit.
+        _ = stream.close().await;
+    }
+
+    fn handle_client_message_data(
+        &self,
+        participant: &Arc<Participant>,
+        msg: client::MessageData<'_>,
+    ) {
+        if !self.has_capability(Capability::ClientPublish) {
+            self.send_error(
+                participant,
+                "Server does not support clientPublish capability".to_string(),
+            );
+            return;
+        }
+        let channel_id = ChannelId::new(msg.channel_id.into());
+        let descriptor = {
+            let state = self.state.read();
+            state
+                .get_client_channel(participant.participant_id(), channel_id)
+                .cloned()
+        };
+        let Some(descriptor) = descriptor else {
+            self.send_error(
+                participant,
+                format!("Client has not advertised channel: {}", msg.channel_id),
+            );
+            return;
+        };
+        if let Some(listener) = &self.listener {
+            let client = Client::new(
+                participant.client_id(),
+                participant.participant_id().clone(),
+            );
+            listener.on_message_data(&client, &descriptor, &msg.data);
         }
     }
 
@@ -713,7 +947,7 @@ impl RemoteAccessSession {
     pub(crate) async fn add_participant(
         &self,
         participant_id: ParticipantIdentity,
-        server_info: ServerInfo,
+        protocol_version: Version,
     ) -> Result<(), Box<RemoteAccessError>> {
         use crate::remote_access::participant::ParticipantWriter;
 
@@ -725,7 +959,7 @@ impl RemoteAccessSession {
             .room
             .local_participant()
             .stream_bytes(StreamByteOptions {
-                topic: WS_PROTOCOL_TOPIC.to_string(),
+                topic: CONTROL_CHANNEL_TOPIC.to_string(),
                 destination_identities: vec![participant_id.clone()],
                 ..StreamByteOptions::default()
             })
@@ -738,28 +972,32 @@ impl RemoteAccessSession {
             }
         };
 
-        let participant = Arc::new(Participant::new(
+        let (participant, flush_handle) = Participant::spawn(
             participant_id.clone(),
+            protocol_version,
             ParticipantWriter::Livekit(stream),
-        ));
+            self.message_backlog_size,
+            self.pending_resets.clone(),
+            self.reset_notify.clone(),
+            &self.cancellation_token,
+        );
 
         // Send initial messages prior to adding the participant to the state map, to ensure that
         // these are the first messages delivered to the participant. This is safe to do without
-        // holding the write lock, because this is a new participant - see below.
+        // holding the write lock, because this is a new participant — see below.
         info!("sending server info and advertisements to participant {participant:?}");
-        let server_info_msg = frame_text_message(server_info.to_string().as_bytes());
-        self.send_control(participant.clone(), server_info_msg);
+        participant.send_control(encode_json_message(&self.server_info));
         self.send_channel_advertisements(participant.clone());
+        self.send_service_advertisements(participant.clone());
 
         // Add the participant to the state map. We assert that this is a new participant, because
         // we validated that it did not exist in the map at the top of this function, and the
         // caller is responsible for ensuring this function is not called concurrently for the same
         // participant identity.
-        let did_insert = self
-            .state
-            .write()
-            .insert_participant(participant_id, participant);
+        let mut state = self.state.write();
+        let did_insert = state.insert_participant(participant);
         assert!(did_insert);
+        state.insert_flush_handle(participant_id, flush_handle);
         Ok(())
     }
 
@@ -768,7 +1006,18 @@ impl RemoteAccessSession {
     /// Channels that lose their last subscriber are unsubscribed from the context.
     pub(crate) fn remove_participant(self: &Arc<Self>, participant_id: &ParticipantIdentity) {
         let _guard = self.subscription_lock.lock();
-        let removed = self.state.write().remove_participant(participant_id);
+
+        let removed = {
+            let mut state = self.state.write();
+            // Cancel the flush task so it doesn't linger on a dead write.
+            if let Some(p) = state.get_participant(participant_id) {
+                p.cancel();
+            }
+            let removed = state.remove_participant(participant_id);
+            // Detach the flush handle — task exits via cancel or channel close.
+            drop(state.remove_flush_handle(participant_id));
+            removed
+        };
 
         if !removed.last_unsubscribed.is_empty() {
             if let Some(context) = self.context.upgrade() {
@@ -778,13 +1027,415 @@ impl RemoteAccessSession {
 
         self.stop_video_tracks(&removed.last_video_unsubscribed);
 
-        if !removed.client_channels.is_empty() {
-            if let Some((listener, client_id)) = self.listener.as_ref().zip(removed.client_id) {
-                let client = Client::new(client_id, participant_id.clone());
-                for descriptor in &removed.client_channels {
-                    listener.on_client_unadvertise(client.clone(), descriptor);
+        if !removed.last_param_unsubscribed.is_empty() {
+            if let Some(listener) = &self.listener {
+                listener.on_parameters_unsubscribe(removed.last_param_unsubscribed);
+            }
+        }
+
+        if let Some(client_id) = removed.client_id {
+            if self.has_capability(Capability::ConnectionGraph) {
+                let mut graph = self.connection_graph.lock();
+                if graph.remove_subscriber(client_id) && !graph.has_subscribers() {
+                    if let Some(listener) = &self.listener {
+                        listener.on_connection_graph_unsubscribe();
+                    }
                 }
             }
+        }
+
+        if let Some((listener, client_id)) = self.listener.as_ref().zip(removed.client_id) {
+            let client = Client::new(client_id, participant_id.clone());
+
+            for descriptor in &removed.subscribed_descriptors {
+                listener.on_unsubscribe(&client, descriptor);
+            }
+
+            for descriptor in &removed.client_channels {
+                listener.on_client_unadvertise(&client, descriptor);
+            }
+        }
+    }
+
+    /// Listen for room events and dispatch them.
+    ///
+    /// Returns when the room is disconnected or the event stream ends.
+    pub(crate) async fn handle_room_events(
+        self: &Arc<Self>,
+        mut room_events: tokio::sync::mpsc::UnboundedReceiver<RoomEvent>,
+    ) {
+        let remote_access_session_id = self.remote_access_session_id();
+        loop {
+            // Drain pending resets before waiting for events. This covers the case
+            // where a `Notify::notified()` wakeup was lost due to `select!`
+            // cancellation — the client ids are still in the set even if the
+            // notification was consumed by a dropped future.
+            let client_ids: Vec<ClientId> = {
+                let mut set = self.pending_resets.lock();
+                set.drain().collect()
+            };
+            // `handle_room_events` is the single task driving participant
+            // membership during the session lifecycle, so the lookup below
+            // cannot be invalidated before `reset_participant` runs. A
+            // `ClientId` no longer registered means the request is stale —
+            // the participant was already removed and may have been replaced
+            // by a reconnection reusing the same identity; skipping avoids
+            // spuriously tearing down that replacement.
+            for client_id in client_ids {
+                let Some(participant) = self.state.read().get_participant_by_client_id(client_id)
+                else {
+                    continue;
+                };
+                self.reset_participant(participant.participant_id().clone())
+                    .await;
+            }
+
+            tokio::select! {
+                event = room_events.recv() => {
+                    let Some(event) = event else { break };
+                    if !self.handle_room_event(event).await {
+                        return;
+                    }
+                }
+                // Wake when new reset requests arrive.
+                () = self.reset_notify.notified() => {}
+            }
+        }
+        warn!(
+            remote_access_session_id,
+            "stopped listening for room events"
+        );
+    }
+
+    /// Handles a single room event. Returns `true` to keep the event loop running,
+    /// or `false` to stop (e.g. on disconnect).
+    async fn handle_room_event(self: &Arc<Self>, event: RoomEvent) -> bool {
+        let remote_access_session_id = self.remote_access_session_id();
+        match event {
+            RoomEvent::ParticipantConnected(participant) => {
+                info!(
+                    remote_access_session_id,
+                    participant_identity = %participant.identity(),
+                    "participant connected to room (waiting for ParticipantActive)"
+                );
+            }
+            RoomEvent::ParticipantActive(participant) => {
+                let participant_identity = participant.identity();
+                let Some(version) = protocol_version::check_participant_protocol_version(
+                    &participant_identity,
+                    &participant.attributes(),
+                    remote_access_session_id,
+                ) else {
+                    self.send_incompatible_version_error(
+                        &participant_identity,
+                        &participant.attributes(),
+                    )
+                    .await;
+                    return true;
+                };
+                info!(
+                    remote_access_session_id,
+                    participant_identity = %participant_identity,
+                    version = %version,
+                    "participant active in room"
+                );
+                if let Err(e) = self.add_participant(participant.identity(), version).await {
+                    error!(remote_access_session_id, error = %e, "failed to add participant: {e}");
+                }
+            }
+            RoomEvent::ParticipantDisconnected(participant) => {
+                info!(
+                    remote_access_session_id,
+                    participant_identity = %participant.identity(),
+                    "participant disconnected from room"
+                );
+                self.remove_participant(&participant.identity());
+            }
+            RoomEvent::DataReceived {
+                payload: _,
+                topic,
+                kind: _,
+                participant: _,
+            } => {
+                info!(remote_access_session_id, "data received: {:?}", topic);
+            }
+            RoomEvent::ByteStreamOpened {
+                reader,
+                topic,
+                participant_identity,
+            } => {
+                info!(
+                    remote_access_session_id,
+                    participant_identity = %participant_identity,
+                    topic = %topic,
+                    "byte stream opened from participant"
+                );
+                if let Some(reader) = reader.take() {
+                    if topic == CONTROL_CHANNEL_TOPIC {
+                        let session = self.clone();
+                        tokio::spawn(async move {
+                            session
+                                .handle_byte_stream_from_client(participant_identity, reader)
+                                .await;
+                        });
+                    } else {
+                        warn!(
+                            "ignoring unexpected byte stream topic from {:?}: {:?}",
+                            participant_identity, topic
+                        );
+                    }
+                }
+            }
+            RoomEvent::ConnectionStateChanged(state) => {
+                info!(
+                    remote_access_session_id,
+                    state = ?state,
+                    "connection state changed"
+                );
+            }
+            RoomEvent::Reconnecting => {
+                info!(remote_access_session_id, "reconnecting to room");
+            }
+            RoomEvent::Reconnected => {
+                info!(remote_access_session_id, "reconnected to room");
+            }
+            RoomEvent::ConnectionQualityChanged {
+                quality,
+                participant,
+            } => {
+                info!(
+                    remote_access_session_id,
+                    participant = %participant.identity(),
+                    quality = ?quality,
+                    "connection quality changed"
+                );
+            }
+            RoomEvent::TrackSubscriptionFailed {
+                participant,
+                error,
+                track_sid,
+            } => {
+                warn!(
+                    remote_access_session_id,
+                    participant = %participant.identity(),
+                    track_sid = %track_sid,
+                    error = %error,
+                    "track subscription failed: {error}"
+                );
+            }
+            RoomEvent::LocalTrackPublished {
+                publication,
+                track: _,
+                participant: _,
+            } => {
+                info!(
+                    remote_access_session_id,
+                    track_sid = %publication.sid(),
+                    track_name = %publication.name(),
+                    "local track published"
+                );
+            }
+            RoomEvent::LocalTrackUnpublished {
+                publication,
+                participant: _,
+            } => {
+                info!(
+                    remote_access_session_id,
+                    track_sid = %publication.sid(),
+                    track_name = %publication.name(),
+                    "local track unpublished"
+                );
+            }
+            RoomEvent::TrackSubscribed {
+                track: _,
+                publication,
+                participant,
+            } => {
+                info!(
+                    remote_access_session_id,
+                    participant = %participant.identity(),
+                    track_sid = %publication.sid(),
+                    track_name = %publication.name(),
+                    "remote track subscribed"
+                );
+            }
+            RoomEvent::TrackUnsubscribed {
+                track: _,
+                publication,
+                participant,
+            } => {
+                info!(
+                    remote_access_session_id,
+                    participant = %participant.identity(),
+                    track_sid = %publication.sid(),
+                    track_name = %publication.name(),
+                    "remote track unsubscribed"
+                );
+            }
+            RoomEvent::TrackMuted {
+                participant,
+                publication,
+            } => {
+                info!(
+                    remote_access_session_id,
+                    participant = %participant.identity(),
+                    track_sid = %publication.sid(),
+                    track_name = %publication.name(),
+                    "track muted"
+                );
+            }
+            RoomEvent::TrackUnmuted {
+                participant,
+                publication,
+            } => {
+                info!(
+                    remote_access_session_id,
+                    participant = %participant.identity(),
+                    track_sid = %publication.sid(),
+                    track_name = %publication.name(),
+                    "track unmuted"
+                );
+            }
+            RoomEvent::Disconnected { reason } => {
+                info!(
+                    remote_access_session_id,
+                    reason = reason.as_str_name(),
+                    "disconnected from room, will attempt to reconnect"
+                );
+                return false;
+            }
+            _ => {
+                trace!(remote_access_session_id, "room event: {:?}", event);
+            }
+        }
+        true
+    }
+
+    /// Tears down a participant and re-initializes it with a fresh control stream.
+    ///
+    /// This is the recovery path when a control stream write fails: since in-flight
+    /// messages may also have been lost, we remove the participant (cleaning up
+    /// subscriptions) and re-add it. This opens a fresh stream and re-sends `ServerInfo`
+    /// and all advertisements — identical to the normal disconnect/reconnect flow.
+    ///
+    /// # Interaction with `ParticipantDisconnected`
+    ///
+    /// Write failures often coincide with participant disconnection. When that happens,
+    /// both a reset notification and a `ParticipantDisconnected` event may be in flight.
+    /// We guard against the common case by checking `remote_participants()` before
+    /// re-adding: if LiveKit has already removed the participant, we skip the re-add
+    /// and let the normal `ParticipantConnected` flow handle any future reconnection.
+    ///
+    /// This is a best-effort check (TOCTOU): the participant could disconnect between
+    /// the check and the `stream_bytes` call inside `add_participant`. In that narrow
+    /// window, `add_participant` may open a dead stream, but the subsequent
+    /// `ParticipantDisconnected` event will clean it up. This is harmless — just a
+    /// wasted `stream_bytes` call and a log line.
+    async fn reset_participant(self: &Arc<Self>, participant_id: ParticipantIdentity) {
+        let remote_access_session_id = self.remote_access_session_id();
+
+        self.remove_participant(&participant_id);
+
+        // Best-effort guard: skip re-add if LiveKit has already removed the participant
+        // (e.g., because the underlying WebRTC connection dropped). In that case, the
+        // `ParticipantDisconnected` event is already queued and a future reconnect will
+        // go through the normal `ParticipantConnected` → `add_participant` path.
+        let remote_participant = self
+            .room
+            .remote_participants()
+            .get(&participant_id)
+            .cloned();
+        let Some(remote_participant) = remote_participant else {
+            info!(
+                remote_access_session_id,
+                participant_identity = %participant_id,
+                "participant already left room, skipping re-add after control stream failure",
+            );
+            return;
+        };
+
+        let Some(version) = protocol_version::check_participant_protocol_version(
+            &participant_id,
+            &remote_participant.attributes(),
+            remote_access_session_id,
+        ) else {
+            warn!(
+                remote_access_session_id,
+                participant_identity = %participant_id,
+                "skipping reset for participant with incompatible protocol version",
+            );
+            return;
+        };
+
+        warn!(
+            remote_access_session_id,
+            participant_identity = %participant_id,
+            "resetting participant after control stream failure",
+        );
+        if let Err(e) = self.add_participant(participant_id, version).await {
+            error!(
+                remote_access_session_id,
+                error = %e,
+                "failed to re-add participant after reset: {e}",
+            );
+        }
+    }
+
+    /// Periodically logs session statistics for monitoring and debugging.
+    pub(crate) async fn log_periodic_stats(&self) {
+        let remote_access_session_id = self.remote_access_session_id();
+        let period = Duration::from_secs(30);
+        let mut interval = tokio::time::interval_at(tokio::time::Instant::now() + period, period);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            interval.tick().await;
+            let stats = self.stats();
+            let connection_quality = self.room.local_participant().connection_quality();
+            let (total_video_bytes_sent, ice_rtt_ms) = match self.room.get_stats().await {
+                Ok(stats) => {
+                    let total_video_bytes_sent = stats
+                        .publisher_stats
+                        .iter()
+                        .filter_map(|s| match s {
+                            libwebrtc::stats::RtcStats::OutboundRtp(rtp)
+                                if rtp.stream.kind == "video" =>
+                            {
+                                Some(rtp.sent.bytes_sent)
+                            }
+                            _ => None,
+                        })
+                        .sum::<u64>();
+                    let ice_rtt_ms = stats
+                        .publisher_stats
+                        .iter()
+                        .filter_map(|s| match s {
+                            libwebrtc::stats::RtcStats::CandidatePair(cp)
+                                if cp.candidate_pair.nominated =>
+                            {
+                                Some(cp.candidate_pair.current_round_trip_time * 1000.0)
+                            }
+                            _ => None,
+                        })
+                        .next();
+                    (Some(total_video_bytes_sent), ice_rtt_ms)
+                }
+                Err(e) => {
+                    warn!(remote_access_session_id, error = %e, "failed to get room stats: {e}");
+                    (None, None)
+                }
+            };
+            if let Some(rtt_ms) = ice_rtt_ms {
+                self.ice_rtt_tracker.lock().record_sample(rtt_ms);
+            }
+            info!(
+                remote_access_session_id,
+                participants = stats.participants,
+                subscriptions = stats.subscriptions,
+                video_tracks = stats.video_tracks,
+                total_video_bytes_sent,
+                connection_quality = ?connection_quality,
+                "periodic stats"
+            );
         }
     }
 
@@ -807,13 +1458,392 @@ impl RemoteAccessSession {
             return;
         };
 
-        let framed = frame_text_message(advertise_msg.to_string().as_bytes());
-        self.send_control(participant, framed);
+        participant.send_control(encode_json_message(&advertise_msg));
+    }
+
+    /// Enqueue service advertisements for delivery to a single participant.
+    fn send_service_advertisements(&self, participant: Arc<Participant>) {
+        let services: Vec<_> = self.services.read().values().cloned().collect();
+        if let Some(msg) = build_advertise_services_msg(&services) {
+            participant.send_control(encode_json_message(&msg));
+        }
+    }
+
+    /// Broadcasts service advertisements for the given service IDs to all connected participants.
+    pub(crate) fn advertise_new_services(&self, service_ids: &[ServiceId]) {
+        let services: Vec<_> = {
+            let services = self.services.read();
+            service_ids
+                .iter()
+                .filter_map(|id| services.get_by_id(*id))
+                .collect()
+        };
+        if let Some(msg) = build_advertise_services_msg(&services) {
+            self.broadcast_control(encode_json_message(&msg));
+        }
+    }
+
+    /// Broadcasts service unadvertisements for the given service IDs to all connected participants.
+    pub(crate) fn unadvertise_services(&self, service_ids: &[ServiceId]) {
+        let msg = UnadvertiseServices::new(service_ids.iter().copied().map(u32::from));
+        self.broadcast_control(encode_json_message(&msg));
+    }
+
+    /// Handle a service call request from a client.
+    fn handle_service_call(&self, participant: &Arc<Participant>, req: client::ServiceCallRequest) {
+        let service_id = ServiceId::new(req.service_id);
+        let call_id = CallId::new(req.call_id);
+
+        if !self.has_capability(Capability::Services) {
+            self.send_service_call_failure(
+                participant,
+                service_id,
+                call_id,
+                "Server does not support services",
+            );
+            return;
+        }
+
+        // Lookup the requested service handler.
+        let Some(service) = self.services.read().get_by_id(service_id) else {
+            self.send_service_call_failure(participant, service_id, call_id, "Unknown service");
+            return;
+        };
+
+        // If this service declared a request encoding, ensure that it matches. Otherwise, ensure
+        // that the request encoding is in the server's global list of supported encodings.
+        if !service
+            .request_encoding()
+            .map(|e| e == req.encoding.as_ref())
+            .unwrap_or_else(|| self.supported_encodings.contains(req.encoding.as_ref()))
+        {
+            self.send_service_call_failure(
+                participant,
+                service_id,
+                call_id,
+                "Unsupported encoding",
+            );
+            return;
+        }
+
+        // Acquire the semaphore, or reject if there are too many concurrent requests.
+        let Some(guard) = participant.service_call_sem().try_acquire() else {
+            self.send_service_call_failure(participant, service_id, call_id, "Too many requests");
+            return;
+        };
+
+        let encoding = service
+            .response_encoding()
+            .unwrap_or(req.encoding.as_ref())
+            .to_string();
+
+        let responder =
+            super::service::new_responder(participant, service_id, call_id, encoding, guard);
+        let request = crate::remote_common::service::Request::new(
+            service.clone(),
+            participant.client_id(),
+            call_id,
+            req.encoding.into_owned(),
+            req.payload.into_owned().into(),
+        );
+
+        service.call(request, responder);
+    }
+
+    /// Sends a service call failure message to a participant.
+    fn send_service_call_failure(
+        &self,
+        participant: &Arc<Participant>,
+        service_id: ServiceId,
+        call_id: CallId,
+        message: &str,
+    ) {
+        let failure = ServiceCallFailure {
+            service_id: service_id.into(),
+            call_id: call_id.into(),
+            message: message.to_string(),
+        };
+        participant.send_control(encode_json_message(&failure));
+    }
+
+    /// Handle a fetch asset request from a client.
+    fn handle_fetch_asset(&self, participant: &Arc<Participant>, uri: String, request_id: u32) {
+        if !self.has_capability(Capability::Assets) {
+            self.send_error(
+                participant,
+                "Server does not support assets capability".to_string(),
+            );
+            return;
+        }
+
+        let Some(guard) = participant.fetch_asset_sem().try_acquire() else {
+            participant.send_asset_error("Too many concurrent fetch asset requests", request_id);
+            return;
+        };
+
+        let handler = self.fetch_asset_handler.as_ref().expect(
+            "Gateway advertised the Assets capability without providing a handler; \
+             this should have been caught in Gateway::start()",
+        );
+        let client = Client::with_sender(
+            participant.client_id(),
+            participant.participant_id().clone(),
+            participant,
+        );
+        let responder = AssetResponder::new(client, request_id, guard);
+        handler.fetch(uri, responder);
+    }
+
+    /// Handle a `GetParameters` request from a client.
+    fn handle_get_parameters(
+        &self,
+        participant: &Arc<Participant>,
+        param_names: Vec<String>,
+        request_id: Option<String>,
+    ) {
+        if !self.has_capability(Capability::Parameters) {
+            self.send_error(
+                participant,
+                "Server does not support parameters capability".into(),
+            );
+            return;
+        }
+
+        if let Some(listener) = self.listener.as_ref() {
+            let client = Client::new(
+                participant.client_id(),
+                participant.participant_id().clone(),
+            );
+            let parameters =
+                listener.on_get_parameters(&client, param_names, request_id.as_deref());
+            self.send_parameter_values(participant, parameters, request_id);
+        }
+    }
+
+    /// Handle a `SetParameters` request from a client.
+    fn handle_set_parameters(
+        &self,
+        participant: &Arc<Participant>,
+        parameters: Vec<Parameter>,
+        request_id: Option<String>,
+    ) {
+        if !self.has_capability(Capability::Parameters) {
+            self.send_error(
+                participant,
+                "Server does not support parameters capability".into(),
+            );
+            return;
+        }
+
+        let updated_parameters = if let Some(listener) = self.listener.as_ref() {
+            let client = Client::new(
+                participant.client_id(),
+                participant.participant_id().clone(),
+            );
+            let updated = listener.on_set_parameters(&client, parameters, request_id.as_deref());
+
+            // Send the updated parameters back to the requesting client if `request_id` is set.
+            if request_id.is_some() {
+                self.send_parameter_values(participant, updated.clone(), request_id);
+            }
+            updated
+        } else {
+            parameters
+        };
+        self.publish_parameter_values(updated_parameters);
+    }
+
+    /// Handle a `SubscribeParameterUpdates` request from a client.
+    fn handle_subscribe_parameter_updates(
+        &self,
+        participant: &Arc<Participant>,
+        names: Vec<String>,
+    ) {
+        if !self.has_capability(Capability::Parameters) {
+            self.send_error(
+                participant,
+                "Server does not support parametersSubscribe capability".into(),
+            );
+            return;
+        }
+        let _guard = self.subscription_lock.lock();
+        let new_names = self
+            .state
+            .write()
+            .subscribe_parameters(participant.participant_id(), names);
+        if !new_names.is_empty() {
+            if let Some(listener) = &self.listener {
+                listener.on_parameters_subscribe(new_names);
+            }
+        }
+    }
+
+    /// Handle an `UnsubscribeParameterUpdates` request from a client.
+    fn handle_unsubscribe_parameter_updates(
+        &self,
+        participant: &Arc<Participant>,
+        names: Vec<String>,
+    ) {
+        if !self.has_capability(Capability::Parameters) {
+            self.send_error(
+                participant,
+                "Server does not support parametersSubscribe capability".into(),
+            );
+            return;
+        }
+        let _guard = self.subscription_lock.lock();
+        let old_names = self
+            .state
+            .write()
+            .unsubscribe_parameters(participant.participant_id(), names);
+        if !old_names.is_empty() {
+            if let Some(listener) = &self.listener {
+                listener.on_parameters_unsubscribe(old_names);
+            }
+        }
+    }
+
+    /// Send a `ParameterValues` message to a specific participant.
+    fn send_parameter_values(
+        &self,
+        participant: &Arc<Participant>,
+        parameters: Vec<Parameter>,
+        request_id: Option<String>,
+    ) {
+        let mut msg = ParameterValues::new(parameters.into_iter().filter(|p| p.value.is_some()));
+        if let Some(id) = request_id {
+            msg = msg.with_id(id);
+        }
+        participant.send_control(encode_json_message(&msg));
+    }
+
+    /// Publish parameter values to all participants subscribed to those parameters.
+    pub(crate) fn publish_parameter_values(&self, parameters: Vec<Parameter>) {
+        if !self.has_capability(Capability::Parameters) {
+            error!("Server does not support parameters capability");
+            return;
+        }
+
+        // Collect the per-participant messages while holding the read lock, then
+        // send them after the lock is released to minimize lock scope.
+        let to_send: Vec<(Arc<Participant>, Bytes)> = {
+            let state = self.state.read();
+            let participants = state.collect_participants();
+            participants
+                .into_iter()
+                .filter_map(|participant| {
+                    let filtered: Vec<_> = parameters
+                        .iter()
+                        .filter(|p| {
+                            state
+                                .parameter_subscribers(&p.name)
+                                .is_some_and(|ids| ids.contains(participant.participant_id()))
+                        })
+                        .cloned()
+                        .collect();
+
+                    if filtered.is_empty() {
+                        return None;
+                    }
+
+                    let msg =
+                        ParameterValues::new(filtered.into_iter().filter(|p| p.value.is_some()));
+                    Some((participant, encode_json_message(&msg)))
+                })
+                .collect()
+        };
+
+        for (participant, data) in to_send {
+            participant.send_control(data);
+        }
+    }
+
+    /// Publish a status message to all connected participants.
+    pub(crate) fn publish_status(&self, status: Status) {
+        self.broadcast_control(encode_json_message(&status));
+    }
+
+    /// Remove status messages by ID from all connected participants.
+    pub(crate) fn remove_status(&self, status_ids: Vec<String>) {
+        let message = RemoveStatus::new(status_ids);
+        self.broadcast_control(encode_json_message(&message));
+    }
+
+    /// Handle a `SubscribeConnectionGraph` message from a client.
+    fn handle_connection_graph_subscribe(&self, participant: &Arc<Participant>) {
+        if !self.has_capability(Capability::ConnectionGraph) {
+            self.send_error(
+                participant,
+                "Server does not support connection graph capability".to_string(),
+            );
+            return;
+        }
+
+        let encoded = {
+            let mut graph = self.connection_graph.lock();
+            let first = !graph.has_subscribers();
+            if !graph.add_subscriber(participant.client_id()) {
+                debug!(
+                    "Participant {} is already subscribed to connection graph updates",
+                    participant,
+                );
+                return;
+            }
+
+            if first {
+                if let Some(listener) = &self.listener {
+                    listener.on_connection_graph_subscribe();
+                }
+            }
+
+            encode_json_message(&graph.as_initial_update())
+        };
+
+        participant.send_control(encoded);
+    }
+
+    /// Handle an `UnsubscribeConnectionGraph` message from a client.
+    fn handle_connection_graph_unsubscribe(&self, participant: &Arc<Participant>) {
+        if !self.has_capability(Capability::ConnectionGraph) {
+            self.send_error(
+                participant,
+                "Server does not support connection graph capability".to_string(),
+            );
+            return;
+        }
+
+        let mut graph = self.connection_graph.lock();
+        if !graph.remove_subscriber(participant.client_id()) {
+            debug!(
+                "Participant {} is already unsubscribed from connection graph updates",
+                participant,
+            );
+            return;
+        }
+
+        if !graph.has_subscribers() {
+            if let Some(listener) = &self.listener {
+                listener.on_connection_graph_unsubscribe();
+            }
+        }
+    }
+
+    /// Replaces the connection graph and sends updates to subscribed participants.
+    pub(crate) fn replace_connection_graph(&self, replacement_graph: ConnectionGraph) {
+        let mut graph = self.connection_graph.lock();
+        let update = graph.update(replacement_graph);
+        let encoded = encode_json_message(&update);
+        let participants = self.state.read().collect_participants();
+        for participant in participants {
+            if graph.is_subscriber(participant.client_id()) {
+                participant.send_control(encoded.clone());
+            }
+        }
     }
 
     /// Check video publishers for metadata changes and re-advertise affected channels.
     ///
-    /// Called from `run_sender` when `video_metadata_rx` signals a change. Compares each
+    /// Called from `run_video_metadata_watcher` when `video_metadata_rx` signals a change. Compares each
     /// publisher's current metadata against what was last advertised, updates session state for
     /// any changes, and broadcasts re-advertise messages to participants.
     fn republish_video_metadata(&self, advertised: &mut HashMap<ChannelId, VideoMetadata>) {
@@ -862,36 +1892,27 @@ impl RemoteAccessSession {
         };
 
         if let Some(Some(msg)) = advertise_msg {
-            let framed = frame_text_message(msg.to_string().as_bytes());
-            self.broadcast_control(framed);
+            self.broadcast_control(encode_json_message(&msg));
         }
     }
 
     /// Start video tracks for first-subscribed channels that have video schemas.
+    /// Each track is named video-ch-{channel_id}.
     ///
     /// Caller must hold `subscription_lock`.
     fn start_video_tracks(self: &Arc<Self>, first_subscribed: &[ChannelId]) {
-        // Collect video-capable channels and their topics while holding the read lock.
-        let to_start: SmallVec<[(ChannelId, VideoInputSchema, String); 4]> = {
+        let to_start: SmallVec<[(ChannelId, VideoInputSchema); 4]> = {
             let state = self.state.read();
-            state
-                .with_channels(|channels| {
-                    first_subscribed
-                        .iter()
-                        .filter_map(|&channel_id| {
-                            let input_schema = state.get_video_schema(&channel_id)?;
-                            let topic = channels
-                                .get(&channel_id)
-                                .map(|ch| ch.topic().to_string())
-                                .unwrap_or_default();
-                            Some((channel_id, input_schema, topic))
-                        })
-                        .collect()
+            first_subscribed
+                .iter()
+                .filter_map(|&channel_id| {
+                    let input_schema = state.get_video_schema(&channel_id)?;
+                    Some((channel_id, input_schema))
                 })
-                .unwrap_or_default()
+                .collect()
         };
 
-        for (channel_id, input_schema, topic) in to_start {
+        for (channel_id, input_schema) in to_start {
             let video_source = NativeVideoSource::default();
             let publisher = Arc::new(VideoPublisher::new(
                 video_source.clone(),
@@ -904,15 +1925,25 @@ impl RemoteAccessSession {
                 .write()
                 .insert_video_publisher(channel_id, publisher);
 
-            let track =
-                LocalVideoTrack::create_video_track(&topic, RtcVideoSource::Native(video_source));
+            let track_name = format!("video-ch-{}", u64::from(channel_id));
+            let track = LocalVideoTrack::create_video_track(
+                &track_name,
+                RtcVideoSource::Native(video_source),
+            );
 
             let local_participant = self.room.local_participant().clone();
             let session = self.clone();
             tokio::spawn(async move {
                 let local_track = LocalTrack::Video(track);
+                // Prefer H.264 so that the libwebrtc VAAPI encoder (H.264-only) can be used
+                // on Linux hosts that have libva + a VA driver available. VP8/VP9/AV1 paths
+                // are software-only in our builds, so H.264 is at worst parity elsewhere.
+                let publish_options = TrackPublishOptions {
+                    video_codec: VideoCodec::H264,
+                    ..Default::default()
+                };
                 match local_participant
-                    .publish_track(local_track, TrackPublishOptions::default())
+                    .publish_track(local_track, publish_options)
                     .await
                 {
                     Ok(publication) => {
@@ -982,317 +2013,382 @@ impl RemoteAccessSession {
             });
         }
     }
-}
 
-/// Returns a reference to the locally cached `ChannelWriter` for `channel_id`,
-/// creating or replacing it if the subscription version has changed.
-///
-/// `open_stream` is called to create a new writer when the cached version is stale
-/// or no writer exists yet. It receives `(channel_id, subscribers, version)` and
-/// returns `Some(writer)` on success or `None` on failure.
-///
-/// Returns `None` if the channel has no subscribers or if stream creation fails.
-async fn get_or_replace_channel_writer<'a, F, Fut>(
-    state: &RwLock<SessionState>,
-    channel_id: &ChannelId,
-    channel_writers: &'a mut HashMap<ChannelId, ChannelWriter>,
-    open_stream: F,
-) -> Option<&'a ChannelWriter>
-where
-    F: FnOnce(ChannelId, Vec<ParticipantIdentity>, u32) -> Fut,
-    Fut: std::future::Future<Output = Option<ChannelWriter>>,
-{
-    // Read the current subscription version (fast read-lock, no await).
-    let (current_version, subscribers) = {
-        let state = state.read();
-        // Only consider data subscribers.
-        let Some(sub) = state.get_data_subscription(channel_id) else {
-            channel_writers.remove(channel_id);
-            return None;
-        };
-        debug_assert!(!sub.subscribers().is_empty());
-        let cached_version = channel_writers.get(channel_id).map(|w| w.version());
-        if cached_version == Some(sub.version()) {
-            // Fast path: writer is up to date.
-            return channel_writers.get(channel_id);
-        }
-        (sub.version(), sub.subscribers().to_vec())
-    };
-
-    // Subscriber set changed (or no writer yet): open a new byte stream.
-    // The old writer is implicitly closed when it is replaced in the map.
-    match open_stream(*channel_id, subscribers, current_version).await {
-        Some(writer) => {
-            channel_writers.insert(*channel_id, writer);
-            channel_writers.get(channel_id)
-        }
-        None => {
-            channel_writers.remove(channel_id);
-            None
+    /// Eagerly publish data tracks for newly advertised channels.
+    ///
+    /// Reliable channels should be excluded by the caller; their data goes via
+    /// the control plane instead of data tracks.
+    fn publish_data_tracks(&self, topics: &[ChannelId]) {
+        for channel_id in topics {
+            let data_track = DataTrack::publish(
+                &self.runtime,
+                self.room.local_participant(),
+                *channel_id,
+                self.cancellation_token.clone(),
+            );
+            self.state
+                .write()
+                .insert_data_track(*channel_id, data_track);
         }
     }
-}
 
-/// Processes a single data plane message: looks up (or creates) the channel writer
-/// and writes the message data through it.
-///
-/// On write failure the writer is removed from the cache so the next message
-/// triggers stream re-creation.
-async fn process_data_message<F, Fut>(
-    state: &RwLock<SessionState>,
-    msg: &ChannelMessage,
-    channel_writers: &mut HashMap<ChannelId, ChannelWriter>,
-    open_stream: F,
-) where
-    F: FnOnce(ChannelId, Vec<ParticipantIdentity>, u32) -> Fut,
-    Fut: std::future::Future<Output = Option<ChannelWriter>>,
-{
-    let writer =
-        get_or_replace_channel_writer(state, &msg.channel_id, channel_writers, open_stream).await;
-    let Some(writer) = writer else {
-        return;
-    };
-    if let Err(e) = writer.write(&msg.data).await {
-        error!(
-            "failed to send data for channel {:?}: {e:?}",
-            msg.channel_id
-        );
-        channel_writers.remove(&msg.channel_id);
+    /// Tear down the data track for a channel.
+    fn teardown_data_track(&self, channel_id: ChannelId) {
+        if let Some(mut data_track) = self.state.write().remove_data_track(&channel_id) {
+            self.runtime.spawn(async move { data_track.close().await });
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::remote_access::participant::{
-        ParticipantWriter, TestByteStreamWriter, TestChannelWriter,
+    use crate::protocol::v2::server::FetchAssetResponse;
+    use crate::remote_common::fetch_asset::{
+        AssetHandler, AsyncAssetHandlerFn, BlockingAssetHandlerFn,
     };
 
-    fn make_participant(name: &str) -> (ParticipantIdentity, Arc<Participant>) {
+    fn make_participant_with_rx(name: &str) -> (Arc<Participant>, flume::Receiver<Bytes>) {
         let identity = ParticipantIdentity(name.to_string());
-        let writer = Arc::new(TestByteStreamWriter::default());
+        let version = protocol_version::REMOTE_ACCESS_PROTOCOL_VERSION.clone();
+        let (tx, rx) = flume::bounded(16);
+        let pending_resets = Arc::new(parking_lot::Mutex::new(HashSet::new()));
+        let reset_notify = Arc::new(tokio::sync::Notify::new());
+        let cancel = CancellationToken::new();
         let participant = Arc::new(Participant::new(
-            identity.clone(),
-            ParticipantWriter::Test(writer),
+            identity,
+            version,
+            tx,
+            pending_resets,
+            reset_notify,
+            cancel,
         ));
-        (identity, participant)
+        (participant, rx)
     }
 
-    /// A factory that produces a `ChannelWriter` backed by the given test writer.
-    fn test_factory(
-        writer: Arc<TestChannelWriter>,
-    ) -> impl FnOnce(ChannelId, Vec<ParticipantIdentity>, u32) -> std::future::Ready<Option<ChannelWriter>>
-    {
-        move |_channel_id, _subscribers, version| {
-            std::future::ready(Some(ChannelWriter::test(writer, version)))
-        }
-    }
-
-    /// A factory that always fails to open a stream.
-    fn failing_factory()
-    -> impl FnOnce(ChannelId, Vec<ParticipantIdentity>, u32) -> std::future::Ready<Option<ChannelWriter>>
-    {
-        |_channel_id, _subscribers, _version| std::future::ready(None)
-    }
-
-    #[tokio::test]
-    async fn data_message_writes_to_channel() {
-        let state = RwLock::new(SessionState::new());
-        let (_id, p) = make_participant("alice");
-        let ch = ChannelId::new(1);
-        state.write().subscribe_data(&p, &[ch]);
-
-        let test_writer = Arc::new(TestChannelWriter::default());
-        let mut writers = HashMap::new();
-
-        let msg = ChannelMessage {
-            channel_id: ch,
-            data: Bytes::from_static(b"hello"),
-        };
-        process_data_message(
-            &state,
-            &msg,
-            &mut writers,
-            test_factory(test_writer.clone()),
+    fn test_client(participant: &Arc<Participant>) -> Client {
+        Client::with_sender(
+            participant.client_id(),
+            participant.participant_id().clone(),
+            participant,
         )
-        .await;
-
-        assert_eq!(test_writer.writes(), vec![Bytes::from_static(b"hello")]);
-        assert!(writers.contains_key(&ch));
     }
 
-    #[tokio::test]
-    async fn cached_writer_reused_on_version_match() {
-        let state = RwLock::new(SessionState::new());
-        let (_id, p) = make_participant("alice");
-        let ch = ChannelId::new(1);
-        state.write().subscribe_data(&p, &[ch]);
+    // ---- fetch asset tests ----
 
-        let test_writer = Arc::new(TestChannelWriter::default());
-        let mut writers = HashMap::new();
+    #[test]
+    fn asset_responder_sends_ok_response() {
+        let (participant, rx) = make_participant_with_rx("alice");
+        let guard = participant.fetch_asset_sem().try_acquire().unwrap();
+        let responder = AssetResponder::new(test_client(&participant), 42, guard);
+        responder.respond_ok(b"hello world");
 
-        let msg1 = ChannelMessage {
-            channel_id: ch,
-            data: Bytes::from_static(b"msg1"),
-        };
-        process_data_message(
-            &state,
-            &msg1,
-            &mut writers,
-            test_factory(test_writer.clone()),
-        )
-        .await;
-
-        // Second message should reuse the cached writer (factory not called).
-        let other_writer = Arc::new(TestChannelWriter::default());
-        let msg2 = ChannelMessage {
-            channel_id: ch,
-            data: Bytes::from_static(b"msg2"),
-        };
-        process_data_message(
-            &state,
-            &msg2,
-            &mut writers,
-            test_factory(other_writer.clone()),
-        )
-        .await;
-
+        let msg = rx.try_recv().unwrap();
         assert_eq!(
-            test_writer.writes(),
-            vec![Bytes::from_static(b"msg1"), Bytes::from_static(b"msg2")]
+            msg,
+            encode_binary_message(&FetchAssetResponse::asset_data(42, &b"hello world"[..]))
         );
-        assert!(other_writer.writes().is_empty());
+    }
+
+    #[test]
+    fn asset_responder_sends_error_response() {
+        let (participant, rx) = make_participant_with_rx("alice");
+        let guard = participant.fetch_asset_sem().try_acquire().unwrap();
+        let responder = AssetResponder::new(test_client(&participant), 42, guard);
+        responder.respond_err("something went wrong");
+
+        let msg = rx.try_recv().unwrap();
+        assert_eq!(
+            msg,
+            encode_binary_message(&FetchAssetResponse::error_message(
+                42,
+                "something went wrong"
+            ))
+        );
+    }
+
+    #[test]
+    fn asset_responder_sends_error_on_drop_without_response() {
+        let (participant, rx) = make_participant_with_rx("alice");
+        let guard = participant.fetch_asset_sem().try_acquire().unwrap();
+        let responder = AssetResponder::new(test_client(&participant), 42, guard);
+        drop(responder);
+
+        let msg = rx.try_recv().unwrap();
+        assert_eq!(
+            msg,
+            encode_binary_message(&FetchAssetResponse::error_message(
+                42,
+                "Internal server error: asset handler failed to send a response"
+            ))
+        );
+    }
+
+    #[test]
+    fn fetch_asset_semaphore_limits_concurrent_requests() {
+        let (participant, rx) = make_participant_with_rx("alice");
+        let mut guards = Vec::new();
+        while let Some(guard) = participant.fetch_asset_sem().try_acquire() {
+            guards.push(guard);
+        }
+        assert!(participant.fetch_asset_sem().try_acquire().is_none());
+
+        participant.send_asset_error("Too many concurrent fetch asset requests", 99);
+
+        let msg = rx.try_recv().unwrap();
+        assert_eq!(
+            msg,
+            encode_binary_message(&FetchAssetResponse::error_message(
+                99,
+                "Too many concurrent fetch asset requests"
+            ))
+        );
+
+        guards.pop();
+        assert!(participant.fetch_asset_sem().try_acquire().is_some());
+    }
+
+    #[test]
+    fn asset_responder_releases_semaphore_on_respond() {
+        let (participant, _rx) = make_participant_with_rx("alice");
+        let mut guards = Vec::new();
+        while let Some(guard) = participant.fetch_asset_sem().try_acquire() {
+            guards.push(guard);
+        }
+        let guard = guards.pop().unwrap();
+        let responder = AssetResponder::new(test_client(&participant), 1, guard);
+
+        assert!(participant.fetch_asset_sem().try_acquire().is_none());
+        responder.respond_ok(b"data");
+        assert!(participant.fetch_asset_sem().try_acquire().is_some());
+    }
+
+    #[test]
+    fn asset_responder_releases_semaphore_on_drop() {
+        let (participant, _rx) = make_participant_with_rx("alice");
+        let mut guards = Vec::new();
+        while let Some(guard) = participant.fetch_asset_sem().try_acquire() {
+            guards.push(guard);
+        }
+        let guard = guards.pop().unwrap();
+        let responder = AssetResponder::new(test_client(&participant), 1, guard);
+
+        assert!(participant.fetch_asset_sem().try_acquire().is_none());
+        drop(responder);
+        assert!(participant.fetch_asset_sem().try_acquire().is_some());
+    }
+
+    #[test]
+    fn missing_handler_sends_asset_error() {
+        let (participant, rx) = make_participant_with_rx("alice");
+        participant.send_asset_error("Server does not have a fetch asset handler", 42);
+
+        let msg = rx.try_recv().unwrap();
+        assert_eq!(
+            msg,
+            encode_binary_message(&FetchAssetResponse::error_message(
+                42,
+                "Server does not have a fetch asset handler"
+            ))
+        );
     }
 
     #[tokio::test]
-    async fn writer_replaced_on_subscriber_change() {
-        let state = RwLock::new(SessionState::new());
-        let (_id_a, pa) = make_participant("alice");
-        let (_id_b, pb) = make_participant("bob");
-        let ch = ChannelId::new(1);
-        state.write().subscribe_data(&pa, &[ch]);
+    async fn blocking_asset_handler_success() {
+        let (participant, rx) = make_participant_with_rx("alice");
+        let guard = participant.fetch_asset_sem().try_acquire().unwrap();
+        let responder = AssetResponder::new(test_client(&participant), 7, guard);
 
-        let writer1 = Arc::new(TestChannelWriter::default());
-        let mut writers = HashMap::new();
+        let handler = BlockingAssetHandlerFn(Arc::new(
+            |_client: Client, _uri: String| -> Result<&[u8], &str> { Ok(b"<robot/>") },
+        ));
+        handler.fetch("package://test/model.urdf".to_string(), responder);
 
-        let msg1 = ChannelMessage {
-            channel_id: ch,
-            data: Bytes::from_static(b"before"),
-        };
-        process_data_message(&state, &msg1, &mut writers, test_factory(writer1.clone())).await;
-
-        // Adding a subscriber bumps the version, so the next message creates a new writer.
-        state.write().subscribe_data(&pb, &[ch]);
-
-        let writer2 = Arc::new(TestChannelWriter::default());
-        let msg2 = ChannelMessage {
-            channel_id: ch,
-            data: Bytes::from_static(b"after"),
-        };
-        process_data_message(&state, &msg2, &mut writers, test_factory(writer2.clone())).await;
-
-        assert_eq!(writer1.writes(), vec![Bytes::from_static(b"before")]);
-        assert_eq!(writer2.writes(), vec![Bytes::from_static(b"after")]);
+        let msg = tokio::time::timeout(Duration::from_secs(1), rx.recv_async())
+            .await
+            .expect("timed out waiting for asset response")
+            .expect("channel closed");
+        assert_eq!(
+            msg,
+            encode_binary_message(&FetchAssetResponse::asset_data(7, &b"<robot/>"[..]))
+        );
     }
 
     #[tokio::test]
-    async fn no_subscribers_skips_write() {
-        let state = RwLock::new(SessionState::new());
-        let mut writers = HashMap::new();
-        let ch = ChannelId::new(1);
+    async fn blocking_asset_handler_error() {
+        let (participant, rx) = make_participant_with_rx("alice");
+        let guard = participant.fetch_asset_sem().try_acquire().unwrap();
+        let responder = AssetResponder::new(test_client(&participant), 9, guard);
 
-        let factory_called = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let fc = factory_called.clone();
+        let handler = BlockingAssetHandlerFn(Arc::new(
+            |_client: Client, _uri: String| -> Result<&[u8], &str> { Err("not found") },
+        ));
+        handler.fetch("package://missing".to_string(), responder);
 
-        let msg = ChannelMessage {
-            channel_id: ch,
-            data: Bytes::from_static(b"nobody"),
-        };
-        process_data_message(&state, &msg, &mut writers, move |_id, _subs, _v| {
-            fc.store(true, std::sync::atomic::Ordering::Relaxed);
-            std::future::ready(None)
-        })
-        .await;
-
-        assert!(!factory_called.load(std::sync::atomic::Ordering::Relaxed));
-        assert!(!writers.contains_key(&ch));
+        let msg = tokio::time::timeout(Duration::from_secs(1), rx.recv_async())
+            .await
+            .expect("timed out waiting for asset response")
+            .expect("channel closed");
+        assert_eq!(
+            msg,
+            encode_binary_message(&FetchAssetResponse::error_message(9, "not found"))
+        );
     }
 
     #[tokio::test]
-    async fn write_failure_removes_writer_from_cache() {
-        let state = RwLock::new(SessionState::new());
-        let (_id, p) = make_participant("alice");
-        let ch = ChannelId::new(1);
-        state.write().subscribe_data(&p, &[ch]);
+    async fn async_asset_handler_success() {
+        let (participant, rx) = make_participant_with_rx("alice");
+        let guard = participant.fetch_asset_sem().try_acquire().unwrap();
+        let responder = AssetResponder::new(test_client(&participant), 8, guard);
 
-        let failing = Arc::new(TestChannelWriter::new_failing());
-        let mut writers = HashMap::new();
+        let handler = AsyncAssetHandlerFn(Arc::new(|_client: Client, _uri: String| async move {
+            Ok::<_, String>(b"PNG data".to_vec())
+        }));
+        handler.fetch("https://example.com/asset.png".to_string(), responder);
 
-        let msg = ChannelMessage {
-            channel_id: ch,
-            data: Bytes::from_static(b"will fail"),
-        };
-        process_data_message(&state, &msg, &mut writers, test_factory(failing)).await;
+        let msg = tokio::time::timeout(Duration::from_secs(1), rx.recv_async())
+            .await
+            .expect("timed out waiting for asset response")
+            .expect("channel closed");
+        assert_eq!(
+            msg,
+            encode_binary_message(&FetchAssetResponse::asset_data(8, &b"PNG data"[..]))
+        );
+    }
 
+    // ---- flush task tests ----
+
+    /// Spawns a participant with a test writer via `Participant::spawn`.
+    /// Returns the participant (for sending), the test writer (for inspecting
+    /// writes), and the flush task's `JoinHandle`.
+    fn spawn_test_participant(
+        session_cancel: &CancellationToken,
+    ) -> (
+        Arc<Participant>,
+        Arc<crate::remote_access::participant::TestByteStreamWriter>,
+        tokio::task::JoinHandle<()>,
+    ) {
+        use crate::remote_access::participant::{ParticipantWriter, TestByteStreamWriter};
+
+        let writer = Arc::new(TestByteStreamWriter::default());
+        let pending_resets = Arc::new(parking_lot::Mutex::new(HashSet::new()));
+        let reset_notify = Arc::new(tokio::sync::Notify::new());
+        let (participant, handle) = Participant::spawn(
+            ParticipantIdentity("test".to_string()),
+            protocol_version::REMOTE_ACCESS_PROTOCOL_VERSION.clone(),
+            ParticipantWriter::Test(writer.clone()),
+            DEFAULT_MESSAGE_BACKLOG_SIZE,
+            pending_resets,
+            reset_notify,
+            session_cancel,
+        );
+        (participant, writer, handle)
+    }
+
+    #[tokio::test]
+    async fn flush_task_delivers_messages() {
+        let cancel = CancellationToken::new();
+        let (participant, writer, handle) = spawn_test_participant(&cancel);
+
+        participant.send_control(Bytes::from_static(b"hello"));
+        participant.send_control(Bytes::from_static(b"world"));
+
+        // Drop the participant to signal the flush task to exit.
+        drop(participant);
+        handle.await.unwrap();
+
+        let writes = writer.writes();
+        assert_eq!(writes.len(), 2);
+        assert_eq!(writes[0], Bytes::from_static(b"hello"));
+        assert_eq!(writes[1], Bytes::from_static(b"world"));
+    }
+
+    #[tokio::test]
+    async fn flush_task_stops_on_sender_drop() {
+        let cancel = CancellationToken::new();
+        let (participant, _writer, handle) = spawn_test_participant(&cancel);
+
+        // Drop the participant without cancelling — task should exit because recv returns Err.
+        drop(participant);
+
+        let result = tokio::time::timeout(Duration::from_secs(1), handle).await;
+        assert!(result.is_ok(), "flush task did not exit after sender drop");
+    }
+
+    #[tokio::test]
+    async fn flush_task_stops_on_cancellation() {
+        let cancel = CancellationToken::new();
+        let (_participant, _writer, handle) = spawn_test_participant(&cancel);
+
+        // Cancel without dropping the participant — task should exit via the select! arm.
+        cancel.cancel();
+
+        let result = tokio::time::timeout(Duration::from_secs(1), handle).await;
+        assert!(result.is_ok(), "flush task did not exit after cancellation");
+    }
+
+    #[tokio::test]
+    async fn flush_tasks_are_independent() {
+        // Two participants spawned independently. Dropping one and awaiting its
+        // flush task should not affect the other.
+        let cancel = CancellationToken::new();
+        let (participant_a, writer_a, handle_a) = spawn_test_participant(&cancel);
+        let (participant_b, writer_b, handle_b) = spawn_test_participant(&cancel);
+
+        // Send a message to both.
+        participant_a.send_control(Bytes::from_static(b"msg_a"));
+        participant_b.send_control(Bytes::from_static(b"msg_b"));
+
+        // Drop B's participant so it flushes and exits.
+        drop(participant_b);
+        let result = tokio::time::timeout(Duration::from_secs(1), handle_b).await;
         assert!(
-            !writers.contains_key(&ch),
-            "writer should be evicted from cache after write failure"
+            result.is_ok(),
+            "task B should complete independently of task A"
         );
+        assert_eq!(writer_b.writes(), vec![Bytes::from_static(b"msg_b")]);
+
+        // A should also have written (TestByteStreamWriter is instant).
+        drop(participant_a);
+        let result = tokio::time::timeout(Duration::from_secs(1), handle_a).await;
+        assert!(result.is_ok(), "task A should complete after drop");
+        assert_eq!(writer_a.writes(), vec![Bytes::from_static(b"msg_a")]);
     }
 
-    #[tokio::test]
-    async fn writer_replaced_after_unsubscribe_resubscribe() {
-        let state = RwLock::new(SessionState::new());
-        let (_id, p) = make_participant("alice");
-        let ch = ChannelId::new(1);
-        state.write().subscribe_data(&p, &[ch]);
-
-        let writer1 = Arc::new(TestChannelWriter::default());
-        let mut writers = HashMap::new();
-
-        // First message creates a writer.
-        let msg1 = ChannelMessage {
-            channel_id: ch,
-            data: Bytes::from_static(b"before"),
-        };
-        process_data_message(&state, &msg1, &mut writers, test_factory(writer1.clone())).await;
-        assert_eq!(writer1.writes(), vec![Bytes::from_static(b"before")]);
-
-        // Unsubscribe and resubscribe — the version counter is preserved,
-        // so the new version differs from the cached writer's version.
-        state.write().unsubscribe_data(&p, &[ch]);
-        state.write().subscribe_data(&p, &[ch]);
-
-        // Second message should create a NEW writer (not reuse the old one).
-        let writer2 = Arc::new(TestChannelWriter::default());
-        let msg2 = ChannelMessage {
-            channel_id: ch,
-            data: Bytes::from_static(b"after"),
-        };
-        process_data_message(&state, &msg2, &mut writers, test_factory(writer2.clone())).await;
-
-        assert_eq!(writer1.writes(), vec![Bytes::from_static(b"before")]);
-        assert_eq!(writer2.writes(), vec![Bytes::from_static(b"after")]);
+    fn make_test_participant(queue_size: usize) -> (Participant, flume::Receiver<Bytes>) {
+        let version = protocol_version::REMOTE_ACCESS_PROTOCOL_VERSION.clone();
+        let (tx, rx) = flume::bounded::<Bytes>(queue_size);
+        let pending_resets = Arc::new(parking_lot::Mutex::new(HashSet::new()));
+        let reset_notify = Arc::new(tokio::sync::Notify::new());
+        let cancel = CancellationToken::new();
+        let participant = Participant::new(
+            ParticipantIdentity("alice".to_string()),
+            version,
+            tx,
+            pending_resets,
+            reset_notify,
+            cancel,
+        );
+        (participant, rx)
     }
 
-    #[tokio::test]
-    async fn stream_open_failure_does_not_cache_writer() {
-        let state = RwLock::new(SessionState::new());
-        let (_id, p) = make_participant("alice");
-        let ch = ChannelId::new(1);
-        state.write().subscribe_data(&p, &[ch]);
+    #[test]
+    fn try_queue_control_returns_false_when_full() {
+        let (participant, _rx) = make_test_participant(1);
 
-        let mut writers = HashMap::new();
+        // First message fits.
+        assert!(participant.try_queue_control(Bytes::from_static(b"first")));
+        // Second message overflows the 1-slot queue.
+        assert!(!participant.try_queue_control(Bytes::from_static(b"second")));
+    }
 
-        let msg = ChannelMessage {
-            channel_id: ch,
-            data: Bytes::from_static(b"no stream"),
-        };
-        process_data_message(&state, &msg, &mut writers, failing_factory()).await;
+    #[test]
+    fn try_queue_control_returns_true_when_disconnected() {
+        let (participant, rx) = make_test_participant(1);
 
-        assert!(
-            !writers.contains_key(&ch),
-            "no writer should be cached when stream creation fails"
-        );
+        // Drop the receiver — channel disconnected.
+        drop(rx);
+        // Disconnected returns true (no reset needed).
+        assert!(participant.try_queue_control(Bytes::from_static(b"msg")));
     }
 }

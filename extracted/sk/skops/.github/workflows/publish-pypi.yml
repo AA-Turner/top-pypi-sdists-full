@@ -21,11 +21,11 @@ jobs:
       id-token: write
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         ref: ${{ github.event.inputs.version }}
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: '3.x'
 
@@ -39,11 +39,11 @@ jobs:
         python -m build
 
     - name: Publish package to TestPyPI
-      uses: pypa/gh-action-pypi-publish@v1.12.4
+      uses: pypa/gh-action-pypi-publish@v1.14.0
       with:
         repository-url: https://test.pypi.org/legacy/
       if: ${{ github.event.inputs.pypi_repo == 'testpypi' }}
 
     - name: Publish package to PyPI
-      uses: pypa/gh-action-pypi-publish@v1.12.4
+      uses: pypa/gh-action-pypi-publish@v1.14.0
       if: ${{ github.event.inputs.pypi_repo == 'pypi' }}

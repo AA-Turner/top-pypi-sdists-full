@@ -234,12 +234,15 @@ class AgmetPlotter:
 
         for y in closest:
             _cur = self.df[self.df["harvest_season"] == y]
-            _tmp = _cur["yield"]
-            _yld = (
-                np.unique(_tmp[~np.isnan(_tmp)])[0]
-                if not _tmp.isnull().all()
-                else np.nan
-            )
+            if "yield" in _cur.columns:
+                _tmp = _cur["yield"]
+                _yld = (
+                    np.unique(_tmp[~np.isnan(_tmp)])[0]
+                    if not _tmp.isnull().all()
+                    else np.nan
+                )
+            else:
+                _yld = np.nan
             if is_ndvi and y == self.frcast_yr:
                 _yld = np.nan
 

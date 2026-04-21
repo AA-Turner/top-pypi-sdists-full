@@ -367,6 +367,8 @@ def _generate_server_api_schema() -> dict[str, Any]:
         files.FileSearchResponse,
         files.FileMoveRequest,
         files.FileMoveResponse,
+        files.FileCopyRequest,
+        files.FileCopyResponse,
         files.FileOpenRequest,
         files.FileUpdateRequest,
         files.FileUpdateResponse,
@@ -788,6 +790,7 @@ def preview(file_path: Path, port: int, host: str, headless: bool) -> None:
         session_snapshot = serialize_session_view(
             session_view,
             cell_ids=list(file_manager.app.cell_manager.cell_ids()),
+            drop_virtual_file_outputs=False,
         )
 
         # Get notebook snapshot from file manager

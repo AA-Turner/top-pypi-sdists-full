@@ -37,6 +37,7 @@ from plato._generated.api.v1.sandbox import start_worker
 from plato._generated.api.v1.simulator import get_env_flows as simulator_get_env_flows
 from plato._generated.api.v1.simulator import get_plato_config as simulator_get_plato_config
 from plato._generated.api.v1.simulator import get_simulator_versions as simulator_get_simulator_versions
+from plato._generated.api.v2.jobs import checkpoint as jobs_checkpoint
 from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
 from plato._generated.api.v2.jobs import state as jobs_state
 from plato._generated.api.v2.sessions import add_ssh_key as sessions_add_ssh_key
@@ -53,6 +54,7 @@ from plato._generated.models import (
     AppSchemasBuildModelsSimConfigDataset,
     CloseSessionResponse,
     CreateCheckpointRequest,
+    CreateCheckpointResult,
     DatabaseMutationListenerConfig,
     EnvCleanupResponse,
     Flow,
@@ -1150,6 +1152,43 @@ class SandboxClient:
 
         return response
 
+    def snapshot_job(
+        self,
+        job_id: str,
+    ) -> CreateCheckpointResult:
+        """Snapshot a single job (one env in a multi-env session).
+
+        Used by unified datagen: one call per env, targeted at that env's job.
+        """
+        response = jobs_checkpoint.sync(
+            client=self._http,
+            job_id=job_id,
+            body=CreateCheckpointRequest(),
+            x_api_key=self.api_key,
+        )
+
+        if response.success and response.artifact_id:
+            state_path = self.working_dir / self.PLATO_DIR / "state.json"
+            if state_path.exists():
+                with open(state_path) as f:
+                    state = json.load(f)
+                state["artifact_id"] = response.artifact_id
+                with open(state_path, "w") as f:
+                    json.dump(state, f)
+
+            self.console.print("[cyan]Prefetching snapshot to workers...[/cyan]")
+            try:
+                prefetch_snapshot.sync(
+                    client=self._http,
+                    body=PrefetchRequest(artifact_id=response.artifact_id),
+                    x_api_key=self.api_key,
+                )
+                self.console.print("[green]Prefetch dispatched to workers[/green]")
+            except Exception as e:
+                self.console.print(f"[yellow]Prefetch failed (non-fatal): {e}[/yellow]")
+
+        return response
+
     # CHECKED
     def connect_network(self, session_id: str) -> dict:
         return sessions_connect_network.sync(
@@ -1662,25 +1701,106 @@ class SandboxClient:
         )
         return response
 
-    def clear_audit(self, job_group_id: str) -> EnvCleanupResponse:
-        """Clear audit logs for a sandbox.
+    def clear_audit(
+        self,
+        job_group_id: str,
+        job_id: str | None = None,
+        simulator_name: str | None = None,
+    ) -> EnvCleanupResponse:
+        """Clear audit_log tables in the sandbox database(s).
 
-        This clears the audit_log table(s) in the sandbox's database,
-        which tracks database mutations. Useful for resetting audit
-        state between test runs.
+        Tries POST /api/v1/env/{id}/cleanup first. That endpoint requires a
+        simulator attached to the job_group; chronos-managed sessions
+        (datagen) restore envs from artifacts via EnvFromArtifact and never
+        attach one, so the call returns 404 "Simulator not found". When that
+        happens, fall back to opening a TCP tunnel to each env's DB and
+        TRUNCATE'ing audit_log directly via DatabaseCleaner — which only
+        needs job_id + artifact-derived db_config, no server-side simulator
+        lookup.
 
         Args:
-            job_group_id: The job group ID (same as session_id for v2 sessions)
-
-        Returns:
-            EnvCleanupResponse with success status
+            job_group_id: Session id (same as job_group_id for v2 sessions).
+            job_id: Per-env job id, used for the tunnel fallback.
+            simulator_name: Used to resolve the artifact for db_config lookup.
         """
-        response = env_cleanup.sync(
+        try:
+            resp = env_cleanup.sync(
+                client=self._http,
+                job_group_id=job_group_id,
+                x_api_key=self.api_key,
+            )
+            if resp.success:
+                return resp
+            server_err = resp.error or "env_cleanup returned success=false"
+        except Exception as e:
+            server_err = str(e)
+
+        if not job_id or not simulator_name:
+            return EnvCleanupResponse(
+                success=False,
+                error=f"server cleanup failed ({server_err}); job_id/simulator_name required for tunnel fallback",
+            )
+
+        from plato._generated.api.v1.simulator import get_db_config
+        from plato._generated.api.v1.simulator.get_simulator_by_name import (
+            sync as get_sim_sync,
+        )
+        from plato.v2.utils.db_cleanup import DatabaseCleaner
+        from plato.v2.utils.models import EnvironmentInfo
+
+        sim = get_sim_sync(client=self._http, simulator_name=simulator_name, x_api_key=self.api_key)
+        sim_config = (sim or {}).get("config", {}) if isinstance(sim, dict) else {}
+        artifact_id = sim_config.get("base_artifact_id") or sim_config.get("data_artifact_id")
+        if not artifact_id:
+            return EnvCleanupResponse(
+                success=False,
+                error=f"no base_artifact_id/data_artifact_id on simulator '{simulator_name}'",
+            )
+
+        db_configs = get_db_config.sync(
             client=self._http,
-            job_group_id=job_group_id,
+            artifact_id=artifact_id,
             x_api_key=self.api_key,
         )
-        return response
+        if not db_configs:
+            return EnvCleanupResponse(
+                success=False,
+                error=f"no db configs returned for artifact {artifact_id}",
+            )
+
+        async def _noop():
+            return None
+
+        env_info = EnvironmentInfo(
+            job_id=job_id,
+            alias=simulator_name,
+            artifact_id=artifact_id,
+            get_state_fn=_noop,
+        )
+
+        assert self.api_key is not None
+        api_key: str = self.api_key
+
+        async def _run():
+            async with httpx.AsyncClient(
+                base_url=self._http.base_url,
+                timeout=httpx.Timeout(120.0),
+            ) as ac:
+                return await DatabaseCleaner().cleanup_session(
+                    envs=[env_info],
+                    http_client=ac,
+                    api_key=api_key,
+                )
+
+        result = asyncio.run(_run())
+        failures = []
+        for alias, env_result in (result.environments or {}).items():
+            for db_name, db_result in (env_result.databases or {}).items():
+                if not db_result.success:
+                    failures.append(f"{alias}/{db_name}: {db_result.error}")
+        if failures:
+            return EnvCleanupResponse(success=False, error="; ".join(failures))
+        return EnvCleanupResponse(success=True)
 
     # CHECKED
     def start_services(

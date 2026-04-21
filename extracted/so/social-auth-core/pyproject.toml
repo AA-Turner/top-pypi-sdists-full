@@ -4,26 +4,26 @@ requires = ["setuptools>=78.0.2"]
 
 [dependency-groups]
 dev = [
-  "coverage==7.13.4",
+  "coverage==7.13.5",
   "flake8==7.3.0",
   "google-auth-stubs==0.3.0",
-  "mypy==1.19.1",
+  "mypy==1.20.1",
   "pyright==1.1.408",
-  "pytest-cov==7.0.0",
-  "pytest-github-actions-annotate-failures==0.3.0",
+  "pytest-cov==7.1.0",
+  "pytest-github-actions-annotate-failures==0.4.0",
   "pytest-profiling==1.8.1",
   "pytest-xdist==3.8.0",
-  "pytest==9.0.2",
-  "responses==0.25.8",
-  "ty==0.0.15",
-  "types-defusedxml==0.7.0.20250822",
-  "types-oauthlib==3.3.0.20250822",
-  "types-requests-oauthlib==2.0.0.20250809",
-  "types-requests==2.32.4.20260107",
+  "pytest==9.0.3",
+  "responses==0.26.0",
+  "ty==0.0.31",
+  "types-defusedxml==0.7.0.20260408",
+  "types-oauthlib==3.3.0.20260408",
+  "types-requests-oauthlib==2.0.0.20260408",
+  "types-requests==2.33.0.20260408",
   {include-group = "pylint"}
 ]
 pylint = [
-  "pylint==4.0.4"
+  "pylint==4.0.5"
 ]
 
 [project]
@@ -47,7 +47,7 @@ classifiers = [
 dependencies = [
   "defusedxml>=0.7.1",
   "oauthlib>=3.3.1",
-  "PyJWT[crypto]>=2.11.0",
+  "PyJWT[crypto]==2.12.1",
   "python3-openid>=3.2.0",
   "requests-oauthlib>=2.0.0",
   "requests>=2.32.5"
@@ -59,7 +59,7 @@ license-files = ["LICENSE"]
 name = "social-auth-core"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "4.8.5"
+version = "4.8.6"
 
 [project.optional-dependencies]
 all = [
@@ -77,25 +77,25 @@ azuread = [
 # This is present until pip implements supports for PEP 735
 # see https://github.com/pypa/pip/issues/12963
 dev = [
-  "coverage==7.13.4",
+  "coverage==7.13.5",
   "flake8==7.3.0",
   "google-auth-stubs==0.3.0",
-  "mypy==1.19.1",
+  "mypy==1.20.1",
   "pyright==1.1.408",
-  "pytest-cov==7.0.0",
-  "pytest-github-actions-annotate-failures==0.3.0",
+  "pytest-cov==7.1.0",
+  "pytest-github-actions-annotate-failures==0.4.0",
   "pytest-profiling==1.8.1",
   "pytest-xdist==3.8.0",
-  "pytest==9.0.2",
-  "responses==0.25.8",
-  "ty==0.0.15",
-  "types-defusedxml==0.7.0.20250822",
-  "types-oauthlib==3.3.0.20250822",
-  "types-requests-oauthlib==2.0.0.20250809",
-  "types-requests==2.32.4.20260107"
+  "pytest==9.0.3",
+  "responses==0.26.0",
+  "ty==0.0.31",
+  "types-defusedxml==0.7.0.20260408",
+  "types-oauthlib==3.3.0.20260408",
+  "types-requests-oauthlib==2.0.0.20260408",
+  "types-requests==2.33.0.20260408"
 ]
 google-onetap = [
-  "google-auth>=2.40.0,<2.49"
+  "google-auth>=2.40.0,<2.50"
 ]
 saml = [
   "python3-saml>=1.16.0"
@@ -159,12 +159,11 @@ disable = [
 ]
 
 [tool.pyright]
-executionEnvironments = [
-  {reportMissingImports = "none", root = "social_core/backends/gae.py"}
-]
 pythonVersion = "3.10"
 reportOptionalMemberAccess = "none"
 reportPossiblyUnboundVariable = "none"
+venv = ".venv"
+venvPath = "."
 
 [tool.pytest.ini_options]
 addopts = "--cov=social_core --cov-report=xml --durations=10"
@@ -189,8 +188,6 @@ ignore = [
   "D",  # TODO: Missing documentation
   "D203",  # CONFIG: incompatible with D211
   "D212",  # CONFIG: incompatible with D213
-  "DTZ001",  # TODO: `datetime.datetime()` called without a `tzinfo` argument
-  "DTZ005",  # TODO: `datetime.datetime.now()` called without a `tz` argument
   "E501",  # WONTFIX: we accept long strings (rest is formatted by ruff)
   "EM101",  # TODO: Exception must not use a string literal, assign to variable first
   "EM102",  # TODO: Exception must not use an f-string literal, assign to variable first

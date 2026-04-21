@@ -95,14 +95,19 @@ def update_cache(ccode, cache_file_name):
     represented by ``ccode``.
     """
     if cache_file_name is not None:
-        if not is_writable_file(cache_file_name):
+        try:
+            os.makedirs(os.path.dirname(cache_file_name), exist_ok=True)
+        except OSError:
+            writable = False
+        else:
+            writable = is_writable_file(cache_file_name)
+        if not writable:
             if XSH.env.get("XONSH_DEBUG", "False"):
                 print_warning(
                     f"update_cache: Cache file is not writable: {cache_file_name}\n"
                     f"Set $XONSH_CACHE_SCRIPTS=0, $XONSH_CACHE_EVERYTHING=0 to disable cache."
                 )
             return
-        os.makedirs(os.path.dirname(cache_file_name), exist_ok=True)
         with open(cache_file_name, "wb") as cfile:
             cfile.write(XONSH_VERSION.encode() + b"\n")
             cfile.write(bytes(PYTHON_VERSION_INFO_BYTES) + b"\n")
@@ -154,7 +159,12 @@ def script_cache_check(filename, cachefname):
             with open(cachefname, "rb") as cfile:
                 if not _check_cache_versions(cfile):
                     return False, None
-                ccode = marshal.load(cfile)
+                try:
+                    ccode = marshal.load(cfile)
+                except Exception:
+                    # Cache file is corrupted (e.g. truncated by a crash).
+                    # Ignore it — the script will be recompiled and cached again.
+                    return False, None
                 run_cached = True
     return run_cached, ccode
 
@@ -185,7 +195,8 @@ def code_cache_name(code):
     """
     if isinstance(code, str):
         code = code.encode()
-    return hashlib.md5(code).hexdigest()
+    # usedforsecurity=False: allow md5 on FIPS-enabled systems
+    return hashlib.md5(code, usedforsecurity=False).hexdigest()
 
 
 def code_cache_check(cachefname):
@@ -202,7 +213,12 @@ def code_cache_check(cachefname):
         with open(cachefname, "rb") as cfile:
             if not _check_cache_versions(cfile):
                 return False, None
-            ccode = marshal.load(cfile)
+            try:
+                ccode = marshal.load(cfile)
+            except Exception:
+                # Cache file is corrupted (e.g. truncated by a crash).
+                # Ignore it — the code will be recompiled and cached again.
+                return False, None
             run_cached = True
     return run_cached, ccode
 
@@ -223,5 +239,6 @@ def run_code_with_cache(
         run_cached, ccode = code_cache_check(cachefname)
     if not run_cached:
         ccode = compile_code(display_filename, code, execer, glb, loc, mode)
-        update_cache(ccode, cachefname)
+        if use_cache:
+            update_cache(ccode, cachefname)
     return run_compiled_code(ccode, glb, loc, mode)

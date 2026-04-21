@@ -968,8 +968,8 @@ MonitoredRequestCountMetricDataQueriesUnionTypeDef = Union[
 
 class ServiceLevelIndicatorConfigTypeDef(TypedDict):
     SliMetricConfig: ServiceLevelIndicatorMetricConfigTypeDef
-    MetricThreshold: float
-    ComparisonOperator: ServiceLevelIndicatorComparisonOperatorType
+    MetricThreshold: NotRequired[float]
+    ComparisonOperator: NotRequired[ServiceLevelIndicatorComparisonOperatorType]
 
 
 class RequestBasedServiceLevelIndicatorMetricConfigTypeDef(TypedDict):
@@ -997,6 +997,7 @@ class CreateServiceLevelObjectiveInputTypeDef(TypedDict):
     Goal: NotRequired[GoalUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
     BurnRateConfigurations: NotRequired[Sequence[BurnRateConfigurationTypeDef]]
+    CreateRecommendedSlo: NotRequired[bool]
 
 
 class UpdateServiceLevelObjectiveInputTypeDef(TypedDict):

@@ -70,6 +70,7 @@ FeatureReference: TypeAlias = Union[str, Any]
 if TYPE_CHECKING:
     import sqlglot.expressions
     from pydantic import BaseModel, ValidationError
+    from sqlglot.lineage import Node
 
     from chalk.sql import BaseSQLSourceProtocol, SQLSourceGroup
 
@@ -769,65 +770,108 @@ def _get_sql_string(path: str) -> SQLStringResult:
     return SQLStringResult(path=path, sql_string=sql_string, error=None)
 
 
-def _get_data_lineage(sql: str) -> Dict[str, Dict[str, List[str]]]:
+# {table_name: {output_column: [input_columns]}}
+_DataLineageGraphIntermediate = Dict[str, Dict[str, set[str]]]
+DataLineageResult = Dict[str, Dict[str, List[str]]]
+
+
+def _merge_lineage(target: _DataLineageGraphIntermediate, source: _DataLineageGraphIntermediate):
+    for table, columns in source.items():
+        if table not in target:
+            target[table] = {}
+        for output_col, input_cols in columns.items():
+            if output_col not in target[table]:
+                target[table][output_col] = set()
+            target[table][output_col].update(input_cols)
+
+
+def _recurse_build_lineage(node: Node, toplevelcolumn: str) -> _DataLineageGraphIntermediate:
+    # no need for try catch because _get_data_lineage handles it
+    from sqlglot import exp
+
+    # no more downstream means we have hit a leaf node
+    if not node.downstream:
+        # hit a table
+        if isinstance(node.expression, exp.Table):
+            input_col: str
+            # if name is * or star we just use the toplevel column name
+            if node.name in ("*", "", None):
+                input_col = toplevelcolumn
+            else:
+                # split to get ride of table name in front
+                input_col = node.name.rsplit(".", 1)[-1]
+            return {node.expression.this.name: {toplevelcolumn: {input_col}}}
+        # hit an aggregation function that has no actual input like count(*)
+        elif isinstance(node.expression.this, exp.AggFunc):
+            # verify we are not using NONE
+            from_clause = node.source.find(exp.From)
+            if from_clause is None:
+                return {}
+            table = from_clause.find(exp.Table)
+            if table is None:
+                return {}
+            return {table.this.name: {toplevelcolumn: {node.expression.this.sql(dialect="")}}}
+        else:
+            # other cases like literals
+            # they don't come from a table so we just return empty
+            # note other cases like functions/generated columns might be here?
+            return {}
+
+    target_lineage: _DataLineageGraphIntermediate = {}
+    # there are sources to parse through
+    for dnode in node.downstream:
+        # if statement for case where we have unresolved column (column where we don't know which table it came from)
+        # just assign to the first table in the from clause
+        if isinstance(dnode.expression, exp.Placeholder) and not dnode.downstream:
+            from_table = node.source.find(exp.From)
+            if from_table:
+                # Also check that can do .find
+                table = from_table.find(exp.Table)
+                if table is None:
+                    continue
+                table_name = table.this.name
+                # also getting rid of table name from field
+                input_col = dnode.name.rsplit(".", 1)[-1]
+                _merge_lineage(target_lineage, {table_name: {toplevelcolumn: {input_col}}})
+        # if there is a real source we recursively go find it
+        else:
+            sub_lineage: _DataLineageGraphIntermediate = _recurse_build_lineage(dnode, toplevelcolumn)
+            _merge_lineage(target_lineage, sub_lineage)
+
+    # lineage is {tablenames: {output features: [input features]}}
+    return target_lineage
+
+
+def _get_data_lineage(sql: str) -> DataLineageResult:
     try:
         import sqlglot
         from sqlglot import exp
-        from sqlglot.optimizer.scope import build_scope
+        from sqlglot.lineage import lineage
     except ImportError:
         raise missing_dependency_exception("chalkpy[runtime]")
 
     try:
         # Parse the SQL into an abstract syntax tree (AST)
         ast = sqlglot.parse_one(sql)
-        # TODO: @melrchen parse CTE's correctly
-        for expression in ast.expressions:
-            if isinstance(expression, exp.With):
-                return {}
 
-        root = build_scope(ast)
-        #  assuming one source for simple query
-        if not root or len(root.sources.keys()) > 1:
+        # get all top level columns from select statement
+        select = ast.find(exp.Select)
+        if select is None:
             return {}
-        table = list(root.sources.keys())[0]
+        output_expressions = [expr for expr in select.expressions]
+        result_lineage: _DataLineageGraphIntermediate = {}
 
-        lineage: Dict[str, Dict[str, List[str]]] = {table: {}}
+        # loop through each top level column
+        for expr in output_expressions:
+            node = lineage(expr.alias_or_name.lower(), sql.lower())
+            # recursively go get each
+            sub_lineage: _DataLineageGraphIntermediate = _recurse_build_lineage(node, expr.alias_or_name)
+            _merge_lineage(result_lineage, sub_lineage)
 
-        # get feature and column names from the query
-        def process_select(select_expr: sqlglot.Expression):
-            for expr in select_expr.expressions:
-                if isinstance(expr, exp.Alias):
-                    output_column = expr.alias
-                    input_columns: List[str] = extract_columns(expr.this)
-                elif isinstance(expr, exp.Column):
-                    output_column = expr.name
-                    input_columns: List[str] = [expr.name]
-                elif isinstance(expr, exp.Binary):
-                    output_column = expr.sql()  # For columns like `name + size`
-                    input_columns = extract_columns(expr)
-                else:
-                    continue  # Skip expressions that don't contribute to lineage
+        return {
+            table: {col: list(inputs) for col, inputs in columns.items()} for table, columns in result_lineage.items()
+        }
 
-                lineage[table][output_column] = input_columns
-
-        # Extract columns from expressions
-        def extract_columns(expr: sqlglot.Expression) -> List[str]:
-            columns = []
-            if isinstance(expr, exp.Column):
-                columns.append(expr.name)
-            elif isinstance(expr, exp.Func):
-                for col in expr.find_all(exp.Column):
-                    columns.append(col.name)
-            elif isinstance(expr, exp.Binary):
-                columns.extend(extract_columns(expr.left))
-                columns.extend(extract_columns(expr.right))
-            return columns
-
-        # Process the main SELECT expression
-        for select_expr in ast.find_all(exp.Select):
-            process_select(select_expr)
-
-        return lineage
     except Exception:
         return {}
 
@@ -1474,7 +1518,8 @@ def _parse_glot(
             glot_result.glot, (sqlglot.expressions.Select, sqlglot.expressions.Union)
         ), f"glot {glot_result.glot} is not a select or union statement"
         # sql target -> output feature string
-        fields = {column_name: f"{namespace}.{column_name}" for column_name in glot_result.glot.named_selects}
+        output_columns = _get_output_columns_from_glot(glot_result.glot, cte_queries={})
+        fields = {column_name: f"{namespace}.{column_name}" for column_name in output_columns}
 
     return ParseResult(
         sql_string=glot_result.sql_string,
@@ -1486,6 +1531,210 @@ def _parse_glot(
         data_lineage=data_lineage_with_source,
         errors=errors,
     )
+
+
+def _get_output_columns_from_glot(
+    glot: sqlglot.expressions.Select | sqlglot.expressions.Union,
+    cte_queries: Dict[str, _CTEProjection],
+) -> List[str]:
+    """Return the final output column names, expanding wildcard selects when their source query is knowable."""
+    import sqlglot.expressions
+
+    merged_cte_queries = {**cte_queries, **_get_cte_queries(glot)}
+    if isinstance(glot, sqlglot.expressions.Union):
+        return list(glot.named_selects)
+
+    named_selects = list(glot.named_selects)
+    output_columns: List[str] = []
+    for index, select_expr in enumerate(glot.selects):
+        column_name = named_selects[index]
+        if column_name.endswith("*"):
+            resolved_columns = _resolve_wildcard_select(
+                select_expr=select_expr,
+                select_glot=glot,
+                cte_queries=merged_cte_queries,
+            )
+            output_columns.extend(resolved_columns or [column_name])
+            continue
+        output_columns.append(column_name)
+    return output_columns
+
+
+@dataclasses.dataclass(frozen=True)
+class _CTEProjection:
+    query: sqlglot.expressions.Select | sqlglot.expressions.Union
+    output_aliases: Optional[List[str]] = None
+
+
+def _get_cte_queries(
+    glot: sqlglot.expressions.Select | sqlglot.expressions.Union,
+) -> Dict[str, _CTEProjection]:
+    """Collect the CTE query bodies defined on this query node.
+    Example:
+        WITH table AS (SELECT id, name FROM burritos_table) --> cte_queries: {table: <Select query expr>}
+    """
+    cte_queries: Dict[str, _CTEProjection] = {}
+    with_clause = glot.args.get("with")
+    if with_clause is None:
+        return cte_queries
+
+    for cte in with_clause.expressions:
+        query_expr = _as_query_expression_or_none(cte.this)
+        if query_expr is None:
+            # Some valid CTE bodies (for example VALUES clauses) are not SELECT/UNION queries.
+            # We only need CTE entries that we can recurse into for wildcard expansion, so skip
+            # unsupported bodies instead of crashing parsing for queries that do not use them.
+            continue
+        cte_queries[cte.alias_or_name] = _CTEProjection(query=query_expr, output_aliases=_get_cte_output_aliases(cte))
+    return cte_queries
+
+
+def _get_cte_output_aliases(cte: sqlglot.expressions.Expression) -> Optional[List[str]]:
+    """Return declared CTE column aliases from `WITH cte(col1, col2) AS (...)`."""
+    alias = cte.args.get("alias")
+    if alias is None:
+        return None
+
+    columns = alias.args.get("columns") or []
+    names = [col.name for col in columns if getattr(col, "name", None)]
+    return names or None
+
+
+def _resolve_wildcard_select(
+    *,
+    select_expr: sqlglot.expressions.Expression,
+    select_glot: sqlglot.expressions.Select,
+    cte_queries: Dict[str, _CTEProjection],
+) -> Optional[List[str]]:
+    """Resolve `*` or `alias.*` to concrete column names when it points at a visible CTE or subquery."""
+    qualifier = _get_wildcard_qualifier(select_expr)
+    sources = _get_select_sources(select_glot)
+
+    source_expr: sqlglot.expressions.Expression | None
+    if qualifier is None:
+        if len(sources) != 1:
+            # occurs for SELECT * FROM a, b or SELECT * FROM a JOIN b.
+            # Unfortunately, when there are multiple sources, it become hard to guarantee unique column names
+            # so we should default to the old behavior of returning *
+            return None
+        source_expr = next(iter(sources.values()))
+    else:
+        source_expr = sources.get(qualifier)
+        if source_expr is None:  # if somehow the qualifier is not one of the sources, exit
+            return None
+
+    projection = _get_projection_for_source(source_expr=source_expr, cte_queries=cte_queries)
+    if projection is None:
+        # occurs for SELECT * FROM table where table is not a CTE, in which case we want to just return all names
+        return None
+
+    if projection.output_aliases is not None:
+        return projection.output_aliases
+
+    return _get_output_columns_from_glot(projection.query, cte_queries=cte_queries)
+
+
+def _get_wildcard_qualifier(select_expr: sqlglot.expressions.Expression) -> Optional[str]:
+    """Return the qualifier from `alias.*`; plain `*` has no qualifier."""
+    import sqlglot.expressions
+
+    if isinstance(select_expr, sqlglot.expressions.Star):
+        return None
+
+    if isinstance(select_expr, sqlglot.expressions.Column) and isinstance(select_expr.this, sqlglot.expressions.Star):
+        table = select_expr.args.get("table")
+        if table is not None:
+            return table.name
+
+
+def _get_select_sources(select_glot: sqlglot.expressions.Select) -> Dict[str, sqlglot.expressions.Expression]:
+    """Map each FROM/JOIN source name or alias to the corresponding sqlglot source expression.
+    Finds from and join clauses and calls _add_source_names to create the dict."""
+    sources: Dict[str, sqlglot.expressions.Expression] = {}
+
+    from_clause = select_glot.args.get("from")
+    if from_clause is not None and from_clause.this is not None:
+        _add_source_names(sources=sources, source_expr=from_clause.this)
+
+    for join in select_glot.args.get("joins") or []:
+        if join.this is not None:
+            _add_source_names(sources=sources, source_expr=join.this)
+
+    return sources
+
+
+def _add_source_names(
+    *,
+    sources: Dict[str, sqlglot.expressions.Expression],
+    source_expr: sqlglot.expressions.Expression,
+) -> None:
+    """Register every usable name for a source expression, including aliases.
+    Example:
+
+    SELECT agg.*
+    FROM aggregated AS agg
+    JOIN extras AS ex ON agg.id = ex.id
+        |
+        |
+        v
+    {
+        "agg": <Table aggregated AS agg>,
+        "aggregated": <Table aggregated AS agg>,
+        "ex": <Table extras AS ex>,
+        "extras": <Table extras AS ex>,
+    }
+    source_name:source_expr
+    """
+    names = [source_expr.alias_or_name]
+    source_name = getattr(source_expr, "name", None)
+    if source_name:
+        names.append(source_name)
+
+    for name in names:
+        if name:
+            sources[name] = source_expr
+
+
+def _get_projection_for_source(
+    *,
+    source_expr: sqlglot.expressions.Expression,
+    cte_queries: Dict[str, _CTEProjection],
+) -> Optional[_CTEProjection]:
+    """Return the query represented by a source node if it is a subquery or a visible CTE reference.
+    Example:
+        WITH table AS (SELECT id, name FROM burritos_table)
+        SELECT * FROM table
+    At this stage, the CTE is already stored in cte_queries as {table: _CTEProjection(query=<Select query>, output_aliases=...)}.
+    The from in the base query is table which is of type sqlglot.expressions.Table. In this case, we
+    query the cte_queries dict to get the source expression."""
+    import sqlglot.expressions
+
+    if isinstance(source_expr, sqlglot.expressions.Subquery):
+        inner_expr = source_expr.this
+        if isinstance(inner_expr, (sqlglot.expressions.Select, sqlglot.expressions.Union)):
+            return _CTEProjection(query=inner_expr)
+
+    if isinstance(source_expr, sqlglot.expressions.Table):
+        return cte_queries.get(source_expr.name)
+
+    return None
+
+
+def _as_query_expression_or_none(
+    expr: sqlglot.expressions.Expression,
+) -> Optional[sqlglot.expressions.Select | sqlglot.expressions.Union]:
+    """Unwrap a CTE body to its underlying SELECT or UNION query or subquery."""
+    import sqlglot.expressions
+
+    if isinstance(expr, (sqlglot.expressions.Select, sqlglot.expressions.Union)):
+        return expr
+
+    if isinstance(expr, sqlglot.expressions.Subquery):
+        inner_expr = expr.this
+        if isinstance(inner_expr, (sqlglot.expressions.Select, sqlglot.expressions.Union)):
+            return inner_expr
+
+    return None
 
 
 def _get_stream_resolver(

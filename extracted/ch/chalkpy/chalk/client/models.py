@@ -1943,6 +1943,91 @@ class ScheduledQueryRunStatus(str, Enum):
 
 
 @dataclasses.dataclass
+class OfflineQueryInfo:
+    """Metadata for an offline query backing a scheduled query run."""
+
+    operation_id: str
+    created_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    status: Optional[str] = None
+    has_errors: Optional[bool] = None
+    dataset_id: Optional[str] = None
+    dataset_name: Optional[str] = None
+
+    @staticmethod
+    def from_proto(proto: Any) -> "OfflineQueryInfo":
+        from datetime import timezone
+
+        def _ts(ts: Any) -> Optional[datetime]:
+            if ts and (ts.seconds or ts.nanos):
+                return datetime.fromtimestamp(ts.seconds + ts.nanos / 1e9, tz=timezone.utc)
+            return None
+
+        _status_map = {
+            0: "UNSPECIFIED",
+            1: "UNKNOWN",
+            2: "WORKING",
+            3: "FAILED",
+            4: "COMPLETED",
+            5: "CANCELED",
+            6: "QUEUED",
+        }
+
+        return OfflineQueryInfo(
+            operation_id=proto.operation_id,
+            created_at=_ts(proto.created_at),
+            completed_at=_ts(proto.completed_at),
+            status=_status_map.get(proto.status, None) if proto.HasField("status") else None,
+            has_errors=proto.has_errors if proto.HasField("has_errors") else None,
+            dataset_id=proto.dataset_id if proto.HasField("dataset_id") else None,
+            dataset_name=proto.dataset_name if proto.HasField("dataset_name") else None,
+        )
+
+
+@dataclasses.dataclass
+class WorkflowExecutionInfo:
+    """Metadata for a workflow execution backing a scheduled query run."""
+
+    id: str
+    created_at: Optional[datetime] = None
+    finalized_at: Optional[datetime] = None
+    status: Optional[str] = None
+    kind: Optional[str] = None
+
+    @staticmethod
+    def from_proto(proto: Any) -> "WorkflowExecutionInfo":
+        from datetime import timezone
+
+        def _ts(ts: Any) -> Optional[datetime]:
+            if ts and (ts.seconds or ts.nanos):
+                return datetime.fromtimestamp(ts.seconds + ts.nanos / 1e9, tz=timezone.utc)
+            return None
+
+        _status_map = {
+            0: "UNSPECIFIED",
+            1: "QUEUED",
+            2: "WORKING",
+            3: "COMPLETED",
+            4: "FAILED",
+            5: "CANCELED",
+        }
+        _kind_map = {
+            0: "UNSPECIFIED",
+            1: "MANUAL",
+            2: "CRON",
+            3: "SCHEDULED_QUERY",
+        }
+
+        return WorkflowExecutionInfo(
+            id=proto.id,
+            created_at=_ts(proto.created_at),
+            finalized_at=_ts(proto.finalized_at) if proto.HasField("finalized_at") else None,
+            status=_status_map.get(proto.status, None),
+            kind=_kind_map.get(proto.kind, None),
+        )
+
+
+@dataclasses.dataclass
 class ScheduledQueryRun:
     """A single scheduled query run."""
 
@@ -1960,6 +2045,9 @@ class ScheduledQueryRun:
     updated_at: datetime
     status: ScheduledQueryRunStatus
     blocker_operation_id: str
+    workflow_execution_id: Optional[str] = None
+    offline_query_meta: Optional[OfflineQueryInfo] = None
+    workflow_execution: Optional[WorkflowExecutionInfo] = None
 
     @staticmethod
     def from_proto(proto_run: Any) -> "ScheduledQueryRun":
@@ -1998,6 +2086,7 @@ class ScheduledQueryRun:
             updated_at=_timestamp_to_datetime(proto_run.updated_at),
             status=status_map.get(proto_run.status, ScheduledQueryRunStatus.UNSPECIFIED),
             blocker_operation_id=proto_run.blocker_operation_id,
+            workflow_execution_id=proto_run.workflow_execution_id or None,
         )
 
 

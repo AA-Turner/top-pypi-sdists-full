@@ -24,6 +24,8 @@ from typing import Union
 from .literals import (
     CheckResultType,
     CheckTypeType,
+    ConnectorStateType,
+    EntitlementStatusType,
     EnvironmentStateType,
     HostStateType,
     VcfVersionType,
@@ -43,10 +45,20 @@ __all__ = (
     "ConnectivityInfoOutputTypeDef",
     "ConnectivityInfoTypeDef",
     "ConnectivityInfoUnionTypeDef",
+    "ConnectorCheckTypeDef",
+    "ConnectorTypeDef",
+    "CreateEntitlementRequestTypeDef",
+    "CreateEntitlementResponseTypeDef",
+    "CreateEnvironmentConnectorRequestTypeDef",
+    "CreateEnvironmentConnectorResponseTypeDef",
     "CreateEnvironmentHostRequestTypeDef",
     "CreateEnvironmentHostResponseTypeDef",
     "CreateEnvironmentRequestTypeDef",
     "CreateEnvironmentResponseTypeDef",
+    "DeleteEntitlementRequestTypeDef",
+    "DeleteEntitlementResponseTypeDef",
+    "DeleteEnvironmentConnectorRequestTypeDef",
+    "DeleteEnvironmentConnectorResponseTypeDef",
     "DeleteEnvironmentHostRequestTypeDef",
     "DeleteEnvironmentHostResponseTypeDef",
     "DeleteEnvironmentRequestTypeDef",
@@ -56,6 +68,7 @@ __all__ = (
     "EipAssociationTypeDef",
     "EnvironmentSummaryTypeDef",
     "EnvironmentTypeDef",
+    "ErrorDetailTypeDef",
     "GetEnvironmentRequestTypeDef",
     "GetEnvironmentResponseTypeDef",
     "GetVersionsResponseTypeDef",
@@ -65,6 +78,9 @@ __all__ = (
     "InitialVlansTypeDef",
     "InstanceTypeEsxVersionsInfoTypeDef",
     "LicenseInfoTypeDef",
+    "ListEnvironmentConnectorsRequestPaginateTypeDef",
+    "ListEnvironmentConnectorsRequestTypeDef",
+    "ListEnvironmentConnectorsResponseTypeDef",
     "ListEnvironmentHostsRequestPaginateTypeDef",
     "ListEnvironmentHostsRequestTypeDef",
     "ListEnvironmentHostsResponseTypeDef",
@@ -76,6 +92,9 @@ __all__ = (
     "ListEnvironmentsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListVmEntitlementsRequestPaginateTypeDef",
+    "ListVmEntitlementsRequestTypeDef",
+    "ListVmEntitlementsResponseTypeDef",
     "NetworkInterfaceTypeDef",
     "PaginatorConfigTypeDef",
     "ResponseMetadataTypeDef",
@@ -85,9 +104,12 @@ __all__ = (
     "ServiceAccessSecurityGroupsUnionTypeDef",
     "TagResourceRequestTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateEnvironmentConnectorRequestTypeDef",
+    "UpdateEnvironmentConnectorResponseTypeDef",
     "VcfHostnamesTypeDef",
     "VcfVersionInfoTypeDef",
     "VlanTypeDef",
+    "VmEntitlementTypeDef",
 )
 
 
@@ -122,6 +144,37 @@ class ConnectivityInfoOutputTypeDef(TypedDict):
 
 class ConnectivityInfoTypeDef(TypedDict):
     privateRouteServerPeerings: Sequence[str]
+
+
+ConnectorCheckTypeDef = TypedDict(
+    "ConnectorCheckTypeDef",
+    {
+        "type": NotRequired[CheckTypeType],
+        "result": NotRequired[CheckResultType],
+        "lastCheckAttempt": NotRequired[datetime],
+        "impairedSince": NotRequired[datetime],
+    },
+)
+
+
+class CreateEntitlementRequestTypeDef(TypedDict):
+    environmentId: str
+    connectorId: str
+    entitlementType: Literal["WINDOWS_SERVER"]
+    vmIds: Sequence[str]
+    clientToken: NotRequired[str]
+
+
+CreateEnvironmentConnectorRequestTypeDef = TypedDict(
+    "CreateEnvironmentConnectorRequestTypeDef",
+    {
+        "environmentId": str,
+        "type": Literal["VCENTER"],
+        "applianceFqdn": str,
+        "secretIdentifier": str,
+        "clientToken": NotRequired[str],
+    },
+)
 
 
 class HostInfoForCreateTypeDef(TypedDict):
@@ -160,6 +213,20 @@ class VcfHostnamesTypeDef(TypedDict):
     cloudBuilder: str
 
 
+class DeleteEntitlementRequestTypeDef(TypedDict):
+    environmentId: str
+    connectorId: str
+    entitlementType: Literal["WINDOWS_SERVER"]
+    vmIds: Sequence[str]
+    clientToken: NotRequired[str]
+
+
+class DeleteEnvironmentConnectorRequestTypeDef(TypedDict):
+    environmentId: str
+    connectorId: str
+    clientToken: NotRequired[str]
+
+
 class DeleteEnvironmentHostRequestTypeDef(TypedDict):
     environmentId: str
     hostName: str
@@ -192,6 +259,11 @@ class ServiceAccessSecurityGroupsOutputTypeDef(TypedDict):
     securityGroups: NotRequired[list[str]]
 
 
+class ErrorDetailTypeDef(TypedDict):
+    errorCode: str
+    errorMessage: str
+
+
 class GetEnvironmentRequestTypeDef(TypedDict):
     environmentId: str
 
@@ -222,6 +294,12 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 
+class ListEnvironmentConnectorsRequestTypeDef(TypedDict):
+    environmentId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
 class ListEnvironmentHostsRequestTypeDef(TypedDict):
     environmentId: str
     nextToken: NotRequired[str]
@@ -244,6 +322,14 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
 
+class ListVmEntitlementsRequestTypeDef(TypedDict):
+    environmentId: str
+    connectorId: str
+    entitlementType: Literal["WINDOWS_SERVER"]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
 class ServiceAccessSecurityGroupsTypeDef(TypedDict):
     securityGroups: NotRequired[Sequence[str]]
 
@@ -258,12 +344,36 @@ class UntagResourceRequestTypeDef(TypedDict):
     tagKeys: Sequence[str]
 
 
+class UpdateEnvironmentConnectorRequestTypeDef(TypedDict):
+    environmentId: str
+    connectorId: str
+    clientToken: NotRequired[str]
+    applianceFqdn: NotRequired[str]
+    secretIdentifier: NotRequired[str]
+
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 ConnectivityInfoUnionTypeDef = Union[ConnectivityInfoTypeDef, ConnectivityInfoOutputTypeDef]
+ConnectorTypeDef = TypedDict(
+    "ConnectorTypeDef",
+    {
+        "environmentId": NotRequired[str],
+        "connectorId": NotRequired[str],
+        "type": NotRequired[Literal["VCENTER"]],
+        "applianceFqdn": NotRequired[str],
+        "secretArn": NotRequired[str],
+        "state": NotRequired[ConnectorStateType],
+        "stateDetails": NotRequired[str],
+        "status": NotRequired[CheckResultType],
+        "checks": NotRequired[list[ConnectorCheckTypeDef]],
+        "createdAt": NotRequired[datetime],
+        "modifiedAt": NotRequired[datetime],
+    },
+)
 
 
 class CreateEnvironmentHostRequestTypeDef(TypedDict):
@@ -317,6 +427,23 @@ class EnvironmentTypeDef(TypedDict):
     credentials: NotRequired[list[SecretTypeDef]]
 
 
+VmEntitlementTypeDef = TypedDict(
+    "VmEntitlementTypeDef",
+    {
+        "vmId": NotRequired[str],
+        "environmentId": NotRequired[str],
+        "connectorId": NotRequired[str],
+        "vmName": NotRequired[str],
+        "type": NotRequired[Literal["WINDOWS_SERVER"]],
+        "status": NotRequired[EntitlementStatusType],
+        "lastSyncedAt": NotRequired[datetime],
+        "startedAt": NotRequired[datetime],
+        "stoppedAt": NotRequired[datetime],
+        "errorDetail": NotRequired[ErrorDetailTypeDef],
+    },
+)
+
+
 class GetVersionsResponseTypeDef(TypedDict):
     vcfVersions: list[VcfVersionInfoTypeDef]
     instanceTypeEsxVersions: list[InstanceTypeEsxVersionsInfoTypeDef]
@@ -353,6 +480,11 @@ class InitialVlansTypeDef(TypedDict):
     hcxNetworkAclId: NotRequired[str]
 
 
+class ListEnvironmentConnectorsRequestPaginateTypeDef(TypedDict):
+    environmentId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListEnvironmentHostsRequestPaginateTypeDef(TypedDict):
     environmentId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -368,9 +500,38 @@ class ListEnvironmentsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListVmEntitlementsRequestPaginateTypeDef(TypedDict):
+    environmentId: str
+    connectorId: str
+    entitlementType: Literal["WINDOWS_SERVER"]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 ServiceAccessSecurityGroupsUnionTypeDef = Union[
     ServiceAccessSecurityGroupsTypeDef, ServiceAccessSecurityGroupsOutputTypeDef
 ]
+
+
+class CreateEnvironmentConnectorResponseTypeDef(TypedDict):
+    connector: ConnectorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteEnvironmentConnectorResponseTypeDef(TypedDict):
+    connector: ConnectorTypeDef
+    environmentSummary: EnvironmentSummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListEnvironmentConnectorsResponseTypeDef(TypedDict):
+    connectors: list[ConnectorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class UpdateEnvironmentConnectorResponseTypeDef(TypedDict):
+    connector: ConnectorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AssociateEipToVlanResponseTypeDef(TypedDict):
@@ -402,6 +563,22 @@ class DeleteEnvironmentResponseTypeDef(TypedDict):
 class GetEnvironmentResponseTypeDef(TypedDict):
     environment: EnvironmentTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateEntitlementResponseTypeDef(TypedDict):
+    entitlements: list[VmEntitlementTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteEntitlementResponseTypeDef(TypedDict):
+    entitlements: list[VmEntitlementTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListVmEntitlementsResponseTypeDef(TypedDict):
+    entitlements: list[VmEntitlementTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class CreateEnvironmentHostResponseTypeDef(TypedDict):

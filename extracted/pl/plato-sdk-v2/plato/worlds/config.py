@@ -143,6 +143,30 @@ class AgentConfig(BaseModel):
         ge=1,
         description="Max concurrent pooled agent runtimes for this config.",
     )
+    browser_tooling: bool = Field(
+        default=False,
+        description=(
+            "When True, the agent is set up to operate a browser: the "
+            "runner auto-runs pre-agent login against each env (picking CDP "
+            "or agent-browser based on the package) before the task, and "
+            "the agent package injects the ``agent-browser`` CLI reference "
+            "into its system prompt + prepends ``$HOME/.bun/bin`` to PATH "
+            "(when its image ships that CLI). Default False — no pre-login, "
+            "no prompt injection."
+        ),
+    )
+    pre_login_env_alias: str | None = Field(
+        default=None,
+        description=(
+            "Optional env alias to target for pre-agent login. When None, "
+            "the runner logs into every env in the session. Only honored "
+            "when ``browser_tooling`` is True."
+        ),
+    )
+    pre_login_flow: str = Field(
+        default="login",
+        description=("Name of the flow to replay for pre-agent login. Only honored when ``browser_tooling`` is True."),
+    )
 
 
 # =============================================================================

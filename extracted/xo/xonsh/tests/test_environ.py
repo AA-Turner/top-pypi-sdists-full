@@ -15,6 +15,7 @@ import pytest
 from xonsh.environ import (
     DeprecatedSetting,
     Env,
+    EnvPath,
     InternalEnvironDict,
     LsColors,
     PTKSetting,
@@ -96,6 +97,63 @@ def test_env_detype_all():
     assert "DEFAULT" in det_all
 
 
+def test_detype_and_detype_all_do_not_share_cache():
+    """detype() and detype_all() must return independent results regardless of call order.
+
+    See https://github.com/xonsh/xonsh/issues/5781
+    """
+    env = Env(EXPLICIT="hello")
+    env._vars["ONLY_DEFAULT"] = Var.with_default("world")
+
+    # Call detype() first, then detype_all()
+    det = env.detype()
+    det_all = env.detype_all()
+    assert "EXPLICIT" in det
+    assert "ONLY_DEFAULT" not in det
+    assert "EXPLICIT" in det_all
+    assert "ONLY_DEFAULT" in det_all
+
+    # Call in reverse order after invalidation
+    env._detyped = None
+    det_all2 = env.detype_all()
+    det2 = env.detype()
+    assert "ONLY_DEFAULT" not in det2
+    assert "ONLY_DEFAULT" in det_all2
+
+
+def test_detype_error_message():
+    """detype() wraps detyper errors with the variable name."""
+
+    def bad_detyper(val):
+        raise ValueError("kaboom")
+
+    env = Env(BROKEN="hello")
+    env.register("BROKEN", validate=always_true, convert=None, detype=bad_detyper)
+    env._detyped = None
+    with pytest.raises(RuntimeError, match=r"Error during detyping \$BROKEN: kaboom"):
+        env.detype()
+
+
+def test_replace_env_rollback_on_detype_error():
+    """replace_env() must not corrupt os.environ if detype() fails."""
+
+    def bad_detyper(val):
+        raise ValueError("kaboom")
+
+    orig_environ = dict(os.environ)
+    env = Env(BROKEN="hello")
+    env.register("BROKEN", validate=always_true, convert=None, detype=bad_detyper)
+    env._detyped = None
+
+    with pytest.raises(RuntimeError, match=r"Error during detyping \$BROKEN"):
+        env.replace_env()
+
+    # os.environ must be untouched
+    assert dict(os.environ) == orig_environ
+    # _orig_env must stay None so replace_env() retries next time
+    assert env._orig_env is None
+
+
 def test_histcontrol_none():
     env = Env(HISTCONTROL=None)
     assert isinstance(env["HISTCONTROL"], set)
@@ -121,14 +179,6 @@ def test_histcontrol_ignoreerr_ignoredups():
     assert len(env["HISTCONTROL"]) == 2
     assert "ignoreerr" in env["HISTCONTROL"]
     assert "ignoredups" in env["HISTCONTROL"]
-
-
-def test_histcontrol_ignoreerr_ignoredups_erase_dups():
-    env = Env(HISTCONTROL="ignoreerr,ignoredups,ignoreerr,erasedups")
-    assert len(env["HISTCONTROL"]) == 3
-    assert "ignoreerr" in env["HISTCONTROL"]
-    assert "ignoredups" in env["HISTCONTROL"]
-    assert "erasedups" in env["HISTCONTROL"]
 
 
 def test_swap():
@@ -330,6 +380,25 @@ def test_events_on_envvar_called_for_envpath(xession, env):
     assert called_values == [(["/tmp1", "/tmp2"], ["/tmp3", "/tmp1", "/tmp2"])]
 
     assert called_var_names == ["PATH"] * 3
+
+
+def test_events_on_envvar_change_called_once(xession, env):
+    """Check:
+    1. Count of change events.
+    2. Updating OS environment."""
+    env["PATH"] = []
+    env["UPDATE_OS_ENVIRON"] = True
+    xession.on_envvar_change_count = 0
+
+    @xession.builtins.events.on_envvar_change
+    def handler(name, oldvalue, newvalue, **kwargs):
+        xession.on_envvar_change_count += 1
+
+    env["PATH"] = ["tmp1"]
+    env["PATH"].insert(0, "tmp2")
+    env["PATH"].append("tmp3")
+    assert xession.on_envvar_change_count == 3  # replace, insert, append
+    assert os.environ["PATH"] == os.pathsep.join(["tmp2", "tmp1", "tmp3"])
 
 
 def test_no_lines_columns():
@@ -544,15 +613,8 @@ def test_deregister_custom_var():
     env.deregister("MY_SPECIAL_VAR")
 
     # deregistering a variable that has a value set doesn't
-    # remove it from env;
-    # the existing variable also maintains its type validation, conversion
+    # remove it from env, but type handling is removed
     assert "MY_SPECIAL_VAR" in env
-    with pytest.raises(TypeError):
-        env["MY_SPECIAL_VAR"] = 32
-
-    # removing, then re-adding the variable without registering
-    # gives it only default permissive validation, conversion
-    del env["MY_SPECIAL_VAR"]
     env["MY_SPECIAL_VAR"] = 32
 
 
@@ -735,6 +797,17 @@ def test_envpath_in_env_object():
     assert "/bin" in env["PATH"].paths
 
 
+def test_envpath_eq_expands_both_sides(xession):
+    """EnvPath.__eq__ should expand both sides, so ~/bin matches the absolute path."""
+    xession.env["EXPAND_ENV_VARS"] = True
+    home = os.path.expanduser("~")
+    p = EnvPath(["~/bin", "/usr/local/bin"])
+    # raw form
+    assert p == ["~/bin", "/usr/local/bin"]
+    # expanded form
+    assert p == [f"{home}/bin", "/usr/local/bin"]
+
+
 def test_env_deprecated():
     env = Env()
     env._vars["XONSH_PROMPT_AUTO_SUGGEST"] = PTKSetting.XONSH_PROMPT_AUTO_SUGGEST
@@ -756,3 +829,12 @@ def test_env_deprecated():
     with warnings.catch_warnings(record=True) as wrngs:
         env["XONSH_PROMPT_AUTO_SUGGEST"] = False
     assert len(wrngs) == 0
+
+
+def test_swap_preserves_exception_chain(env):
+    """env.swap() must not suppress __cause__ on re-raised exceptions."""
+    orig = ValueError("root cause")
+    with pytest.raises(RuntimeError) as exc_info:
+        with env.swap(FOO="bar"):
+            raise RuntimeError("wrapped") from orig
+    assert exc_info.value.__cause__ is orig

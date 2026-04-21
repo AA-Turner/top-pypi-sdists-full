@@ -1,7 +1,6 @@
 # This file is part of Tryton.  The COPYRIGHT file at the top level of
 # this repository contains the full copyright notices and license terms.
 import heapq
-import json
 import logging
 import re
 from collections import defaultdict
@@ -20,11 +19,10 @@ from trytond.model import (
     ModelSQL, ModelView, Unique, Workflow, fields)
 from trytond.model.exceptions import AccessError, ValidationError
 from trytond.pool import Pool
-from trytond.protocols.jsonrpc import JSONDecoder, JSONEncoder
 from trytond.pyson import Bool, Eval, PYSONDecoder
 from trytond.report import Report
 from trytond.rpc import RPC
-from trytond.tools import cursor_dict, grouped_slice, is_instance_method
+from trytond.tools import cursor_dict, is_instance_method
 from trytond.tools.string_ import StringMatcher
 from trytond.transaction import Transaction, without_check_access
 from trytond.wizard import (
@@ -185,11 +183,8 @@ class Model(
                 items = (
                     (m, n) for m, n in items
                     if issubclass(pool_get(m), classes))
-            items = list(items)
-            cls._get_names_cache.set(key, items)
-        else:
-            items = list(items)
-        return items
+            items = cls._get_names_cache.set(key, list(items))
+        return list(items)
 
     @classmethod
     def get_names(cls, classes=None):
@@ -198,7 +193,7 @@ class Model(
         dict_ = cls._get_names_cache.get(key)
         if dict_ is None:
             dict_ = dict(cls.get_name_items(classes=classes))
-            cls._get_names_cache.set(key, dict_)
+            dict_ = cls._get_names_cache.set(key, dict_)
         return dict_
 
     @classmethod
@@ -448,23 +443,6 @@ class ModelField(
                         "could not delete field: %s.%s", model, field,
                         exc_info=True)
 
-    def get_rec_name(self, name):
-        if self.string:
-            return '%s (%s)' % (self.string, self.name)
-        else:
-            return self.name
-
-    @classmethod
-    def search_rec_name(cls, name, clause):
-        if clause[1].startswith('!') or clause[1].startswith('not '):
-            bool_op = 'AND'
-        else:
-            bool_op = 'OR'
-        return [bool_op,
-            ('string',) + tuple(clause[1:]),
-            ('name',) + tuple(clause[1:]),
-            ]
-
     @classmethod
     def get_name(cls, model, field):
         name = cls._get_name_cache.get((model, field))
@@ -476,7 +454,7 @@ class ModelField(
             if fields:
                 field, = fields
                 name = field.string
-                cls._get_name_cache.set((model, field), name)
+                name = cls._get_name_cache.set((model, field), name)
             else:
                 name = field
         return name
@@ -1078,8 +1056,7 @@ class ModelButton(
         else:
             button, = buttons
             reset = [b.name for b in button.reset]
-        cls._reset_cache.set(key, reset)
-        return reset
+        return cls._reset_cache.set(key, reset)
 
     @classmethod
     def get_groups(cls, model, name):
@@ -1099,8 +1076,7 @@ class ModelButton(
         else:
             button, = buttons
             groups = set(g.id for g in button.groups)
-        cls._groups_cache.set(key, groups)
-        return groups
+        return cls._groups_cache.set(key, groups)
 
     @classmethod
     def get_view_attributes(cls, model, name):
@@ -1122,8 +1098,7 @@ class ModelButton(
                 'help': button.help,
                 'confirm': button.confirm,
                 }
-        cls._view_attributes_cache.set(key, attributes)
-        return attributes
+        return cls._view_attributes_cache.set(key, attributes)
 
 
 class ModelButtonGroup(DeactivableMixin, ModelSQL):
@@ -1238,14 +1213,14 @@ class ModelButtonClick(DeactivableMixin, ModelSQL, ModelView):
                     } for r in records])
 
         clicks = defaultdict(list)
-        for records in grouped_slice(records):
-            records = cls.search([
-                    ('button', '=', button.id),
-                    ('record_id', 'in', [r.id for r in records]),
-                    ], order=[('record_id', 'ASC')])
-            clicks.update(
-                (k, list(v)) for k, v in groupby(
-                    records, key=lambda c: c.record_id))
+        records = cls.search([
+                ('button', '=', button.id),
+                ('record_id', 'in', records),
+                ],
+            order=[('record_id', 'ASC')])
+        clicks.update(
+            (k, list(v)) for k, v in groupby(
+                records, key=lambda c: c.record_id))
         return clicks
 
     @classmethod
@@ -1253,13 +1228,11 @@ class ModelButtonClick(DeactivableMixin, ModelSQL, ModelView):
     def reset(cls, model, names, records):
         assert all(r.__class__.__name__ == model for r in records)
 
-        clicks = []
-        for records in grouped_slice(records):
-            clicks.extend(cls.search([
-                        ('button.model.name', '=', model),
-                        ('button.name', 'in', names),
-                        ('record_id', 'in', [r.id for r in records]),
-                        ]))
+        clicks = cls.search([
+                ('button.model.name', '=', model),
+                ('button.name', 'in', names),
+                ('record_id', 'in', records),
+                ])
         cls.write(clicks, {
                 'active': False,
                 })
@@ -1374,8 +1347,8 @@ class ModelData(
             cursor = Transaction().connection.cursor()
 
             cursor.execute(*table.select(table.model, group_by=[table.model]))
-            models = [m for m, in cursor]
-            cls._has_model_cache.set(None, models)
+            models = set(m for m, in cursor)
+            models = cls._has_model_cache.set(None, models)
         return model in models
 
     @classmethod
@@ -1383,33 +1356,32 @@ class ModelData(
     def can_modify(cls, records, values):
         for Model, records in groupby(
                 records, key=lambda r: r.__class__):
-            for sub_records in grouped_slice(records):
-                id2record = {r.id: r for r in sub_records}
-                domain = [
-                    ('model', '=', Model.__name__),
-                    ('db_id', 'in', list(id2record.keys())),
-                    ('noupdate', '=', False),
-                    ]
-                if values is not None:
-                    domain.append(('field_names', '!=', None))
-                data = cls.search(domain, order=[])
-                for data in data:
-                    record = id2record[data.db_id]
-                    if values is None:
-                        raise AccessError(
-                            gettext(
-                                'ir.msg_delete_xml_record',
-                                **Model.__names__(record=record)),
-                            gettext('ir.msg_base_config_record'))
-                    else:
-                        for field in values:
-                            if field in data.field_names:
-                                raise AccessError(
-                                    gettext(
-                                        'ir.msg_write_xml_record',
-                                        **cls.__names__(
-                                            field=field, record=record)),
-                                    gettext('ir.msg_base_config_record'))
+            id2record = {r.id: r for r in records}
+            domain = [
+                ('model', '=', Model.__name__),
+                ('db_id', 'in', list(id2record.keys())),
+                ('noupdate', '=', False),
+                ]
+            if values is not None:
+                domain.append(('field_names', '!=', None))
+            data = cls.search(domain, order=[])
+            for data in data:
+                record = id2record[data.db_id]
+                if values is None:
+                    raise AccessError(
+                        gettext(
+                            'ir.msg_delete_xml_record',
+                            **Model.__names__(record=record)),
+                        gettext('ir.msg_base_config_record'))
+                else:
+                    for field in values:
+                        if field in data.field_names:
+                            raise AccessError(
+                                gettext(
+                                    'ir.msg_write_xml_record',
+                                    **cls.__names__(
+                                        field=field, record=record)),
+                                gettext('ir.msg_base_config_record'))
 
     @classmethod
     @without_check_access
@@ -1417,13 +1389,12 @@ class ModelData(
         data = []
         for name, records in groupby(
                 records, key=lambda r: r.__class__.__name__):
-            for sub_records in grouped_slice(records):
-                ids = [r.id for r in sub_records]
-                data += cls.search([
-                        ('model', '=', name),
-                        ('db_id', 'in', ids),
-                        ('noupdate', '=', True),
-                        ], order=[])
+            data += cls.search([
+                    ('model', '=', name),
+                    ('db_id', 'in', records),
+                    ('noupdate', '=', True),
+                    ],
+                order=[])
         cls.write(data, {'db_id': None})
 
     @classmethod
@@ -1446,18 +1417,7 @@ class ModelData(
         except ValueError:
             raise KeyError(f"Reference to '{module}.{fs_id}' not found")
 
-        cls._get_id_cache.set(key, data.db_id)
-        return data.db_id
-
-    @classmethod
-    def dump_values(cls, values):
-        return json.dumps(
-            sorted(values.items()), cls=JSONEncoder, separators=(',', ':'),
-            sort_keys=True)
-
-    @classmethod
-    def load_values(cls, values):
-        return dict(json.loads(values, object_hook=JSONDecoder()))
+        return cls._get_id_cache.set(key, data.db_id)
 
 
 class Log(ResourceAccessMixin, ModelSQL, ModelView):

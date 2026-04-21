@@ -36,6 +36,7 @@ from chalk.client.models import (
     ManualTriggerScheduledQueryResponse,
     NamedQueryMetadata,
     OfflineQueryDeadlineOptions,
+    OfflineQueryInfo,
     OfflineQueryInputUri,
     OnlineQuery,
     OnlineQueryContext,
@@ -48,6 +49,7 @@ from chalk.client.models import (
     StreamResolverTestResponse,
     UnloadResolvers,
     WhoAmIResponse,
+    WorkflowExecutionInfo,
 )
 from chalk.client.response import Dataset, OnlineQueryResult
 from chalk.features import DataFrame, Feature
@@ -1207,9 +1209,7 @@ class ChalkClient:
         ...
 
     def get_scheduled_query_run_history(
-        self,
-        name: str,
-        limit: int = 10,
+        self, name: str, limit: int = 10, include_run_details: bool = False
     ) -> List[ScheduledQueryRun]:
         """
         Get the run history for a scheduled query.
@@ -1220,6 +1220,8 @@ class ChalkClient:
             The name of the scheduled query.
         limit
             The maximum number of runs to return. Defaults to 10.
+        include_run_details
+            Whether or not to populate the metadata fields of each run.
 
         Returns
         -------
@@ -1233,6 +1235,18 @@ class ChalkClient:
         ...     name="my_scheduled_query",
         ...     limit=20,
         ... )
+        """
+        ...
+
+    def get_scheduled_query_run_details(
+        self, scheduled_run: ScheduledQueryRun
+    ) -> Union[WorkflowExecutionInfo, OfflineQueryInfo, None]:
+        """Fetch the offline query or workflow execution metadata underlying a scheduled query run.
+
+        Parameters
+        ----------
+        scheduled_run
+            The scheduled query run to enrich with metadata.
         """
         ...
 

@@ -1,6 +1,5 @@
 """Context management tools for xonsh."""
 
-import sys
 import textwrap
 from collections.abc import Mapping
 
@@ -80,7 +79,7 @@ class Functor(Block):
     def __enter__(self):
         super().__enter__()
         body = textwrap.indent(self.macro_block, "    ")
-        uid = hash(body) + sys.maxsize  # should always be a positive int
+        uid = abs(hash(body))
         name = f"__xonsh_functor_{uid}__"
         # construct signature string
         sig = rtn = ""
@@ -117,5 +116,5 @@ class Functor(Block):
         """Dispatches to func."""
         if self.func is None:
             msg = "{} block with 'None' func not callable"
-            raise AttributeError(msg.formst(self.__class__.__name__))
+            raise AttributeError(msg.format(self.__class__.__name__))
         return self.func(*args, **kwargs)

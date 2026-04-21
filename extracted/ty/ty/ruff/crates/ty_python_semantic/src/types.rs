@@ -32,6 +32,7 @@ pub(crate) use self::infer::{
 };
 pub(crate) use self::iteration::extract_fixed_length_iterable_element_types;
 pub use self::known_instance::KnownInstanceType;
+pub(crate) use self::relation_error::{ErrorContext, ErrorContextTree, ParameterDescription};
 use self::set_theoretic::KnownUnion;
 pub(crate) use self::set_theoretic::builder::{IntersectionBuilder, UnionBuilder};
 pub use self::set_theoretic::{
@@ -127,6 +128,7 @@ mod newtype;
 mod overrides;
 mod protocol_class;
 pub(crate) mod relation;
+mod relation_error;
 mod set_theoretic;
 mod signatures;
 mod special_form;
@@ -2718,7 +2720,7 @@ impl<'db> Type<'db> {
     /// that `self` represents: (1) a data descriptor or (2) a non-data descriptor / normal attribute.
     ///
     /// If `__get__` is not defined on the meta-type, this method returns `None`.
-    #[salsa::tracked(heap_size=ruff_memory_usage::heap_size)]
+    #[salsa::tracked(cycle_initial=|_, _, _, _, _| None, heap_size=ruff_memory_usage::heap_size)]
     pub(crate) fn try_call_dunder_get(
         self,
         db: &'db dyn Db,

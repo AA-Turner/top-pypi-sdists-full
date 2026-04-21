@@ -18,7 +18,6 @@ This implementation follows the same algorithm as the GPU version but is
 designed for JAX/TPU compatibility. It currently only supports greedy sampling.
 """
 
-import functools
 from typing import Optional
 
 import jax
@@ -85,7 +84,7 @@ class RejectionSampler:
             key=key,
         )
 
-    @functools.partial(jax.jit, static_argnums=(0, ))
+    @jax.jit(static_argnums=(0, ))
     def forward(
         self,
         # [num_tokens] - flattened format
@@ -116,6 +115,10 @@ class RejectionSampler:
         Returns:
             output_token_ids: A tensor containing the final output token IDs.
         """
+        if sampling_metadata._cache_collision_dummy is not None:
+            # Force a dependency on the dummy tensor's shape to ensure unique HLO.
+            target_logits = target_logits + 0 * jnp.sum(
+                sampling_metadata._cache_collision_dummy)
 
         if sampling_metadata.do_sampling:
             target_probs = _compute_probs(target_logits, num_draft_tokens,

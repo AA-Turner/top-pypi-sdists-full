@@ -50,7 +50,7 @@ class NamespacedPlugins:
             invoke_on_load=False)
 
         if not self._extension_manager.names():
-            LOG.debug("No plugins found in namespace: ", self.namespace)
+            LOG.debug("No plugins found in namespace: %s", self.namespace)
             return
         self._extension_manager.map(self._add_extension)
 
@@ -119,10 +119,11 @@ def load_class_by_alias_or_classname(namespace, name):
         try:
             class_to_load = importutils.import_class(name)
         except (ImportError, ValueError) as e:
+            e2_info = sys.exc_info()
             LOG.error("Error loading class by alias",
                       exc_info=e1_info)
             LOG.error("Error loading class by class name",
-                      exc_info=True)
+                      exc_info=e2_info)
             raise ImportError(_("Class not found.")) from e
     return class_to_load
 

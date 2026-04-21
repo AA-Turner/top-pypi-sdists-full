@@ -34,8 +34,6 @@ TextToSpeechSpeaker = typing.Union[
         "shubh",
         "ashutosh",
         "advait",
-        "amelia",
-        "sophia",
         "anand",
         "tanya",
         "tarun",

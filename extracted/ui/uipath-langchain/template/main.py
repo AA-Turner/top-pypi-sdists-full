@@ -12,15 +12,15 @@ from uipath_langchain.chat import (
     BedrockModels,
     GeminiModels,
     OpenAIModels,
-    UiPathChatBedrock,
+    UiPathChatBedrockConverse,
     UiPathChatOpenAI,
     UiPathChatVertex,
 )
 
 # Choose your LLM provider by uncommenting one of the following:
-llm = UiPathChatBedrock(model_name=BedrockModels.anthropic_claude_haiku_4_5)
-# llm = UiPathChatOpenAI(model_name=OpenAIModels.gpt_4_1_mini_2025_04_14)
+llm = UiPathChatBedrockConverse(model_name=BedrockModels.anthropic_claude_haiku_4_5)
 # llm = UiPathChatVertex(model_name=GeminiModels.gemini_2_5_flash)
+# llm = UiPathChatOpenAI(model_name=OpenAIModels.gpt_4_1_mini_2025_04_14)
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant. "

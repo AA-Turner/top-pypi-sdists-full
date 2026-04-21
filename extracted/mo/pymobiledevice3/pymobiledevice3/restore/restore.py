@@ -1118,6 +1118,7 @@ class Restore(BaseRestore):
         service = await self._get_service_for_data_request(message)
         await service.send_plist({})
 
+    @asyncio_print_traceback
     async def send_url_asset(self, message: dict) -> None:
         self.logger.info(f"send_url_asset: {message}")
         service = await self._get_service_for_data_request(message)
@@ -1133,6 +1134,11 @@ class Restore(BaseRestore):
             with ThreadPoolExecutor() as executor:
                 response = await loop.run_in_executor(executor, requests.get, url)
             self._url_assets_cache[url] = response
+
+        if response.status_code != 200:
+            self.logger.error(
+                f"Got status code {response.status_code} from URLAsset {url}:\n{response.headers}\n\n{response.text}"
+            )
         await service.send_plist(
             {
                 "ResponseBody": response.content,

@@ -3,10 +3,12 @@ from __future__ import annotations
 import dataclasses
 import os
 import pathlib
+import subprocess
 import typing
 
 from mergify_cli import utils
 from mergify_cli.ci.queue import metadata as queue_metadata
+from mergify_cli.ci.queue import notes as queue_notes
 from mergify_cli.ci.scopes import exceptions
 
 
@@ -16,6 +18,16 @@ if typing.TYPE_CHECKING:
 
 GITHUB_ACTIONS_BASE_OUTPUT_NAME = "base"
 GITHUB_ACTIONS_HEAD_OUTPUT_NAME = "head"
+
+BUILDKITE_BASE_METADATA_KEY = "mergify-ci.base"
+BUILDKITE_HEAD_METADATA_KEY = "mergify-ci.head"
+BUILDKITE_SOURCE_METADATA_KEY = "mergify-ci.source"
+
+
+def buildkite_meta_data_set(key: str, value: str) -> None:
+    subprocess.check_call(  # noqa: S603
+        ["buildkite-agent", "meta-data", "set", key, value],
+    )
 
 
 class BaseNotFoundError(exceptions.ScopesError):
@@ -47,6 +59,14 @@ class References:
             fh.write(f"{GITHUB_ACTIONS_BASE_OUTPUT_NAME}={self.base}\n")
             fh.write(f"{GITHUB_ACTIONS_HEAD_OUTPUT_NAME}={self.head}\n")
 
+    def maybe_write_to_buildkite_metadata(self) -> None:
+        if os.getenv("BUILDKITE") != "true":
+            return
+        if self.base is not None:
+            buildkite_meta_data_set(BUILDKITE_BASE_METADATA_KEY, self.base)
+        buildkite_meta_data_set(BUILDKITE_HEAD_METADATA_KEY, self.head)
+        buildkite_meta_data_set(BUILDKITE_SOURCE_METADATA_KEY, self.source)
+
 
 def _detect_from_pull_request_event(
     ev: github_event.GitHubEvent,
@@ -55,7 +75,17 @@ def _detect_from_pull_request_event(
     if ev.pull_request and ev.pull_request.head:
         head = ev.pull_request.head.sha
 
-    # 0) merge-queue PR override
+    # 0a) Merge-queue info via git note (published by the engine for newer MQs).
+    # Falls back to the PR-body parsing below when the note is absent.
+    if ev.pull_request and ev.pull_request.head and ev.pull_request.head.ref:
+        note = queue_notes.read_mq_info_note(
+            ev.pull_request.head.ref,
+            ev.pull_request.head.sha,
+        )
+        if note is not None:
+            return References(note["checking_base_sha"], head, "merge_queue")
+
+    # 0b) merge-queue PR override
     content = queue_metadata.extract_from_event(ev)
     if content:
         return References(content["checking_base_sha"], head, "merge_queue")
@@ -89,15 +119,27 @@ def _detect_from_push_event(ev: github_event.GitHubEvent) -> References | None:
 def _detect_from_buildkite() -> References | None:
     """Detect base/head references from Buildkite environment variables."""
     pr = os.getenv("BUILDKITE_PULL_REQUEST")
-    if pr and pr != "false":
-        base_branch = os.getenv("BUILDKITE_PULL_REQUEST_BASE_BRANCH")
-        commit = os.getenv("BUILDKITE_COMMIT", "HEAD")
-        if base_branch:
-            return References(
-                base_branch,
-                commit,
-                "buildkite_pull_request",
-            )
+    if not pr or pr == "false":
+        return None
+
+    commit = os.getenv("BUILDKITE_COMMIT", "HEAD")
+    branch = os.getenv("BUILDKITE_BRANCH")
+
+    # Merge-queue info via git note (published by the engine). When present,
+    # overrides the standard PR base branch so scope detection compares
+    # against the MQ checking base rather than the target branch.
+    if branch:
+        note = queue_notes.read_mq_info_note(branch, commit)
+        if note is not None:
+            return References(note["checking_base_sha"], commit, "merge_queue")
+
+    base_branch = os.getenv("BUILDKITE_PULL_REQUEST_BASE_BRANCH")
+    if base_branch:
+        return References(
+            base_branch,
+            commit,
+            "buildkite_pull_request",
+        )
     return None
 
 

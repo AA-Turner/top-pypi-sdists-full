@@ -123,6 +123,7 @@ class TaskActivation(google.protobuf.message.Message):
     NAMESPACE_FIELD_NUMBER: builtins.int
     TASKNAME_FIELD_NUMBER: builtins.int
     PARAMETERS_FIELD_NUMBER: builtins.int
+    PARAMETERS_BYTES_FIELD_NUMBER: builtins.int
     HEADERS_FIELD_NUMBER: builtins.int
     RECEIVED_AT_FIELD_NUMBER: builtins.int
     RETRY_STATE_FIELD_NUMBER: builtins.int
@@ -140,7 +141,14 @@ class TaskActivation(google.protobuf.message.Message):
     taskname: builtins.str
     """The name of the task. This name is resolved within the worker"""
     parameters: builtins.str
-    """An opaque parameter collection. Could be JSON or protobuf encoded"""
+    """DEPRECATED: Use parameters_bytes instead.
+    An opaque JSON-encoded parameter string.
+    """
+    parameters_bytes: builtins.bytes
+    """Msgpack-encoded parameter bytes containing {"args": [...], "kwargs": {...}}.
+    May be zstd-compressed; check headers["compression-type"].
+    Mutually exclusive with `parameters`.
+    """
     processing_deadline_duration: builtins.int
     """The duration in seconds that a worker has to complete task execution.
     When an activation is moved from pending -> processing a result is expected
@@ -179,6 +187,7 @@ class TaskActivation(google.protobuf.message.Message):
         namespace: builtins.str = ...,
         taskname: builtins.str = ...,
         parameters: builtins.str = ...,
+        parameters_bytes: builtins.bytes = ...,
         headers: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
         received_at: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         retry_state: global___RetryState | None = ...,
@@ -188,7 +197,7 @@ class TaskActivation(google.protobuf.message.Message):
         application: builtins.str | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_application", b"_application", "_delay", b"_delay", "_expires", b"_expires", "application", b"application", "delay", b"delay", "expires", b"expires", "received_at", b"received_at", "retry_state", b"retry_state"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_application", b"_application", "_delay", b"_delay", "_expires", b"_expires", "application", b"application", "delay", b"delay", "expires", b"expires", "headers", b"headers", "id", b"id", "namespace", b"namespace", "parameters", b"parameters", "processing_deadline_duration", b"processing_deadline_duration", "received_at", b"received_at", "retry_state", b"retry_state", "taskname", b"taskname"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_application", b"_application", "_delay", b"_delay", "_expires", b"_expires", "application", b"application", "delay", b"delay", "expires", b"expires", "headers", b"headers", "id", b"id", "namespace", b"namespace", "parameters", b"parameters", "parameters_bytes", b"parameters_bytes", "processing_deadline_duration", b"processing_deadline_duration", "received_at", b"received_at", "retry_state", b"retry_state", "taskname", b"taskname"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_application", b"_application"]) -> typing.Literal["application"] | None: ...
     @typing.overload

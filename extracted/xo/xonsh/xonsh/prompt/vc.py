@@ -27,7 +27,7 @@ def _run_git_cmd(cmd):
     # when running git status commands we do not want to acquire locks running command like git status
     denv = dict(XSH.env.detype())
     denv.update({"GIT_OPTIONAL_LOCKS": "0"})
-    return subprocess.check_output(cmd, env=denv, stderr=subprocess.DEVNULL)
+    return subprocess.check_output(cmd, env=denv, stderr=subprocess.DEVNULL, timeout=5)
 
 
 def _get_git_branch(q):
@@ -36,7 +36,7 @@ def _get_git_branch(q):
         "git symbolic-ref --short HEAD",
         "git show-ref --head -s --abbrev",  # in detached mode return sha1
     ]:
-        with contextlib.suppress(subprocess.CalledProcessError, OSError):
+        with contextlib.suppress(subprocess.SubprocessError, OSError):
             branch = xt.decode_bytes(_run_git_cmd(cmds.split()))
             if branch:
                 q.put(branch.splitlines()[0])
@@ -45,15 +45,32 @@ def _get_git_branch(q):
     q.put(None)
 
 
+def _is_in_git_repo():
+    """Fast filesystem check for .git — avoids spawning git subprocess."""
+    env = XSH.env
+    cwd = env.get("PWD", os.getcwd()) if env else os.getcwd()
+    while True:
+        if os.path.exists(os.path.join(cwd, ".git")):
+            return True
+        parent = os.path.dirname(cwd)
+        if parent == cwd:
+            return False
+        cwd = parent
+
+
 def get_git_branch():
     """Attempts to find the current git branch. If this could not
     be determined (timeout, not in a git repo, etc.) then this returns None.
     """
+    if not _is_in_git_repo():
+        return None
     branch = None
     timeout = XSH.env.get("VC_BRANCH_TIMEOUT")
     q = queue.Queue()
 
-    t = threading.Thread(target=_get_git_branch, args=(q,))
+    t = threading.Thread(
+        target=_get_git_branch, args=(q,), daemon=True
+    )  # don't block exit
     t.start()
     t.join(timeout=timeout)
     try:
@@ -91,7 +108,9 @@ def get_hg_branch(root=None):
     env = XSH.env
     timeout = env["VC_BRANCH_TIMEOUT"]
     q = queue.Queue()
-    t = threading.Thread(target=_get_hg_root, args=(q,))
+    t = threading.Thread(
+        target=_get_hg_root, args=(q,), daemon=True
+    )  # don't block exit
     t.start()
     t.join(timeout=timeout)
     try:
@@ -102,7 +121,7 @@ def get_hg_branch(root=None):
         # get branch name
         branch_path = root / ".hg" / "branch"
         if branch_path.exists():
-            with open(branch_path) as branch_file:
+            with open(branch_path, encoding="utf-8") as branch_file:
                 branch = branch_file.read().strip()
         else:
             branch = "default"
@@ -112,7 +131,7 @@ def get_hg_branch(root=None):
     for filename in ["bookmarks.current", "topic"]:
         feature_branch_path = root / ".hg" / filename
         if feature_branch_path.exists():
-            with open(feature_branch_path) as file:
+            with open(feature_branch_path, encoding="utf-8") as file:
                 feature_branch = file.read().strip()
             if feature_branch:
                 if branch:
@@ -140,10 +159,11 @@ def get_fossil_branch():
     cmd = "fossil branch current".split()
     try:
         branch = xt.decode_bytes(_run_fossil_cmd(cmd))
-    except (subprocess.CalledProcessError, OSError):
+    except (subprocess.SubprocessError, OSError):
         branch = None
     else:
-        branch = RE_REMOVE_ANSI.sub("", branch.splitlines()[0])
+        lines = branch.splitlines()
+        branch = RE_REMOVE_ANSI.sub("", lines[0]) if lines else None
     return branch
 
 
@@ -168,9 +188,19 @@ def _first_branch_timeout_message():
     )
 
 
+_vc_has_cache: dict[str, bool] = {}
+
+
 def _vc_has(binary):
-    """This allows us to locate binaries after git only if necessary"""
-    return bool(locate_executable(binary))
+    """This allows us to locate binaries after git only if necessary.
+
+    Results are cached for the session — the PATH rarely changes and
+    scanning it on every prompt is expensive for binaries that are
+    typically not installed (hg, fossil).
+    """
+    if binary not in _vc_has_cache:
+        _vc_has_cache[binary] = bool(locate_executable(binary))
+    return _vc_has_cache[binary]
 
 
 def current_branch():
@@ -204,7 +234,7 @@ def _git_dirty_working_directory(q, include_untracked):
             q.put(bool(status))
         else:
             q.put(None)
-    except (subprocess.CalledProcessError, OSError):
+    except (subprocess.SubprocessError, OSError):
         q.put(None)
 
 
@@ -217,7 +247,9 @@ def git_dirty_working_directory():
     include_untracked = env.get("VC_GIT_INCLUDE_UNTRACKED")
     q = queue.Queue()
     t = threading.Thread(
-        target=_git_dirty_working_directory, args=(q, include_untracked)
+        target=_git_dirty_working_directory,
+        args=(q, include_untracked),
+        daemon=True,  # don't block exit
     )
     t.start()
     t.join(timeout=timeout)
@@ -262,7 +294,7 @@ def fossil_dirty_working_directory():
     cmd = ["fossil", "changes"]
     try:
         status = _run_fossil_cmd(cmd)
-    except (subprocess.CalledProcessError, OSError):
+    except (subprocess.SubprocessError, OSError):
         status = None
     else:
         status = bool(status)

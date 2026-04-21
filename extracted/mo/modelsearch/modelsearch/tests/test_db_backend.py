@@ -48,6 +48,16 @@ class TestDBBackend(BackendTests, TestCase):
     def test_search_on_related_fields(self):
         super().test_search_on_related_fields()
 
+    # Doesn't support searching related fields
+    @unittest.expectedFailure
+    def test_search_on_related_fields_reverse_one_to_one(self):
+        super().test_search_on_related_fields_reverse_one_to_one()
+
+    # Doesn't support searching nested related fields
+    @unittest.expectedFailure
+    def test_search_on_nested_related_fields(self):
+        super().test_search_on_nested_related_fields()
+
     # Doesn't support searching callable fields
     @unittest.expectedFailure
     def test_search_callable_field(self):

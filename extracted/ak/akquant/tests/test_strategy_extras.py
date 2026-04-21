@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 from akquant import (
     BacktestConfig,
+    InstrumentConfig,
     StrategyConfig,
     register_logger,
     register_strategy_loader,
@@ -230,6 +231,19 @@ def test_rebalance_to_topn_supports_score_weight_mode() -> None:
     assert len(strategy.calls) == 1
     assert strategy.calls[0]["target_weights"]["BBB"] == pytest.approx(0.75)
     assert strategy.calls[0]["target_weights"]["AAA"] == pytest.approx(0.25)
+
+
+def test_rebalance_to_topn_breaks_score_ties_by_symbol() -> None:
+    """rebalance_to_topn should use symbol order as deterministic tie-breaker."""
+    strategy = TopNRebalanceStrategy()
+
+    selected = strategy.rebalance_to_topn(
+        scores={"BBB": 0.1, "AAA": 0.1, "CCC": 0.05},
+        top_n=2,
+    )
+
+    assert selected == ["AAA", "BBB"]
+    assert strategy.calls[0]["target_weights"] == {"AAA": 0.5, "BBB": 0.5}
 
 
 def test_rebalance_to_topn_rejects_invalid_weight_mode() -> None:
@@ -897,6 +911,106 @@ class WarmStartRiskStateStrategy(Strategy):
         """Submit buy sequence across pre/post snapshot phases."""
         self.buy(symbol=bar.symbol, quantity=10)
         self.step += 1
+
+
+class DeferredDailyRebalanceStrategy(Strategy):
+    """Regression strategy for daily rebalance timing determinism."""
+
+    def __init__(
+        self,
+        all_symbols: list[str],
+        date2symbols: dict[Any, set[str]],
+        capture: dict[str, Any],
+    ) -> None:
+        """Initialize symbol universe, rebalance map, and capture sink."""
+        super().__init__()
+        self.all_symbols = list(all_symbols)
+        self.date2symbols = date2symbols
+        self.capture = capture
+        self.set_history_depth(2)
+
+    def on_start(self) -> None:
+        """Subscribe to all configured symbols."""
+        for symbol in self.all_symbols:
+            self.subscribe(symbol)
+
+    def on_daily_rebalance(self, trading_date: Any, timestamp: int) -> None:
+        """Select the strongest two-bar momentum symbol on the target day."""
+        if trading_date not in self.date2symbols:
+            return
+        symbols = self.date2symbols[trading_date]
+        history_map = self.get_history_map(count=2, symbols=symbols, field="close")
+        scores: dict[str, float] = {}
+        for symbol, closes in history_map.items():
+            if np.isnan(closes[0]) or closes[0] == 0:
+                continue
+            scores[symbol] = float((closes[-1] - closes[0]) / closes[0])
+        selected = self.rebalance_to_topn(scores=scores, top_n=1)
+        self.capture.setdefault("events", []).append(
+            (trading_date, timestamp, tuple(selected))
+        )
+
+
+def _make_order_sensitive_multisymbol_bars(day3_order: list[str]) -> list[Bar]:
+    """Create bars whose day-3 leader depends on when rebalance is evaluated."""
+    schedule = [
+        ("2023-01-01 15:00:00", {"AAA": 10.0, "BBB": 10.0}, ["AAA", "BBB"]),
+        ("2023-01-02 15:00:00", {"AAA": 10.0, "BBB": 10.0}, ["AAA", "BBB"]),
+        ("2023-01-03 15:00:00", {"AAA": 20.0, "BBB": 11.0}, day3_order),
+        ("2023-01-04 15:00:00", {"AAA": 10.0, "BBB": 30.0}, ["AAA", "BBB"]),
+    ]
+    bars: list[Bar] = []
+    for timestamp_text, closes, order in schedule:
+        ts = pd.Timestamp(timestamp_text, tz="Asia/Shanghai").value
+        for symbol in order:
+            close = closes[symbol]
+            bars.append(
+                Bar(
+                    timestamp=ts,
+                    open=close,
+                    high=close,
+                    low=close,
+                    close=close,
+                    volume=1000.0,
+                    symbol=symbol,
+                )
+            )
+    return bars
+
+
+def test_run_backtest_daily_rebalance_same_timestamp_order_insensitive() -> None:
+    """Daily rebalance should see a complete same-timestamp cross section."""
+    target_day = pd.Timestamp("2023-01-03", tz="Asia/Shanghai").date()
+    date2symbols = {target_day: {"AAA", "BBB"}}
+    first_capture: dict[str, Any] = {}
+    second_capture: dict[str, Any] = {}
+
+    first = run_backtest(
+        data=_make_order_sensitive_multisymbol_bars(["AAA", "BBB"]),
+        strategy=DeferredDailyRebalanceStrategy,
+        symbols=["AAA", "BBB"],
+        all_symbols=["AAA", "BBB"],
+        date2symbols=date2symbols,
+        capture=first_capture,
+        initial_cash=100000.0,
+        show_progress=False,
+    )
+    second = run_backtest(
+        data=_make_order_sensitive_multisymbol_bars(["BBB", "AAA"]),
+        strategy=DeferredDailyRebalanceStrategy,
+        symbols=["AAA", "BBB"],
+        all_symbols=["BBB", "AAA"],
+        date2symbols=date2symbols,
+        capture=second_capture,
+        initial_cash=100000.0,
+        show_progress=False,
+    )
+
+    assert first_capture["events"][-1][0] == target_day
+    assert second_capture["events"][-1][0] == target_day
+    assert first_capture["events"][-1][2] == ("AAA",)
+    assert second_capture["events"][-1][2] == ("AAA",)
+    assert first.metrics.total_return == pytest.approx(second.metrics.total_return)
 
 
 def _make_bars(
@@ -3362,7 +3476,7 @@ def test_strategy_buy_sell_delegate_to_submit_order() -> None:
             trail_offset: float | None = None,
             trail_reference_price: float | None = None,
             fill_policy: dict[str, Any] | None = None,
-            slippage: dict[str, Any] | None = None,
+            slippage: float | dict[str, Any] | None = None,
             commission: dict[str, Any] | None = None,
         ) -> str:
             _ = price
@@ -3587,6 +3701,18 @@ class _OrderLevelSlippageStrategy(Strategy):
             },
             slippage={"type": "percent", "value": 0.1},
         )
+        self.submit_order(
+            symbol=bar.symbol,
+            side="Buy",
+            quantity=1.0,
+            tag="slippage-ticks",
+            fill_policy={
+                "price_basis": "open",
+                "bar_offset": 1,
+                "temporal": "same_cycle",
+            },
+            slippage={"type": "ticks", "value": 2},
+        )
 
 
 def test_order_level_slippage_overrides_engine_slippage() -> None:
@@ -3609,14 +3735,20 @@ def test_order_level_slippage_overrides_engine_slippage() -> None:
         symbols="AAPL",
         initial_cash=100000.0,
         show_progress=False,
+        config=BacktestConfig(
+            strategy_config=StrategyConfig(),
+            instruments_config=[InstrumentConfig(symbol="AAPL", tick_size=0.25)],
+        ),
     )
     filled_orders = result.orders_df[
         result.orders_df["status"].astype(str).str.lower() == "filled"
     ]
     fixed_row = filled_orders[filled_orders["tag"] == "slippage-fixed"].iloc[0]
     percent_row = filled_orders[filled_orders["tag"] == "slippage-percent"].iloc[0]
+    ticks_row = filled_orders[filled_orders["tag"] == "slippage-ticks"].iloc[0]
     assert float(fixed_row["avg_price"]) == pytest.approx(20.5)
     assert float(percent_row["avg_price"]) == pytest.approx(22.0)
+    assert float(ticks_row["avg_price"]) == pytest.approx(20.5)
 
 
 class _StrategyLevelSlippageStrategy(Strategy):
@@ -3650,8 +3782,74 @@ def test_strategy_level_slippage_applies_when_order_slippage_missing() -> None:
         symbols="AAPL",
         initial_cash=100000.0,
         show_progress=False,
-        slippage=0.2,
+        slippage={"type": "percent", "value": 0.2},
         strategy_slippage={"_default": {"type": "fixed", "value": 0.5}},
+    )
+    filled_orders = result.orders_df[
+        result.orders_df["status"].astype(str).str.lower() == "filled"
+    ]
+    row = filled_orders[filled_orders["tag"] == "strategy-slippage"].iloc[0]
+    assert float(row["avg_price"]) == pytest.approx(20.5)
+
+
+def test_strategy_level_ticks_slippage_uses_symbol_tick_size() -> None:
+    """Strategy-level tick slippage should resolve via instrument tick_size."""
+    register_logger(console=False, level="INFO")
+    data = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2023-01-01", periods=3, freq="D", tz="UTC"),
+            "open": [10.0, 20.0, 30.0],
+            "high": [11.0, 21.0, 31.0],
+            "low": [9.0, 19.0, 29.0],
+            "close": [100.0, 200.0, 300.0],
+            "volume": [10000.0, 10000.0, 10000.0],
+            "symbol": ["AAPL", "AAPL", "AAPL"],
+        }
+    )
+    result = run_backtest(
+        data=data,
+        strategy=_StrategyLevelSlippageStrategy,
+        symbols="AAPL",
+        initial_cash=100000.0,
+        show_progress=False,
+        config=BacktestConfig(
+            strategy_config=StrategyConfig(),
+            instruments_config=[InstrumentConfig(symbol="AAPL", tick_size=0.25)],
+        ),
+        strategy_slippage={"_default": {"type": "ticks", "value": 2}},
+    )
+    filled_orders = result.orders_df[
+        result.orders_df["status"].astype(str).str.lower() == "filled"
+    ]
+    row = filled_orders[filled_orders["tag"] == "strategy-slippage"].iloc[0]
+    assert float(row["avg_price"]) == pytest.approx(20.5)
+
+
+def test_global_ticks_slippage_resolves_to_fixed_from_shared_tick_size() -> None:
+    """Global tick slippage should resolve from a shared instrument tick_size."""
+    register_logger(console=False, level="INFO")
+    data = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2023-01-01", periods=3, freq="D", tz="UTC"),
+            "open": [10.0, 20.0, 30.0],
+            "high": [11.0, 21.0, 31.0],
+            "low": [9.0, 19.0, 29.0],
+            "close": [100.0, 200.0, 300.0],
+            "volume": [10000.0, 10000.0, 10000.0],
+            "symbol": ["AAPL", "AAPL", "AAPL"],
+        }
+    )
+    result = run_backtest(
+        data=data,
+        strategy=_StrategyLevelSlippageStrategy,
+        symbols="AAPL",
+        initial_cash=100000.0,
+        show_progress=False,
+        config=BacktestConfig(
+            strategy_config=StrategyConfig(),
+            instruments_config=[InstrumentConfig(symbol="AAPL", tick_size=0.25)],
+        ),
+        slippage={"type": "ticks", "value": 2},
     )
     filled_orders = result.orders_df[
         result.orders_df["status"].astype(str).str.lower() == "filled"
@@ -3787,7 +3985,7 @@ def test_strategy_trailing_helpers_delegate_to_submit_order() -> None:
             trail_offset: float | None = None,
             trail_reference_price: float | None = None,
             fill_policy: dict[str, Any] | None = None,
-            slippage: dict[str, Any] | None = None,
+            slippage: float | dict[str, Any] | None = None,
             commission: dict[str, Any] | None = None,
         ) -> str:
             _ = time_in_force
@@ -4014,7 +4212,7 @@ def test_bracket_prefers_engine_registration_when_available() -> None:
             trigger_price: float | None = None,
             tag: str | None = None,
             fill_policy: dict[str, Any] | None = None,
-            slippage: dict[str, Any] | None = None,
+            slippage: float | dict[str, Any] | None = None,
             commission: dict[str, Any] | None = None,
         ) -> str:
             self.buy_calls.append(
@@ -4086,7 +4284,7 @@ def test_bracket_falls_back_to_deferred_engine_queue_on_runtime_error() -> None:
             trigger_price: float | None = None,
             tag: str | None = None,
             fill_policy: dict[str, Any] | None = None,
-            slippage: dict[str, Any] | None = None,
+            slippage: float | dict[str, Any] | None = None,
             commission: dict[str, Any] | None = None,
         ) -> str:
             _ = (
@@ -4142,7 +4340,7 @@ def test_bracket_places_exit_orders_and_builds_oco() -> None:
             trigger_price: float | None = None,
             tag: str | None = None,
             fill_policy: dict[str, Any] | None = None,
-            slippage: dict[str, Any] | None = None,
+            slippage: float | dict[str, Any] | None = None,
             commission: dict[str, Any] | None = None,
         ) -> str:
             self.buy_calls.append(
@@ -4169,7 +4367,7 @@ def test_bracket_places_exit_orders_and_builds_oco() -> None:
             trigger_price: float | None = None,
             tag: str | None = None,
             fill_policy: dict[str, Any] | None = None,
-            slippage: dict[str, Any] | None = None,
+            slippage: float | dict[str, Any] | None = None,
             commission: dict[str, Any] | None = None,
         ) -> str:
             self._sell_counter += 1

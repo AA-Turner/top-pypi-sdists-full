@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-location
-Version: 1.42.3
-Summary: Type annotations for boto3 LocationService 1.42.3 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.92
+Summary: Type annotations for boto3 LocationService 1.42.92 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,8 +43,8 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 LocationService 1.42.3](https://pypi.org/project/boto3/) compatible with
-[VSCode](https://code.visualstudio.com/),
+[boto3 LocationService 1.42.92](https://pypi.org/project/boto3/) compatible
+with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
 [Sublime Text](https://www.sublimetext.com/),
@@ -80,6 +80,7 @@ See how it helps you find and fix potential bugs:
   - [Explicit type annotations](#explicit-type-annotations)
     - [Client annotations](#client-annotations)
     - [Paginators annotations](#paginators-annotations)
+    - [Waiters annotations](#waiters-annotations)
     - [Literals](#literals)
     - [Type definitions](#type-definitions)
   - [How it works](#how-it-works)
@@ -105,7 +106,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.3' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.92' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `LocationService` service.
 4. Use provided commands to install generated packages.
@@ -344,6 +345,7 @@ from mypy_boto3_location.paginator import (
     ListDevicePositionsPaginator,
     ListGeofenceCollectionsPaginator,
     ListGeofencesPaginator,
+    ListJobsPaginator,
     ListKeysPaginator,
     ListMapsPaginator,
     ListPlaceIndexesPaginator,
@@ -369,6 +371,7 @@ list_geofence_collections_paginator: ListGeofenceCollectionsPaginator = client.g
     "list_geofence_collections"
 )
 list_geofences_paginator: ListGeofencesPaginator = client.get_paginator("list_geofences")
+list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
 list_keys_paginator: ListKeysPaginator = client.get_paginator("list_keys")
 list_maps_paginator: ListMapsPaginator = client.get_paginator("list_maps")
 list_place_indexes_paginator: ListPlaceIndexesPaginator = client.get_paginator("list_place_indexes")
@@ -379,6 +382,25 @@ list_tracker_consumers_paginator: ListTrackerConsumersPaginator = client.get_pag
     "list_tracker_consumers"
 )
 list_trackers_paginator: ListTrackersPaginator = client.get_paginator("list_trackers")
+```
+
+<a id="waiters-annotations"></a>
+
+### Waiters annotations
+
+`mypy_boto3_location.waiter` module contains type annotations for all waiters.
+
+```python
+from boto3.session import Session
+
+from mypy_boto3_location import LocationServiceClient
+from mypy_boto3_location.waiter import JobCompletedWaiter
+
+client: LocationServiceClient = Session().client("location")
+
+# Explicit type annotations are optional here
+# Types should be correctly discovered by mypy and IDEs
+job_completed_waiter: JobCompletedWaiter = client.get_waiter("job_completed")
 ```
 
 <a id="literals"></a>

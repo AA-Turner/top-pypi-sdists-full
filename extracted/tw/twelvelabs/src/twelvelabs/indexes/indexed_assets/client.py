@@ -7,6 +7,12 @@ from ...core.pagination import AsyncPager, SyncPager
 from ...core.request_options import RequestOptions
 from ...types.indexed_asset import IndexedAsset
 from ...types.indexed_asset_detailed import IndexedAssetDetailed
+from ...types.indexed_asset_summary import IndexedAssetSummary
+from ...types.indexed_assets_list_request_duration import IndexedAssetsListRequestDuration
+from ...types.indexed_assets_list_request_fps import IndexedAssetsListRequestFps
+from ...types.indexed_assets_list_request_height import IndexedAssetsListRequestHeight
+from ...types.indexed_assets_list_request_size import IndexedAssetsListRequestSize
+from ...types.indexed_assets_list_request_width import IndexedAssetsListRequestWidth
 from ...types.user_metadata import UserMetadata
 from .raw_client import AsyncRawIndexedAssetsClient, RawIndexedAssetsClient
 from .types.indexed_assets_create_response import IndexedAssetsCreateResponse
@@ -45,11 +51,11 @@ class IndexedAssetsClient:
             typing.Union[IndexedAssetsListRequestStatusItem, typing.Sequence[IndexedAssetsListRequestStatusItem]]
         ] = None,
         filename: typing.Optional[str] = None,
-        duration: typing.Optional[float] = None,
-        fps: typing.Optional[float] = None,
-        width: typing.Optional[float] = None,
-        height: typing.Optional[int] = None,
-        size: typing.Optional[float] = None,
+        duration: typing.Optional[IndexedAssetsListRequestDuration] = None,
+        fps: typing.Optional[IndexedAssetsListRequestFps] = None,
+        width: typing.Optional[IndexedAssetsListRequestWidth] = None,
+        height: typing.Optional[IndexedAssetsListRequestHeight] = None,
+        size: typing.Optional[IndexedAssetsListRequestSize] = None,
         created_at: typing.Optional[str] = None,
         updated_at: typing.Optional[str] = None,
         user_metadata: typing.Optional[
@@ -106,20 +112,25 @@ class IndexedAssetsClient:
         filename : typing.Optional[str]
             Filter by filename.
 
-        duration : typing.Optional[float]
-            Filter by duration. Expressed in seconds.
+        duration : typing.Optional[IndexedAssetsListRequestDuration]
+            Filter by duration in seconds. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        fps : typing.Optional[float]
-            Filter by frames per second.
+        fps : typing.Optional[IndexedAssetsListRequestFps]
+            Filter by frames per second. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        width : typing.Optional[float]
-            Filter by width.
+        width : typing.Optional[IndexedAssetsListRequestWidth]
+            Filter by width in pixels. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        height : typing.Optional[int]
-            Filter by height.
+        height : typing.Optional[IndexedAssetsListRequestHeight]
+            Filter by height in pixels. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        size : typing.Optional[float]
-            Filter by size. Expressed in bytes.
+        size : typing.Optional[IndexedAssetsListRequestSize]
+            Filter by size in bytes. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
         created_at : typing.Optional[str]
             Filter indexed assets by the creation date and time of their associated indexing tasks, in the RFC 3339 format ("YYYY-MM-DDTHH:mm:ssZ"). The platform returns indexed assets created on or after the specified date and time.
@@ -158,11 +169,6 @@ class IndexedAssetsClient:
             sort_by="created_at",
             sort_option="desc",
             filename="01.mp4",
-            duration=1.1,
-            fps=1.1,
-            width=1.1,
-            height=1,
-            size=1.1,
             created_at="2024-08-16T16:53:59Z",
             updated_at="2024-08-16T16:53:59Z",
         )
@@ -220,7 +226,7 @@ class IndexedAssetsClient:
             The unique identifier of the index to which the asset will be indexed.
 
         asset_id : str
-            The unique identifier of the asset to index.
+            The unique identifier of the asset to index. The asset status must be `ready`. Use the [Retrieve an asset](/v1.3/api-reference/upload-content/direct-uploads/retrieve) method to check the status.
 
         enable_video_stream : typing.Optional[bool]
             This parameter indicates if the platform stores the video for streaming. When set to `true`, the platform stores the video, and you can retrieve its URL by calling the [`GET`](/v1.3/api-reference/videos/retrieve) method of the `/indexes/{index-id}/indexed-assets/{indexed-asset-id}` endpoint. You can then use this URL to access the stream over the <a href="https://en.wikipedia.org/wiki/HTTP_Live_Streaming" target="_blank">HLS</a> protocol.
@@ -420,6 +426,63 @@ class IndexedAssetsClient:
         )
         return _response.data
 
+    def list_by_asset(
+        self,
+        asset_id: str,
+        *,
+        page: typing.Optional[int] = None,
+        page_limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[IndexedAssetSummary]:
+        """
+        This method returns a list of indexed assets that reference the specified asset. Each entry includes the indexed asset ID and the index it belongs to.
+
+        Parameters
+        ----------
+        asset_id : str
+            The unique identifier of the asset.
+
+        page : typing.Optional[int]
+            A number that identifies the page to retrieve.
+
+            **Default**: `1`.
+
+        page_limit : typing.Optional[int]
+            The number of items to return on each page.
+
+            **Default**: `10`.
+            **Max**: `50`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[IndexedAssetSummary]
+            The indexed assets have been successfully retrieved.
+
+        Examples
+        --------
+        from twelvelabs import TwelveLabs
+
+        client = TwelveLabs(
+            api_key="YOUR_API_KEY",
+        )
+        response = client.indexes.indexed_assets.list_by_asset(
+            asset_id="6298d673f1090f1100476d4c",
+            page=1,
+            page_limit=10,
+        )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
+        """
+        return self._raw_client.list_by_asset(
+            asset_id, page=page, page_limit=page_limit, request_options=request_options
+        )
+
 
 class AsyncIndexedAssetsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -448,11 +511,11 @@ class AsyncIndexedAssetsClient:
             typing.Union[IndexedAssetsListRequestStatusItem, typing.Sequence[IndexedAssetsListRequestStatusItem]]
         ] = None,
         filename: typing.Optional[str] = None,
-        duration: typing.Optional[float] = None,
-        fps: typing.Optional[float] = None,
-        width: typing.Optional[float] = None,
-        height: typing.Optional[int] = None,
-        size: typing.Optional[float] = None,
+        duration: typing.Optional[IndexedAssetsListRequestDuration] = None,
+        fps: typing.Optional[IndexedAssetsListRequestFps] = None,
+        width: typing.Optional[IndexedAssetsListRequestWidth] = None,
+        height: typing.Optional[IndexedAssetsListRequestHeight] = None,
+        size: typing.Optional[IndexedAssetsListRequestSize] = None,
         created_at: typing.Optional[str] = None,
         updated_at: typing.Optional[str] = None,
         user_metadata: typing.Optional[
@@ -509,20 +572,25 @@ class AsyncIndexedAssetsClient:
         filename : typing.Optional[str]
             Filter by filename.
 
-        duration : typing.Optional[float]
-            Filter by duration. Expressed in seconds.
+        duration : typing.Optional[IndexedAssetsListRequestDuration]
+            Filter by duration in seconds. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        fps : typing.Optional[float]
-            Filter by frames per second.
+        fps : typing.Optional[IndexedAssetsListRequestFps]
+            Filter by frames per second. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        width : typing.Optional[float]
-            Filter by width.
+        width : typing.Optional[IndexedAssetsListRequestWidth]
+            Filter by width in pixels. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        height : typing.Optional[int]
-            Filter by height.
+        height : typing.Optional[IndexedAssetsListRequestHeight]
+            Filter by height in pixels. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
-        size : typing.Optional[float]
-            Filter by size. Expressed in bytes.
+        size : typing.Optional[IndexedAssetsListRequestSize]
+            Filter by size in bytes. Pass an object with `gte` and/or `lte` for range filtering.
+            For exact match, set both to the same value.
 
         created_at : typing.Optional[str]
             Filter indexed assets by the creation date and time of their associated indexing tasks, in the RFC 3339 format ("YYYY-MM-DDTHH:mm:ssZ"). The platform returns indexed assets created on or after the specified date and time.
@@ -566,11 +634,6 @@ class AsyncIndexedAssetsClient:
                 sort_by="created_at",
                 sort_option="desc",
                 filename="01.mp4",
-                duration=1.1,
-                fps=1.1,
-                width=1.1,
-                height=1,
-                size=1.1,
                 created_at="2024-08-16T16:53:59Z",
                 updated_at="2024-08-16T16:53:59Z",
             )
@@ -632,7 +695,7 @@ class AsyncIndexedAssetsClient:
             The unique identifier of the index to which the asset will be indexed.
 
         asset_id : str
-            The unique identifier of the asset to index.
+            The unique identifier of the asset to index. The asset status must be `ready`. Use the [Retrieve an asset](/v1.3/api-reference/upload-content/direct-uploads/retrieve) method to check the status.
 
         enable_video_stream : typing.Optional[bool]
             This parameter indicates if the platform stores the video for streaming. When set to `true`, the platform stores the video, and you can retrieve its URL by calling the [`GET`](/v1.3/api-reference/videos/retrieve) method of the `/indexes/{index-id}/indexed-assets/{indexed-asset-id}` endpoint. You can then use this URL to access the stream over the <a href="https://en.wikipedia.org/wiki/HTTP_Live_Streaming" target="_blank">HLS</a> protocol.
@@ -863,3 +926,69 @@ class AsyncIndexedAssetsClient:
             index_id, indexed_asset_id, user_metadata=user_metadata, request_options=request_options
         )
         return _response.data
+
+    async def list_by_asset(
+        self,
+        asset_id: str,
+        *,
+        page: typing.Optional[int] = None,
+        page_limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[IndexedAssetSummary]:
+        """
+        This method returns a list of indexed assets that reference the specified asset. Each entry includes the indexed asset ID and the index it belongs to.
+
+        Parameters
+        ----------
+        asset_id : str
+            The unique identifier of the asset.
+
+        page : typing.Optional[int]
+            A number that identifies the page to retrieve.
+
+            **Default**: `1`.
+
+        page_limit : typing.Optional[int]
+            The number of items to return on each page.
+
+            **Default**: `10`.
+            **Max**: `50`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[IndexedAssetSummary]
+            The indexed assets have been successfully retrieved.
+
+        Examples
+        --------
+        import asyncio
+
+        from twelvelabs import AsyncTwelveLabs
+
+        client = AsyncTwelveLabs(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            response = await client.indexes.indexed_assets.list_by_asset(
+                asset_id="6298d673f1090f1100476d4c",
+                page=1,
+                page_limit=10,
+            )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
+
+
+        asyncio.run(main())
+        """
+        return await self._raw_client.list_by_asset(
+            asset_id, page=page, page_limit=page_limit, request_options=request_options
+        )

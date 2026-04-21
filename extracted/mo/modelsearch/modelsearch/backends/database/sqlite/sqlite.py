@@ -7,8 +7,9 @@ from django.db import (
     router,
     transaction,
 )
-from django.db.models import Avg, Count, F, Manager, TextField
+from django.db.models import Avg, Count, F, Manager, OuterRef, Subquery
 from django.db.models.constants import LOOKUP_SEP
+from django.db.models.fields import FloatField, TextField
 from django.db.models.functions import Cast, Length
 from django.utils.encoding import force_str
 from django.utils.functional import cached_property
@@ -467,8 +468,8 @@ class SQLiteSearchQueryCompiler(BaseSearchQueryCompiler):
 
     def get_index_vectors(self):
         return [
-            (F("index_entries__title"), F("index_entries__title_norm")),
-            (F("index_entries__body"), 1.0),
+            (F("index_entry__title"), F("index_entry__title_norm")),
+            (F("index_entry__body"), 1.0),
         ]
 
     def get_search_vectors(self):
@@ -509,36 +510,27 @@ class SQLiteSearchQueryCompiler(BaseSearchQueryCompiler):
             normalized_query, config=config
         )  # We build a search query here, for example: "%s MATCH '(hello AND world)'"
         vectors = self.get_search_vectors()
-        rank_expression = self._build_rank_expression(vectors, config)
-
-        combined_vector = vectors[
-            0
-        ][
-            0
-        ]  # We create a combined vector for the search results queryset. We start with the first vector and build from there.
-        for vector, _boost in vectors[1:]:
-            combined_vector = combined_vector._combine(
-                vector, " ", False
-            )  # We add the subsequent vectors to the combined vector.
 
         # Build the FTS match expression.
-        expr = MatchExpression(self.fields or self.FTS_TABLE_FIELDS, search_query)
+        match_expression = MatchExpression(
+            self.fields or self.FTS_TABLE_FIELDS, search_query
+        )
+
+        rank_expression = self._build_rank_expression(vectors, config)
+
         # Perform the FTS search. We'll get entries in the SQLiteFTSIndexEntry model.
-        objs = (
-            SQLiteFTSIndexEntry.objects.filter(expr)
+        index_query = (
+            SQLiteFTSIndexEntry.objects.filter(match_expression)
             .select_related("index_entry")
             .filter(
                 index_entry__content_type__in=get_descendants_content_types_pks(
                     self.queryset.model
                 )
             )
+            .annotate(score=rank_expression)
         )
 
-        if self.order_by_relevance:
-            # FIXME: this has no effect because the final query is just running an id__in filter, without preserving order.
-            objs = objs.order_by(BM25().desc())
-
-        obj_ids = objs.values_list("index_entry__object_id", flat=True)
+        obj_ids = index_query.values_list("index_entry__object_id", flat=True)
 
         if not negated:
             queryset = self.queryset.filter(
@@ -549,9 +541,23 @@ class SQLiteSearchQueryCompiler(BaseSearchQueryCompiler):
                 pk__in=obj_ids
             )  # We exclude the objects that matched the search query from the source queryset, if the query is negated.
 
-        # FIXME: this fails because `rank_expression` is only valid in the `objs` query we constructed above, not `queryset`.
-        if score_field is not None:
-            queryset = queryset.annotate(**{score_field: rank_expression})
+        if self.order_by_relevance and score_field is None and not negated:
+            # When ordering by relevance, we need to annotate the scores even if the caller
+            # didn't request it, so that we can order by it.
+            score_field = "_score"
+
+        # If the caller requested it, annotate the queryset with the scores, and possibly order by them.
+        if score_field is not None and not negated:
+            # When the query is negated, all the scores will be 0, making this block irrelevant.
+            # Create a scalar subquery to associate the scores with the primary keys of the results.
+            score_subquery = index_query.filter(
+                index_entry__object_id=OuterRef("pk")
+            ).values("score")[:1]
+            queryset = queryset.annotate(
+                **{score_field: Subquery(score_subquery, output_field=FloatField())}
+            )
+            if self.order_by_relevance:
+                queryset = queryset.order_by(score_field, "-pk")
 
         if not self.order_by_relevance and not queryset.query.order_by:
             # Add a default ordering to keep results consistent across pages
@@ -573,7 +579,7 @@ class SQLiteAutocompleteQueryCompiler(SQLiteSearchQueryCompiler):
         return self.queryset.model.get_autocomplete_search_fields()
 
     def get_index_vectors(self):
-        return [(F("index_entries__autocomplete"), 1.0)]
+        return [(F("index_entry__autocomplete"), 1.0)]
 
 
 class SQLiteSearchResults(BaseSearchResults):

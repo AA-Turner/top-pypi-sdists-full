@@ -40,7 +40,7 @@ class HuggingFaceLocalGenerator:
     )
 
     print(generator.run("Who is the best American actor?"))
-    # {'replies': ['John Cusack']}
+    # >> {'replies': ['John Cusack']}
     ```
     """
 

@@ -66,7 +66,7 @@ class SubsetResults(SubsetResultBases[SubsetResult]):
     @classmethod
     def load(cls, client: LaunchableClient, subset_id: int) -> "SubsetResults":
         try:
-            response = client.request("get", f"subset/{subset_id}")
+            response = client.request("get", f"subset/{subset_id}", timeout=(30, 300))
             if response.status_code == HTTPStatus.NOT_FOUND:
                 raise click.ClickException(
                     f"Subset {subset_id} not found. Check subset ID and try again."

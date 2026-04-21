@@ -1,18 +1,18 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-03T19:36:22.637150                                                            #
+# Generated on 2026-04-21T02:03:41.264045                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import io
-import metaflow
 import abc
+import metaflow
+import io
 import typing
 if typing.TYPE_CHECKING:
-    import io
     import metaflow.metaflow_environment
+    import io
     import metaflow.exception
     import abc
 

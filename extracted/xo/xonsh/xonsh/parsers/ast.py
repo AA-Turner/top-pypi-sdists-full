@@ -147,14 +147,10 @@ def const_str(
     col_offset: int | None = None,
     is_raw: bool = True,
 ):
-    if PYTHON_VERSION_INFO >= (3, 13):
-        # looks like this attribute is no longer needed to be set explicitly
-        constant = Constant(value=s, kind="str")
-    else:
-        constant = Constant(value=s, kind="str")
-        if is_raw:
-            # this attribute is not documented within the ast object
-            constant.is_raw = is_raw  # type: ignore
+    constant = Constant(value=s)
+    constant.kind = "str"  # type: ignore
+    if is_raw:
+        constant.is_raw = is_raw  # type: ignore
     if lineno is not None:
         constant.lineno = lineno
     if col_offset is not None:
@@ -167,7 +163,9 @@ def is_const_str(node):
 
 
 def const_bytes(s: str, **kwargs):
-    return Constant(value=s, kind="bytes", **kwargs)
+    c = Constant(value=s, **kwargs)
+    c.kind = "bytes"  # type: ignore
+    return c
 
 
 def is_const_bytes(node):
@@ -175,7 +173,9 @@ def is_const_bytes(node):
 
 
 def const_num(n, **kwargs):
-    return Constant(value=n, kind="num", **kwargs)
+    c = Constant(value=n, **kwargs)
+    c.kind = "num"  # type: ignore
+    return c
 
 
 def is_const_num(node):
@@ -183,7 +183,9 @@ def is_const_num(node):
 
 
 def const_name(value, **kwargs):
-    return Constant(value=value, kind="name", **kwargs)
+    c = Constant(value=value, **kwargs)
+    c.kind = "name"  # type: ignore
+    return c
 
 
 def is_const_name(node):
@@ -210,7 +212,7 @@ def leftmostname(node):
         rtn = leftmostname(node.target)
     elif isinstance(node, JoinedStr) or is_const_str(node) or is_const_bytes(node):
         # handles case of "./my executable"
-        rtn = leftmostname(node.s)
+        rtn = None
     elif isinstance(node, Tuple) and len(node.elts) > 0:
         # handles case of echo ,1,2,3
         rtn = leftmostname(node.elts[0])
@@ -242,7 +244,7 @@ def get_col(node, default=-1):
 
 def min_col(node):
     """Computes the minimum col_offset."""
-    return min(map(get_col, walk(node), itertools.repeat(node.col_offset)))
+    return min(map(get_col, walk(node), itertools.repeat(get_col(node))))
 
 
 def max_col(node):
@@ -256,14 +258,17 @@ def max_col(node):
 
 
 def node_len(node):
-    """The length of a node as a string"""
+    """The length of a node as a string
+    (This may need to be added to for more nodes as more cases are found.)
+    """
     val = 0
     for n in walk(node):
         if isinstance(n, Name):
             val += len(n.id)
+        elif isinstance(n, Constant) and n.value is not None:  # Case #5253
+            val += len(repr(n.value))
         elif isinstance(n, Attribute):
             val += 1 + (len(n.attr) if isinstance(n.attr, str) else 0)
-        # this may need to be added to for more nodes as more cases are found
     return val
 
 
@@ -384,7 +389,9 @@ class CtxAwareTransformer(NodeTransformer):
         self.filename = "<xonsh-code>"
         self.debug_level = 0
 
-    def ctxvisit(self, node, inp, ctx, mode="exec", filename=None, debug_level=0):
+    def ctxvisit(
+        self, node, inp, ctx, mode="exec", filename=None, debug_level=0, user_names=None
+    ):
         """Transforms the node in a context-dependent way.
 
         Parameters
@@ -409,10 +416,11 @@ class CtxAwareTransformer(NodeTransformer):
         self.debug_level = debug_level
         self.lines = inp.splitlines()
         self.contexts = [ctx, set()]
+        self._user_names = user_names or set()
         self.mode = mode
         self._nwith = 0
         node = self.visit(node)
-        del self.lines, self.contexts, self.mode
+        del self.lines, self.contexts, self.mode, self._user_names
         self._nwith = 0
         return node
 
@@ -455,8 +463,8 @@ class CtxAwareTransformer(NodeTransformer):
             returnline=False,
             lexer=self.parser.lexer,
         )
-        if spline is None or spline != f"![{line[mincol:maxcol].strip()}]":
-            # failed to get something consistent, try greedy wrap
+        if spline is None:
+            # non-greedy produced nothing, try greedy
             spline = subproc_toks(
                 line,
                 mincol=mincol,
@@ -523,6 +531,36 @@ class CtxAwareTransformer(NodeTransformer):
         """Handle visiting an expression."""
         if isdescendable(node.value):
             node.value = self.visit(node.value)  # this allows diving into BoolOps
+        if self._is_bare_builtin(node.value):
+            name = node.value.id if isinstance(node.value, Name) else "..."
+            node.value = xonsh_call(
+                "__xonsh__.builtin_cmd",
+                [
+                    const_str(
+                        s=name,
+                        lineno=node.lineno,
+                        col_offset=node.col_offset,
+                    )
+                ],
+                lineno=node.lineno,
+                col=node.col_offset,
+            )
+            return node
+        if self._looks_like_flag_subproc(node.value):
+            # ``zip --help`` / ``id -v`` parse as Python ``BinOp(Sub)`` (the
+            # LHS name minus ``-flag``). Evaluating that at runtime blows up
+            # when the RHS name is a non-numeric builtin (``help`` →
+            # ``_Helper``) or produces nonsense arithmetic. Since the LHS is
+            # a known alias/command, re-parse the source line as subprocess.
+            newnode = self.try_subproc_toks(node)
+            if not isinstance(newnode, Expr):
+                newnode = Expr(
+                    value=newnode, lineno=node.lineno, col_offset=node.col_offset
+                )
+                if hasattr(node, "max_lineno"):
+                    newnode.max_lineno = node.max_lineno
+                    newnode.max_col = node.max_col
+            return newnode
         if self.is_in_scope(node) or isinstance(node.value, Lambda):
             return node
         else:
@@ -535,6 +573,63 @@ class CtxAwareTransformer(NodeTransformer):
                     newnode.max_lineno = node.max_lineno
                     newnode.max_col = node.max_col
             return newnode
+
+    def _looks_like_flag_subproc(self, node):
+        """Heuristic: does this Python expression look like ``cmd -flag``?
+
+        Matches ``BinOp(Name, Sub, [UnaryOp(USub, …)]*, Name)`` where the LHS
+        name is a known alias, executable on ``$PATH``, or a Python builtin
+        that shadows one — i.e. the user clearly typed a subprocess command
+        with flags but it happened to also be valid Python syntax (e.g.
+        ``zip --help``, ``id -a``). Expressions involving user-defined
+        variables are excluded so legitimate arithmetic stays untouched.
+
+        Gated on ``$XONSH_BUILTINS_TO_CMD``: this is the same experimental
+        "commands win over Python names" switch that already covers the
+        bare-builtin case (``zip`` → run ``zip`` if it exists), so the
+        ``cmd -flag`` behaviour lives under the same opt-in toggle.
+        """
+        env = XSH.env or {}
+        if not env.get("XONSH_BUILTINS_TO_CMD"):
+            return False
+        if not (isinstance(node, BinOp) and isinstance(node.op, Sub)):
+            return False
+        if not isinstance(node.left, Name):
+            return False
+        # Peel off chained unary minuses on the right to handle ``--flag``,
+        # ``---flag``, etc.
+        rhs = node.right
+        while isinstance(rhs, UnaryOp) and isinstance(rhs.op, USub):
+            rhs = rhs.operand
+        if not isinstance(rhs, Name):
+            return False
+        name = node.left.id
+        if name in self._user_names:
+            return False
+        for ctx in self.contexts[1:]:
+            if name in ctx:
+                return False
+        aliases = XSH.aliases or {}
+        if name in aliases:
+            return True
+        cc = XSH.commands_cache
+        return bool(cc and cc.locate_binary(name) is not None)
+
+    def _is_bare_builtin(self, node):
+        """Check if node is a bare Name referencing a Python builtin, or Ellipsis.
+        Returns False if the name was overridden by user (e.g. ``id = 123``)."""
+        import builtins as _builtins
+
+        if isinstance(node, Name) and hasattr(_builtins, node.id):
+            if node.id in self._user_names:
+                return False
+            for ctx in self.contexts[1:]:
+                if node.id in ctx:
+                    return False
+            return True
+        if isinstance(node, Constant) and node.value is ...:
+            return True
+        return False
 
     def visit_UnaryOp(self, node):
         """Handle visiting an unary operands, like not."""
@@ -581,11 +676,19 @@ class CtxAwareTransformer(NodeTransformer):
             else:
                 ups.add(leftmostname(targ))
         self.ctxupdate(ups)
+        self.generic_visit(node)
         return node
 
     def visit_AnnAssign(self, node):
         """Handle visiting an annotated assignment statement."""
         self.ctxadd(leftmostname(node.target))
+        self.generic_visit(node)
+        return node
+
+    def visit_NamedExpr(self, node):
+        """Handle visiting a walrus operator (:=) expression."""
+        self.ctxadd(node.target.id)
+        self.generic_visit(node)
         return node
 
     def visit_Import(self, node):
@@ -628,7 +731,7 @@ class CtxAwareTransformer(NodeTransformer):
         self.ctxadd(node.name)
         self.contexts.append(set())
         args = node.args
-        argchain = [args.args, args.kwonlyargs]
+        argchain = [args.posonlyargs, args.args, args.kwonlyargs]
         if args.vararg is not None:
             argchain.append((args.vararg,))
         if args.kwarg is not None:
@@ -637,6 +740,10 @@ class CtxAwareTransformer(NodeTransformer):
         self.generic_visit(node)
         self.contexts.pop()
         return node
+
+    visit_AsyncWith = visit_With
+    visit_AsyncFor = visit_For
+    visit_AsyncFunctionDef = visit_FunctionDef
 
     def visit_ClassDef(self, node):
         """Handle visiting a class definition."""

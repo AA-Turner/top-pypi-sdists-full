@@ -6,10 +6,10 @@ import textwrap
 from collections import defaultdict
 from functools import partial
 
-from sql import Literal
 from sql.aggregate import Count
 
 from trytond.bus import Bus
+from trytond.i18n import ngettext
 from trytond.ir.ui.menu import CLIENT_ICONS
 from trytond.model import Index, ModelSQL, ModelView, fields
 from trytond.pool import Pool
@@ -54,7 +54,7 @@ class Notification(
     @classmethod
     def __setup__(cls):
         super().__setup__()
-
+        cls._order = [('id', 'DESC')]
         cls.__rpc__.update({
                 'get': RPC(),
                 'get_count': RPC(),
@@ -83,6 +83,10 @@ class Notification(
 
     @classmethod
     def create(cls, vlist):
+        pool = Pool()
+        Lang = pool.get('ir.lang')
+        lang = Lang.get()
+
         notifications = super().create(vlist)
 
         notifications_by_user = defaultdict(list)
@@ -93,7 +97,7 @@ class Notification(
         notification = cls.__table__()
         cursor = Transaction().connection.cursor()
         cursor.execute(*notification.select(
-                notification.user, Count(Literal('*')),
+                notification.user, Count(),
                 where=((notification.user.in_(list(notifications_by_user)))
                     & notification.unread),
                 group_by=[notification.user]))
@@ -103,6 +107,11 @@ class Notification(
             messages = [
                 '\n'.join(map(shorten, filter(None, (n.label, n.description))))
                 for n in user_notifications[:4]]
+            if len(user_notifications) > 4:
+                n = len(user_notifications) - 4
+                messages.append(ngettext(
+                        'res.msg_notification_silenced', n,
+                        number=lang.format_number(n)))
             Bus.publish(
                 f'notification:{user}', {
                     'type': 'user-notification',
@@ -153,7 +162,7 @@ class Notification(
         notification = cls.__table__()
         cursor = Transaction().connection.cursor()
         cursor.execute(*notification.select(
-                Count(Literal('*')),
+                Count(),
                 where=((notification.user == Transaction().user)
                     & notification.unread)))
         return cursor.fetchone()[0]

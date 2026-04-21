@@ -38,8 +38,6 @@ class Xontrib(tp.NamedTuple):
     """short description about the xontrib."""
 
     def get_description(self):
-        if self.distribution:
-            print(self, file=sys.stderr)
         if self.distribution and (
             summary := self.distribution.metadata.get("Summary", "")
         ):
@@ -265,7 +263,7 @@ def xontribs_unload(
     ] = (),
     verbose=False,
 ):
-    """Unload the given xontribs
+    """Unload the given xontribs (requires ``_unload_xontrib_`` for full cleanup)
 
     Parameters
     ----------
@@ -276,7 +274,9 @@ def xontribs_unload(
 
     Notes
     -----
-    Proper cleanup can be implemented by the xontrib. The default is equivalent to ``del sys.modules[module]``.
+    The xontrib must implement ``_unload_xontrib_()`` for proper cleanup.
+    Without it, registered event handlers, env vars, aliases, and completers
+    will remain active. The default is equivalent to ``del sys.modules[module]``.
     """
     for name in names:
         if verbose:
@@ -301,7 +301,7 @@ def xontribs_reload(
     ] = (),
     verbose=False,
 ):
-    """Reload the given xontribs
+    """Reload the given xontribs (requires ``_unload_xontrib_`` for full cleanup)
 
     Parameters
     ----------
@@ -321,11 +321,19 @@ def xontrib_data():
     """Collects and returns the data about installed xontribs."""
     data = {}
     for xo_name, xontrib in get_xontribs().items():
+        desc = xontrib.get_description()
+        try:
+            max_desc = os.get_terminal_size().columns - 40
+        except (OSError, ValueError):
+            max_desc = 60
+        max_desc = max(max_desc, 20)
+        short_desc = desc.split("\n")[0][:max_desc] if desc else ""
         data[xo_name] = {
             "name": xo_name,
             "loaded": xontrib.is_loaded,
             "auto": xontrib.is_auto_loaded,
             "module": xontrib.module,
+            "description": short_desc,
         }
 
     return dict(sorted(data.items()))
@@ -360,7 +368,9 @@ def xontribs_list(to_json=False, _stdout=None):
                 elif d["loaded"]:
                     s += "  {CYAN}manual{RESET}"
             else:
-                s += "{RED}not-loaded{RESET}"
+                s += "{RED}not-loaded{RESET}" + " " * 8
+            if d.get("description"):
+                s += "  " + d["description"]
             s += "\n"
         print_color(s[:-1], file=_stdout)
 

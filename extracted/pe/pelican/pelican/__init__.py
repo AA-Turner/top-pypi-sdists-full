@@ -37,7 +37,7 @@ from pelican.writers import Writer
 
 try:
     __version__ = importlib.metadata.version("pelican")
-except Exception:
+except importlib.metadata.PackageNotFoundError:
     __version__ = "unknown"
 
 DEFAULT_CONFIG_NAME = "pelicanconf.py"
@@ -78,11 +78,10 @@ class Pelican:
             try:
                 plugin.register()
                 self.plugins.append(plugin)
-            except Exception as e:
-                logger.error(
-                    "Cannot register plugin `%s`\n%s",
+            except Exception:
+                logger.exception(
+                    "Cannot register plugin `%s`",
                     name,
-                    e,
                     stacklevel=2,
                 )
                 if self.settings.get("DEBUG", False):
@@ -252,12 +251,13 @@ class Pelican:
 
 class PrintSettings(argparse.Action):
     def __call__(self, parser, namespace, values, option_string):
+        del option_string  # Unused argument
         init_logging(name=__name__)
 
         try:
             instance, settings = get_instance(namespace)
         except Exception as e:
-            logger.critical("%s: %s", e.__class__.__name__, e)
+            logger.critical("%s", e.__class__.__name__, exc_info=True)
             console.print_exception()
             sys.exit(getattr(e, "exitcode", 1))
 
@@ -266,7 +266,7 @@ class PrintSettings(argparse.Action):
             for setting in values:
                 if setting in settings:
                     # Only add newline between setting name and value if dict
-                    if isinstance(settings[setting], (dict, tuple, list)):
+                    if isinstance(settings[setting], dict | tuple | list):
                         setting_format = "\n{}:\n{}"
                     else:
                         setting_format = "\n{}: {}"
@@ -287,6 +287,7 @@ class PrintSettings(argparse.Action):
 
 class ParseOverrides(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
+        del parser, option_string  # Unused arguments
         overrides = {}
         for item in values:
             try:
@@ -402,8 +403,7 @@ def parse_arguments(argv=None):
         "--autoreload",
         dest="autoreload",
         action="store_true",
-        help="Relaunch pelican each time a modification occurs"
-        " on the content files.",
+        help="Relaunch pelican each time a modification occurs on the content files.",
     )
 
     parser.add_argument(
@@ -446,8 +446,7 @@ def parse_arguments(argv=None):
         choices=("errors", "warnings"),
         default="",
         help=(
-            "Exit the program with non-zero status if any "
-            "errors/warnings encountered."
+            "Exit the program with non-zero status if any errors/warnings encountered."
         ),
     )
 
@@ -621,7 +620,8 @@ def listen(server, port, output, excqueue=None):
     except Exception as e:
         if excqueue is not None:
             excqueue.put(traceback.format_exception_only(type(e), e)[-1])
-        return
+        else:
+            logging.exception("Listening aborted unexpectedly.")
 
     except KeyboardInterrupt:
         httpd.socket.close()
@@ -680,7 +680,7 @@ def main(argv=None):
     except KeyboardInterrupt:
         logger.warning("Keyboard interrupt received. Exiting.")
     except Exception as e:
-        logger.critical("%s: %s", e.__class__.__name__, e)
+        logger.critical("%s: %s", e.__class__.__name__, e, exc_info=True)
 
         if args.verbosity == logging.DEBUG:
             console.print_exception()

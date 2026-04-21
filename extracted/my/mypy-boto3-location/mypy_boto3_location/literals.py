@@ -3,7 +3,7 @@ Type annotations for location service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_location/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -30,9 +30,16 @@ __all__ = (
     "ForecastedGeofenceEventTypeType",
     "GetDevicePositionHistoryPaginatorName",
     "IntendedUseType",
+    "JobActionType",
+    "JobCompletedWaiterName",
+    "JobErrorCodeType",
+    "JobInputFormatType",
+    "JobOutputFormatType",
+    "JobStatusType",
     "ListDevicePositionsPaginatorName",
     "ListGeofenceCollectionsPaginatorName",
     "ListGeofencesPaginatorName",
+    "ListJobsPaginatorName",
     "ListKeysPaginatorName",
     "ListMapsPaginatorName",
     "ListPlaceIndexesPaginatorName",
@@ -51,7 +58,9 @@ __all__ = (
     "SpeedUnitType",
     "StatusType",
     "TravelModeType",
+    "ValidateAddressAdditionalFeatureType",
     "VehicleWeightUnitType",
+    "WaiterName",
 )
 
 
@@ -69,9 +78,16 @@ ForecastGeofenceEventsPaginatorName = Literal["forecast_geofence_events"]
 ForecastedGeofenceEventTypeType = Literal["ENTER", "EXIT", "IDLE"]
 GetDevicePositionHistoryPaginatorName = Literal["get_device_position_history"]
 IntendedUseType = Literal["SingleUse", "Storage"]
+JobActionType = Literal["ValidateAddress"]
+JobCompletedWaiterName = Literal["job_completed"]
+JobErrorCodeType = Literal["InternalServerError", "ValidationError"]
+JobInputFormatType = Literal["Parquet"]
+JobOutputFormatType = Literal["Parquet"]
+JobStatusType = Literal["Cancelled", "Cancelling", "Completed", "Failed", "Pending", "Running"]
 ListDevicePositionsPaginatorName = Literal["list_device_positions"]
 ListGeofenceCollectionsPaginatorName = Literal["list_geofence_collections"]
 ListGeofencesPaginatorName = Literal["list_geofences"]
+ListJobsPaginatorName = Literal["list_jobs"]
 ListKeysPaginatorName = Literal["list_keys"]
 ListMapsPaginatorName = Literal["list_maps"]
 ListPlaceIndexesPaginatorName = Literal["list_place_indexes"]
@@ -92,6 +108,7 @@ RouteMatrixErrorCodeType = Literal[
 SpeedUnitType = Literal["KilometersPerHour", "MilesPerHour"]
 StatusType = Literal["Active", "Expired"]
 TravelModeType = Literal["Bicycle", "Car", "Motorcycle", "Truck", "Walking"]
+ValidateAddressAdditionalFeatureType = Literal["CountrySpecificAttributes", "Position"]
 VehicleWeightUnitType = Literal["Kilograms", "Pounds"]
 LocationServiceServiceName = Literal["location"]
 ServiceName = Literal[
@@ -196,6 +213,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -211,6 +229,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -235,16 +254,15 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -278,13 +296,13 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -335,6 +353,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -432,6 +451,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",
@@ -448,6 +468,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -459,7 +480,9 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -481,6 +504,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -493,6 +517,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -500,6 +525,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -519,6 +545,7 @@ PaginatorName = Literal[
     "list_device_positions",
     "list_geofence_collections",
     "list_geofences",
+    "list_jobs",
     "list_keys",
     "list_maps",
     "list_place_indexes",
@@ -526,6 +553,7 @@ PaginatorName = Literal[
     "list_tracker_consumers",
     "list_trackers",
 ]
+WaiterName = Literal["job_completed"]
 RegionName = Literal[
     "ap-northeast-1",
     "ap-south-1",

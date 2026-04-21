@@ -26,7 +26,7 @@ class Role:
     description: Optional[str]
     """An optional description of the role."""
     type: "RoleType"
-    """Whether the role is scoped to the environment or an organization."""
+    """Whether the role is scoped to the environment or an organization (custom role)."""
     resource_type_slug: str
     """The slug of the resource type the role is scoped to."""
     permissions: List[str]

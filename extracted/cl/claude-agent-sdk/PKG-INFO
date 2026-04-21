@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: claude-agent-sdk
-Version: 0.1.63
+Version: 0.1.64
 Summary: Python SDK for Claude Code
 Project-URL: Homepage, https://github.com/anthropics/claude-agent-sdk-python
 Project-URL: Documentation, https://docs.anthropic.com/en/docs/claude-code/sdk
@@ -29,6 +29,12 @@ Requires-Dist: pytest-asyncio>=0.20.0; extra == 'dev'
 Requires-Dist: pytest-cov>=4.0.0; extra == 'dev'
 Requires-Dist: pytest>=7.0.0; extra == 'dev'
 Requires-Dist: ruff>=0.1.0; extra == 'dev'
+Provides-Extra: examples
+Requires-Dist: asyncpg>=0.27.0; extra == 'examples'
+Requires-Dist: boto3>=1.28.0; extra == 'examples'
+Requires-Dist: fakeredis>=2.20.0; extra == 'examples'
+Requires-Dist: moto[s3]>=5.0.0; extra == 'examples'
+Requires-Dist: redis>=4.2.0; extra == 'examples'
 Provides-Extra: otel
 Requires-Dist: opentelemetry-api>=1.20.0; extra == 'otel'
 Description-Content-Type: text/markdown
